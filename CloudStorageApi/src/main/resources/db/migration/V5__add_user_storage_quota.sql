@@ -1,0 +1,2 @@
+ALTER TABLE sys_user
+    ADD COLUMN storage_quota_bytes BIGINT NOT NULL DEFAULT 536870912 AFTER status;

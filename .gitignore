@@ -1,0 +1,8 @@
+/CloudStorageApi/target/
+/webApp/node_modules/
+/webApp/dist/
+/.env
+/tmp/
+/_tmp/
+.idea/
+.vscode/

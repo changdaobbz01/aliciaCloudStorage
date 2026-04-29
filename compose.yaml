@@ -1,0 +1,52 @@
+services:
+  db:
+    image: mysql:8.0
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+    ports:
+      - "3310:3306"
+    volumes:
+      - alicia_cloud_storage_mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -uroot -p${MYSQL_ROOT_PASSWORD} --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  api:
+    build:
+      context: ./CloudStorageApi
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/${MYSQL_DATABASE}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai&characterEncoding=utf8
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      ALICIA_AUTH_TOKEN_SECRET: ${ALICIA_AUTH_TOKEN_SECRET}
+      ALICIA_AUTH_TOKEN_EXPIRE_SECONDS: ${ALICIA_AUTH_TOKEN_EXPIRE_SECONDS}
+      ALICIA_COS_SECRET_ID: ${ALICIA_COS_SECRET_ID}
+      ALICIA_COS_SECRET_KEY: ${ALICIA_COS_SECRET_KEY}
+      ALICIA_COS_REGION: ${ALICIA_COS_REGION}
+      ALICIA_COS_BUCKET: ${ALICIA_COS_BUCKET}
+      ALICIA_COS_MAX_FILE_SIZE_BYTES: ${ALICIA_COS_MAX_FILE_SIZE_BYTES}
+      ALICIA_STORAGE_TOTAL_SPACE_BYTES: ${ALICIA_STORAGE_TOTAL_SPACE_BYTES}
+      ALICIA_STORAGE_DEFAULT_USER_QUOTA_BYTES: ${ALICIA_STORAGE_DEFAULT_USER_QUOTA_BYTES}
+    ports:
+      - "8090:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./webApp
+    ports:
+      - "8091:80"
+    depends_on:
+      - api
+
+volumes:
+  alicia_cloud_storage_mysql_data:
