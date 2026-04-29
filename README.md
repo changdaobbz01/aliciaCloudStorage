@@ -197,57 +197,6 @@ docker compose down
 
 如果缺少这两部分，容器构建会失败。这一点在首次部署到新服务器时尤其要注意。
 
-## 腾讯云首发建议
-
-如果你是第一次发布，推荐先走腾讯云轻量应用服务器，而不是一开始就直接上更复杂的云架构。
-
-建议顺序：
-
-1. 购买一台 Ubuntu 22.04 或 24.04 的腾讯云轻量应用服务器
-2. 防火墙先只放行 `22`、`80`、`443`
-3. 在服务器安装 Docker 和 Docker Compose Plugin
-4. 把项目代码上传到服务器，或直接 `git clone`
-5. 复制 `.env.example` 为 `.env`，填写生产环境配置
-6. 在服务器构建后端 JAR 和前端 dist
-7. 执行 `docker compose up -d --build`
-8. 用 `docker compose ps` 和 `curl http://127.0.0.1:8090/api/health` 检查服务
-9. 绑定域名，配置 HTTPS
-
-服务器上可参考的命令顺序：
-
-```bash
-git clone https://github.com/changdaobbz01/aliciaCloudStorage.git
-cd aliciaCloudStorage
-cp .env.example .env
-
-./mvnw -pl CloudStorageApi -DskipTests package
-cd webApp
-npm ci
-npm run build
-cd ..
-
-docker compose up -d --build
-docker compose ps
-```
-
-## 上线前注意事项
-
-- 不要把真实 `.env` 上传到仓库
-- 真实 COS 密钥如果曾经外泄，先去腾讯云控制台轮换
-- 建议生产环境不要直接暴露 MySQL 端口 `3310`
-- 当前 `compose.yaml` 也暴露了后端 `8090`，正式公网环境更推荐只对外暴露 Nginx
-- 当前后端会在空库时自动创建演示账号，公网环境建议关闭
-- 当前后端默认开启 `show-sql`，生产环境建议关闭
-- 如果使用中国内地服务器并对外提供网站服务，请按要求完成备案
-
-## 后续可继续完善
-
-- 增加生产专用 `compose.prod.yaml`
-- 把前后端 Dockerfile 改成多阶段构建，减少手工打包步骤
-- 增加 README 截图和接口说明
-- 增加 CI 自动构建和自动部署
-- 完善容量趋势、用户额度排序筛选等管理能力
-
 ## License
 
 当前仓库暂未附带开源许可证。如需公开开源，建议补充 `MIT`、`Apache-2.0` 或其他明确许可证。
