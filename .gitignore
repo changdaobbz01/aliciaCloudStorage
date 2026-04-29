@@ -1,6 +1,9 @@
 /CloudStorageApi/target/
 /webApp/node_modules/
 /webApp/dist/
+/webApp/*.tsbuildinfo
+/webApp/vite.config.js
+/webApp/vite.config.d.ts
 /.env
 /tmp/
 /_tmp/
