@@ -45,7 +45,7 @@ services:
     build:
       context: ./webApp
     ports:
-      - "8091:80"
+      - "80:80"
     depends_on:
       - api
 

@@ -82,7 +82,7 @@ docker compose up -d --build
 
 启动后默认地址：
 
-- 前端：`http://localhost:8091`
+- 前端：`http://localhost`
 - 后端：`http://localhost:8090`
 - 健康检查：`http://localhost:8090/api/health`
 - MySQL：`localhost:3310`
