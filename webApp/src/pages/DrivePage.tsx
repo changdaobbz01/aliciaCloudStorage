@@ -2235,7 +2235,7 @@ export function DrivePage() {
           </Form.Item>
           <Form.Item
             name="nickname"
-            label="鏄电О"
+            label="昵称"
             rules={[{ required: true, message: '请输入昵称。' }]}
           >
             <Input />
@@ -2310,7 +2310,7 @@ export function DrivePage() {
           </Form.Item>
           <Form.Item
             name="nickname"
-            label="鏄电О"
+            label="昵称"
             rules={[{ required: true, message: '请输入昵称。' }]}
           >
             <Input />
