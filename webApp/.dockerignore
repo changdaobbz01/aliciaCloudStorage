@@ -1,9 +1,3 @@
 node_modules
-src
-public
-package.json
-package-lock.json
-tsconfig.json
-tsconfig.app.json
-tsconfig.node.json
-vite.config.ts
+dist
+*.tsbuildinfo

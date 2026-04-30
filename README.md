@@ -41,10 +41,13 @@ AliciaCloudStorage/
 
 建议准备以下环境：
 
-- JDK 21
-- Node.js 20+ 和 npm
 - Docker Desktop 或 Docker Engine + Docker Compose Plugin
 - 可用的腾讯云 COS 密钥、地域和桶名
+
+如果你希望使用下文的“开发模式”单独运行前后端，再额外准备：
+
+- JDK 21
+- Node.js 20+ 和 npm
 
 先复制环境变量模板：
 
@@ -69,32 +72,9 @@ cp .env.example .env
 
 ## 最快启动方式
 
-当前仓库最省事的本地启动方式是先构建前后端产物，再用 Docker Compose 统一拉起。
+当前仓库已经改成多阶段 Docker 构建，最省事的启动方式是直接使用 Docker Compose。
 
-### 1. 构建后端 JAR
-
-Windows PowerShell：
-
-```powershell
-.\mvnw -pl CloudStorageApi -DskipTests package
-```
-
-macOS / Linux：
-
-```bash
-./mvnw -pl CloudStorageApi -DskipTests package
-```
-
-### 2. 构建前端静态资源
-
-```powershell
-Set-Location webApp
-npm ci
-npm run build
-Set-Location ..
-```
-
-### 3. 启动容器
+### 1. 启动容器
 
 ```powershell
 docker compose up -d --build
@@ -188,15 +168,56 @@ docker compose down
 
 ## Docker 说明
 
-当前 Dockerfile 是运行时镜像，不会在镜像构建时自动编译源码。
+当前仓库的前后端镜像都使用了多阶段构建：
 
-这意味着在执行 `docker compose up -d --build` 之前，需要先准备好：
+- 后端镜像会在构建阶段自动执行 Maven 打包
+- 前端镜像会在构建阶段自动执行 `npm ci` 和 `npm run build`
 
-- `CloudStorageApi/target/*.jar`
-- `webApp/dist/*`
+因此在执行 `docker compose up -d --build` 之前，不需要手工准备 `jar` 或 `dist` 产物。
 
-如果缺少这两部分，容器构建会失败。这一点在首次部署到新服务器时尤其要注意。
+## 腾讯云首发建议
 
+如果你是第一次发布，推荐先走腾讯云轻量应用服务器，而不是一开始就直接上更复杂的云架构。
+
+建议顺序：
+
+1. 购买一台 Ubuntu 22.04 或 24.04 的腾讯云轻量应用服务器
+2. 防火墙先只放行 `22`、`80`、`443`
+3. 在服务器安装 Docker 和 Docker Compose Plugin
+4. 把项目代码上传到服务器，或直接 `git clone`
+5. 复制 `.env.example` 为 `.env`，填写生产环境配置
+6. 执行 `docker compose up -d --build`
+7. 用 `docker compose ps` 和 `curl http://127.0.0.1:8090/api/health` 检查服务
+8. 绑定域名，配置 HTTPS
+
+服务器上可参考的命令顺序：
+
+```bash
+git clone https://github.com/changdaobbz01/aliciaCloudStorage.git
+cd aliciaCloudStorage
+cp .env.example .env
+
+docker compose up -d --build
+docker compose ps
+```
+
+## 上线前注意事项
+
+- 不要把真实 `.env` 上传到仓库
+- 真实 COS 密钥如果曾经外泄，先去腾讯云控制台轮换
+- 建议生产环境不要直接暴露 MySQL 端口 `3310`
+- 当前 `compose.yaml` 也暴露了后端 `8090`，正式公网环境更推荐只对外暴露 Nginx
+- 当前后端会在空库时自动创建演示账号，公网环境建议关闭
+- 当前后端默认开启 `show-sql`，生产环境建议关闭
+- 如果使用中国内地服务器并对外提供网站服务，请按要求完成备案
+
+## 后续可继续完善
+
+- 增加生产专用 `compose.prod.yaml`
+- 把前后端 Dockerfile 改成多阶段构建，减少手工打包步骤
+- 增加 README 截图和接口说明
+- 增加 CI 自动构建和自动部署
+- 完善容量趋势、用户额度排序筛选等管理能力
 ## License
 
 当前仓库暂未附带开源许可证。如需公开开源，建议补充 `MIT`、`Apache-2.0` 或其他明确许可证。

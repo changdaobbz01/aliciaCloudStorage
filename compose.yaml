@@ -20,7 +20,8 @@ services:
 
   api:
     build:
-      context: ./CloudStorageApi
+      context: .
+      dockerfile: CloudStorageApi/Dockerfile
     environment:
       SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/${MYSQL_DATABASE}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai&characterEncoding=utf8
       SPRING_DATASOURCE_USERNAME: root

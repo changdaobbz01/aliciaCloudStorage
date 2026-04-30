@@ -1,0 +1,9 @@
+.git
+.gitignore
+.env
+tmp
+_tmp
+CloudStorageApi/target
+webApp/node_modules
+webApp/dist
+webApp/*.tsbuildinfo
