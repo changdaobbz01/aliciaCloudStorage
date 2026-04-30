@@ -36,6 +36,9 @@ public class SysUser {
     @Column(name = "password_hash", nullable = false)
     private String passwordHash;
 
+    @Column(name = "token_version", nullable = false)
+    private Long tokenVersion;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private UserRole role;
@@ -97,6 +100,14 @@ public class SysUser {
         this.passwordHash = passwordHash;
     }
 
+    public Long getTokenVersion() {
+        return tokenVersion;
+    }
+
+    public void setTokenVersion(Long tokenVersion) {
+        this.tokenVersion = tokenVersion;
+    }
+
     public UserRole getRole() {
         return role;
     }
@@ -135,6 +146,10 @@ public class SysUser {
 
         if (createdAt == null) {
             createdAt = now;
+        }
+
+        if (tokenVersion == null) {
+            tokenVersion = 0L;
         }
 
         updatedAt = now;

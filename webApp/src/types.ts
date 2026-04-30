@@ -49,6 +49,10 @@ export type ChangePasswordPayload = {
   newPassword: string;
 };
 
+export type ResetUserPasswordPayload = {
+  newPassword: string;
+};
+
 export type CreateUserPayload = {
   phoneNumber: string;
   nickname: string;

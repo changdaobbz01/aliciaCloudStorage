@@ -3,6 +3,7 @@ package com.alicia.cloudstorage.api.service;
 import com.alicia.cloudstorage.api.auth.AuthException;
 import com.alicia.cloudstorage.api.auth.TokenService;
 import com.alicia.cloudstorage.api.dto.AdminCreateUserRequest;
+import com.alicia.cloudstorage.api.dto.AdminResetUserPasswordRequest;
 import com.alicia.cloudstorage.api.dto.AdminUpdateUserQuotaRequest;
 import com.alicia.cloudstorage.api.dto.ChangePasswordRequest;
 import com.alicia.cloudstorage.api.dto.LoginRequest;
@@ -172,6 +173,7 @@ public class UserAccountService {
         }
 
         user.setPasswordHash(passwordEncoder.encode(newPassword));
+        invalidateTokens(user);
         sysUserRepository.save(user);
     }
 
@@ -205,6 +207,7 @@ public class UserAccountService {
         user.setNickname(nickname);
         user.setAvatarUrl(avatarUrl);
         user.setPasswordHash(passwordEncoder.encode(password));
+        user.setTokenVersion(0L);
         user.setRole(role);
         user.setStatus(UserStatus.ACTIVE);
         user.setStorageQuotaBytes(storageQuotaBytes);
@@ -224,6 +227,27 @@ public class UserAccountService {
 
         user.setStorageQuotaBytes(storageQuotaBytes);
         return toUserProfile(sysUserRepository.save(user));
+    }
+
+    public void resetUserPassword(Long adminUserId, Long targetUserId, AdminResetUserPasswordRequest request) {
+        if (adminUserId.equals(targetUserId)) {
+            throw new IllegalArgumentException("当前接口仅用于重置其他用户密码，请使用修改密码功能。");
+        }
+
+        SysUser user = requireUser(targetUserId);
+        String newPassword = normalizePassword(request.newPassword(), "新密码不能为空。");
+
+        if (newPassword.length() < 6) {
+            throw new IllegalArgumentException("新密码长度至少为 6 位。");
+        }
+
+        if (passwordEncoder.matches(newPassword, user.getPasswordHash())) {
+            throw new IllegalArgumentException("新密码不能与当前密码相同。");
+        }
+
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        invalidateTokens(user);
+        sysUserRepository.save(user);
     }
 
     private SysUser requireActiveUser(Long userId) {
@@ -342,6 +366,11 @@ public class UserAccountService {
         }
 
         return value;
+    }
+
+    private void invalidateTokens(SysUser user) {
+        long currentVersion = user.getTokenVersion() == null ? 0L : user.getTokenVersion();
+        user.setTokenVersion(currentVersion + 1);
     }
 
     private UserRole normalizeRole(String role) {

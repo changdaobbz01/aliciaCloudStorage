@@ -63,6 +63,7 @@ import {
   fetchUsers,
   moveStorageNodes,
   permanentlyDeleteStorageNodes,
+  resetUserPassword,
   renameStorageNode,
   restoreStorageNodes,
   isApiError,
@@ -80,6 +81,7 @@ import type {
   DriveOverview,
   HealthResponse,
   RenameNodePayload,
+  ResetUserPasswordPayload,
   SortDirection,
   StorageNode,
   StorageNodeFilter,
@@ -112,6 +114,10 @@ type CreateUserFormValues = {
 
 type UpdateUserQuotaFormValues = {
   storageQuotaGb: number;
+};
+
+type ResetUserPasswordFormValues = ResetUserPasswordPayload & {
+  confirmPassword: string;
 };
 
 type FolderTreeNode = {
@@ -399,6 +405,7 @@ export function DrivePage() {
   const [createUserOpen, setCreateUserOpen] = useState(false);
   const [createFolderOpen, setCreateFolderOpen] = useState(false);
   const [editQuotaTarget, setEditQuotaTarget] = useState<User | null>(null);
+  const [resetPasswordTarget, setResetPasswordTarget] = useState<User | null>(null);
   const [renameTarget, setRenameTarget] = useState<StorageNode | null>(null);
   const [moveTargets, setMoveTargets] = useState<StorageNode[]>([]);
 
@@ -407,6 +414,7 @@ export function DrivePage() {
   const [createUserForm] = Form.useForm<CreateUserFormValues>();
   const [createFolderForm] = Form.useForm<CreateFolderPayload>();
   const [quotaForm] = Form.useForm<UpdateUserQuotaFormValues>();
+  const [resetUserPasswordForm] = Form.useForm<ResetUserPasswordFormValues>();
   const createUserRole = Form.useWatch('role', createUserForm) ?? 'USER';
   const [renameForm] = Form.useForm<RenameNodePayload>();
   const [moveForm] = Form.useForm<MoveNodeFormValues>();
@@ -930,6 +938,16 @@ export function DrivePage() {
       storageQuotaGb: bytesToGigabytes(user.storageQuotaBytes),
     });
     setEditQuotaTarget(user);
+  }
+
+  function openResetUserPasswordModal(user: User) {
+    if (user.id === currentUser?.id) {
+      message.info('当前登录账号请使用右上角的修改密码。');
+      return;
+    }
+
+    resetUserPasswordForm.resetFields();
+    setResetPasswordTarget(user);
   }
 
   /**
@@ -1740,7 +1758,9 @@ export function DrivePage() {
 
     passwordForm.resetFields();
     setPasswordOpen(false);
-    message.success('密码修改成功。');
+    message.success('密码修改成功，请重新登录。');
+    clearCurrentSession();
+    void navigate('/login', { replace: true });
   }
 
   /**
@@ -1794,6 +1814,24 @@ export function DrivePage() {
     setEditQuotaTarget(null);
     await refreshCurrentView();
     message.success('用户最大额度已更新。');
+  }
+
+  async function submitResetUserPassword(values: ResetUserPasswordFormValues) {
+    if (!authToken || !resetPasswordTarget) {
+      return;
+    }
+
+    await resetUserPassword(
+      resetPasswordTarget.id,
+      {
+        newPassword: values.newPassword,
+      },
+      authToken,
+    );
+
+    resetUserPasswordForm.resetFields();
+    setResetPasswordTarget(null);
+    message.success('用户密码已重置，旧登录状态已失效。');
   }
 
   /**
@@ -2153,10 +2191,12 @@ export function DrivePage() {
           {isAccountsView ? (
             isAdmin ? (
               <UserManagementPanel
+                currentUserId={currentUser?.id}
                 users={users}
                 loading={usersLoading}
                 onCreateUser={openCreateUserModal}
                 onEditUserQuota={openEditUserQuotaModal}
+                onResetUserPassword={openResetUserPasswordModal}
               />
             ) : (
               <section className="content-panel">
@@ -2363,6 +2403,50 @@ export function DrivePage() {
               <InputNumber min={0.1} step={0.25} precision={2} style={{ width: '100%' }} />
             </Form.Item>
           )}
+        </Form>
+      </Modal>
+
+      <Modal
+        title={resetPasswordTarget ? `重置密码：${resetPasswordTarget.nickname}` : '重置密码'}
+        open={resetPasswordTarget !== null}
+        onCancel={() => setResetPasswordTarget(null)}
+        onOk={() => void resetUserPasswordForm.submit()}
+        destroyOnHidden
+      >
+        <Form
+          form={resetUserPasswordForm}
+          layout="vertical"
+          onFinish={(values) => void submitResetUserPassword(values)}
+        >
+          <Form.Item
+            name="newPassword"
+            label="新密码"
+            rules={[
+              { required: true, message: '请输入新密码。' },
+              { min: 6, message: '密码长度至少为 6 位。' },
+            ]}
+          >
+            <Input.Password />
+          </Form.Item>
+          <Form.Item
+            name="confirmPassword"
+            label="确认新密码"
+            dependencies={['newPassword']}
+            rules={[
+              { required: true, message: '请再次输入新密码。' },
+              ({ getFieldValue }) => ({
+                validator(_, value) {
+                  if (!value || getFieldValue('newPassword') === value) {
+                    return Promise.resolve();
+                  }
+
+                  return Promise.reject(new Error('两次输入的新密码不一致。'));
+                },
+              }),
+            ]}
+          >
+            <Input.Password />
+          </Form.Item>
         </Form>
       </Modal>
 

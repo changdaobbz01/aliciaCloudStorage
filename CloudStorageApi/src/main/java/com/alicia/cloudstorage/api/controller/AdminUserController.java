@@ -1,14 +1,18 @@
 package com.alicia.cloudstorage.api.controller;
 
 import com.alicia.cloudstorage.api.dto.AdminCreateUserRequest;
+import com.alicia.cloudstorage.api.dto.AdminResetUserPasswordRequest;
 import com.alicia.cloudstorage.api.dto.AdminUpdateUserQuotaRequest;
+import com.alicia.cloudstorage.api.dto.ApiMessageResponse;
 import com.alicia.cloudstorage.api.dto.UserProfileResponse;
 import com.alicia.cloudstorage.api.service.UserAccountService;
+import com.alicia.cloudstorage.api.auth.AuthRequestAttributes;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -50,5 +54,15 @@ public class AdminUserController {
             @Valid @RequestBody AdminUpdateUserQuotaRequest request
     ) {
         return userAccountService.updateUserStorageQuota(userId, request);
+    }
+
+    @PutMapping("/{userId}/password")
+    public ApiMessageResponse resetUserPassword(
+            @RequestAttribute(AuthRequestAttributes.CURRENT_USER_ID) Long adminUserId,
+            @PathVariable Long userId,
+            @Valid @RequestBody AdminResetUserPasswordRequest request
+    ) {
+        userAccountService.resetUserPassword(adminUserId, userId, request);
+        return new ApiMessageResponse("用户密码已重置，旧登录状态已失效。");
     }
 }

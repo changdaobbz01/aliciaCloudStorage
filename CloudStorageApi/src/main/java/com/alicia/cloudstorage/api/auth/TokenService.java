@@ -38,7 +38,8 @@ public class TokenService {
      */
     public String createToken(SysUser user) {
         long expiresAt = Instant.now().getEpochSecond() + expireSeconds;
-        String payload = user.getId() + ":" + user.getPhoneNumber() + ":" + expiresAt;
+        long tokenVersion = user.getTokenVersion() == null ? 0L : user.getTokenVersion();
+        String payload = user.getId() + ":" + user.getPhoneNumber() + ":" + tokenVersion + ":" + expiresAt;
         String encodedPayload = base64UrlEncode(payload);
         String signature = sign(encodedPayload);
 
@@ -48,7 +49,7 @@ public class TokenService {
     /**
      * 解析并校验令牌内容，成功时返回用户编号。
      */
-    public Long parseToken(String token) {
+    public TokenClaims parseToken(String token) {
         if (token == null || token.isBlank()) {
             throw new AuthException("Token 不能为空。");
         }
@@ -71,16 +72,18 @@ public class TokenService {
 
         String payload = base64UrlDecode(encodedPayload);
         String[] payloadParts = payload.split(":");
-        if (payloadParts.length != 3) {
+        if (payloadParts.length != 3 && payloadParts.length != 4) {
             throw new AuthException("Token 载荷不正确。");
         }
 
-        long expiresAt = parseExpiresAt(payloadParts[2]);
+        int expiresAtIndex = payloadParts.length - 1;
+        long tokenVersion = payloadParts.length == 4 ? parseTokenVersion(payloadParts[2]) : 0L;
+        long expiresAt = parseExpiresAt(payloadParts[expiresAtIndex]);
         if (Instant.now().getEpochSecond() >= expiresAt) {
             throw new AuthException("登录状态已过期。");
         }
 
-        return parseUserId(payloadParts[0]);
+        return new TokenClaims(parseUserId(payloadParts[0]), tokenVersion, expiresAt);
     }
 
     /**
@@ -129,6 +132,17 @@ public class TokenService {
     }
 
     /**
+     * 解析令牌中的版本号字段，用于密码修改后的登录态失效控制。
+     */
+    private long parseTokenVersion(String value) {
+        try {
+            return Long.parseLong(value);
+        } catch (NumberFormatException ex) {
+            throw new AuthException("Token 版本号不合法。");
+        }
+    }
+
+    /**
      * 将令牌中的过期时间字段解析为时间戳。
      */
     private long parseExpiresAt(String value) {
@@ -137,5 +151,12 @@ public class TokenService {
         } catch (NumberFormatException ex) {
             throw new AuthException("Token 过期时间不合法。");
         }
+    }
+
+    public record TokenClaims(
+            Long userId,
+            long tokenVersion,
+            long expiresAt
+    ) {
     }
 }

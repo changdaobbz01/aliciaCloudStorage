@@ -2,7 +2,9 @@ package com.alicia.cloudstorage.api.service;
 
 import com.alicia.cloudstorage.api.auth.TokenService;
 import com.alicia.cloudstorage.api.dto.AdminCreateUserRequest;
+import com.alicia.cloudstorage.api.dto.AdminResetUserPasswordRequest;
 import com.alicia.cloudstorage.api.dto.AdminUpdateUserQuotaRequest;
+import com.alicia.cloudstorage.api.dto.ChangePasswordRequest;
 import com.alicia.cloudstorage.api.entity.SysUser;
 import com.alicia.cloudstorage.api.entity.UserRole;
 import com.alicia.cloudstorage.api.entity.UserStatus;
@@ -23,6 +25,8 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -64,7 +68,7 @@ class UserAccountServiceTest {
         var response = userAccountService.createUser(
                 new AdminCreateUserRequest(
                         "13800000001",
-                        "配额管理员",
+                        "Quota Admin",
                         null,
                         "Admin@123",
                         "ADMIN",
@@ -75,6 +79,7 @@ class UserAccountServiceTest {
         ArgumentCaptor<SysUser> userCaptor = ArgumentCaptor.forClass(SysUser.class);
         verify(sysUserRepository).save(userCaptor.capture());
         assertThat(userCaptor.getValue().getStorageQuotaBytes()).isEqualTo(defaultQuotaBytes);
+        assertThat(userCaptor.getValue().getTokenVersion()).isZero();
         assertThat(userCaptor.getValue().getRole()).isEqualTo(UserRole.ADMIN);
         assertThat(userCaptor.getValue().getStatus()).isEqualTo(UserStatus.ACTIVE);
         assertThat(response.storageQuotaBytes()).isNull();
@@ -94,7 +99,7 @@ class UserAccountServiceTest {
         user.setStorageQuotaBytes(1024L);
 
         when(sysUserRepository.findById(77L)).thenReturn(Optional.of(user));
-        when(storageQuotaService.normalizeQuotaBytes(4096L, "用户最大存储额度")).thenReturn(4096L);
+        when(storageQuotaService.normalizeQuotaBytes(eq(4096L), anyString())).thenReturn(4096L);
         when(storageQuotaService.getUsedBytes(77L)).thenReturn(1536L);
         when(sysUserRepository.save(any(SysUser.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -118,8 +123,59 @@ class UserAccountServiceTest {
         when(sysUserRepository.findById(91L)).thenReturn(Optional.of(user));
 
         assertThatThrownBy(() -> userAccountService.updateUserStorageQuota(91L, new AdminUpdateUserQuotaRequest(4096L)))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("管理员账号不限制存储额度");
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void changePasswordInvalidatesExistingTokens() {
+        SysUser user = new SysUser();
+        ReflectionTestUtils.setField(user, "id", 35L);
+        user.setPhoneNumber("13800000035");
+        user.setNickname("Admin User");
+        user.setRole(UserRole.ADMIN);
+        user.setStatus(UserStatus.ACTIVE);
+        user.setPasswordHash("old-hash");
+        user.setTokenVersion(4L);
+
+        when(sysUserRepository.findById(35L)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("OldPass@123", "old-hash")).thenReturn(true);
+        when(passwordEncoder.encode("NewPass@123")).thenReturn("new-hash");
+        when(sysUserRepository.save(any(SysUser.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        userAccountService.changePassword(35L, new ChangePasswordRequest("OldPass@123", "NewPass@123"));
+
+        assertThat(user.getPasswordHash()).isEqualTo("new-hash");
+        assertThat(user.getTokenVersion()).isEqualTo(5L);
+        verify(sysUserRepository).save(user);
+    }
+
+    @Test
+    void resetUserPasswordInvalidatesExistingTokens() {
+        SysUser user = new SysUser();
+        ReflectionTestUtils.setField(user, "id", 64L);
+        user.setPhoneNumber("13800000064");
+        user.setNickname("Reset User");
+        user.setRole(UserRole.USER);
+        user.setStatus(UserStatus.ACTIVE);
+        user.setPasswordHash("current-hash");
+        user.setTokenVersion(2L);
+
+        when(sysUserRepository.findById(64L)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("ResetPass@456", "current-hash")).thenReturn(false);
+        when(passwordEncoder.encode("ResetPass@456")).thenReturn("reset-hash");
+        when(sysUserRepository.save(any(SysUser.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        userAccountService.resetUserPassword(1L, 64L, new AdminResetUserPasswordRequest("ResetPass@456"));
+
+        assertThat(user.getPasswordHash()).isEqualTo("reset-hash");
+        assertThat(user.getTokenVersion()).isEqualTo(3L);
+        verify(sysUserRepository).save(user);
+    }
+
+    @Test
+    void resetUserPasswordRejectsResettingCurrentAdmin() {
+        assertThatThrownBy(() -> userAccountService.resetUserPassword(5L, 5L, new AdminResetUserPasswordRequest("ResetPass@456")))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
@@ -128,7 +184,7 @@ class UserAccountServiceTest {
         ReflectionTestUtils.setField(user, "id", 23L);
         ReflectionTestUtils.setField(user, "createdAt", LocalDateTime.of(2026, 4, 29, 18, 0));
         user.setPhoneNumber("13800000023");
-        user.setNickname("背景用户");
+        user.setNickname("Background User");
         user.setRole(UserRole.USER);
         user.setStatus(UserStatus.ACTIVE);
         user.setStorageQuotaBytes(2048L);

@@ -5,7 +5,7 @@
 ## 项目特点
 
 - 普通用户不能自助注册，由管理员统一创建账号
-- 支持登录鉴权、个人资料修改、密码修改
+- 支持登录鉴权、个人资料修改、密码修改、管理员重置他人密码
 - 文件二进制内容存储在腾讯云 COS，MySQL 存储文件和文件夹元数据
 - 支持文件列表、搜索、类型筛选、分页、排序
 - 支持新建文件夹、上传、下载、重命名、移动
@@ -69,6 +69,11 @@ cp .env.example .env
 - `ALICIA_COS_SECRET_KEY`
 - `ALICIA_COS_REGION`
 - `ALICIA_COS_BUCKET`
+
+如果数据库是全新的空库，首次启动前还建议额外填写：
+
+- `ALICIA_BOOTSTRAP_ADMIN_PHONE`
+- `ALICIA_BOOTSTRAP_ADMIN_PASSWORD`
 
 ## 最快启动方式
 
@@ -136,14 +141,26 @@ npm run dev
 
 - `http://localhost:5173`
 
-## 默认演示账号
+## 首个管理员初始化
 
-当数据库为空时，后端会自动初始化演示账号：
+当前仓库不再内置默认演示账号，也不再依赖固定的演示管理员密码。
 
-- 管理员：`13800000000` / `Admin@123`
-- 普通用户：`13900000000` / `User@123`
+如果数据库为空，并且你希望首次启动时自动创建第一个管理员，请在 `.env` 中显式填写：
 
-这些账号仅适合本地体验或内测环境。上线前请务必修改密码，或关闭这段初始化逻辑。
+```env
+ALICIA_BOOTSTRAP_ADMIN_PHONE=你的管理员手机号
+ALICIA_BOOTSTRAP_ADMIN_PASSWORD=你自己设置的强密码
+ALICIA_BOOTSTRAP_ADMIN_NICKNAME=系统管理员
+ALICIA_BOOTSTRAP_ADMIN_AVATAR_URL=
+```
+
+如果这两个核心变量留空，系统会正常启动，但不会自动生成任何账号。
+
+建议：
+
+- 首次登录后立刻修改管理员密码
+- 至少再创建一个正式管理员账号备用
+- 空库初始化完成后，按需清空 `ALICIA_BOOTSTRAP_ADMIN_PHONE` 和 `ALICIA_BOOTSTRAP_ADMIN_PASSWORD`
 
 ## 常用命令
 
@@ -211,7 +228,7 @@ docker compose ps
 - 真实 COS 密钥如果曾经外泄，先去腾讯云控制台轮换
 - 建议生产环境不要直接暴露 MySQL 端口 `3310`
 - 当前 `compose.yaml` 也暴露了后端 `8090`，正式公网环境更推荐只对外暴露 Nginx
-- 当前后端会在空库时自动创建演示账号，公网环境建议关闭
+- 当前仓库不再内置默认演示账号；如果使用了 bootstrap 管理员变量，建议首登后及时修改密码，并按需清空这些变量
 - 当前后端默认开启 `show-sql`，生产环境建议关闭
 - 如果使用中国内地服务器并对外提供网站服务，请按要求完成备案
 

@@ -219,6 +219,10 @@ ALICIA_COS_BUCKET=你自己的bucket-appid
 ALICIA_COS_MAX_FILE_SIZE_BYTES=1073741824
 ALICIA_STORAGE_TOTAL_SPACE_BYTES=1073741824
 ALICIA_STORAGE_DEFAULT_USER_QUOTA_BYTES=536870912
+ALICIA_BOOTSTRAP_ADMIN_PHONE=你的管理员手机号
+ALICIA_BOOTSTRAP_ADMIN_PASSWORD=你自己设置的强密码
+ALICIA_BOOTSTRAP_ADMIN_NICKNAME=系统管理员
+ALICIA_BOOTSTRAP_ADMIN_AVATAR_URL=
 ```
 
 `nano` 保存退出方法：
@@ -312,7 +316,7 @@ curl -i http://127.0.0.1:8091
 ```bash
 curl -i -X POST http://127.0.0.1:8090/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"phoneNumber":"13800000000","password":"Admin@123"}'
+  -d '{"phoneNumber":"你在 .env 中配置的管理员手机号","password":"你在 .env 中配置的管理员密码"}'
 ```
 
 命令说明：
@@ -326,7 +330,7 @@ curl -i -X POST http://127.0.0.1:8090/api/auth/login \
 curl -i -X POST http://127.0.0.1:8091/api/auth/login \
   -H "Origin: http://你的公网IP:8091" \
   -H "Content-Type: application/json" \
-  -d '{"phoneNumber":"13800000000","password":"Admin@123"}'
+  -d '{"phoneNumber":"你在 .env 中配置的管理员手机号","password":"你在 .env 中配置的管理员密码"}'
 ```
 
 这个命令在排查 Nginx 代理和 CORS 时非常有用。
@@ -350,14 +354,22 @@ curl -i -X POST http://127.0.0.1:8091/api/auth/login \
 - 前端：`http://你的公网IP`
 - 健康检查：`http://你的公网IP:8090/api/health`
 
-## 10. 默认演示账号
+## 10. 首个管理员初始化
 
-数据库为空时，系统会自动初始化演示账号：
+当前仓库不再内置默认演示账号，也不再依赖固定的演示管理员密码。
 
-- 管理员：`13800000000` / `Admin@123`
-- 普通用户：`13900000000` / `User@123`
+如果数据库为空，并且你在 `.env` 中填写了下面两个变量：
 
-部署成功后建议马上修改管理员密码。
+- `ALICIA_BOOTSTRAP_ADMIN_PHONE`
+- `ALICIA_BOOTSTRAP_ADMIN_PASSWORD`
+
+后端会在首次启动时自动创建第一个管理员账号。
+
+建议部署完成后立即：
+
+1. 登录后台并修改这个管理员密码
+2. 额外再创建一个正式管理员账号备用
+3. 按需清空 `.env` 里的 bootstrap 管理员手机号和密码
 
 ## 11. 常用运维命令
 
@@ -476,7 +488,7 @@ sudo docker compose exec frontend sh -c "wget -qO- http://api:8080/api/health ||
 ```bash
 curl -i -X POST http://127.0.0.1:8090/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"phoneNumber":"13800000000","password":"Admin@123"}'
+  -d '{"phoneNumber":"你在 .env 中配置的管理员手机号","password":"你在 .env 中配置的管理员密码"}'
 ```
 
 结论：
@@ -509,7 +521,7 @@ curl -i -X POST http://127.0.0.1:8090/api/auth/login \
 
 1. 继续收敛公网暴露面，只保留前端 `80` 端口并隐藏后端 `8090`
 2. 新增 `compose.prod.yaml`，不要对公网暴露 MySQL
-3. 关闭演示账号初始化，改成手工初始化管理员
+3. 仅在首发时使用 bootstrap 管理员变量，首登后及时清理
 4. 关闭生产环境 `show-sql`
 5. 给项目绑定域名并配置 HTTPS
 

@@ -14,6 +14,7 @@ import type {
   MultipartUploadPart,
   MultipartUploadStatus,
   RenameNodePayload,
+  ResetUserPasswordPayload,
   StorageNode,
   StorageNodeFilter,
   StorageNodePage,
@@ -914,6 +915,19 @@ export function createUser(payload: CreateUserPayload, token: string) {
 export function updateUserStorageQuota(userId: number, payload: UpdateUserStorageQuotaPayload, token: string) {
   return requestJson<User>(
     `/api/admin/users/${userId}/quota`,
+    withToken(token, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    }),
+  );
+}
+
+export function resetUserPassword(userId: number, payload: ResetUserPasswordPayload, token: string) {
+  return requestJson<ApiMessageResponse>(
+    `/api/admin/users/${userId}/password`,
     withToken(token, {
       method: 'PUT',
       headers: {

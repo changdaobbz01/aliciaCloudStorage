@@ -1,5 +1,5 @@
-import { EditOutlined, PlusOutlined } from '@ant-design/icons';
-import { Avatar, Button, Table, Tag, Typography } from 'antd';
+import { EditOutlined, LockOutlined, PlusOutlined } from '@ant-design/icons';
+import { Avatar, Button, Space, Table, Tag, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { User } from '../types';
 
@@ -41,17 +41,21 @@ function formatQuota(value: number | null) {
 }
 
 type UserManagementPanelProps = {
+  currentUserId?: number;
   users: User[];
   loading: boolean;
   onCreateUser: () => void;
   onEditUserQuota: (user: User) => void;
+  onResetUserPassword: (user: User) => void;
 };
 
 export function UserManagementPanel({
+  currentUserId,
   users,
   loading,
   onCreateUser,
   onEditUserQuota,
+  onResetUserPassword,
 }: UserManagementPanelProps) {
   const totalUsers = users.length;
   const activeUsers = users.filter((user) => user.status === 'ACTIVE').length;
@@ -128,15 +132,25 @@ export function UserManagementPanel({
       title: '操作',
       key: 'actions',
       fixed: 'right',
-      width: 140,
-      render: (_, user) =>
-        user.role === 'ADMIN' ? (
-          <Typography.Text className="table-secondary-text">无限制</Typography.Text>
-        ) : (
-          <Button type="link" icon={<EditOutlined />} onClick={() => onEditUserQuota(user)}>
-            修改额度
-          </Button>
-        ),
+      width: 220,
+      render: (_, user) => {
+        if (user.id === currentUserId) {
+          return <Typography.Text className="table-secondary-text">当前登录账号</Typography.Text>;
+        }
+
+        return (
+          <Space size={0} wrap>
+            <Button type="link" icon={<LockOutlined />} onClick={() => onResetUserPassword(user)}>
+              重置密码
+            </Button>
+            {user.role === 'ADMIN' ? null : (
+              <Button type="link" icon={<EditOutlined />} onClick={() => onEditUserQuota(user)}>
+                修改额度
+              </Button>
+            )}
+          </Space>
+        );
+      },
     },
   ];
 
@@ -183,7 +197,7 @@ export function UserManagementPanel({
         columns={columns}
         dataSource={users}
         pagination={false}
-        scroll={{ x: 1260 }}
+        scroll={{ x: 1360 }}
         locale={{ emptyText: '暂无账号记录。' }}
       />
     </section>

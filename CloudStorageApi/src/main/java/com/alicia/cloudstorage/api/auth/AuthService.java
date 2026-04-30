@@ -29,8 +29,15 @@ public class AuthService {
      */
     public SysUser requireUser(String authorization) {
         String token = resolveBearerToken(authorization);
-        Long userId = tokenService.parseToken(token);
-        return findActiveUserById(userId);
+        TokenService.TokenClaims tokenClaims = tokenService.parseToken(token);
+        SysUser user = findActiveUserById(tokenClaims.userId());
+        long currentTokenVersion = user.getTokenVersion() == null ? 0L : user.getTokenVersion();
+
+        if (tokenClaims.tokenVersion() != currentTokenVersion) {
+            throw new AuthException("登录状态已失效，请重新登录。");
+        }
+
+        return user;
     }
 
     /**
