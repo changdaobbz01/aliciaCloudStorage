@@ -1381,7 +1381,7 @@ export function DrivePage() {
     setDownloadingFileId(item.id);
 
     try {
-      const { blob, fileName } = await downloadStorageFile(item.id, authToken);
+      const { blob, fileName } = await downloadStorageFile(item.id, authToken, item.updatedAt);
       const downloadUrl = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
       anchor.href = downloadUrl;
@@ -1444,7 +1444,7 @@ export function DrivePage() {
     });
 
     try {
-      const { blob } = await downloadStorageFile(item.id, authToken);
+      const { blob } = await downloadStorageFile(item.id, authToken, item.updatedAt);
 
       if (previewRequestIdRef.current !== requestId) {
         return;

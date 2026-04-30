@@ -44,6 +44,8 @@ import java.util.List;
 @RequestMapping("/api/storage")
 public class StorageNodeController {
 
+    private static final String VERSIONED_PRIVATE_FILE_CACHE_CONTROL = "private, max-age=2592000, immutable";
+
     private final StorageQueryService storageQueryService;
     private final StorageCommandService storageCommandService;
     private final StorageMultipartUploadService storageMultipartUploadService;
@@ -319,6 +321,8 @@ public class StorageNodeController {
         }
 
         return ResponseEntity.ok()
+                .header(HttpHeaders.CACHE_CONTROL, VERSIONED_PRIVATE_FILE_CACHE_CONTROL)
+                .header(HttpHeaders.VARY, HttpHeaders.AUTHORIZATION)
                 .contentType(mediaType)
                 .contentLength(downloadPayload.contentLength())
                 .header(

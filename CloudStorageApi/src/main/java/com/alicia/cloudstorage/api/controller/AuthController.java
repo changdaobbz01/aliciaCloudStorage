@@ -10,6 +10,7 @@ import com.alicia.cloudstorage.api.dto.UserProfileResponse;
 import com.alicia.cloudstorage.api.service.UserAccountService;
 import jakarta.validation.Valid;
 import org.springframework.core.io.InputStreamResource;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -27,6 +28,8 @@ import org.springframework.web.multipart.MultipartFile;
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
+
+    private static final String VERSIONED_PUBLIC_MEDIA_CACHE_CONTROL = "public, max-age=2592000, immutable";
 
     private final UserAccountService userAccountService;
 
@@ -99,6 +102,7 @@ public class AuthController {
         }
 
         return ResponseEntity.ok()
+                .header(HttpHeaders.CACHE_CONTROL, VERSIONED_PUBLIC_MEDIA_CACHE_CONTROL)
                 .contentType(mediaType)
                 .contentLength(avatar.contentLength())
                 .body(new InputStreamResource(avatar.inputStream()));
@@ -117,6 +121,7 @@ public class AuthController {
         }
 
         return ResponseEntity.ok()
+                .header(HttpHeaders.CACHE_CONTROL, VERSIONED_PUBLIC_MEDIA_CACHE_CONTROL)
                 .contentType(mediaType)
                 .contentLength(background.contentLength())
                 .body(new InputStreamResource(background.inputStream()));

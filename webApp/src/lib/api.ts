@@ -753,8 +753,15 @@ export function abortMultipartUpload(uploadToken: string, token: string, options
 /**
  * 下载指定文件节点对应的文件内容。
  */
-export function downloadStorageFile(fileId: number, token: string) {
-  return requestBlob(`/api/storage/files/${fileId}/download`, withToken(token));
+export function downloadStorageFile(fileId: number, token: string, version?: string) {
+  const search = new URLSearchParams();
+
+  if (version) {
+    search.set('v', version);
+  }
+
+  const suffix = search.toString() ? `?${search.toString()}` : '';
+  return requestBlob(`/api/storage/files/${fileId}/download${suffix}`, withToken(token));
 }
 
 /**
