@@ -74,9 +74,9 @@ select {
   inset: 0;
   z-index: 0;
   background:
-    radial-gradient(circle at top left, rgba(186, 230, 253, 0.52), transparent 34%),
-    radial-gradient(circle at bottom right, rgba(191, 219, 254, 0.55), transparent 28%),
-    linear-gradient(180deg, #f7fafc 0%, #eef4fb 100%);
+    radial-gradient(circle at 18% 16%, rgba(208, 231, 250, 0.62), transparent 26%),
+    radial-gradient(circle at 82% 80%, rgba(220, 233, 247, 0.46), transparent 30%),
+    linear-gradient(180deg, #f8fbfd 0%, #f2f6fb 100%);
 }
 
 .login-shell::after {
@@ -84,13 +84,13 @@ select {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: min(820px, 72vw);
+  width: min(1180px, 94vw);
   aspect-ratio: 1 / 1;
   transform: translate(-50%, -50%);
   z-index: 1;
   background: url('/login-bg.png') center / contain no-repeat;
-  opacity: 0.62;
-  filter: drop-shadow(0 28px 80px rgba(37, 99, 235, 0.18));
+  opacity: 0.9;
+  filter: drop-shadow(0 24px 72px rgba(37, 99, 235, 0.12));
   pointer-events: none;
 }
 
@@ -128,11 +128,11 @@ select {
 
 .login-card {
   width: min(100%, 456px);
-  border: 1px solid rgba(226, 232, 240, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.72);
   border-radius: 24px;
-  background: rgba(255, 255, 255, 0.86);
-  box-shadow: 0 30px 80px rgba(15, 23, 42, 0.12);
-  backdrop-filter: blur(18px);
+  background: rgba(255, 255, 255, 0.56);
+  box-shadow: 0 26px 64px rgba(15, 23, 42, 0.1);
+  backdrop-filter: blur(20px);
 }
 
 .login-card .ant-card-body {
@@ -982,9 +982,9 @@ select {
   .login-shell::after {
     top: 28%;
     left: 50%;
-    width: min(460px, 90vw);
+    width: min(560px, 96vw);
     transform: translate(-50%, -50%);
-    opacity: 0.42;
+    opacity: 0.52;
   }
 
   .login-card {
