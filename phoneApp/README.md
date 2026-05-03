@@ -1,3 +1,51 @@
-# phoneApp
+# Alicia Cloud Android
 
-Mobile client placeholder. We can decide later whether this becomes a React Native app, a uni-app project, or a mini-program client.
+`phoneApp` 现在是 Android 首版工程，使用 Kotlin + Jetpack Compose 构建，视觉风格延续 web 端的浅色蓝白卡片体系。
+
+## 当前能力
+
+- 手机号 + 密码登录
+- 首页概览卡片、空间使用进度、近 30 天用量趋势
+- 文件页：目录浏览、关键字搜索、文件/文件夹筛选
+- 文件操作：上传文件、新建文件夹、下载、文本/图片预览、删除到回收站
+- 回收站：关键字搜索、类型筛选、恢复、彻底删除
+- 管理员页：账号统计与用户列表
+- 我的页：当前账号信息、后端地址展示、退出登录
+
+这次先按“仅 Android”推进，所以没有引入跨端框架。后续如果要开放 iOS，再评估是否拆成共享业务层或重构成多端方案。
+
+## 默认联调地址
+
+当前默认直接连真实服务：
+
+- `http://43.132.237.15`
+
+这比继续走本机 `10.0.2.2` 更适合你现在直接在模拟器或真机上看效果。
+
+## 本地运行
+
+1. 在 Android Studio 中打开 `phoneApp`
+2. 如需覆盖默认后端地址，可参考 `local.properties.example`
+3. 同步 Gradle 并运行 `app`
+
+## 可选本地配置
+
+可以在 `phoneApp/local.properties` 里追加：
+
+```properties
+ALICIA_API_BASE_URL=http://43.132.237.15
+```
+
+如果你要临时切回本地开发环境，也可以改成例如：
+
+```properties
+ALICIA_API_BASE_URL=http://10.0.2.2:8090
+```
+
+## 后续建议
+
+- 增加重命名、移动、批量操作
+- 增加 PDF / 音视频预览
+- 增加大文件分片上传
+- 补充头像与主页背景图加载
+- 引入更完整的分页与离线缓存

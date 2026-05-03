@@ -1,0 +1,2 @@
+# 复制为 local.properties 后可覆盖默认后端地址
+ALICIA_API_BASE_URL=http://43.132.237.15

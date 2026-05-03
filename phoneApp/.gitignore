@@ -1,0 +1,15 @@
+.gradle/
+build/
+local.properties
+captures/
+*.iml
+.idea/
+app/build/
+.local-tools/
+decompiled/
+cfr.jar
+debug-*.png
+window_dump*.xml
+avatar-test.png
+avatar_picker.xml
+session*.preferences_pb
