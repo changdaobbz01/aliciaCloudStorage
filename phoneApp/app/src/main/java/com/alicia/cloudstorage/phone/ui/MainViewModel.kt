@@ -6,6 +6,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.alicia.cloudstorage.phone.BuildConfig
+import com.alicia.cloudstorage.phone.describeAccessEnvironment
+import com.alicia.cloudstorage.phone.normalizeConfiguredBaseUrl
 import com.alicia.cloudstorage.phone.data.AliciaRepository
 import com.alicia.cloudstorage.phone.data.ApiException
 import com.alicia.cloudstorage.phone.data.AppTab
@@ -71,6 +73,7 @@ data class HomeUiState(
     val error: String? = null,
     val overview: DriveOverview? = null,
     val usageHistory: List<UsageHistoryPoint> = emptyList(),
+    val recentNodes: List<StorageNode> = emptyList(),
 )
 
 data class ExplorerUiState(
@@ -85,6 +88,11 @@ data class ExplorerUiState(
     val isUploading: Boolean = false,
     val isCreatingFolder: Boolean = false,
     val actionNodeId: Long? = null,
+    val selectedNodeIds: Set<Long> = emptySet(),
+    val highlightedNodeId: Long? = null,
+    val isBatchActing: Boolean = false,
+    val moveTargetFolders: List<StorageNode> = emptyList(),
+    val moveTargetLoading: Boolean = false,
 )
 
 data class TeamUiState(
@@ -99,6 +107,7 @@ data class TeamUiState(
 data class AppUiState(
     val isBooting: Boolean = true,
     val isSubmittingLogin: Boolean = false,
+    val isUpdatingProfile: Boolean = false,
     val isUpdatingAvatar: Boolean = false,
     val isChangingPassword: Boolean = false,
     val baseUrl: String = BuildConfig.DEFAULT_API_BASE_URL,
@@ -131,6 +140,29 @@ class MainViewModel(
 
     fun updateBaseUrl(value: String) {
         _uiState.update { state -> state.copy(baseUrl = value) }
+    }
+
+    fun switchBaseUrl(targetBaseUrl: String) {
+        val normalizedBaseUrl = runCatching { normalizeBaseUrl(targetBaseUrl) }
+            .getOrElse { error ->
+                emitMessage(error.message ?: "请输入正确的后端地址。")
+                return
+            }
+
+        if (normalizeConfiguredBaseUrl(uiState.value.baseUrl) == normalizedBaseUrl) {
+            emitMessage("当前已接入${describeAccessEnvironment(normalizedBaseUrl)}。")
+            return
+        }
+
+        viewModelScope.launch {
+            sessionStore.clearToken(normalizedBaseUrl)
+            fileDirectoryCache.clear()
+            _uiState.value = AppUiState(
+                isBooting = false,
+                baseUrl = normalizedBaseUrl,
+            )
+            emitMessage("已切换到${describeAccessEnvironment(normalizedBaseUrl)}，请重新登录。")
+        }
     }
 
     fun selectTab(tab: AppTab) {
@@ -217,7 +249,9 @@ class MainViewModel(
     }
 
     fun updateFileKeyword(value: String) {
-        _uiState.update { state -> state.copy(files = state.files.copy(keyword = value)) }
+        _uiState.update { state ->
+            state.copy(files = state.files.copy(keyword = value, highlightedNodeId = null))
+        }
     }
 
     fun updateTrashKeyword(value: String) {
@@ -225,7 +259,9 @@ class MainViewModel(
     }
 
     fun applyFileFilter(filter: StorageNodeFilter) {
-        _uiState.update { state -> state.copy(files = state.files.copy(filter = filter)) }
+        _uiState.update { state ->
+            state.copy(files = state.files.copy(filter = filter, highlightedNodeId = null))
+        }
         fileDirectoryCache.clear()
         refreshFiles(forceLoading = true)
     }
@@ -236,12 +272,114 @@ class MainViewModel(
     }
 
     fun submitFileSearch() {
+        _uiState.update { state ->
+            state.copy(files = state.files.copy(highlightedNodeId = null))
+        }
         fileDirectoryCache.clear()
         refreshFiles(forceLoading = true)
     }
 
     fun submitTrashSearch() {
         refreshTrash(forceLoading = true)
+    }
+
+    fun toggleNodeSelection(isTrashMode: Boolean, nodeId: Long) {
+        updateExplorerState(isTrashMode) { explorer ->
+            val nextSelection = explorer.selectedNodeIds.toMutableSet().apply {
+                if (!add(nodeId)) {
+                    remove(nodeId)
+                }
+            }
+            explorer.copy(
+                selectedNodeIds = nextSelection,
+                highlightedNodeId = if (isTrashMode) explorer.highlightedNodeId else null,
+            )
+        }
+    }
+
+    fun clearNodeSelection(isTrashMode: Boolean) {
+        updateExplorerState(isTrashMode) { explorer ->
+            explorer.copy(
+                selectedNodeIds = emptySet(),
+                highlightedNodeId = if (isTrashMode) explorer.highlightedNodeId else null,
+            )
+        }
+    }
+
+    fun selectAllVisibleNodes(isTrashMode: Boolean) {
+        updateExplorerState(isTrashMode) { explorer ->
+            explorer.copy(
+                selectedNodeIds = explorer.items.mapTo(linkedSetOf()) { it.id },
+                highlightedNodeId = if (isTrashMode) explorer.highlightedNodeId else null,
+            )
+        }
+    }
+
+    fun revealNodeInFiles(node: StorageNode) {
+        val currentFiles = uiState.value.files
+        val targetFolderId = node.parentId
+        val sameFolder = currentFiles.currentFolderId == targetFolderId
+        if (!sameFolder) {
+            rememberCurrentDirectorySnapshot()
+        }
+
+        val cachedItems = if (sameFolder) currentFiles.items else fileDirectoryCache[targetFolderId]
+        _uiState.update { state ->
+            val nextBreadcrumbs = resolveRevealBreadcrumbs(
+                current = state.files.breadcrumbs,
+                targetFolderId = targetFolderId,
+            )
+            state.copy(
+                selectedTab = AppTab.FILES,
+                files = state.files.copy(
+                    currentFolderId = targetFolderId,
+                    breadcrumbs = nextBreadcrumbs,
+                    items = cachedItems ?: emptyList(),
+                    hasLoadedFolder = cachedItems != null,
+                    loading = cachedItems == null,
+                    error = null,
+                    selectedNodeIds = emptySet(),
+                    highlightedNodeId = node.id,
+                ),
+            )
+        }
+
+        if (!sameFolder) {
+            refreshFiles(forceLoading = false)
+        }
+    }
+
+    fun loadMoveTargets() {
+        val session = authenticatedSession() ?: return
+
+        viewModelScope.launch {
+            _uiState.update { state ->
+                state.copy(
+                    files = state.files.copy(
+                        moveTargetLoading = true,
+                    ),
+                )
+            }
+
+            runCatching {
+                repository.fetchFolders(session.baseUrl, session.token)
+                    .sortedBy { it.name.lowercase() }
+            }.onSuccess { folders ->
+                _uiState.update { state ->
+                    state.copy(
+                        files = state.files.copy(
+                            moveTargetLoading = false,
+                            moveTargetFolders = folders,
+                        ),
+                    )
+                }
+            }.onFailure { error ->
+                _uiState.update { state ->
+                    state.copy(files = state.files.copy(moveTargetLoading = false))
+                }
+                handleError(error)
+            }
+        }
     }
 
     fun createUser(
@@ -433,6 +571,51 @@ class MainViewModel(
         }
     }
 
+    fun updateNickname(
+        nickname: String,
+        onSuccess: () -> Unit = {},
+    ) {
+        val session = authenticatedSession() ?: return
+        val currentUser = uiState.value.currentUser ?: return
+        val trimmedNickname = nickname.trim()
+
+        if (trimmedNickname.isBlank()) {
+            emitMessage("请输入昵称。")
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.update { state -> state.copy(isUpdatingProfile = true) }
+
+            runCatching {
+                repository.updateProfile(
+                    baseUrl = session.baseUrl,
+                    token = session.token,
+                    phoneNumber = currentUser.phoneNumber,
+                    nickname = trimmedNickname,
+                    avatarUrl = currentUser.avatarUrl,
+                )
+            }.onSuccess { updatedUser ->
+                _uiState.update { state ->
+                    state.copy(
+                        isUpdatingProfile = false,
+                        currentUser = updatedUser,
+                        team = state.team.copy(
+                            users = state.team.users.map { user ->
+                                if (user.id == updatedUser.id) updatedUser else user
+                            },
+                        ),
+                    )
+                }
+                emitMessage("昵称已更新。")
+                onSuccess()
+            }.onFailure { error ->
+                _uiState.update { state -> state.copy(isUpdatingProfile = false) }
+                handleError(error)
+            }
+        }
+    }
+
     fun changePassword(
         oldPassword: String,
         newPassword: String,
@@ -489,6 +672,8 @@ class MainViewModel(
                     hasLoadedFolder = false,
                     loading = true,
                     error = null,
+                    selectedNodeIds = emptySet(),
+                    highlightedNodeId = null,
                 ),
             )
         }
@@ -516,6 +701,8 @@ class MainViewModel(
                     hasLoadedFolder = cachedItems != null,
                     loading = cachedItems == null,
                     error = null,
+                    selectedNodeIds = emptySet(),
+                    highlightedNodeId = null,
                 ),
             )
         }
@@ -586,6 +773,225 @@ class MainViewModel(
             }.onFailure { error ->
                 _uiState.update { state ->
                     state.copy(files = state.files.copy(isUploading = false))
+                }
+                handleError(error)
+            }
+        }
+    }
+
+    fun uploadDocuments(uris: List<Uri>) {
+        val session = authenticatedSession() ?: return
+        val uniqueUris = uris.distinct()
+        if (uniqueUris.isEmpty()) {
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.update { state ->
+                state.copy(files = state.files.copy(isUploading = true))
+            }
+
+            val parentId = uiState.value.files.currentFolderId
+            var successCount = 0
+            var firstError: Throwable? = null
+
+            uniqueUris.forEach { uri ->
+                runCatching {
+                    repository.uploadFile(
+                        context = appContext,
+                        baseUrl = session.baseUrl,
+                        token = session.token,
+                        parentId = parentId,
+                        uri = uri,
+                    )
+                }.onSuccess {
+                    successCount += 1
+                }.onFailure { error ->
+                    if (firstError == null) {
+                        firstError = error
+                    }
+                }
+            }
+
+            _uiState.update { state ->
+                state.copy(files = state.files.copy(isUploading = false))
+            }
+
+            when {
+                successCount == uniqueUris.size -> {
+                    emitMessage(if (successCount == 1) "上传完成。" else "已上传 $successCount 个文件。")
+                    refreshAfterMutation(refreshFiles = true, refreshTrash = false)
+                }
+
+                successCount > 0 -> {
+                    emitMessage("已上传 $successCount 个文件，${uniqueUris.size - successCount} 个失败。")
+                    firstError?.let { handleError(it) }
+                    refreshAfterMutation(refreshFiles = true, refreshTrash = false)
+                }
+
+                else -> {
+                    handleError(firstError ?: ApiException("上传失败。", 400))
+                }
+            }
+        }
+    }
+
+    fun moveSelectedNodes(parentId: Long?, onSuccess: () -> Unit = {}) {
+        val session = authenticatedSession() ?: return
+        val selectedIds = uiState.value.files.selectedNodeIds.toList()
+
+        if (selectedIds.isEmpty()) {
+            emitMessage("请先选择要移动的文件。")
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.update { state ->
+                state.copy(files = state.files.copy(isBatchActing = true))
+            }
+
+            runCatching {
+                repository.moveNodes(
+                    baseUrl = session.baseUrl,
+                    token = session.token,
+                    nodeIds = selectedIds,
+                    parentId = parentId,
+                )
+            }.onSuccess {
+                _uiState.update { state ->
+                    state.copy(
+                        files = state.files.copy(
+                            isBatchActing = false,
+                            selectedNodeIds = emptySet(),
+                        ),
+                    )
+                }
+                emitMessage(if (selectedIds.size == 1) "移动成功。" else "已移动 ${selectedIds.size} 项。")
+                onSuccess()
+                refreshAfterMutation(refreshFiles = true, refreshTrash = false)
+            }.onFailure { error ->
+                _uiState.update { state ->
+                    state.copy(files = state.files.copy(isBatchActing = false))
+                }
+                handleError(error)
+            }
+        }
+    }
+
+    fun moveSelectedNodesToTrash() {
+        val session = authenticatedSession() ?: return
+        val selectedIds = uiState.value.files.selectedNodeIds.toList()
+
+        if (selectedIds.isEmpty()) {
+            emitMessage("请先选择要删除的文件。")
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.update { state ->
+                state.copy(files = state.files.copy(isBatchActing = true))
+            }
+
+            runCatching {
+                repository.moveNodesToTrash(
+                    baseUrl = session.baseUrl,
+                    token = session.token,
+                    nodeIds = selectedIds,
+                )
+            }.onSuccess {
+                _uiState.update { state ->
+                    state.copy(
+                        files = state.files.copy(
+                            isBatchActing = false,
+                            selectedNodeIds = emptySet(),
+                        ),
+                    )
+                }
+                emitMessage(if (selectedIds.size == 1) "已移入回收站。" else "已移入回收站 ${selectedIds.size} 项。")
+                refreshAfterMutation(refreshFiles = true, refreshTrash = true)
+            }.onFailure { error ->
+                _uiState.update { state ->
+                    state.copy(files = state.files.copy(isBatchActing = false))
+                }
+                handleError(error)
+            }
+        }
+    }
+
+    fun restoreSelectedNodes() {
+        val session = authenticatedSession() ?: return
+        val selectedIds = uiState.value.trash.selectedNodeIds.toList()
+
+        if (selectedIds.isEmpty()) {
+            emitMessage("请先选择要恢复的文件。")
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.update { state ->
+                state.copy(trash = state.trash.copy(isBatchActing = true))
+            }
+
+            runCatching {
+                repository.restoreNodes(
+                    baseUrl = session.baseUrl,
+                    token = session.token,
+                    nodeIds = selectedIds,
+                )
+            }.onSuccess {
+                _uiState.update { state ->
+                    state.copy(
+                        trash = state.trash.copy(
+                            isBatchActing = false,
+                            selectedNodeIds = emptySet(),
+                        ),
+                    )
+                }
+                emitMessage(if (selectedIds.size == 1) "恢复成功。" else "已恢复 ${selectedIds.size} 项。")
+                refreshAfterMutation(refreshFiles = true, refreshTrash = true)
+            }.onFailure { error ->
+                _uiState.update { state ->
+                    state.copy(trash = state.trash.copy(isBatchActing = false))
+                }
+                handleError(error)
+            }
+        }
+    }
+
+    fun permanentlyDeleteSelectedNodes() {
+        val session = authenticatedSession() ?: return
+        val selectedIds = uiState.value.trash.selectedNodeIds.toList()
+
+        if (selectedIds.isEmpty()) {
+            emitMessage("请先选择要彻底删除的文件。")
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.update { state ->
+                state.copy(trash = state.trash.copy(isBatchActing = true))
+            }
+
+            runCatching {
+                repository.permanentlyDeleteNodes(
+                    baseUrl = session.baseUrl,
+                    token = session.token,
+                    nodeIds = selectedIds,
+                )
+            }.onSuccess {
+                _uiState.update { state ->
+                    state.copy(
+                        trash = state.trash.copy(
+                            isBatchActing = false,
+                            selectedNodeIds = emptySet(),
+                        ),
+                    )
+                }
+                emitMessage(if (selectedIds.size == 1) "已彻底删除。" else "已彻底删除 ${selectedIds.size} 项。")
+                refreshAfterMutation(refreshFiles = false, refreshTrash = true)
+            }.onFailure { error ->
+                _uiState.update { state ->
+                    state.copy(trash = state.trash.copy(isBatchActing = false))
                 }
                 handleError(error)
             }
@@ -913,8 +1319,19 @@ class MainViewModel(
             runCatching {
                 val overview = repository.fetchDriveOverview(session.baseUrl, session.token)
                 val history = repository.fetchUsageHistory(session.baseUrl, session.token)
-                overview to history
-            }.onSuccess { (overview, history) ->
+                val recentNodes = repository.fetchStorageNodes(
+                    baseUrl = session.baseUrl,
+                    token = session.token,
+                    parentId = null,
+                    keyword = "",
+                    filter = StorageNodeFilter.FILE,
+                    size = 4,
+                    sortBy = "createdAt",
+                    sortDirection = "desc",
+                    recursive = true,
+                ).items
+                Triple(overview, history, recentNodes)
+            }.onSuccess { (overview, history, recentNodes) ->
                 _uiState.update { state ->
                     state.copy(
                         home = state.home.copy(
@@ -922,6 +1339,7 @@ class MainViewModel(
                             error = null,
                             overview = overview,
                             usageHistory = history,
+                            recentNodes = recentNodes,
                         ),
                     )
                 }
@@ -954,6 +1372,7 @@ class MainViewModel(
                     filter = files.filter,
                 )
             }.onSuccess { page ->
+                val visibleIds = page.items.mapTo(hashSetOf()) { it.id }
                 fileDirectoryCache[files.currentFolderId] = page.items
                 _uiState.update { state ->
                     state.copy(
@@ -962,6 +1381,8 @@ class MainViewModel(
                             error = null,
                             hasLoadedFolder = true,
                             items = page.items,
+                            selectedNodeIds = state.files.selectedNodeIds.filterTo(linkedSetOf()) { it in visibleIds },
+                            highlightedNodeId = state.files.highlightedNodeId?.takeIf { it in visibleIds },
                         ),
                     )
                 }
@@ -993,6 +1414,7 @@ class MainViewModel(
                     filter = trash.filter,
                 )
             }.onSuccess { page ->
+                val visibleIds = page.items.mapTo(hashSetOf()) { it.id }
                 _uiState.update { state ->
                     state.copy(
                         trash = state.trash.copy(
@@ -1000,6 +1422,7 @@ class MainViewModel(
                             error = null,
                             hasLoadedFolder = true,
                             items = page.items,
+                            selectedNodeIds = state.trash.selectedNodeIds.filterTo(linkedSetOf()) { it in visibleIds },
                         ),
                     )
                 }
@@ -1041,6 +1464,19 @@ class MainViewModel(
         }
     }
 
+    private fun updateExplorerState(
+        isTrashMode: Boolean,
+        transform: (ExplorerUiState) -> ExplorerUiState,
+    ) {
+        _uiState.update { state ->
+            if (isTrashMode) {
+                state.copy(trash = transform(state.trash))
+            } else {
+                state.copy(files = transform(state.files))
+            }
+        }
+    }
+
     private fun resolvePreviewKind(node: StorageNode): PreviewKind? {
         val mimeType = node.mimeType?.lowercase().orEmpty()
         val extension = node.extension?.lowercase().orEmpty()
@@ -1077,10 +1513,34 @@ class MainViewModel(
         fileDirectoryCache[files.currentFolderId] = files.items
     }
 
+    private fun resolveRevealBreadcrumbs(
+        current: List<FolderCrumb>,
+        targetFolderId: Long?,
+    ): List<FolderCrumb> {
+        if (targetFolderId == null) {
+            return defaultBreadCrumbs
+        }
+
+        val currentIndex = current.indexOfFirst { it.id == targetFolderId }
+        if (currentIndex >= 0) {
+            return current.take(currentIndex + 1)
+        }
+
+        val folderLabel = current.firstOrNull { it.id == targetFolderId }?.label
+            ?: fileDirectoryCache.values
+                .asSequence()
+                .flatten()
+                .firstOrNull { it.id == targetFolderId && it.type == StorageNodeType.FOLDER }
+                ?.name
+            ?: "目标目录"
+
+        return defaultBreadCrumbs + FolderCrumb(id = targetFolderId, label = folderLabel)
+    }
+
     private fun parseQuotaGbToBytes(value: String): Long? {
         val quotaGb = value.trim().toDoubleOrNull()
         if (quotaGb == null || !quotaGb.isFinite() || quotaGb <= 0) {
-            emitMessage("请输入大于 0 的 GB 额度，例如 0.5。")
+            emitMessage("请输入大于 0 的 GB 额度，例如 50。")
             return null
         }
 

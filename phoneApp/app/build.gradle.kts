@@ -13,7 +13,7 @@ fun resolveApiBaseUrl(project: Project): String {
         .mapNotNull { it?.trim() }
         .firstOrNull { it.isNotEmpty() }
 
-    return (configured ?: "http://43.132.237.15").removeSuffix("/")
+    return (configured ?: "https://windwindwind-alicia.cn").removeSuffix("/")
 }
 
 android {
