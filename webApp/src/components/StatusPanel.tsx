@@ -8,7 +8,7 @@ import {
   PictureOutlined,
 } from '@ant-design/icons';
 import { Button, Progress, Space, Typography } from 'antd';
-import type { CSSProperties, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import type { DriveOverview, HealthResponse, UsageHistoryPoint } from '../types';
 
 type StatusPanelProps = {
@@ -149,12 +149,6 @@ export function StatusPanel({
   const chartTitle = adminView ? '近 30 日全站存储占用变化' : '近 30 日占用空间变化';
   const chartSubtitle = adminView ? '按所有账号文件元数据回算' : '按每天结束时的文件元数据回算';
   const overviewSubtitle = adminView ? '查看所有账号的实际总占用，以及 COS 容量语义。' : '把当前账号的核心空间状态集中放在一处。';
-  const panelStyle = backgroundImage
-    ? ({
-        '--home-background-image': `url(${backgroundImage})`,
-      } as CSSProperties)
-    : undefined;
-
   const statItems: StatItem[] = [
     {
       label: '服务状态',
@@ -168,7 +162,7 @@ export function StatusPanel({
   ];
 
   return (
-    <section className={`home-dashboard${backgroundImage ? ' home-dashboard-with-background' : ''}`} style={panelStyle}>
+    <section className={`home-dashboard${backgroundImage ? ' home-dashboard-with-background' : ''}`}>
       <div className="home-summary-card">
         <div className="home-card-header">
           <div>

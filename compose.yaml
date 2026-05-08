@@ -35,8 +35,11 @@ services:
       ALICIA_COS_MAX_FILE_SIZE_BYTES: ${ALICIA_COS_MAX_FILE_SIZE_BYTES}
       ALICIA_STORAGE_TOTAL_SPACE_BYTES: ${ALICIA_STORAGE_TOTAL_SPACE_BYTES}
       ALICIA_STORAGE_DEFAULT_USER_QUOTA_BYTES: ${ALICIA_STORAGE_DEFAULT_USER_QUOTA_BYTES}
+      ALICIA_APP_PACKAGE_STORAGE_DIR: ${ALICIA_APP_PACKAGE_STORAGE_DIR:-/app/data/app-package}
     ports:
       - "127.0.0.1:8090:8080"
+    volumes:
+      - alicia_cloud_storage_app_package_data:/app/data/app-package
     depends_on:
       db:
         condition: service_healthy
@@ -51,3 +54,4 @@ services:
 
 volumes:
   alicia_cloud_storage_mysql_data:
+  alicia_cloud_storage_app_package_data:

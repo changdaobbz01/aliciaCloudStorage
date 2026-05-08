@@ -1,4 +1,5 @@
 import type {
+  AppPackageInfo,
   ApiMessageResponse,
   BatchMoveNodePayload,
   BatchNodePayload,
@@ -941,6 +942,26 @@ export function resetUserPassword(userId: number, payload: ResetUserPasswordPayl
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(payload),
+    }),
+  );
+}
+
+export function fetchAdminAppPackage(token: string) {
+  return requestJson<AppPackageInfo>('/api/admin/app-package', withToken(token));
+}
+
+export function uploadAdminAppPackage(file: File, token: string, options?: UploadFileOptions) {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  return requestUploadJson<AppPackageInfo>('/api/admin/app-package', formData, token, options);
+}
+
+export function deleteAdminAppPackage(token: string) {
+  return requestJson<ApiMessageResponse>(
+    '/api/admin/app-package',
+    withToken(token, {
+      method: 'DELETE',
     }),
   );
 }

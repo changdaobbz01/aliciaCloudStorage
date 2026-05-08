@@ -8,7 +8,7 @@ export type UserRole = 'ADMIN' | 'USER';
 export type UserStatus = 'ACTIVE' | 'DISABLED';
 export type StorageNodeType = 'FOLDER' | 'FILE';
 export type StorageNodeFilter = 'ALL' | StorageNodeType;
-export type StorageViewMode = 'home' | 'drive' | 'accounts' | 'trash';
+export type StorageViewMode = 'home' | 'drive' | 'accounts' | 'appPackage' | 'trash';
 export type SortDirection = 'asc' | 'desc';
 export type DriveSortField = 'name' | 'size' | 'updatedAt';
 export type TrashSortField = 'name' | 'size' | 'updatedAt' | 'deletedAt';
@@ -36,6 +36,14 @@ export type LoginPayload = {
 export type LoginResponse = {
   token: string;
   user: User;
+};
+
+export type AppPackageInfo = {
+  available: boolean;
+  fileName: string | null;
+  fileSizeBytes: number | null;
+  uploadedAt: string | null;
+  downloadUrl: string;
 };
 
 export type UpdateProfilePayload = {

@@ -39,6 +39,14 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * 统一处理文件系统或本地资源写入失败等服务端状态异常。     */
+    @ExceptionHandler(IllegalStateException.class)
+    @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
+    public ApiErrorResponse handleIllegalStateException(IllegalStateException ex) {
+        return new ApiErrorResponse(500, ex.getMessage(), LocalDateTime.now());
+    }
+
+    /**
      * 统一处理基于注解的请求体验证异常。
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)

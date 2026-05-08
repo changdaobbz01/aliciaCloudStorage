@@ -1,4 +1,5 @@
 ﻿import {
+  AndroidOutlined,
   CloudServerOutlined,
   DeleteOutlined,
   EditOutlined,
@@ -37,9 +38,10 @@ import {
   Typography,
 } from 'antd';
 import type { MenuProps } from 'antd';
-import type { ChangeEvent } from 'react';
+import type { CSSProperties, ChangeEvent } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { AppPackagePanel } from '../components/AppPackagePanel';
 import { StatusPanel } from '../components/StatusPanel';
 import { RegulatoryFooter } from '../components/RegulatoryFooter';
 import { StorageTable } from '../components/StorageTable';
@@ -53,8 +55,10 @@ import {
   createFolder,
   createMultipartUpload,
   createUser,
+  deleteAdminAppPackage,
   deleteStorageNodes,
   downloadStorageFile,
+  fetchAdminAppPackage,
   fetchDriveOverview,
   fetchHealth,
   fetchStorageFolders,
@@ -70,12 +74,14 @@ import {
   isApiError,
   updateProfile,
   updateUserStorageQuota,
+  uploadAdminAppPackage,
   uploadCurrentUserAvatar,
   uploadCurrentUserHomeBackground,
   uploadMultipartPart,
   uploadStorageFile,
 } from '../lib/api';
 import type {
+  AppPackageInfo,
   BatchMoveNodePayload,
   ChangePasswordPayload,
   CreateFolderPayload,
@@ -172,6 +178,7 @@ const MAX_UPLOAD_RETRIES = 2;
 const MAX_CHUNK_UPLOAD_RETRIES = 2;
 const MAX_HOME_BACKGROUND_BYTES = 10 * 1024 * 1024;
 const DEFAULT_NEW_USER_QUOTA_GB = 50;
+const APP_DOWNLOAD_PUBLIC_PATH = '/api/app-package/download/current';
 const PREVIEWABLE_TEXT_EXTENSIONS = new Set([
   'txt',
   'md',
@@ -313,6 +320,18 @@ function resolveHomeBackgroundSrc(user: User | null | undefined) {
   return user.homeBackgroundUrl;
 }
 
+function resolveAppDownloadUrl() {
+  if (typeof window === 'undefined') {
+    return APP_DOWNLOAD_PUBLIC_PATH;
+  }
+
+  return new URL(APP_DOWNLOAD_PUBLIC_PATH, window.location.origin).toString();
+}
+
+function resolveAppDownloadQrSrc(targetUrl: string) {
+  return `https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=0&data=${encodeURIComponent(targetUrl)}`;
+}
+
 function shouldUseMultipartUpload(file: File) {
   return file.size > MULTIPART_UPLOAD_THRESHOLD_BYTES;
 }
@@ -369,6 +388,7 @@ const baseMenuItems = [
   { key: 'home', icon: <HomeOutlined />, label: '主页' },
   { key: 'drive', icon: <FolderOpenOutlined />, label: '我的文件' },
   { key: 'accounts', icon: <TeamOutlined />, label: '账号管理' },
+  { key: 'appPackage', icon: <AndroidOutlined />, label: 'APP 上传' },
   { key: 'trash', icon: <DeleteOutlined />, label: '回收站' },
 ];
 
@@ -385,11 +405,14 @@ export function DrivePage() {
   const [items, setItems] = useState<StorageNode[]>([]);
   const [listState, setListState] = useState<ListState>(() => createDefaultListState('drive'));
   const [users, setUsers] = useState<User[]>([]);
+  const [appPackageInfo, setAppPackageInfo] = useState<AppPackageInfo | null>(null);
   const [folderOptions, setFolderOptions] = useState<StorageNode[]>([]);
   const [breadcrumbs, setBreadcrumbs] = useState<FolderCrumb[]>([{ id: null, label: '根目录' }]);
   const [activeView, setActiveView] = useState<StorageViewMode>('home');
   const [loading, setLoading] = useState(true);
   const [usersLoading, setUsersLoading] = useState(false);
+  const [appPackageLoading, setAppPackageLoading] = useState(false);
+  const [appPackageUploading, setAppPackageUploading] = useState(false);
   const [folderOptionsLoading, setFolderOptionsLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
@@ -421,6 +444,7 @@ export function DrivePage() {
   const [moveForm] = Form.useForm<MoveNodeFormValues>();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
+  const appPackageInputRef = useRef<HTMLInputElement | null>(null);
   const backgroundInputRef = useRef<HTMLInputElement | null>(null);
   const previewObjectUrlRef = useRef<string | null>(null);
   const previewRequestIdRef = useRef(0);
@@ -430,6 +454,7 @@ export function DrivePage() {
   const isHomeView = activeView === 'home';
   const isDriveView = activeView === 'drive';
   const isAccountsView = activeView === 'accounts';
+  const isAppPackageView = activeView === 'appPackage';
   const isTrashView = activeView === 'trash';
   const isListView = isDriveView || isTrashView;
   const panelTitle = isTrashView ? '回收站' : currentFolderId === null ? '全部文件' : breadcrumbs[breadcrumbs.length - 1]?.label ?? '我的文件';
@@ -437,26 +462,48 @@ export function DrivePage() {
     ? '主页'
     : isAccountsView
       ? '账号管理'
+      : isAppPackageView
+        ? 'APP 上传'
       : isTrashView
         ? '回收站'
         : '我的文件';
   const isAdmin = currentUser?.role === 'ADMIN';
   const currentAvatarSrc = resolveAvatarSrc(currentUser);
   const homeBackgroundImage = resolveHomeBackgroundSrc(currentUser);
+  const appDownloadUrl = resolveAppDownloadUrl();
+  const appDownloadQrSrc = resolveAppDownloadQrSrc(appDownloadUrl);
+  const mainShellClassName = `app-main-shell${isHomeView && homeBackgroundImage ? ' app-main-shell-with-background' : ''}`;
+  const mainShellStyle =
+    isHomeView && homeBackgroundImage
+      ? ({
+          '--home-background-image': `url(${homeBackgroundImage})`,
+        } as CSSProperties)
+      : undefined;
+  const contentClassName = `app-content${isHomeView ? ' app-content-home' : ''}`;
   const menuItems = useMemo(
-    () => (isAdmin ? baseMenuItems : baseMenuItems.filter((item) => item.key !== 'accounts')),
+    () => (isAdmin ? baseMenuItems : baseMenuItems.filter((item) => !['accounts', 'appPackage'].includes(item.key))),
     [isAdmin],
   );
   const currentViewIcon = isHomeView ? (
     <HomeOutlined />
   ) : isAccountsView ? (
     <TeamOutlined />
+  ) : isAppPackageView ? (
+    <AndroidOutlined />
   ) : isTrashView ? (
     <DeleteOutlined />
   ) : (
     <FolderOpenOutlined />
   );
-  const headerEyebrow = isHomeView ? '系统概览' : isAccountsView ? '管理中心' : isTrashView ? '回收与恢复' : '文件工作台';
+  const headerEyebrow = isHomeView
+    ? '系统概览'
+    : isAccountsView
+      ? '管理中心'
+      : isAppPackageView
+        ? '客户端分发'
+        : isTrashView
+          ? '回收与恢复'
+          : '文件工作台';
   const headerSearchPlaceholder = isTrashView ? '搜索回收站' : '搜索当前目录';
   const panelDescription = isTrashView ? '回收站中的项目可以恢复，也可以彻底删除。' : '统一处理上传、筛选、预览和批量操作。';
   const moveTarget = moveTargets.length === 1 ? moveTargets[0] : null;
@@ -632,6 +679,23 @@ export function DrivePage() {
     }
   }
 
+  async function loadAppPackageInfo() {
+    if (!authToken || !isAdmin) {
+      setAppPackageInfo(null);
+      return;
+    }
+
+    setAppPackageLoading(true);
+
+    try {
+      setAppPackageInfo(await fetchAdminAppPackage(authToken));
+    } catch (loadError) {
+      message.error(loadError instanceof Error ? loadError.message : '加载 APK 信息失败。');
+    } finally {
+      setAppPackageLoading(false);
+    }
+  }
+
   /**
    * 刷新文件夹树，用于移动弹窗里的目标目录选择。   */
   async function loadFolderOptions() {
@@ -653,7 +717,7 @@ export function DrivePage() {
   /**
    * 刷新当前页需要的远程数据。   */
   async function refreshCurrentView() {
-    await Promise.all([loadHealth(), loadDrive(), loadUsers()]);
+    await Promise.all([loadHealth(), loadDrive(), loadUsers(), loadAppPackageInfo()]);
   }
 
   useEffect(() => {
@@ -679,11 +743,15 @@ export function DrivePage() {
   }, [authToken, isAdmin]);
 
   useEffect(() => {
+    void loadAppPackageInfo();
+  }, [authToken, isAdmin]);
+
+  useEffect(() => {
     setSelectedItems((current) => current.filter((item) => items.some((candidate) => candidate.id === item.id)));
   }, [items]);
 
   useEffect(() => {
-    if (!isAdmin && activeView === 'accounts') {
+    if (!isAdmin && (activeView === 'accounts' || activeView === 'appPackage')) {
       setActiveView('home');
     }
   }, [activeView, isAdmin]);
@@ -908,6 +976,75 @@ export function DrivePage() {
       message.success('主页背景图已移除。');
     } catch (backgroundError) {
       message.error(backgroundError instanceof Error ? backgroundError.message : '移除背景图失败。');
+    }
+  }
+
+  function handleAppPackageButtonClick() {
+    const input = appPackageInputRef.current;
+
+    if (!input) {
+      return;
+    }
+
+    try {
+      if (typeof input.showPicker === 'function') {
+        input.showPicker();
+        return;
+      }
+    } catch {
+      // 部分浏览器限制 showPicker，回退到 click。
+    }
+
+    input.click();
+  }
+
+  async function handleAppPackageFileChange(event: ChangeEvent<HTMLInputElement>) {
+    if (!authToken || !isAdmin) {
+      return;
+    }
+
+    const selectedFile = event.target.files?.[0] ?? null;
+    event.target.value = '';
+
+    if (!selectedFile) {
+      return;
+    }
+
+    if (!selectedFile.name.toLowerCase().endsWith('.apk')) {
+      message.error('请上传 APK 安装包文件。');
+      return;
+    }
+
+    setAppPackageUploading(true);
+
+    try {
+      const nextPackageInfo = await uploadAdminAppPackage(selectedFile, authToken);
+      setAppPackageInfo(nextPackageInfo);
+      message.success('APK 已上传，首页下载入口已同步更新。');
+    } catch (uploadError) {
+      message.error(uploadError instanceof Error ? uploadError.message : 'APK 上传失败。');
+    } finally {
+      setAppPackageUploading(false);
+    }
+  }
+
+  async function deleteCurrentAppPackage() {
+    if (!authToken || !isAdmin) {
+      return;
+    }
+
+    try {
+      await deleteAdminAppPackage(authToken);
+      setAppPackageInfo({
+        available: false,
+        fileName: null,
+        fileSizeBytes: null,
+        uploadedAt: null,
+        downloadUrl: APP_DOWNLOAD_PUBLIC_PATH,
+      });
+      message.success('当前安装包已移除。');
+    } catch (deleteError) {
+      message.error(deleteError instanceof Error ? deleteError.message : '移除安装包失败。');
     }
   }
 
@@ -1918,9 +2055,35 @@ export function DrivePage() {
           className="sider-menu"
           onClick={handleMenuClick}
         />
+
+        <section className="sider-download-card">
+          <div className="sider-download-copy">
+            <Typography.Text className="sider-download-eyebrow">APP 下载</Typography.Text>
+            <Typography.Title level={5}>安卓客户端</Typography.Title>
+            <Typography.Text className="sider-download-note">
+              扫码直达当前正式安装包。管理员可在左侧 APP 上传栏目里随时替换新版。
+            </Typography.Text>
+          </div>
+
+          <a
+            href={appDownloadUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="sider-download-qr-link"
+            aria-label="下载安卓客户端"
+          >
+            <img src={appDownloadQrSrc} alt="安卓客户端下载二维码" className="sider-download-qr" />
+          </a>
+
+          <Typography.Text className="sider-download-path">{APP_DOWNLOAD_PUBLIC_PATH}</Typography.Text>
+
+          <a href={appDownloadUrl} target="_blank" rel="noreferrer" className="sider-download-link">
+            下载 APK
+          </a>
+        </section>
       </Sider>
 
-      <Layout>
+      <Layout className={mainShellClassName} style={mainShellStyle}>
         <Header className="app-header">
           <div className="header-view">
             <Typography.Text className="header-eyebrow">{headerEyebrow}</Typography.Text>
@@ -1953,7 +2116,15 @@ export function DrivePage() {
           </div>
         </Header>
 
-        <Content className="app-content">
+        <Content className={contentClassName}>
+          <input
+            ref={appPackageInputRef}
+            type="file"
+            accept=".apk,application/vnd.android.package-archive"
+            className="upload-input"
+            onChange={(event) => void handleAppPackageFileChange(event)}
+          />
+
           <input
             ref={backgroundInputRef}
             type="file"
@@ -1963,14 +2134,20 @@ export function DrivePage() {
           />
 
           {isHomeView ? (
-            <StatusPanel
-              health={health}
-              overview={overview}
-              usageHistory={usageHistory}
-              backgroundImage={homeBackgroundImage}
-              onChooseBackground={handleHomeBackgroundButtonClick}
-              onClearBackground={clearHomeBackground}
-            />
+            <div className="home-view-shell">
+              <StatusPanel
+                health={health}
+                overview={overview}
+                usageHistory={usageHistory}
+                backgroundImage={homeBackgroundImage}
+                onChooseBackground={handleHomeBackgroundButtonClick}
+                onClearBackground={clearHomeBackground}
+              />
+
+              <div className="app-footer app-footer-home">
+                <RegulatoryFooter className="regulatory-footer-home" />
+              </div>
+            </div>
           ) : null}
 
           {isListView ? (
@@ -2211,9 +2388,32 @@ export function DrivePage() {
             )
           ) : null}
 
-          <div className="app-footer">
-            <RegulatoryFooter />
-          </div>
+          {isAppPackageView ? (
+            isAdmin ? (
+              <AppPackagePanel
+                packageInfo={appPackageInfo}
+                loading={appPackageLoading}
+                uploading={appPackageUploading}
+                onUploadClick={handleAppPackageButtonClick}
+                onDeletePackage={() => void deleteCurrentAppPackage()}
+              />
+            ) : (
+              <section className="content-panel">
+                <Alert
+                  type="warning"
+                  showIcon
+                  message="当前账号没有 APP 上传权限"
+                  description="只有管理员可以上传和替换安卓安装包。"
+                />
+              </section>
+            )
+          ) : null}
+
+          {!isHomeView ? (
+            <div className="app-footer">
+              <RegulatoryFooter />
+            </div>
+          ) : null}
         </Content>
       </Layout>
 
