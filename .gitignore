@@ -5,6 +5,7 @@
 /webApp/vite.config.js
 /webApp/vite.config.d.ts
 /.env
+/deploy/certs/*.pem
 /tmp/
 /_tmp/
 .idea/

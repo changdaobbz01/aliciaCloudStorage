@@ -525,6 +525,39 @@ curl -i -X POST http://127.0.0.1:8090/api/auth/login \
 4. 关闭生产环境 `show-sql`
 5. 给项目绑定域名并配置 HTTPS
 
+## 15. 已签发证书后的 HTTPS 启动方式
+
+如果你的 `windwindwind-alicia.cn` 证书已经签发，并且下载的是 `Nginx` 格式证书，可以这样准备：
+
+1. 把证书文件重命名并放到项目目录：
+
+```bash
+mkdir -p ~/aliciaCloudStorage/deploy/certs
+```
+
+- 证书链文件放为：`~/aliciaCloudStorage/deploy/certs/fullchain.pem`
+- 私钥文件放为：`~/aliciaCloudStorage/deploy/certs/privkey.pem`
+
+2. 使用 HTTPS 覆盖配置启动前端：
+
+```bash
+cd ~/aliciaCloudStorage
+sudo docker compose -f compose.yaml -f compose.https.yaml up -d --build frontend
+```
+
+3. 验证：
+
+```bash
+curl -I http://windwindwind-alicia.cn
+curl -I https://windwindwind-alicia.cn
+```
+
+说明：
+
+- `compose.https.yaml` 会给前端额外开放 `443`
+- `webApp/nginx/default.ssl.conf` 会把 `http://` 自动跳转到 `https://`
+- 证书文件没有提交到仓库，避免泄露私钥
+
 ## 14. 一句话复盘
 
 这次部署的最小关键路径其实就是：

@@ -99,6 +99,21 @@ docker compose ps
 docker compose logs -f api
 ```
 
+### HTTPS 部署（已签发证书后）
+
+如果你已经拿到 Nginx 证书文件，可以把证书和私钥分别放到：
+
+- `deploy/certs/fullchain.pem`
+- `deploy/certs/privkey.pem`
+
+然后使用 HTTPS 覆盖配置启动前端：
+
+```powershell
+docker compose -f compose.yaml -f compose.https.yaml up -d --build frontend
+```
+
+这样会额外开放 `443`，并将 `http://` 请求自动跳转到 `https://`。
+
 ## 开发模式
 
 如果你希望前后端分开开发，推荐这样启动：
