@@ -1,37 +1,34 @@
 package com.alicia.cloudstorage.api.service;
 
 import com.alicia.cloudstorage.api.dto.AppPackageInfoResponse;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.FileTime;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.Properties;
 
 @Service
 public class AppPackageService {
 
     private static final String PUBLIC_DOWNLOAD_PATH = "/api/app-package/download/current";
     private static final String CURRENT_PACKAGE_FILE_NAME = "current.apk";
-    private static final String METADATA_FILE_NAME = "metadata.json";
-
-    private final ObjectMapper objectMapper;
+    private static final String METADATA_FILE_NAME = "metadata.properties";
     private final Path storageDirectory;
 
     /**
-     * 注入 APK 元信息读写组件，并确定运行期安装包持久化目录。     */
+     * 确定运行期安装包持久化目录。     */
     public AppPackageService(
-            ObjectMapper objectMapper,
             @Value("${alicia.app-package.storage-dir:/app/data/app-package}") String storageDirectory
     ) {
-        this.objectMapper = objectMapper;
         this.storageDirectory = Path.of(storageDirectory).toAbsolutePath().normalize();
     }
 
@@ -79,7 +76,7 @@ public class AppPackageService {
                 Files.copy(inputStream, getCurrentPackagePath(), StandardCopyOption.REPLACE_EXISTING);
             }
 
-            objectMapper.writeValue(getMetadataPath().toFile(), metadata);
+            writeMetadata(metadata);
         } catch (IOException ex) {
             throw new IllegalStateException("APK 保存失败，请稍后重试。", ex);
         }
@@ -145,7 +142,15 @@ public class AppPackageService {
 
         try {
             if (Files.exists(metadataPath)) {
-                return objectMapper.readValue(metadataPath.toFile(), StoredPackageMetadata.class);
+                Properties properties = new Properties();
+                try (InputStream inputStream = Files.newInputStream(metadataPath)) {
+                    properties.load(inputStream);
+                }
+
+                String fileName = properties.getProperty("fileName", CURRENT_PACKAGE_FILE_NAME);
+                long fileSizeBytes = Long.parseLong(properties.getProperty("fileSizeBytes", "0"));
+                LocalDateTime uploadedAt = LocalDateTime.parse(properties.getProperty("uploadedAt"));
+                return new StoredPackageMetadata(fileName, fileSizeBytes, uploadedAt);
             }
 
             if (!Files.exists(packagePath)) {
@@ -160,6 +165,19 @@ public class AppPackageService {
             );
         } catch (IOException ex) {
             throw new IllegalStateException("读取安装包元信息失败，请稍后重试。", ex);
+        } catch (RuntimeException ex) {
+            throw new IllegalStateException("当前安装包元信息已损坏，请重新上传 APK。", ex);
+        }
+    }
+
+    private void writeMetadata(StoredPackageMetadata metadata) throws IOException {
+        Properties properties = new Properties();
+        properties.setProperty("fileName", metadata.fileName());
+        properties.setProperty("fileSizeBytes", String.valueOf(metadata.fileSizeBytes()));
+        properties.setProperty("uploadedAt", metadata.uploadedAt().toString());
+
+        try (OutputStream outputStream = Files.newOutputStream(getMetadataPath())) {
+            properties.store(outputStream, "Alicia Cloud Storage APK metadata");
         }
     }
 
