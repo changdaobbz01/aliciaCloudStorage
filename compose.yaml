@@ -8,7 +8,7 @@ services:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: ${MYSQL_DATABASE}
     ports:
-      - "3310:3306"
+      - "127.0.0.1:3310:3306"
     volumes:
       - alicia_cloud_storage_mysql_data:/var/lib/mysql
     healthcheck:
@@ -36,7 +36,7 @@ services:
       ALICIA_STORAGE_TOTAL_SPACE_BYTES: ${ALICIA_STORAGE_TOTAL_SPACE_BYTES}
       ALICIA_STORAGE_DEFAULT_USER_QUOTA_BYTES: ${ALICIA_STORAGE_DEFAULT_USER_QUOTA_BYTES}
     ports:
-      - "8090:8080"
+      - "127.0.0.1:8090:8080"
     depends_on:
       db:
         condition: service_healthy
