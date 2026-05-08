@@ -41,6 +41,7 @@ import type { ChangeEvent } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { StatusPanel } from '../components/StatusPanel';
+import { RegulatoryFooter } from '../components/RegulatoryFooter';
 import { StorageTable } from '../components/StorageTable';
 import { UserManagementPanel } from '../components/UserManagementPanel';
 import { useSession } from '../context/session-context';
@@ -2209,6 +2210,10 @@ export function DrivePage() {
               </section>
             )
           ) : null}
+
+          <div className="app-footer">
+            <RegulatoryFooter />
+          </div>
         </Content>
       </Layout>
 

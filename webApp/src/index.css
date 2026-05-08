@@ -47,20 +47,24 @@ select {
   object-fit: cover;
 }
 
-.route-pending,
-.login-shell {
+.route-pending {
   min-height: 100vh;
   display: grid;
   place-items: center;
 }
 
 .login-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 24px;
   position: relative;
   isolation: isolate;
   overflow: hidden;
   width: 100%;
   padding: 32px;
-  justify-items: center;
 }
 
 .login-shell > * {
@@ -157,6 +161,35 @@ select {
   border-radius: 12px;
   font-weight: 600;
   letter-spacing: 0.04em;
+}
+
+.regulatory-footer {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.7);
+  color: #64748b;
+  font-size: 13px;
+  backdrop-filter: blur(10px);
+}
+
+.regulatory-footer-label {
+  font-weight: 600;
+}
+
+.regulatory-footer-link {
+  color: #2563eb;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.regulatory-footer-link:hover {
+  color: #1d4ed8;
+  text-decoration: underline;
 }
 
 .app-shell {
@@ -363,6 +396,12 @@ select {
   padding: 8px 32px 32px;
   display: grid;
   gap: 20px;
+}
+
+.app-footer {
+  display: flex;
+  justify-content: center;
+  padding-top: 4px;
 }
 
 .header-actions,
@@ -973,7 +1012,7 @@ select {
 @media (max-width: 960px) {
   .login-shell {
     padding: 20px;
-    justify-items: center;
+    gap: 20px;
   }
 
   .login-shell::after {

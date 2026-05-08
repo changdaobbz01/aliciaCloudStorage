@@ -1,6 +1,7 @@
 import { App as AntApp, Button, Card, Form, Input, Typography } from 'antd';
 import { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { RegulatoryFooter } from '../components/RegulatoryFooter';
 import { useSession } from '../context/session-context';
 import { login } from '../lib/api';
 import type { LoginPayload } from '../types';
@@ -74,6 +75,8 @@ export function LoginPage() {
           </Button>
         </Form>
       </Card>
+
+      <RegulatoryFooter />
     </div>
   );
 }
