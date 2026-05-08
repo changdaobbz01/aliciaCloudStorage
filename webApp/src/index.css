@@ -392,20 +392,47 @@ select {
 }
 
 .sider-download-qr-link {
-  display: block;
+  display: grid;
+  place-items: center;
+  min-height: 188px;
   padding: 10px;
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.94);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.55);
 }
 
+.sider-download-qr-link-disabled {
+  cursor: default;
+}
+
 .sider-download-qr {
-  display: block;
-  width: 100%;
-  aspect-ratio: 1 / 1;
-  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  width: 168px;
+  height: 168px;
+  padding: 10px;
   background: #ffffff;
-  object-fit: cover;
+  border-radius: 12px;
+}
+
+.sider-download-qr canvas,
+.sider-download-qr svg {
+  display: block;
+}
+
+.sider-download-empty {
+  display: grid;
+  place-items: center;
+  width: 168px;
+  height: 168px;
+  padding: 16px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.88);
+  color: rgba(124, 45, 18, 0.82);
+  text-align: center;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.6;
 }
 
 .sider-download-path {
@@ -431,6 +458,13 @@ select {
 .sider-download-link:hover {
   color: #7c2d12;
   background: #ffffff;
+}
+
+.sider-download-link-disabled {
+  color: rgba(124, 45, 18, 0.72);
+  background: rgba(255, 255, 255, 0.72);
+  cursor: default;
+  pointer-events: none;
 }
 
 .app-header {

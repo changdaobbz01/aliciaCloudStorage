@@ -30,6 +30,7 @@ import {
   Modal,
   Popconfirm,
   Progress,
+  QRCode,
   Segmented,
   Select,
   Space,
@@ -61,6 +62,7 @@ import {
   fetchAdminAppPackage,
   fetchDriveOverview,
   fetchHealth,
+  fetchPublicAppPackage,
   fetchStorageFolders,
   fetchStorageNodes,
   fetchTrashNodes,
@@ -320,16 +322,12 @@ function resolveHomeBackgroundSrc(user: User | null | undefined) {
   return user.homeBackgroundUrl;
 }
 
-function resolveAppDownloadUrl() {
+function resolveAppDownloadUrl(downloadPath = APP_DOWNLOAD_PUBLIC_PATH) {
   if (typeof window === 'undefined') {
-    return APP_DOWNLOAD_PUBLIC_PATH;
+    return downloadPath;
   }
 
-  return new URL(APP_DOWNLOAD_PUBLIC_PATH, window.location.origin).toString();
-}
-
-function resolveAppDownloadQrSrc(targetUrl: string) {
-  return `https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=0&data=${encodeURIComponent(targetUrl)}`;
+  return new URL(downloadPath, window.location.origin).toString();
 }
 
 function shouldUseMultipartUpload(file: File) {
@@ -406,12 +404,14 @@ export function DrivePage() {
   const [listState, setListState] = useState<ListState>(() => createDefaultListState('drive'));
   const [users, setUsers] = useState<User[]>([]);
   const [appPackageInfo, setAppPackageInfo] = useState<AppPackageInfo | null>(null);
+  const [publicAppPackageInfo, setPublicAppPackageInfo] = useState<AppPackageInfo | null>(null);
   const [folderOptions, setFolderOptions] = useState<StorageNode[]>([]);
   const [breadcrumbs, setBreadcrumbs] = useState<FolderCrumb[]>([{ id: null, label: '根目录' }]);
   const [activeView, setActiveView] = useState<StorageViewMode>('home');
   const [loading, setLoading] = useState(true);
   const [usersLoading, setUsersLoading] = useState(false);
   const [appPackageLoading, setAppPackageLoading] = useState(false);
+  const [publicAppPackageLoading, setPublicAppPackageLoading] = useState(false);
   const [appPackageUploading, setAppPackageUploading] = useState(false);
   const [folderOptionsLoading, setFolderOptionsLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -420,6 +420,7 @@ export function DrivePage() {
   const [downloadingFileId, setDownloadingFileId] = useState<number | null>(null);
   const [previewState, setPreviewState] = useState<PreviewState>(initialPreviewState);
   const [error, setError] = useState<string | null>(null);
+  const [publicAppPackageError, setPublicAppPackageError] = useState<string | null>(null);
   const [keywordInput, setKeywordInput] = useState('');
   const [keyword, setKeyword] = useState('');
   const [nodeTypeFilter, setNodeTypeFilter] = useState<StorageNodeFilter>('ALL');
@@ -470,8 +471,27 @@ export function DrivePage() {
   const isAdmin = currentUser?.role === 'ADMIN';
   const currentAvatarSrc = resolveAvatarSrc(currentUser);
   const homeBackgroundImage = resolveHomeBackgroundSrc(currentUser);
-  const appDownloadUrl = resolveAppDownloadUrl();
-  const appDownloadQrSrc = resolveAppDownloadQrSrc(appDownloadUrl);
+  const appDownloadAvailable = publicAppPackageInfo?.available ?? false;
+  const appDownloadUrl = resolveAppDownloadUrl(publicAppPackageInfo?.downloadUrl ?? APP_DOWNLOAD_PUBLIC_PATH);
+  const appDownloadNote = publicAppPackageLoading
+    ? '正在检查当前正式安装包状态。'
+    : publicAppPackageError
+      ? '当前暂时无法读取安装包状态，请稍后刷新。'
+      : appDownloadAvailable
+        ? '扫码直达当前正式安装包。管理员可在左侧 APP 上传栏目里随时替换新版。'
+        : '当前还没有上传正式 APK。管理员上传后，这里会自动开放下载。';
+  const appDownloadButtonLabel = publicAppPackageLoading
+    ? '正在检查…'
+    : publicAppPackageError
+      ? '稍后重试'
+      : appDownloadAvailable
+        ? '下载 APK'
+        : '等待上传';
+  const appDownloadEmptyLabel = publicAppPackageLoading
+    ? '正在加载'
+    : publicAppPackageError
+      ? '状态不可用'
+      : '暂未上传 APK';
   const mainShellClassName = `app-main-shell${isHomeView && homeBackgroundImage ? ' app-main-shell-with-background' : ''}`;
   const mainShellStyle =
     isHomeView && homeBackgroundImage
@@ -696,6 +716,20 @@ export function DrivePage() {
     }
   }
 
+  async function loadPublicAppPackageInfo() {
+    setPublicAppPackageLoading(true);
+    setPublicAppPackageError(null);
+
+    try {
+      setPublicAppPackageInfo(await fetchPublicAppPackage());
+    } catch (loadError) {
+      setPublicAppPackageInfo(null);
+      setPublicAppPackageError(loadError instanceof Error ? loadError.message : '加载 APK 下载信息失败。');
+    } finally {
+      setPublicAppPackageLoading(false);
+    }
+  }
+
   /**
    * 刷新文件夹树，用于移动弹窗里的目标目录选择。   */
   async function loadFolderOptions() {
@@ -717,11 +751,15 @@ export function DrivePage() {
   /**
    * 刷新当前页需要的远程数据。   */
   async function refreshCurrentView() {
-    await Promise.all([loadHealth(), loadDrive(), loadUsers(), loadAppPackageInfo()]);
+    await Promise.all([loadHealth(), loadDrive(), loadUsers(), loadAppPackageInfo(), loadPublicAppPackageInfo()]);
   }
 
   useEffect(() => {
     void loadHealth();
+  }, []);
+
+  useEffect(() => {
+    void loadPublicAppPackageInfo();
   }, []);
 
   useEffect(() => {
@@ -1020,6 +1058,8 @@ export function DrivePage() {
     try {
       const nextPackageInfo = await uploadAdminAppPackage(selectedFile, authToken);
       setAppPackageInfo(nextPackageInfo);
+      setPublicAppPackageInfo(nextPackageInfo);
+      setPublicAppPackageError(null);
       message.success('APK 已上传，首页下载入口已同步更新。');
     } catch (uploadError) {
       message.error(uploadError instanceof Error ? uploadError.message : 'APK 上传失败。');
@@ -1042,6 +1082,14 @@ export function DrivePage() {
         uploadedAt: null,
         downloadUrl: APP_DOWNLOAD_PUBLIC_PATH,
       });
+      setPublicAppPackageInfo({
+        available: false,
+        fileName: null,
+        fileSizeBytes: null,
+        uploadedAt: null,
+        downloadUrl: APP_DOWNLOAD_PUBLIC_PATH,
+      });
+      setPublicAppPackageError(null);
       message.success('当前安装包已移除。');
     } catch (deleteError) {
       message.error(deleteError instanceof Error ? deleteError.message : '移除安装包失败。');
@@ -2060,26 +2108,36 @@ export function DrivePage() {
           <div className="sider-download-copy">
             <Typography.Text className="sider-download-eyebrow">APP 下载</Typography.Text>
             <Typography.Title level={5}>安卓客户端</Typography.Title>
-            <Typography.Text className="sider-download-note">
-              扫码直达当前正式安装包。管理员可在左侧 APP 上传栏目里随时替换新版。
-            </Typography.Text>
+            <Typography.Text className="sider-download-note">{appDownloadNote}</Typography.Text>
           </div>
 
-          <a
-            href={appDownloadUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="sider-download-qr-link"
-            aria-label="下载安卓客户端"
-          >
-            <img src={appDownloadQrSrc} alt="安卓客户端下载二维码" className="sider-download-qr" />
-          </a>
+          {appDownloadAvailable ? (
+            <a
+              href={appDownloadUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="sider-download-qr-link"
+              aria-label="下载安卓客户端"
+            >
+              <div className="sider-download-qr">
+                <QRCode value={appDownloadUrl} size={168} bordered={false} />
+              </div>
+            </a>
+          ) : (
+            <div className="sider-download-qr-link sider-download-qr-link-disabled" aria-hidden="true">
+              <div className="sider-download-empty">{appDownloadEmptyLabel}</div>
+            </div>
+          )}
 
           <Typography.Text className="sider-download-path">{APP_DOWNLOAD_PUBLIC_PATH}</Typography.Text>
 
-          <a href={appDownloadUrl} target="_blank" rel="noreferrer" className="sider-download-link">
-            下载 APK
-          </a>
+          {appDownloadAvailable ? (
+            <a href={appDownloadUrl} target="_blank" rel="noreferrer" className="sider-download-link">
+              {appDownloadButtonLabel}
+            </a>
+          ) : (
+            <span className="sider-download-link sider-download-link-disabled">{appDownloadButtonLabel}</span>
+          )}
         </section>
       </Sider>
 

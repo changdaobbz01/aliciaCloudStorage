@@ -946,6 +946,10 @@ export function resetUserPassword(userId: number, payload: ResetUserPasswordPayl
   );
 }
 
+export function fetchPublicAppPackage() {
+  return requestJson<AppPackageInfo>('/api/app-package');
+}
+
 export function fetchAdminAppPackage(token: string) {
   return requestJson<AppPackageInfo>('/api/admin/app-package', withToken(token));
 }
