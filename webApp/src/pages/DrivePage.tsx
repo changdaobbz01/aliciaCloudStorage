@@ -180,6 +180,10 @@ const MAX_UPLOAD_RETRIES = 2;
 const MAX_CHUNK_UPLOAD_RETRIES = 2;
 const MAX_HOME_BACKGROUND_BYTES = 10 * 1024 * 1024;
 const DEFAULT_NEW_USER_QUOTA_GB = 50;
+const DEFAULT_HOME_BACKGROUND_ACCENT = {
+  eyebrow: '#334155',
+  title: '#0f172a',
+};
 const APP_DOWNLOAD_PUBLIC_PATH = '/api/app-package/download/current';
 const PREVIEWABLE_TEXT_EXTENSIONS = new Set([
   'txt',
@@ -330,6 +334,139 @@ function resolveAppDownloadUrl(downloadPath = APP_DOWNLOAD_PUBLIC_PATH) {
   return new URL(downloadPath, window.location.origin).toString();
 }
 
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function rgbToHsl(red: number, green: number, blue: number) {
+  const r = red / 255;
+  const g = green / 255;
+  const b = blue / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const lightness = (max + min) / 2;
+  const delta = max - min;
+
+  if (delta === 0) {
+    return { hue: 0, saturation: 0, lightness };
+  }
+
+  const saturation = lightness > 0.5 ? delta / (2 - max - min) : delta / (max + min);
+  let hue = 0;
+
+  switch (max) {
+    case r:
+      hue = (g - b) / delta + (g < b ? 6 : 0);
+      break;
+    case g:
+      hue = (b - r) / delta + 2;
+      break;
+    default:
+      hue = (r - g) / delta + 4;
+      break;
+  }
+
+  return {
+    hue: hue * 60,
+    saturation,
+    lightness,
+  };
+}
+
+function toAccentColor(hue: number, saturation: number, lightness: number, targetLightness: number) {
+  const normalizedHue = ((hue % 360) + 360) % 360;
+  const normalizedSaturation = clamp(saturation, 0.42, 0.82);
+  const adjustedLightness = clamp(targetLightness + (lightness - 0.5) * 0.08, 0.18, 0.34);
+
+  return `hsl(${Math.round(normalizedHue)} ${Math.round(normalizedSaturation * 100)}% ${Math.round(adjustedLightness * 100)}%)`;
+}
+
+async function deriveHomeBackgroundAccent(imageUrl: string) {
+  if (typeof window === 'undefined') {
+    return DEFAULT_HOME_BACKGROUND_ACCENT;
+  }
+
+  return new Promise<typeof DEFAULT_HOME_BACKGROUND_ACCENT>((resolve) => {
+    const image = new Image();
+    image.decoding = 'async';
+    image.crossOrigin = 'anonymous';
+
+    image.onload = () => {
+      try {
+        const sampleWidth = 28;
+        const sampleHeight = 28;
+        const canvas = document.createElement('canvas');
+        canvas.width = sampleWidth;
+        canvas.height = sampleHeight;
+
+        const context = canvas.getContext('2d', { willReadFrequently: true });
+        if (!context) {
+          resolve(DEFAULT_HOME_BACKGROUND_ACCENT);
+          return;
+        }
+
+        context.drawImage(image, 0, 0, sampleWidth, sampleHeight);
+        const { data } = context.getImageData(0, 0, sampleWidth, sampleHeight);
+        const buckets = Array.from({ length: 12 }, () => ({
+          weight: 0,
+          red: 0,
+          green: 0,
+          blue: 0,
+        }));
+
+        for (let index = 0; index < data.length; index += 4) {
+          const alpha = data[index + 3] / 255;
+          if (alpha < 0.2) {
+            continue;
+          }
+
+          const red = data[index];
+          const green = data[index + 1];
+          const blue = data[index + 2];
+          const { hue, saturation, lightness } = rgbToHsl(red, green, blue);
+
+          if (saturation < 0.12 || lightness > 0.92) {
+            continue;
+          }
+
+          const hueIndex = Math.floor((((hue % 360) + 360) % 360) / 30) % buckets.length;
+          const weight =
+            alpha *
+            (0.35 + saturation) *
+            (0.25 + clamp(1 - Math.abs(lightness - 0.48) * 1.6, 0.2, 1));
+
+          buckets[hueIndex].weight += weight;
+          buckets[hueIndex].red += red * weight;
+          buckets[hueIndex].green += green * weight;
+          buckets[hueIndex].blue += blue * weight;
+        }
+
+        const dominantBucket = buckets.reduce((best, current) => (current.weight > best.weight ? current : best), buckets[0]);
+
+        if (!dominantBucket || dominantBucket.weight <= 0) {
+          resolve(DEFAULT_HOME_BACKGROUND_ACCENT);
+          return;
+        }
+
+        const averageRed = dominantBucket.red / dominantBucket.weight;
+        const averageGreen = dominantBucket.green / dominantBucket.weight;
+        const averageBlue = dominantBucket.blue / dominantBucket.weight;
+        const { hue, saturation, lightness } = rgbToHsl(averageRed, averageGreen, averageBlue);
+
+        resolve({
+          eyebrow: toAccentColor(hue, saturation, lightness, 0.3),
+          title: toAccentColor(hue, saturation + 0.08, lightness, 0.22),
+        });
+      } catch {
+        resolve(DEFAULT_HOME_BACKGROUND_ACCENT);
+      }
+    };
+
+    image.onerror = () => resolve(DEFAULT_HOME_BACKGROUND_ACCENT);
+    image.src = imageUrl;
+  });
+}
+
 function shouldUseMultipartUpload(file: File) {
   return file.size > MULTIPART_UPLOAD_THRESHOLD_BYTES;
 }
@@ -421,6 +558,7 @@ export function DrivePage() {
   const [previewState, setPreviewState] = useState<PreviewState>(initialPreviewState);
   const [error, setError] = useState<string | null>(null);
   const [publicAppPackageError, setPublicAppPackageError] = useState<string | null>(null);
+  const [homeBackgroundAccent, setHomeBackgroundAccent] = useState(DEFAULT_HOME_BACKGROUND_ACCENT);
   const [keywordInput, setKeywordInput] = useState('');
   const [keyword, setKeyword] = useState('');
   const [nodeTypeFilter, setNodeTypeFilter] = useState<StorageNodeFilter>('ALL');
@@ -490,6 +628,8 @@ export function DrivePage() {
     isHomeView && homeBackgroundImage
       ? ({
           '--home-background-image': `url(${homeBackgroundImage})`,
+          '--home-background-accent-eyebrow': homeBackgroundAccent.eyebrow,
+          '--home-background-accent-title': homeBackgroundAccent.title,
         } as CSSProperties)
       : undefined;
   const contentClassName = `app-content${isHomeView ? ' app-content-home' : ''}`;
@@ -750,6 +890,27 @@ export function DrivePage() {
   useEffect(() => {
     void loadHealth();
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!homeBackgroundImage) {
+      setHomeBackgroundAccent(DEFAULT_HOME_BACKGROUND_ACCENT);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    void deriveHomeBackgroundAccent(homeBackgroundImage).then((nextAccent) => {
+      if (!cancelled) {
+        setHomeBackgroundAccent(nextAccent);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [homeBackgroundImage]);
 
   useEffect(() => {
     void loadPublicAppPackageInfo();
