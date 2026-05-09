@@ -204,9 +204,7 @@ select {
 }
 
 .app-main-shell-with-background {
-  background:
-    linear-gradient(180deg, rgba(245, 247, 251, 0.7) 0%, rgba(245, 247, 251, 0.42) 16%, rgba(245, 247, 251, 0.28) 100%),
-    var(--home-background-image) center / cover no-repeat;
+  background: var(--home-background-image) center / cover no-repeat;
 }
 
 .app-sider {
@@ -631,7 +629,17 @@ select {
 .home-dashboard-with-background .muted-text,
 .home-dashboard-with-background .home-stat-label,
 .home-dashboard-with-background .usage-chart-axis {
-  color: #5f6f85;
+  color: #334155;
+}
+
+.app-main-shell-with-background .header-eyebrow {
+  color: #334155;
+}
+
+.home-dashboard-with-background .panel-subtitle,
+.home-dashboard-with-background .home-card-header .muted-text,
+.home-dashboard-with-background .home-space-meter .muted-text {
+  color: #334155 !important;
 }
 
 .home-card-header {
