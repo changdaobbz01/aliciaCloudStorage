@@ -94,6 +94,32 @@ class StorageQueryServiceTest {
     }
 
     @Test
+    void listNodesSupportsRecursiveCreatedAtSortingForRecentUploads() {
+        Long userId = 12L;
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+
+        when(storageNodeRepository.searchNodes(eq(userId), isNull(), eq(true), isNull(), eq(NodeType.FILE), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(), org.springframework.data.domain.PageRequest.of(0, 4), 8));
+
+        var response = storageQueryService.listNodes(userId, null, true, null, "FILE", 1, 4, "createdAt", "desc");
+
+        verify(storageNodeRepository).searchNodes(eq(userId), isNull(), eq(true), isNull(), eq(NodeType.FILE), pageableCaptor.capture());
+        Pageable pageable = pageableCaptor.getValue();
+
+        assertThat(pageable.getPageNumber()).isEqualTo(0);
+        assertThat(pageable.getPageSize()).isEqualTo(4);
+        assertThat(pageable.getSort()).containsExactly(
+                new Sort.Order(Sort.Direction.DESC, "nodeType"),
+                new Sort.Order(Sort.Direction.DESC, "createdAt"),
+                new Sort.Order(Sort.Direction.ASC, "nodeName"),
+                new Sort.Order(Sort.Direction.ASC, "id")
+        );
+        assertThat(response.totalItems()).isEqualTo(8);
+        assertThat(response.sortBy()).isEqualTo("createdAt");
+        assertThat(response.sortDirection()).isEqualTo("desc");
+    }
+
+    @Test
     void listTrashNodesDefaultsToDeletedTimeDescending() {
         Long userId = 5L;
         StorageNode newerNode = deletedFolder(12L, userId, "新项目", LocalDateTime.of(2026, 4, 29, 9, 0));

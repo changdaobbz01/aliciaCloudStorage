@@ -8,5 +8,6 @@
 /deploy/certs/*.pem
 /tmp/
 /_tmp/
+/接力.md
 .idea/
 .vscode/

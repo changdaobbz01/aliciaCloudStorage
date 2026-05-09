@@ -53,6 +53,34 @@ public class StorageQueryService {
             String rawSortBy,
             String rawSortDirection
     ) {
+        return listNodesInternal(userId, parentId, false, keyword, rawType, page, size, rawSortBy, rawSortDirection);
+    }
+
+    public PageResponse<StorageNodeSummaryResponse> listNodes(
+            Long userId,
+            Long parentId,
+            boolean recursive,
+            String keyword,
+            String rawType,
+            Integer page,
+            Integer size,
+            String rawSortBy,
+            String rawSortDirection
+    ) {
+        return listNodesInternal(userId, parentId, recursive, keyword, rawType, page, size, rawSortBy, rawSortDirection);
+    }
+
+    private PageResponse<StorageNodeSummaryResponse> listNodesInternal(
+            Long userId,
+            Long parentId,
+            boolean recursive,
+            String keyword,
+            String rawType,
+            Integer page,
+            Integer size,
+            String rawSortBy,
+            String rawSortDirection
+    ) {
         String normalizedKeyword = normalizeKeyword(keyword);
         NodeType nodeType = normalizeNodeType(rawType);
         int normalizedPage = normalizePage(page);
@@ -64,7 +92,16 @@ public class StorageQueryService {
                 normalizedSize,
                 buildDriveSort(sortBy, sortDirection)
         );
-        Page<StorageNode> nodes = storageNodeRepository.searchNodes(
+        Page<StorageNode> nodes = recursive
+                ? storageNodeRepository.searchNodes(
+                userId,
+                parentId,
+                true,
+                normalizedKeyword,
+                nodeType,
+                pageable
+        )
+                : storageNodeRepository.searchNodes(
                 userId,
                 parentId,
                 normalizedKeyword,
@@ -293,7 +330,7 @@ public class StorageQueryService {
         }
 
         return switch (rawSortBy.trim()) {
-            case "name", "size", "updatedAt" -> rawSortBy.trim();
+            case "name", "size", "updatedAt", "createdAt" -> rawSortBy.trim();
             default -> throw new IllegalArgumentException("文件列表排序字段不合法。");
         };
     }
@@ -328,6 +365,7 @@ public class StorageQueryService {
         switch (sortBy) {
             case "size" -> orders.add(new Sort.Order(sortDirection, "fileSize"));
             case "updatedAt" -> orders.add(new Sort.Order(sortDirection, "updatedAt"));
+            case "createdAt" -> orders.add(new Sort.Order(sortDirection, "createdAt"));
             case "name" -> orders.add(new Sort.Order(sortDirection, "nodeName"));
             default -> throw new IllegalArgumentException("文件列表排序字段不合法。");
         }

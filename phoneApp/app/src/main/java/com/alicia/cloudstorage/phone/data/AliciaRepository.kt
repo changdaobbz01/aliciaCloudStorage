@@ -35,6 +35,24 @@ class AliciaRepository(
             .fetchCurrentUser(authorization(token))
             .requireBody(fallback = "获取当前账号信息失败。")
 
+    suspend fun updateProfile(
+        baseUrl: String,
+        token: String,
+        phoneNumber: String,
+        nickname: String,
+        avatarUrl: String?,
+    ): User =
+        serviceFactory.serviceFor(baseUrl)
+            .updateProfile(
+                authorization = authorization(token),
+                payload = UpdateProfilePayload(
+                    phoneNumber = phoneNumber,
+                    nickname = nickname,
+                    avatarUrl = avatarUrl,
+                ),
+            )
+            .requireBody(fallback = "更新个人资料失败。")
+
     suspend fun uploadCurrentUserAvatar(
         context: Context,
         baseUrl: String,
@@ -104,17 +122,23 @@ class AliciaRepository(
         parentId: Long?,
         keyword: String,
         filter: StorageNodeFilter,
+        page: Int = 1,
+        size: Int = 100,
+        sortBy: String = "name",
+        sortDirection: String = "asc",
+        recursive: Boolean = false,
     ): StorageNodePage =
         serviceFactory.serviceFor(baseUrl)
             .fetchStorageNodes(
                 authorization = authorization(token),
                 parentId = parentId,
+                recursive = recursive,
                 keyword = keyword.trim().takeIf { it.isNotEmpty() },
                 type = filter.takeUnless { it == StorageNodeFilter.ALL }?.name,
-                page = 1,
-                size = 100,
-                sortBy = "name",
-                sortDirection = "asc",
+                page = page,
+                size = size,
+                sortBy = sortBy,
+                sortDirection = sortDirection,
             )
             .requireBody(fallback = "加载文件列表失败。")
 
@@ -135,6 +159,11 @@ class AliciaRepository(
                 sortDirection = "desc",
             )
             .requireBody(fallback = "加载回收站失败。")
+
+    suspend fun fetchFolders(baseUrl: String, token: String): List<StorageNode> =
+        serviceFactory.serviceFor(baseUrl)
+            .fetchFolders(authorization(token))
+            .requireBody(fallback = "加载文件夹目录失败。")
 
     suspend fun fetchUsers(baseUrl: String, token: String): List<User> =
         serviceFactory.serviceFor(baseUrl)
@@ -262,6 +291,22 @@ class AliciaRepository(
         }
     }
 
+    suspend fun moveNodes(
+        baseUrl: String,
+        token: String,
+        nodeIds: List<Long>,
+        parentId: Long?,
+    ): List<StorageNode> =
+        serviceFactory.serviceFor(baseUrl)
+            .moveNodes(
+                authorization = authorization(token),
+                payload = BatchMoveNodePayload(
+                    nodeIds = nodeIds,
+                    parentId = parentId,
+                ),
+            )
+            .requireBody(fallback = "批量移动失败。")
+
     suspend fun moveNodeToTrash(
         baseUrl: String,
         token: String,
@@ -273,6 +318,18 @@ class AliciaRepository(
                 nodeId = nodeId,
             )
             .requireBody(fallback = "删除到回收站失败。")
+
+    suspend fun moveNodesToTrash(
+        baseUrl: String,
+        token: String,
+        nodeIds: List<Long>,
+    ): ApiMessageResponse =
+        serviceFactory.serviceFor(baseUrl)
+            .moveNodesToTrash(
+                authorization = authorization(token),
+                payload = BatchNodePayload(nodeIds = nodeIds),
+            )
+            .requireBody(fallback = "批量移入回收站失败。")
 
     suspend fun restoreNode(
         baseUrl: String,
@@ -286,6 +343,18 @@ class AliciaRepository(
             )
             .requireBody(fallback = "恢复文件失败。")
 
+    suspend fun restoreNodes(
+        baseUrl: String,
+        token: String,
+        nodeIds: List<Long>,
+    ): List<StorageNode> =
+        serviceFactory.serviceFor(baseUrl)
+            .restoreNodes(
+                authorization = authorization(token),
+                payload = BatchNodePayload(nodeIds = nodeIds),
+            )
+            .requireBody(fallback = "批量恢复失败。")
+
     suspend fun permanentlyDeleteNode(
         baseUrl: String,
         token: String,
@@ -297,6 +366,18 @@ class AliciaRepository(
                 nodeId = nodeId,
             )
             .requireBody(fallback = "彻底删除失败。")
+
+    suspend fun permanentlyDeleteNodes(
+        baseUrl: String,
+        token: String,
+        nodeIds: List<Long>,
+    ): ApiMessageResponse =
+        serviceFactory.serviceFor(baseUrl)
+            .permanentlyDeleteNodes(
+                authorization = authorization(token),
+                payload = BatchNodePayload(nodeIds = nodeIds),
+            )
+            .requireBody(fallback = "批量彻底删除失败。")
 
     suspend fun downloadFile(
         baseUrl: String,

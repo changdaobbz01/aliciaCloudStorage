@@ -1,0 +1,190 @@
+<svg width="1180" height="1180" viewBox="0 0 1180 1180" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#081321"/>
+      <stop offset="1" stop-color="#131d2d"/>
+    </linearGradient>
+    <linearGradient id="armor" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#f1f6ff"/>
+    </linearGradient>
+    <linearGradient id="blue" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2b7cff"/>
+      <stop offset="1" stop-color="#004fe8"/>
+    </linearGradient>
+    <linearGradient id="radar" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#48d5ff"/>
+      <stop offset="0.52" stop-color="#35d978"/>
+      <stop offset="1" stop-color="#ff9d24"/>
+    </linearGradient>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="8" stdDeviation="9" flood-color="#020713" flood-opacity="0.24"/>
+    </filter>
+    <filter id="navShadow" x="-20%" y="-40%" width="140%" height="170%">
+      <feDropShadow dx="0" dy="-7" stdDeviation="7" flood-color="#020713" flood-opacity="0.24"/>
+    </filter>
+    <style>
+      .label { font: 700 20px 'Noto Sans', 'Microsoft YaHei', sans-serif; fill: #eaf2ff; }
+      .small-note { font: 500 13px 'Noto Sans', 'Microsoft YaHei', sans-serif; fill: #9fb3d0; }
+      .title { font: 900 37px 'Noto Sans', 'Microsoft YaHei', sans-serif; fill: #f8fbff; letter-spacing: 0; }
+      .panel-title { font: 900 28px 'Noto Sans', 'Microsoft YaHei', sans-serif; fill: #101626; }
+      .card-title { font: 800 16px 'Noto Sans', 'Microsoft YaHei', sans-serif; fill: #101626; }
+      .body { font: 500 13px 'Noto Sans', 'Microsoft YaHei', sans-serif; fill: #758198; }
+      .action { font: 800 14px 'Noto Sans', 'Microsoft YaHei', sans-serif; fill: #1e63ff; }
+      .metric { font: 900 25px 'Noto Sans', 'Microsoft YaHei', sans-serif; fill: #101626; }
+      .nav { font: 700 14px 'Noto Sans', 'Microsoft YaHei', sans-serif; fill: #738097; }
+      .chamfer { stroke: #1e63ff; stroke-width: 3; stroke-linecap: round; opacity: .9; }
+      .orange { stroke: #ff9d24; }
+      .thin { stroke: #d9e5f5; stroke-width: 1.4; }
+      .grid { stroke: #2b3a52; stroke-width: .7; opacity: .28; }
+    </style>
+  </defs>
+
+  <rect width="1180" height="1180" fill="#071120"/>
+  <text x="56" y="58" class="label">Alicia 云盘机甲风移动端首页设计板</text>
+  <text x="56" y="86" class="small-note">规则：普通用户态不显示“账号管理”快捷入口；管理员态才显示账号管理。底部普通用户使用“我的”语义，避免误读成管理后台。</text>
+
+  <g id="screen-regular" transform="translate(90 150)">
+    <text x="0" y="-32" class="label">普通用户首页：隐藏账号管理入口</text>
+    <rect width="390" height="844" rx="28" fill="url(#bg)"/>
+    <g opacity=".7">
+      <path d="M0 80H390M0 140H390M0 200H390M0 260H390M0 320H390M0 380H390M0 440H390M0 500H390M0 560H390M0 620H390M0 680H390M0 740H390" class="grid"/>
+      <path d="M39 0V844M78 0V844M117 0V844M156 0V844M195 0V844M234 0V844M273 0V844M312 0V844M351 0V844" class="grid"/>
+    </g>
+    <path d="M285 0l48 52v72M0 724l34-48" fill="none" stroke="#48d5ff" stroke-width="1.5" opacity=".7"/>
+
+    <g opacity=".96">
+      <polygon points="52,11 83,31 72,61 42,61 31,31" fill="#f7faff" stroke="#bfd5f4" stroke-width="1.5"/>
+      <path d="M62 18L20-16M64 18L106-16" stroke="#f7faff" stroke-width="5" stroke-linecap="round"/>
+      <path d="M62 18L20-16M64 18L106-16" stroke="#ffb33b" stroke-width="1.4" stroke-linecap="round"/>
+      <rect x="48" y="39" width="25" height="31" rx="4" fill="#e9f1fc" stroke="#9db5d5"/>
+      <rect x="51" y="44" width="19" height="5" rx="2" fill="#24e1ff"/>
+      <rect x="56" y="59" width="10" height="14" rx="2" fill="#e43b35"/>
+      <rect x="30" y="75" width="66" height="48" rx="9" fill="#1d55b8" stroke="#6d97e8"/>
+      <rect x="8" y="72" width="38" height="40" rx="7" fill="#f7faff" stroke="#c8d8f1"/>
+      <rect x="80" y="72" width="38" height="40" rx="7" fill="#f7faff" stroke="#c8d8f1"/>
+      <rect x="47" y="88" width="30" height="11" rx="3" fill="#48d5ff"/>
+      <rect x="34" y="102" width="20" height="6" rx="2" fill="#ff9d24"/>
+      <rect x="72" y="102" width="20" height="6" rx="2" fill="#ff9d24"/>
+    </g>
+    <g transform="translate(294 6) scale(-1 1)" opacity=".92">
+      <polygon points="-52,11 -83,31 -72,61 -42,61 -31,31" fill="#f7faff" stroke="#bfd5f4" stroke-width="1.5"/>
+      <path d="M-62 18L-20-16M-64 18L-106-16" stroke="#f7faff" stroke-width="5" stroke-linecap="round"/>
+      <path d="M-62 18L-20-16M-64 18L-106-16" stroke="#ffb33b" stroke-width="1.4" stroke-linecap="round"/>
+      <rect x="-73" y="39" width="25" height="31" rx="4" fill="#e9f1fc" stroke="#9db5d5"/>
+      <rect x="-70" y="44" width="19" height="5" rx="2" fill="#24e1ff"/>
+      <rect x="-66" y="59" width="10" height="14" rx="2" fill="#e43b35"/>
+      <rect x="-96" y="75" width="66" height="48" rx="9" fill="#1d55b8" stroke="#6d97e8"/>
+    </g>
+
+    <text x="22" y="77" class="title">Alicia 云盘</text>
+    <rect x="23" y="96" width="126" height="3" rx="2" fill="#48d5ff"/>
+    <circle cx="346" cy="67" r="22" fill="url(#radar)" stroke="#ffffff" stroke-width="3"/>
+
+    <g filter="url(#softShadow)">
+      <rect x="18" y="118" width="354" height="58" rx="29" fill="url(#armor)" stroke="#d7e3f3" stroke-width="1.5"/>
+      <text x="40" y="153" class="body" font-size="16">搜索网盘文件</text>
+      <text x="304" y="153" class="action">搜索</text>
+    </g>
+
+    <g filter="url(#softShadow)">
+      <rect x="18" y="194" width="354" height="164" rx="18" fill="url(#armor)" stroke="#d7e2f4" stroke-width="1.5"/>
+      <path class="chamfer" d="M30 212l14-14M346 198l14 14M30 340l14 14M346 354l14-14"/>
+      <rect x="38" y="214" width="76" height="32" rx="16" fill="#eaf2ff" stroke="#cfddf5"/>
+      <text x="54" y="235" class="action" font-size="13">我的空间</text>
+      <text x="232" y="236" class="panel-title">我的云盘</text>
+      <rect x="38" y="269" width="314" height="68" rx="24" fill="#ffffff" stroke="#d9e3f3" stroke-width="1.5"/>
+      <circle cx="73" cy="303" r="17" fill="#eaf2ff"/>
+      <path d="M63 307h21a7 7 0 0 0 0-14 11 11 0 0 0-21 4 6 6 0 0 0 0 10z" fill="none" stroke="#1e63ff" stroke-width="4"/>
+      <text x="110" y="296" class="card-title">云端空间运行正常</text>
+      <text x="110" y="318" class="body">147 KB / 无限制</text>
+      <rect x="256" y="286" width="78" height="34" rx="17" fill="#eaf2ff" stroke="#92b3f8" stroke-width="1.5"/>
+      <text x="268" y="308" class="action" font-size="13">查看文件</text>
+    </g>
+
+    <g filter="url(#softShadow)">
+      <rect x="18" y="376" width="108" height="104" rx="16" fill="#f8fbff" stroke="#dde7f7" stroke-width="1.3"/>
+      <rect x="141" y="376" width="108" height="104" rx="16" fill="#f8fbff" stroke="#dde7f7" stroke-width="1.3"/>
+      <rect x="264" y="376" width="108" height="104" rx="16" fill="#f8fbff" stroke="#dde7f7" stroke-width="1.3"/>
+      <path class="chamfer" d="M30 394l14-14M114 380l8 8M30 462l14 14M114 476l8-8"/>
+      <path class="chamfer" d="M153 394l14-14M237 380l8 8M153 462l14 14M237 476l8-8"/>
+      <path class="chamfer" d="M276 394l14-14M360 380l8 8M276 462l14 14M360 476l8-8"/>
+      <circle cx="72" cy="405" r="17" fill="#eaf2ff"/>
+      <rect x="59" y="400" width="27" height="20" rx="3" fill="none" stroke="#1e63ff" stroke-width="4"/>
+      <circle cx="195" cy="405" r="17" fill="#eaf2ff"/>
+      <path d="M189 420V391h14l9 9v20z" fill="#1e63ff"/>
+      <path d="M195 414v-13M190 406l5-5 5 5" fill="none" stroke="#fff" stroke-width="3"/>
+      <circle cx="318" cy="405" r="17" fill="#eaf2ff"/>
+      <path d="M310 396h16M313 397v24h10v-24M314 392h8" fill="none" stroke="#1e63ff" stroke-width="4" stroke-linecap="round"/>
+      <text x="44" y="444" class="card-title">全部文件</text>
+      <text x="167" y="444" class="card-title">上传文件</text>
+      <text x="295" y="444" class="card-title">回收站</text>
+      <text x="51" y="467" class="body" font-size="11">浏览目录</text>
+      <text x="174" y="467" class="body" font-size="11">快速入库</text>
+      <text x="296" y="467" class="body" font-size="11">恢复删除</text>
+    </g>
+
+    <g filter="url(#softShadow)">
+      <rect x="18" y="498" width="170" height="84" rx="14" fill="#fafcff" stroke="#dae5f4"/>
+      <rect x="202" y="498" width="170" height="84" rx="14" fill="#fafcff" stroke="#dae5f4"/>
+      <rect x="18" y="594" width="170" height="84" rx="14" fill="#fafcff" stroke="#dae5f4"/>
+      <rect x="202" y="594" width="170" height="84" rx="14" fill="#fafcff" stroke="#dae5f4"/>
+      <text x="34" y="527" class="body">总项目</text><text x="34" y="563" class="metric">7</text>
+      <text x="218" y="527" class="body">文件夹</text><text x="218" y="563" class="metric">6</text>
+      <text x="34" y="623" class="body">文件数</text><text x="34" y="659" class="metric">1</text>
+      <text x="218" y="623" class="body">已用空间</text><text x="218" y="659" class="metric">147 KB</text>
+    </g>
+
+    <g filter="url(#softShadow)">
+      <rect x="18" y="690" width="354" height="92" rx="18" fill="url(#armor)" stroke="#d7e2f4"/>
+      <text x="36" y="724" class="panel-title" font-size="21">空间趋势</text>
+      <text x="36" y="762" class="metric">147 KB / 无限制</text>
+      <rect x="228" y="709" width="118" height="54" rx="18" fill="#eaf2ff" stroke="#c8d9fa"/>
+      <polyline points="238,751 258,751 276,751 298,725 320,725 338,725" fill="none" stroke="#1e63ff" stroke-width="4" stroke-linecap="round"/>
+      <g fill="#fff" stroke="#1e63ff" stroke-width="2">
+        <circle cx="238" cy="751" r="4"/><circle cx="258" cy="751" r="4"/><circle cx="276" cy="751" r="4"/><circle cx="298" cy="725" r="4"/><circle cx="320" cy="725" r="4"/><circle cx="338" cy="725" r="4"/>
+      </g>
+    </g>
+
+    <g filter="url(#navShadow)">
+      <rect x="0" y="746" width="390" height="98" fill="#f8fbff" stroke="#d6e0f0"/>
+      <rect x="44" y="746" width="302" height="5" rx="2" fill="#152033"/>
+      <rect x="139" y="728" width="112" height="70" rx="18" fill="url(#blue)" stroke="#9fc0ff" stroke-width="2"/>
+      <text x="68" y="806" class="nav" fill="#738097">首页</text>
+      <text x="176" y="806" class="nav" fill="#ffffff">首页</text>
+      <text x="318" y="806" class="nav" fill="#738097">文件</text>
+      <text x="100" y="830" class="small-note" font-size="10">普通用户态：不显示账号管理快捷入口</text>
+    </g>
+  </g>
+
+  <g id="screen-admin" transform="translate(650 150)">
+    <use href="#screen-regular" transform="translate(-90 -150)"/>
+    <rect x="-4" y="-55" width="430" height="48" fill="#071120"/>
+    <text x="0" y="-32" class="label">管理员首页：显示账号管理入口</text>
+    <rect x="0" y="-55" width="430" height="930" fill="none"/>
+    <rect x="18" y="376" width="354" height="104" rx="16" fill="#071120" opacity=".95"/>
+    <g filter="url(#softShadow)">
+      <rect x="18" y="376" width="80" height="104" rx="16" fill="#f8fbff" stroke="#dde7f7" stroke-width="1.3"/>
+      <rect x="110" y="376" width="80" height="104" rx="16" fill="#f8fbff" stroke="#dde7f7" stroke-width="1.3"/>
+      <rect x="202" y="376" width="80" height="104" rx="16" fill="#f8fbff" stroke="#dde7f7" stroke-width="1.3"/>
+      <rect x="294" y="376" width="80" height="104" rx="16" fill="#f8fbff" stroke="#dde7f7" stroke-width="1.3"/>
+      <circle cx="58" cy="405" r="17" fill="#eaf2ff"/><rect x="45" y="400" width="27" height="20" rx="3" fill="none" stroke="#1e63ff" stroke-width="4"/>
+      <circle cx="150" cy="405" r="17" fill="#eaf2ff"/><path d="M144 420V391h14l9 9v20z" fill="#1e63ff"/><path d="M150 414v-13M145 406l5-5 5 5" fill="none" stroke="#fff" stroke-width="3"/>
+      <circle cx="242" cy="405" r="17" fill="#eaf2ff"/><path d="M234 396h16M237 397v24h10v-24M238 392h8" fill="none" stroke="#1e63ff" stroke-width="4" stroke-linecap="round"/>
+      <circle cx="334" cy="405" r="17" fill="#eaf2ff"/><circle cx="327" cy="399" r="7" fill="#1e63ff"/><path d="M317 421c2-10 17-10 21 0z" fill="#1e63ff"/><circle cx="344" cy="414" r="6" fill="#1e63ff"/>
+      <text x="30" y="444" class="card-title" font-size="13">全部文件</text><text x="122" y="444" class="card-title" font-size="13">上传文件</text><text x="222" y="444" class="card-title" font-size="13">回收站</text><text x="306" y="444" class="card-title" font-size="13">账号管理</text>
+      <text x="37" y="467" class="body" font-size="10">浏览目录</text><text x="129" y="467" class="body" font-size="10">快速入库</text><text x="224" y="467" class="body" font-size="10">恢复删除</text><text x="312" y="467" class="body" font-size="10">查看成员</text>
+    </g>
+    <rect x="38" y="214" width="94" height="32" rx="16" fill="#eaf2ff" stroke="#cfddf5"/>
+    <text x="50" y="235" class="action" font-size="13">管理员空间</text>
+    <rect x="188" y="207" width="155" height="36" fill="#f8fbff"/>
+    <text x="206" y="236" class="panel-title">系统管理员</text>
+    <text x="102" y="830" class="small-note" font-size="10">管理员态：账号管理入口可见</text>
+  </g>
+
+  <g transform="translate(90 1040)">
+    <rect width="1000" height="82" rx="18" fill="#101827" stroke="#2b3a52"/>
+    <text x="24" y="34" class="label" font-size="18">开发落地提示</text>
+    <text x="24" y="60" class="small-note">Compose 中建议按角色过滤 quickActions：普通用户只渲染 3 个入口；管理员追加账号管理。底部普通用户文案建议为“我的”，管理员可显示“账号管理”。</text>
+  </g>
+</svg>

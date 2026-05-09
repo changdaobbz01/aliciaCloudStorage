@@ -62,6 +62,12 @@ data class ChangePasswordPayload(
     val newPassword: String,
 )
 
+data class UpdateProfilePayload(
+    val phoneNumber: String,
+    val nickname: String,
+    val avatarUrl: String?,
+)
+
 data class CreateUserPayload(
     val phoneNumber: String,
     val nickname: String,
@@ -82,6 +88,15 @@ data class UpdateUserStorageQuotaPayload(
 data class CreateFolderPayload(
     val parentId: Long?,
     val folderName: String,
+)
+
+data class BatchNodePayload(
+    val nodeIds: List<Long>,
+)
+
+data class BatchMoveNodePayload(
+    val nodeIds: List<Long>,
+    val parentId: Long?,
 )
 
 data class DriveOverview(

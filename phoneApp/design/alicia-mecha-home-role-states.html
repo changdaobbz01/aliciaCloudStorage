@@ -1,0 +1,859 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Alicia 云盘机甲风首页设计</title>
+  <style>
+    :root {
+      --deep: #071120;
+      --shell: #111b2b;
+      --grid: rgba(72, 213, 255, .14);
+      --armor: #f8fbff;
+      --armor-raised: #ffffff;
+      --border: #d7e3f4;
+      --ink: #101626;
+      --muted: #748094;
+      --blue: #1e63ff;
+      --cyan: #48d5ff;
+      --orange: #ff9d24;
+      --red: #e43b35;
+      --shadow: 0 14px 32px rgba(2, 7, 19, .28);
+      --soft-shadow: 0 8px 18px rgba(2, 7, 19, .16);
+      font-family: "Noto Sans SC", "Noto Sans", "Microsoft YaHei", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: #eaf2ff;
+      background:
+        linear-gradient(135deg, rgba(72, 213, 255, .14), transparent 28%),
+        linear-gradient(315deg, rgba(255, 157, 36, .12), transparent 30%),
+        #071120;
+    }
+
+    .board {
+      width: min(1180px, 100%);
+      margin: 0 auto;
+      padding: 42px 30px 56px;
+    }
+
+    .board-title {
+      margin: 0;
+      font-size: 30px;
+      line-height: 1.15;
+      font-weight: 900;
+      letter-spacing: 0;
+    }
+
+    .board-note {
+      margin: 12px 0 32px;
+      color: #aebfd9;
+      font-size: 15px;
+      line-height: 1.7;
+    }
+
+    .screens {
+      display: grid;
+      grid-template-columns: repeat(2, 390px);
+      gap: 62px;
+      align-items: start;
+    }
+
+    .caption {
+      margin: 0 0 14px;
+      text-align: center;
+      font-size: 18px;
+      font-weight: 800;
+    }
+
+    .phone {
+      position: relative;
+      width: 390px;
+      height: 844px;
+      overflow: hidden;
+      border-radius: 28px;
+      background:
+        linear-gradient(var(--grid) 1px, transparent 1px) 0 0 / 39px 60px,
+        linear-gradient(90deg, rgba(72, 213, 255, .11) 1px, transparent 1px) 0 0 / 39px 60px,
+        linear-gradient(180deg, #071120, #111b2b);
+      box-shadow: 0 28px 56px rgba(0, 0, 0, .34);
+      isolation: isolate;
+    }
+
+    .phone::before {
+      content: "";
+      position: absolute;
+      inset: 0 0 auto;
+      height: 162px;
+      background: linear-gradient(105deg, rgba(255, 255, 255, .05), rgba(248, 251, 255, .9));
+      clip-path: polygon(0 0, 100% 0, 100% 82%, 0 100%);
+      z-index: -1;
+    }
+
+    .circuit-a,
+    .circuit-b {
+      position: absolute;
+      pointer-events: none;
+      border-color: var(--cyan);
+      opacity: .7;
+    }
+
+    .circuit-a {
+      right: 55px;
+      top: -6px;
+      width: 78px;
+      height: 132px;
+      border-top: 2px solid var(--cyan);
+      border-right: 2px solid var(--cyan);
+      transform: skew(18deg);
+    }
+
+    .circuit-b {
+      left: -14px;
+      bottom: 110px;
+      width: 56px;
+      height: 76px;
+      border-left: 2px solid var(--orange);
+      border-bottom: 2px solid var(--orange);
+      transform: skew(-20deg);
+    }
+
+    .mecha {
+      position: absolute;
+      top: 18px;
+      width: 132px;
+      height: 126px;
+      opacity: .96;
+    }
+
+    .mecha.left {
+      left: -24px;
+    }
+
+    .mecha.right {
+      right: -28px;
+      transform: scaleX(-1);
+      opacity: .9;
+    }
+
+    .fin {
+      position: absolute;
+      width: 5px;
+      height: 78px;
+      left: 62px;
+      top: -28px;
+      border-radius: 5px;
+      background: linear-gradient(#fff, #dcecff);
+      box-shadow: inset 0 0 0 1px rgba(255, 179, 59, .7);
+      transform-origin: bottom center;
+    }
+
+    .fin.one {
+      transform: rotate(-42deg);
+    }
+
+    .fin.two {
+      transform: rotate(42deg);
+    }
+
+    .helmet {
+      position: absolute;
+      left: 38px;
+      top: 16px;
+      width: 48px;
+      height: 42px;
+      border: 1px solid #bfd5f4;
+      border-radius: 10px 10px 7px 7px;
+      background: #f8fbff;
+    }
+
+    .face {
+      position: absolute;
+      left: 50px;
+      top: 42px;
+      width: 24px;
+      height: 32px;
+      border: 1px solid #9db5d5;
+      border-radius: 5px;
+      background: #e8f0fc;
+    }
+
+    .visor {
+      position: absolute;
+      left: 54px;
+      top: 48px;
+      width: 16px;
+      height: 5px;
+      border-radius: 4px;
+      background: var(--cyan);
+    }
+
+    .chin {
+      position: absolute;
+      left: 58px;
+      top: 61px;
+      width: 8px;
+      height: 14px;
+      border-radius: 3px;
+      background: var(--red);
+    }
+
+    .chest {
+      position: absolute;
+      left: 30px;
+      top: 78px;
+      width: 68px;
+      height: 44px;
+      border: 1px solid #6d97e8;
+      border-radius: 10px;
+      background: #1d55b8;
+    }
+
+    .shoulder {
+      position: absolute;
+      top: 74px;
+      width: 39px;
+      height: 40px;
+      border: 1px solid #c8d8f1;
+      border-radius: 8px;
+      background: #f8fbff;
+    }
+
+    .shoulder.a {
+      left: 4px;
+    }
+
+    .shoulder.b {
+      right: 0;
+    }
+
+    .core {
+      position: absolute;
+      left: 50px;
+      top: 91px;
+      width: 28px;
+      height: 10px;
+      border-radius: 4px;
+      background: var(--cyan);
+    }
+
+    .vent {
+      position: absolute;
+      top: 106px;
+      width: 19px;
+      height: 6px;
+      border-radius: 3px;
+      background: var(--orange);
+    }
+
+    .vent.a {
+      left: 38px;
+    }
+
+    .vent.b {
+      left: 72px;
+    }
+
+    .app-title {
+      position: absolute;
+      left: 22px;
+      top: 42px;
+      width: 238px;
+      margin: 0;
+      color: #f8fbff;
+      font-size: 36px;
+      line-height: 44px;
+      font-weight: 900;
+      letter-spacing: 0;
+      text-shadow: 0 2px 10px rgba(0, 0, 0, .28);
+    }
+
+    .title-rail {
+      position: absolute;
+      left: 24px;
+      top: 96px;
+      width: 126px;
+      height: 3px;
+      border-radius: 3px;
+      background: var(--cyan);
+      box-shadow: 0 0 14px rgba(72, 213, 255, .7);
+    }
+
+    .radar {
+      position: absolute;
+      right: 22px;
+      top: 44px;
+      width: 46px;
+      height: 46px;
+      border: 3px solid #fff;
+      border-radius: 999px;
+      background: radial-gradient(circle at 30% 25%, var(--cyan), #35d978 53%, var(--orange));
+      box-shadow: 0 0 18px rgba(255, 255, 255, .35);
+    }
+
+    .search {
+      position: absolute;
+      left: 18px;
+      top: 118px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 354px;
+      height: 58px;
+      padding: 0 18px 0 22px;
+      border: 1.5px solid #d7e3f3;
+      border-radius: 29px;
+      background: #f9fbff;
+      box-shadow: var(--soft-shadow);
+    }
+
+    .search span {
+      color: #7a8496;
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .search button {
+      border: 0;
+      color: var(--blue);
+      background: transparent;
+      font: inherit;
+      font-weight: 900;
+      cursor: default;
+    }
+
+    .panel,
+    .tile,
+    .metric,
+    .trend,
+    .recent {
+      position: absolute;
+      border: 1.5px solid var(--border);
+      background: linear-gradient(180deg, var(--armor-raised), var(--armor));
+      box-shadow: var(--soft-shadow);
+    }
+
+    .panel {
+      left: 18px;
+      top: 194px;
+      width: 354px;
+      height: 164px;
+      border-radius: 18px;
+    }
+
+    .panel::before,
+    .tile::before,
+    .metric::before,
+    .trend::before,
+    .recent::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background:
+        linear-gradient(135deg, var(--blue) 0 12px, transparent 13px) top 6px left 10px / 28px 28px no-repeat,
+        linear-gradient(225deg, var(--blue) 0 12px, transparent 13px) top 6px right 10px / 28px 28px no-repeat,
+        linear-gradient(45deg, var(--blue) 0 12px, transparent 13px) bottom 6px left 10px / 28px 28px no-repeat,
+        linear-gradient(315deg, var(--blue) 0 12px, transparent 13px) bottom 6px right 10px / 28px 28px no-repeat;
+      opacity: .92;
+      pointer-events: none;
+    }
+
+    .badge {
+      position: absolute;
+      left: 20px;
+      top: 20px;
+      min-width: 76px;
+      height: 32px;
+      padding: 0 12px;
+      border: 1px solid #cfddf5;
+      border-radius: 16px;
+      color: var(--blue);
+      background: #eaf2ff;
+      font-size: 13px;
+      font-weight: 900;
+      line-height: 30px;
+      text-align: center;
+    }
+
+    .panel h2 {
+      position: absolute;
+      right: 24px;
+      top: 20px;
+      margin: 0;
+      color: var(--ink);
+      font-size: 27px;
+      line-height: 34px;
+      font-weight: 900;
+    }
+
+    .quota {
+      position: absolute;
+      left: 20px;
+      top: 75px;
+      display: flex;
+      align-items: center;
+      width: 314px;
+      height: 68px;
+      padding: 0 16px;
+      border: 1.5px solid #d9e3f3;
+      border-radius: 24px;
+      background: #fff;
+    }
+
+    .icon-circle {
+      display: grid;
+      place-items: center;
+      width: 34px;
+      height: 34px;
+      margin-right: 14px;
+      border-radius: 50%;
+      background: #eaf2ff;
+      color: var(--blue);
+      font-size: 21px;
+      font-weight: 900;
+    }
+
+    .quota-copy {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .quota-copy strong {
+      display: block;
+      color: var(--ink);
+      font-size: 15px;
+      line-height: 20px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .quota-copy small {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 16px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .quota .action {
+      width: 78px;
+      height: 34px;
+      border: 1.5px solid #92b3f8;
+      border-radius: 17px;
+      color: var(--blue);
+      background: #eaf2ff;
+      font-size: 13px;
+      font-weight: 900;
+      line-height: 32px;
+      text-align: center;
+    }
+
+    .actions {
+      position: absolute;
+      left: 18px;
+      top: 376px;
+      display: grid;
+      gap: 15px;
+      width: 354px;
+    }
+
+    .actions.regular {
+      grid-template-columns: repeat(3, 1fr);
+    }
+
+    .actions.admin {
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+
+    .tile {
+      position: relative;
+      height: 104px;
+      border-radius: 16px;
+    }
+
+    .tile .icon-circle {
+      position: absolute;
+      left: 50%;
+      top: 12px;
+      margin: 0;
+      transform: translateX(-50%);
+    }
+
+    .tile strong {
+      position: absolute;
+      left: 4px;
+      right: 4px;
+      top: 58px;
+      color: var(--ink);
+      font-size: 14px;
+      line-height: 18px;
+      font-weight: 900;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    .actions.admin .tile strong {
+      font-size: 12px;
+    }
+
+    .tile small {
+      position: absolute;
+      left: 4px;
+      right: 4px;
+      top: 81px;
+      color: var(--muted);
+      font-size: 10px;
+      line-height: 14px;
+      font-weight: 600;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    .metrics {
+      position: absolute;
+      left: 18px;
+      top: 498px;
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px 14px;
+      width: 354px;
+    }
+
+    .metric {
+      position: relative;
+      height: 82px;
+      border-radius: 14px;
+    }
+
+    .metric:nth-child(2)::before,
+    .metric:nth-child(3)::before {
+      background:
+        linear-gradient(135deg, var(--orange) 0 12px, transparent 13px) top 6px left 10px / 28px 28px no-repeat,
+        linear-gradient(225deg, var(--orange) 0 12px, transparent 13px) top 6px right 10px / 28px 28px no-repeat,
+        linear-gradient(45deg, var(--orange) 0 12px, transparent 13px) bottom 6px left 10px / 28px 28px no-repeat,
+        linear-gradient(315deg, var(--orange) 0 12px, transparent 13px) bottom 6px right 10px / 28px 28px no-repeat;
+    }
+
+    .metric span {
+      position: absolute;
+      left: 15px;
+      top: 14px;
+      color: #6d7688;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .metric strong {
+      position: absolute;
+      left: 15px;
+      top: 43px;
+      color: var(--ink);
+      font-size: 23px;
+      line-height: 29px;
+      font-weight: 900;
+    }
+
+    .trend {
+      left: 18px;
+      top: 690px;
+      width: 354px;
+      height: 92px;
+      border-radius: 18px;
+    }
+
+    .trend h3,
+    .recent h3 {
+      position: absolute;
+      left: 18px;
+      top: 16px;
+      margin: 0;
+      color: var(--ink);
+      font-size: 21px;
+      line-height: 26px;
+      font-weight: 900;
+    }
+
+    .trend strong {
+      position: absolute;
+      left: 18px;
+      top: 50px;
+      color: var(--ink);
+      font-size: 22px;
+      line-height: 28px;
+      font-weight: 900;
+    }
+
+    .chart {
+      position: absolute;
+      right: 26px;
+      top: 19px;
+      width: 118px;
+      height: 54px;
+      border: 1px solid #c8d9fa;
+      border-radius: 18px;
+      background: #eaf2ff;
+    }
+
+    .chart svg {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .recent {
+      left: 18px;
+      top: 796px;
+      width: 354px;
+      height: 98px;
+      border-radius: 18px;
+    }
+
+    .recent .all {
+      position: absolute;
+      right: 20px;
+      top: 18px;
+      width: 68px;
+      height: 34px;
+      border: 1.5px solid #92b3f8;
+      border-radius: 17px;
+      color: var(--blue);
+      background: #eaf2ff;
+      font-size: 13px;
+      font-weight: 900;
+      line-height: 32px;
+      text-align: center;
+    }
+
+    .nav-bar {
+      position: absolute;
+      left: 0;
+      bottom: 0;
+      width: 390px;
+      height: 98px;
+      border-top: 1.2px solid #d6e0f0;
+      background: #f8fbff;
+      box-shadow: 0 -8px 18px rgba(2, 7, 19, .22);
+    }
+
+    .nav-rail {
+      position: absolute;
+      left: 44px;
+      top: 0;
+      width: 302px;
+      height: 5px;
+      border-radius: 3px;
+      background: #152033;
+    }
+
+    .nav-active {
+      position: absolute;
+      left: 139px;
+      top: -18px;
+      display: grid;
+      place-items: center;
+      width: 112px;
+      height: 70px;
+      border: 2px solid #9fc0ff;
+      border-radius: 18px;
+      color: #fff;
+      background: linear-gradient(135deg, #2b7cff, #004fe8);
+      box-shadow: 0 8px 18px rgba(30, 99, 255, .34);
+      font-weight: 900;
+    }
+
+    .nav-tab {
+      position: absolute;
+      top: 54px;
+      width: 82px;
+      color: #738097;
+      font-size: 13px;
+      font-weight: 800;
+      text-align: center;
+    }
+
+    .nav-tab.left {
+      left: 28px;
+    }
+
+    .nav-tab.right {
+      right: 28px;
+    }
+
+    .rules {
+      margin-top: 34px;
+      padding: 20px 24px;
+      border: 1px solid #263a56;
+      border-radius: 18px;
+      background: rgba(17, 27, 43, .8);
+    }
+
+    .rules h2 {
+      margin: 0 0 10px;
+      font-size: 18px;
+    }
+
+    .rules p {
+      margin: 8px 0;
+      color: #b8c6dd;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    @media (max-width: 940px) {
+      .screens {
+        grid-template-columns: 390px;
+        justify-content: center;
+      }
+    }
+
+    @media (max-width: 450px) {
+      .board {
+        padding-inline: 12px;
+      }
+
+      .screens {
+        grid-template-columns: minmax(0, 390px);
+      }
+
+      .screen-wrap {
+        transform: scale(.9);
+        transform-origin: top center;
+        height: 774px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="board">
+    <h1 class="board-title">Alicia 云盘机甲风移动端首页设计</h1>
+    <p class="board-note">普通用户态不显示“账号管理”快捷入口；管理员态才显示。这个稿子可直接作为 Compose 实现参考，也可以等 Figma MCP 额度恢复后导入或重建成 Figma 原生图层。</p>
+
+    <section class="screens" aria-label="Alicia 云盘角色态设计">
+      <div class="screen-wrap">
+        <p class="caption">普通用户首页：隐藏账号管理入口</p>
+        <div class="phone" role="img" aria-label="普通用户 Alicia 云盘首页">
+          <i class="circuit-a"></i>
+          <i class="circuit-b"></i>
+          <div class="mecha left">
+            <i class="fin one"></i><i class="fin two"></i><i class="helmet"></i><i class="face"></i><i class="visor"></i><i class="chin"></i><i class="chest"></i><i class="shoulder a"></i><i class="shoulder b"></i><i class="core"></i><i class="vent a"></i><i class="vent b"></i>
+          </div>
+          <div class="mecha right">
+            <i class="fin one"></i><i class="fin two"></i><i class="helmet"></i><i class="face"></i><i class="visor"></i><i class="chin"></i><i class="chest"></i><i class="shoulder a"></i><i class="shoulder b"></i><i class="core"></i><i class="vent a"></i><i class="vent b"></i>
+          </div>
+          <h2 class="app-title">Alicia 云盘</h2>
+          <i class="title-rail"></i>
+          <i class="radar"></i>
+          <div class="search"><span>搜索网盘文件</span><button type="button">搜索</button></div>
+          <section class="panel">
+            <div class="badge">我的空间</div>
+            <h2>我的云盘</h2>
+            <div class="quota">
+              <i class="icon-circle">☁</i>
+              <div class="quota-copy"><strong>云端空间运行正常</strong><small>147 KB / 无限制</small></div>
+              <div class="action">查看文件</div>
+            </div>
+          </section>
+          <section class="actions regular">
+            <article class="tile"><i class="icon-circle">▣</i><strong>全部文件</strong><small>浏览目录</small></article>
+            <article class="tile"><i class="icon-circle">⇧</i><strong>上传文件</strong><small>快速入库</small></article>
+            <article class="tile"><i class="icon-circle">⌫</i><strong>回收站</strong><small>恢复删除</small></article>
+          </section>
+          <section class="metrics">
+            <article class="metric"><span>总项目</span><strong>7</strong></article>
+            <article class="metric"><span>文件夹</span><strong>6</strong></article>
+            <article class="metric"><span>文件数</span><strong>1</strong></article>
+            <article class="metric"><span>已用空间</span><strong>147 KB</strong></article>
+          </section>
+          <section class="trend">
+            <h3>空间趋势</h3><strong>147 KB / 无限制</strong>
+            <div class="chart">
+              <svg viewBox="0 0 118 54" aria-hidden="true">
+                <polyline points="10,42 30,42 48,42 70,16 92,16 108,16" fill="none" stroke="#1e63ff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+                <g fill="#fff" stroke="#1e63ff" stroke-width="2"><circle cx="10" cy="42" r="4"/><circle cx="30" cy="42" r="4"/><circle cx="48" cy="42" r="4"/><circle cx="70" cy="16" r="4"/><circle cx="92" cy="16" r="4"/><circle cx="108" cy="16" r="4"/></g>
+              </svg>
+            </div>
+          </section>
+          <section class="recent"><h3>最近文件</h3><div class="all">全部</div></section>
+          <nav class="nav-bar" aria-label="普通用户底部导航">
+            <i class="nav-rail"></i>
+            <div class="nav-active">⌂<br>首页</div>
+            <div class="nav-tab left">文件</div>
+            <div class="nav-tab right">我的</div>
+          </nav>
+        </div>
+      </div>
+
+      <div class="screen-wrap">
+        <p class="caption">管理员首页：显示账号管理入口</p>
+        <div class="phone" role="img" aria-label="管理员 Alicia 云盘首页">
+          <i class="circuit-a"></i>
+          <i class="circuit-b"></i>
+          <div class="mecha left">
+            <i class="fin one"></i><i class="fin two"></i><i class="helmet"></i><i class="face"></i><i class="visor"></i><i class="chin"></i><i class="chest"></i><i class="shoulder a"></i><i class="shoulder b"></i><i class="core"></i><i class="vent a"></i><i class="vent b"></i>
+          </div>
+          <div class="mecha right">
+            <i class="fin one"></i><i class="fin two"></i><i class="helmet"></i><i class="face"></i><i class="visor"></i><i class="chin"></i><i class="chest"></i><i class="shoulder a"></i><i class="shoulder b"></i><i class="core"></i><i class="vent a"></i><i class="vent b"></i>
+          </div>
+          <h2 class="app-title">Alicia 云盘</h2>
+          <i class="title-rail"></i>
+          <i class="radar"></i>
+          <div class="search"><span>搜索网盘文件</span><button type="button">搜索</button></div>
+          <section class="panel">
+            <div class="badge">管理员空间</div>
+            <h2>系统管理员</h2>
+            <div class="quota">
+              <i class="icon-circle">☁</i>
+              <div class="quota-copy"><strong>云端空间运行正常</strong><small>147 KB / 无限制</small></div>
+              <div class="action">查看文件</div>
+            </div>
+          </section>
+          <section class="actions admin">
+            <article class="tile"><i class="icon-circle">▣</i><strong>全部文件</strong><small>浏览目录</small></article>
+            <article class="tile"><i class="icon-circle">⇧</i><strong>上传文件</strong><small>快速入库</small></article>
+            <article class="tile"><i class="icon-circle">⌫</i><strong>回收站</strong><small>恢复删除</small></article>
+            <article class="tile"><i class="icon-circle">⚙</i><strong>账号管理</strong><small>查看成员</small></article>
+          </section>
+          <section class="metrics">
+            <article class="metric"><span>总项目</span><strong>7</strong></article>
+            <article class="metric"><span>文件夹</span><strong>6</strong></article>
+            <article class="metric"><span>文件数</span><strong>1</strong></article>
+            <article class="metric"><span>已用空间</span><strong>147 KB</strong></article>
+          </section>
+          <section class="trend">
+            <h3>空间趋势</h3><strong>147 KB / 无限制</strong>
+            <div class="chart">
+              <svg viewBox="0 0 118 54" aria-hidden="true">
+                <polyline points="10,42 30,42 48,42 70,16 92,16 108,16" fill="none" stroke="#1e63ff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+                <g fill="#fff" stroke="#1e63ff" stroke-width="2"><circle cx="10" cy="42" r="4"/><circle cx="30" cy="42" r="4"/><circle cx="48" cy="42" r="4"/><circle cx="70" cy="16" r="4"/><circle cx="92" cy="16" r="4"/><circle cx="108" cy="16" r="4"/></g>
+              </svg>
+            </div>
+          </section>
+          <section class="recent"><h3>最近文件</h3><div class="all">全部</div></section>
+          <nav class="nav-bar" aria-label="管理员底部导航">
+            <i class="nav-rail"></i>
+            <div class="nav-active">⌂<br>首页</div>
+            <div class="nav-tab left">文件</div>
+            <div class="nav-tab right">账号管理</div>
+          </nav>
+        </div>
+      </div>
+    </section>
+
+    <section class="rules">
+      <h2>实现规则</h2>
+      <p>普通用户首页快捷入口只保留三个：全部文件、上传文件、回收站。不要保留空位，也不要让账号管理以禁用态出现。</p>
+      <p>管理员态在同一位置改为四宫格，追加账号管理入口。这样权限差异清晰，布局也不会显得像少了一块。</p>
+      <p>底部导航建议普通用户显示“首页 / 文件 / 我的”，管理员可显示“首页 / 文件 / 账号管理”。</p>
+    </section>
+  </main>
+</body>
+</html>

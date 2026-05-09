@@ -67,6 +67,7 @@ public class StorageNodeController {
     public PageResponse<StorageNodeSummaryResponse> listNodes(
             @RequestAttribute(AuthRequestAttributes.CURRENT_USER_ID) Long userId,
             @RequestParam(required = false) Long parentId,
+            @RequestParam(required = false, defaultValue = "false") boolean recursive,
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String type,
             @RequestParam(required = false) Integer page,
@@ -74,7 +75,7 @@ public class StorageNodeController {
             @RequestParam(required = false) String sortBy,
             @RequestParam(required = false) String sortDirection
     ) {
-        return storageQueryService.listNodes(userId, parentId, keyword, type, page, size, sortBy, sortDirection);
+        return storageQueryService.listNodes(userId, parentId, recursive, keyword, type, page, size, sortBy, sortDirection);
     }
 
     /**

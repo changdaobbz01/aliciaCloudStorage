@@ -33,6 +33,12 @@ interface AliciaCloudService {
         @Header("Authorization") authorization: String,
     ): Response<User>
 
+    @PUT("api/auth/profile")
+    suspend fun updateProfile(
+        @Header("Authorization") authorization: String,
+        @Body payload: UpdateProfilePayload,
+    ): Response<User>
+
     @Multipart
     @POST("api/auth/avatar")
     suspend fun uploadAvatar(
@@ -61,6 +67,7 @@ interface AliciaCloudService {
     suspend fun fetchStorageNodes(
         @Header("Authorization") authorization: String,
         @Query("parentId") parentId: Long?,
+        @Query("recursive") recursive: Boolean,
         @Query("keyword") keyword: String?,
         @Query("type") type: String?,
         @Query("page") page: Int,
@@ -79,6 +86,11 @@ interface AliciaCloudService {
         @Query("sortBy") sortBy: String,
         @Query("sortDirection") sortDirection: String,
     ): Response<StorageNodePage>
+
+    @GET("api/storage/folders")
+    suspend fun fetchFolders(
+        @Header("Authorization") authorization: String,
+    ): Response<List<StorageNode>>
 
     @GET("api/admin/users")
     suspend fun fetchUsers(
@@ -119,10 +131,22 @@ interface AliciaCloudService {
         @Part file: MultipartBody.Part,
     ): Response<StorageNode>
 
+    @PUT("api/storage/nodes/batch/move")
+    suspend fun moveNodes(
+        @Header("Authorization") authorization: String,
+        @Body payload: BatchMoveNodePayload,
+    ): Response<List<StorageNode>>
+
     @DELETE("api/storage/nodes/{nodeId}")
     suspend fun moveNodeToTrash(
         @Header("Authorization") authorization: String,
         @Path("nodeId") nodeId: Long,
+    ): Response<ApiMessageResponse>
+
+    @POST("api/storage/nodes/batch/trash")
+    suspend fun moveNodesToTrash(
+        @Header("Authorization") authorization: String,
+        @Body payload: BatchNodePayload,
     ): Response<ApiMessageResponse>
 
     @POST("api/storage/trash/{nodeId}/restore")
@@ -131,10 +155,22 @@ interface AliciaCloudService {
         @Path("nodeId") nodeId: Long,
     ): Response<StorageNode>
 
+    @POST("api/storage/trash/batch/restore")
+    suspend fun restoreNodes(
+        @Header("Authorization") authorization: String,
+        @Body payload: BatchNodePayload,
+    ): Response<List<StorageNode>>
+
     @DELETE("api/storage/trash/{nodeId}")
     suspend fun permanentlyDeleteNode(
         @Header("Authorization") authorization: String,
         @Path("nodeId") nodeId: Long,
+    ): Response<ApiMessageResponse>
+
+    @POST("api/storage/trash/batch/delete")
+    suspend fun permanentlyDeleteNodes(
+        @Header("Authorization") authorization: String,
+        @Body payload: BatchNodePayload,
     ): Response<ApiMessageResponse>
 
     @Streaming
