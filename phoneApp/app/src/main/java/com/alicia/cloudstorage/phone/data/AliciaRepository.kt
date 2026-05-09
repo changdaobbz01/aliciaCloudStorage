@@ -7,6 +7,10 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import android.provider.OpenableColumns
 import com.google.gson.JsonParser
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
@@ -32,6 +36,12 @@ private const val MAX_AVATAR_DIMENSION = 1440
 class AliciaRepository(
     private val serviceFactory: AliciaCloudServiceFactory = AliciaCloudServiceFactory(),
 ) {
+    private val directDownloadClient = OkHttpClient.Builder()
+        .connectTimeout(20, java.util.concurrent.TimeUnit.SECONDS)
+        .readTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+        .writeTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+        .build()
+
     suspend fun login(baseUrl: String, phoneNumber: String, password: String): LoginResponse =
         serviceFactory.serviceFor(baseUrl)
             .login(LoginPayload(phoneNumber = phoneNumber, password = password))
@@ -445,6 +455,75 @@ class AliciaRepository(
         }
 
         return fileName
+    }
+
+    suspend fun downloadFileViaSignedUrl(
+        baseUrl: String,
+        token: String,
+        fileId: Long,
+    ): DownloadedFile {
+        val access = fetchFileAccessUrl(baseUrl, token, fileId, "inline")
+        return fetchSignedFile(access, "download.bin")
+    }
+
+    suspend fun saveDownloadedFileToUriViaSignedUrl(
+        context: Context,
+        baseUrl: String,
+        token: String,
+        fileId: Long,
+        destinationUri: Uri,
+    ): String {
+        val access = fetchFileAccessUrl(baseUrl, token, fileId, "attachment")
+        val file = fetchSignedFile(access, "download.bin")
+
+        context.contentResolver.openOutputStream(destinationUri)?.use { output ->
+            output.write(file.bytes)
+        } ?: throw ApiException("无法写入你选择的保存位置。", 400)
+
+        return file.fileName
+    }
+
+    private suspend fun fetchFileAccessUrl(
+        baseUrl: String,
+        token: String,
+        fileId: Long,
+        disposition: String,
+    ): SignedUrlResponse =
+        serviceFactory.serviceFor(baseUrl)
+            .fetchFileAccessUrl(
+                authorization = authorization(token),
+                fileId = fileId,
+                disposition = disposition,
+            )
+            .requireBody(fallback = "获取文件访问地址失败。")
+
+    private suspend fun fetchSignedFile(
+        access: SignedUrlResponse,
+        fallbackFileName: String,
+    ): DownloadedFile = withContext(Dispatchers.IO) {
+        val request = Request.Builder()
+            .url(access.url)
+            .get()
+            .build()
+
+        directDownloadClient.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) {
+                throw ApiException("下载文件失败。", response.code)
+            }
+
+            val body = response.body ?: throw ApiException("下载文件失败。", response.code)
+            val resolvedFileName = parseFileName(response.header("content-disposition"))
+                ?: access.fileName
+                ?: fallbackFileName
+
+            body.use { responseBody ->
+                DownloadedFile(
+                    fileName = resolvedFileName,
+                    contentType = response.header("content-type") ?: access.contentType,
+                    bytes = responseBody.bytes(),
+                )
+            }
+        }
     }
 
     private fun authorization(token: String) = "Bearer $token"

@@ -179,6 +179,13 @@ interface AliciaCloudService {
         @Header("Authorization") authorization: String,
         @Path("fileId") fileId: Long,
     ): Response<ResponseBody>
+
+    @GET("api/storage/files/{fileId}/access-url")
+    suspend fun fetchFileAccessUrl(
+        @Header("Authorization") authorization: String,
+        @Path("fileId") fileId: Long,
+        @Query("disposition") disposition: String,
+    ): Response<SignedUrlResponse>
 }
 
 class AliciaCloudServiceFactory {

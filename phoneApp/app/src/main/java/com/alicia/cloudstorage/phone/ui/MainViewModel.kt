@@ -1117,7 +1117,7 @@ class MainViewModel(
 
         viewModelScope.launch {
             runCatching {
-                repository.downloadFile(
+                repository.downloadFileViaSignedUrl(
                     baseUrl = session.baseUrl,
                     token = session.token,
                     fileId = node.id,
@@ -1174,7 +1174,7 @@ class MainViewModel(
             }
 
             runCatching {
-                repository.saveDownloadedFileToUri(
+                repository.saveDownloadedFileToUriViaSignedUrl(
                     context = appContext,
                     baseUrl = session.baseUrl,
                     token = session.token,

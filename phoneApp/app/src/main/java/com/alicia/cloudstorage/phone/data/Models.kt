@@ -152,5 +152,12 @@ data class DownloadedFile(
     val bytes: ByteArray,
 )
 
+data class SignedUrlResponse(
+    val url: String,
+    val fileName: String?,
+    val contentType: String?,
+    val expiresAtEpochMillis: Long,
+)
+
 val User.isAdmin: Boolean
     get() = role == UserRole.ADMIN
