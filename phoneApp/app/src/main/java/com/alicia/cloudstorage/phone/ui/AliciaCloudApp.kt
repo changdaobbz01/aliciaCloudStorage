@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
@@ -45,7 +46,6 @@ import androidx.compose.material.icons.rounded.ManageAccounts
 import androidx.compose.material.icons.rounded.Preview
 import androidx.compose.material.icons.rounded.RestoreFromTrash
 import androidx.compose.material.icons.rounded.UploadFile
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -57,7 +57,6 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -86,7 +85,6 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.alicia.cloudstorage.phone.HONG_KONG_BASE_URL
 import com.alicia.cloudstorage.phone.MAINLAND_BASE_URL
-import com.alicia.cloudstorage.phone.OFFICIAL_ICP_RECORD
 import com.alicia.cloudstorage.phone.R
 import com.alicia.cloudstorage.phone.describeAccessEnvironment
 import com.alicia.cloudstorage.phone.data.AppTab
@@ -808,15 +806,26 @@ private fun MainShell(
     }
 
     if (createFolderOpen) {
-        AlertDialog(
+        AliciaMechaDialogShell(
+            title = "新建文件夹",
             onDismissRequest = {
                 if (!uiState.files.isCreatingFolder) {
                     createFolderOpen = false
                 }
             },
-            title = { Text("新建文件夹", fontWeight = FontWeight.Bold) },
-            text = {
-                AliciaInputField(
+            dismissEnabled = !uiState.files.isCreatingFolder,
+            supporting = {
+                Text(
+                    text = "新目录会创建在当前浏览位置下，并立即同步到目录树中。",
+                    color = Color(0xFF748094),
+                    fontFamily = AliciaMechaFontFamily,
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 12.sp,
+                    lineHeight = 18.sp,
+                )
+            },
+            body = {
+                AliciaMechaInputField(
                     value = createFolderName,
                     onValueChange = { createFolderName = it },
                     modifier = Modifier.fillMaxWidth(),
@@ -824,8 +833,8 @@ private fun MainShell(
                     placeholder = "例如：项目资料",
                 )
             },
-            confirmButton = {
-                AliciaDialogActionRow(
+            footer = {
+                AliciaMechaDialogActionRow(
                     onDismiss = {
                         createFolderOpen = false
                         createFolderName = ""
@@ -844,94 +853,58 @@ private fun MainShell(
     }
 
     trashConfirmNode?.let { node ->
-        AlertDialog(
-            onDismissRequest = { trashConfirmNode = null },
-            title = { Text("移入回收站") },
-            text = { Text("确认将“${node.name}”移入回收站吗？") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        trashConfirmNode = null
-                        viewModel.moveNodeToTrash(node)
-                    },
-                ) {
-                    Text("确认", color = Color(0xFFD84B2A))
-                }
+        AliciaMechaConfirmDialog(
+            title = "移入回收站",
+            message = "确认将“${node.name}”移入回收站吗？",
+            onDismiss = { trashConfirmNode = null },
+            onConfirm = {
+                trashConfirmNode = null
+                viewModel.moveNodeToTrash(node)
             },
-            dismissButton = {
-                TextButton(onClick = { trashConfirmNode = null }) {
-                    Text("取消")
-                }
-            },
+            confirmLabel = "确认移入",
+            confirmTone = AliciaMechaActionButtonTone.Danger,
         )
     }
 
     permanentDeleteNode?.let { node ->
-        AlertDialog(
-            onDismissRequest = { permanentDeleteNode = null },
-            title = { Text("彻底删除") },
-            text = { Text("确认彻底删除“${node.name}”吗？此操作无法恢复。") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        permanentDeleteNode = null
-                        viewModel.permanentlyDeleteNode(node)
-                    },
-                ) {
-                    Text("确认删除", color = Color(0xFFD84B2A))
-                }
+        AliciaMechaConfirmDialog(
+            title = "彻底删除",
+            message = "确认彻底删除“${node.name}”吗？此操作无法恢复。",
+            onDismiss = { permanentDeleteNode = null },
+            onConfirm = {
+                permanentDeleteNode = null
+                viewModel.permanentlyDeleteNode(node)
             },
-            dismissButton = {
-                TextButton(onClick = { permanentDeleteNode = null }) {
-                    Text("取消")
-                }
-            },
+            confirmLabel = "确认删除",
+            confirmTone = AliciaMechaActionButtonTone.Danger,
         )
     }
 
     if (batchTrashConfirmOpen) {
-        AlertDialog(
-            onDismissRequest = { batchTrashConfirmOpen = false },
-            title = { Text("批量移入回收站") },
-            text = { Text("确认将当前选中的文件移入回收站吗？") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        batchTrashConfirmOpen = false
-                        viewModel.moveSelectedNodesToTrash()
-                    },
-                ) {
-                    Text("确认", color = Color(0xFFD84B2A))
-                }
+        AliciaMechaConfirmDialog(
+            title = "批量移入回收站",
+            message = "确认将当前选中的文件移入回收站吗？",
+            onDismiss = { batchTrashConfirmOpen = false },
+            onConfirm = {
+                batchTrashConfirmOpen = false
+                viewModel.moveSelectedNodesToTrash()
             },
-            dismissButton = {
-                TextButton(onClick = { batchTrashConfirmOpen = false }) {
-                    Text("取消")
-                }
-            },
+            confirmLabel = "确认移入",
+            confirmTone = AliciaMechaActionButtonTone.Danger,
         )
     }
 
     if (batchPermanentDeleteConfirmOpen) {
-        AlertDialog(
-            onDismissRequest = { batchPermanentDeleteConfirmOpen = false },
-            title = { Text("批量彻底删除") },
-            text = { Text("确认彻底删除当前选中的文件吗？此操作无法恢复。") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        batchPermanentDeleteConfirmOpen = false
-                        viewModel.permanentlyDeleteSelectedNodes()
-                    },
-                ) {
-                    Text("确认删除", color = Color(0xFFD84B2A))
-                }
+        AliciaMechaConfirmDialog(
+            title = "批量彻底删除",
+            message = "确认彻底删除当前选中的文件吗？此操作无法恢复。",
+            onDismiss = { batchPermanentDeleteConfirmOpen = false },
+            onConfirm = {
+                batchPermanentDeleteConfirmOpen = false
+                viewModel.permanentlyDeleteSelectedNodes()
             },
-            dismissButton = {
-                TextButton(onClick = { batchPermanentDeleteConfirmOpen = false }) {
-                    Text("取消")
-                }
-            },
+            confirmLabel = "确认删除",
+            confirmTone = AliciaMechaActionButtonTone.Danger,
         )
     }
 
@@ -1713,23 +1686,33 @@ private fun MoveTargetDialog(
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
 ) {
-    AlertDialog(
+    AliciaMechaDialogShell(
+        title = "批量移动到",
         onDismissRequest = onDismiss,
-        title = { Text("批量移动到") },
-        text = {
+        supporting = {
+            Text(
+                text = "选择新的落点目录后，系统会批量调整这些文件的层级关系。",
+                color = Color(0xFF748094),
+                fontFamily = AliciaMechaFontFamily,
+                fontWeight = FontWeight.Medium,
+                fontSize = 12.sp,
+                lineHeight = 18.sp,
+            )
+        },
+        body = {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(max = 360.dp)
                     .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 if (loading) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.Center,
                     ) {
-                        CircularProgressIndicator()
+                        CircularProgressIndicator(color = Color(0xFF2B67E7))
                     }
                 } else {
                     MoveTargetOptionRow(
@@ -1747,8 +1730,8 @@ private fun MoveTargetDialog(
                 }
             }
         },
-        confirmButton = {
-            AliciaDialogActionRow(
+        footer = {
+            AliciaMechaDialogActionRow(
                 onDismiss = onDismiss,
                 onConfirm = onConfirm,
                 confirmLabel = if (loading) "加载中..." else "确认移动",
@@ -1765,36 +1748,32 @@ private fun MoveTargetOptionRow(
     selected: Boolean,
     onClick: () -> Unit,
 ) {
-    Surface(
+    AliciaMechaPanel(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(16.dp),
-        color = if (selected) {
-            MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
-        } else {
-            MaterialTheme.colorScheme.surface
-        },
+        contentPadding = PaddingValues(start = 14.dp, top = 12.dp, end = 14.dp, bottom = 12.dp),
+        backgroundResId = if (selected) R.drawable.alicia_9_team_summary else R.drawable.alicia_9_file_row,
+        backgroundSlice = 30.dp,
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 12.dp),
+            modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
                 text = label,
-                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                color = if (selected) Color(0xFF2B67E7) else Color(0xFF101626),
+                fontFamily = AliciaMechaFontFamily,
+                fontWeight = FontWeight.Black,
+                fontSize = 18.sp,
+                lineHeight = 20.sp,
             )
             if (selected) {
-                Text(
-                    text = "当前选择",
-                    color = MaterialTheme.colorScheme.primary,
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.SemiBold,
+                AliciaMechaTeamCompactButton(
+                    label = "当前选择",
+                    minWidth = 84.dp,
+                    height = 28.dp,
                 )
             }
         }
@@ -2173,7 +2152,6 @@ private fun AccountSheet(
                             height = 46.dp,
                         )
                     }
-                    AliciaAccessEndpointHint(baseUrl = baseUrl)
                 }
 
                 AliciaMechaPanel(
@@ -2211,35 +2189,15 @@ private fun AliciaAccessEndpointHint(
     val normalizedBaseUrl = normalizeConfiguredBaseUrl(baseUrl)
     val accessLabel = describeAccessEnvironment(normalizedBaseUrl)
 
-    Column(
+    Text(
+        text = "当前接入：$accessLabel",
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        Text(
-            text = "当前接入：$accessLabel",
-            color = Color(0xFFD8E6FF),
-            fontFamily = AliciaMechaFontFamily,
-            fontWeight = FontWeight.Bold,
-            fontSize = 12.sp,
-            lineHeight = 18.sp,
-        )
-        Text(
-            text = normalizedBaseUrl,
-            color = Color(0xFF9CB4D8),
-            fontFamily = AliciaMechaFontFamily,
-            fontWeight = FontWeight.Medium,
-            fontSize = 11.sp,
-            lineHeight = 16.sp,
-        )
-        Text(
-            text = "内地正式站备案号：$OFFICIAL_ICP_RECORD",
-            color = Color(0xFF9CB4D8),
-            fontFamily = AliciaMechaFontFamily,
-            fontWeight = FontWeight.Medium,
-            fontSize = 11.sp,
-            lineHeight = 16.sp,
-        )
-    }
+        color = Color(0xFFD8E6FF),
+        fontFamily = AliciaMechaFontFamily,
+        fontWeight = FontWeight.Bold,
+        fontSize = 12.sp,
+        lineHeight = 18.sp,
+    )
 }
 
 @Composable
@@ -2625,23 +2583,49 @@ private fun NodeActionSheet(
     onRestore: () -> Unit,
     onPermanentDelete: () -> Unit,
 ) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
-        Column(
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = Color.Transparent,
+        scrimColor = Color(0xC4111826),
+        dragHandle = null,
+        tonalElevation = 0.dp,
+    ) {
+        AliciaMechaPanel(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .navigationBarsPadding()
+                .padding(horizontal = 12.dp, vertical = 6.dp),
+            contentPadding = PaddingValues(start = 18.dp, top = 10.dp, end = 18.dp, bottom = 16.dp),
+            backgroundResId = R.drawable.alicia_9_dialog_panel,
+            backgroundSlice = 72.dp,
         ) {
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.Center,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .width(58.dp)
+                        .height(5.dp)
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(Color(0xFFB4BACA)),
+                )
+            }
             Text(
                 text = node.name,
-                color = MaterialTheme.colorScheme.onSurface,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
+                color = Color(0xFF101626),
+                fontFamily = AliciaMechaFontFamily,
+                fontWeight = FontWeight.Black,
+                fontSize = 28.sp,
+                lineHeight = 30.sp,
             )
             Text(
                 text = formatNodeMeta(node),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodySmall,
+                color = Color(0xFF748094),
+                fontFamily = AliciaMechaFontFamily,
+                fontWeight = FontWeight.Medium,
+                fontSize = 13.sp,
+                lineHeight = 18.sp,
             )
 
             if (busy) {
@@ -2692,8 +2676,6 @@ private fun NodeActionSheet(
                     )
                 }
             }
-
-            Spacer(modifier = Modifier.height(8.dp))
         }
     }
 }
@@ -2706,8 +2688,13 @@ private fun SheetActionButton(
     onClick: () -> Unit,
     danger: Boolean = false,
 ) {
-    AliciaSectionCard(
-        modifier = Modifier.clickable(onClick = onClick),
+    AliciaMechaPanel(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        contentPadding = PaddingValues(start = 18.dp, top = 16.dp, end = 18.dp, bottom = 16.dp),
+        backgroundResId = R.drawable.alicia_9_file_row,
+        backgroundSlice = 42.dp,
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -2717,7 +2704,8 @@ private fun SheetActionButton(
             Icon(
                 imageVector = icon,
                 contentDescription = label,
-                tint = if (danger) Color(0xFFD84B2A) else MaterialTheme.colorScheme.primary,
+                tint = if (danger) Color(0xFFE45E2D) else Color(0xFF2B67E7),
+                modifier = Modifier.size(34.dp),
             )
             Column(
                 modifier = Modifier.weight(1f),
@@ -2725,13 +2713,19 @@ private fun SheetActionButton(
             ) {
                 Text(
                     text = label,
-                    color = if (danger) Color(0xFFD84B2A) else MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.Bold,
+                    color = if (danger) Color(0xFFE45E2D) else Color(0xFF101626),
+                    fontFamily = AliciaMechaFontFamily,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 19.sp,
+                    lineHeight = 21.sp,
                 )
                 Text(
                     text = hint,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFF748094),
+                    fontFamily = AliciaMechaFontFamily,
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 12.sp,
+                    lineHeight = 16.sp,
                 )
             }
         }
@@ -2753,15 +2747,10 @@ private fun PreviewDialog(
         }
     }
 
-    AlertDialog(
+    AliciaMechaDialogShell(
+        title = state.fileName,
         onDismissRequest = onDismiss,
-        title = {
-            Text(
-                text = state.fileName,
-                maxLines = 2,
-            )
-        },
-        text = {
+        body = {
             when {
                 state.loading -> {
                     Column(
@@ -2771,10 +2760,13 @@ private fun PreviewDialog(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        CircularProgressIndicator()
+                        CircularProgressIndicator(color = Color(0xFF2B67E7))
                         Text(
                             text = "正在加载预览…",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = Color(0xFF748094),
+                            fontFamily = AliciaMechaFontFamily,
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 13.sp,
                         )
                     }
                 }
@@ -2782,7 +2774,11 @@ private fun PreviewDialog(
                 state.error != null -> {
                     Text(
                         text = state.error,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = Color(0xFF748094),
+                        fontFamily = AliciaMechaFontFamily,
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 13.sp,
+                        lineHeight = 18.sp,
                     )
                 }
 
@@ -2794,34 +2790,109 @@ private fun PreviewDialog(
                                 .fillMaxWidth()
                                 .heightIn(max = 420.dp)
                                 .verticalScroll(rememberScrollState()),
-                            color = MaterialTheme.colorScheme.onSurface,
+                            color = Color(0xFF101626),
+                            fontFamily = AliciaMechaFontFamily,
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 13.sp,
+                            lineHeight = 20.sp,
                         )
                     }
                 }
 
                 state.kind == PreviewKind.IMAGE && bitmap != null -> {
-                    Image(
-                        bitmap = bitmap,
-                        contentDescription = state.fileName,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = 420.dp),
-                    )
+                    AliciaMechaPanel(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentPadding = PaddingValues(10.dp),
+                        backgroundResId = R.drawable.alicia_9_file_row,
+                        backgroundSlice = 42.dp,
+                    ) {
+                        Image(
+                            bitmap = bitmap,
+                            contentDescription = state.fileName,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 420.dp),
+                        )
+                    }
                 }
 
                 else -> {
                     Text(
                         text = "当前文件暂不支持内置预览，请先下载查看。",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = Color(0xFF748094),
+                        fontFamily = AliciaMechaFontFamily,
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 13.sp,
+                        lineHeight = 18.sp,
                         textAlign = TextAlign.Start,
                     )
                 }
             }
         },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("关闭")
-            }
+        footer = {
+            AliciaMechaActionButton(
+                label = "关闭",
+                onClick = onDismiss,
+                tone = AliciaMechaActionButtonTone.Secondary,
+                modifier = Modifier.fillMaxWidth(),
+                height = 44.dp,
+            )
         },
+    )
+}
+
+@Composable
+private fun AliciaMechaConfirmDialog(
+    title: String,
+    message: String,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+    confirmLabel: String,
+    confirmTone: AliciaMechaActionButtonTone = AliciaMechaActionButtonTone.Primary,
+) {
+    AliciaMechaDialogShell(
+        title = title,
+        onDismissRequest = onDismiss,
+        body = {
+            Text(
+                text = message,
+                color = Color(0xFF748094),
+                fontFamily = AliciaMechaFontFamily,
+                fontWeight = FontWeight.Medium,
+                fontSize = 14.sp,
+                lineHeight = 20.sp,
+            )
+        },
+        footer = {
+            AliciaMechaConfirmActionRow(
+                onDismiss = onDismiss,
+                onConfirm = onConfirm,
+                confirmLabel = confirmLabel,
+                confirmTone = confirmTone,
+            )
+        },
+    )
+}
+
+@Composable
+private fun RowScope.AliciaMechaConfirmActionRow(
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+    confirmLabel: String,
+    confirmTone: AliciaMechaActionButtonTone,
+) {
+    AliciaMechaActionButton(
+        label = "取消",
+        onClick = onDismiss,
+        tone = AliciaMechaActionButtonTone.Secondary,
+        modifier = Modifier.weight(1f),
+        height = 42.dp,
+    )
+    AliciaMechaActionButton(
+        label = confirmLabel,
+        onClick = onConfirm,
+        tone = confirmTone,
+        modifier = Modifier.weight(1f),
+        height = 42.dp,
     )
 }
