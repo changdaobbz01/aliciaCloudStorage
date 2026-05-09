@@ -119,10 +119,22 @@ export function LoginPage() {
 
       {appDownloadAvailable && appDownloadUrl ? (
         <aside className="login-download-card" aria-label="安卓版下载">
-          <Typography.Text className="login-download-eyebrow">Android App</Typography.Text>
-          <Typography.Title level={5} className="login-download-title">
-            扫码下载 APK
-          </Typography.Title>
+          <div className="login-download-head">
+            <img
+              src="/apple-touch-icon.png"
+              alt="Alicia云盘"
+              className="login-download-icon"
+            />
+            <div className="login-download-copy">
+              <Typography.Text className="login-download-eyebrow">Android App</Typography.Text>
+              <Typography.Title level={5} className="login-download-title">
+                Alicia云盘 APK
+              </Typography.Title>
+            </div>
+          </div>
+          <Typography.Paragraph className="login-download-note">
+            扫码下载移动端安装包
+          </Typography.Paragraph>
           <a
             href={appDownloadUrl}
             target="_blank"

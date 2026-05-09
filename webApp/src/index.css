@@ -150,15 +150,40 @@ select {
   bottom: 28px;
   z-index: 3;
   display: grid;
-  justify-items: center;
-  gap: 10px;
-  width: 188px;
-  padding: 16px 16px 18px;
-  border-radius: 22px;
-  color: #7c2d12;
-  background: linear-gradient(180deg, rgba(255, 186, 102, 0.96) 0%, rgba(249, 115, 22, 0.98) 100%);
-  box-shadow: 0 24px 44px rgba(249, 115, 22, 0.3);
-  backdrop-filter: blur(8px);
+  gap: 12px;
+  width: 224px;
+  padding: 18px 18px 20px;
+  color: #ffe9cf;
+  background:
+    linear-gradient(180deg, rgba(16, 24, 40, 0.86) 0%, rgba(26, 37, 59, 0.92) 100%),
+    linear-gradient(135deg, rgba(37, 99, 235, 0.2) 0%, rgba(249, 115, 22, 0.14) 100%);
+  border: 1px solid rgba(148, 163, 184, 0.38);
+  clip-path: polygon(16px 0, calc(100% - 18px) 0, 100% 16px, 100% calc(100% - 18px), calc(100% - 18px) 100%, 18px 100%, 0 calc(100% - 16px), 0 18px);
+  box-shadow:
+    0 24px 48px rgba(15, 23, 42, 0.3),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(10px) saturate(126%);
+}
+
+.login-download-card::before,
+.login-download-card::after {
+  content: '';
+  position: absolute;
+  width: 42px;
+  height: 3px;
+  border-radius: 999px;
+}
+
+.login-download-card::before {
+  top: 12px;
+  left: 18px;
+  background: linear-gradient(90deg, rgba(56, 189, 248, 0) 0%, rgba(56, 189, 248, 0.95) 100%);
+}
+
+.login-download-card::after {
+  right: 18px;
+  bottom: 12px;
+  background: linear-gradient(90deg, rgba(249, 115, 22, 0.95) 0%, rgba(249, 115, 22, 0) 100%);
 }
 
 .login-download-card .ant-typography {
@@ -166,29 +191,66 @@ select {
   color: inherit;
 }
 
+.login-download-head {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+
+.login-download-icon {
+  width: 46px;
+  height: 46px;
+  display: block;
+  border-radius: 12px;
+  padding: 4px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.06)),
+    rgba(15, 23, 42, 0.28);
+  box-shadow:
+    inset 0 0 0 1px rgba(148, 163, 184, 0.24),
+    0 10px 24px rgba(15, 23, 42, 0.22);
+}
+
+.login-download-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
 .login-download-eyebrow {
-  color: rgba(124, 45, 18, 0.72);
+  color: rgba(191, 219, 254, 0.78);
   font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
 .login-download-title.ant-typography {
-  color: #7c2d12;
-  font-size: 16px;
+  color: #f8fafc;
+  font-size: 18px;
   font-weight: 800;
-  line-height: 1.1;
+  line-height: 1.08;
+}
+
+.login-download-note.ant-typography {
+  color: rgba(226, 232, 240, 0.86);
+  font-size: 12px;
+  line-height: 1.55;
 }
 
 .login-download-qr-link {
   display: grid;
   place-items: center;
   width: 100%;
-  padding: 8px;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.82);
+  padding: 10px;
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(226, 232, 240, 0.98)),
+    #ffffff;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.92),
+    0 12px 24px rgba(15, 23, 42, 0.18);
 }
 
 .login-download-qr {
@@ -197,9 +259,10 @@ select {
   justify-content: center;
   width: 132px;
   height: 132px;
-  padding: 4px;
-  border-radius: 12px;
+  padding: 5px;
+  border-radius: 14px;
   background: #ffffff;
+  margin: 0 auto;
 }
 
 .login-download-qr .ant-qrcode {
@@ -221,19 +284,22 @@ select {
   align-items: center;
   justify-content: center;
   width: 100%;
-  min-height: 38px;
+  min-height: 40px;
   padding: 0 14px;
   border-radius: 999px;
-  color: #9a3412;
-  background: rgba(255, 255, 255, 0.92);
+  color: #eff6ff;
+  background: linear-gradient(90deg, rgba(37, 99, 235, 0.96), rgba(59, 130, 246, 0.96));
   font-size: 14px;
   font-weight: 700;
   text-decoration: none;
+  box-shadow:
+    0 14px 28px rgba(37, 99, 235, 0.26),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.18);
 }
 
 .login-download-link:hover {
-  color: #7c2d12;
-  background: #ffffff;
+  color: #ffffff;
+  background: linear-gradient(90deg, #2563eb, #1d4ed8);
 }
 
 .login-card .ant-form-item-label > label {
@@ -1344,13 +1410,26 @@ select {
   .login-download-card {
     right: 20px;
     bottom: 18px;
-    width: 168px;
-    padding: 14px 14px 16px;
+    width: 196px;
+    padding: 16px 16px 18px;
+  }
+
+  .login-download-head {
+    grid-template-columns: 42px minmax(0, 1fr);
+  }
+
+  .login-download-icon {
+    width: 42px;
+    height: 42px;
+  }
+
+  .login-download-title.ant-typography {
+    font-size: 16px;
   }
 
   .login-download-qr {
-    width: 116px;
-    height: 116px;
+    width: 118px;
+    height: 118px;
   }
 
   .login-brand {
