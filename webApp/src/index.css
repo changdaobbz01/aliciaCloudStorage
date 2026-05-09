@@ -381,12 +381,16 @@ select {
 
 .sider-download-copy {
   width: 100%;
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+  text-align: center;
 }
 
 .sider-download-title.ant-typography {
   white-space: nowrap;
-  font-size: 16px;
-  line-height: 1.15;
+  font-size: 15px;
+  line-height: 1.1;
 }
 
 .sider-download-eyebrow {
@@ -414,8 +418,9 @@ select {
 }
 
 .sider-download-qr {
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 140px;
   height: 140px;
   padding: 8px;
@@ -423,9 +428,18 @@ select {
   border-radius: 12px;
 }
 
+.sider-download-qr .ant-qrcode {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .sider-download-qr canvas,
 .sider-download-qr svg {
   display: block;
+  margin: auto;
 }
 
 .sider-download-empty {
@@ -486,6 +500,7 @@ select {
   min-width: 0;
   display: grid;
   gap: 6px;
+  width: fit-content;
 }
 
 .header-eyebrow {
@@ -498,6 +513,8 @@ select {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-wrap: nowrap;
+  white-space: nowrap;
 }
 
 .header-title .anticon {
@@ -641,14 +658,15 @@ select {
 }
 
 .app-main-shell-with-background .header-eyebrow {
-  color: var(--home-background-accent-eyebrow);
-  text-shadow: 0 1px 12px rgba(15, 23, 42, 0.24);
+  color: rgba(255, 255, 255, 0.92);
+  text-shadow: 0 2px 16px rgba(15, 23, 42, 0.45);
+  white-space: nowrap;
 }
 
 .app-main-shell-with-background .header-title .anticon,
 .app-main-shell-with-background .header-title .ant-typography {
-  color: var(--home-background-accent-title);
-  text-shadow: 0 2px 16px rgba(15, 23, 42, 0.28);
+  color: #ffffff;
+  text-shadow: 0 3px 18px rgba(15, 23, 42, 0.5);
 }
 
 .home-dashboard-with-background .panel-subtitle,
