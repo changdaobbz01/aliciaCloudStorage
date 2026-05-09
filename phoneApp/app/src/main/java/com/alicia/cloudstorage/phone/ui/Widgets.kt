@@ -2207,8 +2207,7 @@ fun AliciaMechaInputField(
                 value = value,
                 onValueChange = onValueChange,
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 13.dp),
+                    .fillMaxSize(),
                 singleLine = singleLine,
                 textStyle = TextStyle(
                     color = MechaInk,
@@ -2222,17 +2221,24 @@ fun AliciaMechaInputField(
                 keyboardOptions = keyboardOptions,
                 keyboardActions = keyboardActions,
                 decorationBox = { innerTextField ->
-                    if (value.isBlank() && !placeholder.isNullOrBlank()) {
-                        Text(
-                            text = placeholder,
-                            color = Color(0xFF9AA6BA),
-                            fontFamily = AliciaMechaFontFamily,
-                            fontWeight = FontWeight.Medium,
-                            fontSize = 14.sp,
-                            lineHeight = 16.sp,
-                        )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 16.dp),
+                        contentAlignment = Alignment.CenterStart,
+                    ) {
+                        if (value.isBlank() && !placeholder.isNullOrBlank()) {
+                            Text(
+                                text = placeholder,
+                                color = Color(0xFF9AA6BA),
+                                fontFamily = AliciaMechaFontFamily,
+                                fontWeight = FontWeight.Medium,
+                                fontSize = 14.sp,
+                                lineHeight = 16.sp,
+                            )
+                        }
+                        innerTextField()
                     }
-                    innerTextField()
                 },
             )
         }
@@ -2262,6 +2268,9 @@ fun AliciaInputField(
             fontSize = 12.sp,
         )
         Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp),
             shape = RoundedCornerShape(18.dp),
             color = Color(0xFFF7F8FC),
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.34f)),
@@ -2270,8 +2279,7 @@ fun AliciaInputField(
                 value = value,
                 onValueChange = onValueChange,
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 13.dp),
+                    .fillMaxSize(),
                 singleLine = singleLine,
                 textStyle = MaterialTheme.typography.bodyLarge.copy(
                     color = MaterialTheme.colorScheme.onSurface,
@@ -2282,14 +2290,21 @@ fun AliciaInputField(
                 keyboardOptions = keyboardOptions,
                 keyboardActions = keyboardActions,
                 decorationBox = { innerTextField ->
-                    if (value.isBlank() && !placeholder.isNullOrBlank()) {
-                        Text(
-                            text = placeholder,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.92f),
-                            style = MaterialTheme.typography.bodyLarge,
-                        )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 16.dp),
+                        contentAlignment = Alignment.CenterStart,
+                    ) {
+                        if (value.isBlank() && !placeholder.isNullOrBlank()) {
+                            Text(
+                                text = placeholder,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.92f),
+                                style = MaterialTheme.typography.bodyLarge,
+                            )
+                        }
+                        innerTextField()
                     }
-                    innerTextField()
                 },
             )
         }
