@@ -65,6 +65,7 @@ export type CreateUserPayload = {
   phoneNumber: string;
   nickname: string;
   avatarUrl: string | null;
+  inheritAdminBackground: boolean;
   password: string;
   role: UserRole;
   storageQuotaBytes: number | null;

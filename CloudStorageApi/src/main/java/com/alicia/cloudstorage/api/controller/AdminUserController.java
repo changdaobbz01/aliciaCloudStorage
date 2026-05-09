@@ -44,8 +44,11 @@ public class AdminUserController {
      * 由管理员创建新的账号记录。
      */
     @PostMapping
-    public UserProfileResponse createUser(@Valid @RequestBody AdminCreateUserRequest request) {
-        return userAccountService.createUser(request);
+    public UserProfileResponse createUser(
+            @RequestAttribute(AuthRequestAttributes.CURRENT_USER_ID) Long adminUserId,
+            @Valid @RequestBody AdminCreateUserRequest request
+    ) {
+        return userAccountService.createUser(adminUserId, request);
     }
 
     @PutMapping("/{userId}/quota")

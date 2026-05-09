@@ -184,7 +184,7 @@ public class UserAccountService {
                 .toList();
     }
 
-    public UserProfileResponse createUser(AdminCreateUserRequest request) {
+    public UserProfileResponse createUser(Long adminUserId, AdminCreateUserRequest request) {
         String phoneNumber = normalizePhoneNumber(request.phoneNumber());
         String nickname = normalizeNickname(request.nickname());
         String password = normalizePassword(request.password(), "密码不能为空。");
@@ -212,7 +212,19 @@ public class UserAccountService {
         user.setStatus(UserStatus.ACTIVE);
         user.setStorageQuotaBytes(storageQuotaBytes);
 
-        return toUserProfile(sysUserRepository.save(user));
+        SysUser savedUser = sysUserRepository.save(user);
+
+        String inheritedHomeBackgroundUrl = resolveInheritedHomeBackgroundUrl(
+                adminUserId,
+                request.inheritAdminBackground(),
+                savedUser.getId()
+        );
+        if (inheritedHomeBackgroundUrl != null) {
+            savedUser.setHomeBackgroundUrl(inheritedHomeBackgroundUrl);
+            savedUser = sysUserRepository.save(savedUser);
+        }
+
+        return toUserProfile(savedUser);
     }
 
     public UserProfileResponse updateUserStorageQuota(Long userId, AdminUpdateUserQuotaRequest request) {
@@ -316,6 +328,27 @@ public class UserAccountService {
         }
 
         return value.trim();
+    }
+
+    private String resolveInheritedHomeBackgroundUrl(Long adminUserId, boolean inheritAdminBackground, Long targetUserId) {
+        if (!inheritAdminBackground) {
+            return null;
+        }
+
+        SysUser adminUser = requireActiveUser(adminUserId);
+        String sourceHomeBackgroundUrl = adminUser.getHomeBackgroundUrl();
+        if (sourceHomeBackgroundUrl == null || sourceHomeBackgroundUrl.isBlank()) {
+            return null;
+        }
+
+        String sourceObjectKey = extractLocalHomeBackgroundObjectKey(sourceHomeBackgroundUrl);
+        if (sourceObjectKey == null) {
+            return sourceHomeBackgroundUrl;
+        }
+
+        CosFileStorageService.StoredCosFile duplicatedBackground =
+                cosFileStorageService.duplicateUserHomeBackground(targetUserId, sourceObjectKey);
+        return toLocalHomeBackgroundReference(duplicatedBackground.objectKey());
     }
 
     private String toLocalAvatarReference(String objectKey) {

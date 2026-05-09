@@ -521,54 +521,110 @@ select {
 }
 
 .sider-download-card {
+  position: relative;
   display: grid;
-  gap: 10px;
-  justify-items: center;
+  gap: 12px;
   margin: 18px 4px 0;
-  padding: 14px 14px 16px;
-  border-radius: 18px;
-  background: linear-gradient(180deg, #ffb45c 0%, #f97316 100%);
-  box-shadow: 0 18px 38px rgba(249, 115, 22, 0.24);
-  color: #7c2d12;
+  padding: 18px 18px 20px;
+  color: #ffe9cf;
+  background:
+    linear-gradient(180deg, rgba(16, 24, 40, 0.86) 0%, rgba(26, 37, 59, 0.92) 100%),
+    linear-gradient(135deg, rgba(37, 99, 235, 0.2) 0%, rgba(249, 115, 22, 0.14) 100%);
+  border: 1px solid rgba(148, 163, 184, 0.38);
+  clip-path: polygon(16px 0, calc(100% - 18px) 0, 100% 16px, 100% calc(100% - 18px), calc(100% - 18px) 100%, 18px 100%, 0 calc(100% - 16px), 0 18px);
+  box-shadow:
+    0 24px 48px rgba(15, 23, 42, 0.22),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(10px) saturate(126%);
+}
+
+.sider-download-card::before,
+.sider-download-card::after {
+  content: '';
+  position: absolute;
+  width: 42px;
+  height: 3px;
+  border-radius: 999px;
+}
+
+.sider-download-card::before {
+  top: 12px;
+  left: 18px;
+  background: linear-gradient(90deg, rgba(56, 189, 248, 0) 0%, rgba(56, 189, 248, 0.95) 100%);
+}
+
+.sider-download-card::after {
+  right: 18px;
+  bottom: 12px;
+  background: linear-gradient(90deg, rgba(249, 115, 22, 0.95) 0%, rgba(249, 115, 22, 0) 100%);
+}
+
+.sider-download-head {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+
+.sider-download-icon {
+  width: 42px;
+  height: 42px;
+  display: block;
+  border-radius: 12px;
+  padding: 4px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.06)),
+    rgba(15, 23, 42, 0.28);
+  box-shadow:
+    inset 0 0 0 1px rgba(148, 163, 184, 0.24),
+    0 10px 24px rgba(15, 23, 42, 0.22);
 }
 
 .sider-download-copy .ant-typography {
   margin: 0;
-  color: #7c2d12;
+  color: inherit;
 }
 
 .sider-download-copy {
-  width: 100%;
   display: grid;
-  gap: 4px;
-  justify-items: center;
-  text-align: center;
+  gap: 2px;
+  min-width: 0;
 }
 
 .sider-download-title.ant-typography {
-  white-space: nowrap;
-  font-size: 15px;
-  line-height: 1.1;
+  color: #f8fafc;
+  font-size: 17px;
+  line-height: 1.08;
 }
 
 .sider-download-eyebrow {
-  color: rgba(124, 45, 18, 0.7);
+  color: rgba(191, 219, 254, 0.78);
   font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
+}
+
+.sider-download-note.ant-typography {
+  color: rgba(226, 232, 240, 0.86);
+  margin: 0 !important;
+  font-size: 12px;
+  line-height: 1.55;
 }
 
 .sider-download-qr-link {
   display: grid;
   place-items: center;
-  justify-self: center;
-  width: max-content;
+  justify-self: stretch;
   min-height: 154px;
-  padding: 8px;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.94);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.55);
+  padding: 10px;
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(226, 232, 240, 0.98)),
+    #ffffff;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.92),
+    0 12px 24px rgba(15, 23, 42, 0.18);
 }
 
 .sider-download-qr-link-disabled {
@@ -583,7 +639,8 @@ select {
   height: 140px;
   padding: 8px;
   background: #ffffff;
-  border-radius: 12px;
+  border-radius: 14px;
+  margin: 0 auto;
 }
 
 .sider-download-qr .ant-qrcode {
@@ -620,27 +677,31 @@ select {
   align-items: center;
   justify-content: center;
   justify-self: stretch;
-  min-height: 38px;
+  min-height: 40px;
   gap: 8px;
   padding: 0 14px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.92);
-  color: #9a3412;
+  background: linear-gradient(90deg, rgba(37, 99, 235, 0.96), rgba(59, 130, 246, 0.96));
+  color: #eff6ff;
   text-decoration: none;
   font-weight: 700;
   font-size: 14px;
+  box-shadow:
+    0 14px 28px rgba(37, 99, 235, 0.26),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.18);
 }
 
 .sider-download-link:hover {
-  color: #7c2d12;
-  background: #ffffff;
+  color: #ffffff;
+  background: linear-gradient(90deg, #2563eb, #1d4ed8);
 }
 
 .sider-download-link-disabled {
-  color: rgba(124, 45, 18, 0.72);
-  background: rgba(255, 255, 255, 0.72);
+  color: rgba(226, 232, 240, 0.74);
+  background: rgba(51, 65, 85, 0.62);
   cursor: default;
   pointer-events: none;
+  box-shadow: none;
 }
 
 .app-header {

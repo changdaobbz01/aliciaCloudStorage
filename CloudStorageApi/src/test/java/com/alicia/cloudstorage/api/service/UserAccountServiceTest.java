@@ -66,10 +66,12 @@ class UserAccountServiceTest {
         when(storageQuotaService.getUsedBytes(55L)).thenReturn(1024L);
 
         var response = userAccountService.createUser(
+                1L,
                 new AdminCreateUserRequest(
                         "13800000001",
                         "Quota Admin",
                         null,
+                        false,
                         "Admin@123",
                         "ADMIN",
                         null

@@ -21,6 +21,7 @@ import {
   Avatar,
   Breadcrumb,
   Button,
+  Checkbox,
   Dropdown,
   Form,
   Input,
@@ -116,6 +117,7 @@ type CreateUserFormValues = {
   phoneNumber: string;
   nickname: string;
   avatarUrl: string | null;
+  inheritAdminBackground: boolean;
   password: string;
   role: User['role'];
   storageQuotaGb: number;
@@ -1278,6 +1280,7 @@ export function DrivePage() {
     createUserForm.setFieldsValue({
       role: 'USER',
       avatarUrl: '',
+      inheritAdminBackground: Boolean(currentUser?.homeBackgroundUrl),
       storageQuotaGb: DEFAULT_NEW_USER_QUOTA_GB,
     });
     setCreateUserOpen(true);
@@ -2130,6 +2133,7 @@ export function DrivePage() {
         phoneNumber: values.phoneNumber,
         nickname: values.nickname,
         avatarUrl: values.avatarUrl?.trim() ? values.avatarUrl.trim() : null,
+        inheritAdminBackground: values.inheritAdminBackground,
         password: values.password,
         role: values.role,
         storageQuotaBytes: values.role === 'ADMIN' ? null : gigabytesToBytes(values.storageQuotaGb),
@@ -2274,12 +2278,22 @@ export function DrivePage() {
         />
 
         <section className="sider-download-card">
-          <div className="sider-download-copy">
-            <Typography.Text className="sider-download-eyebrow">APP 下载</Typography.Text>
-            <Typography.Title level={5} className="sider-download-title">
-              安卓客户端
-            </Typography.Title>
+          <div className="sider-download-head">
+            <img
+              src="/apple-touch-icon.png"
+              alt="Alicia云盘"
+              className="sider-download-icon"
+            />
+            <div className="sider-download-copy">
+              <Typography.Text className="sider-download-eyebrow">Android App</Typography.Text>
+              <Typography.Title level={5} className="sider-download-title">
+                Alicia云盘 APK
+              </Typography.Title>
+            </div>
           </div>
+          <Typography.Paragraph className="sider-download-note">
+            {appDownloadAvailable ? '扫码下载移动端安装包' : '上传 APK 后即可开放下载'}
+          </Typography.Paragraph>
 
           {appDownloadAvailable ? (
             <a
@@ -2787,6 +2801,17 @@ export function DrivePage() {
           </Form.Item>
           <Form.Item name="avatarUrl" label="头像地址">
             <Input placeholder="https://..." />
+          </Form.Item>
+          <Form.Item
+            name="inheritAdminBackground"
+            valuePropName="checked"
+            extra={
+              currentUser?.homeBackgroundUrl
+                ? '为新账号复制当前管理员的主页背景图。'
+                : '当前管理员尚未设置主页背景图。'
+            }
+          >
+            <Checkbox disabled={!currentUser?.homeBackgroundUrl}>同步管理员当前背景图</Checkbox>
           </Form.Item>
           <Form.Item
             name="password"

@@ -141,6 +141,47 @@ public class CosFileStorageService {
         }
     }
 
+    public StoredCosFile duplicateUserHomeBackground(Long userId, String sourceObjectKey) {
+        validateCosConfig();
+        if (!hasText(sourceObjectKey)) {
+            throw new IllegalArgumentException("背景图不存在。");
+        }
+
+        String trimmedSourceObjectKey = sourceObjectKey.trim();
+        String sourceFileName = trimmedSourceObjectKey.contains("/")
+                ? trimmedSourceObjectKey.substring(trimmedSourceObjectKey.lastIndexOf('/') + 1)
+                : trimmedSourceObjectKey;
+        String targetObjectKey = buildHomeBackgroundObjectKey(userId, sourceFileName);
+
+        COSClient cosClient = createCosClient();
+        try {
+            COSObject sourceObject = cosClient.getObject(bucket, trimmedSourceObjectKey);
+            ObjectMetadata sourceMetadata = sourceObject.getObjectMetadata();
+
+            try (COSObjectInputStream inputStream = sourceObject.getObjectContent()) {
+                ObjectMetadata targetMetadata = new ObjectMetadata();
+                targetMetadata.setContentLength(sourceMetadata.getContentLength());
+                if (sourceMetadata.getContentType() != null) {
+                    targetMetadata.setContentType(sourceMetadata.getContentType());
+                }
+
+                cosClient.putObject(new PutObjectRequest(bucket, targetObjectKey, inputStream, targetMetadata));
+            }
+
+            return new StoredCosFile(
+                    targetObjectKey,
+                    sourceMetadata.getContentType(),
+                    sourceMetadata.getContentLength()
+            );
+        } catch (IOException exception) {
+            throw new IllegalArgumentException("读取背景图文件失败。", exception);
+        } catch (CosClientException exception) {
+            throw buildCosStorageException("复制背景图", exception);
+        } finally {
+            cosClient.shutdown();
+        }
+    }
+
     /**
      * 在腾讯 COS 创建分片上传任务，并返回后续上传分片所需的 uploadId 和对象键。
      */

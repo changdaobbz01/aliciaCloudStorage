@@ -14,6 +14,7 @@ public record AdminCreateUserRequest(
         String nickname,
         @Size(max = 500, message = "头像地址长度不能超过 500 个字符。")
         String avatarUrl,
+        boolean inheritAdminBackground,
         @NotBlank(message = "密码不能为空。")
         String password,
         String role,
