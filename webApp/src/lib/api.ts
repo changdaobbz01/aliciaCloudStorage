@@ -16,6 +16,7 @@ import type {
   MultipartUploadStatus,
   RenameNodePayload,
   ResetUserPasswordPayload,
+  SignedUrlResponse,
   StorageNode,
   StorageNodeFilter,
   StorageNodePage,
@@ -763,6 +764,21 @@ export function downloadStorageFile(fileId: number, token: string, version?: str
 
   const suffix = search.toString() ? `?${search.toString()}` : '';
   return requestBlob(`/api/storage/files/${fileId}/download${suffix}`, withToken(token));
+}
+
+/**
+ * 鍚戝悗绔敵璇峰綋鍓嶆枃浠剁殑鐭椂鏈夋晥璁块棶鍦板潃锛屼緵鍓嶇鐩磋繛 COS 鍋氫笅杞芥垨棰勮銆? */
+export function fetchStorageFileAccessUrl(
+  fileId: number,
+  token: string,
+  disposition: 'inline' | 'attachment' = 'inline',
+) {
+  const search = new URLSearchParams();
+  search.set('disposition', disposition);
+  return requestJson<SignedUrlResponse>(
+    `/api/storage/files/${fileId}/access-url?${search.toString()}`,
+    withToken(token),
+  );
 }
 
 /**

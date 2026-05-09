@@ -6,27 +6,33 @@ import com.qcloud.cos.auth.BasicCOSCredentials;
 import com.qcloud.cos.auth.COSCredentials;
 import com.qcloud.cos.exception.CosClientException;
 import com.qcloud.cos.http.HttpProtocol;
+import com.qcloud.cos.http.HttpMethodName;
 import com.qcloud.cos.model.AbortMultipartUploadRequest;
 import com.qcloud.cos.model.CompleteMultipartUploadRequest;
 import com.qcloud.cos.model.COSObject;
 import com.qcloud.cos.model.COSObjectInputStream;
+import com.qcloud.cos.model.GeneratePresignedUrlRequest;
 import com.qcloud.cos.model.InitiateMultipartUploadRequest;
 import com.qcloud.cos.model.InitiateMultipartUploadResult;
 import com.qcloud.cos.model.ObjectMetadata;
 import com.qcloud.cos.model.PartETag;
 import com.qcloud.cos.model.PutObjectRequest;
+import com.qcloud.cos.model.ResponseHeaderOverrides;
 import com.qcloud.cos.model.UploadPartRequest;
 import com.qcloud.cos.model.UploadPartResult;
 import com.qcloud.cos.region.Region;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.ContentDisposition;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URL;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
@@ -39,19 +45,22 @@ public class CosFileStorageService {
     private final String region;
     private final String bucket;
     private final long maxFileSizeBytes;
+    private final long presignedUrlExpireSeconds;
 
     public CosFileStorageService(
             @Value("${alicia.cos.secret-id:}") String secretId,
             @Value("${alicia.cos.secret-key:}") String secretKey,
             @Value("${alicia.cos.region:ap-shanghai}") String region,
             @Value("${alicia.cos.bucket:}") String bucket,
-            @Value("${alicia.cos.max-file-size-bytes:104857600}") long maxFileSizeBytes
+            @Value("${alicia.cos.max-file-size-bytes:104857600}") long maxFileSizeBytes,
+            @Value("${alicia.cos.presigned-url-expire-seconds:600}") long presignedUrlExpireSeconds
     ) {
         this.secretId = secretId;
         this.secretKey = secretKey;
         this.region = region;
         this.bucket = bucket;
         this.maxFileSizeBytes = maxFileSizeBytes;
+        this.presignedUrlExpireSeconds = presignedUrlExpireSeconds;
     }
 
     /**
@@ -335,6 +344,14 @@ public class CosFileStorageService {
     /**
      * 当元数据入库失败时，尝试删除已经上传到 COS 的孤立对象。
      */
+    public PresignedCosUrl createInlineDownloadUrl(String objectKey, String contentType, String fileName) {
+        return createPresignedGetUrl(objectKey, contentType, fileName, false);
+    }
+
+    public PresignedCosUrl createAttachmentDownloadUrl(String objectKey, String contentType, String fileName) {
+        return createPresignedGetUrl(objectKey, contentType, fileName, true);
+    }
+
     public void deleteObjectQuietly(String objectKey) {
         if (!hasText(objectKey) || !hasText(secretId) || !hasText(secretKey) || !hasText(region) || !hasText(bucket)) {
             return;
@@ -479,6 +496,62 @@ public class CosFileStorageService {
     /**
      * 为 COS 下载流包一层关闭逻辑，确保响应结束后客户端资源被正确释放。
      */
+    private PresignedCosUrl createPresignedGetUrl(
+            String objectKey,
+            String contentType,
+            String fileName,
+            boolean attachment
+    ) {
+        validateCosConfig();
+
+        if (!hasText(objectKey)) {
+            throw new IllegalArgumentException("Object key is required.");
+        }
+
+        if (presignedUrlExpireSeconds <= 0) {
+            throw new IllegalArgumentException("COS presigned URL expiration must be positive.");
+        }
+
+        Date expiration = new Date(System.currentTimeMillis() + presignedUrlExpireSeconds * 1000L);
+        COSClient cosClient = createCosClient();
+
+        try {
+            GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(
+                    bucket.trim(),
+                    objectKey.trim(),
+                    HttpMethodName.GET
+            );
+            request.setExpiration(expiration);
+
+            ResponseHeaderOverrides responseHeaders = new ResponseHeaderOverrides();
+            boolean hasResponseHeaders = false;
+
+            if (hasText(contentType)) {
+                responseHeaders.setContentType(contentType.trim());
+                hasResponseHeaders = true;
+            }
+
+            if (hasText(fileName)) {
+                ContentDisposition contentDisposition = attachment
+                        ? ContentDisposition.attachment().filename(fileName).build()
+                        : ContentDisposition.inline().filename(fileName).build();
+                responseHeaders.setContentDisposition(contentDisposition.toString());
+                hasResponseHeaders = true;
+            }
+
+            if (hasResponseHeaders) {
+                request.setResponseHeaders(responseHeaders);
+            }
+
+            URL url = cosClient.generatePresignedUrl(request);
+            return new PresignedCosUrl(url.toString(), expiration.getTime());
+        } catch (CosClientException exception) {
+            throw buildCosStorageException("generate access url", exception);
+        } finally {
+            cosClient.shutdown();
+        }
+    }
+
     private InputStream wrapCosStream(COSObjectInputStream objectInputStream, COSObject cosObject, COSClient cosClient) {
         return new FilterInputStream(objectInputStream) {
             @Override
@@ -566,5 +639,8 @@ public class CosFileStorageService {
     }
 
     public record DownloadedCosFile(InputStream inputStream, String contentType, long contentLength) {
+    }
+
+    public record PresignedCosUrl(String url, long expiresAtEpochMillis) {
     }
 }

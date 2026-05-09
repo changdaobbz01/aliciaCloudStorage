@@ -123,6 +123,39 @@ public class StorageCommandService {
     /**
      * 修改当前用户自己的文件或文件夹名称，并同步维护文件后缀元数据。
      */
+    @Transactional(readOnly = true)
+    public StorageAccessUrlPayload createFileAccessUrl(Long userId, Long fileId, boolean attachment) {
+        StorageNode fileNode = storageNodeRepository.findByIdAndOwnerIdAndDeletedFalse(fileId, userId)
+                .orElseThrow(() -> new IllegalArgumentException("File not found."));
+
+        if (fileNode.getNodeType() != NodeType.FILE) {
+            throw new IllegalArgumentException("The current node is not a file.");
+        }
+
+        if (fileNode.getStoragePath() == null || fileNode.getStoragePath().isBlank()) {
+            throw new IllegalArgumentException("The file is not linked to cloud storage.");
+        }
+
+        CosFileStorageService.PresignedCosUrl presignedUrl = attachment
+                ? cosFileStorageService.createAttachmentDownloadUrl(
+                        fileNode.getStoragePath(),
+                        fileNode.getMimeType(),
+                        fileNode.getNodeName()
+                )
+                : cosFileStorageService.createInlineDownloadUrl(
+                        fileNode.getStoragePath(),
+                        fileNode.getMimeType(),
+                        fileNode.getNodeName()
+                );
+
+        return new StorageAccessUrlPayload(
+                presignedUrl.url(),
+                fileNode.getNodeName(),
+                fileNode.getMimeType(),
+                presignedUrl.expiresAtEpochMillis()
+        );
+    }
+
     public StorageNodeSummaryResponse renameNode(Long userId, Long nodeId, RenameNodeRequest request) {
         StorageNode node = storageNodeRepository.findByIdAndOwnerIdAndDeletedFalse(nodeId, userId)
                 .orElseThrow(() -> new IllegalArgumentException("文件或文件夹不存在。"));
@@ -632,6 +665,14 @@ public class StorageCommandService {
             String contentType,
             long contentLength,
             InputStream inputStream
+    ) {
+    }
+
+    public record StorageAccessUrlPayload(
+            String url,
+            String fileName,
+            String contentType,
+            long expiresAtEpochMillis
     ) {
     }
 }

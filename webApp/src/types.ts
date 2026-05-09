@@ -46,6 +46,13 @@ export type AppPackageInfo = {
   downloadUrl: string;
 };
 
+export type SignedUrlResponse = {
+  url: string;
+  fileName: string | null;
+  contentType: string | null;
+  expiresAtEpochMillis: number;
+};
+
 export type UpdateProfilePayload = {
   phoneNumber: string;
   nickname: string;

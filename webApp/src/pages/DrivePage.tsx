@@ -60,6 +60,7 @@ import {
   deleteAdminAppPackage,
   deleteStorageNodes,
   downloadStorageFile,
+  fetchStorageFileAccessUrl,
   fetchAdminAppPackage,
   fetchDriveOverview,
   fetchHealth,
@@ -986,7 +987,9 @@ export function DrivePage() {
     previewRequestIdRef.current += 1;
 
     if (previewObjectUrlRef.current) {
-      URL.revokeObjectURL(previewObjectUrlRef.current);
+      if (previewObjectUrlRef.current.startsWith('blob:')) {
+        URL.revokeObjectURL(previewObjectUrlRef.current);
+      }
       previewObjectUrlRef.current = null;
     }
   }, []);
@@ -995,7 +998,9 @@ export function DrivePage() {
     previewRequestIdRef.current += 1;
 
     if (previewObjectUrlRef.current) {
-      URL.revokeObjectURL(previewObjectUrlRef.current);
+      if (previewObjectUrlRef.current.startsWith('blob:')) {
+        URL.revokeObjectURL(previewObjectUrlRef.current);
+      }
       previewObjectUrlRef.current = null;
     }
 
@@ -1013,7 +1018,9 @@ export function DrivePage() {
       return;
     }
 
-    URL.revokeObjectURL(previewObjectUrlRef.current);
+    if (previewObjectUrlRef.current.startsWith('blob:')) {
+      URL.revokeObjectURL(previewObjectUrlRef.current);
+    }
     previewObjectUrlRef.current = null;
   }
 
@@ -1739,15 +1746,14 @@ export function DrivePage() {
     setDownloadingFileId(item.id);
 
     try {
-      const { blob, fileName } = await downloadStorageFile(item.id, authToken, item.updatedAt);
-      const downloadUrl = URL.createObjectURL(blob);
+      const access = await fetchStorageFileAccessUrl(item.id, authToken, 'attachment');
       const anchor = document.createElement('a');
-      anchor.href = downloadUrl;
-      anchor.download = fileName || item.name;
+      anchor.href = access.url;
+      anchor.rel = 'noreferrer';
+      anchor.target = '_blank';
       document.body.appendChild(anchor);
       anchor.click();
       anchor.remove();
-      URL.revokeObjectURL(downloadUrl);
     } catch (downloadError) {
       message.error(downloadError instanceof Error ? downloadError.message : '下载文件失败。');
     } finally {
@@ -1802,13 +1808,13 @@ export function DrivePage() {
     });
 
     try {
-      const { blob } = await downloadStorageFile(item.id, authToken, item.updatedAt);
-
-      if (previewRequestIdRef.current !== requestId) {
-        return;
-      }
-
       if (kind === 'text') {
+        const { blob } = await downloadStorageFile(item.id, authToken, item.updatedAt);
+
+        if (previewRequestIdRef.current !== requestId) {
+          return;
+        }
+
         const textContent = await blob.text();
 
         if (previewRequestIdRef.current !== requestId) {
@@ -1827,19 +1833,18 @@ export function DrivePage() {
         return;
       }
 
-      const objectUrl = URL.createObjectURL(blob);
+      const access = await fetchStorageFileAccessUrl(item.id, authToken, 'inline');
 
       if (previewRequestIdRef.current !== requestId) {
-        URL.revokeObjectURL(objectUrl);
         return;
       }
 
-      previewObjectUrlRef.current = objectUrl;
+      previewObjectUrlRef.current = access.url;
       setPreviewState({
         target: item,
         kind,
         loading: false,
-        objectUrl,
+        objectUrl: access.url,
         textContent: '',
         note: null,
         error: null,

@@ -12,6 +12,7 @@ import com.alicia.cloudstorage.api.dto.MultipartUploadPartResponse;
 import com.alicia.cloudstorage.api.dto.MultipartUploadStatusResponse;
 import com.alicia.cloudstorage.api.dto.PageResponse;
 import com.alicia.cloudstorage.api.dto.RenameNodeRequest;
+import com.alicia.cloudstorage.api.dto.SignedUrlResponse;
 import com.alicia.cloudstorage.api.dto.StorageNodeSummaryResponse;
 import com.alicia.cloudstorage.api.dto.UsageHistoryPointResponse;
 import com.alicia.cloudstorage.api.service.StorageCommandService;
@@ -334,5 +335,25 @@ public class StorageNodeController {
                                 .toString()
                 )
                 .body(new InputStreamResource(downloadPayload.inputStream()));
+    }
+
+    @GetMapping("/files/{fileId}/access-url")
+    public SignedUrlResponse getFileAccessUrl(
+            @RequestAttribute(AuthRequestAttributes.CURRENT_USER_ID) Long userId,
+            @PathVariable Long fileId,
+            @RequestParam(required = false, defaultValue = "inline") String disposition
+    ) {
+        boolean attachment = "attachment".equalsIgnoreCase(disposition) || "download".equalsIgnoreCase(disposition);
+        StorageCommandService.StorageAccessUrlPayload payload = storageCommandService.createFileAccessUrl(
+                userId,
+                fileId,
+                attachment
+        );
+        return new SignedUrlResponse(
+                payload.url(),
+                payload.fileName(),
+                payload.contentType(),
+                payload.expiresAtEpochMillis()
+        );
     }
 }

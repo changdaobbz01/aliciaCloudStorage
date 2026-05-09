@@ -144,6 +144,32 @@ public class UserAccountService {
         );
     }
 
+    @Transactional(readOnly = true)
+    public CosFileStorageService.PresignedCosUrl resolveUserAvatarAccessUrl(Long userId) {
+        SysUser user = sysUserRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found."));
+        String objectKey = extractLocalAvatarObjectKey(user.getAvatarUrl());
+
+        if (objectKey == null) {
+            throw new IllegalArgumentException("Avatar not found.");
+        }
+
+        return cosFileStorageService.createInlineDownloadUrl(objectKey, null, null);
+    }
+
+    @Transactional(readOnly = true)
+    public CosFileStorageService.PresignedCosUrl resolveUserHomeBackgroundAccessUrl(Long userId) {
+        SysUser user = sysUserRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found."));
+        String objectKey = extractLocalHomeBackgroundObjectKey(user.getHomeBackgroundUrl());
+
+        if (objectKey == null) {
+            throw new IllegalArgumentException("Home background not found.");
+        }
+
+        return cosFileStorageService.createInlineDownloadUrl(objectKey, null, null);
+    }
+
     public UserProfileResponse clearCurrentUserHomeBackground(Long userId) {
         SysUser user = requireActiveUser(userId);
         String oldHomeBackgroundUrl = user.getHomeBackgroundUrl();
