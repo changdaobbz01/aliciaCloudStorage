@@ -1,10 +1,22 @@
-import { App as AntApp, Button, Card, Form, Input, Typography } from 'antd';
-import { useEffect } from 'react';
+import { App as AntApp, Button, Card, Form, Input, QRCode, Typography } from 'antd';
+import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { RegulatoryFooter } from '../components/RegulatoryFooter';
 import { useSession } from '../context/session-context';
-import { login } from '../lib/api';
-import type { LoginPayload } from '../types';
+import { fetchPublicAppPackage, login } from '../lib/api';
+import type { AppPackageInfo, LoginPayload } from '../types';
+
+function resolveDownloadUrl(downloadPath: string) {
+  if (/^https?:\/\//i.test(downloadPath)) {
+    return downloadPath;
+  }
+
+  if (typeof window === 'undefined') {
+    return downloadPath;
+  }
+
+  return new URL(downloadPath, window.location.origin).toString();
+}
 
 export function LoginPage() {
   const { message } = AntApp.useApp();
@@ -12,6 +24,30 @@ export function LoginPage() {
   const location = useLocation();
   const { authToken, setCurrentSession } = useSession();
   const [form] = Form.useForm<LoginPayload>();
+  const [appPackageInfo, setAppPackageInfo] = useState<AppPackageInfo | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadPublicAppPackage() {
+      try {
+        const nextPackageInfo = await fetchPublicAppPackage();
+        if (!cancelled) {
+          setAppPackageInfo(nextPackageInfo);
+        }
+      } catch {
+        if (!cancelled) {
+          setAppPackageInfo(null);
+        }
+      }
+    }
+
+    void loadPublicAppPackage();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (authToken) {
@@ -38,6 +74,11 @@ export function LoginPage() {
       message.error(error instanceof Error ? error.message : '登录失败。');
     }
   }
+
+  const appDownloadAvailable = appPackageInfo?.available ?? false;
+  const appDownloadUrl = appDownloadAvailable
+    ? resolveDownloadUrl(appPackageInfo?.downloadUrl ?? '/api/app-package/download/current')
+    : null;
 
   return (
     <div className="login-shell">
@@ -75,6 +116,29 @@ export function LoginPage() {
           </Button>
         </Form>
       </Card>
+
+      {appDownloadAvailable && appDownloadUrl ? (
+        <aside className="login-download-card" aria-label="安卓版下载">
+          <Typography.Text className="login-download-eyebrow">Android App</Typography.Text>
+          <Typography.Title level={5} className="login-download-title">
+            扫码下载 APK
+          </Typography.Title>
+          <a
+            href={appDownloadUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="login-download-qr-link"
+            aria-label="扫码下载 Android 客户端"
+          >
+            <div className="login-download-qr">
+              <QRCode value={appDownloadUrl} size={124} bordered={false} />
+            </div>
+          </a>
+          <a href={appDownloadUrl} target="_blank" rel="noreferrer" className="login-download-link">
+            下载 APK
+          </a>
+        </aside>
+      ) : null}
 
       <RegulatoryFooter />
     </div>

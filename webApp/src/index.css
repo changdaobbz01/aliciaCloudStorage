@@ -144,6 +144,98 @@ select {
   padding: 0 32px 32px;
 }
 
+.login-download-card {
+  position: absolute;
+  right: 32px;
+  bottom: 28px;
+  z-index: 3;
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  width: 188px;
+  padding: 16px 16px 18px;
+  border-radius: 22px;
+  color: #7c2d12;
+  background: linear-gradient(180deg, rgba(255, 186, 102, 0.96) 0%, rgba(249, 115, 22, 0.98) 100%);
+  box-shadow: 0 24px 44px rgba(249, 115, 22, 0.3);
+  backdrop-filter: blur(8px);
+}
+
+.login-download-card .ant-typography {
+  margin: 0;
+  color: inherit;
+}
+
+.login-download-eyebrow {
+  color: rgba(124, 45, 18, 0.72);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.login-download-title.ant-typography {
+  color: #7c2d12;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.login-download-qr-link {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  padding: 8px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.82);
+}
+
+.login-download-qr {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 132px;
+  height: 132px;
+  padding: 4px;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.login-download-qr .ant-qrcode {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.login-download-qr canvas,
+.login-download-qr svg {
+  display: block;
+  margin: auto;
+}
+
+.login-download-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 999px;
+  color: #9a3412;
+  background: rgba(255, 255, 255, 0.92);
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.login-download-link:hover {
+  color: #7c2d12;
+  background: #ffffff;
+}
+
 .login-card .ant-form-item-label > label {
   color: #334155;
   font-weight: 600;
@@ -1249,6 +1341,18 @@ select {
     width: min(100%, 420px);
   }
 
+  .login-download-card {
+    right: 20px;
+    bottom: 18px;
+    width: 168px;
+    padding: 14px 14px 16px;
+  }
+
+  .login-download-qr {
+    width: 116px;
+    height: 116px;
+  }
+
   .login-brand {
     padding: 24px 24px 20px;
   }
@@ -1326,6 +1430,10 @@ select {
 }
 
 @media (max-width: 640px) {
+  .login-download-card {
+    display: none;
+  }
+
   .home-summary-card,
   .home-chart-card,
   .content-panel {
