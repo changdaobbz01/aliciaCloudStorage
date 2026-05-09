@@ -2,6 +2,8 @@ package com.alicia.cloudstorage.phone.data
 
 import android.content.ContentResolver
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.provider.OpenableColumns
 import com.google.gson.JsonParser
@@ -10,9 +12,12 @@ import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import retrofit2.Response
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
 import java.net.URLDecoder
+import kotlin.math.max
+import kotlin.math.roundToInt
 
 class ApiException(
     override val message: String,
@@ -21,6 +26,8 @@ class ApiException(
 ) : IOException(message, cause)
 
 private const val MAX_DIRECT_UPLOAD_BYTES = 20L * 1024 * 1024
+private const val MAX_AVATAR_UPLOAD_BYTES = 2L * 1024 * 1024
+private const val MAX_AVATAR_DIMENSION = 1440
 
 class AliciaRepository(
     private val serviceFactory: AliciaCloudServiceFactory = AliciaCloudServiceFactory(),
@@ -59,23 +66,20 @@ class AliciaRepository(
         token: String,
         uri: Uri,
     ): User {
-        val asset = context.contentResolver.resolveOpenableAsset(uri)
-        val suffix = asset.fileName.substringAfterLast('.', "").ifBlank { "jpg" }
-        val tempFile = File.createTempFile("alicia-avatar-", ".$suffix", context.cacheDir)
-
+        val preparedFile = context.contentResolver.prepareAvatarUploadFile(uri, context.cacheDir)
         try {
-            context.contentResolver.openInputStream(uri)?.use { input ->
-                tempFile.outputStream().use { output ->
+            preparedFile.file.inputStream().use { input ->
+                ByteArrayOutputStream().use { output ->
                     input.copyTo(output)
                 }
             } ?: throw ApiException("无法读取你选择的头像文件。", 400)
 
-            val requestBody = tempFile.asRequestBody(
-                (asset.contentType ?: "application/octet-stream").toMediaTypeOrNull(),
+            val requestBody = preparedFile.file.asRequestBody(
+                preparedFile.contentType.toMediaTypeOrNull(),
             )
             val filePart = MultipartBody.Part.createFormData(
                 name = "file",
-                filename = asset.fileName,
+                filename = preparedFile.fileName,
                 body = requestBody,
             )
 
@@ -86,7 +90,7 @@ class AliciaRepository(
                 )
                 .requireBody(fallback = "更新头像失败。")
         } finally {
-            tempFile.delete()
+            preparedFile.file.delete()
         }
     }
 
@@ -452,6 +456,12 @@ private data class OpenableAsset(
     val sizeBytes: Long?,
 )
 
+private data class PreparedUploadFile(
+    val file: File,
+    val fileName: String,
+    val contentType: String,
+)
+
 private fun ContentResolver.resolveOpenableAsset(uri: Uri): OpenableAsset {
     var fileName: String? = null
     var sizeBytes: Long? = null
@@ -476,6 +486,62 @@ private fun ContentResolver.resolveOpenableAsset(uri: Uri): OpenableAsset {
         contentType = getType(uri),
         sizeBytes = sizeBytes,
     )
+}
+
+private fun ContentResolver.prepareAvatarUploadFile(uri: Uri, cacheDir: File): PreparedUploadFile {
+    val asset = resolveOpenableAsset(uri)
+    val inputBytes = openInputStream(uri)?.use { it.readBytes() }
+        ?: throw ApiException("无法读取你选择的头像文件。", 400)
+
+    val bitmap = BitmapFactory.decodeByteArray(inputBytes, 0, inputBytes.size)
+        ?: throw ApiException("当前图片格式暂不支持，请换成 JPG、PNG、GIF 或 WebP 后重试。", 400)
+
+    val scaledBitmap = bitmap.scaleDown(maxDimension = MAX_AVATAR_DIMENSION)
+    val outputBytes = scaledBitmap.compressAvatarJpeg(maxBytes = MAX_AVATAR_UPLOAD_BYTES)
+        ?: throw ApiException("请选择更小的头像图片，建议使用清晰的人像图。", 400)
+
+    if (scaledBitmap !== bitmap) {
+        scaledBitmap.recycle()
+    }
+    bitmap.recycle()
+
+    val tempFile = File.createTempFile("alicia-avatar-", ".jpg", cacheDir)
+    tempFile.writeBytes(outputBytes)
+
+    val normalizedName = asset.fileName.substringBeforeLast('.', asset.fileName) + ".jpg"
+    return PreparedUploadFile(
+        file = tempFile,
+        fileName = normalizedName,
+        contentType = "image/jpeg",
+    )
+}
+
+private fun Bitmap.scaleDown(maxDimension: Int): Bitmap {
+    val longestSide = max(width, height)
+    if (longestSide <= maxDimension) {
+        return this
+    }
+
+    val scale = maxDimension.toFloat() / longestSide.toFloat()
+    val targetWidth = (width * scale).roundToInt().coerceAtLeast(1)
+    val targetHeight = (height * scale).roundToInt().coerceAtLeast(1)
+    return Bitmap.createScaledBitmap(this, targetWidth, targetHeight, true)
+}
+
+private fun Bitmap.compressAvatarJpeg(maxBytes: Long): ByteArray? {
+    var quality = 92
+
+    while (quality >= 48) {
+        val output = ByteArrayOutputStream()
+        compress(Bitmap.CompressFormat.JPEG, quality, output)
+        val bytes = output.toByteArray()
+        if (bytes.size.toLong() <= maxBytes) {
+            return bytes
+        }
+        quality -= 8
+    }
+
+    return null
 }
 
 private fun <T> Response<T>.requireBody(fallback: String): T {

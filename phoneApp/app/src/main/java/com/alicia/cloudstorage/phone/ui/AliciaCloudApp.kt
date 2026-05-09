@@ -1,6 +1,7 @@
 ﻿package com.alicia.cloudstorage.phone.ui
 
 import android.annotation.SuppressLint
+import android.content.Intent
 import android.graphics.BitmapFactory
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -72,6 +73,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
@@ -432,6 +434,7 @@ private fun MainShell(
     viewModel: MainViewModel,
 ) {
     val currentUser = uiState.currentUser ?: return
+    val context = LocalContext.current
     val isTrashMode = uiState.selectedTab == AppTab.TRASH
     val visibleTab = when (uiState.selectedTab) {
         AppTab.HOME -> AppTab.HOME
@@ -488,9 +491,15 @@ private fun MainShell(
         }
     }
     val avatarLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent(),
+        contract = ActivityResultContracts.OpenDocument(),
     ) { uri ->
         if (uri != null) {
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION,
+                )
+            }
             viewModel.uploadAvatar(uri)
         }
     }
@@ -658,7 +667,7 @@ private fun MainShell(
             isUpdatingProfile = uiState.isUpdatingProfile,
             isUpdatingAvatar = uiState.isUpdatingAvatar,
             isChangingPassword = uiState.isChangingPassword,
-            onChangeAvatar = { avatarLauncher.launch("image/*") },
+            onChangeAvatar = { avatarLauncher.launch(arrayOf("image/*")) },
             onChangeNickname = { changeNicknameOpen = true },
             onChangePassword = { changePasswordOpen = true },
             onSwitchBaseUrl = viewModel::switchBaseUrl,
