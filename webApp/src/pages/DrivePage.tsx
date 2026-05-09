@@ -373,10 +373,10 @@ function rgbToHsl(red: number, green: number, blue: number) {
   };
 }
 
-function toAccentColor(hue: number, saturation: number, lightness: number, targetLightness: number) {
+function toAccentColor(hue: number, saturation: number, lightness: number, targetLightness: number, lightnessRange: { min: number; max: number }) {
   const normalizedHue = ((hue % 360) + 360) % 360;
-  const normalizedSaturation = clamp(saturation, 0.42, 0.82);
-  const adjustedLightness = clamp(targetLightness + (lightness - 0.5) * 0.08, 0.18, 0.34);
+  const normalizedSaturation = clamp(saturation, 0.45, 0.88);
+  const adjustedLightness = clamp(targetLightness + (lightness - 0.5) * 0.08, lightnessRange.min, lightnessRange.max);
 
   return `hsl(${Math.round(normalizedHue)} ${Math.round(normalizedSaturation * 100)}% ${Math.round(adjustedLightness * 100)}%)`;
 }
@@ -393,8 +393,8 @@ async function deriveHomeBackgroundAccent(imageUrl: string) {
 
     image.onload = () => {
       try {
-        const sampleWidth = 28;
-        const sampleHeight = 28;
+        const sampleWidth = 64;
+        const sampleHeight = 40;
         const canvas = document.createElement('canvas');
         canvas.width = sampleWidth;
         canvas.height = sampleHeight;
@@ -407,16 +407,25 @@ async function deriveHomeBackgroundAccent(imageUrl: string) {
 
         context.drawImage(image, 0, 0, sampleWidth, sampleHeight);
         const { data } = context.getImageData(0, 0, sampleWidth, sampleHeight);
-        const buckets = Array.from({ length: 12 }, () => ({
+        const buckets = Array.from({ length: 18 }, () => ({
           weight: 0,
           red: 0,
           green: 0,
           blue: 0,
         }));
+        const focusWidth = Math.max(1, Math.round(sampleWidth * 0.36));
+        const focusHeight = Math.max(1, Math.round(sampleHeight * 0.38));
 
         for (let index = 0; index < data.length; index += 4) {
           const alpha = data[index + 3] / 255;
           if (alpha < 0.2) {
+            continue;
+          }
+
+          const pixelIndex = index / 4;
+          const x = pixelIndex % sampleWidth;
+          const y = Math.floor(pixelIndex / sampleWidth);
+          if (x >= focusWidth || y >= focusHeight) {
             continue;
           }
 
@@ -425,15 +434,19 @@ async function deriveHomeBackgroundAccent(imageUrl: string) {
           const blue = data[index + 2];
           const { hue, saturation, lightness } = rgbToHsl(red, green, blue);
 
-          if (saturation < 0.12 || lightness > 0.92) {
+          if (saturation < 0.12 || lightness < 0.08 || lightness > 0.92) {
             continue;
           }
 
-          const hueIndex = Math.floor((((hue % 360) + 360) % 360) / 30) % buckets.length;
+          const hueIndex = Math.floor((((hue % 360) + 360) % 360) / (360 / buckets.length)) % buckets.length;
+          const horizontalBias = 1 - x / focusWidth;
+          const verticalBias = 1 - y / focusHeight;
           const weight =
             alpha *
-            (0.35 + saturation) *
-            (0.25 + clamp(1 - Math.abs(lightness - 0.48) * 1.6, 0.2, 1));
+            (0.4 + saturation * 1.35) *
+            (0.45 + horizontalBias * 0.95) *
+            (0.5 + verticalBias * 0.75) *
+            (0.25 + clamp(1 - Math.abs(lightness - 0.48) * 1.45, 0.18, 1));
 
           buckets[hueIndex].weight += weight;
           buckets[hueIndex].red += red * weight;
@@ -452,10 +465,12 @@ async function deriveHomeBackgroundAccent(imageUrl: string) {
         const averageGreen = dominantBucket.green / dominantBucket.weight;
         const averageBlue = dominantBucket.blue / dominantBucket.weight;
         const { hue, saturation, lightness } = rgbToHsl(averageRed, averageGreen, averageBlue);
+        const livelySaturation = Math.max(saturation, 0.58);
+        const vividSaturation = Math.max(saturation + 0.14, 0.78);
 
         resolve({
-          eyebrow: toAccentColor(hue, saturation, lightness, 0.3),
-          title: toAccentColor(hue, saturation + 0.08, lightness, 0.22),
+          eyebrow: toAccentColor(hue, livelySaturation, lightness, 0.56, { min: 0.48, max: 0.66 }),
+          title: toAccentColor(hue, vividSaturation, lightness, 0.62, { min: 0.54, max: 0.72 }),
         });
       } catch {
         resolve(DEFAULT_HOME_BACKGROUND_ACCENT);
@@ -2261,7 +2276,9 @@ export function DrivePage() {
         <section className="sider-download-card">
           <div className="sider-download-copy">
             <Typography.Text className="sider-download-eyebrow">APP 下载</Typography.Text>
-            <Typography.Title level={5}>安卓客户端</Typography.Title>
+            <Typography.Title level={5} className="sider-download-title">
+              安卓客户端
+            </Typography.Title>
           </div>
 
           {appDownloadAvailable ? (
@@ -2273,7 +2290,7 @@ export function DrivePage() {
               aria-label="下载安卓客户端"
             >
               <div className="sider-download-qr">
-                <QRCode value={appDownloadUrl} size={168} bordered={false} />
+                <QRCode value={appDownloadUrl} size={136} bordered={false} />
               </div>
             </a>
           ) : (
