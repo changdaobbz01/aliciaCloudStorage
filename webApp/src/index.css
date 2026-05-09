@@ -365,6 +365,7 @@ select {
 .sider-download-card {
   display: grid;
   gap: 12px;
+  justify-items: center;
   margin: 18px 4px 0;
   padding: 16px;
   border-radius: 18px;
@@ -378,6 +379,10 @@ select {
   color: #7c2d12;
 }
 
+.sider-download-copy {
+  width: 100%;
+}
+
 .sider-download-eyebrow {
   color: rgba(124, 45, 18, 0.7);
   font-size: 11px;
@@ -386,14 +391,11 @@ select {
   text-transform: uppercase;
 }
 
-.sider-download-note {
-  color: rgba(124, 45, 18, 0.84);
-  line-height: 1.6;
-}
-
 .sider-download-qr-link {
   display: grid;
   place-items: center;
+  justify-self: center;
+  width: max-content;
   min-height: 188px;
   padding: 10px;
   border-radius: 16px;
@@ -435,16 +437,11 @@ select {
   line-height: 1.6;
 }
 
-.sider-download-path {
-  color: rgba(124, 45, 18, 0.75);
-  font-size: 11px;
-  word-break: break-all;
-}
-
 .sider-download-link {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  justify-self: stretch;
   min-height: 42px;
   gap: 8px;
   padding: 0 16px;

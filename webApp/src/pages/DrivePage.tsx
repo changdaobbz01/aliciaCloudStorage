@@ -473,13 +473,6 @@ export function DrivePage() {
   const homeBackgroundImage = resolveHomeBackgroundSrc(currentUser);
   const appDownloadAvailable = publicAppPackageInfo?.available ?? false;
   const appDownloadUrl = resolveAppDownloadUrl(publicAppPackageInfo?.downloadUrl ?? APP_DOWNLOAD_PUBLIC_PATH);
-  const appDownloadNote = publicAppPackageLoading
-    ? '正在检查当前正式安装包状态。'
-    : publicAppPackageError
-      ? '当前暂时无法读取安装包状态，请稍后刷新。'
-      : appDownloadAvailable
-        ? '扫码直达当前正式安装包。管理员可在左侧 APP 上传栏目里随时替换新版。'
-        : '当前还没有上传正式 APK。管理员上传后，这里会自动开放下载。';
   const appDownloadButtonLabel = publicAppPackageLoading
     ? '正在检查…'
     : publicAppPackageError
@@ -2108,7 +2101,6 @@ export function DrivePage() {
           <div className="sider-download-copy">
             <Typography.Text className="sider-download-eyebrow">APP 下载</Typography.Text>
             <Typography.Title level={5}>安卓客户端</Typography.Title>
-            <Typography.Text className="sider-download-note">{appDownloadNote}</Typography.Text>
           </div>
 
           {appDownloadAvailable ? (
@@ -2128,9 +2120,6 @@ export function DrivePage() {
               <div className="sider-download-empty">{appDownloadEmptyLabel}</div>
             </div>
           )}
-
-          <Typography.Text className="sider-download-path">{APP_DOWNLOAD_PUBLIC_PATH}</Typography.Text>
-
           {appDownloadAvailable ? (
             <a href={appDownloadUrl} target="_blank" rel="noreferrer" className="sider-download-link">
               {appDownloadButtonLabel}
