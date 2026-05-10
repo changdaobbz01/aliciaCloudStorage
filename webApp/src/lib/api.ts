@@ -970,9 +970,17 @@ export function fetchAdminAppPackage(token: string) {
   return requestJson<AppPackageInfo>('/api/admin/app-package', withToken(token));
 }
 
-export function uploadAdminAppPackage(file: File, token: string, options?: UploadFileOptions) {
+export function uploadAdminAppPackage(
+  file: File,
+  versionName: string,
+  releaseNotes: string,
+  token: string,
+  options?: UploadFileOptions,
+) {
   const formData = new FormData();
   formData.append('file', file);
+  formData.append('versionName', versionName);
+  formData.append('releaseNotes', releaseNotes);
 
   return requestUploadJson<AppPackageInfo>('/api/admin/app-package', formData, token, options);
 }

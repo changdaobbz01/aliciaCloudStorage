@@ -44,6 +44,8 @@ export type AppPackageInfo = {
   fileSizeBytes: number | null;
   uploadedAt: string | null;
   downloadUrl: string;
+  versionName: string | null;
+  releaseNotes: string | null;
 };
 
 export type SignedUrlResponse = {

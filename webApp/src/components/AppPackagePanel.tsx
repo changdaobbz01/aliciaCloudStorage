@@ -40,25 +40,27 @@ export function AppPackagePanel({
 }: AppPackagePanelProps) {
   const packageAvailable = packageInfo?.available ?? false;
   const downloadUrl = packageInfo?.downloadUrl ?? '/api/app-package/download/current';
+  const versionName = packageInfo?.versionName?.trim() || '未填写';
+  const releaseNotes = packageInfo?.releaseNotes?.trim() || '当前安装包尚未填写更新说明。';
 
   return (
     <section className="content-panel account-panel">
       <div className="panel-header panel-header-spacious">
         <div className="panel-title-copy">
-          <Typography.Title level={4}>APP 上传</Typography.Title>
+          <Typography.Title level={4}>APP 更新管理</Typography.Title>
           <Typography.Paragraph className="panel-subtitle">
-            这里用于上传安卓 APK。上传成功后，首页左下角的下载二维码和下载按钮会自动指向这条正式地址。
+            在这里上传安卓 APK，同时维护版本号和更新说明。移动端启动时会读取这里的最新版本信息，并提示用户更新。
           </Typography.Paragraph>
         </div>
 
         <div className="panel-actions">
           <Button type="primary" icon={<UploadOutlined />} loading={uploading} onClick={onUploadClick}>
-            上传 APK
+            上传新版本
           </Button>
           {packageAvailable ? (
             <Popconfirm
-              title="移除当前安装包"
-              description="移除后，首页下载二维码会暂时失效。"
+              title="移除当前安装包？"
+              description="移除后，首页下载入口和 APP 更新检查都会暂时失效。"
               okText="移除"
               cancelText="取消"
               okButtonProps={{ danger: true }}
@@ -76,6 +78,10 @@ export function AppPackagePanel({
         <div className="management-summary-card">
           <div className="management-summary-label">当前状态</div>
           <div className="management-summary-value">{packageAvailable ? '已上传' : '未上传'}</div>
+        </div>
+        <div className="management-summary-card">
+          <div className="management-summary-label">当前版本</div>
+          <div className="management-summary-value">{versionName}</div>
         </div>
         <div className="management-summary-card">
           <div className="management-summary-label">安装包大小</div>
@@ -98,10 +104,20 @@ export function AppPackagePanel({
           <div className="app-package-card">
             <Typography.Title level={5}>当前安装包</Typography.Title>
             {packageAvailable ? (
-              <Space direction="vertical" size={10} style={{ display: 'flex' }}>
+              <Space direction="vertical" size={12} style={{ display: 'flex' }}>
                 <Typography.Text strong>{packageInfo?.fileName}</Typography.Text>
+                <div className="app-package-meta">
+                  <Typography.Text strong>更新版本</Typography.Text>
+                  <Typography.Text>{versionName}</Typography.Text>
+                </div>
+                <div className="app-package-meta">
+                  <Typography.Text strong>更新说明</Typography.Text>
+                  <Typography.Paragraph className="app-package-release-notes">
+                    {releaseNotes}
+                  </Typography.Paragraph>
+                </div>
                 <Typography.Text className="muted-text">
-                  公共下载地址固定不变，替换新版 APK 后无需再修改首页二维码。
+                  公共下载地址固定不变，替换新版 APK 后，首页二维码和 APP 内更新弹窗都会自动指向这条地址。
                 </Typography.Text>
                 <Typography.Paragraph copyable={{ text: downloadUrl }} className="app-package-url">
                   {downloadUrl}
@@ -116,7 +132,7 @@ export function AppPackagePanel({
                 type="info"
                 showIcon
                 message="当前还没有可下载的安装包"
-                description="请先上传一个 APK，上传成功后首页下载码会自动生效。"
+                description="请先上传一个 APK，并同步填写版本号和更新说明。上传完成后，首页下载入口和 APP 更新检测会自动生效。"
               />
             )}
           </div>
@@ -125,8 +141,9 @@ export function AppPackagePanel({
             <Typography.Title level={5}>上传说明</Typography.Title>
             <ul className="app-package-list">
               <li>支持直接上传安卓 APK 文件。</li>
-              <li>系统会保留一份“当前正式安装包”，后续再次上传会直接覆盖。</li>
-              <li>首页左侧二维码和下载按钮都走同一条公开下载地址。</li>
+              <li>上传时必须同步填写更新版本和更新说明，供移动端判断是否提示升级。</li>
+              <li>系统只保留一份“当前正式安装包”，再次上传会直接覆盖旧版本。</li>
+              <li>公共下载地址固定不变，首页下载入口与 APP 内更新弹窗共用同一地址。</li>
             </ul>
           </div>
         </div>

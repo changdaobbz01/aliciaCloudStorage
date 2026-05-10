@@ -128,6 +128,11 @@ type UpdateUserQuotaFormValues = {
   storageQuotaGb: number;
 };
 
+type AppPackageUploadFormValues = {
+  versionName: string;
+  releaseNotes: string;
+};
+
 type ResetUserPasswordFormValues = ResetUserPasswordPayload & {
   confirmPassword: string;
 };
@@ -376,6 +381,18 @@ function rgbToHsl(red: number, green: number, blue: number) {
   };
 }
 
+function createEmptyAppPackageInfo(): AppPackageInfo {
+  return {
+    available: false,
+    fileName: null,
+    fileSizeBytes: null,
+    uploadedAt: null,
+    downloadUrl: APP_DOWNLOAD_PUBLIC_PATH,
+    versionName: null,
+    releaseNotes: null,
+  };
+}
+
 function toAccentColor(hue: number, saturation: number, lightness: number, targetLightness: number, lightnessRange: { min: number; max: number }) {
   const normalizedHue = ((hue % 360) + 360) % 360;
   const normalizedSaturation = clamp(saturation, 0.45, 0.88);
@@ -568,6 +585,8 @@ export function DrivePage() {
   const [appPackageLoading, setAppPackageLoading] = useState(false);
   const [publicAppPackageLoading, setPublicAppPackageLoading] = useState(false);
   const [appPackageUploading, setAppPackageUploading] = useState(false);
+  const [appPackageUploadOpen, setAppPackageUploadOpen] = useState(false);
+  const [selectedAppPackageFile, setSelectedAppPackageFile] = useState<File | null>(null);
   const [folderOptionsLoading, setFolderOptionsLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
@@ -594,6 +613,7 @@ export function DrivePage() {
   const [passwordForm] = Form.useForm<ChangePasswordPayload & { confirmPassword: string }>();
   const [createUserForm] = Form.useForm<CreateUserFormValues>();
   const [createFolderForm] = Form.useForm<CreateFolderPayload>();
+  const [appPackageUploadForm] = Form.useForm<AppPackageUploadFormValues>();
   const [quotaForm] = Form.useForm<UpdateUserQuotaFormValues>();
   const [resetUserPasswordForm] = Form.useForm<ResetUserPasswordFormValues>();
   const createUserRole = Form.useWatch('role', createUserForm) ?? 'USER';
@@ -1195,7 +1215,26 @@ export function DrivePage() {
     }
   }
 
+  function resetAppPackageUploadDraft() {
+    appPackageUploadForm.resetFields();
+    setSelectedAppPackageFile(null);
+  }
+
+  function closeAppPackageUploadModal() {
+    if (appPackageUploading) {
+      return;
+    }
+
+    resetAppPackageUploadDraft();
+    setAppPackageUploadOpen(false);
+  }
+
   function handleAppPackageButtonClick() {
+    resetAppPackageUploadDraft();
+    setAppPackageUploadOpen(true);
+  }
+
+  function handleAppPackageFilePickerClick() {
     const input = appPackageInputRef.current;
 
     if (!input) {
@@ -1214,11 +1253,7 @@ export function DrivePage() {
     input.click();
   }
 
-  async function handleAppPackageFileChange(event: ChangeEvent<HTMLInputElement>) {
-    if (!authToken || !isAdmin) {
-      return;
-    }
-
+  function handleAppPackageFileChange(event: ChangeEvent<HTMLInputElement>) {
     const selectedFile = event.target.files?.[0] ?? null;
     event.target.value = '';
 
@@ -1231,14 +1266,34 @@ export function DrivePage() {
       return;
     }
 
+    setSelectedAppPackageFile(selectedFile);
+  }
+
+  async function submitAppPackageUpload(values: AppPackageUploadFormValues) {
+    if (!authToken || !isAdmin) {
+      return;
+    }
+
+    if (!selectedAppPackageFile) {
+      message.error('请先选择 APK 安装包。');
+      return;
+    }
+
     setAppPackageUploading(true);
 
     try {
-      const nextPackageInfo = await uploadAdminAppPackage(selectedFile, authToken);
+      const nextPackageInfo = await uploadAdminAppPackage(
+        selectedAppPackageFile,
+        values.versionName.trim(),
+        values.releaseNotes.trim(),
+        authToken,
+      );
       setAppPackageInfo(nextPackageInfo);
       setPublicAppPackageInfo(nextPackageInfo);
       setPublicAppPackageError(null);
-      message.success('APK 已上传，首页下载入口已同步更新。');
+      resetAppPackageUploadDraft();
+      setAppPackageUploadOpen(false);
+      message.success('APK、版本号和更新说明已同步更新。');
     } catch (uploadError) {
       message.error(uploadError instanceof Error ? uploadError.message : 'APK 上传失败。');
     } finally {
@@ -1253,20 +1308,8 @@ export function DrivePage() {
 
     try {
       await deleteAdminAppPackage(authToken);
-      setAppPackageInfo({
-        available: false,
-        fileName: null,
-        fileSizeBytes: null,
-        uploadedAt: null,
-        downloadUrl: APP_DOWNLOAD_PUBLIC_PATH,
-      });
-      setPublicAppPackageInfo({
-        available: false,
-        fileName: null,
-        fileSizeBytes: null,
-        uploadedAt: null,
-        downloadUrl: APP_DOWNLOAD_PUBLIC_PATH,
-      });
+      setAppPackageInfo(createEmptyAppPackageInfo());
+      setPublicAppPackageInfo(createEmptyAppPackageInfo());
       setPublicAppPackageError(null);
       message.success('当前安装包已移除。');
     } catch (deleteError) {
@@ -2660,6 +2703,63 @@ export function DrivePage() {
           ) : null}
         </Content>
       </Layout>
+
+      <Modal
+        title="上传 APP 更新"
+        open={appPackageUploadOpen}
+        onCancel={closeAppPackageUploadModal}
+        onOk={() => void appPackageUploadForm.submit()}
+        okText="开始上传"
+        cancelText="取消"
+        confirmLoading={appPackageUploading}
+        destroyOnHidden
+        maskClosable={!appPackageUploading}
+        closable={!appPackageUploading}
+        cancelButtonProps={{ disabled: appPackageUploading }}
+      >
+        <Form form={appPackageUploadForm} layout="vertical" onFinish={(values) => void submitAppPackageUpload(values)}>
+          <Form.Item label="安装包文件" required>
+            <Space direction="vertical" size={8} style={{ display: 'flex' }}>
+              <Button icon={<UploadOutlined />} onClick={handleAppPackageFilePickerClick} disabled={appPackageUploading}>
+                选择 APK
+              </Button>
+              <Typography.Text>
+                {selectedAppPackageFile
+                  ? `${selectedAppPackageFile.name} · ${formatFileSize(selectedAppPackageFile.size)}`
+                  : '尚未选择安装包'}
+              </Typography.Text>
+              <Typography.Text className="muted-text">
+                上传后会覆盖当前正式安装包，但公共下载地址保持不变。
+              </Typography.Text>
+            </Space>
+          </Form.Item>
+          <Form.Item
+            name="versionName"
+            label="更新版本"
+            rules={[
+              { required: true, message: '请填写更新版本。' },
+              { max: 64, message: '更新版本长度不能超过 64 个字符。' },
+            ]}
+          >
+            <Input maxLength={64} placeholder="例如：1.3.0" />
+          </Form.Item>
+          <Form.Item
+            name="releaseNotes"
+            label="更新说明"
+            rules={[
+              { required: true, message: '请填写更新说明。' },
+              { max: 4000, message: '更新说明长度不能超过 4000 个字符。' },
+            ]}
+          >
+            <Input.TextArea
+              rows={6}
+              maxLength={4000}
+              showCount
+              placeholder={'例如：\n1. 修复启动页闪退问题\n2. 优化文件列表加载速度'}
+            />
+          </Form.Item>
+        </Form>
+      </Modal>
 
       <Modal
         title={previewTarget ? `预览：${previewTarget.name}` : '文件预览'}

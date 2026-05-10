@@ -7,6 +7,8 @@ public record AppPackageInfoResponse(
         String fileName,
         Long fileSizeBytes,
         LocalDateTime uploadedAt,
-        String downloadUrl
+        String downloadUrl,
+        String versionName,
+        String releaseNotes
 ) {
 }

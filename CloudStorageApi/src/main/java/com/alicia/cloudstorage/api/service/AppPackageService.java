@@ -1,6 +1,7 @@
 package com.alicia.cloudstorage.api.service;
 
 import com.alicia.cloudstorage.api.dto.AppPackageInfoResponse;
+import com.alicia.cloudstorage.api.dto.AppPackageVersionResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -24,36 +25,21 @@ public class AppPackageService {
     private static final String METADATA_FILE_NAME = "metadata.properties";
     private final Path storageDirectory;
 
-    /**
-     * 确定运行期安装包持久化目录。     */
     public AppPackageService(
             @Value("${alicia.app-package.storage-dir:/app/data/app-package}") String storageDirectory
     ) {
         this.storageDirectory = Path.of(storageDirectory).toAbsolutePath().normalize();
     }
 
-    /**
-     * 返回当前对外公开的 APK 下载信息，供管理台和首页下载入口复用。     */
     public AppPackageInfoResponse getCurrentPackageInfo() {
-        Path packagePath = getCurrentPackagePath();
-        StoredPackageMetadata metadata = readMetadata();
-
-        if (metadata == null || !Files.exists(packagePath)) {
-            return new AppPackageInfoResponse(false, null, null, null, PUBLIC_DOWNLOAD_PATH);
-        }
-
-        return new AppPackageInfoResponse(
-                true,
-                metadata.fileName(),
-                metadata.fileSizeBytes(),
-                metadata.uploadedAt(),
-                PUBLIC_DOWNLOAD_PATH
-        );
+        return toPackageInfoResponse(loadCurrentPackageMetadata());
     }
 
-    /**
-     * 保存管理员新上传的 APK，并覆盖现有正式安装包。     */
-    public AppPackageInfoResponse storePackage(MultipartFile file) {
+    public AppPackageVersionResponse getCurrentPackageVersionInfo() {
+        return toPackageVersionResponse(loadCurrentPackageMetadata());
+    }
+
+    public AppPackageInfoResponse storePackage(MultipartFile file, String versionName, String releaseNotes) {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("请先选择要上传的 APK 安装包。");
         }
@@ -66,8 +52,26 @@ public class AppPackageService {
             throw new IllegalArgumentException("只能上传 APK 安装包文件。");
         }
 
+        String normalizedVersionName = normalizeRequiredText(
+                versionName,
+                "更新版本不能为空。",
+                64,
+                "更新版本长度不能超过 64 个字符。"
+        );
+        String normalizedReleaseNotes = normalizeRequiredText(
+                releaseNotes,
+                "更新说明不能为空。",
+                4000,
+                "更新说明长度不能超过 4000 个字符。"
+        );
         LocalDateTime uploadedAt = LocalDateTime.now();
-        StoredPackageMetadata metadata = new StoredPackageMetadata(originalFileName, file.getSize(), uploadedAt);
+        StoredPackageMetadata metadata = new StoredPackageMetadata(
+                originalFileName,
+                file.getSize(),
+                uploadedAt,
+                normalizedVersionName,
+                normalizedReleaseNotes
+        );
 
         try {
             ensureStorageDirectory();
@@ -81,17 +85,9 @@ public class AppPackageService {
             throw new IllegalStateException("APK 保存失败，请稍后重试。", ex);
         }
 
-        return new AppPackageInfoResponse(
-                true,
-                metadata.fileName(),
-                metadata.fileSizeBytes(),
-                metadata.uploadedAt(),
-                PUBLIC_DOWNLOAD_PATH
-        );
+        return toPackageInfoResponse(metadata);
     }
 
-    /**
-     * 删除当前对外提供下载的正式安装包。     */
     public void deleteCurrentPackage() {
         try {
             Files.deleteIfExists(getCurrentPackagePath());
@@ -101,8 +97,6 @@ public class AppPackageService {
         }
     }
 
-    /**
-     * 以流的方式打开当前正式 APK，供公网下载接口直接回传。     */
     public AppPackageDownloadPayload openCurrentPackage() {
         Path packagePath = getCurrentPackagePath();
 
@@ -136,6 +130,17 @@ public class AppPackageService {
         return storageDirectory.resolve(METADATA_FILE_NAME);
     }
 
+    private StoredPackageMetadata loadCurrentPackageMetadata() {
+        Path packagePath = getCurrentPackagePath();
+        StoredPackageMetadata metadata = readMetadata();
+
+        if (metadata == null || !Files.exists(packagePath)) {
+            return null;
+        }
+
+        return metadata;
+    }
+
     private StoredPackageMetadata readMetadata() {
         Path packagePath = getCurrentPackagePath();
         Path metadataPath = getMetadataPath();
@@ -150,7 +155,9 @@ public class AppPackageService {
                 String fileName = properties.getProperty("fileName", CURRENT_PACKAGE_FILE_NAME);
                 long fileSizeBytes = Long.parseLong(properties.getProperty("fileSizeBytes", "0"));
                 LocalDateTime uploadedAt = LocalDateTime.parse(properties.getProperty("uploadedAt"));
-                return new StoredPackageMetadata(fileName, fileSizeBytes, uploadedAt);
+                String versionName = normalizeOptionalText(properties.getProperty("versionName"));
+                String releaseNotes = normalizeOptionalText(properties.getProperty("releaseNotes"));
+                return new StoredPackageMetadata(fileName, fileSizeBytes, uploadedAt, versionName, releaseNotes);
             }
 
             if (!Files.exists(packagePath)) {
@@ -161,7 +168,9 @@ public class AppPackageService {
             return new StoredPackageMetadata(
                     CURRENT_PACKAGE_FILE_NAME,
                     Files.size(packagePath),
-                    LocalDateTime.ofInstant(lastModifiedTime.toInstant(), ZoneId.systemDefault())
+                    LocalDateTime.ofInstant(lastModifiedTime.toInstant(), ZoneId.systemDefault()),
+                    null,
+                    null
             );
         } catch (IOException ex) {
             throw new IllegalStateException("读取安装包元信息失败，请稍后重试。", ex);
@@ -175,10 +184,66 @@ public class AppPackageService {
         properties.setProperty("fileName", metadata.fileName());
         properties.setProperty("fileSizeBytes", String.valueOf(metadata.fileSizeBytes()));
         properties.setProperty("uploadedAt", metadata.uploadedAt().toString());
+        if (metadata.versionName() != null) {
+            properties.setProperty("versionName", metadata.versionName());
+        }
+        if (metadata.releaseNotes() != null) {
+            properties.setProperty("releaseNotes", metadata.releaseNotes());
+        }
 
         try (OutputStream outputStream = Files.newOutputStream(getMetadataPath())) {
             properties.store(outputStream, "Alicia Cloud Storage APK metadata");
         }
+    }
+
+    private AppPackageInfoResponse toPackageInfoResponse(StoredPackageMetadata metadata) {
+        if (metadata == null) {
+            return new AppPackageInfoResponse(false, null, null, null, PUBLIC_DOWNLOAD_PATH, null, null);
+        }
+
+        return new AppPackageInfoResponse(
+                true,
+                metadata.fileName(),
+                metadata.fileSizeBytes(),
+                metadata.uploadedAt(),
+                PUBLIC_DOWNLOAD_PATH,
+                metadata.versionName(),
+                metadata.releaseNotes()
+        );
+    }
+
+    private AppPackageVersionResponse toPackageVersionResponse(StoredPackageMetadata metadata) {
+        if (metadata == null) {
+            return new AppPackageVersionResponse(false, null, null, PUBLIC_DOWNLOAD_PATH, null);
+        }
+
+        return new AppPackageVersionResponse(
+                true,
+                metadata.versionName(),
+                metadata.releaseNotes(),
+                PUBLIC_DOWNLOAD_PATH,
+                metadata.uploadedAt()
+        );
+    }
+
+    private String normalizeRequiredText(String value, String emptyMessage, int maxLength, String tooLongMessage) {
+        String normalized = normalizeOptionalText(value);
+        if (normalized == null) {
+            throw new IllegalArgumentException(emptyMessage);
+        }
+        if (normalized.length() > maxLength) {
+            throw new IllegalArgumentException(tooLongMessage);
+        }
+        return normalized;
+    }
+
+    private String normalizeOptionalText(String value) {
+        if (value == null) {
+            return null;
+        }
+
+        String normalized = value.trim();
+        return normalized.isEmpty() ? null : normalized;
     }
 
     public record AppPackageDownloadPayload(
@@ -191,7 +256,9 @@ public class AppPackageService {
     public record StoredPackageMetadata(
             String fileName,
             long fileSizeBytes,
-            LocalDateTime uploadedAt
+            LocalDateTime uploadedAt,
+            String versionName,
+            String releaseNotes
     ) {
     }
 }

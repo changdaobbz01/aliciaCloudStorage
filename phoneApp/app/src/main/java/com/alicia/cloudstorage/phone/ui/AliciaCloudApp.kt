@@ -200,6 +200,14 @@ fun AliciaCloudApp(viewModel: MainViewModel) {
             viewModel = viewModel,
         )
     }
+
+    uiState.appUpdate?.let { appUpdate ->
+        AppUpdateDialog(
+            updateInfo = appUpdate,
+            onDismiss = viewModel::dismissAppUpdate,
+            onConfirm = viewModel::openAppUpdateDownload,
+        )
+    }
 }
 
 @Composable
@@ -2739,6 +2747,77 @@ private fun SheetActionButton(
             }
         }
     }
+}
+
+@Composable
+private fun AppUpdateDialog(
+    updateInfo: AppUpdateState,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    AliciaMechaDialogShell(
+        title = "发现新版本",
+        onDismissRequest = onDismiss,
+        supporting = {
+            Text(
+                text = "当前版本 ${updateInfo.currentVersionName}",
+                color = Color(0xFF748094),
+                fontFamily = AliciaMechaFontFamily,
+                fontWeight = FontWeight.Medium,
+                fontSize = 12.sp,
+                lineHeight = 18.sp,
+            )
+            Text(
+                text = "最新版本 ${updateInfo.latestVersionName}",
+                color = Color(0xFF101626),
+                fontFamily = AliciaMechaFontFamily,
+                fontWeight = FontWeight.Black,
+                fontSize = 18.sp,
+                lineHeight = 20.sp,
+            )
+        },
+        body = {
+            Text(
+                text = "检测到新的 Alicia 云盘客户端，建议尽快更新以获得最新功能与修复。",
+                color = Color(0xFF748094),
+                fontFamily = AliciaMechaFontFamily,
+                fontWeight = FontWeight.Medium,
+                fontSize = 13.sp,
+                lineHeight = 19.sp,
+            )
+            AliciaMechaPanel(
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(start = 16.dp, top = 14.dp, end = 16.dp, bottom = 14.dp),
+                backgroundResId = R.drawable.alicia_9_file_row,
+                backgroundSlice = 42.dp,
+            ) {
+                Text(
+                    text = "更新说明",
+                    color = Color(0xFF101626),
+                    fontFamily = AliciaMechaFontFamily,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 16.sp,
+                    lineHeight = 18.sp,
+                )
+                Text(
+                    text = updateInfo.releaseNotes.ifBlank { "本次更新暂未填写详细说明。" },
+                    color = Color(0xFF748094),
+                    fontFamily = AliciaMechaFontFamily,
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 13.sp,
+                    lineHeight = 20.sp,
+                )
+            }
+        },
+        footer = {
+            AliciaMechaDialogActionRow(
+                onDismiss = onDismiss,
+                onConfirm = onConfirm,
+                dismissLabel = "稍后",
+                confirmLabel = "立即更新",
+            )
+        },
+    )
 }
 
 @Composable

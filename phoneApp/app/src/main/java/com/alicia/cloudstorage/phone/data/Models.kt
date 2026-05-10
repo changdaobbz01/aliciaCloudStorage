@@ -57,6 +57,14 @@ data class ApiMessageResponse(
     val message: String,
 )
 
+data class AppPackageVersionInfo(
+    val available: Boolean,
+    val versionName: String?,
+    val releaseNotes: String?,
+    val downloadUrl: String,
+    val uploadedAt: String?,
+)
+
 data class ChangePasswordPayload(
     val oldPassword: String,
     val newPassword: String,

@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
@@ -34,8 +35,12 @@ public class AdminAppPackageController {
     /**
      * 上传并覆盖当前正式安卓安装包。     */
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public AppPackageInfoResponse uploadCurrentPackage(@RequestPart("file") MultipartFile file) {
-        return appPackageService.storePackage(file);
+    public AppPackageInfoResponse uploadCurrentPackage(
+            @RequestPart("file") MultipartFile file,
+            @RequestParam("versionName") String versionName,
+            @RequestParam("releaseNotes") String releaseNotes
+    ) {
+        return appPackageService.storePackage(file, versionName, releaseNotes);
     }
 
     /**

@@ -1,6 +1,7 @@
 package com.alicia.cloudstorage.api.controller;
 
 import com.alicia.cloudstorage.api.dto.AppPackageInfoResponse;
+import com.alicia.cloudstorage.api.dto.AppPackageVersionResponse;
 import com.alicia.cloudstorage.api.service.AppPackageService;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.ContentDisposition;
@@ -32,6 +33,11 @@ public class AppPackageController {
     @GetMapping
     public AppPackageInfoResponse getCurrentPackageInfo() {
         return appPackageService.getCurrentPackageInfo();
+    }
+
+    @GetMapping("/version")
+    public AppPackageVersionResponse getCurrentPackageVersionInfo() {
+        return appPackageService.getCurrentPackageVersionInfo();
     }
 
     /**

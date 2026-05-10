@@ -1,6 +1,7 @@
 package com.alicia.cloudstorage.phone.ui
 
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -10,6 +11,7 @@ import com.alicia.cloudstorage.phone.describeAccessEnvironment
 import com.alicia.cloudstorage.phone.normalizeConfiguredBaseUrl
 import com.alicia.cloudstorage.phone.data.AliciaRepository
 import com.alicia.cloudstorage.phone.data.ApiException
+import com.alicia.cloudstorage.phone.data.AppPackageVersionInfo
 import com.alicia.cloudstorage.phone.data.AppTab
 import com.alicia.cloudstorage.phone.data.DriveOverview
 import com.alicia.cloudstorage.phone.data.FolderCrumb
@@ -28,6 +30,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.net.URI
 import kotlin.math.roundToLong
 
 private const val MAX_TEXT_PREVIEW_BYTES = 2L * 1024 * 1024
@@ -104,6 +107,13 @@ data class TeamUiState(
     val passwordUserId: Long? = null,
 )
 
+data class AppUpdateState(
+    val currentVersionName: String,
+    val latestVersionName: String,
+    val releaseNotes: String,
+    val downloadUrl: String,
+)
+
 data class AppUiState(
     val isBooting: Boolean = true,
     val isSubmittingLogin: Boolean = false,
@@ -119,6 +129,7 @@ data class AppUiState(
     val trash: ExplorerUiState = ExplorerUiState(breadcrumbs = emptyList()),
     val team: TeamUiState = TeamUiState(),
     val preview: FilePreviewState = FilePreviewState(),
+    val appUpdate: AppUpdateState? = null,
 )
 
 class MainViewModel(
@@ -133,6 +144,7 @@ class MainViewModel(
     private val _messages = MutableSharedFlow<String>()
     val messages = _messages.asSharedFlow()
     private val fileDirectoryCache = mutableMapOf<Long?, List<StorageNode>>()
+    private var dismissedUpdateVersionName: String? = null
 
     init {
         restoreSession()
@@ -157,10 +169,12 @@ class MainViewModel(
         viewModelScope.launch {
             sessionStore.clearToken(normalizedBaseUrl)
             fileDirectoryCache.clear()
+            dismissedUpdateVersionName = null
             _uiState.value = AppUiState(
                 isBooting = false,
                 baseUrl = normalizedBaseUrl,
             )
+            checkForAppUpdate(normalizedBaseUrl)
             emitMessage("已切换到${describeAccessEnvironment(normalizedBaseUrl)}，请重新登录。")
         }
     }
@@ -229,6 +243,7 @@ class MainViewModel(
 
                 emitMessage("欢迎回来，${response.user.nickname}")
                 refreshAll()
+                checkForAppUpdate(normalizedBaseUrl)
             }.onFailure { error ->
                 _uiState.update { state ->
                     state.copy(isBooting = false, isSubmittingLogin = false)
@@ -1165,6 +1180,25 @@ class MainViewModel(
         _uiState.update { state -> state.copy(preview = FilePreviewState()) }
     }
 
+    fun dismissAppUpdate() {
+        dismissedUpdateVersionName = uiState.value.appUpdate?.latestVersionName
+        _uiState.update { state -> state.copy(appUpdate = null) }
+    }
+
+    fun openAppUpdateDownload() {
+        val appUpdate = uiState.value.appUpdate ?: return
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(appUpdate.downloadUrl))
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
+        runCatching {
+            appContext.startActivity(intent)
+        }.onSuccess {
+            dismissAppUpdate()
+        }.onFailure {
+            emitMessage("无法打开更新链接，请稍后再试。")
+        }
+    }
+
     fun downloadFileToUri(node: StorageNode, destinationUri: Uri) {
         val session = authenticatedSession() ?: return
 
@@ -1215,6 +1249,7 @@ class MainViewModel(
 
             if (session.token.isNullOrBlank()) {
                 _uiState.update { state -> state.copy(isBooting = false) }
+                checkForAppUpdate(session.baseUrl)
                 return@launch
             }
 
@@ -1232,12 +1267,14 @@ class MainViewModel(
                     )
                 }
                 refreshAll()
+                checkForAppUpdate(savedSession.baseUrl)
             }.onFailure { error ->
                 sessionStore.clearToken(session.baseUrl)
                 _uiState.update { state ->
                     state.copy(isBooting = false, authToken = null, currentUser = null)
                 }
                 handleError(error)
+                checkForAppUpdate(session.baseUrl)
             }
         }
     }
@@ -1545,6 +1582,100 @@ class MainViewModel(
         }
 
         return (quotaGb * BYTES_PER_GIB.toDouble()).roundToLong()
+    }
+
+    private fun checkForAppUpdate(baseUrl: String) {
+        viewModelScope.launch {
+            runCatching {
+                repository.fetchLatestAppVersion(baseUrl)
+            }.onSuccess { versionInfo ->
+                val latestVersionName = versionInfo.versionName?.trim().orEmpty()
+
+                if (!versionInfo.available || latestVersionName.isBlank()) {
+                    _uiState.update { state -> state.copy(appUpdate = null) }
+                    return@onSuccess
+                }
+
+                if (dismissedUpdateVersionName == latestVersionName) {
+                    _uiState.update { state -> state.copy(appUpdate = null) }
+                    return@onSuccess
+                }
+
+                val currentVersionName = resolveInstalledVersionName()
+                if (compareVersionNames(currentVersionName, latestVersionName) >= 0) {
+                    _uiState.update { state -> state.copy(appUpdate = null) }
+                    return@onSuccess
+                }
+
+                _uiState.update { state ->
+                    state.copy(
+                        appUpdate = AppUpdateState(
+                            currentVersionName = currentVersionName,
+                            latestVersionName = latestVersionName,
+                            releaseNotes = versionInfo.releaseNotes?.trim().orEmpty(),
+                            downloadUrl = resolveAppUpdateDownloadUrl(baseUrl, versionInfo),
+                        ),
+                    )
+                }
+            }
+        }
+    }
+
+    private fun resolveInstalledVersionName(): String =
+        BuildConfig.VERSION_NAME
+            .trim()
+            .ifBlank { "0.0.0" }
+
+    private fun resolveAppUpdateDownloadUrl(baseUrl: String, versionInfo: AppPackageVersionInfo): String =
+        runCatching {
+            URI("${baseUrl.trim().removeSuffix("/")}/")
+                .resolve(versionInfo.downloadUrl)
+                .toString()
+        }.getOrElse {
+            if (versionInfo.downloadUrl.startsWith("http://") || versionInfo.downloadUrl.startsWith("https://")) {
+                versionInfo.downloadUrl
+            } else {
+                "${baseUrl.trim().removeSuffix("/")}/${versionInfo.downloadUrl.trimStart('/')}"
+            }
+        }
+
+    private fun compareVersionNames(currentVersionName: String, latestVersionName: String): Int {
+        val currentTokens = tokenizeVersionName(currentVersionName)
+        val latestTokens = tokenizeVersionName(latestVersionName)
+        val maxTokenCount = maxOf(currentTokens.size, latestTokens.size)
+
+        for (index in 0 until maxTokenCount) {
+            val comparison = compareVersionToken(
+                currentTokens.getOrElse(index) { "0" },
+                latestTokens.getOrElse(index) { "0" },
+            )
+            if (comparison != 0) {
+                return comparison
+            }
+        }
+
+        return 0
+    }
+
+    private fun tokenizeVersionName(versionName: String): List<String> =
+        versionName
+            .trim()
+            .removePrefix("v")
+            .removePrefix("V")
+            .split(Regex("[^0-9A-Za-z]+"))
+            .filter { it.isNotBlank() }
+            .ifEmpty { listOf("0") }
+
+    private fun compareVersionToken(currentToken: String, latestToken: String): Int {
+        val currentNumber = currentToken.toLongOrNull()
+        val latestNumber = latestToken.toLongOrNull()
+
+        return when {
+            currentNumber != null && latestNumber != null -> currentNumber.compareTo(latestNumber)
+            currentNumber != null -> 1
+            latestNumber != null -> -1
+            else -> currentToken.compareTo(latestToken, ignoreCase = true)
+        }
     }
 
     private fun emitMessage(message: String) {

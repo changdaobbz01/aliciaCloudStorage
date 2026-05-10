@@ -52,6 +52,9 @@ interface AliciaCloudService {
         @Body payload: ChangePasswordPayload,
     ): Response<ApiMessageResponse>
 
+    @GET("api/app-package/version")
+    suspend fun fetchLatestAppVersion(): Response<AppPackageVersionInfo>
+
     @GET("api/storage/overview")
     suspend fun fetchDriveOverview(
         @Header("Authorization") authorization: String,

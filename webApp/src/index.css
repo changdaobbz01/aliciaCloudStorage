@@ -1293,7 +1293,7 @@ select {
 }
 
 .app-package-summary-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .management-summary-card {
@@ -1344,6 +1344,17 @@ select {
 .app-package-url {
   margin: 0 !important;
   word-break: break-all;
+}
+
+.app-package-meta {
+  display: grid;
+  gap: 6px;
+}
+
+.app-package-release-notes {
+  margin: 0 !important;
+  white-space: pre-wrap;
+  color: #475569;
 }
 
 .app-package-list {

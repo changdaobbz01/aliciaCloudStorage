@@ -120,6 +120,11 @@ class AliciaRepository(
             )
             .requireBody(fallback = "修改密码失败。")
 
+    suspend fun fetchLatestAppVersion(baseUrl: String): AppPackageVersionInfo =
+        serviceFactory.serviceFor(baseUrl)
+            .fetchLatestAppVersion()
+            .requireBody(fallback = "获取 APP 更新信息失败。")
+
     suspend fun fetchDriveOverview(baseUrl: String, token: String): DriveOverview =
         serviceFactory.serviceFor(baseUrl)
             .fetchDriveOverview(authorization(token))
