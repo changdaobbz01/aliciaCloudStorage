@@ -471,6 +471,22 @@ class AliciaRepository(
         return fetchSignedFile(access, "download.bin")
     }
 
+    suspend fun fetchInlineFileAccessUrl(
+        baseUrl: String,
+        token: String,
+        fileId: Long,
+    ): SignedUrlResponse = fetchFileAccessUrl(baseUrl, token, fileId, "inline")
+
+    suspend fun cachePreviewFileViaSignedUrl(
+        context: Context,
+        baseUrl: String,
+        token: String,
+        fileId: Long,
+    ): CachedPreviewFile {
+        val access = fetchFileAccessUrl(baseUrl, token, fileId, "inline")
+        return fetchSignedFileToCache(context.cacheDir, access, "preview.bin")
+    }
+
     suspend fun saveDownloadedFileToUriViaSignedUrl(
         context: Context,
         baseUrl: String,
@@ -528,6 +544,45 @@ class AliciaRepository(
                     bytes = responseBody.bytes(),
                 )
             }
+        }
+    }
+
+    private suspend fun fetchSignedFileToCache(
+        cacheDir: File,
+        access: SignedUrlResponse,
+        fallbackFileName: String,
+    ): CachedPreviewFile = withContext(Dispatchers.IO) {
+        val request = Request.Builder()
+            .url(access.url)
+            .get()
+            .build()
+
+        directDownloadClient.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) {
+                throw ApiException("下载文件失败。", response.code)
+            }
+
+            val body = response.body ?: throw ApiException("下载文件失败。", response.code)
+            val resolvedFileName = parseFileName(response.header("content-disposition"))
+                ?: access.fileName
+                ?: fallbackFileName
+            val previewDirectory = File(cacheDir, "preview-cache").apply { mkdirs() }
+            val suffix = resolvedFileName.substringAfterLast('.', "").takeIf { it.isNotBlank() }
+                ?.let { ".${it.lowercase()}" }
+                ?: ".bin"
+            val tempFile = File.createTempFile("alicia-preview-", suffix, previewDirectory)
+
+            body.byteStream().use { input ->
+                tempFile.outputStream().use { output ->
+                    input.copyTo(output)
+                }
+            }
+
+            CachedPreviewFile(
+                fileName = resolvedFileName,
+                contentType = response.header("content-type") ?: access.contentType,
+                localPath = tempFile.absolutePath,
+            )
         }
     }
 

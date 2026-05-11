@@ -93,6 +93,58 @@ function resolvePreviewKind(node: StorageNode): DrivePreviewKind {
   return 'unsupported';
 }
 
+function parseCharsetLabel(contentType: string | null | undefined) {
+  if (!contentType) {
+    return null;
+  }
+
+  const match = contentType.match(/charset=([^;]+)/i);
+  return match?.[1]?.trim() || null;
+}
+
+function detectBomCharset(bytes: Uint8Array) {
+  if (bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) {
+    return 'utf-8';
+  }
+
+  if (bytes.length >= 2 && bytes[0] === 0xff && bytes[1] === 0xfe) {
+    return 'utf-16le';
+  }
+
+  if (bytes.length >= 2 && bytes[0] === 0xfe && bytes[1] === 0xff) {
+    return 'utf-16be';
+  }
+
+  return null;
+}
+
+function decodeTextBytes(bytes: Uint8Array, labels: string[]) {
+  const uniqueLabels = labels.filter((label, index) => label && labels.indexOf(label) === index);
+
+  for (const label of uniqueLabels) {
+    try {
+      return new TextDecoder(label, { fatal: true }).decode(bytes).replace(/^\uFEFF/, '');
+    } catch {
+      continue;
+    }
+  }
+
+  return new TextDecoder('utf-8').decode(bytes).replace(/^\uFEFF/, '');
+}
+
+async function decodePreviewTextBlob(blob: Blob, declaredMimeType?: string | null) {
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  return decodeTextBytes(bytes, [
+    detectBomCharset(bytes),
+    parseCharsetLabel(blob.type),
+    parseCharsetLabel(declaredMimeType),
+    'utf-8',
+    'gb18030',
+    'utf-16le',
+    'utf-16be',
+  ].filter((label): label is string => Boolean(label)));
+}
+
 function createUploadTasks(files: FileList | File[], parentId: number | null) {
   const seed = Date.now();
 
@@ -767,7 +819,7 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
           return;
         }
 
-        const textContent = await blob.text();
+        const textContent = await decodePreviewTextBlob(blob, item.mimeType);
 
         if (previewRequestIdRef.current !== requestId) {
           return;

@@ -30,11 +30,15 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.io.File
+import java.nio.ByteBuffer
+import java.nio.charset.Charset
+import java.nio.charset.CodingErrorAction
+import java.nio.charset.StandardCharsets
 import java.net.URI
 import kotlin.math.roundToLong
 
 private const val MAX_TEXT_PREVIEW_BYTES = 2L * 1024 * 1024
-private const val MAX_IMAGE_PREVIEW_BYTES = 10L * 1024 * 1024
 private const val BYTES_PER_GIB = 1024L * 1024 * 1024
 
 private val PREVIEWABLE_TEXT_EXTENSIONS = setOf(
@@ -59,6 +63,14 @@ private data class AuthSession(
 enum class PreviewKind {
     IMAGE,
     TEXT,
+    PDF,
+    VIDEO,
+    AUDIO,
+}
+
+enum class FileSearchScope {
+    CURRENT_FOLDER,
+    GLOBAL,
 }
 
 data class FilePreviewState(
@@ -67,7 +79,8 @@ data class FilePreviewState(
     val fileName: String = "",
     val kind: PreviewKind? = null,
     val textContent: String = "",
-    val imageBytes: ByteArray? = null,
+    val previewUrl: String? = null,
+    val localFilePath: String? = null,
     val error: String? = null,
 )
 
@@ -85,6 +98,7 @@ data class ExplorerUiState(
     val items: List<StorageNode> = emptyList(),
     val hasLoadedFolder: Boolean = false,
     val keyword: String = "",
+    val searchScope: FileSearchScope = FileSearchScope.CURRENT_FOLDER,
     val filter: StorageNodeFilter = StorageNodeFilter.ALL,
     val currentFolderId: Long? = null,
     val breadcrumbs: List<FolderCrumb> = defaultBreadCrumbs,
@@ -145,6 +159,7 @@ class MainViewModel(
     val messages = _messages.asSharedFlow()
     private val fileDirectoryCache = mutableMapOf<Long?, List<StorageNode>>()
     private var dismissedUpdateVersionName: String? = null
+    private var currentPreviewCacheFile: File? = null
 
     init {
         restoreSession()
@@ -169,6 +184,7 @@ class MainViewModel(
         viewModelScope.launch {
             sessionStore.clearToken(normalizedBaseUrl)
             fileDirectoryCache.clear()
+            clearPreviewArtifacts()
             dismissedUpdateVersionName = null
             _uiState.value = AppUiState(
                 isBooting = false,
@@ -226,6 +242,7 @@ class MainViewModel(
             }.onSuccess { response ->
                 sessionStore.saveSession(response.token, normalizedBaseUrl)
                 fileDirectoryCache.clear()
+                clearPreviewArtifacts()
                 _uiState.update { state ->
                     state.copy(
                         isBooting = false,
@@ -288,10 +305,42 @@ class MainViewModel(
 
     fun submitFileSearch() {
         _uiState.update { state ->
-            state.copy(files = state.files.copy(highlightedNodeId = null))
+            state.copy(
+                files = state.files.copy(
+                    highlightedNodeId = null,
+                    searchScope = FileSearchScope.CURRENT_FOLDER,
+                ),
+            )
         }
         fileDirectoryCache.clear()
         refreshFiles(forceLoading = true)
+    }
+
+    fun submitHomeFileSearch() {
+        val rootItems = fileDirectoryCache[null]
+        val normalizedKeyword = uiState.value.files.keyword.trim()
+        val isGlobalSearch = normalizedKeyword.isNotEmpty()
+        _uiState.update { state ->
+            state.copy(
+                selectedTab = AppTab.FILES,
+                files = state.files.copy(
+                    currentFolderId = null,
+                    breadcrumbs = defaultBreadCrumbs,
+                    items = if (isGlobalSearch) emptyList() else rootItems ?: emptyList(),
+                    hasLoadedFolder = !isGlobalSearch && rootItems != null,
+                    loading = isGlobalSearch || rootItems == null,
+                    error = null,
+                    selectedNodeIds = emptySet(),
+                    highlightedNodeId = null,
+                    searchScope = if (isGlobalSearch) {
+                        FileSearchScope.GLOBAL
+                    } else {
+                        FileSearchScope.CURRENT_FOLDER
+                    },
+                ),
+            )
+        }
+        refreshFiles(forceLoading = false)
     }
 
     fun submitTrashSearch() {
@@ -355,6 +404,7 @@ class MainViewModel(
                     error = null,
                     selectedNodeIds = emptySet(),
                     highlightedNodeId = node.id,
+                    searchScope = FileSearchScope.CURRENT_FOLDER,
                 ),
             )
         }
@@ -689,6 +739,7 @@ class MainViewModel(
                     error = null,
                     selectedNodeIds = emptySet(),
                     highlightedNodeId = null,
+                    searchScope = FileSearchScope.CURRENT_FOLDER,
                 ),
             )
         }
@@ -718,6 +769,7 @@ class MainViewModel(
                     error = null,
                     selectedNodeIds = emptySet(),
                     highlightedNodeId = null,
+                    searchScope = FileSearchScope.CURRENT_FOLDER,
                 ),
             )
         }
@@ -1114,11 +1166,7 @@ class MainViewModel(
             return
         }
 
-        if (previewKind == PreviewKind.IMAGE && node.size > MAX_IMAGE_PREVIEW_BYTES) {
-            emitMessage("图片超过 10 MB，先下载查看会更稳。")
-            return
-        }
-
+        clearPreviewArtifacts()
         _uiState.update { state ->
             state.copy(
                 preview = FilePreviewState(
@@ -1132,34 +1180,63 @@ class MainViewModel(
 
         viewModelScope.launch {
             runCatching {
-                repository.downloadFileViaSignedUrl(
-                    baseUrl = session.baseUrl,
-                    token = session.token,
-                    fileId = node.id,
-                )
-            }.onSuccess { file ->
-                _uiState.update { state ->
-                    state.copy(
-                        preview = when (previewKind) {
-                            PreviewKind.TEXT -> FilePreviewState(
-                                visible = true,
-                                loading = false,
-                                fileName = file.fileName,
-                                kind = previewKind,
-                                textContent = file.bytes.toString(Charsets.UTF_8),
-                            )
+                when (previewKind) {
+                    PreviewKind.TEXT -> {
+                        val file = repository.downloadFileViaSignedUrl(
+                            baseUrl = session.baseUrl,
+                            token = session.token,
+                            fileId = node.id,
+                        )
+                        FilePreviewState(
+                            visible = true,
+                            loading = false,
+                            fileName = file.fileName,
+                            kind = previewKind,
+                            textContent = decodePreviewText(file.bytes, file.contentType),
+                        )
+                    }
 
-                            PreviewKind.IMAGE -> FilePreviewState(
-                                visible = true,
-                                loading = false,
-                                fileName = file.fileName,
-                                kind = previewKind,
-                                imageBytes = file.bytes,
-                            )
-                        },
-                    )
+                    PreviewKind.PDF -> {
+                        val previewFile = repository.cachePreviewFileViaSignedUrl(
+                            context = appContext,
+                            baseUrl = session.baseUrl,
+                            token = session.token,
+                            fileId = node.id,
+                        )
+                        currentPreviewCacheFile = File(previewFile.localPath)
+                        FilePreviewState(
+                            visible = true,
+                            loading = false,
+                            fileName = previewFile.fileName,
+                            kind = previewKind,
+                            localFilePath = previewFile.localPath,
+                        )
+                    }
+
+                    PreviewKind.IMAGE,
+                    PreviewKind.VIDEO,
+                    PreviewKind.AUDIO,
+                    -> {
+                        val access = repository.fetchInlineFileAccessUrl(
+                            baseUrl = session.baseUrl,
+                            token = session.token,
+                            fileId = node.id,
+                        )
+                        FilePreviewState(
+                            visible = true,
+                            loading = false,
+                            fileName = access.fileName ?: node.name,
+                            kind = previewKind,
+                            previewUrl = access.url,
+                        )
+                    }
+                }
+            }.onSuccess { previewState ->
+                _uiState.update { state ->
+                    state.copy(preview = previewState)
                 }
             }.onFailure { error ->
+                clearPreviewArtifacts()
                 _uiState.update { state ->
                     state.copy(
                         preview = FilePreviewState(
@@ -1177,6 +1254,7 @@ class MainViewModel(
     }
 
     fun closePreview() {
+        clearPreviewArtifacts()
         _uiState.update { state -> state.copy(preview = FilePreviewState()) }
     }
 
@@ -1234,6 +1312,7 @@ class MainViewModel(
         viewModelScope.launch {
             sessionStore.clearToken(baseUrl)
             fileDirectoryCache.clear()
+            clearPreviewArtifacts()
             _uiState.value = AppUiState(
                 isBooting = false,
                 baseUrl = baseUrl,
@@ -1258,6 +1337,7 @@ class MainViewModel(
                 session to currentUser
             }.onSuccess { (savedSession, currentUser) ->
                 fileDirectoryCache.clear()
+                clearPreviewArtifacts()
                 _uiState.update { state ->
                     state.copy(
                         isBooting = false,
@@ -1270,6 +1350,7 @@ class MainViewModel(
                 checkForAppUpdate(savedSession.baseUrl)
             }.onFailure { error ->
                 sessionStore.clearToken(session.baseUrl)
+                clearPreviewArtifacts()
                 _uiState.update { state ->
                     state.copy(isBooting = false, authToken = null, currentUser = null)
                 }
@@ -1404,13 +1485,16 @@ class MainViewModel(
                 repository.fetchStorageNodes(
                     baseUrl = session.baseUrl,
                     token = session.token,
-                    parentId = files.currentFolderId,
+                    parentId = if (files.searchScope == FileSearchScope.GLOBAL) null else files.currentFolderId,
                     keyword = files.keyword,
                     filter = files.filter,
+                    recursive = files.searchScope == FileSearchScope.GLOBAL && files.keyword.isNotBlank(),
                 )
             }.onSuccess { page ->
                 val visibleIds = page.items.mapTo(hashSetOf()) { it.id }
-                fileDirectoryCache[files.currentFolderId] = page.items
+                if (files.searchScope != FileSearchScope.GLOBAL) {
+                    fileDirectoryCache[files.currentFolderId] = page.items
+                }
                 _uiState.update { state ->
                     state.copy(
                         files = state.files.copy(
@@ -1520,11 +1604,61 @@ class MainViewModel(
 
         return when {
             mimeType.startsWith("image/") -> PreviewKind.IMAGE
+            mimeType == "application/pdf" || extension == "pdf" -> PreviewKind.PDF
+            mimeType.startsWith("video/") -> PreviewKind.VIDEO
+            mimeType.startsWith("audio/") -> PreviewKind.AUDIO
             mimeType.startsWith("text/") -> PreviewKind.TEXT
             extension in PREVIEWABLE_TEXT_EXTENSIONS -> PreviewKind.TEXT
             else -> null
         }
     }
+
+    private fun clearPreviewArtifacts() {
+        currentPreviewCacheFile?.takeIf(File::exists)?.delete()
+        currentPreviewCacheFile = null
+    }
+
+    private fun decodePreviewText(bytes: ByteArray, contentType: String?): String {
+        val charsetNames = buildList {
+            detectBomCharset(bytes)?.let(::add)
+            extractCharsetName(contentType)?.let(::add)
+            add(StandardCharsets.UTF_8.name())
+            add("GB18030")
+            add(StandardCharsets.UTF_16LE.name())
+            add(StandardCharsets.UTF_16BE.name())
+        }.distinct()
+
+        for (charsetName in charsetNames) {
+            val charset = runCatching { Charset.forName(charsetName) }.getOrNull() ?: continue
+            val decoded = runCatching { decodeStrict(bytes, charset) }.getOrNull() ?: continue
+            return decoded.removePrefix("\uFEFF")
+        }
+
+        return bytes.toString(StandardCharsets.UTF_8).removePrefix("\uFEFF")
+    }
+
+    private fun extractCharsetName(contentType: String?): String? =
+        contentType
+            ?.split(';')
+            ?.map(String::trim)
+            ?.firstOrNull { it.startsWith("charset=", ignoreCase = true) }
+            ?.substringAfter('=')
+            ?.takeIf(String::isNotBlank)
+
+    private fun detectBomCharset(bytes: ByteArray): String? = when {
+        bytes.size >= 3 && bytes[0] == 0xEF.toByte() && bytes[1] == 0xBB.toByte() && bytes[2] == 0xBF.toByte() -> StandardCharsets.UTF_8.name()
+        bytes.size >= 2 && bytes[0] == 0xFF.toByte() && bytes[1] == 0xFE.toByte() -> StandardCharsets.UTF_16LE.name()
+        bytes.size >= 2 && bytes[0] == 0xFE.toByte() && bytes[1] == 0xFF.toByte() -> StandardCharsets.UTF_16BE.name()
+        else -> null
+    }
+
+    private fun decodeStrict(bytes: ByteArray, charset: Charset): String =
+        charset
+            .newDecoder()
+            .onMalformedInput(CodingErrorAction.REPORT)
+            .onUnmappableCharacter(CodingErrorAction.REPORT)
+            .decode(ByteBuffer.wrap(bytes))
+            .toString()
 
     private fun authenticatedSession(): AuthSession? {
         val state = uiState.value
@@ -1547,6 +1681,9 @@ class MainViewModel(
 
     private fun rememberCurrentDirectorySnapshot() {
         val files = uiState.value.files
+        if (files.searchScope == FileSearchScope.GLOBAL) {
+            return
+        }
         fileDirectoryCache[files.currentFolderId] = files.items
     }
 
@@ -1698,6 +1835,11 @@ class MainViewModel(
         if (emitUserMessage) {
             emitMessage(message)
         }
+    }
+
+    override fun onCleared() {
+        clearPreviewArtifacts()
+        super.onCleared()
     }
 
     companion object {

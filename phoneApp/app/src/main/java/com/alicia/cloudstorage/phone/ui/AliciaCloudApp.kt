@@ -2,7 +2,13 @@
 
 import android.annotation.SuppressLint
 import android.content.Intent
-import android.graphics.BitmapFactory
+import android.graphics.Bitmap
+import android.graphics.pdf.PdfRenderer
+import android.media.MediaPlayer
+import android.net.Uri
+import android.os.ParcelFileDescriptor
+import android.widget.MediaController
+import android.widget.VideoView
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -10,6 +16,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -39,11 +46,15 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountCircle
+import androidx.compose.material.icons.rounded.ChevronLeft
+import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.ManageAccounts
+import androidx.compose.material.icons.rounded.Pause
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Preview
 import androidx.compose.material.icons.rounded.RestoreFromTrash
 import androidx.compose.material.icons.rounded.UploadFile
@@ -54,11 +65,13 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -84,7 +97,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil.compose.SubcomposeAsyncImage
 import com.alicia.cloudstorage.phone.HONG_KONG_BASE_URL
 import com.alicia.cloudstorage.phone.MAINLAND_BASE_URL
 import com.alicia.cloudstorage.phone.R
@@ -98,7 +113,11 @@ import com.alicia.cloudstorage.phone.data.isAdmin
 import com.alicia.cloudstorage.phone.normalizeConfiguredBaseUrl
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import java.io.File
 import java.util.Locale
+import kotlin.math.max
+import kotlin.math.roundToInt
+import kotlinx.coroutines.delay
 
 private enum class AliciaTitleGraphicVariant {
     Hero,
@@ -591,10 +610,7 @@ private fun MainShell(
                 fileKeyword = uiState.files.keyword,
                 recentNodes = uiState.home.recentNodes,
                 onFileKeywordChange = viewModel::updateFileKeyword,
-                onSubmitSearch = {
-                    viewModel.selectTab(AppTab.FILES)
-                    viewModel.submitFileSearch()
-                },
+                onSubmitSearch = viewModel::submitHomeFileSearch,
                 onOpenFiles = { viewModel.selectTab(AppTab.FILES) },
                 onOpenRecentNode = viewModel::revealNodeInFiles,
                 onOpenTrash = { viewModel.selectTab(AppTab.TRASH) },
@@ -1144,7 +1160,7 @@ private fun HomeScreen(
                                 color = Color(0xFF101626),
                                 fontFamily = AliciaMechaFontFamily,
                                 fontWeight = FontWeight.Black,
-                                fontSize = 20.sp,
+                                fontSize = 18.sp,
                                 lineHeight = 23.sp,
                             )
                             AliciaMechaBadgeAction(
@@ -2674,7 +2690,7 @@ private fun NodeActionSheet(
                         SheetActionButton(
                             icon = Icons.Rounded.Preview,
                             label = "预览文件",
-                            hint = "图片和文本支持内置预览",
+                            hint = "图片、文本、PDF 与音视频支持内置预览",
                             onClick = onPreview,
                         )
                         SheetActionButton(
@@ -2829,12 +2845,6 @@ private fun PreviewDialog(
         return
     }
 
-    val bitmap = remember(state.imageBytes) {
-        state.imageBytes?.let { bytes ->
-            BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
-        }
-    }
-
     AliciaMechaDialogShell(
         title = state.fileName,
         onDismissRequest = onDismiss,
@@ -2859,62 +2869,22 @@ private fun PreviewDialog(
                     }
                 }
 
-                state.error != null -> {
-                    Text(
-                        text = state.error,
-                        color = Color(0xFF748094),
-                        fontFamily = AliciaMechaFontFamily,
-                        fontWeight = FontWeight.Medium,
-                        fontSize = 13.sp,
-                        lineHeight = 18.sp,
-                    )
-                }
-
-                state.kind == PreviewKind.TEXT -> {
-                    SelectionContainer {
-                        Text(
-                            text = if (state.textContent.isBlank()) "文件内容为空。" else state.textContent,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(max = 420.dp)
-                                .verticalScroll(rememberScrollState()),
-                            color = Color(0xFF101626),
-                            fontFamily = AliciaMechaFontFamily,
-                            fontWeight = FontWeight.Medium,
-                            fontSize = 13.sp,
-                            lineHeight = 20.sp,
-                        )
-                    }
-                }
-
-                state.kind == PreviewKind.IMAGE && bitmap != null -> {
-                    AliciaMechaPanel(
-                        modifier = Modifier.fillMaxWidth(),
-                        contentPadding = PaddingValues(10.dp),
-                        backgroundResId = R.drawable.alicia_9_file_row,
-                        backgroundSlice = 42.dp,
-                    ) {
-                        Image(
-                            bitmap = bitmap,
-                            contentDescription = state.fileName,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(max = 420.dp),
-                        )
-                    }
-                }
-
-                else -> {
-                    Text(
-                        text = "当前文件暂不支持内置预览，请先下载查看。",
-                        color = Color(0xFF748094),
-                        fontFamily = AliciaMechaFontFamily,
-                        fontWeight = FontWeight.Medium,
-                        fontSize = 13.sp,
-                        lineHeight = 18.sp,
-                        textAlign = TextAlign.Start,
-                    )
-                }
+                state.error != null -> PreviewFallbackText(message = state.error)
+                state.kind == PreviewKind.TEXT -> TextPreviewContent(textContent = state.textContent)
+                state.kind == PreviewKind.IMAGE && !state.previewUrl.isNullOrBlank() -> ImagePreviewContent(
+                    previewUrl = state.previewUrl,
+                    fileName = state.fileName,
+                )
+                state.kind == PreviewKind.PDF && !state.localFilePath.isNullOrBlank() -> PdfPreviewContent(
+                    filePath = state.localFilePath,
+                )
+                state.kind == PreviewKind.VIDEO && !state.previewUrl.isNullOrBlank() -> VideoPreviewContent(
+                    previewUrl = state.previewUrl,
+                )
+                state.kind == PreviewKind.AUDIO && !state.previewUrl.isNullOrBlank() -> AudioPreviewContent(
+                    previewUrl = state.previewUrl,
+                )
+                else -> PreviewFallbackText(message = "当前文件暂不支持内置预览，请先下载查看。")
             }
         },
         footer = {
@@ -2927,6 +2897,384 @@ private fun PreviewDialog(
             )
         },
     )
+}
+
+@Composable
+private fun PreviewFallbackText(
+    message: String,
+    modifier: Modifier = Modifier,
+) {
+    Text(
+        text = message,
+        modifier = modifier,
+        color = Color(0xFF748094),
+        fontFamily = AliciaMechaFontFamily,
+        fontWeight = FontWeight.Medium,
+        fontSize = 13.sp,
+        lineHeight = 18.sp,
+        textAlign = TextAlign.Start,
+    )
+}
+
+@Composable
+private fun TextPreviewContent(textContent: String) {
+    SelectionContainer {
+        Text(
+            text = if (textContent.isBlank()) "文件内容为空。" else textContent,
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 420.dp)
+                .verticalScroll(rememberScrollState()),
+            color = Color(0xFF101626),
+            fontFamily = AliciaMechaFontFamily,
+            fontWeight = FontWeight.Medium,
+            fontSize = 13.sp,
+            lineHeight = 20.sp,
+        )
+    }
+}
+
+@Composable
+private fun ImagePreviewContent(
+    previewUrl: String,
+    fileName: String,
+) {
+    AliciaMechaPanel(
+        modifier = Modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(10.dp),
+        backgroundResId = R.drawable.alicia_9_file_row,
+        backgroundSlice = 42.dp,
+    ) {
+        SubcomposeAsyncImage(
+            model = previewUrl,
+            contentDescription = fileName,
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 420.dp),
+            contentScale = ContentScale.Fit,
+            loading = {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(220.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator(color = Color(0xFF2B67E7))
+                }
+            },
+            error = {
+                PreviewFallbackText(message = "图片预览加载失败，请先下载查看。")
+            },
+        )
+    }
+}
+
+@Composable
+private fun PdfPreviewContent(filePath: String) {
+    val document = remember(filePath) {
+        runCatching { PdfPreviewDocument(filePath) }.getOrNull()
+    }
+    var pageIndex by rememberSaveable(filePath) { mutableStateOf(0) }
+    val pageCount = document?.pageCount ?: 0
+    val pageBitmap = remember(filePath, pageIndex) {
+        document?.renderPage(pageIndex)
+    }
+
+    DisposableEffect(document) {
+        onDispose { document?.close() }
+    }
+
+    DisposableEffect(pageBitmap) {
+        onDispose { pageBitmap?.recycle() }
+    }
+
+    if (document == null || pageBitmap == null) {
+        PreviewFallbackText(message = "PDF 预览加载失败，请先下载查看。")
+        return
+    }
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        if (pageCount > 1) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                AliciaMechaActionButton(
+                    label = "上一页",
+                    onClick = { pageIndex = max(pageIndex - 1, 0) },
+                    tone = AliciaMechaActionButtonTone.Secondary,
+                    modifier = Modifier.weight(1f),
+                    height = 40.dp,
+                    enabled = pageIndex > 0,
+                )
+                Text(
+                    text = "${pageIndex + 1} / $pageCount",
+                    color = Color(0xFF4B5563),
+                    fontFamily = AliciaMechaFontFamily,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 12.sp,
+                )
+                AliciaMechaActionButton(
+                    label = "下一页",
+                    onClick = { pageIndex = minOf(pageIndex + 1, pageCount - 1) },
+                    tone = AliciaMechaActionButtonTone.Secondary,
+                    modifier = Modifier.weight(1f),
+                    height = 40.dp,
+                    enabled = pageIndex < pageCount - 1,
+                )
+            }
+        }
+
+        AliciaMechaPanel(
+            modifier = Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(10.dp),
+            backgroundResId = R.drawable.alicia_9_file_row,
+            backgroundSlice = 42.dp,
+        ) {
+            Image(
+                bitmap = pageBitmap.asImageBitmap(),
+                contentDescription = "PDF 页面预览",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 420.dp),
+                contentScale = ContentScale.Fit,
+            )
+        }
+    }
+}
+
+@Composable
+private fun VideoPreviewContent(previewUrl: String) {
+    var isPreparing by remember(previewUrl) { mutableStateOf(true) }
+    var errorMessage by remember(previewUrl) { mutableStateOf<String?>(null) }
+    var videoView by remember(previewUrl) { mutableStateOf<VideoView?>(null) }
+
+    DisposableEffect(previewUrl) {
+        onDispose {
+            videoView?.stopPlayback()
+            videoView = null
+        }
+    }
+
+    AliciaMechaPanel(
+        modifier = Modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(10.dp),
+        backgroundResId = R.drawable.alicia_9_file_row,
+        backgroundSlice = 42.dp,
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(16f / 9f)
+                .clip(RoundedCornerShape(18.dp))
+                .background(Color(0xFF020817)),
+            contentAlignment = Alignment.Center,
+        ) {
+            AndroidView(
+                factory = { context ->
+                    VideoView(context).apply {
+                        videoView = this
+                        val controller = MediaController(context)
+                        controller.setAnchorView(this)
+                        setMediaController(controller)
+                        setVideoURI(Uri.parse(previewUrl))
+                        setOnPreparedListener {
+                            isPreparing = false
+                            errorMessage = null
+                            controller.show(0)
+                            start()
+                        }
+                        setOnErrorListener { _, _, _ ->
+                            isPreparing = false
+                            errorMessage = "视频预览加载失败，请先下载查看。"
+                            true
+                        }
+                    }
+                },
+                modifier = Modifier.fillMaxSize(),
+                update = { view ->
+                    if (view.tag != previewUrl) {
+                        view.tag = previewUrl
+                        isPreparing = true
+                        errorMessage = null
+                        view.setVideoURI(Uri.parse(previewUrl))
+                        view.start()
+                    }
+                },
+            )
+
+            if (isPreparing) {
+                CircularProgressIndicator(color = Color(0xFF2B67E7))
+            }
+
+            errorMessage?.let { message ->
+                PreviewFallbackText(
+                    message = message,
+                    modifier = Modifier.padding(20.dp),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AudioPreviewContent(previewUrl: String) {
+    var isPreparing by remember(previewUrl) { mutableStateOf(true) }
+    var isPlaying by remember(previewUrl) { mutableStateOf(false) }
+    var durationMs by remember(previewUrl) { mutableStateOf(0) }
+    var positionMs by remember(previewUrl) { mutableStateOf(0f) }
+    var errorMessage by remember(previewUrl) { mutableStateOf<String?>(null) }
+    var mediaPlayer by remember(previewUrl) { mutableStateOf<MediaPlayer?>(null) }
+
+    DisposableEffect(previewUrl) {
+        val player = MediaPlayer()
+        mediaPlayer = player
+
+        runCatching {
+            player.setDataSource(previewUrl)
+            player.setOnPreparedListener { prepared ->
+                isPreparing = false
+                durationMs = prepared.duration.coerceAtLeast(0)
+                positionMs = 0f
+                errorMessage = null
+            }
+            player.setOnCompletionListener {
+                isPlaying = false
+                positionMs = durationMs.toFloat()
+            }
+            player.setOnErrorListener { _, _, _ ->
+                isPreparing = false
+                isPlaying = false
+                errorMessage = "音频预览加载失败，请先下载查看。"
+                true
+            }
+            player.prepareAsync()
+        }.onFailure {
+            isPreparing = false
+            errorMessage = "音频预览加载失败，请先下载查看。"
+        }
+
+        onDispose {
+            runCatching {
+                if (player.isPlaying) {
+                    player.stop()
+                }
+            }
+            player.release()
+            mediaPlayer = null
+        }
+    }
+
+    LaunchedEffect(mediaPlayer, isPlaying, isPreparing) {
+        while (mediaPlayer != null && isPlaying && !isPreparing) {
+            positionMs = mediaPlayer?.currentPosition?.toFloat() ?: positionMs
+            delay(250)
+        }
+    }
+
+    AliciaMechaPanel(
+        modifier = Modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(16.dp),
+        backgroundResId = R.drawable.alicia_9_file_row,
+        backgroundSlice = 42.dp,
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            when {
+                errorMessage != null -> PreviewFallbackText(message = errorMessage!!)
+                isPreparing -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 12.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CircularProgressIndicator(color = Color(0xFF2B67E7))
+                    }
+                }
+
+                else -> {
+                    Text(
+                        text = "${formatMediaTimestamp(positionMs.roundToInt())} / ${formatMediaTimestamp(durationMs)}",
+                        color = Color(0xFF4B5563),
+                        fontFamily = AliciaMechaFontFamily,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 12.sp,
+                    )
+                    Slider(
+                        value = positionMs.coerceIn(0f, durationMs.toFloat().coerceAtLeast(0f)),
+                        onValueChange = { next ->
+                            positionMs = next
+                        },
+                        onValueChangeFinished = {
+                            mediaPlayer?.seekTo(positionMs.roundToInt())
+                        },
+                        valueRange = 0f..durationMs.toFloat().coerceAtLeast(0f),
+                        enabled = durationMs > 0,
+                    )
+                    AliciaMechaActionButton(
+                        label = if (isPlaying) "暂停播放" else "开始播放",
+                        onClick = {
+                            val player = mediaPlayer ?: return@AliciaMechaActionButton
+                            if (isPlaying) {
+                                player.pause()
+                                positionMs = player.currentPosition.toFloat()
+                                isPlaying = false
+                            } else {
+                                player.seekTo(positionMs.roundToInt())
+                                player.start()
+                                isPlaying = true
+                            }
+                        },
+                        tone = AliciaMechaActionButtonTone.Secondary,
+                        modifier = Modifier.fillMaxWidth(),
+                        height = 42.dp,
+                    )
+                }
+            }
+        }
+    }
+}
+
+private class PdfPreviewDocument(filePath: String) {
+    private val descriptor = ParcelFileDescriptor.open(File(filePath), ParcelFileDescriptor.MODE_READ_ONLY)
+    private val renderer = PdfRenderer(descriptor)
+
+    val pageCount: Int
+        get() = renderer.pageCount
+
+    fun renderPage(index: Int, maxWidthPx: Int = 1440): Bitmap? {
+        if (index !in 0 until renderer.pageCount) {
+            return null
+        }
+
+        renderer.openPage(index).use { page ->
+            val scale = if (page.width > maxWidthPx) maxWidthPx.toFloat() / page.width else 1f
+            val bitmapWidth = max((page.width * scale).roundToInt(), 1)
+            val bitmapHeight = max((page.height * scale).roundToInt(), 1)
+            return Bitmap.createBitmap(bitmapWidth, bitmapHeight, Bitmap.Config.ARGB_8888).also { bitmap ->
+                page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+            }
+        }
+    }
+
+    fun close() {
+        renderer.close()
+        descriptor.close()
+    }
+}
+
+private fun formatMediaTimestamp(totalMillis: Int): String {
+    val totalSeconds = (totalMillis.coerceAtLeast(0) / 1000)
+    val minutes = totalSeconds / 60
+    val seconds = totalSeconds % 60
+    return "%d:%02d".format(minutes, seconds)
 }
 
 @Composable

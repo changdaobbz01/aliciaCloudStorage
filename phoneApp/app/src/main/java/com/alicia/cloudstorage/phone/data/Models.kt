@@ -160,6 +160,12 @@ data class DownloadedFile(
     val bytes: ByteArray,
 )
 
+data class CachedPreviewFile(
+    val fileName: String,
+    val contentType: String?,
+    val localPath: String,
+)
+
 data class SignedUrlResponse(
     val url: String,
     val fileName: String?,

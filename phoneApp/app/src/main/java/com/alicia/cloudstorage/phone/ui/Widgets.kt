@@ -1,5 +1,6 @@
 ﻿package com.alicia.cloudstorage.phone.ui
 
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -1486,7 +1487,7 @@ fun AliciaMechaSearchBar(
                                 Text(
                                     text = placeholder,
                                     color = MechaMuted,
-                                    fontSize = 15.sp,
+                                    fontSize = 12.5.sp,
                                     fontFamily = AliciaMechaFontFamily,
                                     fontWeight = FontWeight.Medium,
                                     maxLines = 1,
@@ -2360,7 +2361,7 @@ fun AliciaFolderSummary(
                     color = MechaInk,
                     fontFamily = AliciaMechaFontFamily,
                     fontWeight = FontWeight.Black,
-                    fontSize = 22.sp,
+                    fontSize = 18.sp,
                     lineHeight = 24.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -3124,12 +3125,15 @@ fun AliciaPullRefreshContainer(
     content: @Composable BoxScope.() -> Unit,
 ) {
     val density = LocalDensity.current
-    val refreshThresholdPx = with(density) { 108.dp.toPx() }
-    val refreshHoldOffsetPx = with(density) { 66.dp.toPx() }
-    val maxPullOffsetPx = with(density) { 132.dp.toPx() }
-    val maxIndicatorOffsetPx = with(density) { 78.dp.toPx() }
+    val refreshThresholdPx = with(density) { 88.dp.toPx() }
+    val refreshHoldOffsetPx = with(density) { 64.dp.toPx() }
+    val maxPullOffsetPx = with(density) { 156.dp.toPx() }
+    val maxIndicatorOffsetPx = with(density) { 84.dp.toPx() }
+    val indicatorDragFactor = refreshHoldOffsetPx / refreshThresholdPx
     var dragOffsetPx by remember { mutableFloatStateOf(0f) }
     var refreshHoldVisible by remember { mutableStateOf(false) }
+    var refreshAnchorOffsetPx by remember { mutableFloatStateOf(refreshHoldOffsetPx) }
+    val indicatorOffsetAnim = remember { Animatable(0f) }
 
     LaunchedEffect(refreshing) {
         if (refreshing) {
@@ -3138,6 +3142,24 @@ fun AliciaPullRefreshContainer(
             delay(220)
             refreshHoldVisible = false
         }
+    }
+
+    fun releasePull(): Boolean {
+        if (dragOffsetPx <= 0f) {
+            return false
+        }
+        val shouldRefresh = dragOffsetPx >= refreshThresholdPx && !refreshing
+        val releasedIndicatorOffsetPx =
+            (dragOffsetPx * indicatorDragFactor)
+                .coerceAtMost(maxIndicatorOffsetPx)
+                .coerceAtLeast(refreshHoldOffsetPx)
+        dragOffsetPx = 0f
+        if (shouldRefresh) {
+            refreshAnchorOffsetPx = releasedIndicatorOffsetPx
+            refreshHoldVisible = true
+            onRefresh()
+        }
+        return true
     }
 
     val nestedScrollConnection = remember(refreshing, refreshThresholdPx, maxPullOffsetPx) {
@@ -3150,7 +3172,8 @@ fun AliciaPullRefreshContainer(
                     return Offset.Zero
                 }
                 val previous = dragOffsetPx
-                dragOffsetPx = max(0f, dragOffsetPx + available.y * 0.72f)
+                val collapseFactor = collapsePullDragFactor(dragOffsetPx, maxPullOffsetPx)
+                dragOffsetPx = max(0f, dragOffsetPx + available.y * collapseFactor)
                 return Offset(x = 0f, y = dragOffsetPx - previous)
             }
 
@@ -3165,37 +3188,52 @@ fun AliciaPullRefreshContainer(
                 if (available.y <= 0f) {
                     return Offset.Zero
                 }
-                dragOffsetPx = (dragOffsetPx + available.y * 0.34f).coerceAtMost(maxPullOffsetPx)
-                return Offset(x = 0f, y = available.y)
+                val previous = dragOffsetPx
+                val pullFactor = expandPullDragFactor(dragOffsetPx, maxPullOffsetPx)
+                dragOffsetPx = (dragOffsetPx + available.y * pullFactor).coerceAtMost(maxPullOffsetPx)
+                return Offset(x = 0f, y = dragOffsetPx - previous)
             }
 
             override suspend fun onPreFling(available: Velocity): Velocity {
-                if (dragOffsetPx <= 0f) {
-                    return Velocity.Zero
-                }
-                val shouldRefresh = dragOffsetPx >= refreshThresholdPx && !refreshing
-                dragOffsetPx = 0f
-                if (shouldRefresh) {
-                    refreshHoldVisible = true
-                    onRefresh()
-                }
-                return available
+                return if (releasePull()) available else Velocity.Zero
+            }
+
+            override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
+                releasePull()
+                return Velocity.Zero
             }
         }
     }
 
-    val indicatorDragFactor = refreshHoldOffsetPx / refreshThresholdPx
     val dragIndicatorOffsetPx = (dragOffsetPx * indicatorDragFactor).coerceAtMost(maxIndicatorOffsetPx)
-    val settledIndicatorOffsetPx by animateFloatAsState(
-        targetValue = if (refreshing || refreshHoldVisible) refreshHoldOffsetPx else 0f,
-        animationSpec = tween(durationMillis = if (refreshing || refreshHoldVisible) 160 else 190),
-        label = "pull_refresh_indicator_offset",
-    )
-    val indicatorOffsetPx = if (dragOffsetPx > 0f && !refreshing && !refreshHoldVisible) {
-        dragIndicatorOffsetPx
-    } else {
-        settledIndicatorOffsetPx
+    LaunchedEffect(
+        dragOffsetPx,
+        dragIndicatorOffsetPx,
+        refreshing,
+        refreshHoldVisible,
+        refreshAnchorOffsetPx,
+    ) {
+        when {
+            dragOffsetPx > 0f && !refreshing && !refreshHoldVisible -> {
+                indicatorOffsetAnim.snapTo(dragIndicatorOffsetPx)
+            }
+
+            refreshing || refreshHoldVisible -> {
+                indicatorOffsetAnim.animateTo(
+                    targetValue = refreshAnchorOffsetPx,
+                    animationSpec = tween(durationMillis = 160),
+                )
+            }
+
+            else -> {
+                indicatorOffsetAnim.animateTo(
+                    targetValue = 0f,
+                    animationSpec = tween(durationMillis = 190),
+                )
+            }
+        }
     }
+    val indicatorOffsetPx = indicatorOffsetAnim.value
 
     Box(
         modifier = modifier.nestedScroll(nestedScrollConnection),
@@ -3208,6 +3246,22 @@ fun AliciaPullRefreshContainer(
             modifier = Modifier.align(Alignment.TopCenter),
         )
     }
+}
+
+private fun expandPullDragFactor(
+    currentOffsetPx: Float,
+    maxPullOffsetPx: Float,
+): Float {
+    val progress = (currentOffsetPx / maxPullOffsetPx).coerceIn(0f, 1f)
+    return 0.64f - (progress * 0.22f)
+}
+
+private fun collapsePullDragFactor(
+    currentOffsetPx: Float,
+    maxPullOffsetPx: Float,
+): Float {
+    val progress = (currentOffsetPx / maxPullOffsetPx).coerceIn(0f, 1f)
+    return 0.9f + (progress * 0.08f)
 }
 
 @Composable
