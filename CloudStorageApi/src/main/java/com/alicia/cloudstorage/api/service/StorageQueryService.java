@@ -16,8 +16,14 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 @Service
 @Transactional(readOnly = true)
@@ -92,16 +98,20 @@ public class StorageQueryService {
                 normalizedSize,
                 buildDriveSort(sortBy, sortDirection)
         );
-        Page<StorageNode> nodes = recursive
-                ? storageNodeRepository.searchNodes(
-                userId,
-                parentId,
-                true,
-                normalizedKeyword,
-                nodeType,
-                pageable
-        )
-                : storageNodeRepository.searchNodes(
+        if (recursive) {
+            return listNodesRecursively(
+                    userId,
+                    parentId,
+                    normalizedKeyword,
+                    nodeType,
+                    normalizedPage,
+                    normalizedSize,
+                    sortBy,
+                    sortDirection
+            );
+        }
+
+        Page<StorageNode> nodes = storageNodeRepository.searchNodes(
                 userId,
                 parentId,
                 normalizedKeyword,
@@ -245,6 +255,83 @@ public class StorageQueryService {
         );
     }
 
+    private PageResponse<StorageNodeSummaryResponse> listNodesRecursively(
+            Long userId,
+            Long parentId,
+            String keyword,
+            NodeType nodeType,
+            int page,
+            int size,
+            String sortBy,
+            Sort.Direction sortDirection
+    ) {
+        List<StorageNode> allActiveNodes = storageNodeRepository.findByOwnerIdAndDeletedFalse(userId);
+        Set<Long> descendantIds = collectDescendantIds(allActiveNodes, parentId);
+        List<StorageNode> filteredNodes = allActiveNodes.stream()
+                .filter(node -> descendantIds.contains(node.getId()))
+                .filter(node -> keyword == null || node.getNodeName().toLowerCase().contains(keyword.toLowerCase()))
+                .filter(node -> nodeType == null || node.getNodeType() == nodeType)
+                .sorted(buildDriveComparator(sortBy, sortDirection))
+                .toList();
+
+        return toPageResponse(filteredNodes, page, size, sortBy, sortDirection);
+    }
+
+    private Set<Long> collectDescendantIds(List<StorageNode> allActiveNodes, Long parentId) {
+        Set<Long> descendantIds = new HashSet<>();
+
+        if (parentId == null) {
+            allActiveNodes.forEach(node -> descendantIds.add(node.getId()));
+            return descendantIds;
+        }
+
+        Map<Long, List<StorageNode>> childrenByParentId = new HashMap<>();
+        allActiveNodes.forEach(node -> {
+            Long normalizedParentId = node.getParentId();
+            List<StorageNode> siblings = childrenByParentId.computeIfAbsent(
+                    normalizedParentId == null ? 0L : normalizedParentId,
+                    ignored -> new ArrayList<>()
+            );
+            siblings.add(node);
+        });
+
+        ArrayDeque<Long> pendingParentIds = new ArrayDeque<>();
+        pendingParentIds.add(parentId);
+
+        while (!pendingParentIds.isEmpty()) {
+            Long currentParentId = pendingParentIds.removeFirst();
+            for (StorageNode child : childrenByParentId.getOrDefault(currentParentId, List.of())) {
+                if (descendantIds.add(child.getId()) && child.getNodeType() == NodeType.FOLDER) {
+                    pendingParentIds.addLast(child.getId());
+                }
+            }
+        }
+
+        return descendantIds;
+    }
+
+    private PageResponse<StorageNodeSummaryResponse> toPageResponse(
+            List<StorageNode> nodes,
+            int page,
+            int size,
+            String sortBy,
+            Sort.Direction sortDirection
+    ) {
+        int fromIndex = Math.min((page - 1) * size, nodes.size());
+        int toIndex = Math.min(fromIndex + size, nodes.size());
+        int totalPages = nodes.isEmpty() ? 0 : (int) Math.ceil((double) nodes.size() / size);
+
+        return new PageResponse<>(
+                nodes.subList(fromIndex, toIndex).stream().map(this::toSummary).toList(),
+                page,
+                size,
+                nodes.size(),
+                totalPages,
+                sortBy,
+                sortDirection.name().toLowerCase()
+        );
+    }
+
     /**
      * 将存储节点实体转换成列表摘要响应。
      */
@@ -376,6 +463,29 @@ public class StorageQueryService {
 
         orders.add(new Sort.Order(Sort.Direction.ASC, "id"));
         return Sort.by(orders);
+    }
+
+    private Comparator<StorageNode> buildDriveComparator(String sortBy, Sort.Direction sortDirection) {
+        Comparator<StorageNode> comparator = Comparator
+                .comparingInt((StorageNode node) -> node.getNodeType() == NodeType.FOLDER ? 0 : 1);
+
+        Comparator<StorageNode> primaryComparator = switch (sortBy) {
+            case "size" -> Comparator.comparingLong(StorageNode::getFileSize);
+            case "updatedAt" -> Comparator.comparing(StorageNode::getUpdatedAt);
+            case "createdAt" -> Comparator.comparing(StorageNode::getCreatedAt);
+            case "name" -> Comparator.comparing(StorageNode::getNodeName, String.CASE_INSENSITIVE_ORDER);
+            default -> throw new IllegalArgumentException("鏂囦欢鍒楄〃鎺掑簭瀛楁涓嶅悎娉曘€?");
+        };
+
+        comparator = comparator.thenComparing(
+                sortDirection == Sort.Direction.DESC ? primaryComparator.reversed() : primaryComparator
+        );
+
+        if (!"name".equals(sortBy)) {
+            comparator = comparator.thenComparing(StorageNode::getNodeName, String.CASE_INSENSITIVE_ORDER);
+        }
+
+        return comparator.thenComparing(StorageNode::getId);
     }
 
     private Sort buildTrashSort(String sortBy, Sort.Direction sortDirection) {

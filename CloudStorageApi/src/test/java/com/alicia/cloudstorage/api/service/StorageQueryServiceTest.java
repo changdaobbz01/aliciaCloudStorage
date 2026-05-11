@@ -96,27 +96,60 @@ class StorageQueryServiceTest {
     @Test
     void listNodesSupportsRecursiveCreatedAtSortingForRecentUploads() {
         Long userId = 12L;
-        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        StorageNode rootFolder = activeNode(30L, userId, "项目", NodeType.FOLDER, 0L);
+        StorageNode nestedFolder = activeNode(31L, userId, "归档", NodeType.FOLDER, 0L);
+        StorageNode latestFile = activeNode(32L, userId, "latest.apk", NodeType.FILE, 128L);
+        StorageNode nestedFile = activeNode(33L, userId, "nested.apk", NodeType.FILE, 96L);
+        StorageNode oldestFile = activeNode(34L, userId, "oldest.apk", NodeType.FILE, 64L);
 
-        when(storageNodeRepository.searchNodes(eq(userId), isNull(), eq(true), isNull(), eq(NodeType.FILE), any(Pageable.class)))
-                .thenReturn(new PageImpl<>(List.of(), org.springframework.data.domain.PageRequest.of(0, 4), 8));
+        nestedFolder.setParentId(rootFolder.getId());
+        latestFile.setParentId(null);
+        nestedFile.setParentId(nestedFolder.getId());
+        oldestFile.setParentId(rootFolder.getId());
+
+        ReflectionTestUtils.setField(latestFile, "createdAt", LocalDateTime.of(2026, 4, 29, 11, 0));
+        ReflectionTestUtils.setField(nestedFile, "createdAt", LocalDateTime.of(2026, 4, 28, 10, 0));
+        ReflectionTestUtils.setField(oldestFile, "createdAt", LocalDateTime.of(2026, 4, 27, 9, 0));
+
+        when(storageNodeRepository.findByOwnerIdAndDeletedFalse(userId))
+                .thenReturn(List.of(rootFolder, nestedFolder, latestFile, nestedFile, oldestFile));
 
         var response = storageQueryService.listNodes(userId, null, true, null, "FILE", 1, 4, "createdAt", "desc");
 
-        verify(storageNodeRepository).searchNodes(eq(userId), isNull(), eq(true), isNull(), eq(NodeType.FILE), pageableCaptor.capture());
-        Pageable pageable = pageableCaptor.getValue();
-
-        assertThat(pageable.getPageNumber()).isEqualTo(0);
-        assertThat(pageable.getPageSize()).isEqualTo(4);
-        assertThat(pageable.getSort()).containsExactly(
-                new Sort.Order(Sort.Direction.DESC, "nodeType"),
-                new Sort.Order(Sort.Direction.DESC, "createdAt"),
-                new Sort.Order(Sort.Direction.ASC, "nodeName"),
-                new Sort.Order(Sort.Direction.ASC, "id")
-        );
-        assertThat(response.totalItems()).isEqualTo(8);
+        verify(storageNodeRepository).findByOwnerIdAndDeletedFalse(userId);
+        assertThat(response.page()).isEqualTo(1);
+        assertThat(response.size()).isEqualTo(4);
+        assertThat(response.totalItems()).isEqualTo(3);
+        assertThat(response.totalPages()).isEqualTo(1);
+        assertThat(response.items()).extracting(item -> item.name()).containsExactly("latest.apk", "nested.apk", "oldest.apk");
         assertThat(response.sortBy()).isEqualTo("createdAt");
         assertThat(response.sortDirection()).isEqualTo("desc");
+    }
+
+    @Test
+    void listNodesRecursiveRespectsRequestedParentSubtree() {
+        Long userId = 13L;
+        StorageNode parentFolder = activeNode(40L, userId, "设计稿", NodeType.FOLDER, 0L);
+        StorageNode nestedFolder = activeNode(41L, userId, "终稿", NodeType.FOLDER, 0L);
+        StorageNode childFile = activeNode(42L, userId, "A-brief.pdf", NodeType.FILE, 64L);
+        StorageNode grandChildFile = activeNode(43L, userId, "B-final.pdf", NodeType.FILE, 96L);
+        StorageNode otherFolder = activeNode(44L, userId, "其他项目", NodeType.FOLDER, 0L);
+        StorageNode otherFile = activeNode(45L, userId, "C-outside.pdf", NodeType.FILE, 128L);
+
+        nestedFolder.setParentId(parentFolder.getId());
+        childFile.setParentId(parentFolder.getId());
+        grandChildFile.setParentId(nestedFolder.getId());
+        otherFile.setParentId(otherFolder.getId());
+
+        when(storageNodeRepository.findByOwnerIdAndDeletedFalse(userId))
+                .thenReturn(List.of(parentFolder, nestedFolder, childFile, grandChildFile, otherFolder, otherFile));
+
+        var response = storageQueryService.listNodes(userId, parentFolder.getId(), true, null, "FILE", 1, 10, "name", "asc");
+
+        verify(storageNodeRepository).findByOwnerIdAndDeletedFalse(userId);
+        assertThat(response.totalItems()).isEqualTo(2);
+        assertThat(response.totalPages()).isEqualTo(1);
+        assertThat(response.items()).extracting(item -> item.name()).containsExactly("A-brief.pdf", "B-final.pdf");
     }
 
     @Test
@@ -239,6 +272,7 @@ class StorageQueryServiceTest {
     private StorageNode activeNode(Long id, Long ownerId, String name, NodeType nodeType, Long size) {
         StorageNode node = new StorageNode();
         ReflectionTestUtils.setField(node, "id", id);
+        ReflectionTestUtils.setField(node, "createdAt", LocalDateTime.of(2026, 4, 29, 8, 0));
         ReflectionTestUtils.setField(node, "updatedAt", LocalDateTime.of(2026, 4, 29, 8, 0));
         node.setOwnerId(ownerId);
         node.setParentId(null);

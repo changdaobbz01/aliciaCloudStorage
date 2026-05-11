@@ -31,7 +31,7 @@ AliciaCloudStorage/
 ├─ CloudStorageApi/      # Spring Boot 后端
 ├─ CloudStorageDB/       # 早期 SQL 初始化脚本
 ├─ webApp/               # React + Vite 前端
-├─ phoneApp/             # 移动端占位目录
+├─ phoneApp/             # Android 客户端（Kotlin + Jetpack Compose）
 ├─ compose.yaml          # 本地 / 首发用 Docker Compose
 ├─ .env.example          # 环境变量示例
 └─ pom.xml               # Maven 根工程

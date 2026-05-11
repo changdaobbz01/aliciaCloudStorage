@@ -27,6 +27,8 @@ public interface StorageNodeRepository extends JpaRepository<StorageNode, Long> 
 
     List<StorageNode> findByOwnerIdAndParentId(Long ownerId, Long parentId);
 
+    List<StorageNode> findByOwnerIdAndDeletedFalse(Long ownerId);
+
     List<StorageNode> findByOwnerIdAndParentIdAndDeletedFalse(Long ownerId, Long parentId);
 
     @Query("""
@@ -50,27 +52,6 @@ public interface StorageNodeRepository extends JpaRepository<StorageNode, Long> 
     Page<StorageNode> searchNodes(
             @Param("ownerId") Long ownerId,
             @Param("parentId") Long parentId,
-            @Param("keyword") String keyword,
-            @Param("nodeType") NodeType nodeType,
-            Pageable pageable
-    );
-
-    @Query("""
-            select node
-            from StorageNode node
-            where node.ownerId = :ownerId
-              and node.deleted = false
-              and (
-                  :recursive = true
-                  or ((:parentId is null and node.parentId is null) or node.parentId = :parentId)
-              )
-              and (:keyword is null or lower(node.nodeName) like lower(concat('%', :keyword, '%')))
-              and (:nodeType is null or node.nodeType = :nodeType)
-            """)
-    Page<StorageNode> searchNodes(
-            @Param("ownerId") Long ownerId,
-            @Param("parentId") Long parentId,
-            @Param("recursive") boolean recursive,
             @Param("keyword") String keyword,
             @Param("nodeType") NodeType nodeType,
             Pageable pageable
