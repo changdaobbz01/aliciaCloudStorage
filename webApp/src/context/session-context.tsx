@@ -51,7 +51,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       }
 
       if (location.pathname !== '/login') {
-        void navigate('/login', { replace: true });
+        void navigate('/login', {
+          replace: true,
+          state: { from: `${location.pathname}${location.search}${location.hash}` },
+        });
       }
     }
 
@@ -60,7 +63,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     return () => {
       window.removeEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
     };
-  }, [location.pathname, message, navigate]);
+  }, [location.hash, location.pathname, location.search, message, navigate]);
 
   useEffect(() => {
     const token = loadAuthToken();

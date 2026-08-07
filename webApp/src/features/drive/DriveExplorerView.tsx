@@ -53,6 +53,7 @@ type DriveExplorerViewProps = {
   onOpenFolder: (item: StorageNode) => void;
   onPreviewFile: (item: StorageNode) => void | Promise<void>;
   onDownloadFile: (item: StorageNode) => void;
+  onShareNode: (item: StorageNode) => void;
   onRenameNode: (item: StorageNode) => void;
   onMoveNode: (item: StorageNode) => void;
   onDeleteNode: (item: StorageNode) => void | Promise<void>;
@@ -118,6 +119,7 @@ export default function DriveExplorerView({
   onOpenFolder,
   onPreviewFile,
   onDownloadFile,
+  onShareNode,
   onRenameNode,
   onMoveNode,
   onDeleteNode,
@@ -328,6 +330,7 @@ export default function DriveExplorerView({
           onOpenFolder={onOpenFolder}
           onPreviewFile={onPreviewFile}
           onDownloadFile={onDownloadFile}
+          onShareNode={onShareNode}
           onRenameNode={onRenameNode}
           onMoveNode={onMoveNode}
           onDeleteNode={onDeleteNode}

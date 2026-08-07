@@ -2,6 +2,7 @@
 /webApp/node_modules/
 /webApp/dist/
 /webApp/*.tsbuildinfo
+/webApp/*.log
 /webApp/vite.config.js
 /webApp/vite.config.d.ts
 /.env

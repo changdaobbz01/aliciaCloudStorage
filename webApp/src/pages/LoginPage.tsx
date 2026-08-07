@@ -26,6 +26,21 @@ export function LoginPage() {
   const [form] = Form.useForm<LoginPayload>();
   const [appPackageInfo, setAppPackageInfo] = useState<AppPackageInfo | null>(null);
 
+  function resolveLoginDestination() {
+    const destination = typeof location.state === 'object' &&
+      location.state &&
+      'from' in location.state &&
+      typeof location.state.from === 'string'
+      ? location.state.from
+      : '/';
+
+    if (!destination.startsWith('/') || destination.startsWith('//')) {
+      return '/';
+    }
+
+    return destination;
+  }
+
   useEffect(() => {
     let cancelled = false;
 
@@ -51,7 +66,7 @@ export function LoginPage() {
 
   useEffect(() => {
     if (authToken) {
-      void navigate('/', { replace: true });
+      void navigate(resolveLoginDestination(), { replace: true });
     }
   }, [authToken, navigate]);
 
@@ -61,15 +76,7 @@ export function LoginPage() {
       setCurrentSession(session);
       message.success('登录成功。');
 
-      const destination =
-        typeof location.state === 'object' &&
-        location.state &&
-        'from' in location.state &&
-        typeof location.state.from === 'string'
-          ? location.state.from
-          : '/';
-
-      void navigate(destination, { replace: true });
+      void navigate(resolveLoginDestination(), { replace: true });
     } catch (error) {
       message.error(error instanceof Error ? error.message : '登录失败。');
     }

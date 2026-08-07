@@ -69,3 +69,12 @@ export type AppPackageUploadFormValues = {
 export type ResetUserPasswordFormValues = ResetUserPasswordPayload & {
   confirmPassword: string;
 };
+
+export type CreateShareFormValues = {
+  title: string;
+  passwordEnabled: boolean;
+  password?: string;
+  expiresInDays: number;
+  allowDownload: boolean;
+  allowSave: boolean;
+};

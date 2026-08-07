@@ -7,6 +7,7 @@ import {
   FolderOpenFilled,
   RightOutlined,
   RollbackOutlined,
+  ShareAltOutlined,
   SwapOutlined,
 } from '@ant-design/icons';
 import { Button, Popconfirm, Space, Table, Typography } from 'antd';
@@ -36,6 +37,7 @@ type StorageTableProps = {
   onOpenFolder: (item: StorageNode) => void;
   onPreviewFile: (item: StorageNode) => void | Promise<void>;
   onDownloadFile: (item: StorageNode) => void;
+  onShareNode: (item: StorageNode) => void;
   onRenameNode: (item: StorageNode) => void;
   onMoveNode: (item: StorageNode) => void;
   onDeleteNode: (item: StorageNode) => void | Promise<void>;
@@ -126,6 +128,7 @@ export function StorageTable({
   onOpenFolder,
   onPreviewFile,
   onDownloadFile,
+  onShareNode,
   onRenameNode,
   onMoveNode,
   onDeleteNode,
@@ -189,7 +192,7 @@ export function StorageTable({
     {
       title: '操作',
       key: 'actions',
-      width: isTrashMode ? 240 : 380,
+      width: isTrashMode ? 240 : 450,
       render: (_, item) =>
         isTrashMode ? (
           <Space size="small" wrap>
@@ -235,6 +238,9 @@ export function StorageTable({
                 </Button>
               </>
             )}
+            <Button type="link" icon={<ShareAltOutlined />} onClick={() => onShareNode(item)}>
+              分享
+            </Button>
             <Button type="link" icon={<EditOutlined />} onClick={() => onRenameNode(item)}>
               重命名
             </Button>
@@ -280,7 +286,7 @@ export function StorageTable({
           showTotal: (total, range) => `第 ${range[0]}-${range[1]} 项，共 ${total} 项`,
         }}
         size="middle"
-        scroll={{ x: isTrashMode ? 980 : 1120 }}
+        scroll={{ x: isTrashMode ? 980 : 1200 }}
         locale={{ emptyText: isTrashMode ? '回收站里还没有内容。' : '当前目录下还没有内容。' }}
         onChange={(pagination: TablePaginationConfig, _, sorter) => {
           const nextPagination = {

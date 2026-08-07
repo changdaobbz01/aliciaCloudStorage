@@ -82,6 +82,16 @@ export function resolveAppDownloadUrl(downloadPath = APP_DOWNLOAD_PUBLIC_PATH) {
   return new URL(downloadPath, window.location.origin).toString();
 }
 
+export function resolveShareUrl(shareCode: string) {
+  const path = `/share/${encodeURIComponent(shareCode)}`;
+
+  if (typeof window === 'undefined') {
+    return path;
+  }
+
+  return new URL(path, window.location.origin).toString();
+}
+
 export function createEmptyAppPackageInfo(): AppPackageInfo {
   return {
     available: false,

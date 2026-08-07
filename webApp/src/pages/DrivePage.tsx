@@ -8,6 +8,7 @@
   LockOutlined,
   LogoutOutlined,
   SearchOutlined,
+  ShareAltOutlined,
   TeamOutlined,
   UploadOutlined,
 } from '@ant-design/icons';
@@ -21,6 +22,7 @@ import { DriveAccountsAdminModals } from '../features/drive/DriveAccountsAdminMo
 import { DriveAppPackageUploadModal } from '../features/drive/DriveAppPackageUploadModal';
 import { DrivePreviewModal } from '../features/drive/DrivePreviewModal';
 import { DriveProfileModals } from '../features/drive/DriveProfileModals';
+import { DriveShareCreateModal } from '../features/drive/DriveShareCreateModal';
 import { DriveStorageActionModals } from '../features/drive/DriveStorageActionModals';
 import { useSession } from '../context/session-context';
 import { useDriveAccountsAdmin } from '../features/drive/hooks/useDriveAccountsAdmin';
@@ -28,6 +30,7 @@ import { useDriveAppPackageAdmin } from '../features/drive/hooks/useDriveAppPack
 import { useDriveDashboard } from '../features/drive/hooks/useDriveDashboard';
 import { useDriveExplorer } from '../features/drive/hooks/useDriveExplorer';
 import { useDriveProfileSettings } from '../features/drive/hooks/useDriveProfileSettings';
+import { useDriveShares } from '../features/drive/hooks/useDriveShares';
 import { useDriveStorageDialogs } from '../features/drive/hooks/useDriveStorageDialogs';
 import {
   APP_DOWNLOAD_PUBLIC_PATH,
@@ -43,6 +46,7 @@ const LazyDriveAccountsView = lazy(() => import('../features/drive/DriveAccounts
 const LazyDriveAppPackageView = lazy(() => import('../features/drive/DriveAppPackageView'));
 const LazyDriveExplorerView = lazy(() => import('../features/drive/DriveExplorerView'));
 const LazyDriveHomeView = lazy(() => import('../features/drive/DriveHomeView'));
+const LazyDriveSharesView = lazy(() => import('../features/drive/DriveSharesView'));
 
 const { Header, Sider, Content } = Layout;
 
@@ -51,6 +55,7 @@ const MAX_HOME_BACKGROUND_BYTES = 10 * 1024 * 1024;
 const baseMenuItems = [
   { key: 'home', icon: <HomeOutlined />, label: '主页' },
   { key: 'drive', icon: <FolderOpenOutlined />, label: '我的文件' },
+  { key: 'shares', icon: <ShareAltOutlined />, label: '我的分享' },
   { key: 'accounts', icon: <TeamOutlined />, label: '账号管理' },
   { key: 'appPackage', icon: <AndroidOutlined />, label: 'APP 上传' },
   { key: 'trash', icon: <DeleteOutlined />, label: '回收站' },
@@ -66,6 +71,7 @@ export function DrivePage() {
   const [activeView, setActiveView] = useState<StorageViewMode>('home');
   const isHomeView = activeView === 'home';
   const isDriveView = activeView === 'drive';
+  const isSharesView = activeView === 'shares';
   const isAccountsView = activeView === 'accounts';
   const isAppPackageView = activeView === 'appPackage';
   const isTrashView = activeView === 'trash';
@@ -78,6 +84,11 @@ export function DrivePage() {
     activeView,
     message,
     onStorageChanged: dashboard.loadOverview,
+  });
+  const shares = useDriveShares({
+    authToken,
+    isSharesView,
+    message,
   });
   const accounts = useDriveAccountsAdmin({
     authToken,
@@ -119,6 +130,8 @@ export function DrivePage() {
         : explorer.breadcrumbs[explorer.breadcrumbs.length - 1]?.label ?? '我的文件';
   const currentViewLabel = isHomeView
     ? '主页'
+    : isSharesView
+      ? '我的分享'
     : isAccountsView
       ? '账号管理'
       : isAppPackageView
@@ -157,6 +170,8 @@ export function DrivePage() {
   );
   const currentViewIcon = isHomeView ? (
     <HomeOutlined />
+  ) : isSharesView ? (
+    <ShareAltOutlined />
   ) : isAccountsView ? (
     <TeamOutlined />
   ) : isAppPackageView ? (
@@ -168,6 +183,8 @@ export function DrivePage() {
   );
   const headerEyebrow = isHomeView
     ? '系统概览'
+    : isSharesView
+      ? '分享管理'
     : isAccountsView
       ? '管理中心'
       : isAppPackageView
@@ -221,6 +238,10 @@ export function DrivePage() {
 
     if (isAppPackageView) {
       tasks.push(appPackages.loadAppPackageInfo());
+    }
+
+    if (isSharesView) {
+      tasks.push(shares.loadShareLinks());
     }
 
     await Promise.all(tasks);
@@ -361,11 +382,21 @@ export function DrivePage() {
           onOpenFolder={explorer.openFolder}
           onPreviewFile={handlePreviewFile}
           onDownloadFile={handleDownloadFile}
+          onShareNode={shares.openCreateShareModal}
           onRenameNode={storageDialogs.openRenameModal}
           onMoveNode={storageDialogs.openMoveModal}
           onDeleteNode={handleDeleteNode}
           onRestoreNode={handleRestoreNode}
           onPermanentlyDeleteNode={handlePermanentlyDeleteNode}
+        />
+      ) : null}
+
+      {isSharesView ? (
+        <LazyDriveSharesView
+          shareLinks={shares.shareLinks}
+          loading={shares.shareLinksLoading}
+          onRefresh={() => void shares.loadShareLinks()}
+          onRevokeShare={(shareId) => void shares.revokeShare(shareId)}
         />
       ) : null}
 
@@ -608,6 +639,16 @@ export function DrivePage() {
         onSubmit={appPackages.submitAppPackageUpload}
         onPickFile={appPackages.handleAppPackageFilePickerClick}
         onFileChange={appPackages.handleAppPackageFileChange}
+      />
+
+      <DriveShareCreateModal
+        target={shares.shareCreateTarget}
+        creating={shares.shareCreating}
+        form={shares.createShareForm}
+        lastCreatedShare={shares.lastCreatedShare}
+        lastCreatedPassword={shares.lastCreatedPassword}
+        onClose={shares.closeCreateShareModal}
+        onSubmit={shares.submitCreateShare}
       />
 
       <DriveStorageActionModals

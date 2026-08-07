@@ -234,6 +234,60 @@ public class StorageCommandService {
     /**
      * 执行批量移动，并把被选中的子孙节点折叠为根级操作项，避免重复处理。
      */
+    public List<StorageNodeSummaryResponse> copySharedNodesToUser(
+            Long targetUserId,
+            List<StorageNode> sourceRootNodes,
+            Long rawParentId
+    ) {
+        if (sourceRootNodes == null || sourceRootNodes.isEmpty()) {
+            throw new IllegalArgumentException("分享内容不再可用。");
+        }
+
+        Long targetParentId = validateParentFolder(targetUserId, rawParentId);
+        List<StorageNode> activeRootNodes = sourceRootNodes.stream()
+                .filter(sourceNode -> !sourceNode.isDeleted())
+                .toList();
+
+        if (activeRootNodes.isEmpty()) {
+            throw new IllegalArgumentException("分享内容不再可用。");
+        }
+
+        validateCopyTargetOutsideSourceTree(targetUserId, activeRootNodes, targetParentId);
+        long totalFileBytes = activeRootNodes.stream()
+                .mapToLong(sourceNode -> calculateSubtreeFileSize(sourceNode.getOwnerId(), sourceNode))
+                .sum();
+        storageQuotaService.validateUploadFits(targetUserId, totalFileBytes);
+
+        List<String> copiedObjectKeys = new ArrayList<>();
+
+        try {
+            List<StorageNodeSummaryResponse> copiedRoots = new ArrayList<>();
+            Set<String> reservedRootNames = new HashSet<>();
+
+            for (StorageNode sourceRootNode : activeRootNodes) {
+                String targetRootName = resolveAvailableCopyName(
+                        targetUserId,
+                        targetParentId,
+                        sourceRootNode.getNodeName(),
+                        reservedRootNames
+                );
+                StorageNode copiedRoot = copyNodeTree(
+                        targetUserId,
+                        sourceRootNode,
+                        targetParentId,
+                        targetRootName,
+                        copiedObjectKeys
+                );
+                copiedRoots.add(toSummary(copiedRoot));
+            }
+
+            return copiedRoots;
+        } catch (RuntimeException exception) {
+            copiedObjectKeys.forEach(cosFileStorageService::deleteObjectQuietly);
+            throw exception;
+        }
+    }
+
     private List<StorageNodeSummaryResponse> moveNodesInternal(Long userId, List<Long> rawNodeIds, Long rawParentId) {
         List<StorageNode> rootNodes = collapseSelectedRoots(
                 userId,
@@ -270,6 +324,127 @@ public class StorageCommandService {
     /**
      * 执行批量回收站删除，并对子树节点统一打上删除时间和删除人信息。
      */
+    private StorageNode copyNodeTree(
+            Long targetUserId,
+            StorageNode sourceNode,
+            Long targetParentId,
+            String targetName,
+            List<String> copiedObjectKeys
+    ) {
+        StorageNode copiedNode = new StorageNode();
+        copiedNode.setOwnerId(targetUserId);
+        copiedNode.setParentId(targetParentId);
+        copiedNode.setNodeName(targetName);
+        copiedNode.setNodeType(sourceNode.getNodeType());
+        copiedNode.setFileSize(sourceNode.getFileSize());
+        copiedNode.setFileExtension(sourceNode.getFileExtension());
+        copiedNode.setMimeType(sourceNode.getMimeType());
+        clearTrashMetadata(copiedNode);
+
+        if (sourceNode.getNodeType() == NodeType.FILE) {
+            if (sourceNode.getStoragePath() == null || sourceNode.getStoragePath().isBlank()) {
+                throw new IllegalArgumentException("分享文件不再可用。");
+            }
+
+            CosFileStorageService.StoredCosFile copiedCosFile = cosFileStorageService.duplicateUserFile(
+                    targetUserId,
+                    sourceNode.getStoragePath(),
+                    targetName
+            );
+            copiedObjectKeys.add(copiedCosFile.objectKey());
+            copiedNode.setStoragePath(copiedCosFile.objectKey());
+            copiedNode.setMimeType(copiedCosFile.contentType());
+            copiedNode.setFileSize(copiedCosFile.contentLength());
+            copiedNode.setFileExtension(extractExtension(targetName));
+
+            return storageNodeRepository.save(copiedNode);
+        }
+
+        StorageNode savedFolder = storageNodeRepository.save(copiedNode);
+        List<StorageNode> children = storageNodeRepository.findByOwnerIdAndParentIdAndDeletedFalse(
+                sourceNode.getOwnerId(),
+                sourceNode.getId()
+        );
+
+        for (StorageNode child : children) {
+            copyNodeTree(targetUserId, child, savedFolder.getId(), child.getNodeName(), copiedObjectKeys);
+        }
+
+        return savedFolder;
+    }
+
+    private long calculateSubtreeFileSize(Long ownerId, StorageNode sourceNode) {
+        if (sourceNode.getNodeType() == NodeType.FILE) {
+            return sourceNode.getFileSize();
+        }
+
+        return storageNodeRepository.findByOwnerIdAndParentIdAndDeletedFalse(ownerId, sourceNode.getId()).stream()
+                .mapToLong(child -> calculateSubtreeFileSize(ownerId, child))
+                .sum();
+    }
+
+    private void validateCopyTargetOutsideSourceTree(Long targetUserId, List<StorageNode> sourceRootNodes, Long targetParentId) {
+        if (targetParentId == null) {
+            return;
+        }
+
+        for (StorageNode sourceRootNode : sourceRootNodes) {
+            if (!targetUserId.equals(sourceRootNode.getOwnerId())) {
+                continue;
+            }
+
+            Long cursorParentId = targetParentId;
+            while (cursorParentId != null) {
+                if (sourceRootNode.getId().equals(cursorParentId)) {
+                    throw new IllegalArgumentException("不能把分享内容保存到它自己的内部目录。");
+                }
+
+                StorageNode parentNode = storageNodeRepository.findByIdAndOwnerIdAndDeletedFalse(cursorParentId, targetUserId)
+                        .orElse(null);
+                cursorParentId = parentNode == null ? null : parentNode.getParentId();
+            }
+        }
+    }
+
+    private String resolveAvailableCopyName(
+            Long userId,
+            Long parentId,
+            String originalName,
+            Set<String> reservedNames
+    ) {
+        String normalizedOriginalName = normalizeNodeName(originalName, "名称");
+
+        for (int index = 0; index < 1000; index += 1) {
+            String candidate = index == 0 ? normalizedOriginalName : buildCopyName(normalizedOriginalName, index);
+
+            if (reservedNames.contains(candidate)) {
+                continue;
+            }
+
+            if (!storageNodeRepository.existsActiveSiblingName(userId, parentId, candidate)) {
+                reservedNames.add(candidate);
+                return candidate;
+            }
+        }
+
+        throw new IllegalArgumentException("目标目录下同名项目过多，请先整理后再保存。");
+    }
+
+    private String buildCopyName(String originalName, int index) {
+        String suffix = " (" + index + ")";
+        int dotIndex = originalName.lastIndexOf('.');
+        boolean hasExtension = dotIndex > 0 && dotIndex < originalName.length() - 1;
+        String baseName = hasExtension ? originalName.substring(0, dotIndex) : originalName;
+        String extension = hasExtension ? originalName.substring(dotIndex) : "";
+        int maxBaseLength = Math.max(1, 255 - suffix.length() - extension.length());
+
+        if (baseName.length() > maxBaseLength) {
+            baseName = baseName.substring(0, maxBaseLength);
+        }
+
+        return baseName + suffix + extension;
+    }
+
     private int moveNodesToTrashInternal(Long userId, List<Long> rawNodeIds) {
         List<StorageNode> rootNodes = collapseSelectedRoots(
                 userId,

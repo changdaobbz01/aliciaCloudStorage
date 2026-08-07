@@ -35,6 +35,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
                         "/api/auth/avatar",
                         "/api/auth/background",
                         "/api/auth/password",
+                        "/api/share-links/**",
                         "/api/storage/**"
                 );
     }

@@ -8,7 +8,7 @@ export type UserRole = 'ADMIN' | 'USER';
 export type UserStatus = 'ACTIVE' | 'DISABLED';
 export type StorageNodeType = 'FOLDER' | 'FILE';
 export type StorageNodeFilter = 'ALL' | StorageNodeType;
-export type StorageViewMode = 'home' | 'drive' | 'accounts' | 'appPackage' | 'trash';
+export type StorageViewMode = 'home' | 'drive' | 'shares' | 'accounts' | 'appPackage' | 'trash';
 export type SortDirection = 'asc' | 'desc';
 export type DriveSortField = 'name' | 'size' | 'updatedAt';
 export type TrashSortField = 'name' | 'size' | 'updatedAt' | 'deletedAt';
@@ -178,4 +178,62 @@ export type StorageNodeQuery = {
   size?: number;
   sortBy?: StorageNodeSortField;
   sortDirection?: SortDirection;
+};
+
+export type CreateShareLinkPayload = {
+  nodeIds: number[];
+  title?: string | null;
+  password?: string | null;
+  expiresInDays?: number | null;
+  allowDownload: boolean;
+  allowSave: boolean;
+};
+
+export type ShareLinkSummary = {
+  id: number;
+  shareCode: string;
+  title: string;
+  hasPassword: boolean;
+  expiresAt: string | null;
+  allowDownload: boolean;
+  allowSave: boolean;
+  status: 'ACTIVE' | 'REVOKED' | 'EXPIRED';
+  viewCount: number;
+  lastAccessedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  itemCount: number;
+};
+
+export type ShareLinkStatus = {
+  shareCode: string;
+  title: string | null;
+  available: boolean;
+  requiresPassword: boolean;
+  expiresAt: string | null;
+  reason: 'REVOKED' | 'EXPIRED' | null;
+};
+
+export type VerifySharePasswordPayload = {
+  password: string;
+};
+
+export type VerifySharePasswordResponse = {
+  accessToken: string | null;
+  expiresAt: string | null;
+};
+
+export type ShareLinkDetail = {
+  shareCode: string;
+  title: string;
+  ownerNickname: string;
+  expiresAt: string | null;
+  allowDownload: boolean;
+  allowSave: boolean;
+  rootNodeIds: number[];
+  items: StorageNode[];
+};
+
+export type SaveShareLinkPayload = {
+  parentId?: number | null;
 };

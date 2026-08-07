@@ -1263,6 +1263,86 @@ select {
   font-size: 12px;
 }
 
+.share-title-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.share-created-result {
+  display: grid;
+  gap: 16px;
+}
+
+.share-copy-row {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.share-copy-label {
+  color: #475569;
+  font-weight: 700;
+}
+
+.share-switch-row {
+  margin-bottom: 14px;
+}
+
+.share-switch-item {
+  margin-bottom: 0;
+}
+
+.share-page-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  background: #f5f7fb;
+}
+
+.share-page-header {
+  padding: 22px 32px 10px;
+}
+
+.share-brand-block {
+  width: fit-content;
+  padding-bottom: 0;
+}
+
+.share-page-main {
+  width: min(1120px, calc(100vw - 64px));
+  margin: 0 auto;
+  padding: 20px 0 32px;
+}
+
+.share-gate-card {
+  width: min(100%, 480px);
+  margin: 56px auto 0;
+  border: 1px solid #e8eef5;
+  border-radius: 8px;
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.06);
+}
+
+.share-gate-card .ant-card-body {
+  padding: 28px;
+}
+
+.share-detail-panel {
+  min-width: 0;
+}
+
+.share-detail-alert {
+  margin-bottom: 16px;
+}
+
+.share-page-footer {
+  display: flex;
+  justify-content: center;
+  padding: 0 24px 18px;
+}
+
 .user-cell {
   display: flex;
   align-items: center;
@@ -1565,6 +1645,19 @@ select {
   .upload-task-side {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .share-page-header {
+    padding: 16px 16px 4px;
+  }
+
+  .share-page-main {
+    width: calc(100vw - 32px);
+    padding-top: 12px;
+  }
+
+  .share-copy-row {
+    grid-template-columns: 1fr;
   }
 
   .home-stat-grid {

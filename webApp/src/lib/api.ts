@@ -6,6 +6,7 @@ import type {
   ChangePasswordPayload,
   CreateFolderPayload,
   CreateMultipartUploadPayload,
+  CreateShareLinkPayload,
   CreateUserPayload,
   DriveOverview,
   HealthResponse,
@@ -16,6 +17,10 @@ import type {
   MultipartUploadStatus,
   RenameNodePayload,
   ResetUserPasswordPayload,
+  SaveShareLinkPayload,
+  ShareLinkDetail,
+  ShareLinkStatus,
+  ShareLinkSummary,
   SignedUrlResponse,
   StorageNode,
   StorageNodeFilter,
@@ -25,6 +30,8 @@ import type {
   UpdateProfilePayload,
   UsageHistoryPoint,
   User,
+  VerifySharePasswordPayload,
+  VerifySharePasswordResponse,
 } from '../types';
 
 export const AUTH_EXPIRED_EVENT = 'alicia-cloud-storage:auth-expired';
@@ -415,6 +422,17 @@ function withToken(token: string, init?: RequestInit): RequestInit {
   };
 }
 
+function withTokenAndShareAccess(token: string, shareAccessToken?: string | null, init?: RequestInit): RequestInit {
+  return {
+    ...init,
+    headers: {
+      ...(init?.headers || {}),
+      Authorization: `Bearer ${token}`,
+      ...(shareAccessToken ? { 'X-Share-Access-Token': shareAccessToken } : {}),
+    },
+  };
+}
+
 /**
  * 从下载响应头中提取后端返回的文件名。
  */
@@ -784,6 +802,101 @@ export function fetchStorageFileAccessUrl(
 /**
  * 重命名指定文件或文件夹。
  */
+export function createShareLink(payload: CreateShareLinkPayload, token: string) {
+  return requestJson<ShareLinkSummary>(
+    '/api/share-links',
+    withToken(token, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    }),
+  );
+}
+
+export function fetchMyShareLinks(token: string) {
+  return requestJson<ShareLinkSummary[]>('/api/share-links/my', withToken(token));
+}
+
+export function revokeShareLink(shareId: number, token: string) {
+  return requestJson<ShareLinkSummary>(
+    `/api/share-links/${shareId}`,
+    withToken(token, {
+      method: 'DELETE',
+    }),
+  );
+}
+
+export function fetchPublicShareStatus(shareCode: string) {
+  return requestJson<ShareLinkStatus>(`/api/public/share-links/${encodeURIComponent(shareCode)}/status`);
+}
+
+export function verifySharePassword(shareCode: string, payload: VerifySharePasswordPayload) {
+  return requestJson<VerifySharePasswordResponse>(
+    `/api/public/share-links/${encodeURIComponent(shareCode)}/verify-password`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+export function fetchShareDetail(shareCode: string, token: string, shareAccessToken?: string | null) {
+  return requestJson<ShareLinkDetail>(
+    `/api/share-links/${encodeURIComponent(shareCode)}/detail`,
+    withTokenAndShareAccess(token, shareAccessToken),
+  );
+}
+
+export function saveShareToDrive(
+  shareCode: string,
+  payload: SaveShareLinkPayload,
+  token: string,
+  shareAccessToken?: string | null,
+) {
+  return requestJson<StorageNode[]>(
+    `/api/share-links/${encodeURIComponent(shareCode)}/save`,
+    withTokenAndShareAccess(token, shareAccessToken, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    }),
+  );
+}
+
+export function fetchShareFileAccessUrl(
+  shareCode: string,
+  fileId: number,
+  token: string,
+  shareAccessToken?: string | null,
+  disposition: 'inline' | 'attachment' = 'attachment',
+) {
+  const search = new URLSearchParams();
+  search.set('disposition', disposition);
+  return requestJson<SignedUrlResponse>(
+    `/api/share-links/${encodeURIComponent(shareCode)}/files/${fileId}/access-url?${search.toString()}`,
+    withTokenAndShareAccess(token, shareAccessToken),
+  );
+}
+
+export function downloadShareFile(
+  shareCode: string,
+  fileId: number,
+  token: string,
+  shareAccessToken?: string | null,
+) {
+  return requestBlob(
+    `/api/share-links/${encodeURIComponent(shareCode)}/files/${fileId}/download`,
+    withTokenAndShareAccess(token, shareAccessToken),
+  );
+}
+
 export function renameStorageNode(nodeId: number, payload: RenameNodePayload, token: string) {
   return requestJson<StorageNode>(
     `/api/storage/nodes/${nodeId}/rename`,
