@@ -59,6 +59,7 @@ import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Preview
 import androidx.compose.material.icons.rounded.RestoreFromTrash
+import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.UploadFile
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -120,6 +121,7 @@ import java.io.File
 import java.util.Locale
 import kotlin.math.max
 import kotlin.math.roundToInt
+import kotlin.random.Random
 import kotlinx.coroutines.delay
 
 private enum class AliciaTitleGraphicVariant {
@@ -131,6 +133,14 @@ private data class AliciaTitleGraphicSpec(
     val resId: Int,
     val width: Dp,
     val height: Dp,
+)
+
+private data class ShareCreateFormValues(
+    val title: String,
+    val password: String?,
+    val expiresInDays: Int?,
+    val allowDownload: Boolean,
+    val allowSave: Boolean,
 )
 
 private fun aliciaTitleGraphicSpec(title: String): AliciaTitleGraphicSpec? = when (title) {
@@ -490,6 +500,7 @@ private fun MainShell(
     var quotaTargetUserId by rememberSaveable { mutableStateOf<Long?>(null) }
     var resetPasswordTargetUserId by rememberSaveable { mutableStateOf<Long?>(null) }
     var actionSheetNode by remember { mutableStateOf<StorageNode?>(null) }
+    var shareSetupNode by remember { mutableStateOf<StorageNode?>(null) }
     var trashConfirmNode by remember { mutableStateOf<StorageNode?>(null) }
     var permanentDeleteNode by remember { mutableStateOf<StorageNode?>(null) }
     var batchTrashConfirmOpen by rememberSaveable { mutableStateOf(false) }
@@ -817,7 +828,8 @@ private fun MainShell(
         val busy = if (isTrashMode) {
             uiState.trash.actionNodeId == node.id
         } else {
-            uiState.files.actionNodeId == node.id
+            uiState.files.actionNodeId == node.id ||
+                (uiState.shareCreation.isCreating && uiState.shareCreation.nodeId == node.id)
         }
 
         NodeActionSheet(
@@ -838,6 +850,10 @@ private fun MainShell(
                 pendingDownloadNode = node
                 saveLauncher.launch(node.name)
             },
+            onShare = {
+                actionSheetNode = null
+                shareSetupNode = node
+            },
             onMoveToTrash = {
                 actionSheetNode = null
                 trashConfirmNode = node
@@ -850,6 +866,41 @@ private fun MainShell(
                 actionSheetNode = null
                 permanentDeleteNode = node
             },
+        )
+    }
+
+    shareSetupNode?.let { node ->
+        val submitting = uiState.shareCreation.isCreating && uiState.shareCreation.nodeId == node.id
+
+        ShareCreateDialog(
+            node = node,
+            baseUrl = uiState.baseUrl,
+            isSubmitting = submitting,
+            onDismiss = {
+                if (!submitting) {
+                    shareSetupNode = null
+                }
+            },
+            onSubmit = { values ->
+                viewModel.createShareLink(
+                    node = node,
+                    title = values.title,
+                    password = values.password,
+                    expiresInDays = values.expiresInDays,
+                    allowDownload = values.allowDownload,
+                    allowSave = values.allowSave,
+                    onSuccess = { shareSetupNode = null },
+                )
+            },
+        )
+    }
+
+    uiState.shareCreation.createdShare?.let { share ->
+        ShareCreatedDialog(
+            share = share,
+            onDismiss = viewModel::clearCreatedShare,
+            onCopy = { viewModel.copyShareInfo(share) },
+            onSystemShare = { viewModel.openSystemShareSheet(share) },
         )
     }
 
@@ -2650,6 +2701,330 @@ private fun ResetUserPasswordDialog(
     )
 }
 
+@Composable
+private fun ShareCreateDialog(
+    node: StorageNode,
+    baseUrl: String,
+    isSubmitting: Boolean,
+    onDismiss: () -> Unit,
+    onSubmit: (ShareCreateFormValues) -> Unit,
+) {
+    val expireLabels = listOf("1天", "7天", "30天", "永久")
+    val expireDays = listOf<Int?>(1, 7, 30, null)
+    var title by rememberSaveable(node.id) { mutableStateOf(node.name) }
+    var expireIndex by rememberSaveable(node.id) { mutableStateOf(1) }
+    var passwordEnabled by rememberSaveable(node.id) { mutableStateOf(false) }
+    var password by rememberSaveable(node.id) { mutableStateOf("") }
+    var allowSave by rememberSaveable(node.id) { mutableStateOf(true) }
+    var allowDownload by rememberSaveable(node.id) { mutableStateOf(true) }
+    val trimmedTitle = title.trim()
+    val trimmedPassword = password.trim()
+    val titleError = trimmedTitle.isBlank()
+    val passwordError = passwordEnabled && trimmedPassword.length !in 4..32
+    val canSubmit = !isSubmitting && !titleError && !passwordError
+
+    AliciaMechaDialogShell(
+        title = "创建分享",
+        onDismissRequest = onDismiss,
+        dismissEnabled = !isSubmitting,
+        supporting = {
+            Text(
+                text = "为“${node.name}”生成访问链接。当前接入 ${describeAccessEnvironment(baseUrl)}。",
+                color = Color(0xFF748094),
+                fontFamily = AliciaMechaFontFamily,
+                fontWeight = FontWeight.Medium,
+                fontSize = 12.sp,
+                lineHeight = 18.sp,
+            )
+        },
+        body = {
+            AliciaMechaInputField(
+                value = title,
+                onValueChange = { title = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = "分享标题",
+                placeholder = node.name,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+            )
+            if (titleError) {
+                Text(
+                    text = "分享标题不能为空。",
+                    color = Color(0xFFD84B2A),
+                    fontFamily = AliciaMechaFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp,
+                )
+            }
+
+            Text(
+                text = "有效期",
+                color = Color(0xFF7C879A),
+                fontFamily = AliciaMechaFontFamily,
+                fontWeight = FontWeight.Bold,
+                fontSize = 12.sp,
+                lineHeight = 14.sp,
+            )
+            AliciaMechaSegmentTabs(
+                labels = expireLabels,
+                selectedIndex = expireIndex,
+                onSelected = { expireIndex = it },
+            )
+
+            Text(
+                text = "提取码",
+                color = Color(0xFF7C879A),
+                fontFamily = AliciaMechaFontFamily,
+                fontWeight = FontWeight.Bold,
+                fontSize = 12.sp,
+                lineHeight = 14.sp,
+            )
+            AliciaMechaSegmentTabs(
+                labels = listOf("无提取码", "设置提取码"),
+                selectedIndex = if (passwordEnabled) 1 else 0,
+                onSelected = { index ->
+                    passwordEnabled = index == 1
+                    if (passwordEnabled && password.isBlank()) {
+                        password = generateSharePassword()
+                    }
+                },
+            )
+            if (passwordEnabled) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.Bottom,
+                ) {
+                    AliciaMechaInputField(
+                        value = password,
+                        onValueChange = { value -> password = value.take(32) },
+                        modifier = Modifier.weight(1f),
+                        label = "分享提取码",
+                        placeholder = "4 到 32 位",
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    )
+                    AliciaMechaActionButton(
+                        label = "随机",
+                        onClick = { password = generateSharePassword() },
+                        tone = AliciaMechaActionButtonTone.Secondary,
+                        enabled = !isSubmitting,
+                        modifier = Modifier.width(82.dp),
+                        height = 48.dp,
+                    )
+                }
+                if (passwordError) {
+                    Text(
+                        text = "提取码长度需在 4 到 32 位之间。",
+                        color = Color(0xFFD84B2A),
+                        fontFamily = AliciaMechaFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp,
+                    )
+                }
+            }
+
+            ShareToggleRow(
+                title = "允许保存到网盘",
+                subtitle = "对方登录后可以保存到自己的网盘",
+                checked = allowSave,
+                onToggle = { allowSave = !allowSave },
+            )
+            ShareToggleRow(
+                title = "允许下载",
+                subtitle = "对方登录后可以下载分享内文件",
+                checked = allowDownload,
+                onToggle = { allowDownload = !allowDownload },
+            )
+        },
+        footer = {
+            AliciaMechaActionButton(
+                label = "取消",
+                onClick = onDismiss,
+                tone = AliciaMechaActionButtonTone.Secondary,
+                enabled = !isSubmitting,
+                modifier = Modifier.weight(1f),
+                height = 42.dp,
+            )
+            AliciaMechaActionButton(
+                label = if (isSubmitting) "生成中..." else "生成分享",
+                onClick = {
+                    if (canSubmit) {
+                        onSubmit(
+                            ShareCreateFormValues(
+                                title = trimmedTitle,
+                                password = if (passwordEnabled) trimmedPassword else null,
+                                expiresInDays = expireDays[expireIndex],
+                                allowDownload = allowDownload,
+                                allowSave = allowSave,
+                            ),
+                        )
+                    }
+                },
+                tone = AliciaMechaActionButtonTone.Primary,
+                enabled = canSubmit,
+                modifier = Modifier.weight(1f),
+                height = 42.dp,
+            )
+        },
+    )
+}
+
+@Composable
+private fun ShareToggleRow(
+    title: String,
+    subtitle: String,
+    checked: Boolean,
+    onToggle: () -> Unit,
+) {
+    AliciaMechaPanel(
+        modifier = Modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(start = 16.dp, top = 12.dp, end = 12.dp, bottom = 12.dp),
+        backgroundResId = if (checked) R.drawable.alicia_9_team_summary else R.drawable.alicia_9_file_row,
+        backgroundSlice = 42.dp,
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(
+                    text = title,
+                    color = Color(0xFF101626),
+                    fontFamily = AliciaMechaFontFamily,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 14.sp,
+                    lineHeight = 16.sp,
+                )
+                Text(
+                    text = subtitle,
+                    color = Color(0xFF748094),
+                    fontFamily = AliciaMechaFontFamily,
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 11.sp,
+                    lineHeight = 15.sp,
+                )
+            }
+            AliciaMechaActionButton(
+                label = if (checked) "已开启" else "已关闭",
+                onClick = onToggle,
+                tone = if (checked) AliciaMechaActionButtonTone.Primary else AliciaMechaActionButtonTone.Secondary,
+                modifier = Modifier.width(84.dp),
+                height = 34.dp,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ShareCreatedDialog(
+    share: CreatedShareState,
+    onDismiss: () -> Unit,
+    onCopy: () -> Unit,
+    onSystemShare: () -> Unit,
+) {
+    AliciaMechaDialogShell(
+        title = "分享已创建",
+        onDismissRequest = onDismiss,
+        supporting = {
+            Text(
+                text = "链接已生成。对方打开后需要登录查看详情；设置了提取码时会先校验提取码。",
+                color = Color(0xFF748094),
+                fontFamily = AliciaMechaFontFamily,
+                fontWeight = FontWeight.Medium,
+                fontSize = 12.sp,
+                lineHeight = 18.sp,
+            )
+        },
+        body = {
+            ShareResultBlock(label = "分享标题", value = share.title)
+            ShareResultBlock(label = "分享链接", value = share.shareUrl)
+            if (!share.password.isNullOrBlank()) {
+                ShareResultBlock(label = "提取码", value = share.password)
+            }
+            ShareResultBlock(
+                label = "有效期",
+                value = formatShareExpiresAt(share.expiresAt),
+            )
+            Text(
+                text = "权限：${if (share.allowSave) "允许保存" else "禁止保存"} · ${if (share.allowDownload) "允许下载" else "禁止下载"}",
+                color = Color(0xFF2B67E7),
+                fontFamily = AliciaMechaFontFamily,
+                fontWeight = FontWeight.Black,
+                fontSize = 12.sp,
+                lineHeight = 16.sp,
+            )
+            AliciaMechaWideActionButton(
+                label = "复制分享信息",
+                onClick = onCopy,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        },
+        footer = {
+            AliciaMechaDialogActionRow(
+                onDismiss = onDismiss,
+                onConfirm = onSystemShare,
+                dismissLabel = "完成",
+                confirmLabel = "系统分享",
+            )
+        },
+    )
+}
+
+@Composable
+private fun ShareResultBlock(
+    label: String,
+    value: String,
+) {
+    AliciaMechaPanel(
+        modifier = Modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(start = 16.dp, top = 12.dp, end = 16.dp, bottom = 12.dp),
+        backgroundResId = R.drawable.alicia_9_file_row,
+        backgroundSlice = 42.dp,
+    ) {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Text(
+                text = label,
+                color = Color(0xFF7C879A),
+                fontFamily = AliciaMechaFontFamily,
+                fontWeight = FontWeight.Bold,
+                fontSize = 12.sp,
+                lineHeight = 14.sp,
+            )
+            SelectionContainer {
+                Text(
+                    text = value,
+                    color = Color(0xFF101626),
+                    fontFamily = AliciaMechaFontFamily,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 13.sp,
+                    lineHeight = 18.sp,
+                )
+            }
+        }
+    }
+}
+
+private fun generateSharePassword(): String {
+    val alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+    return buildString {
+        repeat(6) {
+            append(alphabet[Random.nextInt(alphabet.length)])
+        }
+    }
+}
+
+private fun formatShareExpiresAt(expiresAt: String?): String =
+    expiresAt
+        ?.takeIf { it.isNotBlank() }
+        ?.replace('T', ' ')
+        ?: "永久有效"
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun NodeActionSheet(
@@ -2660,6 +3035,7 @@ private fun NodeActionSheet(
     onOpen: () -> Unit,
     onPreview: () -> Unit,
     onDownload: () -> Unit,
+    onShare: () -> Unit,
     onMoveToTrash: () -> Unit,
     onRestore: () -> Unit,
     onPermanentDelete: () -> Unit,
@@ -2748,6 +3124,12 @@ private fun NodeActionSheet(
                             onClick = onDownload,
                         )
                     }
+                    SheetActionButton(
+                        icon = Icons.Rounded.Share,
+                        label = "分享",
+                        hint = "生成访问链接，可设置提取码和权限",
+                        onClick = onShare,
+                    )
                     SheetActionButton(
                         icon = Icons.Rounded.DeleteOutline,
                         label = "移入回收站",

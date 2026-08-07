@@ -398,6 +398,30 @@ class AliciaRepository(
             )
             .requireBody(fallback = "批量彻底删除失败。")
 
+    suspend fun createShareLink(
+        baseUrl: String,
+        token: String,
+        nodeId: Long,
+        title: String?,
+        password: String?,
+        expiresInDays: Int?,
+        allowDownload: Boolean,
+        allowSave: Boolean,
+    ): ShareLinkSummaryResponse =
+        serviceFactory.serviceFor(baseUrl)
+            .createShareLink(
+                authorization = authorization(token),
+                payload = CreateShareLinkPayload(
+                    nodeIds = listOf(nodeId),
+                    title = title,
+                    password = password,
+                    expiresInDays = expiresInDays,
+                    allowDownload = allowDownload,
+                    allowSave = allowSave,
+                ),
+            )
+            .requireBody(fallback = "创建分享失败。")
+
     suspend fun downloadFile(
         baseUrl: String,
         token: String,

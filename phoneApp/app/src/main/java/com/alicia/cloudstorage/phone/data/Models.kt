@@ -107,6 +107,15 @@ data class BatchMoveNodePayload(
     val parentId: Long?,
 )
 
+data class CreateShareLinkPayload(
+    val nodeIds: List<Long>,
+    val title: String?,
+    val password: String?,
+    val expiresInDays: Int?,
+    val allowDownload: Boolean,
+    val allowSave: Boolean,
+)
+
 data class DriveOverview(
     val totalItems: Int,
     val totalFolders: Int,
@@ -171,6 +180,22 @@ data class SignedUrlResponse(
     val fileName: String?,
     val contentType: String?,
     val expiresAtEpochMillis: Long,
+)
+
+data class ShareLinkSummaryResponse(
+    val id: Long,
+    val shareCode: String,
+    val title: String,
+    val hasPassword: Boolean,
+    val expiresAt: String?,
+    val allowDownload: Boolean,
+    val allowSave: Boolean,
+    val status: String,
+    val viewCount: Long,
+    val lastAccessedAt: String?,
+    val createdAt: String,
+    val updatedAt: String,
+    val itemCount: Long,
 )
 
 val User.isAdmin: Boolean

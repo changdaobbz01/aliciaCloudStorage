@@ -1,5 +1,7 @@
 package com.alicia.cloudstorage.phone.ui
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -128,6 +130,31 @@ data class AppUpdateState(
     val downloadUrl: String,
 )
 
+data class CreatedShareState(
+    val title: String,
+    val shareUrl: String,
+    val password: String?,
+    val expiresAt: String?,
+    val allowDownload: Boolean,
+    val allowSave: Boolean,
+)
+
+data class ShareCreationUiState(
+    val isCreating: Boolean = false,
+    val nodeId: Long? = null,
+    val createdShare: CreatedShareState? = null,
+)
+
+private fun CreatedShareState.toShareText(): String = buildString {
+    appendLine("我通过 Alicia 云盘分享了：$title")
+    appendLine(shareUrl)
+    password?.takeIf { it.isNotBlank() }?.let { appendLine("提取码：$it") }
+    expiresAt?.takeIf { it.isNotBlank() }?.let { appendLine("有效期至：$it") }
+}
+
+private fun buildShareUrl(baseUrl: String, shareCode: String): String =
+    "${baseUrl.trim().removeSuffix("/")}/share/$shareCode"
+
 data class AppUiState(
     val isBooting: Boolean = true,
     val isSubmittingLogin: Boolean = false,
@@ -144,6 +171,7 @@ data class AppUiState(
     val team: TeamUiState = TeamUiState(),
     val preview: FilePreviewState = FilePreviewState(),
     val appUpdate: AppUpdateState? = null,
+    val shareCreation: ShareCreationUiState = ShareCreationUiState(),
 )
 
 class MainViewModel(
@@ -1149,6 +1177,109 @@ class MainViewModel(
                 }
                 handleError(error)
             }
+        }
+    }
+
+    fun createShareLink(
+        node: StorageNode,
+        title: String,
+        password: String?,
+        expiresInDays: Int?,
+        allowDownload: Boolean,
+        allowSave: Boolean,
+        onSuccess: () -> Unit = {},
+    ) {
+        val session = authenticatedSession() ?: return
+        val trimmedTitle = title.trim().ifBlank { node.name }
+        val trimmedPassword = password?.trim()?.takeIf { it.isNotEmpty() }
+
+        viewModelScope.launch {
+            _uiState.update { state ->
+                state.copy(
+                    files = state.files.copy(actionNodeId = node.id),
+                    shareCreation = state.shareCreation.copy(
+                        isCreating = true,
+                        nodeId = node.id,
+                        createdShare = null,
+                    ),
+                )
+            }
+
+            runCatching {
+                repository.createShareLink(
+                    baseUrl = session.baseUrl,
+                    token = session.token,
+                    nodeId = node.id,
+                    title = trimmedTitle,
+                    password = trimmedPassword,
+                    expiresInDays = expiresInDays,
+                    allowDownload = allowDownload,
+                    allowSave = allowSave,
+                )
+            }.onSuccess { share ->
+                val createdShare = CreatedShareState(
+                    title = share.title.ifBlank { trimmedTitle },
+                    shareUrl = buildShareUrl(session.baseUrl, share.shareCode),
+                    password = trimmedPassword,
+                    expiresAt = share.expiresAt,
+                    allowDownload = share.allowDownload,
+                    allowSave = share.allowSave,
+                )
+                _uiState.update { state ->
+                    state.copy(
+                        files = state.files.copy(actionNodeId = null),
+                        shareCreation = ShareCreationUiState(createdShare = createdShare),
+                    )
+                }
+                emitMessage("分享已创建。")
+                onSuccess()
+            }.onFailure { error ->
+                _uiState.update { state ->
+                    state.copy(
+                        files = state.files.copy(actionNodeId = null),
+                        shareCreation = ShareCreationUiState(),
+                    )
+                }
+                handleError(error)
+            }
+        }
+    }
+
+    fun clearCreatedShare() {
+        _uiState.update { state ->
+            state.copy(shareCreation = state.shareCreation.copy(createdShare = null))
+        }
+    }
+
+    fun copyShareInfo(share: CreatedShareState) {
+        val clipboard = appContext.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+        if (clipboard == null) {
+            emitMessage("当前设备无法访问剪贴板。")
+            return
+        }
+
+        clipboard.setPrimaryClip(
+            ClipData.newPlainText(
+                "Alicia 云盘分享",
+                share.toShareText(),
+            ),
+        )
+        emitMessage("分享信息已复制。")
+    }
+
+    fun openSystemShareSheet(share: CreatedShareState) {
+        val sendIntent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TEXT, share.toShareText())
+        }
+        val chooser = Intent.createChooser(sendIntent, "分享 Alicia 云盘链接").apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+
+        runCatching {
+            appContext.startActivity(chooser)
+        }.onFailure {
+            emitMessage("无法打开系统分享面板。")
         }
     }
 

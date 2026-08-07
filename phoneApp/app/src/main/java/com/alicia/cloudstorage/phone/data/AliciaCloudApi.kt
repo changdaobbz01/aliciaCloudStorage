@@ -176,6 +176,12 @@ interface AliciaCloudService {
         @Body payload: BatchNodePayload,
     ): Response<ApiMessageResponse>
 
+    @POST("api/share-links")
+    suspend fun createShareLink(
+        @Header("Authorization") authorization: String,
+        @Body payload: CreateShareLinkPayload,
+    ): Response<ShareLinkSummaryResponse>
+
     @Streaming
     @GET("api/storage/files/{fileId}/download")
     suspend fun downloadFile(
