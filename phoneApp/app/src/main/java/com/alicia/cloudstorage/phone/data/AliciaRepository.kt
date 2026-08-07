@@ -461,13 +461,14 @@ class AliciaRepository(
         token: String,
         shareCode: String,
         shareAccessToken: String?,
+        parentId: Long?,
     ): List<StorageNode> =
         serviceFactory.serviceFor(baseUrl)
             .saveShareToDrive(
                 authorization = authorization(token),
                 shareAccessToken = shareAccessToken,
                 shareCode = shareCode,
-                payload = SaveShareLinkPayload(parentId = null),
+                payload = SaveShareLinkPayload(parentId = parentId),
             )
             .requireBody(fallback = "保存分享失败。")
 

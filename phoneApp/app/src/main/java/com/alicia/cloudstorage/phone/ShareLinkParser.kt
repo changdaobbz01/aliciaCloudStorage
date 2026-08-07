@@ -4,8 +4,10 @@ import android.net.Uri
 
 object ShareLinkParser {
     private const val OFFICIAL_WEB_HOST = "windwindwind-alicia.cn"
+    private const val SHARE_CODE_PATTERN_TEXT = "[A-Za-z0-9_-]{4,40}"
     private val shareCodePattern = Regex("^[A-Za-z0-9_-]{4,40}$")
     private val urlPattern = Regex("""(?i)\b(?:https?://|aliciacloud://)[^\s<>"']+""")
+    private val zeroWidthCharacters = Regex("[\\u200B-\\u200D\\uFEFF]")
     private val trailingPunctuation = charArrayOf(
         '.', ',', ';', ':', '!', '?', ')', ']', '}', '>', '"', '\'',
         '。', '，', '；', '：', '！', '？', '）', '】', '》',
@@ -24,16 +26,41 @@ object ShareLinkParser {
     }
 
     fun findShareCodeInText(text: String?, baseUrl: String): String? {
-        val source = text?.take(4096).orEmpty()
+        val source = text
+            ?.take(4096)
+            ?.replace(zeroWidthCharacters, "")
+            .orEmpty()
         if (source.isBlank()) {
             return null
         }
 
-        return urlPattern
+        val codeFromUri = urlPattern
             .findAll(source)
             .mapNotNull { match ->
                 val candidate = match.value.trimEnd(*trailingPunctuation)
                 shareCodeFromUri(Uri.parse(candidate), baseUrl)
+            }
+            .firstOrNull()
+
+        if (codeFromUri != null) {
+            return codeFromUri
+        }
+
+        appShareTextPattern()
+            .find(source)
+            ?.groupValues
+            ?.getOrNull(1)
+            ?.takeIf(::isValidShareCode)
+            ?.let { return it }
+
+        return allowedWebHosts(baseUrl)
+            .asSequence()
+            .mapNotNull { host ->
+                webShareTextPattern(host)
+                    .find(source)
+                    ?.groupValues
+                    ?.getOrNull(1)
+                    ?.takeIf(::isValidShareCode)
             }
             .firstOrNull()
     }
@@ -70,10 +97,22 @@ object ShareLinkParser {
         }.getOrNull()
 
         return buildSet {
-            add(OFFICIAL_WEB_HOST)
-            configuredHost?.takeIf { it.isNotBlank() }?.let(::add)
+            addHostVariants(OFFICIAL_WEB_HOST)
+            configuredHost?.takeIf { it.isNotBlank() }?.let { addHostVariants(it) }
         }
     }
+
+    private fun MutableSet<String>.addHostVariants(host: String) {
+        val normalizedHost = host.lowercase().removePrefix("www.")
+        add(normalizedHost)
+        add("www.$normalizedHost")
+    }
+
+    private fun webShareTextPattern(host: String): Regex =
+        Regex("""(?i)(?:https?://)?${Regex.escape(host)}\s*/\s*share\s*/\s*($SHARE_CODE_PATTERN_TEXT)(?![A-Za-z0-9_-])""")
+
+    private fun appShareTextPattern(): Regex =
+        Regex("""(?i)aliciacloud:\s*/\s*/\s*share\s*/\s*($SHARE_CODE_PATTERN_TEXT)(?![A-Za-z0-9_-])""")
 
     private fun isValidShareCode(value: String): Boolean =
         shareCodePattern.matches(value)

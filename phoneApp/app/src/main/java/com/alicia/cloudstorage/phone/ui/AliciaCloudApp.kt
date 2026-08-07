@@ -52,6 +52,7 @@ import androidx.compose.material.icons.rounded.ChevronLeft
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.ManageAccounts
@@ -278,12 +279,16 @@ fun AliciaCloudApp(viewModel: MainViewModel) {
             )
 
     if (shouldShowIncomingShare) {
-        IncomingShareDialog(
+        IncomingShareBottomSheet(
             state = incomingShare,
             isLoggedIn = !uiState.authToken.isNullOrBlank(),
             onDismiss = viewModel::closeIncomingShare,
             onContinueLogin = viewModel::dismissIncomingShareLoginNotice,
             onVerifyPassword = viewModel::verifyIncomingSharePassword,
+            onToggleFolder = viewModel::toggleIncomingShareFolder,
+            onOpenSaveTargetPicker = viewModel::openIncomingShareSaveTargetPicker,
+            onCloseSaveTargetPicker = viewModel::closeIncomingShareSaveTargetPicker,
+            onSelectSaveTarget = viewModel::selectIncomingShareSaveTarget,
             onSave = viewModel::saveIncomingShareToDrive,
             onDownload = { node ->
                 pendingIncomingShareDownloadNode = node
@@ -2997,13 +3002,18 @@ private fun ShareCreatedDialog(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun IncomingShareDialog(
+private fun IncomingShareBottomSheet(
     state: IncomingShareUiState,
     isLoggedIn: Boolean,
     onDismiss: () -> Unit,
     onContinueLogin: () -> Unit,
     onVerifyPassword: (String) -> Unit,
+    onToggleFolder: (Long) -> Unit,
+    onOpenSaveTargetPicker: () -> Unit,
+    onCloseSaveTargetPicker: () -> Unit,
+    onSelectSaveTarget: (Long?) -> Unit,
     onSave: () -> Unit,
     onDownload: (StorageNode) -> Unit,
 ) {
@@ -3015,128 +3025,197 @@ private fun IncomingShareDialog(
     val needsLogin = status?.available == true && !needsPassword && !isLoggedIn
     var password by rememberSaveable(state.activeShareCode) { mutableStateOf("") }
 
-    AliciaMechaDialogShell(
-        title = status?.title ?: detail?.title ?: "分享详情",
-        onDismissRequest = onDismiss,
-        dismissEnabled = !state.passwordChecking && !state.saving,
-        supporting = {
+    ModalBottomSheet(
+        onDismissRequest = {
+            if (!state.passwordChecking && !state.saving) {
+                onDismiss()
+            }
+        },
+        containerColor = Color.Transparent,
+        scrimColor = Color(0xC4111826),
+        dragHandle = null,
+        tonalElevation = 0.dp,
+    ) {
+        AliciaMechaPanel(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 10.dp, vertical = 6.dp),
+            contentPadding = PaddingValues(start = 18.dp, top = 16.dp, end = 18.dp, bottom = 16.dp),
+            backgroundResId = R.drawable.alicia_9_dialog_panel,
+            backgroundSlice = 72.dp,
+        ) {
             Text(
-                text = "来自 Alicia 云盘的访问分享，登录后可查看详情、保存或下载。",
+                text = if (state.saveTargetPickerOpen) "选择保存位置" else status?.title ?: detail?.title ?: "分享详情",
+                color = Color(0xFF101626),
+                fontFamily = AliciaMechaFontFamily,
+                fontWeight = FontWeight.Black,
+                fontSize = 20.sp,
+                lineHeight = 24.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = if (state.saveTargetPickerOpen) {
+                    "选择分享内容要保存到的网盘文件夹。"
+                } else {
+                    "来自 Alicia 云盘的访问分享，登录后可查看详情、保存或下载。"
+                },
                 color = Color(0xFF748094),
                 fontFamily = AliciaMechaFontFamily,
                 fontWeight = FontWeight.Medium,
                 fontSize = 12.sp,
                 lineHeight = 18.sp,
             )
-        },
-        body = {
-            when {
-                state.statusLoading -> IncomingShareLoadingBlock("正在确认分享状态...")
-                !state.error.isNullOrBlank() && detail == null -> IncomingShareMessageBlock(state.error)
-                needsPassword -> {
-                    IncomingShareMessageBlock("这个分享设置了提取码，通过校验后继续查看。")
-                    AliciaMechaInputField(
-                        value = password,
-                        onValueChange = { password = it.take(32) },
-                        modifier = Modifier.fillMaxWidth(),
-                        label = "提取码",
-                        placeholder = "请输入分享提取码",
-                        visualTransformation = PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                        keyboardActions = KeyboardActions(
-                            onDone = {
-                                if (!state.passwordChecking) {
-                                    onVerifyPassword(password)
-                                }
-                            },
-                        ),
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 520.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                if (state.saveTargetPickerOpen) {
+                    IncomingShareSaveTargetBody(
+                        folders = state.saveTargetFolders,
+                        loading = state.saveTargetLoading,
+                        selectedParentId = state.saveTargetParentId,
+                        onSelectTarget = onSelectSaveTarget,
                     )
-                    state.passwordError?.takeIf { it.isNotBlank() }?.let { error ->
-                        Text(
-                            text = error,
-                            color = Color(0xFFD84B2A),
-                            fontFamily = AliciaMechaFontFamily,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 12.sp,
-                            lineHeight = 16.sp,
+                } else {
+                    when {
+                        state.statusLoading -> IncomingShareLoadingBlock("正在确认分享状态...")
+                        !state.error.isNullOrBlank() && detail == null -> IncomingShareMessageBlock(state.error)
+                        needsPassword -> {
+                            IncomingShareMessageBlock("这个分享设置了提取码，通过校验后继续查看。")
+                            AliciaMechaInputField(
+                                value = password,
+                                onValueChange = { password = it.take(32) },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = "提取码",
+                                placeholder = "请输入分享提取码",
+                                visualTransformation = PasswordVisualTransformation(),
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                                keyboardActions = KeyboardActions(
+                                    onDone = {
+                                        if (!state.passwordChecking) {
+                                            onVerifyPassword(password)
+                                        }
+                                    },
+                                ),
+                            )
+                            state.passwordError?.takeIf { it.isNotBlank() }?.let { error ->
+                                Text(
+                                    text = error,
+                                    color = Color(0xFFD84B2A),
+                                    fontFamily = AliciaMechaFontFamily,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.sp,
+                                    lineHeight = 16.sp,
+                                )
+                            }
+                        }
+                        needsLogin -> IncomingShareMessageBlock("登录后才能查看分享详情。点击“去登录”后完成登录，系统会继续打开这个分享。")
+                        state.detailLoading || detail == null -> IncomingShareLoadingBlock("正在加载分享详情...")
+                        else -> IncomingShareDetailBody(
+                            detail = detail,
+                            expandedFolderIds = state.expandedFolderIds,
+                            downloadingNodeId = state.downloadingNodeId,
+                            onToggleFolder = onToggleFolder,
+                            onDownload = onDownload,
                         )
                     }
                 }
-                needsLogin -> IncomingShareMessageBlock("登录后才能查看分享详情。点击“去登录”后完成登录，系统会继续打开这个分享。")
-                state.detailLoading || detail == null -> IncomingShareLoadingBlock("正在加载分享详情...")
-                else -> IncomingShareDetailBody(
-                    detail = detail,
-                    downloadingNodeId = state.downloadingNodeId,
-                    onDownload = onDownload,
-                )
             }
-        },
-        footer = {
-            when {
-                needsPassword -> {
-                    AliciaMechaActionButton(
-                        label = "取消",
-                        onClick = onDismiss,
-                        tone = AliciaMechaActionButtonTone.Secondary,
-                        enabled = !state.passwordChecking,
-                        modifier = Modifier.weight(1f),
-                        height = 42.dp,
-                    )
-                    AliciaMechaActionButton(
-                        label = if (state.passwordChecking) "校验中..." else "校验",
-                        onClick = { onVerifyPassword(password) },
-                        tone = AliciaMechaActionButtonTone.Primary,
-                        enabled = !state.passwordChecking,
-                        modifier = Modifier.weight(1f),
-                        height = 42.dp,
-                    )
-                }
-                needsLogin -> {
-                    AliciaMechaActionButton(
-                        label = "取消",
-                        onClick = onDismiss,
-                        tone = AliciaMechaActionButtonTone.Secondary,
-                        modifier = Modifier.weight(1f),
-                        height = 42.dp,
-                    )
-                    AliciaMechaActionButton(
-                        label = "去登录",
-                        onClick = onContinueLogin,
-                        tone = AliciaMechaActionButtonTone.Primary,
-                        modifier = Modifier.weight(1f),
-                        height = 42.dp,
-                    )
-                }
-                detail?.allowSave == true -> {
-                    AliciaMechaActionButton(
-                        label = "关闭",
-                        onClick = onDismiss,
-                        tone = AliciaMechaActionButtonTone.Secondary,
-                        enabled = !state.saving,
-                        modifier = Modifier.weight(1f),
-                        height = 42.dp,
-                    )
-                    AliciaMechaActionButton(
-                        label = if (state.saving) "保存中..." else "保存到网盘",
-                        onClick = onSave,
-                        tone = AliciaMechaActionButtonTone.Primary,
-                        enabled = !state.saving,
-                        modifier = Modifier.weight(1f),
-                        height = 42.dp,
-                    )
-                }
-                else -> {
-                    AliciaMechaActionButton(
-                        label = "关闭",
-                        onClick = onDismiss,
-                        tone = AliciaMechaActionButtonTone.Secondary,
-                        modifier = Modifier.fillMaxWidth(),
-                        height = 42.dp,
-                    )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                when {
+                    state.saveTargetPickerOpen -> {
+                        AliciaMechaActionButton(
+                            label = "返回",
+                            onClick = onCloseSaveTargetPicker,
+                            tone = AliciaMechaActionButtonTone.Secondary,
+                            enabled = !state.saving,
+                            modifier = Modifier.weight(1f),
+                            height = 42.dp,
+                        )
+                        AliciaMechaActionButton(
+                            label = if (state.saving) "保存中..." else "保存到这里",
+                            onClick = onSave,
+                            tone = AliciaMechaActionButtonTone.Primary,
+                            enabled = !state.saving && !state.saveTargetLoading,
+                            modifier = Modifier.weight(1f),
+                            height = 42.dp,
+                        )
+                    }
+                    needsPassword -> {
+                        AliciaMechaActionButton(
+                            label = "取消",
+                            onClick = onDismiss,
+                            tone = AliciaMechaActionButtonTone.Secondary,
+                            enabled = !state.passwordChecking,
+                            modifier = Modifier.weight(1f),
+                            height = 42.dp,
+                        )
+                        AliciaMechaActionButton(
+                            label = if (state.passwordChecking) "校验中..." else "校验",
+                            onClick = { onVerifyPassword(password) },
+                            tone = AliciaMechaActionButtonTone.Primary,
+                            enabled = !state.passwordChecking,
+                            modifier = Modifier.weight(1f),
+                            height = 42.dp,
+                        )
+                    }
+                    needsLogin -> {
+                        AliciaMechaActionButton(
+                            label = "取消",
+                            onClick = onDismiss,
+                            tone = AliciaMechaActionButtonTone.Secondary,
+                            modifier = Modifier.weight(1f),
+                            height = 42.dp,
+                        )
+                        AliciaMechaActionButton(
+                            label = "去登录",
+                            onClick = onContinueLogin,
+                            tone = AliciaMechaActionButtonTone.Primary,
+                            modifier = Modifier.weight(1f),
+                            height = 42.dp,
+                        )
+                    }
+                    detail?.allowSave == true -> {
+                        AliciaMechaActionButton(
+                            label = "关闭",
+                            onClick = onDismiss,
+                            tone = AliciaMechaActionButtonTone.Secondary,
+                            enabled = !state.saving,
+                            modifier = Modifier.weight(1f),
+                            height = 42.dp,
+                        )
+                        AliciaMechaActionButton(
+                            label = "保存到网盘",
+                            onClick = onOpenSaveTargetPicker,
+                            tone = AliciaMechaActionButtonTone.Primary,
+                            enabled = !state.saving,
+                            modifier = Modifier.weight(1f),
+                            height = 42.dp,
+                        )
+                    }
+                    else -> {
+                        AliciaMechaActionButton(
+                            label = "关闭",
+                            onClick = onDismiss,
+                            tone = AliciaMechaActionButtonTone.Secondary,
+                            modifier = Modifier.fillMaxWidth(),
+                            height = 42.dp,
+                        )
+                    }
                 }
             }
-        },
-    )
+        }
+    }
 }
 
 @Composable
@@ -3184,12 +3263,97 @@ private fun IncomingShareMessageBlock(message: String) {
 }
 
 @Composable
+private fun IncomingShareSaveTargetBody(
+    folders: List<StorageNode>,
+    loading: Boolean,
+    selectedParentId: Long?,
+    onSelectTarget: (Long?) -> Unit,
+) {
+    if (loading) {
+        IncomingShareLoadingBlock("正在加载你的网盘目录...")
+        return
+    }
+
+    val folderItems = remember(folders) { flattenFolderPickerItems(folders) }
+
+    IncomingShareSaveTargetRow(
+        label = "根目录",
+        depth = 0,
+        selected = selectedParentId == null,
+        onClick = { onSelectTarget(null) },
+    )
+    folderItems.forEach { item ->
+        IncomingShareSaveTargetRow(
+            label = item.node.name,
+            depth = item.depth,
+            selected = selectedParentId == item.node.id,
+            onClick = { onSelectTarget(item.node.id) },
+        )
+    }
+}
+
+@Composable
+private fun IncomingShareSaveTargetRow(
+    label: String,
+    depth: Int,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    AliciaMechaPanel(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = (depth * 10).dp)
+            .clickable(onClick = onClick),
+        contentPadding = PaddingValues(start = 14.dp, top = 11.dp, end = 14.dp, bottom = 11.dp),
+        backgroundResId = if (selected) R.drawable.alicia_9_team_summary else R.drawable.alicia_9_file_row,
+        backgroundSlice = 36.dp,
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.FolderOpen,
+                contentDescription = label,
+                tint = if (selected) Color(0xFF2B67E7) else Color(0xFF748094),
+                modifier = Modifier.size(22.dp),
+            )
+            Text(
+                text = label,
+                color = if (selected) Color(0xFF2B67E7) else Color(0xFF101626),
+                fontFamily = AliciaMechaFontFamily,
+                fontWeight = FontWeight.Black,
+                fontSize = 13.sp,
+                lineHeight = 16.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            if (selected) {
+                Text(
+                    text = "当前",
+                    color = Color(0xFF2B67E7),
+                    fontFamily = AliciaMechaFontFamily,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 11.sp,
+                    lineHeight = 12.sp,
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun IncomingShareDetailBody(
     detail: ShareLinkDetailResponse,
+    expandedFolderIds: Set<Long>,
     downloadingNodeId: Long?,
+    onToggleFolder: (Long) -> Unit,
     onDownload: (StorageNode) -> Unit,
 ) {
-    val flattenedItems = remember(detail) { flattenIncomingShareItems(detail) }
+    val flattenedItems = remember(detail, expandedFolderIds) { flattenVisibleIncomingShareItems(detail, expandedFolderIds) }
+    val folderIdsWithChildren = remember(detail) { detail.items.mapNotNull { it.parentId }.toSet() }
     val displayedItems = flattenedItems.take(60)
 
     ShareResultBlock(label = "分享者", value = detail.ownerNickname)
@@ -3219,7 +3383,10 @@ private fun IncomingShareDetailBody(
                 node = item.node,
                 depth = item.depth,
                 allowDownload = detail.allowDownload,
+                expanded = item.node.id in expandedFolderIds,
+                hasChildren = item.node.id in folderIdsWithChildren,
                 downloading = downloadingNodeId == item.node.id,
+                onToggleFolder = onToggleFolder,
                 onDownload = onDownload,
             )
         }
@@ -3242,13 +3409,24 @@ private fun IncomingShareNodeRow(
     node: StorageNode,
     depth: Int,
     allowDownload: Boolean,
+    expanded: Boolean,
+    hasChildren: Boolean,
     downloading: Boolean,
+    onToggleFolder: (Long) -> Unit,
     onDownload: (StorageNode) -> Unit,
 ) {
+    val isFolderWithChildren = node.type == StorageNodeType.FOLDER && hasChildren
+    val clickableModifier = if (isFolderWithChildren) {
+        Modifier.clickable { onToggleFolder(node.id) }
+    } else {
+        Modifier
+    }
+
     AliciaMechaPanel(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = (depth * 10).dp),
+            .padding(start = (depth * 10).dp)
+            .then(clickableModifier),
         contentPadding = PaddingValues(start = 13.dp, top = 10.dp, end = 12.dp, bottom = 10.dp),
         backgroundResId = R.drawable.alicia_9_file_row,
         backgroundSlice = 42.dp,
@@ -3297,6 +3475,13 @@ private fun IncomingShareNodeRow(
                     minWidth = 58.dp,
                     height = 28.dp,
                 )
+            } else if (isFolderWithChildren) {
+                Icon(
+                    imageVector = if (expanded) Icons.Rounded.ExpandMore else Icons.Rounded.ChevronRight,
+                    contentDescription = if (expanded) "收起文件夹" else "展开文件夹",
+                    tint = Color(0xFF2B67E7),
+                    modifier = Modifier.size(22.dp),
+                )
             }
         }
     }
@@ -3343,7 +3528,15 @@ private data class IncomingShareTreeItem(
     val depth: Int,
 )
 
-private fun flattenIncomingShareItems(detail: ShareLinkDetailResponse): List<IncomingShareTreeItem> {
+private data class IncomingFolderPickerItem(
+    val node: StorageNode,
+    val depth: Int,
+)
+
+private fun flattenVisibleIncomingShareItems(
+    detail: ShareLinkDetailResponse,
+    expandedFolderIds: Set<Long>,
+): List<IncomingShareTreeItem> {
     val nodeById = detail.items.associateBy { it.id }
     val rootIdSet = detail.rootNodeIds.toSet()
     val childNodesByParentId = detail.items
@@ -3364,6 +3557,10 @@ private fun flattenIncomingShareItems(detail: ShareLinkDetailResponse): List<Inc
         }
 
         flattenedItems += IncomingShareTreeItem(node = node, depth = depth)
+        if (node.type == StorageNodeType.FOLDER && node.id !in expandedFolderIds) {
+            return
+        }
+
         sorted(childNodesByParentId[node.id].orEmpty()).forEach { child ->
             visit(child, depth + 1)
         }
@@ -3378,6 +3575,32 @@ private fun flattenIncomingShareItems(detail: ShareLinkDetailResponse): List<Inc
         }
 
     sorted(roots).forEach { root -> visit(root, 0) }
+
+    return flattenedItems
+}
+
+private fun flattenFolderPickerItems(folders: List<StorageNode>): List<IncomingFolderPickerItem> {
+    val childFoldersByParentId = folders.groupBy { it.parentId }
+    val flattenedItems = mutableListOf<IncomingFolderPickerItem>()
+    val visitedFolderIds = mutableSetOf<Long>()
+
+    fun sorted(nodes: List<StorageNode>): List<StorageNode> =
+        nodes.sortedBy { it.name.lowercase(Locale.getDefault()) }
+
+    fun visit(folder: StorageNode, depth: Int) {
+        if (!visitedFolderIds.add(folder.id)) {
+            return
+        }
+
+        flattenedItems += IncomingFolderPickerItem(node = folder, depth = depth)
+        sorted(childFoldersByParentId[folder.id].orEmpty()).forEach { child ->
+            visit(child, depth + 1)
+        }
+    }
+
+    sorted(childFoldersByParentId[null].orEmpty()).forEach { root ->
+        visit(root, 1)
+    }
 
     return flattenedItems
 }

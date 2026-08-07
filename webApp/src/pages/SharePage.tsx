@@ -7,13 +7,14 @@ import {
   LoginOutlined,
   SaveOutlined,
 } from '@ant-design/icons';
-import { Alert, App as AntApp, Button, Card, Form, Input, Result, Space, Spin, Table, Typography } from 'antd';
+import { Alert, App as AntApp, Button, Card, Form, Input, Modal, Result, Space, Spin, Table, TreeSelect, Typography } from 'antd';
 import type { TableProps } from 'antd';
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { RegulatoryFooter } from '../components/RegulatoryFooter';
 import { useSession } from '../context/session-context';
 import {
+  fetchStorageFolders,
   fetchPublicShareStatus,
   fetchShareDetail,
   fetchShareFileAccessUrl,
@@ -22,7 +23,8 @@ import {
   verifySharePassword,
 } from '../lib/api';
 import type { ShareLinkDetail, ShareLinkStatus, StorageNode, VerifySharePasswordPayload } from '../types';
-import { resolveShareUrl } from '../features/drive/driveShared';
+import { ROOT_PARENT_KEY, resolveShareUrl } from '../features/drive/driveShared';
+import type { FolderTreeNode } from '../features/drive/types';
 
 type ShareTreeNode = StorageNode & {
   children?: ShareTreeNode[];
@@ -163,6 +165,37 @@ function buildShareTree(detail: ShareLinkDetail | null): ShareTreeNode[] {
   return roots;
 }
 
+function buildFolderTree(folders: StorageNode[]): FolderTreeNode[] {
+  const childrenMap = new Map<number | null, StorageNode[]>();
+
+  folders.forEach((folder) => {
+    const siblings = childrenMap.get(folder.parentId) ?? [];
+    siblings.push(folder);
+    childrenMap.set(folder.parentId, siblings);
+  });
+
+  const buildTree = (parentId: number | null): FolderTreeNode[] =>
+    (childrenMap.get(parentId) ?? [])
+      .sort((left, right) => left.name.localeCompare(right.name, 'zh-CN'))
+      .map((folder) => {
+        const children = buildTree(folder.id);
+
+        return {
+          title: folder.name,
+          value: String(folder.id),
+          children: children.length > 0 ? children : undefined,
+        };
+      });
+
+  return [
+    {
+      title: '根目录',
+      value: ROOT_PARENT_KEY,
+      children: buildTree(null),
+    },
+  ];
+}
+
 export function SharePage() {
   const { message } = AntApp.useApp();
   const navigate = useNavigate();
@@ -180,7 +213,12 @@ export function SharePage() {
   const [downloadingFileId, setDownloadingFileId] = useState<number | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
   const [showMobileOpenHint, setShowMobileOpenHint] = useState(false);
+  const [saveTargetOpen, setSaveTargetOpen] = useState(false);
+  const [saveFolderOptions, setSaveFolderOptions] = useState<StorageNode[]>([]);
+  const [saveFolderOptionsLoading, setSaveFolderOptionsLoading] = useState(false);
+  const [saveParentKey, setSaveParentKey] = useState(ROOT_PARENT_KEY);
   const shareTree = useMemo(() => buildShareTree(detail), [detail]);
+  const saveFolderTreeData = useMemo(() => buildFolderTree(saveFolderOptions), [saveFolderOptions]);
 
   useEffect(() => {
     setShareAccessToken(loadStoredShareAccess(shareCode));
@@ -293,6 +331,32 @@ export function SharePage() {
     window.location.href = buildAppDownloadUrl(shareCode);
   }
 
+  async function loadSaveFolderOptions() {
+    if (!authToken) {
+      return;
+    }
+
+    setSaveFolderOptionsLoading(true);
+
+    try {
+      setSaveFolderOptions(await fetchStorageFolders(authToken));
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : '加载文件夹目录失败。');
+    } finally {
+      setSaveFolderOptionsLoading(false);
+    }
+  }
+
+  function openSaveTargetModal() {
+    if (!authToken || !detail) {
+      return;
+    }
+
+    setSaveParentKey(ROOT_PARENT_KEY);
+    setSaveTargetOpen(true);
+    void loadSaveFolderOptions();
+  }
+
   async function handleSaveShare() {
     if (!authToken || !detail) {
       return;
@@ -301,8 +365,10 @@ export function SharePage() {
     setSaving(true);
 
     try {
-      await saveShareToDrive(detail.shareCode, { parentId: null }, authToken, shareAccessToken);
-      message.success('已保存到你的网盘根目录。');
+      const parentId = saveParentKey === ROOT_PARENT_KEY ? null : Number(saveParentKey);
+      await saveShareToDrive(detail.shareCode, { parentId }, authToken, shareAccessToken);
+      message.success(parentId === null ? '已保存到你的网盘根目录。' : '已保存到选定文件夹。');
+      setSaveTargetOpen(false);
       void navigate('/');
     } catch (error) {
       message.error(error instanceof Error ? error.message : '保存失败。');
@@ -458,7 +524,7 @@ export function SharePage() {
           </div>
           <div className="panel-actions">
             {detail.allowSave ? (
-              <Button type="primary" icon={<SaveOutlined />} loading={saving} onClick={() => void handleSaveShare()}>
+              <Button type="primary" icon={<SaveOutlined />} loading={saving} onClick={openSaveTargetModal}>
                 保存到我的网盘
               </Button>
             ) : null}
@@ -476,6 +542,11 @@ export function SharePage() {
           dataSource={shareTree}
           pagination={false}
           scroll={{ x: 900 }}
+          expandable={{
+            defaultExpandAllRows: false,
+            defaultExpandedRowKeys: [],
+            rowExpandable: (item) => item.type === 'FOLDER' && Boolean(item.children?.length),
+          }}
           locale={{ emptyText: '分享内容暂不可用。' }}
         />
       </section>
@@ -523,6 +594,33 @@ export function SharePage() {
       ) : null}
 
       <main className="share-page-main">{content}</main>
+
+      <Modal
+        title="选择保存位置"
+        open={saveTargetOpen}
+        onCancel={() => setSaveTargetOpen(false)}
+        onOk={() => void handleSaveShare()}
+        okText="保存到这里"
+        cancelText="取消"
+        confirmLoading={saving}
+        destroyOnHidden
+      >
+        <Typography.Paragraph className="panel-subtitle">
+          请选择分享内容要保存到的网盘文件夹。
+        </Typography.Paragraph>
+        <TreeSelect
+          showSearch
+          treeDefaultExpandAll
+          treeData={saveFolderTreeData}
+          treeNodeFilterProp="title"
+          disabled={saveFolderOptionsLoading || saving}
+          loading={saveFolderOptionsLoading}
+          value={saveParentKey}
+          onChange={(value) => setSaveParentKey(value)}
+          placeholder="选择目标文件夹"
+          style={{ width: '100%' }}
+        />
+      </Modal>
 
       <footer className="share-page-footer">
         <RegulatoryFooter />

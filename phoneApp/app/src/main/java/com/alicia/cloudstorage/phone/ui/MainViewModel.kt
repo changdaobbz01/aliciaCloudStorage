@@ -166,6 +166,11 @@ data class IncomingShareUiState(
     val passwordChecking: Boolean = false,
     val saving: Boolean = false,
     val downloadingNodeId: Long? = null,
+    val expandedFolderIds: Set<Long> = emptySet(),
+    val saveTargetPickerOpen: Boolean = false,
+    val saveTargetFolders: List<StorageNode> = emptyList(),
+    val saveTargetLoading: Boolean = false,
+    val saveTargetParentId: Long? = null,
     val loginPromptDismissed: Boolean = false,
     val status: ShareLinkStatusResponse? = null,
     val detail: ShareLinkDetailResponse? = null,
@@ -218,8 +223,8 @@ class MainViewModel(
     private val fileDirectoryCache = mutableMapOf<Long?, List<StorageNode>>()
     private var dismissedUpdateVersionName: String? = null
     private var currentPreviewCacheFile: File? = null
-    private var lastPromptedClipboardShareCode: String? = null
     private var lastDismissedClipboardShareCode: String? = null
+    private var lastDismissedClipboardAtMillis: Long = 0L
 
     init {
         restoreSession()
@@ -1323,26 +1328,35 @@ class MainViewModel(
 
     fun checkClipboardForShareLink() {
         val clipboard = appContext.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager ?: return
-        val text = runCatching {
-            clipboard.primaryClip
-                ?.takeIf { it.itemCount > 0 }
-                ?.getItemAt(0)
-                ?.coerceToText(appContext)
-                ?.toString()
-        }.getOrNull() ?: return
-        val shareCode = ShareLinkParser.findShareCodeInText(text, uiState.value.baseUrl) ?: return
+        val clip = runCatching { clipboard.primaryClip }.getOrNull() ?: return
+        if (clip.itemCount <= 0) {
+            return
+        }
+
+        val shareCode = (0 until clip.itemCount)
+            .asSequence()
+            .mapNotNull { index ->
+                runCatching {
+                    clip.getItemAt(index)
+                        ?.coerceToText(appContext)
+                        ?.toString()
+                }.getOrNull()
+            }
+            .mapNotNull { text -> ShareLinkParser.findShareCodeInText(text, uiState.value.baseUrl) }
+            .firstOrNull()
+            ?: return
         val incomingShare = uiState.value.incomingShare
+        val dismissedRecently = lastDismissedClipboardShareCode == shareCode &&
+            System.currentTimeMillis() - lastDismissedClipboardAtMillis < 30_000L
 
         if (
             incomingShare.activeShareCode == shareCode ||
             incomingShare.prompt?.shareCode == shareCode ||
-            lastPromptedClipboardShareCode == shareCode ||
-            lastDismissedClipboardShareCode == shareCode
+            dismissedRecently
         ) {
             return
         }
 
-        lastPromptedClipboardShareCode = shareCode
         _uiState.update { state ->
             state.copy(
                 incomingShare = state.incomingShare.copy(
@@ -1356,6 +1370,7 @@ class MainViewModel(
         val shareCode = uiState.value.incomingShare.prompt?.shareCode
         if (!shareCode.isNullOrBlank()) {
             lastDismissedClipboardShareCode = shareCode
+            lastDismissedClipboardAtMillis = System.currentTimeMillis()
         }
 
         _uiState.update { state ->
@@ -1375,10 +1390,96 @@ class MainViewModel(
         val incomingShare = uiState.value.incomingShare
         if (incomingShare.source == IncomingShareSource.CLIPBOARD && !incomingShare.activeShareCode.isNullOrBlank()) {
             lastDismissedClipboardShareCode = incomingShare.activeShareCode
+            lastDismissedClipboardAtMillis = System.currentTimeMillis()
         }
 
         _uiState.update { state ->
             state.copy(incomingShare = IncomingShareUiState())
+        }
+    }
+
+    fun toggleIncomingShareFolder(folderId: Long) {
+        _uiState.update { state ->
+            val expandedFolderIds = state.incomingShare.expandedFolderIds
+            state.copy(
+                incomingShare = state.incomingShare.copy(
+                    expandedFolderIds = if (folderId in expandedFolderIds) {
+                        expandedFolderIds - folderId
+                    } else {
+                        expandedFolderIds + folderId
+                    },
+                ),
+            )
+        }
+    }
+
+    fun openIncomingShareSaveTargetPicker() {
+        val incomingShare = uiState.value.incomingShare
+        val detail = incomingShare.detail ?: return
+        if (!detail.allowSave) {
+            emitMessage("分享者未开放保存权限。")
+            return
+        }
+
+        val session = authenticatedSession()
+        if (session == null) {
+            emitMessage("请先登录后再保存分享。")
+            return
+        }
+
+        _uiState.update { state ->
+            state.copy(
+                incomingShare = state.incomingShare.copy(
+                    saveTargetPickerOpen = true,
+                    saveTargetParentId = null,
+                    saveTargetLoading = true,
+                ),
+            )
+        }
+
+        viewModelScope.launch {
+            runCatching {
+                repository.fetchFolders(session.baseUrl, session.token)
+            }.onSuccess { folders ->
+                _uiState.update { state ->
+                    state.copy(
+                        incomingShare = state.incomingShare.copy(
+                            saveTargetFolders = folders,
+                            saveTargetLoading = false,
+                        ),
+                    )
+                }
+            }.onFailure { error ->
+                _uiState.update { state ->
+                    state.copy(
+                        incomingShare = state.incomingShare.copy(
+                            saveTargetLoading = false,
+                        ),
+                    )
+                }
+                handleError(error)
+            }
+        }
+    }
+
+    fun closeIncomingShareSaveTargetPicker() {
+        _uiState.update { state ->
+            state.copy(
+                incomingShare = state.incomingShare.copy(
+                    saveTargetPickerOpen = false,
+                    saveTargetLoading = false,
+                ),
+            )
+        }
+    }
+
+    fun selectIncomingShareSaveTarget(parentId: Long?) {
+        _uiState.update { state ->
+            state.copy(
+                incomingShare = state.incomingShare.copy(
+                    saveTargetParentId = parentId,
+                ),
+            )
         }
     }
 
@@ -1464,6 +1565,8 @@ class MainViewModel(
     fun saveIncomingShareToDrive() {
         val incomingShare = uiState.value.incomingShare
         val detail = incomingShare.detail ?: return
+        val targetParentId = incomingShare.saveTargetParentId
+        val targetFolders = incomingShare.saveTargetFolders
         if (!detail.allowSave) {
             emitMessage("分享者未开放保存权限。")
             return
@@ -1486,15 +1589,27 @@ class MainViewModel(
                     token = session.token,
                     shareCode = detail.shareCode,
                     shareAccessToken = incomingShare.shareAccessToken,
+                    parentId = targetParentId,
                 )
             }.onSuccess {
                 _uiState.update { state ->
                     state.copy(
-                        selectedTab = AppTab.HOME,
+                        selectedTab = AppTab.FILES,
+                        files = state.files.copy(
+                            currentFolderId = targetParentId,
+                            breadcrumbs = resolveFolderBreadcrumbs(targetFolders, targetParentId),
+                            keyword = "",
+                            searchScope = FileSearchScope.CURRENT_FOLDER,
+                            filter = StorageNodeFilter.ALL,
+                            items = emptyList(),
+                            hasLoadedFolder = false,
+                            selectedNodeIds = emptySet(),
+                            highlightedNodeId = null,
+                        ),
                         incomingShare = IncomingShareUiState(),
                     )
                 }
-                emitMessage("已保存到你的网盘根目录。")
+                emitMessage(if (targetParentId == null) "已保存到你的网盘根目录。" else "已保存到选定文件夹。")
                 refreshAll()
             }.onFailure { error ->
                 _uiState.update { state ->
@@ -2234,6 +2349,33 @@ class MainViewModel(
             ?: "目标目录"
 
         return defaultBreadCrumbs + FolderCrumb(id = targetFolderId, label = folderLabel)
+    }
+
+    private fun resolveFolderBreadcrumbs(
+        folders: List<StorageNode>,
+        targetFolderId: Long?,
+    ): List<FolderCrumb> {
+        if (targetFolderId == null) {
+            return defaultBreadCrumbs
+        }
+
+        val folderById = folders.associateBy { it.id }
+        val path = mutableListOf<StorageNode>()
+        val visitedIds = mutableSetOf<Long>()
+        var cursor = folderById[targetFolderId]
+
+        while (cursor != null && visitedIds.add(cursor.id)) {
+            path += cursor
+            cursor = cursor.parentId?.let(folderById::get)
+        }
+
+        if (path.isEmpty()) {
+            return defaultBreadCrumbs + FolderCrumb(id = targetFolderId, label = "目标目录")
+        }
+
+        return defaultBreadCrumbs + path.asReversed().map { folder ->
+            FolderCrumb(id = folder.id, label = folder.name)
+        }
     }
 
     private fun parseQuotaGbToBytes(value: String): Long? {
