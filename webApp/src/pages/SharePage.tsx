@@ -268,6 +268,7 @@ export function SharePage() {
     try {
       await saveShareToDrive(detail.shareCode, { parentId: null }, authToken, shareAccessToken);
       message.success('已保存到你的网盘根目录。');
+      void navigate('/');
     } catch (error) {
       message.error(error instanceof Error ? error.message : '保存失败。');
     } finally {
@@ -449,13 +450,18 @@ export function SharePage() {
   return (
     <div className="share-page-shell">
       <header className="share-page-header">
-        <div className="brand-block share-brand-block">
+        <button
+          type="button"
+          className="brand-block share-brand-block share-brand-link"
+          aria-label="进入 Alicia 云盘主页"
+          onClick={() => void navigate('/')}
+        >
           <CloudServerOutlined className="brand-icon" />
           <div>
             <Typography.Title level={4}>Alicia 云盘</Typography.Title>
             <Typography.Text>文件分享</Typography.Text>
           </div>
-        </div>
+        </button>
       </header>
 
       <main className="share-page-main">{content}</main>

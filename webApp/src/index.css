@@ -1311,6 +1311,26 @@ select {
   padding-bottom: 0;
 }
 
+.share-brand-link {
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.share-brand-link:hover .brand-icon {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.share-brand-link:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, 0.22);
+  outline-offset: 2px;
+}
+
 .share-page-main {
   width: min(1120px, calc(100vw - 64px));
   margin: 0 auto;
