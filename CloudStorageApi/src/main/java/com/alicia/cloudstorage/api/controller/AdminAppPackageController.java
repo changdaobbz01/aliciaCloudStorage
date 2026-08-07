@@ -1,5 +1,6 @@
 package com.alicia.cloudstorage.api.controller;
 
+import com.alicia.cloudstorage.api.auth.AuthRequestAttributes;
 import com.alicia.cloudstorage.api.dto.ApiMessageResponse;
 import com.alicia.cloudstorage.api.dto.AppPackageInfoResponse;
 import com.alicia.cloudstorage.api.service.AppPackageService;
@@ -8,6 +9,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
@@ -38,9 +40,10 @@ public class AdminAppPackageController {
     public AppPackageInfoResponse uploadCurrentPackage(
             @RequestPart("file") MultipartFile file,
             @RequestParam("versionName") String versionName,
-            @RequestParam("releaseNotes") String releaseNotes
+            @RequestParam("releaseNotes") String releaseNotes,
+            @RequestAttribute(AuthRequestAttributes.CURRENT_USER_ID) Long adminUserId
     ) {
-        return appPackageService.storePackage(file, versionName, releaseNotes);
+        return appPackageService.storePackage(file, versionName, releaseNotes, adminUserId);
     }
 
     /**

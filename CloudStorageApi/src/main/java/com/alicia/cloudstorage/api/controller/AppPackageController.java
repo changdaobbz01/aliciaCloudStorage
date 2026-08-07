@@ -6,6 +6,7 @@ import com.alicia.cloudstorage.api.service.AppPackageService;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,8 +18,6 @@ import java.nio.charset.StandardCharsets;
 @RestController
 @RequestMapping("/api/app-package")
 public class AppPackageController {
-
-    private static final String APP_PACKAGE_MEDIA_TYPE = "application/vnd.android.package-archive";
 
     private final AppPackageService appPackageService;
 
@@ -43,8 +42,17 @@ public class AppPackageController {
     /**
      * 向浏览器或手机客户端流式返回当前正式 APK。     */
     @GetMapping("/download/current")
-    public ResponseEntity<InputStreamResource> downloadCurrentPackage() {
+    public ResponseEntity<?> downloadCurrentPackage() {
         AppPackageService.AppPackageDownloadPayload downloadPayload = appPackageService.openCurrentPackage();
+
+        if (downloadPayload.isRedirect()) {
+            return ResponseEntity.status(HttpStatus.FOUND)
+                    .location(downloadPayload.redirectUri())
+                    .header(HttpHeaders.CACHE_CONTROL, "no-store, no-cache, must-revalidate")
+                    .header(HttpHeaders.PRAGMA, "no-cache")
+                    .header(HttpHeaders.EXPIRES, "0")
+                    .build();
+        }
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.CACHE_CONTROL, "no-store, no-cache, must-revalidate")
@@ -57,7 +65,7 @@ public class AppPackageController {
                                 .build()
                                 .toString()
                 )
-                .contentType(MediaType.parseMediaType(APP_PACKAGE_MEDIA_TYPE))
+                .contentType(MediaType.parseMediaType(downloadPayload.contentType()))
                 .contentLength(downloadPayload.fileSizeBytes())
                 .body(new InputStreamResource(downloadPayload.inputStream()));
     }

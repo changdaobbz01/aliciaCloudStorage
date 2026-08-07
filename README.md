@@ -15,6 +15,7 @@
 - 支持断点续传、上传队列、总进度、单文件进度、失败继续、取消当前上传
 - 普通用户按个人配额校验上传空间，管理员账号不受个人配额限制
 - 支持用户头像和主页背景图上传，并与账号关联
+- 支持 Android APK 版本发布，安装包存储在 COS，后端保留版本记录和短期签名下载入口
 
 ## 技术栈
 
@@ -144,6 +145,7 @@ $env:ALICIA_COS_SECRET_KEY="your-secret-key"
 $env:ALICIA_COS_REGION="ap-shanghai"
 $env:ALICIA_COS_BUCKET="your-bucket-appid"
 $env:ALICIA_COS_CUSTOM_DOMAIN="files.windwindwind-alicia.cn"
+$env:ALICIA_APP_PACKAGE_COS_PREFIX="app-packages"
 
 Set-Location CloudStorageApi
 ..\mvnw spring-boot:run
