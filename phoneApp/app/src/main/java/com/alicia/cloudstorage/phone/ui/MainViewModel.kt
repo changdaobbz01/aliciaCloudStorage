@@ -155,18 +155,20 @@ enum class IncomingShareSource {
 
 data class IncomingSharePromptState(
     val shareCode: String,
+    val clipboardFingerprint: String? = null,
 )
 
 data class IncomingShareUiState(
     val prompt: IncomingSharePromptState? = null,
     val activeShareCode: String? = null,
+    val clipboardFingerprint: String? = null,
     val source: IncomingShareSource? = null,
     val statusLoading: Boolean = false,
     val detailLoading: Boolean = false,
     val passwordChecking: Boolean = false,
     val saving: Boolean = false,
-    val downloadingNodeId: Long? = null,
     val expandedFolderIds: Set<Long> = emptySet(),
+    val selectedNodeIds: Set<Long> = emptySet(),
     val saveTargetPickerOpen: Boolean = false,
     val saveTargetFolders: List<StorageNode> = emptyList(),
     val saveTargetLoading: Boolean = false,
@@ -224,6 +226,7 @@ class MainViewModel(
     private var dismissedUpdateVersionName: String? = null
     private var currentPreviewCacheFile: File? = null
     private var lastDismissedClipboardShareCode: String? = null
+    private var lastDismissedClipboardFingerprint: String? = null
     private var lastDismissedClipboardAtMillis: Long = 0L
 
     init {
@@ -1333,20 +1336,25 @@ class MainViewModel(
             return
         }
 
-        val shareCode = (0 until clip.itemCount)
+        val clipboardTexts = (0 until clip.itemCount)
             .asSequence()
-            .mapNotNull { index ->
+            .flatMap { index ->
                 runCatching {
-                    clip.getItemAt(index)
-                        ?.coerceToText(appContext)
-                        ?.toString()
-                }.getOrNull()
+                    clipboardItemTexts(clip.getItemAt(index)).asSequence()
+                }.getOrElse { emptySequence() }
             }
+            .distinct()
+            .toList()
+
+        val shareCode = clipboardTexts
+            .asSequence()
             .mapNotNull { text -> ShareLinkParser.findShareCodeInText(text, uiState.value.baseUrl) }
             .firstOrNull()
             ?: return
+        val clipboardFingerprint = clipboardFingerprint(clip, clipboardTexts)
         val incomingShare = uiState.value.incomingShare
         val dismissedRecently = lastDismissedClipboardShareCode == shareCode &&
+            lastDismissedClipboardFingerprint == clipboardFingerprint &&
             System.currentTimeMillis() - lastDismissedClipboardAtMillis < 30_000L
 
         if (
@@ -1360,16 +1368,37 @@ class MainViewModel(
         _uiState.update { state ->
             state.copy(
                 incomingShare = state.incomingShare.copy(
-                    prompt = IncomingSharePromptState(shareCode = shareCode),
+                    prompt = IncomingSharePromptState(
+                        shareCode = shareCode,
+                        clipboardFingerprint = clipboardFingerprint,
+                    ),
                 ),
             )
         }
     }
 
+    private fun clipboardFingerprint(clip: ClipData, texts: List<String>): String =
+        listOf(
+            clip.description.timestamp.toString(),
+            clip.description.label?.toString().orEmpty(),
+            texts.joinToString(separator = "\u001F").take(4096),
+        ).joinToString(separator = "\u001E")
+
+    private fun clipboardItemTexts(item: ClipData.Item): List<String> =
+        buildList {
+            item.text?.toString()?.takeIf { it.isNotBlank() }?.let(::add)
+            item.htmlText?.takeIf { it.isNotBlank() }?.let(::add)
+            item.uri?.toString()?.takeIf { it.isNotBlank() }?.let(::add)
+            item.intent?.dataString?.takeIf { it.isNotBlank() }?.let(::add)
+            item.coerceToText(appContext)?.toString()?.takeIf { it.isNotBlank() }?.let(::add)
+        }.distinct()
+
     fun dismissIncomingSharePrompt() {
-        val shareCode = uiState.value.incomingShare.prompt?.shareCode
+        val prompt = uiState.value.incomingShare.prompt
+        val shareCode = prompt?.shareCode
         if (!shareCode.isNullOrBlank()) {
             lastDismissedClipboardShareCode = shareCode
+            lastDismissedClipboardFingerprint = prompt.clipboardFingerprint
             lastDismissedClipboardAtMillis = System.currentTimeMillis()
         }
 
@@ -1379,17 +1408,22 @@ class MainViewModel(
     }
 
     fun confirmIncomingSharePrompt() {
-        val shareCode = uiState.value.incomingShare.prompt?.shareCode ?: return
+        val prompt = uiState.value.incomingShare.prompt ?: return
         _uiState.update { state ->
             state.copy(incomingShare = state.incomingShare.copy(prompt = null))
         }
-        openIncomingShare(shareCode, IncomingShareSource.CLIPBOARD)
+        openIncomingShare(
+            shareCode = prompt.shareCode,
+            source = IncomingShareSource.CLIPBOARD,
+            clipboardFingerprint = prompt.clipboardFingerprint,
+        )
     }
 
     fun closeIncomingShare() {
         val incomingShare = uiState.value.incomingShare
         if (incomingShare.source == IncomingShareSource.CLIPBOARD && !incomingShare.activeShareCode.isNullOrBlank()) {
             lastDismissedClipboardShareCode = incomingShare.activeShareCode
+            lastDismissedClipboardFingerprint = incomingShare.clipboardFingerprint
             lastDismissedClipboardAtMillis = System.currentTimeMillis()
         }
 
@@ -1413,11 +1447,31 @@ class MainViewModel(
         }
     }
 
+    fun toggleIncomingShareNodeSelection(nodeId: Long) {
+        _uiState.update { state ->
+            val selectedNodeIds = state.incomingShare.selectedNodeIds
+            state.copy(
+                incomingShare = state.incomingShare.copy(
+                    selectedNodeIds = if (nodeId in selectedNodeIds) {
+                        selectedNodeIds - nodeId
+                    } else {
+                        selectedNodeIds + nodeId
+                    },
+                ),
+            )
+        }
+    }
+
     fun openIncomingShareSaveTargetPicker() {
         val incomingShare = uiState.value.incomingShare
         val detail = incomingShare.detail ?: return
         if (!detail.allowSave) {
             emitMessage("分享者未开放保存权限。")
+            return
+        }
+
+        if (incomingShare.selectedNodeIds.isEmpty()) {
+            emitMessage("请先选择要保存的分享内容。")
             return
         }
 
@@ -1567,6 +1621,11 @@ class MainViewModel(
         val detail = incomingShare.detail ?: return
         val targetParentId = incomingShare.saveTargetParentId
         val targetFolders = incomingShare.saveTargetFolders
+        val selectedNodeIds = incomingShare.selectedNodeIds.toList()
+        if (selectedNodeIds.isEmpty()) {
+            emitMessage("请先选择要保存的分享内容。")
+            return
+        }
         if (!detail.allowSave) {
             emitMessage("分享者未开放保存权限。")
             return
@@ -1590,6 +1649,7 @@ class MainViewModel(
                     shareCode = detail.shareCode,
                     shareAccessToken = incomingShare.shareAccessToken,
                     parentId = targetParentId,
+                    selectedNodeIds = selectedNodeIds,
                 )
             }.onSuccess {
                 _uiState.update { state ->
@@ -1614,58 +1674,6 @@ class MainViewModel(
             }.onFailure { error ->
                 _uiState.update { state ->
                     state.copy(incomingShare = state.incomingShare.copy(saving = false))
-                }
-                handleError(error)
-            }
-        }
-    }
-
-    fun downloadIncomingShareFileToUri(node: StorageNode, destinationUri: Uri) {
-        val incomingShare = uiState.value.incomingShare
-        val detail = incomingShare.detail ?: return
-        if (node.type != StorageNodeType.FILE) {
-            emitMessage("文件夹暂不支持直接下载，请先保存到网盘。")
-            return
-        }
-        if (!detail.allowDownload) {
-            emitMessage("分享者未开放下载权限。")
-            return
-        }
-
-        val session = authenticatedSession()
-        if (session == null) {
-            emitMessage("请先登录后再下载分享文件。")
-            return
-        }
-
-        viewModelScope.launch {
-            _uiState.update { state ->
-                state.copy(
-                    incomingShare = state.incomingShare.copy(
-                        downloadingNodeId = node.id,
-                        error = null,
-                    ),
-                )
-            }
-
-            runCatching {
-                repository.saveShareFileToUriViaSignedUrl(
-                    context = appContext,
-                    baseUrl = session.baseUrl,
-                    token = session.token,
-                    shareCode = detail.shareCode,
-                    shareAccessToken = incomingShare.shareAccessToken,
-                    fileId = node.id,
-                    destinationUri = destinationUri,
-                )
-            }.onSuccess { fileName ->
-                _uiState.update { state ->
-                    state.copy(incomingShare = state.incomingShare.copy(downloadingNodeId = null))
-                }
-                emitMessage("已保存：$fileName")
-            }.onFailure { error ->
-                _uiState.update { state ->
-                    state.copy(incomingShare = state.incomingShare.copy(downloadingNodeId = null))
                 }
                 handleError(error)
             }
@@ -1821,6 +1829,58 @@ class MainViewModel(
             }.onFailure { error ->
                 _uiState.update { state ->
                     state.copy(files = state.files.copy(actionNodeId = null))
+                }
+                handleError(error)
+            }
+        }
+    }
+
+    fun downloadArchiveToUri(nodeIds: List<Long>, destinationUri: Uri) {
+        val session = authenticatedSession() ?: return
+        val uniqueNodeIds = nodeIds.distinct()
+
+        if (uniqueNodeIds.isEmpty()) {
+            emitMessage("请先选择要下载的项目。")
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.update { state ->
+                state.copy(
+                    files = state.files.copy(
+                        isBatchActing = true,
+                        actionNodeId = uniqueNodeIds.singleOrNull(),
+                    ),
+                )
+            }
+
+            runCatching {
+                repository.saveArchiveToUri(
+                    context = appContext,
+                    baseUrl = session.baseUrl,
+                    token = session.token,
+                    nodeIds = uniqueNodeIds,
+                    destinationUri = destinationUri,
+                )
+            }.onSuccess { fileName ->
+                _uiState.update { state ->
+                    state.copy(
+                        files = state.files.copy(
+                            isBatchActing = false,
+                            actionNodeId = null,
+                            selectedNodeIds = emptySet(),
+                        ),
+                    )
+                }
+                emitMessage("已保存：$fileName")
+            }.onFailure { error ->
+                _uiState.update { state ->
+                    state.copy(
+                        files = state.files.copy(
+                            isBatchActing = false,
+                            actionNodeId = null,
+                        ),
+                    )
                 }
                 handleError(error)
             }
@@ -2181,7 +2241,11 @@ class MainViewModel(
             .decode(ByteBuffer.wrap(bytes))
             .toString()
 
-    private fun openIncomingShare(shareCode: String, source: IncomingShareSource) {
+    private fun openIncomingShare(
+        shareCode: String,
+        source: IncomingShareSource,
+        clipboardFingerprint: String? = null,
+    ) {
         val baseUrl = uiState.value.baseUrl
 
         viewModelScope.launch {
@@ -2189,6 +2253,7 @@ class MainViewModel(
                 state.copy(
                     incomingShare = IncomingShareUiState(
                         activeShareCode = shareCode,
+                        clipboardFingerprint = clipboardFingerprint,
                         source = source,
                         statusLoading = true,
                     ),
@@ -2265,6 +2330,7 @@ class MainViewModel(
                             incomingShare = state.incomingShare.copy(
                                 detailLoading = false,
                                 detail = detail,
+                                selectedNodeIds = emptySet(),
                                 error = null,
                             ),
                         )

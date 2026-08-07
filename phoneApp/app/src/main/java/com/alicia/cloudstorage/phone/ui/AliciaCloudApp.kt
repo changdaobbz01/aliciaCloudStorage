@@ -74,6 +74,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -214,16 +215,6 @@ private fun AliciaMechaTitleGraphic(
 fun AliciaCloudApp(viewModel: MainViewModel) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
-    var pendingIncomingShareDownloadNode by remember { mutableStateOf<StorageNode?>(null) }
-    val incomingShareDownloadLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.CreateDocument("*/*"),
-    ) { uri ->
-        val targetNode = pendingIncomingShareDownloadNode
-        pendingIncomingShareDownloadNode = null
-        if (uri != null && targetNode != null) {
-            viewModel.downloadIncomingShareFileToUri(targetNode, uri)
-        }
-    }
 
     LaunchedEffect(viewModel) {
         viewModel.messages.collect { message ->
@@ -286,14 +277,11 @@ fun AliciaCloudApp(viewModel: MainViewModel) {
             onContinueLogin = viewModel::dismissIncomingShareLoginNotice,
             onVerifyPassword = viewModel::verifyIncomingSharePassword,
             onToggleFolder = viewModel::toggleIncomingShareFolder,
+            onToggleNodeSelection = viewModel::toggleIncomingShareNodeSelection,
             onOpenSaveTargetPicker = viewModel::openIncomingShareSaveTargetPicker,
             onCloseSaveTargetPicker = viewModel::closeIncomingShareSaveTargetPicker,
             onSelectSaveTarget = viewModel::selectIncomingShareSaveTarget,
             onSave = viewModel::saveIncomingShareToDrive,
-            onDownload = { node ->
-                pendingIncomingShareDownloadNode = node
-                incomingShareDownloadLauncher.launch(node.name)
-            },
         )
     }
 
@@ -563,6 +551,7 @@ private fun MainShell(
     var batchMoveOpen by rememberSaveable { mutableStateOf(false) }
     var batchMoveTargetId by rememberSaveable { mutableStateOf<Long?>(null) }
     var pendingDownloadNode by remember { mutableStateOf<StorageNode?>(null) }
+    var pendingArchiveDownloadNodeIds by remember { mutableStateOf<List<Long>>(emptyList()) }
     var pendingBaseUrlSwitch by rememberSaveable { mutableStateOf<String?>(null) }
     var logoutConfirmOpen by rememberSaveable { mutableStateOf(false) }
     val avatarUrl = remember(uiState.baseUrl, currentUser.id, currentUser.avatarUrl) {
@@ -617,6 +606,16 @@ private fun MainShell(
         pendingDownloadNode = null
         if (uri != null && targetNode != null) {
             viewModel.downloadFileToUri(targetNode, uri)
+        }
+    }
+
+    val archiveSaveLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/zip"),
+    ) { uri ->
+        val targetNodeIds = pendingArchiveDownloadNodeIds
+        pendingArchiveDownloadNodeIds = emptyList()
+        if (uri != null && targetNodeIds.isNotEmpty()) {
+            viewModel.downloadArchiveToUri(targetNodeIds, uri)
         }
     }
 
@@ -683,7 +682,6 @@ private fun MainShell(
             AppTab.HOME -> HomeScreen(
                 paddingValues = contentPadding,
                 currentUser = currentUser,
-                avatarUrl = avatarUrl,
                 home = uiState.home,
                 fileKeyword = uiState.files.keyword,
                 recentNodes = uiState.home.recentNodes,
@@ -693,7 +691,6 @@ private fun MainShell(
                 onOpenRecentNode = viewModel::revealNodeInFiles,
                 onOpenTrash = { viewModel.selectTab(AppTab.TRASH) },
                 onOpenTeam = { viewModel.selectTab(AppTab.TEAM) },
-                onOpenAccount = { accountSheetOpen = true },
                 onUpload = { uploadLauncher.launch(arrayOf("*/*")) },
                 onRefresh = viewModel::refreshCurrentTab,
                 onRecentMore = { node -> actionSheetNode = node },
@@ -735,6 +732,11 @@ private fun MainShell(
                     batchMoveTargetId = null
                     batchMoveOpen = true
                     viewModel.loadMoveTargets()
+                },
+                onBatchDownload = {
+                    val selectedNodeIds = activeExplorer.selectedNodeIds.toList()
+                    pendingArchiveDownloadNodeIds = selectedNodeIds
+                    archiveSaveLauncher.launch(suggestedArchiveFileName(activeExplorer.items, selectedNodeIds))
                 },
                 onBatchTrash = { batchTrashConfirmOpen = true },
                 onBatchRestore = viewModel::restoreSelectedNodes,
@@ -902,8 +904,13 @@ private fun MainShell(
             },
             onDownload = {
                 actionSheetNode = null
-                pendingDownloadNode = node
-                saveLauncher.launch(node.name)
+                if (node.type == StorageNodeType.FOLDER) {
+                    pendingArchiveDownloadNodeIds = listOf(node.id)
+                    archiveSaveLauncher.launch(suggestedArchiveFileName(node))
+                } else {
+                    pendingDownloadNode = node
+                    saveLauncher.launch(node.name)
+                }
             },
             onShare = {
                 actionSheetNode = null
@@ -1117,7 +1124,6 @@ private fun MainShell(
 private fun HomeScreen(
     paddingValues: PaddingValues,
     currentUser: User,
-    avatarUrl: String?,
     home: HomeUiState,
     fileKeyword: String,
     recentNodes: List<StorageNode>,
@@ -1127,7 +1133,6 @@ private fun HomeScreen(
     onOpenRecentNode: (StorageNode) -> Unit,
     onOpenTrash: () -> Unit,
     onOpenTeam: () -> Unit,
-    onOpenAccount: () -> Unit,
     onUpload: () -> Unit,
     onRefresh: () -> Unit,
     onRecentMore: (StorageNode) -> Unit,
@@ -1477,6 +1482,7 @@ private fun FilesScreen(
     onClearSelection: () -> Unit,
     onSelectAll: () -> Unit,
     onBatchMove: () -> Unit,
+    onBatchDownload: () -> Unit,
     onBatchTrash: () -> Unit,
     onBatchRestore: () -> Unit,
     onBatchPermanentDelete: () -> Unit,
@@ -1591,6 +1597,7 @@ private fun FilesScreen(
                                     onSelectAll = onSelectAll,
                                     onClear = onClearSelection,
                                     onMove = onBatchMove,
+                                    onDownload = onBatchDownload,
                                     onTrash = onBatchTrash,
                                     onRestore = onBatchRestore,
                                     onPermanentDelete = onBatchPermanentDelete,
@@ -1694,6 +1701,7 @@ private fun AliciaBatchSelectionPanel(
     onSelectAll: () -> Unit,
     onClear: () -> Unit,
     onMove: () -> Unit,
+    onDownload: () -> Unit,
     onTrash: () -> Unit,
     onRestore: () -> Unit,
     onPermanentDelete: () -> Unit,
@@ -1746,10 +1754,15 @@ private fun AliciaBatchSelectionPanel(
                 )
             } else {
                 AliciaBatchActionChip(
+                    label = "下载",
+                    onClick = onDownload,
+                    enabled = !busy,
+                    primary = true,
+                )
+                AliciaBatchActionChip(
                     label = "移动",
                     onClick = onMove,
                     enabled = !busy,
-                    primary = true,
                 )
                 AliciaBatchActionChip(
                     label = "删除",
@@ -1908,13 +1921,12 @@ private fun MoveTargetOptionRow(
     selected: Boolean,
     onClick: () -> Unit,
 ) {
-    AliciaMechaPanel(
+    AliciaMechaLinePanel(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
         contentPadding = PaddingValues(start = 14.dp, top = 12.dp, end = 14.dp, bottom = 12.dp),
-        backgroundResId = if (selected) R.drawable.alicia_9_team_summary else R.drawable.alicia_9_file_row,
-        backgroundSlice = 30.dp,
+        selected = selected,
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -2904,11 +2916,10 @@ private fun ShareToggleRow(
     checked: Boolean,
     onToggle: () -> Unit,
 ) {
-    AliciaMechaPanel(
+    AliciaMechaLinePanel(
         modifier = Modifier.fillMaxWidth(),
         contentPadding = PaddingValues(start = 16.dp, top = 12.dp, end = 12.dp, bottom = 12.dp),
-        backgroundResId = if (checked) R.drawable.alicia_9_team_summary else R.drawable.alicia_9_file_row,
-        backgroundSlice = 42.dp,
+        selected = checked,
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -3011,11 +3022,11 @@ private fun IncomingShareBottomSheet(
     onContinueLogin: () -> Unit,
     onVerifyPassword: (String) -> Unit,
     onToggleFolder: (Long) -> Unit,
+    onToggleNodeSelection: (Long) -> Unit,
     onOpenSaveTargetPicker: () -> Unit,
     onCloseSaveTargetPicker: () -> Unit,
     onSelectSaveTarget: (Long?) -> Unit,
     onSave: () -> Unit,
-    onDownload: (StorageNode) -> Unit,
 ) {
     val status = state.status
     val detail = state.detail
@@ -3024,8 +3035,10 @@ private fun IncomingShareBottomSheet(
         state.shareAccessToken.isNullOrBlank()
     val needsLogin = status?.available == true && !needsPassword && !isLoggedIn
     var password by rememberSaveable(state.activeShareCode) { mutableStateOf("") }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     ModalBottomSheet(
+        sheetState = sheetState,
         onDismissRequest = {
             if (!state.passwordChecking && !state.saving) {
                 onDismiss()
@@ -3039,6 +3052,7 @@ private fun IncomingShareBottomSheet(
         AliciaMechaPanel(
             modifier = Modifier
                 .fillMaxWidth()
+                .fillMaxHeight(0.76f)
                 .navigationBarsPadding()
                 .padding(horizontal = 10.dp, vertical = 6.dp),
             contentPadding = PaddingValues(start = 18.dp, top = 16.dp, end = 18.dp, bottom = 16.dp),
@@ -3071,7 +3085,7 @@ private fun IncomingShareBottomSheet(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 520.dp)
+                    .weight(1f)
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
@@ -3120,9 +3134,10 @@ private fun IncomingShareBottomSheet(
                         else -> IncomingShareDetailBody(
                             detail = detail,
                             expandedFolderIds = state.expandedFolderIds,
-                            downloadingNodeId = state.downloadingNodeId,
+                            selectedNodeIds = state.selectedNodeIds,
+                            selectionEnabled = detail.allowSave,
                             onToggleFolder = onToggleFolder,
-                            onDownload = onDownload,
+                            onToggleSelection = onToggleNodeSelection,
                         )
                     }
                 }
@@ -3198,7 +3213,7 @@ private fun IncomingShareBottomSheet(
                             label = "保存到网盘",
                             onClick = onOpenSaveTargetPicker,
                             tone = AliciaMechaActionButtonTone.Primary,
-                            enabled = !state.saving,
+                            enabled = !state.saving && state.selectedNodeIds.isNotEmpty(),
                             modifier = Modifier.weight(1f),
                             height = 42.dp,
                         )
@@ -3245,11 +3260,9 @@ private fun IncomingShareLoadingBlock(message: String) {
 
 @Composable
 private fun IncomingShareMessageBlock(message: String) {
-    AliciaMechaPanel(
+    AliciaMechaLinePanel(
         modifier = Modifier.fillMaxWidth(),
         contentPadding = PaddingValues(start = 16.dp, top = 13.dp, end = 16.dp, bottom = 13.dp),
-        backgroundResId = R.drawable.alicia_9_file_row,
-        backgroundSlice = 42.dp,
     ) {
         Text(
             text = message,
@@ -3299,14 +3312,13 @@ private fun IncomingShareSaveTargetRow(
     selected: Boolean,
     onClick: () -> Unit,
 ) {
-    AliciaMechaPanel(
+    AliciaMechaLinePanel(
         modifier = Modifier
             .fillMaxWidth()
             .padding(start = (depth * 10).dp)
             .clickable(onClick = onClick),
         contentPadding = PaddingValues(start = 14.dp, top = 11.dp, end = 14.dp, bottom = 11.dp),
-        backgroundResId = if (selected) R.drawable.alicia_9_team_summary else R.drawable.alicia_9_file_row,
-        backgroundSlice = 36.dp,
+        selected = selected,
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -3348,9 +3360,10 @@ private fun IncomingShareSaveTargetRow(
 private fun IncomingShareDetailBody(
     detail: ShareLinkDetailResponse,
     expandedFolderIds: Set<Long>,
-    downloadingNodeId: Long?,
+    selectedNodeIds: Set<Long>,
+    selectionEnabled: Boolean,
     onToggleFolder: (Long) -> Unit,
-    onDownload: (StorageNode) -> Unit,
+    onToggleSelection: (Long) -> Unit,
 ) {
     val flattenedItems = remember(detail, expandedFolderIds) { flattenVisibleIncomingShareItems(detail, expandedFolderIds) }
     val folderIdsWithChildren = remember(detail) { detail.items.mapNotNull { it.parentId }.toSet() }
@@ -3382,12 +3395,12 @@ private fun IncomingShareDetailBody(
             IncomingShareNodeRow(
                 node = item.node,
                 depth = item.depth,
-                allowDownload = detail.allowDownload,
+                selected = selectionEnabled && item.node.id in selectedNodeIds,
+                selectionEnabled = selectionEnabled,
                 expanded = item.node.id in expandedFolderIds,
                 hasChildren = item.node.id in folderIdsWithChildren,
-                downloading = downloadingNodeId == item.node.id,
                 onToggleFolder = onToggleFolder,
-                onDownload = onDownload,
+                onToggleSelection = onToggleSelection,
             )
         }
     }
@@ -3408,12 +3421,12 @@ private fun IncomingShareDetailBody(
 private fun IncomingShareNodeRow(
     node: StorageNode,
     depth: Int,
-    allowDownload: Boolean,
+    selected: Boolean,
+    selectionEnabled: Boolean,
     expanded: Boolean,
     hasChildren: Boolean,
-    downloading: Boolean,
     onToggleFolder: (Long) -> Unit,
-    onDownload: (StorageNode) -> Unit,
+    onToggleSelection: (Long) -> Unit,
 ) {
     val isFolderWithChildren = node.type == StorageNodeType.FOLDER && hasChildren
     val clickableModifier = if (isFolderWithChildren) {
@@ -3422,20 +3435,25 @@ private fun IncomingShareNodeRow(
         Modifier
     }
 
-    AliciaMechaPanel(
+    AliciaMechaLinePanel(
         modifier = Modifier
             .fillMaxWidth()
             .padding(start = (depth * 10).dp)
             .then(clickableModifier),
         contentPadding = PaddingValues(start = 13.dp, top = 10.dp, end = 12.dp, bottom = 10.dp),
-        backgroundResId = R.drawable.alicia_9_file_row,
-        backgroundSlice = 42.dp,
+        selected = selected,
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            if (selectionEnabled) {
+                IncomingShareSelectionDot(
+                    selected = selected,
+                    onClick = { onToggleSelection(node.id) },
+                )
+            }
             Icon(
                 imageVector = if (node.type == StorageNodeType.FOLDER) Icons.Rounded.FolderOpen else Icons.Rounded.Preview,
                 contentDescription = node.name,
@@ -3467,15 +3485,7 @@ private fun IncomingShareNodeRow(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            if (node.type == StorageNodeType.FILE && allowDownload) {
-                AliciaMechaTeamCompactButton(
-                    label = if (downloading) "保存中" else "下载",
-                    onClick = { onDownload(node) },
-                    enabled = !downloading,
-                    minWidth = 58.dp,
-                    height = 28.dp,
-                )
-            } else if (isFolderWithChildren) {
+            if (isFolderWithChildren) {
                 Icon(
                     imageVector = if (expanded) Icons.Rounded.ExpandMore else Icons.Rounded.ChevronRight,
                     contentDescription = if (expanded) "收起文件夹" else "展开文件夹",
@@ -3488,15 +3498,44 @@ private fun IncomingShareNodeRow(
 }
 
 @Composable
+private fun IncomingShareSelectionDot(
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier
+            .size(24.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(8.dp),
+        color = if (selected) Color(0xFF2B67E7) else Color(0xFFEAF1FF),
+        tonalElevation = 0.dp,
+        shadowElevation = if (selected) 4.dp else 0.dp,
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = if (selected) "✓" else "",
+                color = Color.White,
+                fontFamily = AliciaMechaFontFamily,
+                fontWeight = FontWeight.Black,
+                fontSize = 15.sp,
+                lineHeight = 16.sp,
+            )
+        }
+    }
+}
+
+@Composable
 private fun ShareResultBlock(
     label: String,
     value: String,
 ) {
-    AliciaMechaPanel(
+    AliciaMechaLinePanel(
         modifier = Modifier.fillMaxWidth(),
         contentPadding = PaddingValues(start = 16.dp, top = 12.dp, end = 16.dp, bottom = 12.dp),
-        backgroundResId = R.drawable.alicia_9_file_row,
-        backgroundSlice = 42.dp,
     ) {
         Column(
             verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -3605,6 +3644,27 @@ private fun flattenFolderPickerItems(folders: List<StorageNode>): List<IncomingF
     return flattenedItems
 }
 
+private fun suggestedArchiveFileName(nodes: List<StorageNode>, selectedNodeIds: List<Long>): String {
+    if (selectedNodeIds.size != 1) {
+        return "AliciaCloud.zip"
+    }
+
+    return nodes.firstOrNull { it.id == selectedNodeIds.first() }
+        ?.let(::suggestedArchiveFileName)
+        ?: "AliciaCloud.zip"
+}
+
+private fun suggestedArchiveFileName(node: StorageNode): String {
+    val normalizedName = node.name.trim().ifBlank { "AliciaCloud" }
+    val baseName = if (normalizedName.lowercase(Locale.getDefault()).endsWith(".zip")) {
+        normalizedName.dropLast(4)
+    } else {
+        normalizedName
+    }
+
+    return "$baseName.zip"
+}
+
 private fun generateSharePassword(): String {
     val alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
     return buildString {
@@ -3707,6 +3767,12 @@ private fun NodeActionSheet(
                             hint = "进入目录继续浏览",
                             onClick = onOpen,
                         )
+                        SheetActionButton(
+                            icon = Icons.Rounded.Download,
+                            label = "下载文件夹",
+                            hint = "打包成 ZIP 保存到本地",
+                            onClick = onDownload,
+                        )
                     } else {
                         SheetActionButton(
                             icon = Icons.Rounded.Preview,
@@ -3748,13 +3814,12 @@ private fun SheetActionButton(
     onClick: () -> Unit,
     danger: Boolean = false,
 ) {
-    AliciaMechaPanel(
+    AliciaMechaLinePanel(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
         contentPadding = PaddingValues(start = 16.dp, top = 13.dp, end = 16.dp, bottom = 13.dp),
-        backgroundResId = R.drawable.alicia_9_file_row,
-        backgroundSlice = 42.dp,
+        danger = danger,
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -3828,11 +3893,9 @@ private fun AppUpdateDialog(
                 fontSize = 13.sp,
                 lineHeight = 19.sp,
             )
-            AliciaMechaPanel(
+            AliciaMechaLinePanel(
                 modifier = Modifier.fillMaxWidth(),
                 contentPadding = PaddingValues(start = 16.dp, top = 14.dp, end = 16.dp, bottom = 14.dp),
-                backgroundResId = R.drawable.alicia_9_file_row,
-                backgroundSlice = 42.dp,
             ) {
                 Text(
                     text = "更新说明",
@@ -3966,11 +4029,9 @@ private fun ImagePreviewContent(
     previewUrl: String,
     fileName: String,
 ) {
-    AliciaMechaPanel(
+    AliciaMechaLinePanel(
         modifier = Modifier.fillMaxWidth(),
         contentPadding = PaddingValues(10.dp),
-        backgroundResId = R.drawable.alicia_9_file_row,
-        backgroundSlice = 42.dp,
     ) {
         SubcomposeAsyncImage(
             model = previewUrl,
@@ -4056,11 +4117,9 @@ private fun PdfPreviewContent(filePath: String) {
             }
         }
 
-        AliciaMechaPanel(
+        AliciaMechaLinePanel(
             modifier = Modifier.fillMaxWidth(),
             contentPadding = PaddingValues(10.dp),
-            backgroundResId = R.drawable.alicia_9_file_row,
-            backgroundSlice = 42.dp,
         ) {
             Image(
                 bitmap = pageBitmap.asImageBitmap(),
@@ -4087,11 +4146,9 @@ private fun VideoPreviewContent(previewUrl: String) {
         }
     }
 
-    AliciaMechaPanel(
+    AliciaMechaLinePanel(
         modifier = Modifier.fillMaxWidth(),
         contentPadding = PaddingValues(10.dp),
-        backgroundResId = R.drawable.alicia_9_file_row,
-        backgroundSlice = 42.dp,
     ) {
         Box(
             modifier = Modifier
@@ -4203,11 +4260,9 @@ private fun AudioPreviewContent(previewUrl: String) {
         }
     }
 
-    AliciaMechaPanel(
+    AliciaMechaLinePanel(
         modifier = Modifier.fillMaxWidth(),
         contentPadding = PaddingValues(16.dp),
-        backgroundResId = R.drawable.alicia_9_file_row,
-        backgroundSlice = 42.dp,
     ) {
         Column(
             modifier = Modifier.fillMaxWidth(),

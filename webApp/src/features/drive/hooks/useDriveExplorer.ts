@@ -7,6 +7,7 @@ import {
   createFolder,
   createMultipartUpload,
   deleteStorageNodes,
+  downloadStorageArchive,
   downloadStorageFile,
   fetchStorageFileAccessUrl,
   fetchStorageFolders,
@@ -178,6 +179,17 @@ function wait(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function saveBlobToLocalFile(blob: Blob, fileName: string) {
+  const objectUrl = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = objectUrl;
+  anchor.download = fileName;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+}
+
 function toHex(buffer: ArrayBuffer) {
   return Array.from(new Uint8Array(buffer))
     .map((byte) => byte.toString(16).padStart(2, '0'))
@@ -232,6 +244,7 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
   const [uploading, setUploading] = useState(false);
   const [uploadTasks, setUploadTasks] = useState<DriveUploadTask[]>([]);
   const [downloadingFileId, setDownloadingFileId] = useState<number | null>(null);
+  const [downloadingArchive, setDownloadingArchive] = useState(false);
   const [previewState, setPreviewState] = useState<DrivePreviewState>(initialPreviewState);
   const [error, setError] = useState<string | null>(null);
   const [keywordInput, setKeywordInput] = useState('');
@@ -765,6 +778,27 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
     }
   }
 
+  async function handleDownloadSelection() {
+    if (!authToken || selectedItems.length === 0 || isTrashView) {
+      return;
+    }
+
+    setDownloadingArchive(true);
+
+    try {
+      const { blob, fileName } = await downloadStorageArchive(
+        { nodeIds: selectedItems.map((item) => item.id) },
+        authToken,
+      );
+      saveBlobToLocalFile(blob, fileName ?? 'AliciaCloud.zip');
+      message.success(selectedItems.length === 1 ? '已开始下载选中项目。' : `已开始打包下载 ${selectedItems.length} 项。`);
+    } catch (downloadError) {
+      message.error(downloadError instanceof Error ? downloadError.message : '下载选中项目失败。');
+    } finally {
+      setDownloadingArchive(false);
+    }
+  }
+
   async function handlePreviewFile(item: StorageNode) {
     if (!authToken || item.type !== 'FILE') {
       return;
@@ -1061,6 +1095,7 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
     uploadTasks,
     overallUploadProgress,
     downloadingFileId,
+    downloadingArchive,
     previewState,
     previewTarget,
     previewingFileId,
@@ -1082,6 +1117,7 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
     handleUploadButtonClick,
     handleSelectedFiles,
     handleDownloadFile,
+    handleDownloadSelection,
     handlePreviewFile,
     deleteNodes,
     restoreNodes,

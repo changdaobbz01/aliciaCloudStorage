@@ -236,4 +236,5 @@ export type ShareLinkDetail = {
 
 export type SaveShareLinkPayload = {
   parentId?: number | null;
+  selectedNodeIds?: number[] | null;
 };

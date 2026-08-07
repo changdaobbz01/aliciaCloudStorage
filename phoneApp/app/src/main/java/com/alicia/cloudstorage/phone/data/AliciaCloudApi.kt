@@ -176,6 +176,13 @@ interface AliciaCloudService {
         @Body payload: BatchNodePayload,
     ): Response<ApiMessageResponse>
 
+    @Streaming
+    @POST("api/storage/nodes/archive")
+    suspend fun downloadArchive(
+        @Header("Authorization") authorization: String,
+        @Body payload: BatchNodePayload,
+    ): Response<ResponseBody>
+
     @POST("api/share-links")
     suspend fun createShareLink(
         @Header("Authorization") authorization: String,
@@ -207,15 +214,6 @@ interface AliciaCloudService {
         @Path("shareCode") shareCode: String,
         @Body payload: SaveShareLinkPayload,
     ): Response<List<StorageNode>>
-
-    @GET("api/share-links/{shareCode}/files/{fileId}/access-url")
-    suspend fun fetchShareFileAccessUrl(
-        @Header("Authorization") authorization: String,
-        @Header("X-Share-Access-Token") shareAccessToken: String?,
-        @Path("shareCode") shareCode: String,
-        @Path("fileId") fileId: Long,
-        @Query("disposition") disposition: String,
-    ): Response<SignedUrlResponse>
 
     @Streaming
     @GET("api/storage/files/{fileId}/download")

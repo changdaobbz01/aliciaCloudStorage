@@ -1,6 +1,5 @@
 import {
   AndroidOutlined,
-  CloudDownloadOutlined,
   CloudServerOutlined,
   FileOutlined,
   FolderOpenFilled,
@@ -9,6 +8,7 @@ import {
 } from '@ant-design/icons';
 import { Alert, App as AntApp, Button, Card, Form, Input, Modal, Result, Space, Spin, Table, TreeSelect, Typography } from 'antd';
 import type { TableProps } from 'antd';
+import type { Key } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { RegulatoryFooter } from '../components/RegulatoryFooter';
@@ -17,7 +17,6 @@ import {
   fetchStorageFolders,
   fetchPublicShareStatus,
   fetchShareDetail,
-  fetchShareFileAccessUrl,
   isApiError,
   saveShareToDrive,
   verifySharePassword,
@@ -210,19 +209,24 @@ export function SharePage() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [passwordChecking, setPasswordChecking] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [downloadingFileId, setDownloadingFileId] = useState<number | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
   const [showMobileOpenHint, setShowMobileOpenHint] = useState(false);
   const [saveTargetOpen, setSaveTargetOpen] = useState(false);
   const [saveFolderOptions, setSaveFolderOptions] = useState<StorageNode[]>([]);
   const [saveFolderOptionsLoading, setSaveFolderOptionsLoading] = useState(false);
   const [saveParentKey, setSaveParentKey] = useState(ROOT_PARENT_KEY);
+  const [selectedShareRowKeys, setSelectedShareRowKeys] = useState<Key[]>([]);
   const shareTree = useMemo(() => buildShareTree(detail), [detail]);
   const saveFolderTreeData = useMemo(() => buildFolderTree(saveFolderOptions), [saveFolderOptions]);
+  const selectedShareNodeIds = useMemo(
+    () => selectedShareRowKeys.map(Number).filter((nodeId) => Number.isFinite(nodeId)),
+    [selectedShareRowKeys],
+  );
 
   useEffect(() => {
     setShareAccessToken(loadStoredShareAccess(shareCode));
     setDetail(null);
+    setSelectedShareRowKeys([]);
     setShowMobileOpenHint(Boolean(shareCode) && isLikelyMobileClient());
   }, [shareCode]);
 
@@ -352,6 +356,11 @@ export function SharePage() {
       return;
     }
 
+    if (selectedShareNodeIds.length === 0) {
+      message.warning('请先选择要保存的分享内容。');
+      return;
+    }
+
     setSaveParentKey(ROOT_PARENT_KEY);
     setSaveTargetOpen(true);
     void loadSaveFolderOptions();
@@ -366,37 +375,20 @@ export function SharePage() {
 
     try {
       const parentId = saveParentKey === ROOT_PARENT_KEY ? null : Number(saveParentKey);
-      await saveShareToDrive(detail.shareCode, { parentId }, authToken, shareAccessToken);
+      await saveShareToDrive(
+        detail.shareCode,
+        { parentId, selectedNodeIds: selectedShareNodeIds },
+        authToken,
+        shareAccessToken,
+      );
       message.success(parentId === null ? '已保存到你的网盘根目录。' : '已保存到选定文件夹。');
       setSaveTargetOpen(false);
+      setSelectedShareRowKeys([]);
       void navigate('/');
     } catch (error) {
       message.error(error instanceof Error ? error.message : '保存失败。');
     } finally {
       setSaving(false);
-    }
-  }
-
-  async function handleDownloadFile(item: StorageNode) {
-    if (!authToken || !detail || item.type !== 'FILE') {
-      return;
-    }
-
-    setDownloadingFileId(item.id);
-
-    try {
-      const access = await fetchShareFileAccessUrl(detail.shareCode, item.id, authToken, shareAccessToken, 'attachment');
-      const anchor = document.createElement('a');
-      anchor.href = access.url;
-      anchor.target = '_blank';
-      anchor.rel = 'noreferrer';
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
-    } catch (error) {
-      message.error(error instanceof Error ? error.message : '下载失败。');
-    } finally {
-      setDownloadingFileId(null);
     }
   }
 
@@ -437,24 +429,6 @@ export function SharePage() {
       key: 'updatedAt',
       width: 200,
       render: (value: string) => formatTimestamp(value),
-    },
-    {
-      title: '操作',
-      key: 'actions',
-      width: 140,
-      render: (_, item) =>
-        item.type === 'FILE' && detail?.allowDownload ? (
-          <Button
-            type="link"
-            icon={<CloudDownloadOutlined />}
-            loading={downloadingFileId === item.id}
-            onClick={() => void handleDownloadFile(item)}
-          >
-            下载
-          </Button>
-        ) : (
-          <Typography.Text className="muted-text">-</Typography.Text>
-        ),
     },
   ];
 
@@ -524,7 +498,13 @@ export function SharePage() {
           </div>
           <div className="panel-actions">
             {detail.allowSave ? (
-              <Button type="primary" icon={<SaveOutlined />} loading={saving} onClick={openSaveTargetModal}>
+              <Button
+                type="primary"
+                icon={<SaveOutlined />}
+                loading={saving}
+                disabled={selectedShareNodeIds.length === 0}
+                onClick={openSaveTargetModal}
+              >
                 保存到我的网盘
               </Button>
             ) : null}
@@ -541,6 +521,16 @@ export function SharePage() {
           columns={columns}
           dataSource={shareTree}
           pagination={false}
+          rowSelection={
+            detail.allowSave
+              ? {
+                  selectedRowKeys: selectedShareRowKeys,
+                  checkStrictly: true,
+                  onChange: (nextSelectedRowKeys) => setSelectedShareRowKeys(nextSelectedRowKeys),
+                  getCheckboxProps: () => ({ disabled: saving }),
+                }
+              : undefined
+          }
           scroll={{ x: 900 }}
           expandable={{
             defaultExpandAllRows: false,

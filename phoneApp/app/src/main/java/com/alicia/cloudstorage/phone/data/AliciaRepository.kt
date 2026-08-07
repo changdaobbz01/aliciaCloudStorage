@@ -462,40 +462,53 @@ class AliciaRepository(
         shareCode: String,
         shareAccessToken: String?,
         parentId: Long?,
+        selectedNodeIds: List<Long>? = null,
     ): List<StorageNode> =
         serviceFactory.serviceFor(baseUrl)
             .saveShareToDrive(
                 authorization = authorization(token),
                 shareAccessToken = shareAccessToken,
                 shareCode = shareCode,
-                payload = SaveShareLinkPayload(parentId = parentId),
+                payload = SaveShareLinkPayload(
+                    parentId = parentId,
+                    selectedNodeIds = selectedNodeIds,
+                ),
             )
             .requireBody(fallback = "保存分享失败。")
 
-    suspend fun saveShareFileToUriViaSignedUrl(
+    suspend fun saveArchiveToUri(
         context: Context,
         baseUrl: String,
         token: String,
-        shareCode: String,
-        shareAccessToken: String?,
-        fileId: Long,
+        nodeIds: List<Long>,
         destinationUri: Uri,
     ): String {
-        val access = fetchShareFileAccessUrl(
-            baseUrl = baseUrl,
-            token = token,
-            shareCode = shareCode,
-            shareAccessToken = shareAccessToken,
-            fileId = fileId,
-            disposition = "attachment",
-        )
+        val response = serviceFactory.serviceFor(baseUrl)
+            .downloadArchive(
+                authorization = authorization(token),
+                payload = BatchNodePayload(nodeIds = nodeIds),
+            )
 
-        return copySignedFileToUri(
-            context = context,
-            access = access,
-            destinationUri = destinationUri,
-            fallbackFileName = "share-download.bin",
-        )
+        if (!response.isSuccessful) {
+            val payload = runCatching { response.errorBody()?.string() }.getOrNull()
+            throw ApiException(
+                message = payload.toReadableError(response.code(), "下载选中项目失败。"),
+                status = response.code(),
+            )
+        }
+
+        val fileName = parseFileName(response.headers()["content-disposition"]) ?: "AliciaCloud.zip"
+        val body = response.body() ?: throw ApiException("下载选中项目失败。", response.code())
+
+        body.use { responseBody ->
+            context.contentResolver.openOutputStream(destinationUri)?.use { output ->
+                responseBody.byteStream().use { input ->
+                    input.copyTo(output)
+                }
+            } ?: throw ApiException("无法写入你选择的保存位置。", 400)
+        }
+
+        return fileName
     }
 
     suspend fun downloadFile(
@@ -617,24 +630,6 @@ class AliciaRepository(
                 disposition = disposition,
             )
             .requireBody(fallback = "获取文件访问地址失败。")
-
-    private suspend fun fetchShareFileAccessUrl(
-        baseUrl: String,
-        token: String,
-        shareCode: String,
-        shareAccessToken: String?,
-        fileId: Long,
-        disposition: String,
-    ): SignedUrlResponse =
-        serviceFactory.serviceFor(baseUrl)
-            .fetchShareFileAccessUrl(
-                authorization = authorization(token),
-                shareAccessToken = shareAccessToken,
-                shareCode = shareCode,
-                fileId = fileId,
-                disposition = disposition,
-            )
-            .requireBody(fallback = "获取分享文件访问地址失败。")
 
     private suspend fun copySignedFileToUri(
         context: Context,

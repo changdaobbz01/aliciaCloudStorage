@@ -1,4 +1,5 @@
 import {
+  CloudDownloadOutlined,
   DeleteOutlined,
   FolderAddOutlined,
   ReloadOutlined,
@@ -27,6 +28,7 @@ type DriveExplorerViewProps = {
   uploadTasks: DriveUploadTask[];
   overallUploadProgress: number;
   downloadingFileId: number | null;
+  downloadingArchive: boolean;
   previewingFileId: number | null;
   onRefresh: () => void;
   onUploadClick: () => void;
@@ -37,6 +39,7 @@ type DriveExplorerViewProps = {
   onDeleteSelection: () => void;
   onPermanentDeleteSelection: () => void;
   onOpenBatchMove: () => void;
+  onDownloadSelection: () => void;
   onCancelActiveUploads: () => void;
   onRetryFailedUploads: () => void;
   onClearUploadHistory: () => void;
@@ -98,6 +101,7 @@ export default function DriveExplorerView({
   uploadTasks,
   overallUploadProgress,
   downloadingFileId,
+  downloadingArchive,
   previewingFileId,
   onRefresh,
   onUploadClick,
@@ -108,6 +112,7 @@ export default function DriveExplorerView({
   onDeleteSelection,
   onPermanentDeleteSelection,
   onOpenBatchMove,
+  onDownloadSelection,
   onCancelActiveUploads,
   onRetryFailedUploads,
   onClearUploadHistory,
@@ -180,6 +185,14 @@ export default function DriveExplorerView({
             </>
           ) : (
             <>
+              <Button
+                icon={<CloudDownloadOutlined />}
+                disabled={selectedCount === 0}
+                loading={downloadingArchive}
+                onClick={onDownloadSelection}
+              >
+                下载选中
+              </Button>
               <Button icon={<SwapOutlined />} disabled={selectedCount === 0} onClick={onOpenBatchMove}>
                 移动所选
               </Button>

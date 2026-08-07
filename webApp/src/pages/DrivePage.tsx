@@ -363,6 +363,7 @@ export function DrivePage() {
           uploadTasks={uploadTasks}
           overallUploadProgress={overallUploadProgress}
           downloadingFileId={downloadingFileId}
+          downloadingArchive={explorer.downloadingArchive}
           previewingFileId={previewingFileId}
           onRefresh={() => void refreshCurrentView()}
           onUploadClick={handleUploadButtonClick}
@@ -373,6 +374,7 @@ export function DrivePage() {
           onDeleteSelection={() => void handleDeleteNodes(selectedItems)}
           onPermanentDeleteSelection={() => handlePermanentlyDeleteNodes(selectedItems)}
           onOpenBatchMove={storageDialogs.openBatchMoveModal}
+          onDownloadSelection={() => void explorer.handleDownloadSelection()}
           onCancelActiveUploads={explorer.cancelActiveUploads}
           onRetryFailedUploads={() => void explorer.retryFailedUploads()}
           onClearUploadHistory={explorer.clearUploadHistory}

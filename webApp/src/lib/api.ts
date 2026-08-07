@@ -799,6 +799,19 @@ export function fetchStorageFileAccessUrl(
   );
 }
 
+export function downloadStorageArchive(payload: BatchNodePayload, token: string) {
+  return requestBlob(
+    '/api/storage/nodes/archive',
+    withToken(token, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    }),
+  );
+}
+
 /**
  * 重命名指定文件或文件夹。
  */

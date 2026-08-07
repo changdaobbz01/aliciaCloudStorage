@@ -229,6 +229,7 @@ data class ShareLinkDetailResponse(
 
 data class SaveShareLinkPayload(
     val parentId: Long?,
+    val selectedNodeIds: List<Long>? = null,
 )
 
 val User.isAdmin: Boolean

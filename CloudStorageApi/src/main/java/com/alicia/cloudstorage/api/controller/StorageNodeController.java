@@ -16,6 +16,7 @@ import com.alicia.cloudstorage.api.dto.SignedUrlResponse;
 import com.alicia.cloudstorage.api.dto.StorageNodeSummaryResponse;
 import com.alicia.cloudstorage.api.dto.UsageHistoryPointResponse;
 import com.alicia.cloudstorage.api.service.StorageCommandService;
+import com.alicia.cloudstorage.api.service.StorageArchiveService;
 import com.alicia.cloudstorage.api.service.StorageMultipartUploadService;
 import com.alicia.cloudstorage.api.service.StorageQueryService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -37,6 +38,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -46,18 +48,22 @@ import java.util.List;
 public class StorageNodeController {
 
     private static final String VERSIONED_PRIVATE_FILE_CACHE_CONTROL = "private, max-age=2592000, immutable";
+    private static final String PRIVATE_DOWNLOAD_CACHE_CONTROL = "private, no-store";
 
     private final StorageQueryService storageQueryService;
     private final StorageCommandService storageCommandService;
+    private final StorageArchiveService storageArchiveService;
     private final StorageMultipartUploadService storageMultipartUploadService;
 
     public StorageNodeController(
             StorageQueryService storageQueryService,
             StorageCommandService storageCommandService,
+            StorageArchiveService storageArchiveService,
             StorageMultipartUploadService storageMultipartUploadService
     ) {
         this.storageQueryService = storageQueryService;
         this.storageCommandService = storageCommandService;
+        this.storageArchiveService = storageArchiveService;
         this.storageMultipartUploadService = storageMultipartUploadService;
     }
 
@@ -355,5 +361,26 @@ public class StorageNodeController {
                 payload.contentType(),
                 payload.expiresAtEpochMillis()
         );
+    }
+
+    @PostMapping("/nodes/archive")
+    public ResponseEntity<StreamingResponseBody> downloadArchive(
+            @RequestAttribute(AuthRequestAttributes.CURRENT_USER_ID) Long userId,
+            @Valid @RequestBody BatchNodeRequest request
+    ) {
+        StorageArchiveService.StorageArchivePayload archivePayload = storageArchiveService.createArchive(userId, request);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CACHE_CONTROL, PRIVATE_DOWNLOAD_CACHE_CONTROL)
+                .header(HttpHeaders.VARY, HttpHeaders.AUTHORIZATION)
+                .contentType(MediaType.parseMediaType("application/zip"))
+                .header(
+                        HttpHeaders.CONTENT_DISPOSITION,
+                        ContentDisposition.attachment()
+                                .filename(archivePayload.fileName(), StandardCharsets.UTF_8)
+                                .build()
+                                .toString()
+                )
+                .body(archivePayload.body());
     }
 }

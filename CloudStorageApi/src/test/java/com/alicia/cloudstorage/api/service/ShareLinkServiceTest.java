@@ -169,10 +169,71 @@ class ShareLinkServiceTest {
         when(storageNodeRepository.findByIdAndOwnerIdAndDeletedFalse(41L, 9L)).thenReturn(Optional.of(sharedFile));
         when(storageCommandService.copySharedNodesToUser(20L, List.of(sharedFile), null)).thenReturn(List.of(copiedFile));
 
-        var copiedNodes = shareLinkService.saveShare(20L, "share-code", null, new SaveShareLinkRequest(null));
+        var copiedNodes = shareLinkService.saveShare(20L, "share-code", null, new SaveShareLinkRequest(null, null));
 
         assertThat(copiedNodes).containsExactly(copiedFile);
         verify(storageCommandService).copySharedNodesToUser(20L, List.of(sharedFile), null);
+    }
+
+    @Test
+    void saveShareRejectsSelectedItemOutsideSharedScope() {
+        ShareLink shareLink = activeShare(6L, 9L, "share-code");
+        StorageNode sharedFile = fileNode(61L, 9L, null, "report.pdf", "cos/report.pdf");
+        ShareLinkItem shareItem = shareItem(6L, 61L);
+
+        when(shareLinkRepository.findByShareCode("share-code")).thenReturn(Optional.of(shareLink));
+        when(shareLinkItemRepository.findByShareIdOrderBySortOrderAsc(6L)).thenReturn(List.of(shareItem));
+        when(storageNodeRepository.findByIdAndOwnerIdAndDeletedFalse(61L, 9L)).thenReturn(Optional.of(sharedFile));
+
+        assertThatThrownBy(() -> shareLinkService.saveShare(
+                20L,
+                "share-code",
+                null,
+                new SaveShareLinkRequest(null, List.of(99L))
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Selected share item is not available.");
+
+        verify(storageCommandService, never()).copySharedNodesToUser(
+                org.mockito.ArgumentMatchers.anyLong(),
+                org.mockito.ArgumentMatchers.anyList(),
+                org.mockito.ArgumentMatchers.any()
+        );
+    }
+
+    @Test
+    void saveShareCollapsesSelectedParentAndChildBeforeCopying() {
+        ShareLink shareLink = activeShare(7L, 9L, "share-code");
+        StorageNode sharedFolder = folderNode(71L, 9L, null, "docs");
+        StorageNode sharedChild = fileNode(72L, 9L, 71L, "report.pdf", "cos/report.pdf");
+        ShareLinkItem shareItem = shareItem(7L, 71L);
+        StorageNodeSummaryResponse copiedFolder = new StorageNodeSummaryResponse(
+                90L,
+                null,
+                "docs",
+                "FOLDER",
+                0L,
+                null,
+                null,
+                LocalDateTime.now(),
+                null
+        );
+
+        when(shareLinkRepository.findByShareCode("share-code")).thenReturn(Optional.of(shareLink));
+        when(shareLinkItemRepository.findByShareIdOrderBySortOrderAsc(7L)).thenReturn(List.of(shareItem));
+        when(storageNodeRepository.findByIdAndOwnerIdAndDeletedFalse(71L, 9L)).thenReturn(Optional.of(sharedFolder));
+        when(storageNodeRepository.findByOwnerIdAndParentIdAndDeletedFalse(9L, 71L)).thenReturn(List.of(sharedChild));
+        when(storageCommandService.copySharedNodesToUser(20L, List.of(sharedFolder), null)).thenReturn(List.of(copiedFolder));
+
+        var copiedNodes = shareLinkService.saveShare(
+                20L,
+                "share-code",
+                null,
+                new SaveShareLinkRequest(null, List.of(71L, 72L))
+        );
+
+        assertThat(copiedNodes).containsExactly(copiedFolder);
+        verify(storageCommandService).copySharedNodesToUser(20L, List.of(sharedFolder), null);
     }
 
     private ShareLink activeShare(Long id, Long ownerId, String shareCode) {

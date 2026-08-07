@@ -47,6 +47,7 @@ public class ShareLinkService {
     private static final int SHARE_CODE_RANDOM_BYTES = 12;
     private static final int SHARE_CODE_MAX_ATTEMPTS = 12;
     private static final int MAX_SHARE_ITEMS = 20;
+    private static final int MAX_SAVE_SELECTED_ITEMS = 500;
     private static final int SHARE_ACCESS_TOKEN_EXPIRE_MINUTES = 120;
     private static final int MAX_PASSWORD_FAILURES = 5;
     private static final int PASSWORD_FAILURE_WINDOW_MINUTES = 10;
@@ -228,7 +229,13 @@ public class ShareLinkService {
 
         List<StorageNode> rootNodes = loadActiveSharedRootNodes(shareLink);
         Long parentId = request == null ? null : request.parentId();
-        return storageCommandService.copySharedNodesToUser(visitorUserId, rootNodes, parentId);
+        List<Long> selectedNodeIds = request == null ? null : request.selectedNodeIds();
+        if (selectedNodeIds == null) {
+            return storageCommandService.copySharedNodesToUser(visitorUserId, rootNodes, parentId);
+        }
+
+        List<StorageNode> selectedRootNodes = resolveSelectedSharedRootNodes(shareLink.getOwnerId(), rootNodes, selectedNodeIds);
+        return storageCommandService.copySharedNodesToUser(visitorUserId, selectedRootNodes, parentId);
     }
 
     @Transactional(readOnly = true)
@@ -371,6 +378,47 @@ public class ShareLinkService {
         }
 
         return fileNode;
+    }
+
+    private List<StorageNode> resolveSelectedSharedRootNodes(
+            Long ownerId,
+            List<StorageNode> rootNodes,
+            List<Long> rawSelectedNodeIds
+    ) {
+        List<Long> selectedNodeIds = normalizeSaveSelectedNodeIds(rawSelectedNodeIds);
+        Map<Long, StorageNode> sharedNodeMap = new HashMap<>();
+        collectActiveSharedNodes(rootNodes).forEach(node -> sharedNodeMap.put(node.getId(), node));
+
+        List<StorageNode> selectedNodes = new ArrayList<>();
+        for (Long selectedNodeId : selectedNodeIds) {
+            StorageNode selectedNode = sharedNodeMap.get(selectedNodeId);
+            if (selectedNode == null) {
+                throw new IllegalArgumentException("Selected share item is not available.");
+            }
+            selectedNodes.add(selectedNode);
+        }
+
+        return collapseSelectedRoots(ownerId, selectedNodes);
+    }
+
+    private List<Long> normalizeSaveSelectedNodeIds(List<Long> rawSelectedNodeIds) {
+        if (rawSelectedNodeIds == null || rawSelectedNodeIds.isEmpty()) {
+            throw new IllegalArgumentException("Please select at least one share item to save.");
+        }
+
+        if (rawSelectedNodeIds.size() > MAX_SAVE_SELECTED_ITEMS) {
+            throw new IllegalArgumentException("Too many selected share items.");
+        }
+
+        LinkedHashSet<Long> uniqueNodeIds = new LinkedHashSet<>();
+        for (Long rawSelectedNodeId : rawSelectedNodeIds) {
+            if (rawSelectedNodeId == null) {
+                throw new IllegalArgumentException("Selected share item id must not be null.");
+            }
+            uniqueNodeIds.add(rawSelectedNodeId);
+        }
+
+        return List.copyOf(uniqueNodeIds);
     }
 
     private void validateDownloadAllowed(ShareLink shareLink) {

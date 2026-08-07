@@ -428,6 +428,95 @@ fun AliciaMechaPanel(
 }
 
 @Composable
+fun AliciaMechaLinePanel(
+    modifier: Modifier = Modifier,
+    selected: Boolean = false,
+    danger: Boolean = false,
+    contentPadding: PaddingValues = PaddingValues(14.dp),
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    val shape = mechaLinePanelShape()
+    val borderColor = when {
+        danger -> Color(0xFFFFB181)
+        selected -> Color(0xFF78AAFF)
+        else -> MechaBorder
+    }
+    val primaryAccent = when {
+        danger -> MechaOrange
+        selected -> MechaBlue
+        else -> MechaCyan
+    }
+    val secondaryAccent = if (danger) Color(0xFFE45E2D) else MechaBlue
+    val backgroundColors = when {
+        danger -> listOf(Color.White, Color(0xFFFFF7F1))
+        selected -> listOf(Color(0xFFF8FBFF), Color(0xFFEFF6FF))
+        else -> listOf(Color.White, Color(0xFFF7FAFF))
+    }
+
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = shape,
+        color = backgroundColors.first(),
+        border = BorderStroke(width = 1.dp, color = borderColor),
+        shadowElevation = 0.dp,
+    ) {
+        Box {
+            Canvas(modifier = Modifier.matchParentSize()) {
+                drawRect(brush = Brush.verticalGradient(backgroundColors))
+
+                val railYTop = 3.dp.toPx()
+                val railYBottom = size.height - 4.dp.toPx()
+                drawLine(
+                    color = primaryAccent.copy(alpha = 0.82f),
+                    start = Offset(size.width * 0.08f, railYBottom),
+                    end = Offset(size.width * 0.27f, railYBottom),
+                    strokeWidth = 1.5.dp.toPx(),
+                )
+                drawLine(
+                    color = secondaryAccent.copy(alpha = 0.76f),
+                    start = Offset(size.width * 0.70f, railYBottom),
+                    end = Offset(size.width * 0.91f, railYBottom),
+                    strokeWidth = 1.5.dp.toPx(),
+                )
+                drawLine(
+                    color = MechaOrange.copy(alpha = 0.82f),
+                    start = Offset(size.width * 0.46f, railYTop),
+                    end = Offset(size.width * 0.54f, railYTop),
+                    strokeWidth = 1.6.dp.toPx(),
+                )
+                drawLine(
+                    color = borderColor.copy(alpha = 0.55f),
+                    start = Offset(size.width * 0.15f, railYTop),
+                    end = Offset(size.width * 0.42f, railYTop),
+                    strokeWidth = 1.dp.toPx(),
+                )
+            }
+            Column(
+                modifier = Modifier.padding(contentPadding),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                content = content,
+            )
+        }
+    }
+}
+
+private fun mechaLinePanelShape() = GenericShape { size, _ ->
+    val cut = (size.height * 0.16f)
+        .coerceIn(7f, 16f)
+        .coerceAtMost(size.width * 0.08f)
+
+    moveTo(cut, 0f)
+    lineTo(size.width - cut, 0f)
+    lineTo(size.width, cut)
+    lineTo(size.width, size.height - cut)
+    lineTo(size.width - cut, size.height)
+    lineTo(cut, size.height)
+    lineTo(0f, size.height - cut)
+    lineTo(0f, cut)
+    close()
+}
+
+@Composable
 private fun AliciaMechaArmorTexture(
     accent: Color,
     modifier: Modifier = Modifier,
@@ -4117,7 +4206,7 @@ fun AliciaCompactNodeRow(
     onToggleSelect: () -> Unit = {},
     onMore: () -> Unit,
 ) {
-    Box(
+    AliciaMechaLinePanel(
         modifier = Modifier
             .fillMaxWidth()
             .combinedClickable(
@@ -4131,30 +4220,9 @@ fun AliciaCompactNodeRow(
                 onLongClick = onLongPress,
             )
             .height(76.dp),
+        selected = selected || highlighted,
+        contentPadding = PaddingValues(0.dp),
     ) {
-        AliciaNineSliceBackground(
-            resId = R.drawable.alicia_9_file_row,
-            slice = 44.dp,
-            modifier = Modifier.matchParentSize(),
-        )
-        if (selected || highlighted) {
-            Canvas(modifier = Modifier.matchParentSize()) {
-                drawPath(
-                    path = mechaSegmentOutline(size.width, size.height, inset = 2.dp.toPx()),
-                    color = MechaBlue.copy(alpha = if (selected) 0.8f else 0.56f),
-                    style = Stroke(width = 1.7.dp.toPx()),
-                )
-                if (selected) {
-                    drawLine(
-                        color = MechaCyan.copy(alpha = 0.9f),
-                        start = Offset(size.width * 0.67f, size.height - 5.dp.toPx()),
-                        end = Offset(size.width * 0.92f, size.height - 5.dp.toPx()),
-                        strokeWidth = 2.2.dp.toPx(),
-                        cap = StrokeCap.Round,
-                    )
-                }
-            }
-        }
         Row(
             modifier = Modifier
                 .fillMaxSize()
