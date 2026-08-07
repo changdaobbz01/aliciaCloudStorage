@@ -98,6 +98,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -3073,16 +3074,18 @@ private fun NodeActionSheet(
                 color = Color(0xFF101626),
                 fontFamily = AliciaMechaFontFamily,
                 fontWeight = FontWeight.Black,
-                fontSize = 28.sp,
-                lineHeight = 30.sp,
+                fontSize = 20.sp,
+                lineHeight = 24.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
             )
             Text(
                 text = formatNodeMeta(node),
                 color = Color(0xFF748094),
                 fontFamily = AliciaMechaFontFamily,
                 fontWeight = FontWeight.Medium,
-                fontSize = 13.sp,
-                lineHeight = 18.sp,
+                fontSize = 12.sp,
+                lineHeight = 16.sp,
             )
 
             if (busy) {
@@ -3155,7 +3158,7 @@ private fun SheetActionButton(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
-        contentPadding = PaddingValues(start = 18.dp, top = 16.dp, end = 18.dp, bottom = 16.dp),
+        contentPadding = PaddingValues(start = 16.dp, top = 13.dp, end = 16.dp, bottom = 13.dp),
         backgroundResId = R.drawable.alicia_9_file_row,
         backgroundSlice = 42.dp,
     ) {
@@ -3168,7 +3171,7 @@ private fun SheetActionButton(
                 imageVector = icon,
                 contentDescription = label,
                 tint = if (danger) Color(0xFFE45E2D) else Color(0xFF2B67E7),
-                modifier = Modifier.size(34.dp),
+                modifier = Modifier.size(30.dp),
             )
             Column(
                 modifier = Modifier.weight(1f),
@@ -3179,16 +3182,16 @@ private fun SheetActionButton(
                     color = if (danger) Color(0xFFE45E2D) else Color(0xFF101626),
                     fontFamily = AliciaMechaFontFamily,
                     fontWeight = FontWeight.Black,
-                    fontSize = 19.sp,
-                    lineHeight = 21.sp,
+                    fontSize = 16.sp,
+                    lineHeight = 18.sp,
                 )
                 Text(
                     text = hint,
                     color = Color(0xFF748094),
                     fontFamily = AliciaMechaFontFamily,
                     fontWeight = FontWeight.Medium,
-                    fontSize = 12.sp,
-                    lineHeight = 16.sp,
+                    fontSize = 11.sp,
+                    lineHeight = 15.sp,
                 )
             }
         }

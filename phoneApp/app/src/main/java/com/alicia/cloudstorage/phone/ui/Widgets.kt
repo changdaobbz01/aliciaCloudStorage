@@ -2111,8 +2111,8 @@ fun AliciaMechaDialogShell(
                     color = MechaInk,
                     fontFamily = AliciaMechaFontFamily,
                     fontWeight = FontWeight.Black,
-                    fontSize = 26.sp,
-                    lineHeight = 28.sp,
+                    fontSize = 22.sp,
+                    lineHeight = 25.sp,
                 )
                 if (supporting != null) {
                     Column(
