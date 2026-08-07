@@ -35,6 +35,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
@@ -3126,9 +3127,9 @@ fun AliciaPullRefreshContainer(
 ) {
     val density = LocalDensity.current
     val refreshThresholdPx = with(density) { 88.dp.toPx() }
-    val refreshHoldOffsetPx = with(density) { 64.dp.toPx() }
+    val refreshHoldOffsetPx = with(density) { 88.dp.toPx() }
     val maxPullOffsetPx = with(density) { 156.dp.toPx() }
-    val maxIndicatorOffsetPx = with(density) { 84.dp.toPx() }
+    val maxIndicatorOffsetPx = with(density) { 126.dp.toPx() }
     val indicatorDragFactor = refreshHoldOffsetPx / refreshThresholdPx
     var dragOffsetPx by remember { mutableFloatStateOf(0f) }
     var refreshHoldVisible by remember { mutableStateOf(false) }
@@ -3271,6 +3272,7 @@ private fun AliciaMechaPullRefreshIndicator(
     offsetPx: Float,
     modifier: Modifier = Modifier,
 ) {
+    val hiddenOffsetPx = with(LocalDensity.current) { 60.dp.roundToPx() }
     val clampedProgress = progress.coerceIn(0f, 1f)
     val revealTarget = if (offsetPx > 0.5f || refreshing) 1f else 0f
     val pulseTransition = rememberInfiniteTransition(label = "pull_refresh_pulse")
@@ -3297,8 +3299,9 @@ private fun AliciaMechaPullRefreshIndicator(
 
     Box(
         modifier = modifier
-            .padding(top = 4.dp)
-            .offset { IntOffset(x = 0, y = offsetPx.roundToInt() - 74.dp.roundToPx()) }
+            .statusBarsPadding()
+            .padding(top = 12.dp)
+            .offset { IntOffset(x = 0, y = offsetPx.roundToInt() - hiddenOffsetPx) }
             .size(74.dp)
             .graphicsLayer {
                 alpha = visible

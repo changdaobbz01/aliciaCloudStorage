@@ -12,6 +12,8 @@ import android.widget.VideoView
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.LocalOverscrollConfiguration
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -38,8 +40,8 @@ import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -71,6 +73,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -205,18 +208,27 @@ fun AliciaCloudApp(viewModel: MainViewModel) {
         }
     }
 
-    when {
-        uiState.isBooting -> BootScreen()
-        uiState.authToken.isNullOrBlank() -> LoginScreen(
-            baseUrl = uiState.baseUrl,
-            isSubmitting = uiState.isSubmittingLogin,
-            onLogin = viewModel::login,
-        )
+    Box(modifier = Modifier.fillMaxSize()) {
+        when {
+            uiState.isBooting -> BootScreen()
+            uiState.authToken.isNullOrBlank() -> LoginScreen(
+                baseUrl = uiState.baseUrl,
+                isSubmitting = uiState.isSubmittingLogin,
+                onLogin = viewModel::login,
+            )
 
-        else -> MainShell(
-            uiState = uiState,
-            snackbarHostState = snackbarHostState,
-            viewModel = viewModel,
+            else -> MainShell(
+                uiState = uiState,
+                viewModel = viewModel,
+            )
+        }
+
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 18.dp),
         )
     }
 
@@ -457,7 +469,6 @@ private fun AliciaMechaLoginHero() {
 @Composable
 private fun MainShell(
     uiState: AppUiState,
-    snackbarHostState: SnackbarHostState,
     viewModel: MainViewModel,
 ) {
     val currentUser = uiState.currentUser ?: return
@@ -486,6 +497,8 @@ private fun MainShell(
     var batchMoveOpen by rememberSaveable { mutableStateOf(false) }
     var batchMoveTargetId by rememberSaveable { mutableStateOf<Long?>(null) }
     var pendingDownloadNode by remember { mutableStateOf<StorageNode?>(null) }
+    var pendingBaseUrlSwitch by rememberSaveable { mutableStateOf<String?>(null) }
+    var logoutConfirmOpen by rememberSaveable { mutableStateOf(false) }
     val avatarUrl = remember(uiState.baseUrl, currentUser.id, currentUser.avatarUrl) {
         resolveUserAvatarUrl(uiState.baseUrl, currentUser)
     }
@@ -588,7 +601,6 @@ private fun MainShell(
     val bottomBarContentOverlap = if (bottomItems.size == 3) 18.dp else 0.dp
 
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = { AliciaBottomBar(items = bottomItems) },
         containerColor = Color(0xFF071120),
     ) { innerPadding ->
@@ -694,12 +706,15 @@ private fun MainShell(
             onChangeAvatar = { avatarLauncher.launch(arrayOf("image/*")) },
             onChangeNickname = { changeNicknameOpen = true },
             onChangePassword = { changePasswordOpen = true },
-            onSwitchBaseUrl = viewModel::switchBaseUrl,
-            onDismiss = { accountSheetOpen = false },
-            onLogout = {
-                accountSheetOpen = false
-                viewModel.logout()
+            onSwitchBaseUrl = { targetBaseUrl ->
+                if (normalizeConfiguredBaseUrl(targetBaseUrl) == normalizeConfiguredBaseUrl(uiState.baseUrl)) {
+                    viewModel.switchBaseUrl(targetBaseUrl)
+                } else {
+                    pendingBaseUrlSwitch = targetBaseUrl
+                }
             },
+            onDismiss = { accountSheetOpen = false },
+            onLogout = { logoutConfirmOpen = true },
         )
     }
 
@@ -953,6 +968,36 @@ private fun MainShell(
                     batchMoveOpen = false
                 }
             },
+        )
+    }
+
+    pendingBaseUrlSwitch?.let { targetBaseUrl ->
+        val accessLabel = describeAccessEnvironment(normalizeConfiguredBaseUrl(targetBaseUrl))
+        AliciaMechaConfirmDialog(
+            title = "切换接入环境",
+            message = "确认切换到“$accessLabel”吗？切换后会退出当前登录，并需要重新认证。",
+            onDismiss = { pendingBaseUrlSwitch = null },
+            onConfirm = {
+                pendingBaseUrlSwitch = null
+                accountSheetOpen = false
+                viewModel.switchBaseUrl(targetBaseUrl)
+            },
+            confirmLabel = "确认切换",
+        )
+    }
+
+    if (logoutConfirmOpen) {
+        AliciaMechaConfirmDialog(
+            title = "退出登录",
+            message = "确认退出当前登录吗？退出后需要重新输入账号和密码。",
+            onDismiss = { logoutConfirmOpen = false },
+            onConfirm = {
+                logoutConfirmOpen = false
+                accountSheetOpen = false
+                viewModel.logout()
+            },
+            confirmLabel = "确认退出",
+            confirmTone = AliciaMechaActionButtonTone.Danger,
         )
     }
 
@@ -1302,6 +1347,7 @@ private fun AliciaMechaFilesHeader(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun FilesScreen(
 
@@ -1332,7 +1378,7 @@ private fun FilesScreen(
     val currentFolderLabel = explorer.breadcrumbs.lastOrNull()?.label ?: "根目录"
     val selectionCount = explorer.selectedNodeIds.size
     val selectionMode = selectionCount > 0
-    val listState = rememberLazyListState()
+    val listState = remember { LazyListState() }
 
     LaunchedEffect(explorer.highlightedNodeId, explorer.items) {
         val highlightedNodeId = explorer.highlightedNodeId ?: return@LaunchedEffect
@@ -1350,168 +1396,170 @@ private fun FilesScreen(
             .padding(paddingValues),
     ) {
         AliciaMechaBackdrop(modifier = Modifier.fillMaxSize()) {
-            LazyColumn(
-                state = listState,
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(
-                    start = AliciaMechaDesignSpec.pagePadding,
-                    top = 10.dp,
-                    end = AliciaMechaDesignSpec.pagePadding,
-                    bottom = if (isTrashMode) 18.dp else 120.dp,
-                ),
-                verticalArrangement = Arrangement.spacedBy(AliciaMechaDesignSpec.contentGap),
-            ) {
-                item {
-                    AliciaMechaFilesHeader(
-                        title = if (isTrashMode) "回收站" else "文件管理",
-                        nickname = currentUser.nickname,
-                        avatarUrl = avatarUrl,
-                        onOpenAccount = onOpenAccount,
-                    )
-                }
-
-                item {
-                    AliciaMechaSearchBar(
-                        value = explorer.keyword,
-                        onValueChange = onKeywordChange,
-                        onSearch = onSearch,
-                        placeholder = if (isTrashMode) "搜索回收站" else "搜索网盘文件",
-                        modifier = Modifier.padding(horizontal = 17.dp),
-                    )
-                }
-
-                item {
-                    AliciaMechaPanel(
-                        contentPadding = PaddingValues(start = 24.dp, top = 16.dp, end = 24.dp, bottom = 16.dp),
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            AliciaRoundedBadge(text = if (isTrashMode) "回收仓" else "文件舱")
-                            if (!selectionMode && explorer.items.isNotEmpty()) {
-                                AliciaMechaBadgeAction(
-                                    label = "全选",
-                                    onClick = onSelectAll,
-                                )
-                            }
-                        }
-
-                        AliciaMechaSegmentTabs(
-                            labels = listOf("文件", "回收站"),
-                            selectedIndex = if (isTrashMode) 1 else 0,
-                            onSelected = { index -> onSwitchMode(index == 1) },
+            CompositionLocalProvider(LocalOverscrollConfiguration provides null) {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(
+                        start = AliciaMechaDesignSpec.pagePadding,
+                        top = 10.dp,
+                        end = AliciaMechaDesignSpec.pagePadding,
+                        bottom = if (isTrashMode) 18.dp else 120.dp,
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(AliciaMechaDesignSpec.contentGap),
+                ) {
+                    item {
+                        AliciaMechaFilesHeader(
+                            title = if (isTrashMode) "回收站" else "文件管理",
+                            nickname = currentUser.nickname,
+                            avatarUrl = avatarUrl,
+                            onOpenAccount = onOpenAccount,
                         )
-
-                        if (isTrashMode) {
-                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Text(
-                                    text = "回收站内容",
-                                    color = Color(0xFF101626),
-                                    fontFamily = AliciaMechaFontFamily,
-                                    fontWeight = FontWeight.Black,
-                                    fontSize = 22.sp,
-                                    lineHeight = 24.sp,
-                                )
-                                Text(
-                                    text = "支持批量恢复，也可以直接彻底清理。",
-                                    color = Color(0xFF748094),
-                                    fontFamily = AliciaMechaFontFamily,
-                                    fontWeight = FontWeight.Medium,
-                                    fontSize = 11.sp,
-                                )
-                            }
-                        } else {
-                            AliciaFolderSummary(
-                                currentLabel = currentFolderLabel,
-                                breadcrumbs = explorer.breadcrumbs.map { it.label },
-                                onTap = onCrumbClick,
-                            )
-                        }
-
-                        if (selectionMode) {
-                            AliciaBatchSelectionPanel(
-                                count = selectionCount,
-                                isTrashMode = isTrashMode,
-                                busy = explorer.isBatchActing,
-                                onSelectAll = onSelectAll,
-                                onClear = onClearSelection,
-                                onMove = onBatchMove,
-                                onTrash = onBatchTrash,
-                                onRestore = onBatchRestore,
-                                onPermanentDelete = onBatchPermanentDelete,
-                            )
-                        }
                     }
-                }
 
-                when {
-                    explorer.loading && explorer.items.isEmpty() -> {
-                        item {
-                            AliciaMechaPanel(
-                                contentPadding = PaddingValues(0.dp),
-                                backgroundResId = R.drawable.alicia_9_recent,
-                                backgroundSlice = 64.dp,
+                    item {
+                        AliciaMechaSearchBar(
+                            value = explorer.keyword,
+                            onValueChange = onKeywordChange,
+                            onSearch = onSearch,
+                            placeholder = if (isTrashMode) "搜索回收站" else "搜索网盘文件",
+                            modifier = Modifier.padding(horizontal = 17.dp),
+                        )
+                    }
+
+                    item {
+                        AliciaMechaPanel(
+                            contentPadding = PaddingValues(start = 24.dp, top = 16.dp, end = 24.dp, bottom = 16.dp),
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                AliciaInlineState(
-                                    title = "正在加载目录",
-                                    description = "正在同步当前目录内容，请稍等一下。",
-                                )
+                                AliciaRoundedBadge(text = if (isTrashMode) "回收仓" else "文件舱")
+                                if (!selectionMode && explorer.items.isNotEmpty()) {
+                                    AliciaMechaBadgeAction(
+                                        label = "全选",
+                                        onClick = onSelectAll,
+                                    )
+                                }
                             }
-                        }
-                    }
 
-                    explorer.error != null && explorer.items.isEmpty() -> {
-                        item {
-                            AliciaMechaPanel(
-                                contentPadding = PaddingValues(0.dp),
-                                backgroundResId = R.drawable.alicia_9_recent,
-                                backgroundSlice = 64.dp,
-                            ) {
-                                AliciaInlineState(
-                                    title = "列表暂时不可用",
-                                    description = explorer.error,
-                                )
-                            }
-                        }
-                    }
-
-                    explorer.items.isEmpty() -> {
-                        item {
-                            AliciaMechaPanel(
-                                contentPadding = PaddingValues(0.dp),
-                                backgroundResId = R.drawable.alicia_9_recent,
-                                backgroundSlice = 64.dp,
-                            ) {
-                                AliciaInlineState(
-                                    title = if (isTrashMode) "回收站为空" else "当前目录为空",
-                                    description = if (isTrashMode) {
-                                        "删除的文件会先出现在这里。"
-                                    } else {
-                                        "上传文件或新建文件夹后会显示在这里。"
-                                    },
-                                )
-                            }
-                        }
-                    }
-
-                    else -> {
-                        itemsIndexed(
-                            items = explorer.items,
-                            key = { _, node -> node.id },
-                        ) { _, node ->
-                            AliciaCompactNodeRow(
-                                node = node,
-                                busy = explorer.isBatchActing || explorer.actionNodeId == node.id,
-                                selected = node.id in explorer.selectedNodeIds,
-                                highlighted = node.id == explorer.highlightedNodeId,
-                                selectionMode = selectionMode,
-                                onClick = { onNodeClick(node) },
-                                onLongPress = { onNodeLongPress(node) },
-                                onToggleSelect = { onToggleSelection(node) },
-                                onMore = { onNodeMore(node) },
+                            AliciaMechaSegmentTabs(
+                                labels = listOf("文件", "回收站"),
+                                selectedIndex = if (isTrashMode) 1 else 0,
+                                onSelected = { index -> onSwitchMode(index == 1) },
                             )
+
+                            if (isTrashMode) {
+                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Text(
+                                        text = "回收站内容",
+                                        color = Color(0xFF101626),
+                                        fontFamily = AliciaMechaFontFamily,
+                                        fontWeight = FontWeight.Black,
+                                        fontSize = 22.sp,
+                                        lineHeight = 24.sp,
+                                    )
+                                    Text(
+                                        text = "支持批量恢复，也可以直接彻底清理。",
+                                        color = Color(0xFF748094),
+                                        fontFamily = AliciaMechaFontFamily,
+                                        fontWeight = FontWeight.Medium,
+                                        fontSize = 11.sp,
+                                    )
+                                }
+                            } else {
+                                AliciaFolderSummary(
+                                    currentLabel = currentFolderLabel,
+                                    breadcrumbs = explorer.breadcrumbs.map { it.label },
+                                    onTap = onCrumbClick,
+                                )
+                            }
+
+                            if (selectionMode) {
+                                AliciaBatchSelectionPanel(
+                                    count = selectionCount,
+                                    isTrashMode = isTrashMode,
+                                    busy = explorer.isBatchActing,
+                                    onSelectAll = onSelectAll,
+                                    onClear = onClearSelection,
+                                    onMove = onBatchMove,
+                                    onTrash = onBatchTrash,
+                                    onRestore = onBatchRestore,
+                                    onPermanentDelete = onBatchPermanentDelete,
+                                )
+                            }
+                        }
+                    }
+
+                    when {
+                        explorer.loading && explorer.items.isEmpty() -> {
+                            item {
+                                AliciaMechaPanel(
+                                    contentPadding = PaddingValues(0.dp),
+                                    backgroundResId = R.drawable.alicia_9_recent,
+                                    backgroundSlice = 64.dp,
+                                ) {
+                                    AliciaInlineState(
+                                        title = "正在加载目录",
+                                        description = "正在同步当前目录内容，请稍等一下。",
+                                    )
+                                }
+                            }
+                        }
+
+                        explorer.error != null && explorer.items.isEmpty() -> {
+                            item {
+                                AliciaMechaPanel(
+                                    contentPadding = PaddingValues(0.dp),
+                                    backgroundResId = R.drawable.alicia_9_recent,
+                                    backgroundSlice = 64.dp,
+                                ) {
+                                    AliciaInlineState(
+                                        title = "列表暂时不可用",
+                                        description = explorer.error,
+                                    )
+                                }
+                            }
+                        }
+
+                        explorer.items.isEmpty() -> {
+                            item {
+                                AliciaMechaPanel(
+                                    contentPadding = PaddingValues(0.dp),
+                                    backgroundResId = R.drawable.alicia_9_recent,
+                                    backgroundSlice = 64.dp,
+                                ) {
+                                    AliciaInlineState(
+                                        title = if (isTrashMode) "回收站为空" else "当前目录为空",
+                                        description = if (isTrashMode) {
+                                            "删除的文件会先出现在这里。"
+                                        } else {
+                                            "上传文件或新建文件夹后会显示在这里。"
+                                        },
+                                    )
+                                }
+                            }
+                        }
+
+                        else -> {
+                            itemsIndexed(
+                                items = explorer.items,
+                                key = { _, node -> node.id },
+                            ) { _, node ->
+                                AliciaCompactNodeRow(
+                                    node = node,
+                                    busy = explorer.isBatchActing || explorer.actionNodeId == node.id,
+                                    selected = node.id in explorer.selectedNodeIds,
+                                    highlighted = node.id == explorer.highlightedNodeId,
+                                    selectionMode = selectionMode,
+                                    onClick = { onNodeClick(node) },
+                                    onLongPress = { onNodeLongPress(node) },
+                                    onToggleSelect = { onToggleSelection(node) },
+                                    onMore = { onNodeMore(node) },
+                                )
+                            }
                         }
                     }
                 }
