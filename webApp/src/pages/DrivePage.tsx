@@ -17,6 +17,7 @@ import type { MenuProps } from 'antd';
 import type { CSSProperties, ChangeEvent } from 'react';
 import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { LazyChunkErrorBoundary } from '../components/lazy-chunk-error-boundary';
 import { RegulatoryFooter } from '../components/RegulatoryFooter';
 import { DriveAccountsAdminModals } from '../features/drive/DriveAccountsAdminModals';
 import { DriveAppPackageUploadModal } from '../features/drive/DriveAppPackageUploadModal';
@@ -332,7 +333,8 @@ export function DrivePage() {
   );
 
   const activeViewContent = (
-    <Suspense fallback={viewLoadingFallback}>
+    <LazyChunkErrorBoundary>
+      <Suspense fallback={viewLoadingFallback}>
       {isHomeView ? (
         <LazyDriveHomeView
           health={dashboard.health}
@@ -422,7 +424,8 @@ export function DrivePage() {
           onDeletePackage={() => void appPackages.deleteCurrentAppPackage()}
         />
       ) : null}
-    </Suspense>
+      </Suspense>
+    </LazyChunkErrorBoundary>
   );
 
   return (
