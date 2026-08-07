@@ -70,6 +70,10 @@ cp .env.example .env
 - `ALICIA_COS_REGION`
 - `ALICIA_COS_BUCKET`
 
+如果配置了 COS 自定义源站域名，可以额外填写：
+
+- `ALICIA_COS_CUSTOM_DOMAIN`：预览/下载的预签名 URL 会使用该域名，例如 `files.windwindwind-alicia.cn`。
+
 如果数据库是全新的空库，首次启动前还建议额外填写：
 
 - `ALICIA_BOOTSTRAP_ADMIN_PHONE`
@@ -139,6 +143,7 @@ $env:ALICIA_COS_SECRET_ID="your-secret-id"
 $env:ALICIA_COS_SECRET_KEY="your-secret-key"
 $env:ALICIA_COS_REGION="ap-shanghai"
 $env:ALICIA_COS_BUCKET="your-bucket-appid"
+$env:ALICIA_COS_CUSTOM_DOMAIN="files.windwindwind-alicia.cn"
 
 Set-Location CloudStorageApi
 ..\mvnw spring-boot:run

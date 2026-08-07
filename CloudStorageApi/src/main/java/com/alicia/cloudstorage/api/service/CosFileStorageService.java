@@ -5,6 +5,7 @@ import com.qcloud.cos.ClientConfig;
 import com.qcloud.cos.auth.BasicCOSCredentials;
 import com.qcloud.cos.auth.COSCredentials;
 import com.qcloud.cos.exception.CosClientException;
+import com.qcloud.cos.endpoint.UserSpecifiedEndpointBuilder;
 import com.qcloud.cos.http.HttpProtocol;
 import com.qcloud.cos.http.HttpMethodName;
 import com.qcloud.cos.model.AbortMultipartUploadRequest;
@@ -29,6 +30,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URI;
 import java.net.URL;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -44,6 +46,7 @@ public class CosFileStorageService {
     private final String secretKey;
     private final String region;
     private final String bucket;
+    private final String customDomain;
     private final long maxFileSizeBytes;
     private final long presignedUrlExpireSeconds;
 
@@ -52,6 +55,7 @@ public class CosFileStorageService {
             @Value("${alicia.cos.secret-key:}") String secretKey,
             @Value("${alicia.cos.region:ap-shanghai}") String region,
             @Value("${alicia.cos.bucket:}") String bucket,
+            @Value("${alicia.cos.custom-domain:}") String customDomain,
             @Value("${alicia.cos.max-file-size-bytes:104857600}") long maxFileSizeBytes,
             @Value("${alicia.cos.presigned-url-expire-seconds:600}") long presignedUrlExpireSeconds
     ) {
@@ -59,6 +63,7 @@ public class CosFileStorageService {
         this.secretKey = secretKey;
         this.region = region;
         this.bucket = bucket;
+        this.customDomain = customDomain;
         this.maxFileSizeBytes = maxFileSizeBytes;
         this.presignedUrlExpireSeconds = presignedUrlExpireSeconds;
     }
@@ -550,7 +555,7 @@ public class CosFileStorageService {
         }
 
         Date expiration = new Date(System.currentTimeMillis() + presignedUrlExpireSeconds * 1000L);
-        COSClient cosClient = createCosClient();
+        COSClient cosClient = createPresignedUrlCosClient();
 
         try {
             GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(
@@ -611,9 +616,60 @@ public class CosFileStorageService {
      */
     private COSClient createCosClient() {
         COSCredentials credentials = new BasicCOSCredentials(secretId.trim(), secretKey.trim());
+        return new COSClient(credentials, createBaseClientConfig());
+    }
+
+    private COSClient createPresignedUrlCosClient() {
+        COSCredentials credentials = new BasicCOSCredentials(secretId.trim(), secretKey.trim());
+        ClientConfig config = createBaseClientConfig();
+        String endpoint = normalizeCustomDomainEndpoint(customDomain);
+
+        if (hasText(endpoint)) {
+            config.setEndpointBuilder(new UserSpecifiedEndpointBuilder(endpoint, endpoint));
+        }
+
+        return new COSClient(credentials, config);
+    }
+
+    private ClientConfig createBaseClientConfig() {
         ClientConfig config = new ClientConfig(new Region(region.trim()));
         config.setHttpProtocol(HttpProtocol.https);
-        return new COSClient(credentials, config);
+        return config;
+    }
+
+    private String normalizeCustomDomainEndpoint(String rawCustomDomain) {
+        if (!hasText(rawCustomDomain)) {
+            return "";
+        }
+
+        String trimmed = rawCustomDomain.trim();
+
+        if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+            URI uri = URI.create(trimmed);
+            if (!hasText(uri.getHost())) {
+                throw new IllegalArgumentException("COS custom domain host is invalid.");
+            }
+            if (hasText(uri.getRawPath()) && !"/".equals(uri.getRawPath())) {
+                throw new IllegalArgumentException("COS custom domain must not include a path.");
+            }
+            if (hasText(uri.getRawQuery()) || hasText(uri.getRawFragment())) {
+                throw new IllegalArgumentException("COS custom domain must not include query or fragment.");
+            }
+            return uri.getPort() > 0 ? uri.getHost() + ":" + uri.getPort() : uri.getHost();
+        }
+
+        String endpoint = trimmed;
+        while (endpoint.endsWith("/")) {
+            endpoint = endpoint.substring(0, endpoint.length() - 1);
+        }
+        if (!hasText(endpoint)) {
+            throw new IllegalArgumentException("COS custom domain host is invalid.");
+        }
+        if (endpoint.contains("/") || endpoint.contains("://")) {
+            throw new IllegalArgumentException("COS custom domain must be a host name only.");
+        }
+
+        return endpoint;
     }
 
     /**
