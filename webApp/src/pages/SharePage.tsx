@@ -1,4 +1,5 @@
 import {
+  AndroidOutlined,
   CloudDownloadOutlined,
   CloudServerOutlined,
   FileOutlined,
@@ -21,15 +22,39 @@ import {
   verifySharePassword,
 } from '../lib/api';
 import type { ShareLinkDetail, ShareLinkStatus, StorageNode, VerifySharePasswordPayload } from '../types';
+import { resolveShareUrl } from '../features/drive/driveShared';
 
 type ShareTreeNode = StorageNode & {
   children?: ShareTreeNode[];
 };
 
+const ANDROID_PACKAGE_NAME = 'com.alicia.cloudstorage.phone';
+
 type StoredShareAccess = {
   accessToken: string;
   expiresAt: string;
 };
+
+function isLikelyMobileClient() {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  return /Android|iPhone|iPad|iPod|Mobile/i.test(window.navigator.userAgent) ||
+    window.matchMedia('(max-width: 760px)').matches;
+}
+
+function buildAppDownloadUrl(shareCode: string) {
+  const url = new URL('/app-download', window.location.origin);
+  url.searchParams.set('share', shareCode);
+  return url.toString();
+}
+
+function buildShareIntentUrl(shareCode: string) {
+  return `intent://share/${encodeURIComponent(shareCode)}#Intent;scheme=aliciacloud;package=${ANDROID_PACKAGE_NAME};S.browser_fallback_url=${encodeURIComponent(
+    buildAppDownloadUrl(shareCode),
+  )};S.alicia_web_url=${encodeURIComponent(resolveShareUrl(shareCode))};end`;
+}
 
 function getShareAccessStorageKey(shareCode: string) {
   return `alicia-cloud-storage.share-access.${shareCode}`;
@@ -154,11 +179,13 @@ export function SharePage() {
   const [saving, setSaving] = useState(false);
   const [downloadingFileId, setDownloadingFileId] = useState<number | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
+  const [showMobileOpenHint, setShowMobileOpenHint] = useState(false);
   const shareTree = useMemo(() => buildShareTree(detail), [detail]);
 
   useEffect(() => {
     setShareAccessToken(loadStoredShareAccess(shareCode));
     setDetail(null);
+    setShowMobileOpenHint(Boolean(shareCode) && isLikelyMobileClient());
   }, [shareCode]);
 
   useEffect(() => {
@@ -256,6 +283,14 @@ export function SharePage() {
 
   function goLogin() {
     void navigate('/login', { state: { from: location.pathname }, replace: false });
+  }
+
+  function openInAndroidApp() {
+    window.location.href = buildShareIntentUrl(shareCode);
+  }
+
+  function openAppDownloadPage() {
+    window.location.href = buildAppDownloadUrl(shareCode);
   }
 
   async function handleSaveShare() {
@@ -463,6 +498,29 @@ export function SharePage() {
           </div>
         </button>
       </header>
+
+      {showMobileOpenHint ? (
+        <section className="share-mobile-open-banner" aria-label="移动端打开方式">
+          <div className="share-mobile-open-copy">
+            <AndroidOutlined />
+            <div>
+              <Typography.Text strong>Alicia 云盘 App</Typography.Text>
+              <Typography.Text className="muted-text">已安装可直接打开；未安装可下载安装包。</Typography.Text>
+            </div>
+          </div>
+          <Space className="share-mobile-open-actions" wrap>
+            <Button type="primary" size="small" icon={<AndroidOutlined />} onClick={openInAndroidApp}>
+              打开 App
+            </Button>
+            <Button size="small" onClick={openAppDownloadPage}>
+              下载 App
+            </Button>
+            <Button type="text" size="small" onClick={() => setShowMobileOpenHint(false)}>
+              继续网页查看
+            </Button>
+          </Space>
+        </section>
+      ) : null}
 
       <main className="share-page-main">{content}</main>
 

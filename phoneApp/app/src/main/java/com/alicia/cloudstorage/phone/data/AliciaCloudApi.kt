@@ -182,6 +182,41 @@ interface AliciaCloudService {
         @Body payload: CreateShareLinkPayload,
     ): Response<ShareLinkSummaryResponse>
 
+    @GET("api/public/share-links/{shareCode}/status")
+    suspend fun fetchPublicShareStatus(
+        @Path("shareCode") shareCode: String,
+    ): Response<ShareLinkStatusResponse>
+
+    @POST("api/public/share-links/{shareCode}/verify-password")
+    suspend fun verifySharePassword(
+        @Path("shareCode") shareCode: String,
+        @Body payload: VerifySharePasswordPayload,
+    ): Response<VerifySharePasswordResponse>
+
+    @GET("api/share-links/{shareCode}/detail")
+    suspend fun fetchShareDetail(
+        @Header("Authorization") authorization: String,
+        @Header("X-Share-Access-Token") shareAccessToken: String?,
+        @Path("shareCode") shareCode: String,
+    ): Response<ShareLinkDetailResponse>
+
+    @POST("api/share-links/{shareCode}/save")
+    suspend fun saveShareToDrive(
+        @Header("Authorization") authorization: String,
+        @Header("X-Share-Access-Token") shareAccessToken: String?,
+        @Path("shareCode") shareCode: String,
+        @Body payload: SaveShareLinkPayload,
+    ): Response<List<StorageNode>>
+
+    @GET("api/share-links/{shareCode}/files/{fileId}/access-url")
+    suspend fun fetchShareFileAccessUrl(
+        @Header("Authorization") authorization: String,
+        @Header("X-Share-Access-Token") shareAccessToken: String?,
+        @Path("shareCode") shareCode: String,
+        @Path("fileId") fileId: Long,
+        @Query("disposition") disposition: String,
+    ): Response<SignedUrlResponse>
+
     @Streaming
     @GET("api/storage/files/{fileId}/download")
     suspend fun downloadFile(

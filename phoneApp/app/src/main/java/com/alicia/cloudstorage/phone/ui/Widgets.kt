@@ -2099,6 +2099,7 @@ fun AliciaMechaDialogShell(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 10.dp),
+            contentAlignment = Alignment.Center,
         ) {
             AliciaMechaPanel(
                 modifier = modifier.widthIn(max = 380.dp),

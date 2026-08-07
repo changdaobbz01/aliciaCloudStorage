@@ -1337,6 +1337,49 @@ select {
   padding: 20px 0 32px;
 }
 
+.share-mobile-open-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  width: min(1120px, calc(100vw - 64px));
+  margin: 4px auto 0;
+  padding: 12px 14px;
+  border: 1px solid #dbe7ff;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.06);
+}
+
+.share-mobile-open-copy {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 10px;
+}
+
+.share-mobile-open-copy > .anticon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border-radius: 8px;
+  color: #2563eb;
+  background: #eff4ff;
+  font-size: 18px;
+}
+
+.share-mobile-open-copy > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.share-mobile-open-actions {
+  justify-content: flex-end;
+}
+
 .share-gate-card {
   width: min(100%, 480px);
   margin: 56px auto 0;
@@ -1361,6 +1404,102 @@ select {
   display: flex;
   justify-content: center;
   padding: 0 24px 18px;
+}
+
+.app-download-page {
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  background:
+    radial-gradient(circle at 20% 12%, rgba(219, 234, 254, 0.72), transparent 32%),
+    radial-gradient(circle at 86% 18%, rgba(255, 237, 213, 0.64), transparent 30%),
+    #f5f7fb;
+}
+
+.app-download-main {
+  width: min(840px, calc(100vw - 64px));
+  margin: 0 auto;
+  padding: 24px 0 40px;
+}
+
+.app-download-panel {
+  border: 1px solid #e8eef5;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 22px 54px rgba(15, 23, 42, 0.08);
+}
+
+.app-download-panel .ant-card-body {
+  display: grid;
+  gap: 18px;
+  padding: 28px;
+}
+
+.app-download-hero {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+}
+
+.app-download-hero .ant-typography {
+  margin-bottom: 0;
+}
+
+.app-download-icon-badge {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 8px;
+  color: #2563eb;
+  background: #eff4ff;
+  font-size: 32px;
+}
+
+.app-download-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.app-download-meta-card {
+  padding: 14px;
+  border: 1px solid #eef2f7;
+  border-radius: 8px;
+  background: #f8fbff;
+}
+
+.app-download-meta-card .ant-typography {
+  margin: 0;
+}
+
+.app-download-release-notes {
+  margin: 0 !important;
+  padding: 14px;
+  border: 1px solid #eef2f7;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #475569;
+  white-space: pre-wrap;
+}
+
+.app-download-actions {
+  align-items: center;
+}
+
+.app-download-safety {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.app-download-safety .anticon {
+  margin-top: 2px;
+  color: #2563eb;
 }
 
 .user-cell {
@@ -1676,6 +1815,31 @@ select {
     padding-top: 12px;
   }
 
+  .share-mobile-open-banner {
+    width: calc(100vw - 32px);
+    align-items: flex-start;
+    flex-direction: column;
+    margin-top: 8px;
+  }
+
+  .share-mobile-open-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .app-download-main {
+    width: calc(100vw - 32px);
+    padding-top: 14px;
+  }
+
+  .app-download-panel .ant-card-body {
+    padding: 20px;
+  }
+
+  .app-download-meta-grid {
+    grid-template-columns: 1fr;
+  }
+
   .share-copy-row {
     grid-template-columns: 1fr;
   }
@@ -1713,6 +1877,10 @@ select {
   }
 
   .app-package-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .app-download-hero {
     grid-template-columns: 1fr;
   }
 

@@ -198,5 +198,38 @@ data class ShareLinkSummaryResponse(
     val itemCount: Long,
 )
 
+data class ShareLinkStatusResponse(
+    val shareCode: String,
+    val title: String?,
+    val available: Boolean,
+    val requiresPassword: Boolean,
+    val expiresAt: String?,
+    val reason: String?,
+)
+
+data class VerifySharePasswordPayload(
+    val password: String,
+)
+
+data class VerifySharePasswordResponse(
+    val accessToken: String?,
+    val expiresAt: String?,
+)
+
+data class ShareLinkDetailResponse(
+    val shareCode: String,
+    val title: String,
+    val ownerNickname: String,
+    val expiresAt: String?,
+    val allowDownload: Boolean,
+    val allowSave: Boolean,
+    val rootNodeIds: List<Long>,
+    val items: List<StorageNode>,
+)
+
+data class SaveShareLinkPayload(
+    val parentId: Long?,
+)
+
 val User.isAdmin: Boolean
     get() = role == UserRole.ADMIN

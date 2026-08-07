@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.alicia.cloudstorage.phone",
+      "sha256_cert_fingerprints": [
+        "9B:55:CC:5D:A7:72:F4:A9:66:6E:32:C2:56:58:4A:ED:68:78:9B:E4:ED:E0:A0:0A:BA:B9:09:BD:08:ED:80:84"
+      ]
+    }
+  }
+]

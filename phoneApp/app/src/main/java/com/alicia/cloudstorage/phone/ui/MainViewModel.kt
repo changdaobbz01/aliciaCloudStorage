@@ -9,6 +9,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.alicia.cloudstorage.phone.BuildConfig
+import com.alicia.cloudstorage.phone.ShareLinkParser
 import com.alicia.cloudstorage.phone.describeAccessEnvironment
 import com.alicia.cloudstorage.phone.normalizeConfiguredBaseUrl
 import com.alicia.cloudstorage.phone.data.AliciaRepository
@@ -18,6 +19,8 @@ import com.alicia.cloudstorage.phone.data.AppTab
 import com.alicia.cloudstorage.phone.data.DriveOverview
 import com.alicia.cloudstorage.phone.data.FolderCrumb
 import com.alicia.cloudstorage.phone.data.SessionStore
+import com.alicia.cloudstorage.phone.data.ShareLinkDetailResponse
+import com.alicia.cloudstorage.phone.data.ShareLinkStatusResponse
 import com.alicia.cloudstorage.phone.data.StorageNode
 import com.alicia.cloudstorage.phone.data.StorageNodeFilter
 import com.alicia.cloudstorage.phone.data.StorageNodeType
@@ -145,6 +148,32 @@ data class ShareCreationUiState(
     val createdShare: CreatedShareState? = null,
 )
 
+enum class IncomingShareSource {
+    CLIPBOARD,
+    DEEP_LINK,
+}
+
+data class IncomingSharePromptState(
+    val shareCode: String,
+)
+
+data class IncomingShareUiState(
+    val prompt: IncomingSharePromptState? = null,
+    val activeShareCode: String? = null,
+    val source: IncomingShareSource? = null,
+    val statusLoading: Boolean = false,
+    val detailLoading: Boolean = false,
+    val passwordChecking: Boolean = false,
+    val saving: Boolean = false,
+    val downloadingNodeId: Long? = null,
+    val loginPromptDismissed: Boolean = false,
+    val status: ShareLinkStatusResponse? = null,
+    val detail: ShareLinkDetailResponse? = null,
+    val shareAccessToken: String? = null,
+    val passwordError: String? = null,
+    val error: String? = null,
+)
+
 private fun CreatedShareState.toShareText(): String = buildString {
     appendLine("我通过 Alicia 云盘分享了：$title")
     appendLine(shareUrl)
@@ -172,6 +201,7 @@ data class AppUiState(
     val preview: FilePreviewState = FilePreviewState(),
     val appUpdate: AppUpdateState? = null,
     val shareCreation: ShareCreationUiState = ShareCreationUiState(),
+    val incomingShare: IncomingShareUiState = IncomingShareUiState(),
 )
 
 class MainViewModel(
@@ -188,6 +218,8 @@ class MainViewModel(
     private val fileDirectoryCache = mutableMapOf<Long?, List<StorageNode>>()
     private var dismissedUpdateVersionName: String? = null
     private var currentPreviewCacheFile: File? = null
+    private var lastPromptedClipboardShareCode: String? = null
+    private var lastDismissedClipboardShareCode: String? = null
 
     init {
         restoreSession()
@@ -289,6 +321,7 @@ class MainViewModel(
                 emitMessage("欢迎回来，${response.user.nickname}")
                 refreshAll()
                 checkForAppUpdate(normalizedBaseUrl)
+                refreshIncomingShareDetailIfReady()
             }.onFailure { error ->
                 _uiState.update { state ->
                     state.copy(isBooting = false, isSubmittingLogin = false)
@@ -1283,6 +1316,247 @@ class MainViewModel(
         }
     }
 
+    fun handleIncomingShareUri(uri: Uri?) {
+        val shareCode = ShareLinkParser.shareCodeFromUri(uri, uiState.value.baseUrl) ?: return
+        openIncomingShare(shareCode, IncomingShareSource.DEEP_LINK)
+    }
+
+    fun checkClipboardForShareLink() {
+        val clipboard = appContext.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager ?: return
+        val text = runCatching {
+            clipboard.primaryClip
+                ?.takeIf { it.itemCount > 0 }
+                ?.getItemAt(0)
+                ?.coerceToText(appContext)
+                ?.toString()
+        }.getOrNull() ?: return
+        val shareCode = ShareLinkParser.findShareCodeInText(text, uiState.value.baseUrl) ?: return
+        val incomingShare = uiState.value.incomingShare
+
+        if (
+            incomingShare.activeShareCode == shareCode ||
+            incomingShare.prompt?.shareCode == shareCode ||
+            lastPromptedClipboardShareCode == shareCode ||
+            lastDismissedClipboardShareCode == shareCode
+        ) {
+            return
+        }
+
+        lastPromptedClipboardShareCode = shareCode
+        _uiState.update { state ->
+            state.copy(
+                incomingShare = state.incomingShare.copy(
+                    prompt = IncomingSharePromptState(shareCode = shareCode),
+                ),
+            )
+        }
+    }
+
+    fun dismissIncomingSharePrompt() {
+        val shareCode = uiState.value.incomingShare.prompt?.shareCode
+        if (!shareCode.isNullOrBlank()) {
+            lastDismissedClipboardShareCode = shareCode
+        }
+
+        _uiState.update { state ->
+            state.copy(incomingShare = state.incomingShare.copy(prompt = null))
+        }
+    }
+
+    fun confirmIncomingSharePrompt() {
+        val shareCode = uiState.value.incomingShare.prompt?.shareCode ?: return
+        _uiState.update { state ->
+            state.copy(incomingShare = state.incomingShare.copy(prompt = null))
+        }
+        openIncomingShare(shareCode, IncomingShareSource.CLIPBOARD)
+    }
+
+    fun closeIncomingShare() {
+        val incomingShare = uiState.value.incomingShare
+        if (incomingShare.source == IncomingShareSource.CLIPBOARD && !incomingShare.activeShareCode.isNullOrBlank()) {
+            lastDismissedClipboardShareCode = incomingShare.activeShareCode
+        }
+
+        _uiState.update { state ->
+            state.copy(incomingShare = IncomingShareUiState())
+        }
+    }
+
+    fun dismissIncomingShareLoginNotice() {
+        _uiState.update { state ->
+            state.copy(
+                incomingShare = state.incomingShare.copy(
+                    loginPromptDismissed = true,
+                ),
+            )
+        }
+    }
+
+    fun verifyIncomingSharePassword(password: String) {
+        val shareCode = uiState.value.incomingShare.activeShareCode ?: return
+        val trimmedPassword = password.trim()
+        if (trimmedPassword.isBlank()) {
+            _uiState.update { state ->
+                state.copy(
+                    incomingShare = state.incomingShare.copy(
+                        passwordError = "请输入提取码。",
+                    ),
+                )
+            }
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.update { state ->
+                state.copy(
+                    incomingShare = state.incomingShare.copy(
+                        passwordChecking = true,
+                        passwordError = null,
+                        error = null,
+                    ),
+                )
+            }
+
+            runCatching {
+                repository.verifySharePassword(
+                    baseUrl = uiState.value.baseUrl,
+                    shareCode = shareCode,
+                    password = trimmedPassword,
+                )
+            }.onSuccess { response ->
+                val accessToken = response.accessToken?.takeIf { it.isNotBlank() }
+                if (accessToken == null) {
+                    _uiState.update { state ->
+                        state.copy(
+                            incomingShare = state.incomingShare.copy(
+                                passwordChecking = false,
+                                passwordError = "提取码校验未返回访问凭证，请重试。",
+                            ),
+                        )
+                    }
+                    return@onSuccess
+                }
+
+                _uiState.update { state ->
+                    state.copy(
+                        incomingShare = state.incomingShare.copy(
+                            passwordChecking = false,
+                            shareAccessToken = accessToken,
+                            passwordError = null,
+                        ),
+                    )
+                }
+                emitMessage("提取码校验通过。")
+                refreshIncomingShareDetailIfReady()
+            }.onFailure { error ->
+                _uiState.update { state ->
+                    state.copy(
+                        incomingShare = state.incomingShare.copy(
+                            passwordChecking = false,
+                            passwordError = error.readableMessage(),
+                        ),
+                    )
+                }
+            }
+        }
+    }
+
+    fun saveIncomingShareToDrive() {
+        val incomingShare = uiState.value.incomingShare
+        val detail = incomingShare.detail ?: return
+        if (!detail.allowSave) {
+            emitMessage("分享者未开放保存权限。")
+            return
+        }
+
+        val session = authenticatedSession()
+        if (session == null) {
+            emitMessage("请先登录后再保存分享。")
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.update { state ->
+                state.copy(incomingShare = state.incomingShare.copy(saving = true, error = null))
+            }
+
+            runCatching {
+                repository.saveShareToDrive(
+                    baseUrl = session.baseUrl,
+                    token = session.token,
+                    shareCode = detail.shareCode,
+                    shareAccessToken = incomingShare.shareAccessToken,
+                )
+            }.onSuccess {
+                _uiState.update { state ->
+                    state.copy(
+                        selectedTab = AppTab.HOME,
+                        incomingShare = IncomingShareUiState(),
+                    )
+                }
+                emitMessage("已保存到你的网盘根目录。")
+                refreshAll()
+            }.onFailure { error ->
+                _uiState.update { state ->
+                    state.copy(incomingShare = state.incomingShare.copy(saving = false))
+                }
+                handleError(error)
+            }
+        }
+    }
+
+    fun downloadIncomingShareFileToUri(node: StorageNode, destinationUri: Uri) {
+        val incomingShare = uiState.value.incomingShare
+        val detail = incomingShare.detail ?: return
+        if (node.type != StorageNodeType.FILE) {
+            emitMessage("文件夹暂不支持直接下载，请先保存到网盘。")
+            return
+        }
+        if (!detail.allowDownload) {
+            emitMessage("分享者未开放下载权限。")
+            return
+        }
+
+        val session = authenticatedSession()
+        if (session == null) {
+            emitMessage("请先登录后再下载分享文件。")
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.update { state ->
+                state.copy(
+                    incomingShare = state.incomingShare.copy(
+                        downloadingNodeId = node.id,
+                        error = null,
+                    ),
+                )
+            }
+
+            runCatching {
+                repository.saveShareFileToUriViaSignedUrl(
+                    context = appContext,
+                    baseUrl = session.baseUrl,
+                    token = session.token,
+                    shareCode = detail.shareCode,
+                    shareAccessToken = incomingShare.shareAccessToken,
+                    fileId = node.id,
+                    destinationUri = destinationUri,
+                )
+            }.onSuccess { fileName ->
+                _uiState.update { state ->
+                    state.copy(incomingShare = state.incomingShare.copy(downloadingNodeId = null))
+                }
+                emitMessage("已保存：$fileName")
+            }.onFailure { error ->
+                _uiState.update { state ->
+                    state.copy(incomingShare = state.incomingShare.copy(downloadingNodeId = null))
+                }
+                handleError(error)
+            }
+        }
+    }
+
     fun previewFile(node: StorageNode) {
         val session = authenticatedSession() ?: return
         val previewKind = resolvePreviewKind(node)
@@ -1479,6 +1753,7 @@ class MainViewModel(
                 }
                 refreshAll()
                 checkForAppUpdate(savedSession.baseUrl)
+                refreshIncomingShareDetailIfReady()
             }.onFailure { error ->
                 sessionStore.clearToken(session.baseUrl)
                 clearPreviewArtifacts()
@@ -1790,6 +2065,125 @@ class MainViewModel(
             .onUnmappableCharacter(CodingErrorAction.REPORT)
             .decode(ByteBuffer.wrap(bytes))
             .toString()
+
+    private fun openIncomingShare(shareCode: String, source: IncomingShareSource) {
+        val baseUrl = uiState.value.baseUrl
+
+        viewModelScope.launch {
+            _uiState.update { state ->
+                state.copy(
+                    incomingShare = IncomingShareUiState(
+                        activeShareCode = shareCode,
+                        source = source,
+                        statusLoading = true,
+                    ),
+                )
+            }
+
+            runCatching {
+                repository.fetchPublicShareStatus(
+                    baseUrl = baseUrl,
+                    shareCode = shareCode,
+                )
+            }.onSuccess { status ->
+                _uiState.update { state ->
+                    state.copy(
+                        incomingShare = state.incomingShare.copy(
+                            statusLoading = false,
+                            status = status,
+                            error = if (status.available) null else shareUnavailableMessage(status),
+                        ),
+                    )
+                }
+                refreshIncomingShareDetailIfReady()
+            }.onFailure { error ->
+                _uiState.update { state ->
+                    state.copy(
+                        incomingShare = state.incomingShare.copy(
+                            statusLoading = false,
+                            error = error.readableMessage(),
+                        ),
+                    )
+                }
+            }
+        }
+    }
+
+    private fun refreshIncomingShareDetailIfReady() {
+        val incomingShare = uiState.value.incomingShare
+        val shareCode = incomingShare.activeShareCode ?: return
+        val status = incomingShare.status ?: return
+
+        if (!status.available || incomingShare.detailLoading) {
+            return
+        }
+
+        if (status.requiresPassword && incomingShare.shareAccessToken.isNullOrBlank()) {
+            return
+        }
+
+        val session = authenticatedSession() ?: return
+
+        viewModelScope.launch {
+            _uiState.update { state ->
+                state.copy(
+                    incomingShare = state.incomingShare.copy(
+                        detailLoading = true,
+                        error = null,
+                    ),
+                )
+            }
+
+            runCatching {
+                repository.fetchShareDetail(
+                    baseUrl = session.baseUrl,
+                    token = session.token,
+                    shareCode = shareCode,
+                    shareAccessToken = incomingShare.shareAccessToken,
+                )
+            }.onSuccess { detail ->
+                _uiState.update { state ->
+                    if (state.incomingShare.activeShareCode != shareCode) {
+                        state
+                    } else {
+                        state.copy(
+                            incomingShare = state.incomingShare.copy(
+                                detailLoading = false,
+                                detail = detail,
+                                error = null,
+                            ),
+                        )
+                    }
+                }
+            }.onFailure { error ->
+                _uiState.update { state ->
+                    if (state.incomingShare.activeShareCode != shareCode) {
+                        state
+                    } else {
+                        val invalidPasswordAccess = status.requiresPassword &&
+                            error is ApiException &&
+                            error.status == 400
+
+                        state.copy(
+                            incomingShare = state.incomingShare.copy(
+                                detailLoading = false,
+                                shareAccessToken = if (invalidPasswordAccess) null else state.incomingShare.shareAccessToken,
+                                passwordError = if (invalidPasswordAccess) "提取码凭证已失效，请重新输入。" else state.incomingShare.passwordError,
+                                error = if (invalidPasswordAccess) null else error.readableMessage(),
+                            ),
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private fun shareUnavailableMessage(status: ShareLinkStatusResponse): String =
+        when (status.reason) {
+            "EXPIRED" -> "分享链接已过期。"
+            "REVOKED" -> "分享链接已被取消。"
+            else -> "分享链接暂不可用。"
+        }
 
     private fun authenticatedSession(): AuthSession? {
         val state = uiState.value

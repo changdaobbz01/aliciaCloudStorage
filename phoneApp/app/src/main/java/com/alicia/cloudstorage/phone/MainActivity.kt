@@ -1,6 +1,7 @@
 package com.alicia.cloudstorage.phone
 
 import android.graphics.Color
+import android.content.Intent
 import android.os.Bundle
 import android.os.Build
 import android.view.WindowManager
@@ -8,12 +9,16 @@ import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.activity.viewModels
 import com.alicia.cloudstorage.phone.ui.AliciaCloudApp
 import com.alicia.cloudstorage.phone.ui.AliciaCloudTheme
 import com.alicia.cloudstorage.phone.ui.MainViewModel
 
 class MainActivity : ComponentActivity() {
+    private val appViewModel: MainViewModel by viewModels {
+        MainViewModel.provideFactory(applicationContext)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
@@ -32,11 +37,21 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             AliciaCloudTheme {
-                val appViewModel: MainViewModel = viewModel(
-                    factory = MainViewModel.provideFactory(applicationContext),
-                )
                 AliciaCloudApp(viewModel = appViewModel)
             }
         }
+
+        appViewModel.handleIncomingShareUri(intent?.data)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        appViewModel.handleIncomingShareUri(intent.data)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        appViewModel.checkClipboardForShareLink()
     }
 }
