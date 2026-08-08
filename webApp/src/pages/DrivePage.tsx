@@ -2,6 +2,7 @@
   AndroidOutlined,
   CloudServerOutlined,
   DeleteOutlined,
+  DownloadOutlined,
   EditOutlined,
   FolderOpenOutlined,
   HomeOutlined,
@@ -12,7 +13,7 @@
   TeamOutlined,
   UploadOutlined,
 } from '@ant-design/icons';
-import { App as AntApp, Avatar, Dropdown, Input, Layout, Menu, Progress, QRCode, Spin, Typography } from 'antd';
+import { App as AntApp, Avatar, Badge, Dropdown, Input, Layout, Menu, Progress, QRCode, Spin, Typography } from 'antd';
 import type { MenuProps } from 'antd';
 import type { CSSProperties, ChangeEvent } from 'react';
 import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
@@ -29,6 +30,7 @@ import { useSession } from '../context/session-context';
 import { useDriveAccountsAdmin } from '../features/drive/hooks/useDriveAccountsAdmin';
 import { useDriveAppPackageAdmin } from '../features/drive/hooks/useDriveAppPackageAdmin';
 import { useDriveDashboard } from '../features/drive/hooks/useDriveDashboard';
+import { useDriveDownloads } from '../features/drive/hooks/useDriveDownloads';
 import { useDriveExplorer } from '../features/drive/hooks/useDriveExplorer';
 import { useDriveProfileSettings } from '../features/drive/hooks/useDriveProfileSettings';
 import { useDriveShares } from '../features/drive/hooks/useDriveShares';
@@ -45,6 +47,7 @@ import type { StorageNode, StorageViewMode } from '../types';
 
 const LazyDriveAccountsView = lazy(() => import('../features/drive/DriveAccountsView'));
 const LazyDriveAppPackageView = lazy(() => import('../features/drive/DriveAppPackageView'));
+const LazyDriveDownloadsView = lazy(() => import('../features/drive/DriveDownloadsView'));
 const LazyDriveExplorerView = lazy(() => import('../features/drive/DriveExplorerView'));
 const LazyDriveHomeView = lazy(() => import('../features/drive/DriveHomeView'));
 const LazyDriveSharesView = lazy(() => import('../features/drive/DriveSharesView'));
@@ -56,6 +59,7 @@ const MAX_HOME_BACKGROUND_BYTES = 10 * 1024 * 1024;
 const baseMenuItems = [
   { key: 'home', icon: <HomeOutlined />, label: '主页' },
   { key: 'drive', icon: <FolderOpenOutlined />, label: '我的文件' },
+  { key: 'downloads', icon: <DownloadOutlined />, label: '下载管理' },
   { key: 'shares', icon: <ShareAltOutlined />, label: '我的分享' },
   { key: 'accounts', icon: <TeamOutlined />, label: '账号管理' },
   { key: 'appPackage', icon: <AndroidOutlined />, label: 'APP 上传' },
@@ -72,6 +76,7 @@ export function DrivePage() {
   const [activeView, setActiveView] = useState<StorageViewMode>('home');
   const isHomeView = activeView === 'home';
   const isDriveView = activeView === 'drive';
+  const isDownloadsView = activeView === 'downloads';
   const isSharesView = activeView === 'shares';
   const isAccountsView = activeView === 'accounts';
   const isAppPackageView = activeView === 'appPackage';
@@ -85,6 +90,10 @@ export function DrivePage() {
     activeView,
     message,
     onStorageChanged: dashboard.loadOverview,
+  });
+  const downloads = useDriveDownloads({
+    authToken,
+    message,
   });
   const shares = useDriveShares({
     authToken,
@@ -131,6 +140,8 @@ export function DrivePage() {
         : explorer.breadcrumbs[explorer.breadcrumbs.length - 1]?.label ?? '我的文件';
   const currentViewLabel = isHomeView
     ? '主页'
+    : isDownloadsView
+      ? '下载管理'
     : isSharesView
       ? '我的分享'
     : isAccountsView
@@ -165,12 +176,29 @@ export function DrivePage() {
         } as CSSProperties)
       : undefined;
   const contentClassName = `app-content${isHomeView ? ' app-content-home' : ''}`;
-  const menuItems = useMemo(
-    () => (isAdmin ? baseMenuItems : baseMenuItems.filter((item) => !['accounts', 'appPackage'].includes(item.key))),
-    [isAdmin],
-  );
+  const menuItems = useMemo(() => {
+    const visibleItems = isAdmin
+      ? baseMenuItems
+      : baseMenuItems.filter((item) => !['accounts', 'appPackage'].includes(item.key));
+
+    return visibleItems.map((item) =>
+      item.key === 'downloads'
+        ? {
+            ...item,
+            label: (
+              <span className="sider-menu-badge-label">
+                <span>下载管理</span>
+                {downloads.activeDownloadCount > 0 ? <Badge size="small" count={downloads.activeDownloadCount} /> : null}
+              </span>
+            ),
+          }
+        : item,
+    );
+  }, [downloads.activeDownloadCount, isAdmin]);
   const currentViewIcon = isHomeView ? (
     <HomeOutlined />
+  ) : isDownloadsView ? (
+    <DownloadOutlined />
   ) : isSharesView ? (
     <ShareAltOutlined />
   ) : isAccountsView ? (
@@ -184,6 +212,8 @@ export function DrivePage() {
   );
   const headerEyebrow = isHomeView
     ? '系统概览'
+    : isDownloadsView
+      ? '传输中心'
     : isSharesView
       ? '分享管理'
     : isAccountsView
@@ -201,13 +231,13 @@ export function DrivePage() {
   const loading = explorer.loading;
   const uploading = explorer.uploading;
   const uploadTasks = explorer.uploadTasks;
-  const downloadingFileId = explorer.downloadingFileId;
   const previewState = explorer.previewState;
   const error = explorer.error;
   const keywordInput = explorer.keywordInput;
   const nodeTypeFilter = explorer.nodeTypeFilter;
   const selectedItems = explorer.selectedItems;
   const selectedRowKeys = explorer.selectedRowKeys;
+  const downloadSelectionState = downloads.getSelectionDownloadButtonState(selectedItems);
   const folderOptionsLoading = explorer.folderOptionsLoading;
   const overallUploadProgress = explorer.overallUploadProgress;
   const profileUsedBytes = dashboard.overview?.usedBytes ?? 0;
@@ -275,8 +305,8 @@ export function DrivePage() {
     await explorer.handleSelectedFiles(event);
   }
 
-  async function handleDownloadFile(item: StorageNode) {
-    await explorer.handleDownloadFile(item);
+  function handleDownloadNode(item: StorageNode) {
+    downloads.downloadNode(item);
   }
 
   async function handlePreviewFile(item: StorageNode) {
@@ -346,6 +376,17 @@ export function DrivePage() {
         />
       ) : null}
 
+      {isDownloadsView ? (
+        <LazyDriveDownloadsView
+          tasks={downloads.downloadTasks}
+          activeCount={downloads.activeDownloadCount}
+          onCancelTask={downloads.cancelDownloadTask}
+          onRetryTask={downloads.retryDownloadTask}
+          onClearFinished={downloads.clearFinishedDownloads}
+          onClearHistory={downloads.clearDownloadHistory}
+        />
+      ) : null}
+
       {isListView ? (
         <LazyDriveExplorerView
           mode={isTrashView ? 'trash' : 'drive'}
@@ -362,8 +403,7 @@ export function DrivePage() {
           listState={listState}
           uploadTasks={uploadTasks}
           overallUploadProgress={overallUploadProgress}
-          downloadingFileId={downloadingFileId}
-          downloadingArchive={explorer.downloadingArchive}
+          downloadSelectionState={downloadSelectionState}
           previewingFileId={previewingFileId}
           onRefresh={() => void refreshCurrentView()}
           onUploadClick={handleUploadButtonClick}
@@ -374,7 +414,7 @@ export function DrivePage() {
           onDeleteSelection={() => void handleDeleteNodes(selectedItems)}
           onPermanentDeleteSelection={() => handlePermanentlyDeleteNodes(selectedItems)}
           onOpenBatchMove={storageDialogs.openBatchMoveModal}
-          onDownloadSelection={() => void explorer.handleDownloadSelection()}
+          onDownloadSelection={() => downloads.downloadNodes(selectedItems)}
           onCancelActiveUploads={explorer.cancelActiveUploads}
           onRetryFailedUploads={() => void explorer.retryFailedUploads()}
           onClearUploadHistory={explorer.clearUploadHistory}
@@ -385,7 +425,8 @@ export function DrivePage() {
           onTableChange={explorer.handleTableChange}
           onOpenFolder={explorer.openFolder}
           onPreviewFile={handlePreviewFile}
-          onDownloadFile={handleDownloadFile}
+          onDownloadNode={handleDownloadNode}
+          getNodeDownloadButtonState={downloads.getNodeDownloadButtonState}
           onShareNode={shares.openCreateShareModal}
           onRenameNode={storageDialogs.openRenameModal}
           onMoveNode={storageDialogs.openMoveModal}
@@ -595,9 +636,9 @@ export function DrivePage() {
 
       <DrivePreviewModal
         previewState={previewState}
-        downloadingFileId={downloadingFileId}
+        getDownloadButtonState={downloads.getNodeDownloadButtonState}
         onClose={explorer.closePreviewModal}
-        onDownloadFile={handleDownloadFile}
+        onDownloadFile={handleDownloadNode}
       />
 
       <DriveProfileModals

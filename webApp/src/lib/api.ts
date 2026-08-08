@@ -42,8 +42,19 @@ type UploadProgress = {
   percent: number;
 };
 
+export type DownloadProgress = {
+  loaded: number;
+  total: number | null;
+  percent: number | null;
+};
+
 type UploadFileOptions = {
   onProgress?: (progress: UploadProgress) => void;
+  signal?: AbortSignal;
+};
+
+type DownloadRequestOptions = {
+  onProgress?: (progress: DownloadProgress) => void;
   signal?: AbortSignal;
 };
 
@@ -192,11 +203,50 @@ async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
 /**
  * 发起一个返回二进制文件的请求，并解析响应头里的文件名。
  */
+async function readBlobWithProgress(response: Response, onProgress?: (progress: DownloadProgress) => void) {
+  if (!response.body || !onProgress) {
+    return response.blob();
+  }
+
+  const contentType = response.headers.get('content-type') || '';
+  const totalHeader = response.headers.get('content-length');
+  const parsedTotal = totalHeader ? Number(totalHeader) : Number.NaN;
+  const total = Number.isFinite(parsedTotal) && parsedTotal > 0 ? parsedTotal : null;
+  const reader = response.body.getReader();
+  const chunks: BlobPart[] = [];
+  let loaded = 0;
+
+  onProgress({ loaded, total, percent: total === null ? null : 0 });
+
+  while (true) {
+    const { done, value } = await reader.read();
+
+    if (done) {
+      break;
+    }
+
+    if (!value) {
+      continue;
+    }
+
+    chunks.push(value);
+    loaded += value.byteLength;
+    onProgress({
+      loaded,
+      total,
+      percent: total === null ? null : Math.min(100, Math.round((loaded / total) * 100)),
+    });
+  }
+
+  return new Blob(chunks, { type: contentType });
+}
+
 async function requestBlob(
   url: string,
   init?: RequestInit,
+  options?: DownloadRequestOptions,
 ): Promise<{ blob: Blob; fileName: string | null }> {
-  const response = await fetch(url, init);
+  const response = await fetch(url, options?.signal ? { ...init, signal: options.signal } : init);
 
   if (!response.ok) {
     const payload = await readBody(response);
@@ -204,7 +254,7 @@ async function requestBlob(
   }
 
   return {
-    blob: await response.blob(),
+    blob: await readBlobWithProgress(response, options?.onProgress),
     fileName: parseFileName(response.headers.get('content-disposition')),
   };
 }
@@ -773,7 +823,12 @@ export function abortMultipartUpload(uploadToken: string, token: string, options
 /**
  * 下载指定文件节点对应的文件内容。
  */
-export function downloadStorageFile(fileId: number, token: string, version?: string) {
+export function downloadStorageFile(
+  fileId: number,
+  token: string,
+  version?: string,
+  options?: DownloadRequestOptions,
+) {
   const search = new URLSearchParams();
 
   if (version) {
@@ -781,7 +836,11 @@ export function downloadStorageFile(fileId: number, token: string, version?: str
   }
 
   const suffix = search.toString() ? `?${search.toString()}` : '';
-  return requestBlob(`/api/storage/files/${fileId}/download${suffix}`, withToken(token));
+  return requestBlob(
+    `/api/storage/files/${fileId}/download${suffix}`,
+    withToken(token, { signal: options?.signal }),
+    options,
+  );
 }
 
 /**
@@ -799,16 +858,18 @@ export function fetchStorageFileAccessUrl(
   );
 }
 
-export function downloadStorageArchive(payload: BatchNodePayload, token: string) {
+export function downloadStorageArchive(payload: BatchNodePayload, token: string, options?: DownloadRequestOptions) {
   return requestBlob(
     '/api/storage/nodes/archive',
     withToken(token, {
       method: 'POST',
+      signal: options?.signal,
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(payload),
     }),
+    options,
   );
 }
 

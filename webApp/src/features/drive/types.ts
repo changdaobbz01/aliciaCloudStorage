@@ -35,6 +35,39 @@ export type DriveUploadTask = {
   error: string | null;
 };
 
+export type DriveDownloadTaskStatus =
+  | 'queued'
+  | 'preparing'
+  | 'downloading'
+  | 'saving'
+  | 'success'
+  | 'error'
+  | 'canceled';
+
+export type DriveDownloadSourceType = 'file' | 'archive';
+
+export type DriveDownloadTask = {
+  id: string;
+  sourceType: DriveDownloadSourceType;
+  nodeIds: number[];
+  displayName: string;
+  fileName: string | null;
+  version: string | null;
+  status: DriveDownloadTaskStatus;
+  loadedBytes: number;
+  totalBytes: number | null;
+  percent: number | null;
+  createdAt: number;
+  finishedAt: number | null;
+  error: string | null;
+};
+
+export type DriveDownloadButtonState = {
+  label: string;
+  busy: boolean;
+  task: DriveDownloadTask | null;
+};
+
 export type DrivePreviewKind = 'image' | 'pdf' | 'text' | 'audio' | 'video' | 'unsupported';
 
 export type DrivePreviewState = {

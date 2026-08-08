@@ -1,10 +1,10 @@
 import { Alert, Button, Modal, Spin } from 'antd';
 import type { StorageNode } from '../../types';
-import type { DrivePreviewState } from './types';
+import type { DriveDownloadButtonState, DrivePreviewState } from './types';
 
 type DrivePreviewModalProps = {
   previewState: DrivePreviewState;
-  downloadingFileId: number | null;
+  getDownloadButtonState: (item: StorageNode) => DriveDownloadButtonState;
   onClose: () => void;
   onDownloadFile: (item: StorageNode) => void | Promise<void>;
 };
@@ -87,11 +87,12 @@ function renderPreviewContent(previewState: DrivePreviewState) {
 
 export function DrivePreviewModal({
   previewState,
-  downloadingFileId,
+  getDownloadButtonState,
   onClose,
   onDownloadFile,
 }: DrivePreviewModalProps) {
   const previewTarget = previewState.target;
+  const downloadState = previewTarget ? getDownloadButtonState(previewTarget) : null;
 
   return (
     <Modal
@@ -105,10 +106,10 @@ export function DrivePreviewModal({
           ? [
               <Button
                 key="download"
-                loading={downloadingFileId === previewTarget.id}
+                disabled={downloadState?.busy}
                 onClick={() => void onDownloadFile(previewTarget)}
               >
-                下载文件
+                {downloadState?.task ? downloadState.label : '下载文件'}
               </Button>,
               <Button key="close" type="primary" onClick={onClose}>
                 关闭

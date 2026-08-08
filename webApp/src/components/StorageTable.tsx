@@ -5,7 +5,6 @@ import {
   EyeOutlined,
   FileOutlined,
   FolderOpenFilled,
-  RightOutlined,
   RollbackOutlined,
   ShareAltOutlined,
   SwapOutlined,
@@ -14,13 +13,14 @@ import { Button, Popconfirm, Space, Table, Typography } from 'antd';
 import type { TablePaginationConfig, TableProps } from 'antd';
 import type { SorterResult } from 'antd/es/table/interface';
 import type { SortDirection, StorageNode, StorageNodeSortField, StorageViewMode } from '../types';
+import type { DriveDownloadButtonState } from '../features/drive/types';
 
 type StorageTableProps = {
   mode: StorageViewMode;
   items: StorageNode[];
   loading: boolean;
-  downloadingFileId: number | null;
   previewingFileId: number | null;
+  getDownloadButtonState: (item: StorageNode) => DriveDownloadButtonState;
   selectedRowKeys: number[];
   page: number;
   pageSize: number;
@@ -36,7 +36,7 @@ type StorageTableProps = {
   }) => void;
   onOpenFolder: (item: StorageNode) => void;
   onPreviewFile: (item: StorageNode) => void | Promise<void>;
-  onDownloadFile: (item: StorageNode) => void;
+  onDownloadNode: (item: StorageNode) => void;
   onShareNode: (item: StorageNode) => void;
   onRenameNode: (item: StorageNode) => void;
   onMoveNode: (item: StorageNode) => void;
@@ -115,8 +115,8 @@ export function StorageTable({
   mode,
   items,
   loading,
-  downloadingFileId,
   previewingFileId,
+  getDownloadButtonState,
   selectedRowKeys,
   page,
   pageSize,
@@ -127,7 +127,7 @@ export function StorageTable({
   onTableChange,
   onOpenFolder,
   onPreviewFile,
-  onDownloadFile,
+  onDownloadNode,
   onShareNode,
   onRenameNode,
   onMoveNode,
@@ -149,9 +149,8 @@ export function StorageTable({
       sortOrder: toSortOrder(sortBy, 'name', sortDirection),
       render: (_, item) => {
         const meta = item.type === 'FOLDER' ? '文件夹' : item.extension ? item.extension.toUpperCase() : '文件';
-
-        return (
-          <div className="storage-name-cell">
+        const content = (
+          <>
             <span className={`storage-icon-shell${item.type === 'FOLDER' ? ' storage-folder-icon' : ''}`}>
               {item.type === 'FOLDER' ? (
                 <FolderOpenFilled style={{ fontSize: 18 }} />
@@ -160,12 +159,26 @@ export function StorageTable({
               )}
             </span>
 
-            <div className="storage-name-copy">
+            <span className="storage-name-copy">
               <Typography.Text strong={item.type === 'FOLDER'} ellipsis={{ tooltip: item.name }} className="storage-name-title">
                 {item.name}
               </Typography.Text>
               <Typography.Text className="storage-name-meta">{meta}</Typography.Text>
-            </div>
+            </span>
+          </>
+        );
+
+        if (!isTrashMode && item.type === 'FOLDER') {
+          return (
+            <button type="button" className="storage-name-cell storage-folder-entry" onClick={() => onOpenFolder(item)}>
+              {content}
+            </button>
+          );
+        }
+
+        return (
+          <div className="storage-name-cell">
+            {content}
           </div>
         );
       },
@@ -193,8 +206,10 @@ export function StorageTable({
       title: '操作',
       key: 'actions',
       width: isTrashMode ? 240 : 450,
-      render: (_, item) =>
-        isTrashMode ? (
+      render: (_, item) => {
+        const downloadState = getDownloadButtonState(item);
+
+        return isTrashMode ? (
           <Space size="small" wrap>
             <Button type="link" icon={<RollbackOutlined />} onClick={() => onRestoreNode(item)}>
               恢复
@@ -214,30 +229,24 @@ export function StorageTable({
           </Space>
         ) : (
           <Space size="small" wrap>
-            {item.type === 'FOLDER' ? (
-              <Button type="link" icon={<RightOutlined />} onClick={() => onOpenFolder(item)}>
-                进入
+            {item.type === 'FILE' ? (
+              <Button
+                type="link"
+                icon={<EyeOutlined />}
+                loading={previewingFileId === item.id}
+                onClick={() => onPreviewFile(item)}
+              >
+                预览
               </Button>
-            ) : (
-              <>
-                <Button
-                  type="link"
-                  icon={<EyeOutlined />}
-                  loading={previewingFileId === item.id}
-                  onClick={() => onPreviewFile(item)}
-                >
-                  预览
-                </Button>
-                <Button
-                  type="link"
-                  icon={<DownloadOutlined />}
-                  loading={downloadingFileId === item.id}
-                  onClick={() => onDownloadFile(item)}
-                >
-                  下载
-                </Button>
-              </>
-            )}
+            ) : null}
+            <Button
+              type="link"
+              icon={<DownloadOutlined />}
+              disabled={downloadState.busy}
+              onClick={() => onDownloadNode(item)}
+            >
+              {downloadState.label}
+            </Button>
             <Button type="link" icon={<ShareAltOutlined />} onClick={() => onShareNode(item)}>
               分享
             </Button>
@@ -260,7 +269,8 @@ export function StorageTable({
               </Button>
             </Popconfirm>
           </Space>
-        ),
+        );
+      },
     },
   ];
 
@@ -300,13 +310,6 @@ export function StorageTable({
             ...nextSort,
           });
         }}
-        onRow={(record) => ({
-          onDoubleClick: () => {
-            if (!isTrashMode && record.type === 'FOLDER') {
-              onOpenFolder(record);
-            }
-          },
-        })}
       />
     </div>
   );

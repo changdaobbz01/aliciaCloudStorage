@@ -10,7 +10,7 @@ import {
 import { Alert, Breadcrumb, Button, Popconfirm, Progress, Segmented, Space, Spin, Typography } from 'antd';
 import { StorageTable } from '../../components/StorageTable';
 import type { SortDirection, StorageNode, StorageNodeFilter, StorageNodeSortField } from '../../types';
-import type { DriveListState, DriveUploadTask, FolderCrumb } from './types';
+import type { DriveDownloadButtonState, DriveListState, DriveUploadTask, FolderCrumb } from './types';
 
 type DriveExplorerViewProps = {
   mode: 'drive' | 'trash';
@@ -27,8 +27,7 @@ type DriveExplorerViewProps = {
   listState: DriveListState;
   uploadTasks: DriveUploadTask[];
   overallUploadProgress: number;
-  downloadingFileId: number | null;
-  downloadingArchive: boolean;
+  downloadSelectionState: DriveDownloadButtonState;
   previewingFileId: number | null;
   onRefresh: () => void;
   onUploadClick: () => void;
@@ -55,7 +54,8 @@ type DriveExplorerViewProps = {
   }) => void;
   onOpenFolder: (item: StorageNode) => void;
   onPreviewFile: (item: StorageNode) => void | Promise<void>;
-  onDownloadFile: (item: StorageNode) => void;
+  onDownloadNode: (item: StorageNode) => void;
+  getNodeDownloadButtonState: (item: StorageNode) => DriveDownloadButtonState;
   onShareNode: (item: StorageNode) => void;
   onRenameNode: (item: StorageNode) => void;
   onMoveNode: (item: StorageNode) => void;
@@ -100,8 +100,7 @@ export default function DriveExplorerView({
   listState,
   uploadTasks,
   overallUploadProgress,
-  downloadingFileId,
-  downloadingArchive,
+  downloadSelectionState,
   previewingFileId,
   onRefresh,
   onUploadClick,
@@ -123,7 +122,8 @@ export default function DriveExplorerView({
   onTableChange,
   onOpenFolder,
   onPreviewFile,
-  onDownloadFile,
+  onDownloadNode,
+  getNodeDownloadButtonState,
   onShareNode,
   onRenameNode,
   onMoveNode,
@@ -187,11 +187,10 @@ export default function DriveExplorerView({
             <>
               <Button
                 icon={<CloudDownloadOutlined />}
-                disabled={selectedCount === 0}
-                loading={downloadingArchive}
+                disabled={selectedCount === 0 || downloadSelectionState.busy}
                 onClick={onDownloadSelection}
               >
-                下载选中
+                {downloadSelectionState.label}
               </Button>
               <Button icon={<SwapOutlined />} disabled={selectedCount === 0} onClick={onOpenBatchMove}>
                 移动所选
@@ -330,8 +329,8 @@ export default function DriveExplorerView({
           mode={mode}
           items={items}
           loading={false}
-          downloadingFileId={downloadingFileId}
           previewingFileId={previewingFileId}
+          getDownloadButtonState={getNodeDownloadButtonState}
           selectedRowKeys={selectedRowKeys}
           page={listState.page}
           pageSize={listState.size}
@@ -342,7 +341,7 @@ export default function DriveExplorerView({
           onTableChange={onTableChange}
           onOpenFolder={onOpenFolder}
           onPreviewFile={onPreviewFile}
-          onDownloadFile={onDownloadFile}
+          onDownloadNode={onDownloadNode}
           onShareNode={onShareNode}
           onRenameNode={onRenameNode}
           onMoveNode={onMoveNode}
