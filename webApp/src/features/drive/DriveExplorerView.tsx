@@ -121,8 +121,6 @@ export default function DriveExplorerView({
             刷新
           </Button>
 
-          {selectedCount > 0 ? <span className="selection-pill">已选 {selectedCount} 项</span> : null}
-
           {isTrashMode ? (
             <>
               <Button icon={<RollbackOutlined />} disabled={selectedCount === 0} onClick={onRestoreSelection}>
@@ -190,6 +188,7 @@ export default function DriveExplorerView({
         </div>
 
         <div className="drive-toolbar-right">
+          {selectedCount > 0 ? <span className="selection-pill">已选 {selectedCount} 项</span> : null}
           <Segmented<StorageNodeFilter>
             value={nodeTypeFilter}
             onChange={onNodeTypeFilterChange}
