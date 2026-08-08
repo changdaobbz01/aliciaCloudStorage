@@ -26,6 +26,7 @@ import { DrivePreviewModal } from '../features/drive/DrivePreviewModal';
 import { DriveProfileModals } from '../features/drive/DriveProfileModals';
 import { DriveShareCreateModal } from '../features/drive/DriveShareCreateModal';
 import { DriveStorageActionModals } from '../features/drive/DriveStorageActionModals';
+import { DriveUploadFloatingPanel } from '../features/drive/DriveUploadFloatingPanel';
 import { useSession } from '../context/session-context';
 import { useDriveAccountsAdmin } from '../features/drive/hooks/useDriveAccountsAdmin';
 import { useDriveAppPackageAdmin } from '../features/drive/hooks/useDriveAppPackageAdmin';
@@ -401,8 +402,6 @@ export function DrivePage() {
           selectedItems={selectedItems}
           selectedRowKeys={selectedRowKeys}
           listState={listState}
-          uploadTasks={uploadTasks}
-          overallUploadProgress={overallUploadProgress}
           downloadSelectionState={downloadSelectionState}
           previewingFileId={previewingFileId}
           onRefresh={() => void refreshCurrentView()}
@@ -415,12 +414,6 @@ export function DrivePage() {
           onPermanentDeleteSelection={() => handlePermanentlyDeleteNodes(selectedItems)}
           onOpenBatchMove={storageDialogs.openBatchMoveModal}
           onDownloadSelection={() => downloads.downloadNodes(selectedItems)}
-          onCancelActiveUploads={explorer.cancelActiveUploads}
-          onRetryFailedUploads={() => void explorer.retryFailedUploads()}
-          onClearUploadHistory={explorer.clearUploadHistory}
-          onRetryUploadTask={(taskId) => void explorer.retryUploadTask(taskId)}
-          onCancelUploadTask={explorer.cancelUploadTask}
-          getUploadTaskStatusText={explorer.getUploadTaskStatusText}
           onSelectionChange={explorer.handleSelectionChange}
           onTableChange={explorer.handleTableChange}
           onOpenFolder={explorer.openFolder}
@@ -633,6 +626,18 @@ export function DrivePage() {
           ) : null}
         </Content>
       </Layout>
+
+      <DriveUploadFloatingPanel
+        uploading={uploading}
+        uploadTasks={uploadTasks}
+        overallUploadProgress={overallUploadProgress}
+        onCancelActiveUploads={explorer.cancelActiveUploads}
+        onRetryFailedUploads={() => void explorer.retryFailedUploads()}
+        onClearUploadHistory={explorer.clearUploadHistory}
+        onRetryUploadTask={(taskId) => void explorer.retryUploadTask(taskId)}
+        onCancelUploadTask={explorer.cancelUploadTask}
+        getUploadTaskStatusText={explorer.getUploadTaskStatusText}
+      />
 
       <DrivePreviewModal
         previewState={previewState}

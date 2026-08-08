@@ -7,10 +7,10 @@ import {
   SwapOutlined,
   UploadOutlined,
 } from '@ant-design/icons';
-import { Alert, Breadcrumb, Button, Popconfirm, Progress, Segmented, Space, Spin, Typography } from 'antd';
+import { Alert, Breadcrumb, Button, Popconfirm, Segmented, Spin, Typography } from 'antd';
 import { StorageTable } from '../../components/StorageTable';
 import type { SortDirection, StorageNode, StorageNodeFilter, StorageNodeSortField } from '../../types';
-import type { DriveDownloadButtonState, DriveListState, DriveUploadTask, FolderCrumb } from './types';
+import type { DriveDownloadButtonState, DriveListState, FolderCrumb } from './types';
 
 type DriveExplorerViewProps = {
   mode: 'drive' | 'trash';
@@ -25,8 +25,6 @@ type DriveExplorerViewProps = {
   selectedItems: StorageNode[];
   selectedRowKeys: number[];
   listState: DriveListState;
-  uploadTasks: DriveUploadTask[];
-  overallUploadProgress: number;
   downloadSelectionState: DriveDownloadButtonState;
   previewingFileId: number | null;
   onRefresh: () => void;
@@ -39,12 +37,6 @@ type DriveExplorerViewProps = {
   onPermanentDeleteSelection: () => void;
   onOpenBatchMove: () => void;
   onDownloadSelection: () => void;
-  onCancelActiveUploads: () => void;
-  onRetryFailedUploads: () => void;
-  onClearUploadHistory: () => void;
-  onRetryUploadTask: (taskId: string) => void;
-  onCancelUploadTask: (taskId: string) => void;
-  getUploadTaskStatusText: (task: DriveUploadTask) => string;
   onSelectionChange: (items: StorageNode[]) => void;
   onTableChange: (options: {
     page: number;
@@ -64,27 +56,6 @@ type DriveExplorerViewProps = {
   onPermanentlyDeleteNode: (item: StorageNode) => void | Promise<void>;
 };
 
-function formatBytes(value: number) {
-  if (value === 0) {
-    return '0 B';
-  }
-
-  if (value < 1024) {
-    return `${value} B`;
-  }
-
-  const units = ['KB', 'MB', 'GB', 'TB'];
-  let size = value;
-  let unitIndex = -1;
-
-  while (size >= 1024 && unitIndex < units.length - 1) {
-    size /= 1024;
-    unitIndex += 1;
-  }
-
-  return `${size.toFixed(size >= 100 ? 0 : 1)} ${units[unitIndex]}`;
-}
-
 export default function DriveExplorerView({
   mode,
   title,
@@ -98,8 +69,6 @@ export default function DriveExplorerView({
   selectedItems,
   selectedRowKeys,
   listState,
-  uploadTasks,
-  overallUploadProgress,
   downloadSelectionState,
   previewingFileId,
   onRefresh,
@@ -112,12 +81,6 @@ export default function DriveExplorerView({
   onPermanentDeleteSelection,
   onOpenBatchMove,
   onDownloadSelection,
-  onCancelActiveUploads,
-  onRetryFailedUploads,
-  onClearUploadHistory,
-  onRetryUploadTask,
-  onCancelUploadTask,
-  getUploadTaskStatusText,
   onSelectionChange,
   onTableChange,
   onOpenFolder,
@@ -133,10 +96,6 @@ export default function DriveExplorerView({
 }: DriveExplorerViewProps) {
   const isTrashMode = mode === 'trash';
   const selectedCount = selectedItems.length;
-  const uploadPanelVisible = uploadTasks.length > 0;
-  const uploadFailedCount = uploadTasks.filter((task) => task.status === 'error').length;
-  const uploadSuccessCount = uploadTasks.filter((task) => task.status === 'success').length;
-  const uploadCanceledCount = uploadTasks.filter((task) => task.status === 'canceled').length;
 
   return (
     <section className="content-panel drive-panel">
@@ -244,81 +203,6 @@ export default function DriveExplorerView({
       </div>
 
       {error ? <Alert type="error" showIcon message="文件列表加载失败" description={error} /> : null}
-
-      {uploadPanelVisible ? (
-        <section className="upload-panel">
-          <div className="upload-panel-header">
-            <div>
-              <Typography.Title level={5}>上传队列</Typography.Title>
-              <Typography.Text className="muted-text">
-                {uploading
-                  ? `正在处理 ${uploadTasks.length} 个文件`
-                  : `成功 ${uploadSuccessCount} 个，失败 ${uploadFailedCount} 个，取消 ${uploadCanceledCount} 个`}
-              </Typography.Text>
-            </div>
-            <Space wrap>
-              {uploading ? (
-                <Button size="small" danger onClick={onCancelActiveUploads}>
-                  取消当前上传
-                </Button>
-              ) : null}
-              {uploadFailedCount > 0 ? (
-                <Button size="small" onClick={onRetryFailedUploads} disabled={uploading}>
-                  继续失败项
-                </Button>
-              ) : null}
-              <Button size="small" onClick={onClearUploadHistory} disabled={uploading}>
-                清除记录
-              </Button>
-            </Space>
-          </div>
-
-          <Progress
-            percent={overallUploadProgress}
-            status={uploadFailedCount > 0 && !uploading ? 'exception' : undefined}
-          />
-
-          <div className="upload-task-list">
-            {uploadTasks.map((task) => (
-              <div key={task.id} className="upload-task-row">
-                <div className="upload-task-main">
-                  <div className="upload-task-name">{task.file.name}</div>
-                  <Typography.Text className="muted-text">{formatBytes(task.totalBytes || task.file.size)}</Typography.Text>
-                </div>
-
-                <div className="upload-task-side">
-                  <Typography.Text className="muted-text">{getUploadTaskStatusText(task)}</Typography.Text>
-                  {task.status === 'error' ? (
-                    <Button size="small" type="link" onClick={() => onRetryUploadTask(task.id)} disabled={uploading}>
-                      继续
-                    </Button>
-                  ) : null}
-                  {['uploading', 'retrying', 'completing'].includes(task.status) ? (
-                    <Button size="small" type="link" danger onClick={() => onCancelUploadTask(task.id)}>
-                      取消
-                    </Button>
-                  ) : null}
-                </div>
-
-                <Progress
-                  percent={task.status === 'success' ? 100 : task.progress}
-                  size="small"
-                  showInfo={false}
-                  status={
-                    task.status === 'error' || task.status === 'canceled'
-                      ? 'exception'
-                      : task.status === 'success'
-                        ? 'success'
-                        : 'active'
-                  }
-                />
-
-                {task.error ? <div className="upload-task-error">{task.error}</div> : null}
-              </div>
-            ))}
-          </div>
-        </section>
-      ) : null}
 
       {loading ? (
         <div className="loading-box">

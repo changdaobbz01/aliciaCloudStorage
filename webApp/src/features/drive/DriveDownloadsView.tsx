@@ -4,9 +4,10 @@ import {
   CloudDownloadOutlined,
   DeleteOutlined,
   FileZipOutlined,
+  FolderOpenOutlined,
   ReloadOutlined,
 } from '@ant-design/icons';
-import { Button, Empty, Progress, Space, Tag, Typography } from 'antd';
+import { Button, Empty, Popover, Progress, Space, Tag, Typography } from 'antd';
 import { formatFileSize } from './driveShared';
 import type { DriveDownloadTask, DriveDownloadTaskStatus } from './types';
 
@@ -159,6 +160,16 @@ function renderTaskRow(
   );
 }
 
+const downloadLocationContent = (
+  <div className="download-location-popover">
+    <Typography.Text strong>文件已交给浏览器保存</Typography.Text>
+    <Typography.Paragraph>
+      可在浏览器右上角下载列表中打开文件或查看所在文件夹。
+    </Typography.Paragraph>
+    <Typography.Text className="muted-text">Windows 常见位置：C:\Users\你的用户名\Downloads</Typography.Text>
+  </div>
+);
+
 export default function DriveDownloadsView({
   tasks,
   activeCount,
@@ -185,6 +196,9 @@ export default function DriveDownloadsView({
         </div>
 
         <div className="panel-actions">
+          <Popover placement="bottomRight" trigger="click" content={downloadLocationContent}>
+            <Button icon={<FolderOpenOutlined />}>查看下载位置</Button>
+          </Popover>
           <Button icon={<CheckCircleOutlined />} disabled={clearFinishedDisabled} onClick={onClearFinished}>
             清除已完成
           </Button>
