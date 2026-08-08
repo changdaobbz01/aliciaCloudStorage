@@ -545,15 +545,13 @@ select {
   gap: 12px;
   margin: 18px 4px 0;
   padding: 18px 18px 20px;
-  color: #ffe9cf;
-  background:
-    linear-gradient(180deg, rgba(16, 24, 40, 0.86) 0%, rgba(26, 37, 59, 0.92) 100%),
-    linear-gradient(135deg, rgba(37, 99, 235, 0.2) 0%, rgba(249, 115, 22, 0.14) 100%);
-  border: 1px solid rgba(148, 163, 184, 0.38);
-  clip-path: polygon(16px 0, calc(100% - 18px) 0, 100% 16px, 100% calc(100% - 18px), calc(100% - 18px) 100%, 18px 100%, 0 calc(100% - 16px), 0 18px);
+  color: #0f172a;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
   box-shadow:
-    0 24px 48px rgba(15, 23, 42, 0.22),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+    0 18px 40px rgba(15, 23, 42, 0.08),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.78);
   backdrop-filter: blur(10px) saturate(126%);
 }
 
@@ -569,13 +567,13 @@ select {
 .sider-download-card::before {
   top: 12px;
   left: 18px;
-  background: linear-gradient(90deg, rgba(56, 189, 248, 0) 0%, rgba(56, 189, 248, 0.95) 100%);
+  background: linear-gradient(90deg, rgba(59, 130, 246, 0) 0%, rgba(37, 99, 235, 0.88) 100%);
 }
 
 .sider-download-card::after {
   right: 18px;
   bottom: 12px;
-  background: linear-gradient(90deg, rgba(249, 115, 22, 0.95) 0%, rgba(249, 115, 22, 0) 100%);
+  background: linear-gradient(90deg, rgba(14, 165, 233, 0.88) 0%, rgba(14, 165, 233, 0) 100%);
 }
 
 .sider-download-head {
@@ -592,11 +590,11 @@ select {
   border-radius: 12px;
   padding: 4px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.06)),
-    rgba(15, 23, 42, 0.28);
+    linear-gradient(180deg, #eff6ff, #dbeafe),
+    #ffffff;
   box-shadow:
-    inset 0 0 0 1px rgba(148, 163, 184, 0.24),
-    0 10px 24px rgba(15, 23, 42, 0.22);
+    inset 0 0 0 1px rgba(147, 197, 253, 0.42),
+    0 10px 24px rgba(37, 99, 235, 0.14);
 }
 
 .sider-download-copy .ant-typography {
@@ -611,13 +609,13 @@ select {
 }
 
 .sider-download-title.ant-typography {
-  color: #f8fafc;
+  color: #0f172a;
   font-size: 17px;
   line-height: 1.08;
 }
 
 .sider-download-eyebrow {
-  color: rgba(191, 219, 254, 0.78);
+  color: #2563eb;
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.14em;
@@ -625,7 +623,7 @@ select {
 }
 
 .sider-download-note.ant-typography {
-  color: rgba(226, 232, 240, 0.86);
+  color: #64748b;
   margin: 0 !important;
   font-size: 12px;
   line-height: 1.55;
@@ -684,7 +682,7 @@ select {
   padding: 14px;
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.88);
-  color: rgba(124, 45, 18, 0.82);
+  color: #64748b;
   text-align: center;
   font-size: 12px;
   font-weight: 700;
@@ -716,8 +714,8 @@ select {
 }
 
 .sider-download-link-disabled {
-  color: rgba(226, 232, 240, 0.74);
-  background: rgba(51, 65, 85, 0.62);
+  color: #94a3b8;
+  background: #edf2f7;
   cursor: default;
   pointer-events: none;
   box-shadow: none;
@@ -1086,6 +1084,12 @@ select {
   flex-wrap: wrap;
 }
 
+.panel-actions .ant-btn {
+  min-height: 38px;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
 .selection-pill {
   display: inline-flex;
   align-items: center;
@@ -1097,6 +1101,89 @@ select {
   border-radius: 8px;
   background: #eff6ff;
   color: #1d4ed8;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.drive-category-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(116px, 1fr));
+  gap: 10px;
+  margin: 18px 0 16px;
+}
+
+.drive-category-button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  height: 58px;
+  padding: 0 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #334155;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+  transition:
+    border-color 0.16s ease,
+    background 0.16s ease,
+    color 0.16s ease,
+    box-shadow 0.16s ease,
+    transform 0.16s ease;
+}
+
+.drive-category-button:hover {
+  border-color: #bfdbfe;
+  background: #f8fbff;
+  color: #1d4ed8;
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.09);
+  transform: translateY(-1px);
+}
+
+.drive-category-button-active {
+  border-color: #93c5fd;
+  background: #eff6ff;
+  color: #1d4ed8;
+  box-shadow:
+    0 12px 26px rgba(37, 99, 235, 0.12),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.84);
+}
+
+.drive-category-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: #eef5ff;
+  color: #2563eb;
+  font-size: 18px;
+}
+
+.drive-category-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.drive-category-mode-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid #dbeafe;
+  border-radius: 8px;
+  background: #f8fbff;
+  color: #2563eb;
   font-size: 13px;
   font-weight: 700;
   white-space: nowrap;

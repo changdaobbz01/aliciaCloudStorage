@@ -8,6 +8,7 @@ export type UserRole = 'ADMIN' | 'USER';
 export type UserStatus = 'ACTIVE' | 'DISABLED';
 export type StorageNodeType = 'FOLDER' | 'FILE';
 export type StorageNodeFilter = 'ALL' | StorageNodeType;
+export type StorageFileCategory = 'IMAGE' | 'VIDEO' | 'AUDIO' | 'DOCUMENT' | 'ARCHIVE';
 export type StorageViewMode = 'home' | 'drive' | 'downloads' | 'shares' | 'accounts' | 'appPackage' | 'trash';
 export type SortDirection = 'asc' | 'desc';
 export type DriveSortField = 'name' | 'size' | 'updatedAt';
@@ -178,6 +179,8 @@ export type StorageNodeQuery = {
   size?: number;
   sortBy?: StorageNodeSortField;
   sortDirection?: SortDirection;
+  recursive?: boolean;
+  category?: StorageFileCategory | null;
 };
 
 export type CreateShareLinkPayload = {

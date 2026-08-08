@@ -1,15 +1,21 @@
 import {
+  AppstoreOutlined,
+  AudioOutlined,
   CloudDownloadOutlined,
   DeleteOutlined,
+  FileImageOutlined,
+  FileTextOutlined,
+  FileZipOutlined,
   FolderAddOutlined,
   ReloadOutlined,
   RollbackOutlined,
   SwapOutlined,
   UploadOutlined,
+  VideoCameraOutlined,
 } from '@ant-design/icons';
 import { Alert, Breadcrumb, Button, Popconfirm, Segmented, Spin, Typography } from 'antd';
 import { StorageTable } from '../../components/StorageTable';
-import type { SortDirection, StorageNode, StorageNodeFilter, StorageNodeSortField } from '../../types';
+import type { SortDirection, StorageFileCategory, StorageNode, StorageNodeFilter, StorageNodeSortField } from '../../types';
 import type { DriveDownloadButtonState, DriveListState, FolderCrumb } from './types';
 
 type DriveExplorerViewProps = {
@@ -18,6 +24,7 @@ type DriveExplorerViewProps = {
   description: string;
   breadcrumbs: FolderCrumb[];
   nodeTypeFilter: StorageNodeFilter;
+  fileCategory: StorageFileCategory | null;
   error: string | null;
   loading: boolean;
   uploading: boolean;
@@ -30,6 +37,7 @@ type DriveExplorerViewProps = {
   onRefresh: () => void;
   onUploadClick: () => void;
   onCreateFolderClick: () => void;
+  onFileCategoryChange: (value: StorageFileCategory | null) => void;
   onNodeTypeFilterChange: (value: StorageNodeFilter) => void;
   onJumpToCrumb: (index: number) => void;
   onRestoreSelection: () => void;
@@ -56,12 +64,22 @@ type DriveExplorerViewProps = {
   onPermanentlyDeleteNode: (item: StorageNode) => void | Promise<void>;
 };
 
+const fileCategoryOptions = [
+  { value: null, label: '全部', icon: <AppstoreOutlined /> },
+  { value: 'IMAGE' as const, label: '相册', icon: <FileImageOutlined /> },
+  { value: 'VIDEO' as const, label: '视频', icon: <VideoCameraOutlined /> },
+  { value: 'DOCUMENT' as const, label: '文档', icon: <FileTextOutlined /> },
+  { value: 'AUDIO' as const, label: '音频', icon: <AudioOutlined /> },
+  { value: 'ARCHIVE' as const, label: '压缩包', icon: <FileZipOutlined /> },
+];
+
 export default function DriveExplorerView({
   mode,
   title,
   description,
   breadcrumbs,
   nodeTypeFilter,
+  fileCategory,
   error,
   loading,
   uploading,
@@ -74,6 +92,7 @@ export default function DriveExplorerView({
   onRefresh,
   onUploadClick,
   onCreateFolderClick,
+  onFileCategoryChange,
   onNodeTypeFilterChange,
   onJumpToCrumb,
   onRestoreSelection,
@@ -96,6 +115,7 @@ export default function DriveExplorerView({
 }: DriveExplorerViewProps) {
   const isTrashMode = mode === 'trash';
   const selectedCount = selectedItems.length;
+  const activeCategory = fileCategory;
 
   return (
     <section className="content-panel drive-panel">
@@ -106,7 +126,7 @@ export default function DriveExplorerView({
         </div>
 
         <div className="panel-actions">
-          {!isTrashMode ? (
+          {!isTrashMode && !activeCategory ? (
             <>
               <Button type="primary" icon={<UploadOutlined />} loading={uploading} onClick={onUploadClick}>
                 上传文件
@@ -170,10 +190,32 @@ export default function DriveExplorerView({
         </div>
       </div>
 
+      {!isTrashMode ? (
+        <div className="drive-category-strip" aria-label="文件分类">
+          {fileCategoryOptions.map((option) => {
+            const active = option.value === activeCategory;
+
+            return (
+              <button
+                key={option.value ?? 'ALL'}
+                type="button"
+                className={`drive-category-button${active ? ' drive-category-button-active' : ''}`}
+                onClick={() => onFileCategoryChange(option.value)}
+              >
+                <span className="drive-category-icon">{option.icon}</span>
+                <span className="drive-category-label">{option.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+
       <div className="drive-toolbar">
         <div className="drive-toolbar-left">
           {isTrashMode ? (
             <Typography.Text className="drive-toolbar-note">回收站里的项目支持恢复，也支持彻底删除。</Typography.Text>
+          ) : activeCategory ? (
+            <Typography.Text className="drive-toolbar-note">全盘分类 / {title}</Typography.Text>
           ) : (
             <Breadcrumb
               items={breadcrumbs.map((crumb, index) => ({
@@ -189,15 +231,19 @@ export default function DriveExplorerView({
 
         <div className="drive-toolbar-right">
           {selectedCount > 0 ? <span className="selection-pill">已选 {selectedCount} 项</span> : null}
-          <Segmented<StorageNodeFilter>
-            value={nodeTypeFilter}
-            onChange={onNodeTypeFilterChange}
-            options={[
-              { label: '全部', value: 'ALL' },
-              { label: '文件夹', value: 'FOLDER' },
-              { label: '文件', value: 'FILE' },
-            ]}
-          />
+          {activeCategory ? (
+            <span className="drive-category-mode-pill">分类视图</span>
+          ) : (
+            <Segmented<StorageNodeFilter>
+              value={nodeTypeFilter}
+              onChange={onNodeTypeFilterChange}
+              options={[
+                { label: '全部', value: 'ALL' },
+                { label: '文件夹', value: 'FOLDER' },
+                { label: '文件', value: 'FILE' },
+              ]}
+            />
+          )}
         </div>
       </div>
 

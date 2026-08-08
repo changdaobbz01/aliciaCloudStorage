@@ -639,6 +639,14 @@ export function fetchStorageNodes(
     search.set('type', type);
   }
 
+  if (query?.recursive) {
+    search.set('recursive', 'true');
+  }
+
+  if (query?.category) {
+    search.set('category', query.category);
+  }
+
   if (query?.page) {
     search.set('page', String(query.page));
   }

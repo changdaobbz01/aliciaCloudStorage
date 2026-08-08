@@ -1,10 +1,28 @@
-import type { AppPackageInfo, StorageViewMode, User } from '../../types';
+import type { AppPackageInfo, StorageFileCategory, StorageViewMode, User } from '../../types';
 import type { DriveListState } from './types';
 
 const BYTES_PER_GIB = 1024 * 1024 * 1024;
 export const ROOT_PARENT_KEY = 'ROOT';
 export const DEFAULT_NEW_USER_QUOTA_GB = 50;
 export const APP_DOWNLOAD_PUBLIC_PATH = '/api/app-package/download/current';
+export const storageFileCategoryLabels: Record<StorageFileCategory, string> = {
+  IMAGE: '相册',
+  VIDEO: '视频',
+  AUDIO: '音频',
+  DOCUMENT: '文档',
+  ARCHIVE: '压缩包',
+};
+export const storageFileCategoryDescriptions: Record<StorageFileCategory, string> = {
+  IMAGE: '全盘归集图片文件，便于预览、分享和批量下载。',
+  VIDEO: '全盘归集视频文件，便于预览和下载。',
+  AUDIO: '全盘归集音频文件，便于播放和下载。',
+  DOCUMENT: '全盘归集文档、表格、演示和文本文件。',
+  ARCHIVE: '全盘归集压缩包和归档文件。',
+};
+
+export function getStorageFileCategoryLabel(category: StorageFileCategory | null) {
+  return category ? storageFileCategoryLabels[category] : null;
+}
 
 export function createDefaultListState(view: StorageViewMode): DriveListState {
   return {

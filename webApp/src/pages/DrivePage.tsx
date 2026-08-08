@@ -40,9 +40,11 @@ import {
   APP_DOWNLOAD_PUBLIC_PATH,
   formatFileSize,
   formatNullableBytes,
+  getStorageFileCategoryLabel,
   resolveAppDownloadUrl,
   resolveAvatarSrc,
   resolveHomeBackgroundSrc,
+  storageFileCategoryDescriptions,
 } from '../features/drive/driveShared';
 import type { StorageNode, StorageViewMode } from '../types';
 
@@ -133,9 +135,13 @@ export function DrivePage() {
     moveNodes: explorer.moveNodes,
   });
   const currentFolderId = explorer.currentFolderId;
+  const activeFileCategory = explorer.fileCategory;
+  const activeFileCategoryLabel = getStorageFileCategoryLabel(activeFileCategory);
   const panelTitle =
     isTrashView
       ? '回收站'
+      : activeFileCategoryLabel
+        ? activeFileCategoryLabel
       : currentFolderId === null
         ? '全部文件'
         : explorer.breadcrumbs[explorer.breadcrumbs.length - 1]?.label ?? '我的文件';
@@ -224,8 +230,16 @@ export function DrivePage() {
         : isTrashView
           ? '回收与恢复'
           : '文件工作台';
-  const headerSearchPlaceholder = isTrashView ? '搜索回收站' : '搜索当前目录';
-  const panelDescription = isTrashView ? '回收站中的项目可以恢复，也可以彻底删除。' : '统一处理上传、筛选、预览和批量操作。';
+  const headerSearchPlaceholder = isTrashView
+    ? '搜索回收站'
+    : activeFileCategoryLabel
+      ? `搜索${activeFileCategoryLabel}`
+      : '搜索当前目录';
+  const panelDescription = isTrashView
+    ? '回收站中的项目可以恢复，也可以彻底删除。'
+    : activeFileCategory
+      ? storageFileCategoryDescriptions[activeFileCategory]
+      : '统一处理上传、筛选、预览和批量操作。';
   const breadcrumbs = explorer.breadcrumbs;
   const items = explorer.items;
   const listState = explorer.listState;
@@ -395,6 +409,7 @@ export function DrivePage() {
           description={panelDescription}
           breadcrumbs={breadcrumbs}
           nodeTypeFilter={nodeTypeFilter}
+          fileCategory={activeFileCategory}
           error={error}
           loading={loading}
           uploading={uploading}
@@ -407,6 +422,7 @@ export function DrivePage() {
           onRefresh={() => void refreshCurrentView()}
           onUploadClick={handleUploadButtonClick}
           onCreateFolderClick={storageDialogs.openCreateFolderModal}
+          onFileCategoryChange={explorer.setFileCategory}
           onNodeTypeFilterChange={explorer.setNodeTypeFilter}
           onJumpToCrumb={explorer.jumpToCrumb}
           onRestoreSelection={() => void handleRestoreNodes(selectedItems)}

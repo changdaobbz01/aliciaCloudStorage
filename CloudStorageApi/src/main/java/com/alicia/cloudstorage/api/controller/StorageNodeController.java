@@ -77,12 +77,13 @@ public class StorageNodeController {
             @RequestParam(required = false, defaultValue = "false") boolean recursive,
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String type,
+            @RequestParam(required = false) String category,
             @RequestParam(required = false) Integer page,
             @RequestParam(required = false) Integer size,
             @RequestParam(required = false) String sortBy,
             @RequestParam(required = false) String sortDirection
     ) {
-        return storageQueryService.listNodes(userId, parentId, recursive, keyword, type, page, size, sortBy, sortDirection);
+        return storageQueryService.listNodes(userId, parentId, recursive, keyword, type, category, page, size, sortBy, sortDirection);
     }
 
     /**

@@ -7,10 +7,13 @@ import com.alicia.cloudstorage.api.dto.UsageHistoryPointResponse;
 import com.alicia.cloudstorage.api.entity.NodeType;
 import com.alicia.cloudstorage.api.entity.StorageNode;
 import com.alicia.cloudstorage.api.repository.StorageNodeRepository;
+import jakarta.persistence.criteria.Expression;
+import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -59,7 +62,7 @@ public class StorageQueryService {
             String rawSortBy,
             String rawSortDirection
     ) {
-        return listNodesInternal(userId, parentId, false, keyword, rawType, page, size, rawSortBy, rawSortDirection);
+        return listNodesInternal(userId, parentId, false, keyword, rawType, null, page, size, rawSortBy, rawSortDirection);
     }
 
     public PageResponse<StorageNodeSummaryResponse> listNodes(
@@ -73,7 +76,22 @@ public class StorageQueryService {
             String rawSortBy,
             String rawSortDirection
     ) {
-        return listNodesInternal(userId, parentId, recursive, keyword, rawType, page, size, rawSortBy, rawSortDirection);
+        return listNodesInternal(userId, parentId, recursive, keyword, rawType, null, page, size, rawSortBy, rawSortDirection);
+    }
+
+    public PageResponse<StorageNodeSummaryResponse> listNodes(
+            Long userId,
+            Long parentId,
+            boolean recursive,
+            String keyword,
+            String rawType,
+            String rawCategory,
+            Integer page,
+            Integer size,
+            String rawSortBy,
+            String rawSortDirection
+    ) {
+        return listNodesInternal(userId, parentId, recursive, keyword, rawType, rawCategory, page, size, rawSortBy, rawSortDirection);
     }
 
     private PageResponse<StorageNodeSummaryResponse> listNodesInternal(
@@ -82,6 +100,7 @@ public class StorageQueryService {
             boolean recursive,
             String keyword,
             String rawType,
+            String rawCategory,
             Integer page,
             Integer size,
             String rawSortBy,
@@ -89,6 +108,7 @@ public class StorageQueryService {
     ) {
         String normalizedKeyword = normalizeKeyword(keyword);
         NodeType nodeType = normalizeNodeType(rawType);
+        StorageFileCategory category = StorageFileCategory.fromRaw(rawCategory);
         int normalizedPage = normalizePage(page);
         int normalizedSize = normalizePageSize(size);
         String sortBy = normalizeDriveSortBy(rawSortBy);
@@ -98,12 +118,21 @@ public class StorageQueryService {
                 normalizedSize,
                 buildDriveSort(sortBy, sortDirection)
         );
+        if (category != null && (!recursive || parentId == null)) {
+            Page<StorageNode> nodes = storageNodeRepository.findAll(
+                    buildActiveNodeSpecification(userId, parentId, !recursive, normalizedKeyword, nodeType, category),
+                    pageable
+            );
+            return toPageResponse(nodes, normalizedPage, normalizedSize, sortBy, sortDirection);
+        }
+
         if (recursive) {
             return listNodesRecursively(
                     userId,
                     parentId,
                     normalizedKeyword,
                     nodeType,
+                    category,
                     normalizedPage,
                     normalizedSize,
                     sortBy,
@@ -260,6 +289,7 @@ public class StorageQueryService {
             Long parentId,
             String keyword,
             NodeType nodeType,
+            StorageFileCategory category,
             int page,
             int size,
             String sortBy,
@@ -271,10 +301,75 @@ public class StorageQueryService {
                 .filter(node -> descendantIds.contains(node.getId()))
                 .filter(node -> keyword == null || node.getNodeName().toLowerCase().contains(keyword.toLowerCase()))
                 .filter(node -> nodeType == null || node.getNodeType() == nodeType)
+                .filter(node -> category == null || category.matches(node))
                 .sorted(buildDriveComparator(sortBy, sortDirection))
                 .toList();
 
         return toPageResponse(filteredNodes, page, size, sortBy, sortDirection);
+    }
+
+    private Specification<StorageNode> buildActiveNodeSpecification(
+            Long userId,
+            Long parentId,
+            boolean constrainParent,
+            String keyword,
+            NodeType nodeType,
+            StorageFileCategory category
+    ) {
+        return (root, query, criteriaBuilder) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            predicates.add(criteriaBuilder.equal(root.get("ownerId"), userId));
+            predicates.add(criteriaBuilder.isFalse(root.get("deleted")));
+
+            if (constrainParent) {
+                predicates.add(parentId == null
+                        ? criteriaBuilder.isNull(root.get("parentId"))
+                        : criteriaBuilder.equal(root.get("parentId"), parentId));
+            }
+
+            if (keyword != null) {
+                predicates.add(criteriaBuilder.like(
+                        criteriaBuilder.lower(root.get("nodeName")),
+                        "%" + keyword.toLowerCase() + "%"
+                ));
+            }
+
+            if (nodeType != null) {
+                predicates.add(criteriaBuilder.equal(root.get("nodeType"), nodeType));
+            }
+
+            if (category != null) {
+                predicates.add(criteriaBuilder.equal(root.get("nodeType"), NodeType.FILE));
+                predicates.add(buildCategoryPredicate(category, root.get("fileExtension"), root.get("mimeType"), criteriaBuilder));
+            }
+
+            return criteriaBuilder.and(predicates.toArray(Predicate[]::new));
+        };
+    }
+
+    private Predicate buildCategoryPredicate(
+            StorageFileCategory category,
+            Expression<String> rawExtension,
+            Expression<String> rawMimeType,
+            jakarta.persistence.criteria.CriteriaBuilder criteriaBuilder
+    ) {
+        List<Predicate> predicates = new ArrayList<>();
+        Expression<String> extension = criteriaBuilder.lower(rawExtension);
+        Expression<String> mimeType = criteriaBuilder.lower(rawMimeType);
+
+        if (!category.extensions().isEmpty()) {
+            predicates.add(extension.in(category.extensions()));
+        }
+
+        if (!category.exactMimeTypes().isEmpty()) {
+            predicates.add(mimeType.in(category.exactMimeTypes()));
+        }
+
+        for (String prefix : category.mimePrefixes()) {
+            predicates.add(criteriaBuilder.like(mimeType, prefix + "%"));
+        }
+
+        return criteriaBuilder.or(predicates.toArray(Predicate[]::new));
     }
 
     private Set<Long> collectDescendantIds(List<StorageNode> allActiveNodes, Long parentId) {

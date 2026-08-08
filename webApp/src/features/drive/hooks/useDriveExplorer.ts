@@ -25,6 +25,7 @@ import type {
   CreateFolderPayload,
   RenameNodePayload,
   SortDirection,
+  StorageFileCategory,
   StorageNode,
   StorageNodeFilter,
   StorageNodeSortField,
@@ -65,6 +66,7 @@ const initialPreviewState: DrivePreviewState = {
   note: null,
   error: null,
 };
+const ROOT_BREADCRUMB: FolderCrumb = { id: null, label: '根目录' };
 
 function resolvePreviewKind(node: StorageNode): DrivePreviewKind {
   const mimeType = node.mimeType?.toLowerCase() ?? '';
@@ -226,7 +228,7 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
   const [items, setItems] = useState<StorageNode[]>([]);
   const [listState, setListState] = useState<DriveListState>(() => createDefaultListState('drive'));
   const [folderOptions, setFolderOptions] = useState<StorageNode[]>([]);
-  const [breadcrumbs, setBreadcrumbs] = useState<FolderCrumb[]>([{ id: null, label: '根目录' }]);
+  const [breadcrumbs, setBreadcrumbs] = useState<FolderCrumb[]>([ROOT_BREADCRUMB]);
   const [loading, setLoading] = useState(true);
   const [folderOptionsLoading, setFolderOptionsLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -236,6 +238,7 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
   const [keywordInput, setKeywordInput] = useState('');
   const [keyword, setKeyword] = useState('');
   const [nodeTypeFilter, setNodeTypeFilter] = useState<StorageNodeFilter>('ALL');
+  const [fileCategory, setFileCategoryState] = useState<StorageFileCategory | null>(null);
   const [selectedItems, setSelectedItems] = useState<StorageNode[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -297,6 +300,7 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
       return;
     }
 
+    setFileCategoryState(null);
     setBreadcrumbs((current) => {
       const currentFolder = current[current.length - 1];
 
@@ -309,12 +313,33 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
   }
 
   function jumpToCrumb(index: number) {
+    setFileCategoryState(null);
     setBreadcrumbs((current) => current.slice(0, index + 1));
   }
 
   function resetListState(view: StorageViewMode) {
     clearSelection();
+    setFileCategoryState(null);
     setListState(createDefaultListState(view));
+  }
+
+  function setFileCategory(nextCategory: StorageFileCategory | null) {
+    clearSelection();
+    setBreadcrumbs([ROOT_BREADCRUMB]);
+    setFileCategoryState(nextCategory);
+    setNodeTypeFilter(nextCategory ? 'FILE' : 'ALL');
+    setListState((current) => ({
+      ...current,
+      page: 1,
+      sortBy: current.sortBy === 'deletedAt' ? 'name' : current.sortBy,
+      sortDirection: current.sortBy === 'deletedAt' ? 'asc' : current.sortDirection,
+    }));
+  }
+
+  function applyNodeTypeFilter(nextFilter: StorageNodeFilter) {
+    clearSelection();
+    setFileCategoryState(null);
+    setNodeTypeFilter(nextFilter);
   }
 
   function handleSelectionChange(nextItems: StorageNode[]) {
@@ -446,7 +471,17 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
     try {
       const nodeRequest = isTrashView
         ? fetchTrashNodes(authToken, keyword, nodeTypeFilter, listState)
-        : fetchStorageNodes(authToken, currentFolderId, keyword, nodeTypeFilter, listState);
+        : fetchStorageNodes(
+            authToken,
+            fileCategory ? null : currentFolderId,
+            keyword,
+            fileCategory ? 'FILE' : nodeTypeFilter,
+            {
+              ...listState,
+              recursive: Boolean(fileCategory),
+              category: fileCategory,
+            },
+          );
       const nodeData = await nodeRequest;
       setItems(nodeData.items);
       setListState((current) => ({
@@ -974,6 +1009,7 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
     isListView,
     isTrashView,
     currentFolderId,
+    fileCategory,
     keyword,
     nodeTypeFilter,
     listState.page,
@@ -988,7 +1024,7 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
 
   useEffect(() => {
     setSelectedItems([]);
-  }, [activeView, currentFolderId, keyword, nodeTypeFilter]);
+  }, [activeView, currentFolderId, fileCategory, keyword, nodeTypeFilter]);
 
   useEffect(() => {
     setListState((current) => {
@@ -1001,7 +1037,7 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
         page: 1,
       };
     });
-  }, [currentFolderId, keyword, nodeTypeFilter]);
+  }, [currentFolderId, fileCategory, keyword, nodeTypeFilter]);
 
   useEffect(
     () => () => {
@@ -1028,7 +1064,7 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
     }
 
     setPreviewState(initialPreviewState);
-  }, [activeView, currentFolderId]);
+  }, [activeView, currentFolderId, fileCategory]);
 
   return {
     items,
@@ -1037,6 +1073,7 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
     breadcrumbs,
     currentFolderId,
     nodeTypeFilter,
+    fileCategory,
     keywordInput,
     selectedItems,
     selectedRowKeys,
@@ -1053,7 +1090,8 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
     clearSelection,
     closePreviewModal,
     resetListState,
-    setNodeTypeFilter,
+    setFileCategory,
+    setNodeTypeFilter: applyNodeTypeFilter,
     loadDrive,
     loadFolderOptions,
     openFolder,

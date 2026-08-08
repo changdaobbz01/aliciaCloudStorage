@@ -12,6 +12,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDate;
@@ -19,6 +20,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -150,6 +152,64 @@ class StorageQueryServiceTest {
         assertThat(response.totalItems()).isEqualTo(2);
         assertThat(response.totalPages()).isEqualTo(1);
         assertThat(response.items()).extracting(item -> item.name()).containsExactly("A-brief.pdf", "B-final.pdf");
+    }
+
+    @Test
+    void listNodesWithCategoryUsesDatabasePaginationForGlobalCategoryView() {
+        Long userId = 14L;
+        StorageNode image = activeNode(50L, userId, "cover.png", NodeType.FILE, 256L);
+        image.setFileExtension("png");
+        image.setMimeType("image/png");
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+
+        when(storageNodeRepository.findAll(any(Specification.class), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(image), org.springframework.data.domain.PageRequest.of(0, 10), 1));
+
+        var response = storageQueryService.listNodes(userId, null, true, null, "FILE", "IMAGE", 1, 10, "name", "asc");
+
+        verify(storageNodeRepository).findAll(any(Specification.class), pageableCaptor.capture());
+        Pageable pageable = pageableCaptor.getValue();
+
+        assertThat(pageable.getPageNumber()).isEqualTo(0);
+        assertThat(pageable.getPageSize()).isEqualTo(10);
+        assertThat(response.totalItems()).isEqualTo(1);
+        assertThat(response.items()).extracting(item -> item.name()).containsExactly("cover.png");
+    }
+
+    @Test
+    void listNodesRecursiveFiltersRequestedSubtreeByCategory() {
+        Long userId = 15L;
+        StorageNode parentFolder = activeNode(60L, userId, "素材", NodeType.FOLDER, 0L);
+        StorageNode image = activeNode(61L, userId, "poster.webp", NodeType.FILE, 256L);
+        StorageNode document = activeNode(62L, userId, "notes.pdf", NodeType.FILE, 128L);
+        StorageNode nestedFolder = activeNode(63L, userId, "子目录", NodeType.FOLDER, 0L);
+        StorageNode nestedImage = activeNode(64L, userId, "nested.jpg", NodeType.FILE, 96L);
+        StorageNode outsideImage = activeNode(65L, userId, "outside.jpg", NodeType.FILE, 96L);
+
+        image.setParentId(parentFolder.getId());
+        image.setFileExtension("webp");
+        document.setParentId(parentFolder.getId());
+        document.setFileExtension("pdf");
+        nestedFolder.setParentId(parentFolder.getId());
+        nestedImage.setParentId(nestedFolder.getId());
+        nestedImage.setMimeType("image/jpeg");
+        outsideImage.setFileExtension("jpg");
+
+        when(storageNodeRepository.findByOwnerIdAndDeletedFalse(userId))
+                .thenReturn(List.of(parentFolder, image, document, nestedFolder, nestedImage, outsideImage));
+
+        var response = storageQueryService.listNodes(userId, parentFolder.getId(), true, null, null, "IMAGE", 1, 10, "name", "asc");
+
+        verify(storageNodeRepository).findByOwnerIdAndDeletedFalse(userId);
+        assertThat(response.totalItems()).isEqualTo(2);
+        assertThat(response.items()).extracting(item -> item.name()).containsExactly("nested.jpg", "poster.webp");
+    }
+
+    @Test
+    void listNodesRejectsUnknownCategory() {
+        assertThatThrownBy(() -> storageQueryService.listNodes(16L, null, true, null, "FILE", "PHOTO", 1, 10, "name", "asc"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Invalid file category");
     }
 
     @Test
