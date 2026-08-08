@@ -22,6 +22,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -78,6 +79,37 @@ class StorageCommandServiceTest {
                 .hasMessage("剩余空间不足。");
 
         verify(cosFileStorageService, never()).uploadUserFile(userId, file, "archive.zip");
+    }
+
+    @Test
+    void uploadFileAutoRenamesWhenSiblingNameExists() {
+        Long userId = 6L;
+        MockMultipartFile file = new MockMultipartFile(
+                "file",
+                "photo.png",
+                "image/png",
+                new byte[]{1, 2, 3}
+        );
+
+        when(storageNodeRepository.existsActiveSiblingName(userId, null, "photo.png")).thenReturn(true);
+        when(storageNodeRepository.existsActiveSiblingName(userId, null, "photo (1).png")).thenReturn(false);
+        when(cosFileStorageService.uploadUserFile(userId, file, "photo (1).png"))
+                .thenReturn(new CosFileStorageService.StoredCosFile("cos/photo-copy.png", "image/png", 3L));
+        when(storageNodeRepository.save(any(StorageNode.class))).thenAnswer(invocation -> {
+            StorageNode node = invocation.getArgument(0);
+            ReflectionTestUtils.setField(node, "id", 101L);
+            return node;
+        });
+
+        var summary = storageCommandService.uploadFile(userId, null, file);
+
+        assertThat(summary.name()).isEqualTo("photo (1).png");
+        assertThat(summary.extension()).isEqualTo("png");
+
+        ArgumentCaptor<StorageNode> nodeCaptor = ArgumentCaptor.forClass(StorageNode.class);
+        verify(storageNodeRepository).save(nodeCaptor.capture());
+        assertThat(nodeCaptor.getValue().getNodeName()).isEqualTo("photo (1).png");
+        assertThat(nodeCaptor.getValue().getStoragePath()).isEqualTo("cos/photo-copy.png");
     }
 
     @Test

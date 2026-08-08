@@ -374,6 +374,7 @@ public class StorageNodeController {
                 .header(HttpHeaders.CACHE_CONTROL, PRIVATE_DOWNLOAD_CACHE_CONTROL)
                 .header(HttpHeaders.VARY, HttpHeaders.AUTHORIZATION)
                 .contentType(MediaType.parseMediaType("application/zip"))
+                .contentLength(archivePayload.contentLength())
                 .header(
                         HttpHeaders.CONTENT_DISPOSITION,
                         ContentDisposition.attachment()

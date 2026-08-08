@@ -70,6 +70,7 @@ class StorageArchiveServiceTest {
                 storageArchiveService.createArchive(7L, new BatchNodeRequest(List.of(11L, 12L)));
 
         assertThat(payload.fileName()).isEqualTo("docs.zip");
+        assertThat(payload.contentLength()).isPositive();
         ZipSnapshot zipSnapshot = writeAndReadZip(payload);
         assertThat(zipSnapshot.entryNames()).containsExactly("docs/", "docs/a.txt");
         assertThat(zipSnapshot.fileContents()).containsEntry("docs/a.txt", "hello");
@@ -91,9 +92,23 @@ class StorageArchiveServiceTest {
                 storageArchiveService.createArchive(7L, new BatchNodeRequest(List.of(21L)));
 
         assertThat(payload.fileName()).isEqualTo("report_.._2026_.txt.zip");
+        assertThat(payload.contentLength()).isPositive();
         ZipSnapshot zipSnapshot = writeAndReadZip(payload);
         assertThat(zipSnapshot.entryNames()).containsExactly("report_.._2026_.txt");
         assertThat(zipSnapshot.fileContents()).containsEntry("report_.._2026_.txt", "safe");
+    }
+
+    @Test
+    void createArchiveFailsBeforeReturningPayloadWhenCosStreamCannotOpen() {
+        StorageNode file = fileNode(31L, 7L, null, "broken.txt", "cos/broken.txt", 6L);
+
+        when(storageNodeRepository.findByOwnerIdAndIdInAndDeletedFalse(7L, List.of(31L))).thenReturn(List.of(file));
+        when(cosFileStorageService.openFileStream("cos/broken.txt"))
+                .thenThrow(new IllegalStateException("COS down"));
+
+        assertThatThrownBy(() -> storageArchiveService.createArchive(7L, new BatchNodeRequest(List.of(31L))))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("COS down");
     }
 
     private ZipSnapshot writeAndReadZip(StorageArchiveService.StorageArchivePayload payload) throws Exception {

@@ -69,7 +69,6 @@ class StorageMultipartUploadServiceTest {
         MultipartUploadSession session = uploadSession(101L, userId, null, "token-1", "movie.mp4", fileSize, chunkSize, 3);
         MultipartUploadPart uploadedPart = uploadPart(101L, 1, chunkSize, "etag-1");
 
-        when(storageNodeRepository.existsActiveSiblingName(userId, null, "movie.mp4")).thenReturn(false);
         when(multipartUploadSessionRepository.findFirstByOwnerIdAndParentScopeIdAndFileNameAndFileSizeAndFileFingerprintAndStatusOrderByUpdatedAtDesc(
                 userId,
                 0L,
@@ -97,7 +96,6 @@ class StorageMultipartUploadServiceTest {
         long chunkSize = 1024L * 1024L;
         long fileSize = chunkSize * 2;
 
-        when(storageNodeRepository.existsActiveSiblingName(userId, null, "backup.zip")).thenReturn(false);
         org.mockito.Mockito.doThrow(new IllegalArgumentException("剩余空间不足。"))
                 .when(storageQuotaService)
                 .validateUploadFits(userId, fileSize);
@@ -110,6 +108,53 @@ class StorageMultipartUploadServiceTest {
                 .hasMessage("剩余空间不足。");
 
         verify(cosFileStorageService, never()).initiateMultipartUpload(any(), any(), any(), anyLong(), anyLong());
+    }
+
+    @Test
+    void createMultipartUploadUsesAvailableSiblingNameForNewSession() {
+        Long userId = 24L;
+        long chunkSize = 1024L * 1024L;
+        long fileSize = chunkSize * 2;
+
+        when(multipartUploadSessionRepository.findFirstByOwnerIdAndParentScopeIdAndFileNameAndFileSizeAndFileFingerprintAndStatusOrderByUpdatedAtDesc(
+                userId,
+                0L,
+                "backup.zip",
+                fileSize,
+                "fingerprint-2",
+                MultipartUploadStatus.IN_PROGRESS
+        )).thenReturn(Optional.empty());
+        when(storageNodeRepository.existsActiveSiblingName(userId, null, "backup.zip")).thenReturn(true);
+        when(storageNodeRepository.existsActiveSiblingName(userId, null, "backup (1).zip")).thenReturn(false);
+        when(multipartUploadSessionRepository.findFirstByOwnerIdAndParentScopeIdAndFileNameAndFileSizeAndFileFingerprintAndStatusOrderByUpdatedAtDesc(
+                userId,
+                0L,
+                "backup (1).zip",
+                fileSize,
+                "fingerprint-2",
+                MultipartUploadStatus.IN_PROGRESS
+        )).thenReturn(Optional.empty());
+        when(cosFileStorageService.initiateMultipartUpload(userId, "backup (1).zip", "application/zip", fileSize, chunkSize))
+                .thenReturn(new CosFileStorageService.StoredCosMultipartUpload(
+                        "cos/backup-copy.zip",
+                        "cos-upload-new",
+                        "application/zip",
+                        fileSize
+                ));
+        when(multipartUploadSessionRepository.save(any(MultipartUploadSession.class))).thenAnswer(invocation -> {
+            MultipartUploadSession session = invocation.getArgument(0);
+            ReflectionTestUtils.setField(session, "id", 104L);
+            return session;
+        });
+        when(multipartUploadPartRepository.findBySessionIdOrderByPartNumberAsc(104L)).thenReturn(List.of());
+
+        var response = storageMultipartUploadService.createMultipartUpload(
+                userId,
+                new CreateMultipartUploadRequest(null, "backup.zip", fileSize, "application/zip", chunkSize, 2, "fingerprint-2")
+        );
+
+        assertThat(response.fileName()).isEqualTo("backup (1).zip");
+        verify(cosFileStorageService).initiateMultipartUpload(userId, "backup (1).zip", "application/zip", fileSize, chunkSize);
     }
 
     @Test
@@ -166,6 +211,32 @@ class StorageMultipartUploadServiceTest {
         ArgumentCaptor<List<CosFileStorageService.StoredCosPart>> partsCaptor = ArgumentCaptor.forClass(List.class);
         verify(cosFileStorageService).completeMultipartUpload(eq("cos/design.pdf"), eq("cos-upload-103"), partsCaptor.capture());
         assertThat(partsCaptor.getValue()).extracting(CosFileStorageService.StoredCosPart::partNumber).containsExactly(1, 2);
+    }
+
+    @Test
+    void completeMultipartUploadAutoRenamesWhenSiblingNameExists() {
+        Long userId = 23L;
+        MultipartUploadSession session = uploadSession(105L, userId, null, "token-5", "design.pdf", 8L, 5L, 2);
+        MultipartUploadPart firstPart = uploadPart(105L, 1, 5L, "etag-1");
+        MultipartUploadPart secondPart = uploadPart(105L, 2, 3L, "etag-2");
+
+        when(multipartUploadSessionRepository.findByUploadTokenAndOwnerId("token-5", userId)).thenReturn(Optional.of(session));
+        when(storageNodeRepository.existsActiveSiblingName(userId, null, "design.pdf")).thenReturn(true);
+        when(storageNodeRepository.existsActiveSiblingName(userId, null, "design (1).pdf")).thenReturn(false);
+        when(multipartUploadPartRepository.findBySessionIdOrderByPartNumberAsc(105L)).thenReturn(List.of(firstPart, secondPart));
+        when(storageNodeRepository.save(any(StorageNode.class))).thenAnswer(invocation -> {
+            StorageNode node = invocation.getArgument(0);
+            ReflectionTestUtils.setField(node, "id", 302L);
+            return node;
+        });
+        when(multipartUploadSessionRepository.save(session)).thenReturn(session);
+
+        var summary = storageMultipartUploadService.completeMultipartUpload(userId, "token-5");
+
+        assertThat(summary.name()).isEqualTo("design (1).pdf");
+        assertThat(summary.extension()).isEqualTo("pdf");
+        assertThat(session.getFileName()).isEqualTo("design (1).pdf");
+        verify(cosFileStorageService).completeMultipartUpload(eq("cos/design.pdf"), eq("cos-upload-105"), any());
     }
 
     private MultipartUploadSession uploadSession(

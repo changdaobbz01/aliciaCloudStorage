@@ -26,6 +26,7 @@ import java.io.InputStream;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -74,21 +75,29 @@ public class StorageMultipartUploadService {
         int totalChunks = request.totalChunks();
 
         validateChunkPlan(fileSize, chunkSize, totalChunks);
-        validateSiblingNameUnique(userId, parentId, fileName);
         storageQuotaService.validateUploadFits(userId, fileSize);
 
         Long parentScopeId = parentId == null ? 0L : parentId;
-        return multipartUploadSessionRepository
-                .findFirstByOwnerIdAndParentScopeIdAndFileNameAndFileSizeAndFileFingerprintAndStatusOrderByUpdatedAtDesc(
-                        userId,
-                        parentScopeId,
-                        fileName,
-                        fileSize,
-                        fingerprint,
-                        MultipartUploadStatus.IN_PROGRESS
-                )
-                .map(this::toStatusResponse)
-                .orElseGet(() -> createNewSession(userId, parentId, fileName, fingerprint, fileSize, chunkSize, totalChunks, request.contentType()));
+        Optional<MultipartUploadSession> existingSession =
+                findInProgressSession(userId, parentScopeId, fileName, fileSize, fingerprint);
+        if (existingSession.isPresent()) {
+            return toStatusResponse(existingSession.get());
+        }
+
+        String resolvedFileName = StorageNodeNameResolver.resolveAvailableSiblingName(
+                storageNodeRepository,
+                userId,
+                parentId,
+                fileName
+        );
+        if (!resolvedFileName.equals(fileName)) {
+            existingSession = findInProgressSession(userId, parentScopeId, resolvedFileName, fileSize, fingerprint);
+            if (existingSession.isPresent()) {
+                return toStatusResponse(existingSession.get());
+            }
+        }
+
+        return createNewSession(userId, parentId, resolvedFileName, fingerprint, fileSize, chunkSize, totalChunks, request.contentType());
     }
 
     /**
@@ -148,7 +157,12 @@ public class StorageMultipartUploadService {
         MultipartUploadSession session = loadSession(userId, uploadToken);
         validateSessionInProgress(session);
         validateParentFolder(userId, session.getParentId());
-        validateSiblingNameUnique(userId, session.getParentId(), session.getFileName());
+        String resolvedFileName = StorageNodeNameResolver.resolveAvailableSiblingName(
+                storageNodeRepository,
+                userId,
+                session.getParentId(),
+                session.getFileName()
+        );
         storageQuotaService.validateUploadFits(userId, session.getFileSize());
 
         List<MultipartUploadPart> parts = multipartUploadPartRepository.findBySessionIdOrderByPartNumberAsc(session.getId());
@@ -163,15 +177,16 @@ public class StorageMultipartUploadService {
             StorageNode fileNode = new StorageNode();
             fileNode.setOwnerId(userId);
             fileNode.setParentId(session.getParentId());
-            fileNode.setNodeName(session.getFileName());
+            fileNode.setNodeName(resolvedFileName);
             fileNode.setNodeType(NodeType.FILE);
             fileNode.setFileSize(session.getFileSize());
-            fileNode.setFileExtension(extractExtension(session.getFileName()));
+            fileNode.setFileExtension(extractExtension(resolvedFileName));
             fileNode.setMimeType(session.getContentType());
             fileNode.setStoragePath(session.getObjectKey());
             clearTrashMetadata(fileNode);
 
             StorageNode savedNode = storageNodeRepository.save(fileNode);
+            session.setFileName(resolvedFileName);
             session.setStatus(MultipartUploadStatus.COMPLETED);
             multipartUploadSessionRepository.save(session);
 
@@ -271,6 +286,24 @@ public class StorageMultipartUploadService {
         }
     }
 
+    private Optional<MultipartUploadSession> findInProgressSession(
+            Long userId,
+            Long parentScopeId,
+            String fileName,
+            long fileSize,
+            String fingerprint
+    ) {
+        return multipartUploadSessionRepository
+                .findFirstByOwnerIdAndParentScopeIdAndFileNameAndFileSizeAndFileFingerprintAndStatusOrderByUpdatedAtDesc(
+                        userId,
+                        parentScopeId,
+                        fileName,
+                        fileSize,
+                        fingerprint,
+                        MultipartUploadStatus.IN_PROGRESS
+                );
+    }
+
     private MultipartUploadSession loadSession(Long userId, String uploadToken) {
         if (uploadToken == null || uploadToken.isBlank()) {
             throw new IllegalArgumentException("上传会话不能为空。");
@@ -360,12 +393,6 @@ public class StorageMultipartUploadService {
         }
 
         return parentId;
-    }
-
-    private void validateSiblingNameUnique(Long userId, Long parentId, String nodeName) {
-        if (storageNodeRepository.existsActiveSiblingName(userId, parentId, nodeName)) {
-            throw new IllegalArgumentException("当前目录下已存在同名文件或文件夹。");
-        }
     }
 
     private String extractFileName(String originalFilename) {

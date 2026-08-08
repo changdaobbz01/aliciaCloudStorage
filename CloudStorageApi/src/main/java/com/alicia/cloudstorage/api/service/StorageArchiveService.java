@@ -11,6 +11,8 @@ import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBo
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -51,10 +53,12 @@ public class StorageArchiveService {
         List<Long> nodeIds = normalizeNodeIds(request == null ? null : request.nodeIds());
         List<StorageNode> rootNodes = collapseSelectedRoots(userId, loadOwnedActiveNodes(userId, nodeIds));
         ArchivePlan archivePlan = buildArchivePlan(userId, rootNodes);
+        Path archiveFile = createArchiveFile(archivePlan.entries());
 
         return new StorageArchivePayload(
                 resolveArchiveFileName(rootNodes),
-                outputStream -> writeZipArchive(archivePlan.entries(), outputStream)
+                contentLength(archiveFile),
+                outputStream -> streamArchiveFile(archiveFile, outputStream)
         );
     }
 
@@ -137,6 +141,53 @@ public class StorageArchiveService {
                     zipOutputStream.closeEntry();
                 }
             }
+        }
+    }
+
+    private Path createArchiveFile(List<ArchiveEntryPlan> entries) {
+        Path archiveFile = null;
+
+        try {
+            archiveFile = Files.createTempFile("alicia-storage-archive-", ".zip");
+            try (OutputStream outputStream = Files.newOutputStream(archiveFile)) {
+                writeZipArchive(entries, outputStream);
+            }
+            return archiveFile;
+        } catch (IOException exception) {
+            deleteArchiveFileQuietly(archiveFile);
+            throw new IllegalStateException("创建压缩包失败，请稍后重试。", exception);
+        } catch (RuntimeException exception) {
+            deleteArchiveFileQuietly(archiveFile);
+            throw exception;
+        }
+    }
+
+    private long contentLength(Path archiveFile) {
+        try {
+            return Files.size(archiveFile);
+        } catch (IOException exception) {
+            deleteArchiveFileQuietly(archiveFile);
+            throw new IllegalStateException("读取压缩包大小失败，请稍后重试。", exception);
+        }
+    }
+
+    private void streamArchiveFile(Path archiveFile, OutputStream outputStream) throws IOException {
+        try (InputStream inputStream = Files.newInputStream(archiveFile)) {
+            inputStream.transferTo(outputStream);
+        } finally {
+            deleteArchiveFileQuietly(archiveFile);
+        }
+    }
+
+    private void deleteArchiveFileQuietly(Path archiveFile) {
+        if (archiveFile == null) {
+            return;
+        }
+
+        try {
+            Files.deleteIfExists(archiveFile);
+        } catch (IOException ignored) {
+            // Best-effort cleanup for temporary archive files.
         }
     }
 
@@ -324,6 +375,7 @@ public class StorageArchiveService {
 
     public record StorageArchivePayload(
             String fileName,
+            long contentLength,
             StreamingResponseBody body
     ) {
     }

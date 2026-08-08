@@ -5,6 +5,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.provider.OpenableColumns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -24,6 +25,7 @@ import com.alicia.cloudstorage.phone.data.ShareLinkStatusResponse
 import com.alicia.cloudstorage.phone.data.StorageNode
 import com.alicia.cloudstorage.phone.data.StorageNodeFilter
 import com.alicia.cloudstorage.phone.data.StorageNodeType
+import com.alicia.cloudstorage.phone.data.TransferProgress
 import com.alicia.cloudstorage.phone.data.UsageHistoryPoint
 import com.alicia.cloudstorage.phone.data.User
 import com.alicia.cloudstorage.phone.data.UserRole
@@ -34,6 +36,8 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import java.io.File
 import java.nio.ByteBuffer
@@ -45,6 +49,7 @@ import kotlin.math.roundToLong
 
 private const val MAX_TEXT_PREVIEW_BYTES = 2L * 1024 * 1024
 private const val BYTES_PER_GIB = 1024L * 1024 * 1024
+private const val MAX_TRANSFER_HISTORY = 50
 
 private val PREVIEWABLE_TEXT_EXTENSIONS = setOf(
     "txt",
@@ -77,6 +82,46 @@ enum class FileSearchScope {
     CURRENT_FOLDER,
     GLOBAL,
 }
+
+enum class TransferPanelTab {
+    DOWNLOADS,
+    UPLOADS,
+}
+
+enum class TransferKind {
+    DOWNLOAD,
+    UPLOAD,
+}
+
+enum class TransferItemKind {
+    FILE,
+    ARCHIVE,
+}
+
+enum class TransferStatus {
+    QUEUED,
+    PREPARING,
+    RUNNING,
+    COMPLETED,
+    FAILED,
+    CANCELED,
+}
+
+data class TransferTask(
+    val id: Long,
+    val kind: TransferKind,
+    val itemKind: TransferItemKind,
+    val title: String,
+    val status: TransferStatus,
+    val sourceNodeIds: List<Long> = emptyList(),
+    val destinationUri: Uri? = null,
+    val transferredBytes: Long = 0L,
+    val totalBytes: Long? = null,
+    val progressPercent: Int? = null,
+    val locationLabel: String? = null,
+    val errorMessage: String? = null,
+    val createdAtMillis: Long = System.currentTimeMillis(),
+)
 
 data class FilePreviewState(
     val visible: Boolean = false,
@@ -209,6 +254,9 @@ data class AppUiState(
     val appUpdate: AppUpdateState? = null,
     val shareCreation: ShareCreationUiState = ShareCreationUiState(),
     val incomingShare: IncomingShareUiState = IncomingShareUiState(),
+    val transfers: List<TransferTask> = emptyList(),
+    val transferPanelOpen: Boolean = false,
+    val transferPanelTab: TransferPanelTab = TransferPanelTab.DOWNLOADS,
 )
 
 class MainViewModel(
@@ -228,6 +276,8 @@ class MainViewModel(
     private var lastDismissedClipboardShareCode: String? = null
     private var lastDismissedClipboardFingerprint: String? = null
     private var lastDismissedClipboardAtMillis: Long = 0L
+    private var nextTransferId = 1L
+    private val transferJobs = mutableMapOf<Long, Job>()
 
     init {
         restoreSession()
@@ -250,6 +300,8 @@ class MainViewModel(
         }
 
         viewModelScope.launch {
+            transferJobs.values.forEach { job -> job.cancel() }
+            transferJobs.clear()
             sessionStore.clearToken(normalizedBaseUrl)
             fileDirectoryCache.clear()
             clearPreviewArtifacts()
@@ -323,6 +375,9 @@ class MainViewModel(
                         trash = ExplorerUiState(breadcrumbs = emptyList()),
                         team = TeamUiState(),
                         preview = FilePreviewState(),
+                        transfers = emptyList(),
+                        transferPanelOpen = false,
+                        transferPanelTab = TransferPanelTab.DOWNLOADS,
                     )
                 }
 
@@ -346,6 +401,46 @@ class MainViewModel(
             AppTab.TRASH -> refreshTrash(forceLoading = true)
             AppTab.TEAM -> refreshTeam(forceLoading = true)
             AppTab.ME -> emitMessage("当前账号信息已经是最新展示。")
+        }
+    }
+
+    fun openTransferPanel(tab: TransferPanelTab = TransferPanelTab.DOWNLOADS) {
+        _uiState.update { state ->
+            state.copy(
+                transferPanelOpen = true,
+                transferPanelTab = tab,
+            )
+        }
+    }
+
+    fun closeTransferPanel() {
+        _uiState.update { state -> state.copy(transferPanelOpen = false) }
+    }
+
+    fun selectTransferPanelTab(tab: TransferPanelTab) {
+        _uiState.update { state -> state.copy(transferPanelTab = tab) }
+    }
+
+    fun clearFinishedTransfers() {
+        _uiState.update { state ->
+            state.copy(
+                transfers = state.transfers.filter { task ->
+                    task.status == TransferStatus.QUEUED ||
+                        task.status == TransferStatus.PREPARING ||
+                        task.status == TransferStatus.RUNNING ||
+                        (task.kind == TransferKind.DOWNLOAD && task.status == TransferStatus.FAILED)
+                },
+            )
+        }
+    }
+
+    fun cancelTransfer(taskId: Long) {
+        transferJobs[taskId]?.cancel()
+        updateTransfer(taskId) { task ->
+            task.copy(
+                status = TransferStatus.CANCELED,
+                errorMessage = null,
+            )
         }
     }
 
@@ -885,34 +980,7 @@ class MainViewModel(
     }
 
     fun uploadDocument(uri: Uri) {
-        val session = authenticatedSession() ?: return
-
-        viewModelScope.launch {
-            _uiState.update { state ->
-                state.copy(files = state.files.copy(isUploading = true))
-            }
-
-            runCatching {
-                repository.uploadFile(
-                    context = appContext,
-                    baseUrl = session.baseUrl,
-                    token = session.token,
-                    parentId = uiState.value.files.currentFolderId,
-                    uri = uri,
-                )
-            }.onSuccess { node ->
-                _uiState.update { state ->
-                    state.copy(files = state.files.copy(isUploading = false))
-                }
-                emitMessage("上传完成：${node.name}")
-                refreshAfterMutation(refreshFiles = true, refreshTrash = false)
-            }.onFailure { error ->
-                _uiState.update { state ->
-                    state.copy(files = state.files.copy(isUploading = false))
-                }
-                handleError(error)
-            }
-        }
+        uploadDocuments(listOf(uri))
     }
 
     fun uploadDocuments(uris: List<Uri>) {
@@ -924,7 +992,11 @@ class MainViewModel(
 
         viewModelScope.launch {
             _uiState.update { state ->
-                state.copy(files = state.files.copy(isUploading = true))
+                state.copy(
+                    files = state.files.copy(isUploading = true),
+                    transferPanelOpen = true,
+                    transferPanelTab = TransferPanelTab.UPLOADS,
+                )
             }
 
             val parentId = uiState.value.files.currentFolderId
@@ -932,21 +1004,67 @@ class MainViewModel(
             var firstError: Throwable? = null
 
             uniqueUris.forEach { uri ->
-                runCatching {
-                    repository.uploadFile(
-                        context = appContext,
-                        baseUrl = session.baseUrl,
-                        token = session.token,
-                        parentId = parentId,
-                        uri = uri,
-                    )
-                }.onSuccess {
-                    successCount += 1
-                }.onFailure { error ->
-                    if (firstError == null) {
-                        firstError = error
+                val descriptor = runCatching {
+                    repository.describeUploadAsset(appContext, uri)
+                }.getOrNull()
+                val taskId = appendTransfer(
+                    TransferTask(
+                        id = allocateTransferId(),
+                        kind = TransferKind.UPLOAD,
+                        itemKind = TransferItemKind.FILE,
+                        title = descriptor?.fileName ?: uri.lastPathSegment ?: "upload.bin",
+                        status = TransferStatus.PREPARING,
+                        totalBytes = descriptor?.sizeBytes,
+                        locationLabel = resolveUploadLocationLabel(parentId),
+                    ),
+                )
+
+                val taskJob = launch {
+                    runCatching {
+                        repository.uploadFile(
+                            context = appContext,
+                            baseUrl = session.baseUrl,
+                            token = session.token,
+                            parentId = parentId,
+                            uri = uri,
+                            onProgress = { progress ->
+                                updateTransferProgress(taskId, progress)
+                            },
+                        )
+                    }.onSuccess {
+                        successCount += 1
+                        updateTransfer(taskId) { task ->
+                            task.copy(
+                                status = TransferStatus.COMPLETED,
+                                transferredBytes = task.totalBytes ?: task.transferredBytes,
+                                progressPercent = 100,
+                                errorMessage = null,
+                            )
+                        }
+                    }.onFailure { error ->
+                        if (error is CancellationException) {
+                            updateTransfer(taskId) { task ->
+                                task.copy(status = TransferStatus.CANCELED)
+                            }
+                        } else {
+                            if (firstError == null) {
+                                firstError = error
+                            }
+                            updateTransfer(taskId) { task ->
+                                task.copy(
+                                    status = TransferStatus.FAILED,
+                                    errorMessage = error.readableMessage(),
+                                )
+                            }
+                        }
+                    }.also {
+                        transferJobs.remove(taskId)
                     }
                 }
+
+                transferJobs[taskId] = taskJob
+                taskJob.invokeOnCompletion { transferJobs.remove(taskId) }
+                taskJob.join()
             }
 
             _uiState.update { state ->
@@ -1807,8 +1925,29 @@ class MainViewModel(
 
     fun downloadFileToUri(node: StorageNode, destinationUri: Uri) {
         val session = authenticatedSession() ?: return
+        val taskId = appendTransfer(
+            TransferTask(
+                id = allocateTransferId(),
+                kind = TransferKind.DOWNLOAD,
+                itemKind = TransferItemKind.FILE,
+                title = node.name,
+                status = TransferStatus.PREPARING,
+                sourceNodeIds = listOf(node.id),
+                destinationUri = destinationUri,
+                totalBytes = node.size.takeIf { it > 0L },
+                locationLabel = resolveDestinationLabel(destinationUri, node.name),
+            ),
+        )
 
-        viewModelScope.launch {
+        _uiState.update { state ->
+            state.copy(
+                transferPanelOpen = true,
+                transferPanelTab = TransferPanelTab.DOWNLOADS,
+                files = state.files.copy(actionNodeId = node.id),
+            )
+        }
+
+        val taskJob = viewModelScope.launch {
             _uiState.update { state ->
                 state.copy(files = state.files.copy(actionNodeId = node.id))
             }
@@ -1820,19 +1959,45 @@ class MainViewModel(
                     token = session.token,
                     fileId = node.id,
                     destinationUri = destinationUri,
+                    onProgress = { progress ->
+                        updateTransferProgress(taskId, progress)
+                    },
                 )
             }.onSuccess { fileName ->
                 _uiState.update { state ->
                     state.copy(files = state.files.copy(actionNodeId = null))
+                }
+                updateTransfer(taskId) { task ->
+                    task.copy(
+                        status = TransferStatus.COMPLETED,
+                        title = fileName,
+                        transferredBytes = task.totalBytes ?: task.transferredBytes,
+                        progressPercent = 100,
+                        errorMessage = null,
+                    )
                 }
                 emitMessage("已保存：$fileName")
             }.onFailure { error ->
                 _uiState.update { state ->
                     state.copy(files = state.files.copy(actionNodeId = null))
                 }
-                handleError(error)
+                if (error is CancellationException) {
+                    updateTransfer(taskId) { task ->
+                        task.copy(status = TransferStatus.CANCELED)
+                    }
+                } else {
+                    updateTransfer(taskId) { task ->
+                        task.copy(
+                            status = TransferStatus.FAILED,
+                            errorMessage = error.readableMessage(),
+                        )
+                    }
+                    handleError(error)
+                }
             }
         }
+        transferJobs[taskId] = taskJob
+        taskJob.invokeOnCompletion { transferJobs.remove(taskId) }
     }
 
     fun downloadArchiveToUri(nodeIds: List<Long>, destinationUri: Uri) {
@@ -1844,7 +2009,32 @@ class MainViewModel(
             return
         }
 
-        viewModelScope.launch {
+        val taskTitle = resolveArchiveTransferTitle(uniqueNodeIds)
+        val taskId = appendTransfer(
+            TransferTask(
+                id = allocateTransferId(),
+                kind = TransferKind.DOWNLOAD,
+                itemKind = TransferItemKind.ARCHIVE,
+                title = taskTitle,
+                status = TransferStatus.PREPARING,
+                sourceNodeIds = uniqueNodeIds,
+                destinationUri = destinationUri,
+                locationLabel = resolveDestinationLabel(destinationUri, taskTitle),
+            ),
+        )
+
+        _uiState.update { state ->
+            state.copy(
+                transferPanelOpen = true,
+                transferPanelTab = TransferPanelTab.DOWNLOADS,
+                files = state.files.copy(
+                    isBatchActing = true,
+                    actionNodeId = uniqueNodeIds.singleOrNull(),
+                ),
+            )
+        }
+
+        val taskJob = viewModelScope.launch {
             _uiState.update { state ->
                 state.copy(
                     files = state.files.copy(
@@ -1861,6 +2051,9 @@ class MainViewModel(
                     token = session.token,
                     nodeIds = uniqueNodeIds,
                     destinationUri = destinationUri,
+                    onProgress = { progress ->
+                        updateTransferProgress(taskId, progress)
+                    },
                 )
             }.onSuccess { fileName ->
                 _uiState.update { state ->
@@ -1870,6 +2063,14 @@ class MainViewModel(
                             actionNodeId = null,
                             selectedNodeIds = emptySet(),
                         ),
+                    )
+                }
+                updateTransfer(taskId) { task ->
+                    task.copy(
+                        status = TransferStatus.COMPLETED,
+                        title = fileName,
+                        progressPercent = 100,
+                        errorMessage = null,
                     )
                 }
                 emitMessage("已保存：$fileName")
@@ -1882,14 +2083,158 @@ class MainViewModel(
                         ),
                     )
                 }
-                handleError(error)
+                if (error is CancellationException) {
+                    updateTransfer(taskId) { task ->
+                        task.copy(status = TransferStatus.CANCELED)
+                    }
+                } else {
+                    updateTransfer(taskId) { task ->
+                        task.copy(
+                            status = TransferStatus.FAILED,
+                            errorMessage = error.readableMessage(),
+                        )
+                    }
+                    handleError(error)
+                }
             }
         }
+        transferJobs[taskId] = taskJob
+        taskJob.invokeOnCompletion { transferJobs.remove(taskId) }
+    }
+
+    fun retryDownloadTransfer(taskId: Long) {
+        val task = uiState.value.transfers.firstOrNull { it.id == taskId } ?: return
+
+        if (task.kind != TransferKind.DOWNLOAD || task.status != TransferStatus.FAILED) {
+            return
+        }
+
+        if (transferJobs[taskId]?.isActive == true) {
+            emitMessage("该任务正在传输中。")
+            return
+        }
+
+        val destinationUri = task.destinationUri
+        val sourceNodeIds = task.sourceNodeIds
+        if (destinationUri == null || sourceNodeIds.isEmpty()) {
+            emitMessage("无法重新下载，请从文件列表重新选择保存位置。")
+            return
+        }
+
+        if (task.itemKind == TransferItemKind.FILE && sourceNodeIds.size != 1) {
+            emitMessage("无法重新下载，请从文件列表重新选择文件。")
+            return
+        }
+
+        val session = authenticatedSession()
+        if (session == null) {
+            updateTransfer(taskId) { current ->
+                current.copy(
+                    status = TransferStatus.FAILED,
+                    errorMessage = "登录状态不可用，请重新登录后再试。",
+                )
+            }
+            emitMessage("登录状态不可用，请重新登录后再试。")
+            return
+        }
+
+        updateTransfer(taskId) { current ->
+            current.copy(
+                status = TransferStatus.PREPARING,
+                transferredBytes = 0L,
+                progressPercent = null,
+                errorMessage = null,
+            )
+        }
+
+        _uiState.update { state ->
+            state.copy(
+                transferPanelOpen = true,
+                transferPanelTab = TransferPanelTab.DOWNLOADS,
+                files = state.files.copy(
+                    isBatchActing = task.itemKind == TransferItemKind.ARCHIVE,
+                    actionNodeId = sourceNodeIds.singleOrNull(),
+                ),
+            )
+        }
+
+        val taskJob = viewModelScope.launch {
+            runCatching {
+                if (task.itemKind == TransferItemKind.FILE) {
+                    repository.saveDownloadedFileToUriViaSignedUrl(
+                        context = appContext,
+                        baseUrl = session.baseUrl,
+                        token = session.token,
+                        fileId = sourceNodeIds.first(),
+                        destinationUri = destinationUri,
+                        onProgress = { progress ->
+                            updateTransferProgress(taskId, progress)
+                        },
+                    )
+                } else {
+                    repository.saveArchiveToUri(
+                        context = appContext,
+                        baseUrl = session.baseUrl,
+                        token = session.token,
+                        nodeIds = sourceNodeIds,
+                        destinationUri = destinationUri,
+                        onProgress = { progress ->
+                            updateTransferProgress(taskId, progress)
+                        },
+                    )
+                }
+            }.onSuccess { fileName ->
+                _uiState.update { state ->
+                    state.copy(
+                        files = state.files.copy(
+                            isBatchActing = false,
+                            actionNodeId = null,
+                        ),
+                    )
+                }
+                updateTransfer(taskId) { current ->
+                    current.copy(
+                        status = TransferStatus.COMPLETED,
+                        title = fileName,
+                        transferredBytes = current.totalBytes ?: current.transferredBytes,
+                        progressPercent = 100,
+                        errorMessage = null,
+                    )
+                }
+                emitMessage("已保存：$fileName")
+            }.onFailure { error ->
+                _uiState.update { state ->
+                    state.copy(
+                        files = state.files.copy(
+                            isBatchActing = false,
+                            actionNodeId = null,
+                        ),
+                    )
+                }
+                if (error is CancellationException) {
+                    updateTransfer(taskId) { current ->
+                        current.copy(status = TransferStatus.CANCELED)
+                    }
+                } else {
+                    updateTransfer(taskId) { current ->
+                        current.copy(
+                            status = TransferStatus.FAILED,
+                            errorMessage = error.readableMessage(),
+                        )
+                    }
+                    handleError(error)
+                }
+            }
+        }
+        transferJobs[taskId] = taskJob
+        taskJob.invokeOnCompletion { transferJobs.remove(taskId) }
     }
 
     fun logout() {
         val baseUrl = uiState.value.baseUrl
         viewModelScope.launch {
+            transferJobs.values.forEach { job -> job.cancel() }
+            transferJobs.clear()
             sessionStore.clearToken(baseUrl)
             fileDirectoryCache.clear()
             clearPreviewArtifacts()
@@ -2366,6 +2711,105 @@ class MainViewModel(
             else -> "分享链接暂不可用。"
         }
 
+    private fun allocateTransferId(): Long = nextTransferId++
+
+    private fun appendTransfer(task: TransferTask): Long {
+        _uiState.update { state ->
+            state.copy(
+                transfers = (listOf(task) + state.transfers).take(MAX_TRANSFER_HISTORY),
+            )
+        }
+        return task.id
+    }
+
+    private fun updateTransfer(
+        taskId: Long,
+        transform: (TransferTask) -> TransferTask,
+    ) {
+        _uiState.update { state ->
+            state.copy(
+                transfers = state.transfers.map { task ->
+                    if (task.id == taskId) transform(task) else task
+                },
+            )
+        }
+    }
+
+    private fun updateTransferProgress(taskId: Long, progress: TransferProgress) {
+        if (transferJobs[taskId]?.isCancelled == true) {
+            throw CancellationException()
+        }
+
+        updateTransfer(taskId) { task ->
+            if (
+                task.status == TransferStatus.COMPLETED ||
+                task.status == TransferStatus.FAILED ||
+                task.status == TransferStatus.CANCELED
+            ) {
+                return@updateTransfer task
+            }
+
+            val totalBytes = progress.totalBytes ?: task.totalBytes
+            val progressPercent = totalBytes
+                ?.takeIf { it > 0L }
+                ?.let { total ->
+                    ((progress.transferredBytes.toDouble() / total.toDouble()) * 100)
+                        .roundToLong()
+                        .toInt()
+                        .coerceIn(0, 99)
+                }
+
+            task.copy(
+                status = TransferStatus.RUNNING,
+                transferredBytes = progress.transferredBytes,
+                totalBytes = totalBytes,
+                progressPercent = progressPercent,
+                errorMessage = null,
+            )
+        }
+    }
+
+    private fun resolveDestinationLabel(uri: Uri, fallbackName: String): String {
+        val displayName = runCatching {
+            appContext.contentResolver
+                .query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+                ?.use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                        if (nameIndex >= 0) cursor.getString(nameIndex) else null
+                    } else {
+                        null
+                    }
+                }
+        }.getOrNull()
+
+        return displayName?.takeIf { it.isNotBlank() }
+            ?: uri.lastPathSegment?.takeIf { it.isNotBlank() }
+            ?: fallbackName
+    }
+
+    private fun resolveUploadLocationLabel(parentId: Long?): String {
+        if (parentId == null) {
+            return "根目录"
+        }
+
+        return uiState.value.files.breadcrumbs
+            .lastOrNull { it.id == parentId }
+            ?.label
+            ?: "当前目录"
+    }
+
+    private fun resolveArchiveTransferTitle(nodeIds: List<Long>): String {
+        if (nodeIds.size != 1) {
+            return "选中 ${nodeIds.size} 项.zip"
+        }
+
+        val node = uiState.value.files.items.firstOrNull { it.id == nodeIds.first() }
+        val name = node?.name?.trim().orEmpty().ifBlank { "AliciaCloud" }
+        val baseName = name.removeSuffix(".zip").ifBlank { "AliciaCloud" }
+        return "$baseName.zip"
+    }
+
     private fun authenticatedSession(): AuthSession? {
         val state = uiState.value
         val token = state.authToken ?: return null
@@ -2571,6 +3015,8 @@ class MainViewModel(
     }
 
     override fun onCleared() {
+        transferJobs.values.forEach { job -> job.cancel() }
+        transferJobs.clear()
         clearPreviewArtifacts()
         super.onCleared()
     }

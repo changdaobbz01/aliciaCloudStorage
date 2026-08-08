@@ -102,7 +102,7 @@ function formatDownloadButtonLabel(task: DriveDownloadTask | null, idleLabel: st
   }
 
   if (task.status === 'error') {
-    return '重试';
+    return '重新下载';
   }
 
   if (task.status === 'queued') {
@@ -283,7 +283,7 @@ export function useDriveDownloads({ authToken, message }: UseDriveDownloadsOptio
   function retryDownloadTask(taskId: string) {
     const task = downloadTasksRef.current.find((candidate) => candidate.id === taskId);
 
-    if (!task || isActiveDownloadStatus(task.status)) {
+    if (!task || task.status !== 'error') {
       return;
     }
 

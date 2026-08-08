@@ -9,12 +9,15 @@ import android.provider.OpenableColumns
 import com.google.gson.JsonParser
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.MediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
+import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import okio.BufferedSink
 import retrofit2.Response
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -32,6 +35,18 @@ class ApiException(
 private const val MAX_DIRECT_UPLOAD_BYTES = 20L * 1024 * 1024
 private const val MAX_AVATAR_UPLOAD_BYTES = 2L * 1024 * 1024
 private const val MAX_AVATAR_DIMENSION = 1440
+private const val TRANSFER_BUFFER_SIZE = 64 * 1024
+
+data class TransferProgress(
+    val transferredBytes: Long,
+    val totalBytes: Long?,
+)
+
+data class UploadAssetDescriptor(
+    val fileName: String,
+    val contentType: String?,
+    val sizeBytes: Long?,
+)
 
 class AliciaRepository(
     private val serviceFactory: AliciaCloudServiceFactory = AliciaCloudServiceFactory(),
@@ -266,6 +281,7 @@ class AliciaRepository(
         token: String,
         parentId: Long?,
         uri: Uri,
+        onProgress: (TransferProgress) -> Unit = {},
     ): StorageNode {
         val asset = context.contentResolver.resolveOpenableAsset(uri)
 
@@ -286,8 +302,19 @@ class AliciaRepository(
                 }
             } ?: throw ApiException("无法读取你选择的文件。", 400)
 
-            val requestBody = tempFile.asRequestBody(
-                (asset.contentType ?: "application/octet-stream").toMediaTypeOrNull(),
+            val resolvedSizeBytes = tempFile.length()
+            if (resolvedSizeBytes > MAX_DIRECT_UPLOAD_BYTES) {
+                throw ApiException(
+                    message = "Android 首版先支持 20 MB 以内直传，大文件分片上传下一轮继续补。",
+                    status = 400,
+                )
+            }
+
+            val requestBody = ProgressRequestBody(
+                file = tempFile,
+                contentType = (asset.contentType ?: "application/octet-stream").toMediaTypeOrNull(),
+                totalBytes = resolvedSizeBytes,
+                onProgress = onProgress,
             )
             val filePart = MultipartBody.Part.createFormData(
                 name = "file",
@@ -308,6 +335,15 @@ class AliciaRepository(
         } finally {
             tempFile.delete()
         }
+    }
+
+    fun describeUploadAsset(context: Context, uri: Uri): UploadAssetDescriptor {
+        val asset = context.contentResolver.resolveOpenableAsset(uri)
+        return UploadAssetDescriptor(
+            fileName = asset.fileName,
+            contentType = asset.contentType,
+            sizeBytes = asset.sizeBytes,
+        )
     }
 
     suspend fun moveNodes(
@@ -482,6 +518,7 @@ class AliciaRepository(
         token: String,
         nodeIds: List<Long>,
         destinationUri: Uri,
+        onProgress: (TransferProgress) -> Unit = {},
     ): String {
         val response = serviceFactory.serviceFor(baseUrl)
             .downloadArchive(
@@ -501,9 +538,14 @@ class AliciaRepository(
         val body = response.body() ?: throw ApiException("下载选中项目失败。", response.code())
 
         body.use { responseBody ->
-            context.contentResolver.openOutputStream(destinationUri)?.use { output ->
+            context.contentResolver.openOutputStream(destinationUri, "wt")?.use { output ->
                 responseBody.byteStream().use { input ->
-                    input.copyTo(output)
+                    copyToWithProgress(
+                        input = input,
+                        output = output,
+                        totalBytes = responseBody.contentLength().takeIf { it >= 0L },
+                        onProgress = onProgress,
+                    )
                 }
             } ?: throw ApiException("无法写入你选择的保存位置。", 400)
         }
@@ -546,6 +588,7 @@ class AliciaRepository(
         token: String,
         fileId: Long,
         destinationUri: Uri,
+        onProgress: (TransferProgress) -> Unit = {},
     ): String {
         val response = serviceFactory.serviceFor(baseUrl)
             .downloadFile(
@@ -565,9 +608,14 @@ class AliciaRepository(
         val body = response.body() ?: throw ApiException("下载文件失败。", response.code())
 
         body.use { responseBody ->
-            context.contentResolver.openOutputStream(destinationUri)?.use { output ->
+            context.contentResolver.openOutputStream(destinationUri, "wt")?.use { output ->
                 responseBody.byteStream().use { input ->
-                    input.copyTo(output)
+                    copyToWithProgress(
+                        input = input,
+                        output = output,
+                        totalBytes = responseBody.contentLength().takeIf { it >= 0L },
+                        onProgress = onProgress,
+                    )
                 }
             } ?: throw ApiException("无法写入你选择的保存位置。", 400)
         }
@@ -606,15 +654,16 @@ class AliciaRepository(
         token: String,
         fileId: Long,
         destinationUri: Uri,
+        onProgress: (TransferProgress) -> Unit = {},
     ): String {
         val access = fetchFileAccessUrl(baseUrl, token, fileId, "attachment")
-        val file = fetchSignedFile(access, "download.bin")
-
-        context.contentResolver.openOutputStream(destinationUri)?.use { output ->
-            output.write(file.bytes)
-        } ?: throw ApiException("无法写入你选择的保存位置。", 400)
-
-        return file.fileName
+        return copySignedFileToUri(
+            context = context,
+            access = access,
+            destinationUri = destinationUri,
+            fallbackFileName = "download.bin",
+            onProgress = onProgress,
+        )
     }
 
     private suspend fun fetchFileAccessUrl(
@@ -636,6 +685,7 @@ class AliciaRepository(
         access: SignedUrlResponse,
         destinationUri: Uri,
         fallbackFileName: String,
+        onProgress: (TransferProgress) -> Unit = {},
     ): String = withContext(Dispatchers.IO) {
         val request = Request.Builder()
             .url(access.url)
@@ -653,8 +703,13 @@ class AliciaRepository(
                 ?: fallbackFileName
 
             body.byteStream().use { input ->
-                context.contentResolver.openOutputStream(destinationUri)?.use { output ->
-                    input.copyTo(output)
+                context.contentResolver.openOutputStream(destinationUri, "wt")?.use { output ->
+                    copyToWithProgress(
+                        input = input,
+                        output = output,
+                        totalBytes = body.contentLength().takeIf { it >= 0L },
+                        onProgress = onProgress,
+                    )
                 } ?: throw ApiException("无法写入你选择的保存位置。", 400)
             }
 
@@ -731,6 +786,67 @@ class AliciaRepository(
     }
 
     private fun authorization(token: String) = "Bearer $token"
+}
+
+private class ProgressRequestBody(
+    private val file: File,
+    private val contentType: MediaType?,
+    private val totalBytes: Long?,
+    private val onProgress: (TransferProgress) -> Unit,
+) : RequestBody() {
+    override fun contentType(): MediaType? = contentType
+
+    override fun contentLength(): Long = totalBytes ?: -1L
+
+    override fun writeTo(sink: BufferedSink) {
+        val buffer = ByteArray(TRANSFER_BUFFER_SIZE)
+        var transferredBytes = 0L
+        onProgress(TransferProgress(transferredBytes = transferredBytes, totalBytes = totalBytes))
+
+        file.inputStream().use { input ->
+            while (true) {
+                val read = input.read(buffer)
+                if (read == -1) {
+                    break
+                }
+                sink.write(buffer, 0, read)
+                transferredBytes += read.toLong()
+                onProgress(
+                    TransferProgress(
+                        transferredBytes = transferredBytes,
+                        totalBytes = totalBytes,
+                    ),
+                )
+            }
+        }
+    }
+}
+
+private fun copyToWithProgress(
+    input: java.io.InputStream,
+    output: java.io.OutputStream,
+    totalBytes: Long?,
+    onProgress: (TransferProgress) -> Unit,
+) {
+    val buffer = ByteArray(TRANSFER_BUFFER_SIZE)
+    var transferredBytes = 0L
+    onProgress(TransferProgress(transferredBytes = transferredBytes, totalBytes = totalBytes))
+
+    while (true) {
+        val read = input.read(buffer)
+        if (read == -1) {
+            break
+        }
+        output.write(buffer, 0, read)
+        transferredBytes += read.toLong()
+        onProgress(
+            TransferProgress(
+                transferredBytes = transferredBytes,
+                totalBytes = totalBytes,
+            ),
+        )
+    }
+    output.flush()
 }
 
 private data class OpenableAsset(

@@ -67,8 +67,13 @@ public class StorageCommandService {
      */
     public StorageNodeSummaryResponse uploadFile(Long userId, Long rawParentId, MultipartFile file) {
         Long parentId = validateParentFolder(userId, rawParentId);
-        String fileName = extractFileName(file.getOriginalFilename());
-        validateSiblingNameUnique(userId, parentId, fileName);
+        String requestedFileName = extractFileName(file.getOriginalFilename());
+        String fileName = StorageNodeNameResolver.resolveAvailableSiblingName(
+                storageNodeRepository,
+                userId,
+                parentId,
+                requestedFileName
+        );
         storageQuotaService.validateUploadFits(userId, file.getSize());
 
         CosFileStorageService.StoredCosFile storedCosFile = cosFileStorageService.uploadUserFile(userId, file, fileName);
@@ -265,7 +270,8 @@ public class StorageCommandService {
             Set<String> reservedRootNames = new HashSet<>();
 
             for (StorageNode sourceRootNode : activeRootNodes) {
-                String targetRootName = resolveAvailableCopyName(
+                String targetRootName = StorageNodeNameResolver.resolveAvailableSiblingName(
+                        storageNodeRepository,
                         targetUserId,
                         targetParentId,
                         sourceRootNode.getNodeName(),
@@ -404,45 +410,6 @@ public class StorageCommandService {
                 cursorParentId = parentNode == null ? null : parentNode.getParentId();
             }
         }
-    }
-
-    private String resolveAvailableCopyName(
-            Long userId,
-            Long parentId,
-            String originalName,
-            Set<String> reservedNames
-    ) {
-        String normalizedOriginalName = normalizeNodeName(originalName, "名称");
-
-        for (int index = 0; index < 1000; index += 1) {
-            String candidate = index == 0 ? normalizedOriginalName : buildCopyName(normalizedOriginalName, index);
-
-            if (reservedNames.contains(candidate)) {
-                continue;
-            }
-
-            if (!storageNodeRepository.existsActiveSiblingName(userId, parentId, candidate)) {
-                reservedNames.add(candidate);
-                return candidate;
-            }
-        }
-
-        throw new IllegalArgumentException("目标目录下同名项目过多，请先整理后再保存。");
-    }
-
-    private String buildCopyName(String originalName, int index) {
-        String suffix = " (" + index + ")";
-        int dotIndex = originalName.lastIndexOf('.');
-        boolean hasExtension = dotIndex > 0 && dotIndex < originalName.length() - 1;
-        String baseName = hasExtension ? originalName.substring(0, dotIndex) : originalName;
-        String extension = hasExtension ? originalName.substring(dotIndex) : "";
-        int maxBaseLength = Math.max(1, 255 - suffix.length() - extension.length());
-
-        if (baseName.length() > maxBaseLength) {
-            baseName = baseName.substring(0, maxBaseLength);
-        }
-
-        return baseName + suffix + extension;
     }
 
     private int moveNodesToTrashInternal(Long userId, List<Long> rawNodeIds) {

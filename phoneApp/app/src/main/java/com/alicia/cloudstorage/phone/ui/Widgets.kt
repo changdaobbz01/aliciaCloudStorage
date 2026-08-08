@@ -1367,6 +1367,7 @@ fun AliciaMechaBadgeAction(
     label: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    icon: ImageVector? = null,
 ) {
     val shape = RoundedCornerShape(12.dp)
     Surface(
@@ -1377,14 +1378,23 @@ fun AliciaMechaBadgeAction(
         border = BorderStroke(1.dp, Color(0xFF5A94FF)),
         shadowElevation = 0.dp,
     ) {
-        Box(
+        Row(
             modifier = Modifier
-                .background(Color.Transparent, shape),
-            contentAlignment = Alignment.Center,
+                .background(Color.Transparent, shape)
+                .padding(horizontal = 10.dp, vertical = 0.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
+            if (icon != null) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MechaBlue,
+                    modifier = Modifier.size(12.dp),
+                )
+            }
             Text(
                 text = label,
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 0.dp),
                 color = MechaBlue,
                 fontFamily = AliciaMechaFontFamily,
                 fontWeight = FontWeight.Bold,

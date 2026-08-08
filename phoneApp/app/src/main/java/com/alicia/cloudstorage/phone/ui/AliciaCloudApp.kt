@@ -39,9 +39,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -59,6 +61,7 @@ import androidx.compose.material.icons.rounded.ManageAccounts
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Preview
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.RestoreFromTrash
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.UploadFile
@@ -582,6 +585,14 @@ private fun MainShell(
         contract = ActivityResultContracts.OpenMultipleDocuments(),
     ) { uris ->
         if (uris.isNotEmpty()) {
+            uris.forEach { uri ->
+                runCatching {
+                    context.contentResolver.takePersistableUriPermission(
+                        uri,
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION,
+                    )
+                }
+            }
             viewModel.uploadDocuments(uris)
         }
     }
@@ -698,11 +709,10 @@ private fun MainShell(
 
             AppTab.FILES, AppTab.TRASH -> FilesScreen(
                 paddingValues = contentPadding,
-                currentUser = currentUser,
-                avatarUrl = avatarUrl,
                 explorer = activeExplorer,
                 isTrashMode = isTrashMode,
-                onOpenAccount = { accountSheetOpen = true },
+                activeTransferCount = uiState.transfers.count { it.isTransferActive() },
+                onOpenTransfers = { viewModel.openTransferPanel(TransferPanelTab.DOWNLOADS) },
                 onRefresh = viewModel::refreshCurrentTab,
                 onSwitchMode = { trashMode ->
                     viewModel.selectTab(if (trashMode) AppTab.TRASH else AppTab.FILES)
@@ -1118,6 +1128,18 @@ private fun MainShell(
         state = uiState.preview,
         onDismiss = viewModel::closePreview,
     )
+
+    if (uiState.transferPanelOpen) {
+        TransferManagementSheet(
+            tasks = uiState.transfers,
+            selectedTab = uiState.transferPanelTab,
+            onSelectTab = viewModel::selectTransferPanelTab,
+            onDismiss = viewModel::closeTransferPanel,
+            onCancel = viewModel::cancelTransfer,
+            onRetryDownload = viewModel::retryDownloadTransfer,
+            onClearFinished = viewModel::clearFinishedTransfers,
+        )
+    }
 }
 
 @Composable
@@ -1418,11 +1440,82 @@ private fun AliciaMechaAccountOrb(
 }
 
 @Composable
+private fun AliciaMechaTransferOrb(
+    activeCount: Int,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .size(58.dp)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(52.dp)
+                .clip(CircleShape)
+                .background(
+                    Brush.radialGradient(
+                        colors = listOf(
+                            Color(0xFFFFFFFF),
+                            Color(0xFFE8F2FF),
+                            Color(0xFFBFD4F7),
+                        ),
+                    ),
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(39.dp)
+                    .clip(CircleShape)
+                    .background(
+                        Brush.radialGradient(
+                            colors = listOf(
+                                Color(0xFF1E63FF),
+                                Color(0xFF0D3FBD),
+                                Color(0xFF071A43),
+                            ),
+                        ),
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Download,
+                    contentDescription = "传输管理",
+                    tint = Color.White,
+                    modifier = Modifier.size(23.dp),
+                )
+            }
+        }
+        if (activeCount > 0) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .size(22.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFFF9D24)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = activeCount.coerceAtMost(9).toString(),
+                    color = Color.White,
+                    fontFamily = AliciaMechaFontFamily,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 11.sp,
+                    lineHeight = 12.sp,
+                    maxLines = 1,
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun AliciaMechaFilesHeader(
     title: String,
-    nickname: String,
-    avatarUrl: String?,
-    onOpenAccount: () -> Unit,
+    activeTransferCount: Int,
+    onOpenTransfers: () -> Unit,
 ) {
     Row(
         modifier = Modifier
@@ -1450,10 +1543,9 @@ private fun AliciaMechaFilesHeader(
                     ),
             )
         }
-        AliciaMechaAccountOrb(
-            nickname = nickname,
-            avatarUrl = avatarUrl,
-            onOpenAccount = onOpenAccount,
+        AliciaMechaTransferOrb(
+            activeCount = activeTransferCount,
+            onClick = onOpenTransfers,
         )
     }
 }
@@ -1463,11 +1555,10 @@ private fun AliciaMechaFilesHeader(
 private fun FilesScreen(
 
     paddingValues: PaddingValues,
-    currentUser: User,
-    avatarUrl: String?,
     explorer: ExplorerUiState,
     isTrashMode: Boolean,
-    onOpenAccount: () -> Unit,
+    activeTransferCount: Int,
+    onOpenTransfers: () -> Unit,
     onRefresh: () -> Unit,
     onSwitchMode: (Boolean) -> Unit,
     onKeywordChange: (String) -> Unit,
@@ -1523,9 +1614,8 @@ private fun FilesScreen(
                     item {
                         AliciaMechaFilesHeader(
                             title = if (isTrashMode) "回收站" else "文件管理",
-                            nickname = currentUser.nickname,
-                            avatarUrl = avatarUrl,
-                            onOpenAccount = onOpenAccount,
+                            activeTransferCount = activeTransferCount,
+                            onOpenTransfers = onOpenTransfers,
                         )
                     }
 
@@ -3679,6 +3769,360 @@ private fun formatShareExpiresAt(expiresAt: String?): String =
         ?.takeIf { it.isNotBlank() }
         ?.replace('T', ' ')
         ?: "永久有效"
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TransferManagementSheet(
+    tasks: List<TransferTask>,
+    selectedTab: TransferPanelTab,
+    onSelectTab: (TransferPanelTab) -> Unit,
+    onDismiss: () -> Unit,
+    onCancel: (Long) -> Unit,
+    onRetryDownload: (Long) -> Unit,
+    onClearFinished: () -> Unit,
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val activeTasks = tasks.count { it.isTransferActive() }
+    val visibleTasks = tasks.filter { task ->
+        when (selectedTab) {
+            TransferPanelTab.DOWNLOADS -> task.kind == TransferKind.DOWNLOAD
+            TransferPanelTab.UPLOADS -> task.kind == TransferKind.UPLOAD
+        }
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        modifier = Modifier
+            .fillMaxHeight()
+            .padding(top = 50.dp),
+        sheetState = sheetState,
+        containerColor = Color.Transparent,
+        scrimColor = Color(0xC4111826),
+        dragHandle = null,
+        tonalElevation = 0.dp,
+    ) {
+        AliciaMechaPanel(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight()
+                .navigationBarsPadding()
+                .padding(horizontal = 12.dp, vertical = 6.dp),
+            contentPadding = PaddingValues(start = 18.dp, top = 10.dp, end = 18.dp, bottom = 16.dp),
+            backgroundResId = R.drawable.alicia_9_dialog_panel,
+            backgroundSlice = 72.dp,
+        ) {
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.Center,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .width(58.dp)
+                        .height(5.dp)
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(Color(0xFFB4BACA)),
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(
+                        text = "传输管理",
+                        color = Color(0xFF101626),
+                        fontFamily = AliciaMechaFontFamily,
+                        fontWeight = FontWeight.Black,
+                        fontSize = 21.sp,
+                        lineHeight = 24.sp,
+                    )
+                    Text(
+                        text = if (activeTasks > 0) "运行中 $activeTasks 项" else "暂无运行中的传输任务",
+                        color = Color(0xFF748094),
+                        fontFamily = AliciaMechaFontFamily,
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 11.sp,
+                        lineHeight = 14.sp,
+                    )
+                }
+                AliciaMechaBadgeAction(
+                    label = "清理完成",
+                    onClick = onClearFinished,
+                )
+            }
+
+            AliciaMechaSegmentTabs(
+                labels = listOf("下载", "上传"),
+                selectedIndex = if (selectedTab == TransferPanelTab.DOWNLOADS) 0 else 1,
+                onSelected = { index ->
+                    onSelectTab(if (index == 0) TransferPanelTab.DOWNLOADS else TransferPanelTab.UPLOADS)
+                },
+            )
+
+            if (visibleTasks.isEmpty()) {
+                AliciaMechaLinePanel(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentPadding = PaddingValues(start = 16.dp, top = 18.dp, end = 16.dp, bottom = 18.dp),
+                ) {
+                    Text(
+                        text = if (selectedTab == TransferPanelTab.DOWNLOADS) "还没有下载记录。" else "还没有上传记录。",
+                        color = Color(0xFF748094),
+                        fontFamily = AliciaMechaFontFamily,
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 13.sp,
+                        lineHeight = 18.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    items(
+                        items = visibleTasks,
+                        key = { task -> task.id },
+                    ) { task ->
+                        TransferTaskRow(
+                            task = task,
+                            onCancel = { onCancel(task.id) },
+                            onRetryDownload = { onRetryDownload(task.id) },
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TransferTaskRow(
+    task: TransferTask,
+    onCancel: () -> Unit,
+    onRetryDownload: () -> Unit,
+) {
+    val statusColor = when (task.status) {
+        TransferStatus.COMPLETED -> Color(0xFF19A65A)
+        TransferStatus.FAILED -> Color(0xFFE25A2C)
+        TransferStatus.CANCELED -> Color(0xFF748094)
+        else -> Color(0xFF1E63FF)
+    }
+    val progressFraction = when {
+        task.status == TransferStatus.COMPLETED -> 1f
+        task.progressPercent != null -> task.progressPercent.coerceIn(0, 100) / 100f
+        task.totalBytes != null && task.totalBytes > 0L && task.transferredBytes > 0L ->
+            (task.transferredBytes.toDouble() / task.totalBytes.toDouble()).toFloat().coerceIn(0f, 1f)
+        else -> null
+    }
+    val progressLabel = buildTransferProgressLabel(task)
+
+    AliciaMechaLinePanel(
+        modifier = Modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(start = 14.dp, top = 12.dp, end = 14.dp, bottom = 12.dp),
+        danger = task.status == TransferStatus.FAILED,
+        selected = task.isTransferActive(),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.Top,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(
+                        Brush.radialGradient(
+                            colors = listOf(Color.White, Color(0xFFEAF2FF), Color(0xFFDCEAFF)),
+                        ),
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = if (task.kind == TransferKind.DOWNLOAD) Icons.Rounded.Download else Icons.Rounded.UploadFile,
+                    contentDescription = null,
+                    tint = statusColor,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(7.dp),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = task.title,
+                        color = Color(0xFF101626),
+                        fontFamily = AliciaMechaFontFamily,
+                        fontWeight = FontWeight.Black,
+                        fontSize = 14.sp,
+                        lineHeight = 16.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Text(
+                        text = transferStatusLabel(task.status),
+                        color = statusColor,
+                        fontFamily = AliciaMechaFontFamily,
+                        fontWeight = FontWeight.Black,
+                        fontSize = 11.sp,
+                        lineHeight = 13.sp,
+                        maxLines = 1,
+                    )
+                }
+
+                TransferProgressBar(
+                    fraction = progressFraction,
+                    active = task.isTransferActive(),
+                    color = statusColor,
+                )
+
+                Text(
+                    text = progressLabel,
+                    color = Color(0xFF5E718E),
+                    fontFamily = AliciaMechaFontFamily,
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 11.sp,
+                    lineHeight = 14.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+
+                task.locationLabel?.takeIf { it.isNotBlank() }?.let { location ->
+                    Text(
+                        text = if (task.kind == TransferKind.DOWNLOAD) "保存至：$location" else "上传至：$location",
+                        color = Color(0xFF748094),
+                        fontFamily = AliciaMechaFontFamily,
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 10.sp,
+                        lineHeight = 13.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+
+                task.errorMessage?.takeIf { it.isNotBlank() }?.let { message ->
+                    Text(
+                        text = message,
+                        color = Color(0xFFE25A2C),
+                        fontFamily = AliciaMechaFontFamily,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 10.sp,
+                        lineHeight = 13.sp,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+
+            if (task.isTransferActive()) {
+                AliciaMechaBadgeAction(
+                    label = "取消",
+                    onClick = onCancel,
+                    modifier = Modifier.height(24.dp),
+                )
+            } else if (task.kind == TransferKind.DOWNLOAD && task.status == TransferStatus.FAILED) {
+                AliciaMechaBadgeAction(
+                    label = "重新下载",
+                    onClick = onRetryDownload,
+                    icon = Icons.Rounded.Refresh,
+                    modifier = Modifier.height(24.dp),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TransferProgressBar(
+    fraction: Float?,
+    active: Boolean,
+    color: Color,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(6.dp)
+            .clip(RoundedCornerShape(999.dp))
+            .background(Color(0xFFE2EAF7)),
+    ) {
+        val fillFraction = when {
+            fraction != null -> fraction.coerceIn(0f, 1f)
+            active -> 0.36f
+            else -> 0f
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(fillFraction)
+                .height(6.dp)
+                .clip(RoundedCornerShape(999.dp))
+                .background(
+                    Brush.horizontalGradient(
+                        colors = listOf(
+                            color.copy(alpha = 0.72f),
+                            color,
+                            Color(0xFF48D5FF).copy(alpha = if (active) 0.85f else 0.35f),
+                        ),
+                    ),
+                ),
+        )
+    }
+}
+
+private fun buildTransferProgressLabel(task: TransferTask): String {
+    if (task.status == TransferStatus.FAILED) {
+        return task.transferredBytes
+            .takeIf { it > 0L }
+            ?.let { "失败前已传输 ${formatBytes(it)}" }
+            ?: "传输失败"
+    }
+
+    if (task.status == TransferStatus.CANCELED) {
+        return task.transferredBytes
+            .takeIf { it > 0L }
+            ?.let { "已取消 · ${formatBytes(it)}" }
+            ?: "已取消"
+    }
+
+    val sizeLabel = when {
+        task.totalBytes != null && task.totalBytes > 0L ->
+            "${formatBytes(task.transferredBytes)} / ${formatBytes(task.totalBytes)}"
+        task.transferredBytes > 0L -> "已传输 ${formatBytes(task.transferredBytes)}"
+        else -> "等待传输"
+    }
+
+    return task.progressPercent
+        ?.takeIf { task.status != TransferStatus.FAILED && task.status != TransferStatus.CANCELED }
+        ?.let { "${it.coerceIn(0, 100)}% · $sizeLabel" }
+        ?: sizeLabel
+}
+
+private fun transferStatusLabel(status: TransferStatus): String =
+    when (status) {
+        TransferStatus.QUEUED -> "等待中"
+        TransferStatus.PREPARING -> "准备中"
+        TransferStatus.RUNNING -> "传输中"
+        TransferStatus.COMPLETED -> "已完成"
+        TransferStatus.FAILED -> "失败"
+        TransferStatus.CANCELED -> "已取消"
+    }
+
+private fun TransferTask.isTransferActive(): Boolean =
+    status == TransferStatus.QUEUED ||
+        status == TransferStatus.PREPARING ||
+        status == TransferStatus.RUNNING
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

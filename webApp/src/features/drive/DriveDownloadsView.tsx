@@ -146,9 +146,9 @@ function renderTaskRow(
           </Button>
         ) : null}
 
-        {task.status === 'error' || task.status === 'canceled' ? (
+        {task.status === 'error' ? (
           <Button size="small" icon={<ReloadOutlined />} onClick={() => onRetryTask(task.id)}>
-            重试
+            重新下载
           </Button>
         ) : null}
       </Space>
