@@ -32,6 +32,11 @@ public interface StorageNodeRepository extends JpaRepository<StorageNode, Long>,
 
     List<StorageNode> findByOwnerIdAndParentIdAndDeletedFalse(Long ownerId, Long parentId);
 
+    List<StorageNode> findByOwnerIdAndParentIdInAndDeletedFalseOrderByParentIdAscIdAsc(
+            Long ownerId,
+            Collection<Long> parentIds
+    );
+
     @Query("""
             select node
             from StorageNode node

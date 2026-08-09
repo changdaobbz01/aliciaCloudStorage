@@ -9,6 +9,7 @@ import {
   FolderAddOutlined,
   ReloadOutlined,
   RollbackOutlined,
+  ShareAltOutlined,
   SwapOutlined,
   UploadOutlined,
   VideoCameraOutlined,
@@ -45,6 +46,7 @@ type DriveExplorerViewProps = {
   onPermanentDeleteSelection: () => void;
   onOpenBatchMove: () => void;
   onDownloadSelection: () => void;
+  onShareSelection: () => void;
   onSelectionChange: (items: StorageNode[]) => void;
   onTableChange: (options: {
     page: number;
@@ -100,6 +102,7 @@ export default function DriveExplorerView({
   onPermanentDeleteSelection,
   onOpenBatchMove,
   onDownloadSelection,
+  onShareSelection,
   onSelectionChange,
   onTableChange,
   onOpenFolder,
@@ -168,6 +171,14 @@ export default function DriveExplorerView({
                 onClick={onDownloadSelection}
               >
                 {downloadSelectionState.label}
+              </Button>
+              <Button
+                icon={<ShareAltOutlined />}
+                disabled={selectedCount === 0}
+                title={selectedCount > 20 ? '单个分享最多包含 20 个项目' : undefined}
+                onClick={onShareSelection}
+              >
+                分享所选
               </Button>
               <Button icon={<SwapOutlined />} disabled={selectedCount === 0} onClick={onOpenBatchMove}>
                 移动所选

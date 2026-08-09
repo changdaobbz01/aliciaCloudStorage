@@ -857,12 +857,13 @@ export function fetchStorageFileAccessUrl(
   fileId: number,
   token: string,
   disposition: 'inline' | 'attachment' = 'inline',
+  signal?: AbortSignal,
 ) {
   const search = new URLSearchParams();
   search.set('disposition', disposition);
   return requestJson<SignedUrlResponse>(
     `/api/storage/files/${fileId}/access-url?${search.toString()}`,
-    withToken(token),
+    withToken(token, { signal }),
   );
 }
 

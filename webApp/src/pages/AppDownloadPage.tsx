@@ -10,18 +10,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { RegulatoryFooter } from '../components/RegulatoryFooter';
 import { fetchPublicAppPackage } from '../lib/api';
 import type { AppPackageInfo } from '../types';
-import { formatFileSize, resolveAppDownloadUrl, resolveShareUrl } from '../features/drive/driveShared';
-
-const ANDROID_PACKAGE_NAME = 'com.alicia.cloudstorage.phone';
-
-function buildShareIntentUrl(shareCode: string) {
-  const fallback = new URL('/app-download', window.location.origin);
-  fallback.searchParams.set('share', shareCode);
-
-  return `intent://share/${encodeURIComponent(shareCode)}#Intent;scheme=aliciacloud;package=${ANDROID_PACKAGE_NAME};S.browser_fallback_url=${encodeURIComponent(
-    fallback.toString(),
-  )};S.alicia_web_url=${encodeURIComponent(resolveShareUrl(shareCode))};end`;
-}
+import { formatFileSize, resolveAppDownloadUrl } from '../features/drive/driveShared';
+import { buildShareIntentUrl } from '../lib/mobileApp';
 
 export function AppDownloadPage() {
   const { message } = AntApp.useApp();

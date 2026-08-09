@@ -48,6 +48,7 @@ public class ShareLinkService {
     private static final int SHARE_CODE_MAX_ATTEMPTS = 12;
     private static final int MAX_SHARE_ITEMS = 20;
     private static final int MAX_SAVE_SELECTED_ITEMS = 500;
+    private static final int SHARE_NODE_QUERY_BATCH_SIZE = 500;
     private static final int SHARE_ACCESS_TOKEN_EXPIRE_MINUTES = 120;
     private static final int MAX_PASSWORD_FAILURES = 5;
     private static final int PASSWORD_FAILURE_WINDOW_MINUTES = 10;
@@ -63,6 +64,7 @@ public class ShareLinkService {
     private final SecureRandom secureRandom = new SecureRandom();
     private final Map<String, PasswordAttemptState> passwordAttemptStates = new ConcurrentHashMap<>();
     private final String tokenSecret;
+    private final int maxExpandedNodes;
 
     public ShareLinkService(
             ShareLinkRepository shareLinkRepository,
@@ -72,7 +74,8 @@ public class ShareLinkService {
             PasswordEncoder passwordEncoder,
             StorageCommandService storageCommandService,
             CosFileStorageService cosFileStorageService,
-            @Value("${alicia.auth.token-secret}") String tokenSecret
+            @Value("${alicia.auth.token-secret}") String tokenSecret,
+            @Value("${alicia.share.max-expanded-nodes:5000}") int maxExpandedNodes
     ) {
         this.shareLinkRepository = shareLinkRepository;
         this.shareLinkItemRepository = shareLinkItemRepository;
@@ -82,11 +85,13 @@ public class ShareLinkService {
         this.storageCommandService = storageCommandService;
         this.cosFileStorageService = cosFileStorageService;
         this.tokenSecret = tokenSecret;
+        this.maxExpandedNodes = maxExpandedNodes;
     }
 
     public ShareLinkSummaryResponse createShareLink(Long ownerId, CreateShareLinkRequest request) {
         List<Long> nodeIds = normalizeNodeIds(request.nodeIds());
         List<StorageNode> rootNodes = collapseSelectedRoots(ownerId, loadOwnedActiveNodes(ownerId, nodeIds));
+        collectActiveSharedNodes(rootNodes);
         String passwordHash = normalizePassword(request.password());
         LocalDateTime expiresAt = resolveExpiresAt(request.expiresInDays());
 
@@ -332,31 +337,63 @@ public class ShareLinkService {
     private List<StorageNode> collectActiveSharedNodes(List<StorageNode> rootNodes) {
         List<StorageNode> nodes = new ArrayList<>();
         Set<Long> visitedIds = new HashSet<>();
+        List<Long> folderIds = new ArrayList<>();
 
         for (StorageNode rootNode : rootNodes) {
-            appendActiveSharedNodes(rootNode.getOwnerId(), rootNode, nodes, visitedIds);
+            addExpandedNode(rootNode, nodes, visitedIds, folderIds);
+        }
+
+        if (rootNodes.isEmpty()) {
+            return nodes;
+        }
+
+        Long ownerId = rootNodes.get(0).getOwnerId();
+        while (!folderIds.isEmpty()) {
+            List<StorageNode> children = new ArrayList<>();
+            for (int start = 0; start < folderIds.size(); start += SHARE_NODE_QUERY_BATCH_SIZE) {
+                int end = Math.min(start + SHARE_NODE_QUERY_BATCH_SIZE, folderIds.size());
+                children.addAll(storageNodeRepository
+                        .findByOwnerIdAndParentIdInAndDeletedFalseOrderByParentIdAscIdAsc(
+                                ownerId,
+                                folderIds.subList(start, end)
+                        ));
+            }
+
+            Map<Long, List<StorageNode>> childrenByParentId = new HashMap<>();
+            children.forEach(child -> childrenByParentId
+                    .computeIfAbsent(child.getParentId(), ignored -> new ArrayList<>())
+                    .add(child));
+
+            List<Long> nextFolderIds = new ArrayList<>();
+            for (Long folderId : folderIds) {
+                for (StorageNode child : childrenByParentId.getOrDefault(folderId, List.of())) {
+                    addExpandedNode(child, nodes, visitedIds, nextFolderIds);
+                }
+            }
+            folderIds = nextFolderIds;
         }
 
         return nodes;
     }
 
-    private void appendActiveSharedNodes(
-            Long ownerId,
+    private void addExpandedNode(
             StorageNode node,
             List<StorageNode> nodes,
-            Set<Long> visitedIds
+            Set<Long> visitedIds,
+            List<Long> folderIds
     ) {
         if (!visitedIds.add(node.getId())) {
             return;
         }
 
-        nodes.add(node);
-        if (node.getNodeType() != NodeType.FOLDER) {
-            return;
+        if (nodes.size() >= maxExpandedNodes) {
+            throw new IllegalArgumentException("分享内容过多，请拆分后重新分享。");
         }
 
-        storageNodeRepository.findByOwnerIdAndParentIdAndDeletedFalse(ownerId, node.getId())
-                .forEach(child -> appendActiveSharedNodes(ownerId, child, nodes, visitedIds));
+        nodes.add(node);
+        if (node.getNodeType() == NodeType.FOLDER) {
+            folderIds.add(node.getId());
+        }
     }
 
     private StorageNode requireSharedFile(ShareLink shareLink, Long fileId) {

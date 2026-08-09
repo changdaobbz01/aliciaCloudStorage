@@ -1,5 +1,6 @@
 package com.alicia.cloudstorage.api.service;
 
+import com.alicia.cloudstorage.api.dto.CreateShareLinkRequest;
 import com.alicia.cloudstorage.api.dto.SaveShareLinkRequest;
 import com.alicia.cloudstorage.api.dto.StorageNodeSummaryResponse;
 import com.alicia.cloudstorage.api.dto.VerifySharePasswordRequest;
@@ -21,11 +22,14 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -66,8 +70,98 @@ class ShareLinkServiceTest {
                 passwordEncoder,
                 storageCommandService,
                 cosFileStorageService,
-                "share-test-secret"
+                "share-test-secret",
+                5_000
         );
+    }
+
+    @Test
+    void createSharePersistsMultipleRootsAndCollapsesSelectedDescendants() {
+        StorageNode folder = folderNode(11L, 9L, null, "docs");
+        StorageNode child = fileNode(12L, 9L, 11L, "report.pdf", "cos/report.pdf");
+        StorageNode image = fileNode(13L, 9L, null, "cover.png", "cos/cover.png");
+
+        when(storageNodeRepository.findByOwnerIdAndIdInAndDeletedFalse(9L, List.of(11L, 12L, 13L)))
+                .thenReturn(List.of(image, child, folder));
+        when(storageNodeRepository.findByOwnerIdAndParentIdInAndDeletedFalseOrderByParentIdAscIdAsc(
+                9L,
+                List.of(11L)
+        )).thenReturn(List.of(child));
+        doAnswer(invocation -> {
+            ShareLink shareLink = invocation.getArgument(0);
+            ReflectionTestUtils.setField(shareLink, "id", 101L);
+            ReflectionTestUtils.setField(shareLink, "createdAt", LocalDateTime.now());
+            ReflectionTestUtils.setField(shareLink, "updatedAt", LocalDateTime.now());
+            return shareLink;
+        }).when(shareLinkRepository).save(any(ShareLink.class));
+
+        var response = shareLinkService.createShareLink(
+                9L,
+                new CreateShareLinkRequest(
+                        List.of(11L, 12L, 13L),
+                        null,
+                        null,
+                        7,
+                        true,
+                        true
+                )
+        );
+
+        assertThat(response.itemCount()).isEqualTo(2L);
+        assertThat(response.title()).isEqualTo("共 2 项分享内容");
+        verify(shareLinkItemRepository).saveAll(org.mockito.ArgumentMatchers.argThat(items ->
+                matchesSavedItems(items, List.of(11L, 13L))
+        ));
+    }
+
+    @Test
+    void createShareRejectsSelectionWhenAnyNodeIsUnavailable() {
+        StorageNode available = fileNode(21L, 9L, null, "available.txt", "cos/available.txt");
+        when(storageNodeRepository.findByOwnerIdAndIdInAndDeletedFalse(9L, List.of(21L, 22L)))
+                .thenReturn(List.of(available));
+
+        assertThatThrownBy(() -> shareLinkService.createShareLink(
+                9L,
+                new CreateShareLinkRequest(List.of(21L, 22L), null, null, 7, true, true)
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("分享项目不存在或已被删除。");
+
+        verify(shareLinkRepository, never()).save(any(ShareLink.class));
+    }
+
+    @Test
+    void createShareRejectsExpandedSelectionBeyondConfiguredLimit() {
+        shareLinkService = new ShareLinkService(
+                shareLinkRepository,
+                shareLinkItemRepository,
+                storageNodeRepository,
+                sysUserRepository,
+                passwordEncoder,
+                storageCommandService,
+                cosFileStorageService,
+                "share-test-secret",
+                2
+        );
+        StorageNode folder = folderNode(31L, 9L, null, "docs");
+        StorageNode firstChild = fileNode(32L, 9L, 31L, "one.txt", "cos/one.txt");
+        StorageNode secondChild = fileNode(33L, 9L, 31L, "two.txt", "cos/two.txt");
+
+        when(storageNodeRepository.findByOwnerIdAndIdInAndDeletedFalse(9L, List.of(31L)))
+                .thenReturn(List.of(folder));
+        when(storageNodeRepository.findByOwnerIdAndParentIdInAndDeletedFalseOrderByParentIdAscIdAsc(
+                9L,
+                List.of(31L)
+        )).thenReturn(List.of(firstChild, secondChild));
+
+        assertThatThrownBy(() -> shareLinkService.createShareLink(
+                9L,
+                new CreateShareLinkRequest(List.of(31L), null, null, 7, true, true)
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("分享内容过多，请拆分后重新分享。");
+
+        verify(shareLinkRepository, never()).save(any(ShareLink.class));
     }
 
     @Test
@@ -134,7 +228,10 @@ class ShareLinkServiceTest {
         when(shareLinkRepository.findByShareCode("share-code")).thenReturn(Optional.of(shareLink));
         when(shareLinkItemRepository.findByShareIdOrderBySortOrderAsc(3L)).thenReturn(List.of(shareItem));
         when(storageNodeRepository.findByIdAndOwnerIdAndDeletedFalse(31L, 9L)).thenReturn(Optional.of(sharedRoot));
-        when(storageNodeRepository.findByOwnerIdAndParentIdAndDeletedFalse(9L, 31L)).thenReturn(List.of());
+        when(storageNodeRepository.findByOwnerIdAndParentIdInAndDeletedFalseOrderByParentIdAscIdAsc(
+                9L,
+                List.of(31L)
+        )).thenReturn(List.of());
 
         assertThatThrownBy(() -> shareLinkService.createShareFileAccessUrl(20L, "share-code", 99L, null, true))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -222,7 +319,10 @@ class ShareLinkServiceTest {
         when(shareLinkRepository.findByShareCode("share-code")).thenReturn(Optional.of(shareLink));
         when(shareLinkItemRepository.findByShareIdOrderBySortOrderAsc(7L)).thenReturn(List.of(shareItem));
         when(storageNodeRepository.findByIdAndOwnerIdAndDeletedFalse(71L, 9L)).thenReturn(Optional.of(sharedFolder));
-        when(storageNodeRepository.findByOwnerIdAndParentIdAndDeletedFalse(9L, 71L)).thenReturn(List.of(sharedChild));
+        when(storageNodeRepository.findByOwnerIdAndParentIdInAndDeletedFalseOrderByParentIdAscIdAsc(
+                9L,
+                List.of(71L)
+        )).thenReturn(List.of(sharedChild));
         when(storageCommandService.copySharedNodesToUser(20L, List.of(sharedFolder), null)).thenReturn(List.of(copiedFolder));
 
         var copiedNodes = shareLinkService.saveShare(
@@ -249,6 +349,22 @@ class ShareLinkServiceTest {
         shareLink.setStatus(ShareLinkStatus.ACTIVE);
         shareLink.setViewCount(0L);
         return shareLink;
+    }
+
+    private boolean matchesSavedItems(Iterable<ShareLinkItem> items, List<Long> expectedNodeIds) {
+        List<ShareLinkItem> savedItems = new ArrayList<>();
+        items.forEach(savedItems::add);
+        if (savedItems.size() != expectedNodeIds.size()) {
+            return false;
+        }
+
+        for (int index = 0; index < expectedNodeIds.size(); index += 1) {
+            ShareLinkItem item = savedItems.get(index);
+            if (!expectedNodeIds.get(index).equals(item.getNodeId()) || item.getSortOrder() != index) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private ShareLinkItem shareItem(Long shareId, Long nodeId) {

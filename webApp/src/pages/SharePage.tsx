@@ -22,14 +22,13 @@ import {
   verifySharePassword,
 } from '../lib/api';
 import type { ShareLinkDetail, ShareLinkStatus, StorageNode, VerifySharePasswordPayload } from '../types';
-import { ROOT_PARENT_KEY, resolveShareUrl } from '../features/drive/driveShared';
+import { ROOT_PARENT_KEY } from '../features/drive/driveShared';
 import type { FolderTreeNode } from '../features/drive/types';
+import { buildAppDownloadUrl, buildShareIntentUrl } from '../lib/mobileApp';
 
 type ShareTreeNode = StorageNode & {
   children?: ShareTreeNode[];
 };
-
-const ANDROID_PACKAGE_NAME = 'com.alicia.cloudstorage.phone';
 
 type StoredShareAccess = {
   accessToken: string;
@@ -43,18 +42,6 @@ function isLikelyMobileClient() {
 
   return /Android|iPhone|iPad|iPod|Mobile/i.test(window.navigator.userAgent) ||
     window.matchMedia('(max-width: 760px)').matches;
-}
-
-function buildAppDownloadUrl(shareCode: string) {
-  const url = new URL('/app-download', window.location.origin);
-  url.searchParams.set('share', shareCode);
-  return url.toString();
-}
-
-function buildShareIntentUrl(shareCode: string) {
-  return `intent://share/${encodeURIComponent(shareCode)}#Intent;scheme=aliciacloud;package=${ANDROID_PACKAGE_NAME};S.browser_fallback_url=${encodeURIComponent(
-    buildAppDownloadUrl(shareCode),
-  )};S.alicia_web_url=${encodeURIComponent(resolveShareUrl(shareCode))};end`;
 }
 
 function getShareAccessStorageKey(shareCode: string) {

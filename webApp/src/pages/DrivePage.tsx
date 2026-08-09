@@ -328,6 +328,13 @@ export function DrivePage() {
     await explorer.handlePreviewFile(item);
   }
 
+  async function handleSubmitCreateShare(values: Parameters<typeof shares.submitCreateShare>[0]) {
+    const created = await shares.submitCreateShare(values);
+    if (created) {
+      explorer.clearSelection();
+    }
+  }
+
   /**
    * 将文件或文件夹移入回收站。   */
   async function handleDeleteNode(item: StorageNode) {
@@ -430,6 +437,7 @@ export function DrivePage() {
           onPermanentDeleteSelection={() => handlePermanentlyDeleteNodes(selectedItems)}
           onOpenBatchMove={storageDialogs.openBatchMoveModal}
           onDownloadSelection={() => downloads.downloadNodes(selectedItems)}
+          onShareSelection={() => shares.openCreateShareModal(selectedItems)}
           onSelectionChange={explorer.handleSelectionChange}
           onTableChange={explorer.handleTableChange}
           onOpenFolder={explorer.openFolder}
@@ -709,13 +717,14 @@ export function DrivePage() {
       />
 
       <DriveShareCreateModal
-        target={shares.shareCreateTarget}
+        targets={shares.shareCreateTargets}
+        authToken={authToken}
         creating={shares.shareCreating}
         form={shares.createShareForm}
         lastCreatedShare={shares.lastCreatedShare}
         lastCreatedPassword={shares.lastCreatedPassword}
         onClose={shares.closeCreateShareModal}
-        onSubmit={shares.submitCreateShare}
+        onSubmit={handleSubmitCreateShare}
       />
 
       <DriveStorageActionModals
