@@ -93,20 +93,14 @@ import androidx.compose.material.icons.rounded.UploadFile
 import androidx.compose.material.icons.rounded.ViewModule
 import androidx.compose.material.icons.rounded.VideoFile
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -115,7 +109,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -148,6 +141,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
@@ -156,8 +151,8 @@ import com.alicia.cloudstorage.phone.FileDetailActivity
 import com.alicia.cloudstorage.phone.HONG_KONG_BASE_URL
 import com.alicia.cloudstorage.phone.MAINLAND_BASE_URL
 import com.alicia.cloudstorage.phone.R
+import com.alicia.cloudstorage.phone.ShareCreateActivity
 import com.alicia.cloudstorage.phone.data.AppTab
-import com.alicia.cloudstorage.phone.data.ShareLinkDetailResponse
 import com.alicia.cloudstorage.phone.data.StorageFileCategory
 import com.alicia.cloudstorage.phone.data.StorageNode
 import com.alicia.cloudstorage.phone.data.StorageNodeFilter
@@ -179,6 +174,14 @@ private val SoftBlue = Color(0xFFEAF2FF)
 private val Danger = Color(0xFFE84D3D)
 private val Success = Color(0xFF16B56F)
 private val WarmOrange = Color(0xFFFF7A1A)
+
+private fun Modifier.addCardChrome(shape: RoundedCornerShape): Modifier =
+    shadow(
+        elevation = 3.dp,
+        shape = shape,
+        ambientColor = Color.Black.copy(alpha = 0.012f),
+        spotColor = Color.Black.copy(alpha = 0.02f),
+    ).border(1.dp, SoftLine.copy(alpha = 0.76f), shape)
 
 private data class NodeActionContext(
     val node: StorageNode,
@@ -278,8 +281,14 @@ private enum class ReferenceAsset(@DrawableRes val resId: Int) {
     ArchiveGray(R.drawable.ic_add_archive_gray),
     RetryBlue(R.drawable.ic_add_retry_blue),
     CancelRed(R.drawable.ic_add_cancel_red),
-    RestoreGreen(R.drawable.ic_add_restore_green),
+    RestoreGreen(R.drawable.ic_add_restore_action),
     EditBlue(R.drawable.ic_add_edit_blue),
+    ProfileSettings(R.drawable.ic_add_profile_settings),
+    AccountSecurity(R.drawable.ic_add_account_security),
+    EnvironmentSettings(R.drawable.ic_add_environment_settings),
+    StorageDetails(R.drawable.ic_add_storage_details),
+    VersionUpdate(R.drawable.ic_add_version_update),
+    AccountManage(R.drawable.ic_add_account_manage),
 }
 
 @Composable
@@ -412,20 +421,9 @@ fun AliciaCloudApp(viewModel: MainViewModel) {
     }
 
     uiState.incomingShare.prompt?.let {
-        AlertDialog(
+        IncomingSharePromptDialog(
             onDismissRequest = viewModel::dismissIncomingSharePrompt,
-            title = { Text("发现分享链接") },
-            text = { Text("检测到 Alicia 云盘分享链接，是否查看？") },
-            confirmButton = {
-                Button(onClick = viewModel::confirmIncomingSharePrompt) {
-                    Text("查看")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = viewModel::dismissIncomingSharePrompt) {
-                    Text("暂不查看")
-                }
-            },
+            onConfirm = viewModel::confirmIncomingSharePrompt,
         )
     }
 
@@ -475,10 +473,11 @@ private fun BootScreen() {
             verticalArrangement = Arrangement.spacedBy(18.dp),
         ) {
             Surface(
-                modifier = Modifier.size(74.dp),
+                modifier = Modifier
+                    .size(74.dp)
+                    .addCardChrome(RoundedCornerShape(24.dp)),
                 shape = RoundedCornerShape(24.dp),
                 color = Color.White,
-                shadowElevation = 10.dp,
             ) {
                 ReferenceIcon(ReferenceAsset.FolderSolidBlue, contentDescription = null, modifier = Modifier.padding(17.dp))
             }
@@ -510,18 +509,21 @@ private fun LoginScreen(
     ) {
         Spacer(modifier = Modifier.height(28.dp))
         Surface(
-            modifier = Modifier.size(72.dp),
+            modifier = Modifier
+                .size(72.dp)
+                .addCardChrome(RoundedCornerShape(22.dp)),
             shape = RoundedCornerShape(22.dp),
             color = Color.White,
-            shadowElevation = 8.dp,
         ) {
             ReferenceIcon(ReferenceAsset.FolderSolidBlue, contentDescription = null, modifier = Modifier.padding(16.dp))
         }
         Text("Alicia 云盘", fontSize = 34.sp, lineHeight = 40.sp, fontWeight = FontWeight.Bold, color = Ink)
         Text("腾讯 COS 文件工作台", color = Muted, fontSize = 18.sp)
-        ElevatedCard(
-            colors = CardDefaults.elevatedCardColors(containerColor = Color.White),
+        Card(
+            modifier = Modifier.addCardChrome(RoundedCornerShape(28.dp)),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
             shape = RoundedCornerShape(28.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         ) {
             Column(
                 modifier = Modifier.padding(20.dp),
@@ -590,7 +592,6 @@ private fun MainShell(
     var uploadSheetOpen by rememberSaveable { mutableStateOf(false) }
     var createFolderOpen by rememberSaveable { mutableStateOf(false) }
     var actionContext by remember { mutableStateOf<NodeActionContext?>(null) }
-    var shareSelection by remember { mutableStateOf<ShareSelection?>(null) }
     var shareSelectionWarning by remember { mutableStateOf<String?>(null) }
     var moveSheetOpen by rememberSaveable { mutableStateOf(false) }
     var moveTargetId by rememberSaveable { mutableStateOf<Long?>(null) }
@@ -632,6 +633,11 @@ private fun MainShell(
             viewModel.downloadArchiveToUri(nodeIds, uri)
         }
     }
+    val shareCreateLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == Activity.RESULT_OK && ShareCreateActivity.shareCreated(result.data)) {
+            viewModel.clearNodeSelection(false)
+        }
+    }
 
     LaunchedEffect(shareSelectionWarning) {
         shareSelectionWarning?.let { warning ->
@@ -645,7 +651,14 @@ private fun MainShell(
         when {
             uniqueNodes.isEmpty() -> shareSelectionWarning = "请先选择要分享的文件或文件夹。"
             uniqueNodes.size > 20 -> shareSelectionWarning = "单个分享最多包含 20 个项目。"
-            else -> shareSelection = ShareSelection(uniqueNodes.map { it.copy() })
+            else -> shareCreateLauncher.launch(
+                ShareCreateActivity.createIntent(
+                    context = context,
+                    nodes = uniqueNodes,
+                    baseUrl = uiState.baseUrl,
+                    authToken = uiState.authToken.orEmpty(),
+                ),
+            )
         }
     }
 
@@ -686,13 +699,14 @@ private fun MainShell(
         },
         floatingActionButton = {
             val selectionActive = visibleTab == AppTab.FILES && explorer.selectedNodeIds.isNotEmpty()
-            if ((visibleTab == AppTab.HOME || visibleTab == AppTab.FILES) && !isTrashMode && !selectionActive) {
+            val addAvailable = visibleTab == AppTab.HOME || visibleTab == AppTab.FILES || visibleTab == AppTab.TRANSFERS
+            if (addAvailable && !isTrashMode && !selectionActive) {
                 Box(
                     modifier = Modifier
                         .size(64.dp)
                         .shadow(18.dp, CircleShape, ambientColor = PrimaryBlue.copy(alpha = 0.24f), spotColor = PrimaryBlue.copy(alpha = 0.38f))
                         .clip(CircleShape)
-                        .clickable {
+                        .noRippleClickable {
                             if (visibleTab == AppTab.HOME) {
                                 viewModel.applyFileCategory(null)
                             }
@@ -788,7 +802,6 @@ private fun MainShell(
                 tasks = uiState.transfers,
                 selectedTab = uiState.transferPanelTab,
                 onTab = viewModel::selectTransferPanelTab,
-                onClear = viewModel::clearFinishedTransfers,
                 onCancel = viewModel::cancelTransfer,
                 onRetryDownload = viewModel::retryDownloadTransfer,
             )
@@ -896,30 +909,6 @@ private fun MainShell(
         )
     }
 
-    shareSelection?.let { selection ->
-        CreateShareDialog(
-            selection = selection,
-            baseUrl = uiState.baseUrl,
-            authToken = uiState.authToken.orEmpty(),
-            creating = uiState.shareCreation.isCreating && uiState.shareCreation.nodeIds == selection.nodeIds,
-            onDismiss = { shareSelection = null },
-            onCreate = { title, password, days, allowDownload, allowSave ->
-                viewModel.createShareLink(selection.nodes, title, password, days, allowDownload, allowSave) {
-                    shareSelection = null
-                }
-            },
-        )
-    }
-
-    uiState.shareCreation.createdShare?.let { share ->
-        CreatedShareDialog(
-            share = share,
-            onDismiss = viewModel::clearCreatedShare,
-            onCopy = { viewModel.copyShareInfo(share) },
-            onSystemShare = { viewModel.openSystemShareSheet(share) },
-        )
-    }
-
     if (moveSheetOpen) {
         MoveTargetSheet(
             explorer = uiState.files,
@@ -994,7 +983,7 @@ private fun AliciaBottomBar(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(18.dp, RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp), ambientColor = Color.Black.copy(alpha = 0.08f), spotColor = Color.Black.copy(alpha = 0.10f)),
+            .shadow(10.dp, RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp), ambientColor = Color.Black.copy(alpha = 0.025f), spotColor = Color.Black.copy(alpha = 0.04f)),
         color = Color.White,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
     ) {
@@ -1035,7 +1024,7 @@ private fun AliciaNavItem(
         modifier = modifier
             .fillMaxHeight()
             .clip(RoundedCornerShape(18.dp))
-            .clickable(onClick = onClick),
+            .noRippleClickable(onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
@@ -1155,9 +1144,9 @@ private fun HomeSearchPill(
         modifier = Modifier
             .fillMaxWidth()
             .height(54.dp)
-            .shadow(10.dp, RoundedCornerShape(18.dp), ambientColor = Color.Black.copy(alpha = 0.05f), spotColor = Color.Black.copy(alpha = 0.08f))
+            .addCardChrome(RoundedCornerShape(18.dp))
             .clip(RoundedCornerShape(18.dp))
-            .clickable(onClick = onClick),
+            .noRippleClickable(onClick = onClick),
         color = Color.White,
         shape = RoundedCornerShape(18.dp),
     ) {
@@ -1192,9 +1181,9 @@ private fun HomeSpaceCard(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(14.dp, RoundedCornerShape(24.dp), ambientColor = Color.Black.copy(alpha = 0.05f), spotColor = Color.Black.copy(alpha = 0.08f))
+            .addCardChrome(RoundedCornerShape(24.dp))
             .clip(RoundedCornerShape(24.dp))
-            .clickable(onClick = onClick),
+            .noRippleClickable(onClick = onClick),
         color = Color.White,
         shape = RoundedCornerShape(24.dp),
     ) {
@@ -1247,7 +1236,7 @@ private fun HomeCategoryPanel(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(12.dp, RoundedCornerShape(20.dp), ambientColor = Color.Black.copy(alpha = 0.04f), spotColor = Color.Black.copy(alpha = 0.06f)),
+            .addCardChrome(RoundedCornerShape(20.dp)),
         color = Color.White,
         shape = RoundedCornerShape(20.dp),
     ) {
@@ -1279,7 +1268,7 @@ private fun HomeCategoryItem(
         modifier = Modifier
             .width(88.dp)
             .clip(RoundedCornerShape(18.dp))
-            .clickable(onClick = onClick)
+            .noRippleClickable(onClick = onClick)
             .padding(vertical = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(2.dp),
@@ -1305,7 +1294,7 @@ private fun HomeRecentPanel(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(12.dp, RoundedCornerShape(22.dp), ambientColor = Color.Black.copy(alpha = 0.04f), spotColor = Color.Black.copy(alpha = 0.06f)),
+            .addCardChrome(RoundedCornerShape(22.dp)),
         color = Color.White,
         shape = RoundedCornerShape(22.dp),
     ) {
@@ -1390,6 +1379,10 @@ private fun FilesScreen(
             }
 
             if (selectedCount == 0) {
+                FileLocationTabBar(
+                    trashMode = trashMode,
+                    onSwitchTrash = onSwitchTrash,
+                )
                 FilesSearchField(
                     value = explorer.keyword,
                     placeholder = if (trashMode) "搜索回收站" else if (explorer.category != null) "搜索全盘${categoryLabel(explorer.category)}" else "搜索网盘文件",
@@ -1494,11 +1487,9 @@ private fun FilesScreen(
             trashMode = trashMode,
             explorer = explorer,
             onDismiss = { filterSheetOpen = false },
-            onApply = { draftGridMode, draftTrashMode, draftCategory, draftFilter ->
+            onApply = { draftGridMode, draftCategory, draftFilter ->
                 gridMode = draftGridMode
-                if (draftTrashMode != trashMode) {
-                    onSwitchTrash(draftTrashMode)
-                } else if (draftTrashMode) {
+                if (trashMode) {
                     filterHandler(draftFilter)
                 } else {
                     if (draftCategory != explorer.category) {
@@ -1509,6 +1500,31 @@ private fun FilesScreen(
                 }
                 filterSheetOpen = false
             },
+        )
+    }
+}
+
+@Composable
+private fun FileLocationTabBar(
+    trashMode: Boolean,
+    onSwitchTrash: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(42.dp),
+        horizontalArrangement = Arrangement.spacedBy(24.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        UnderlineTabButton(
+            label = "文件",
+            selected = !trashMode,
+            onClick = { onSwitchTrash(false) },
+        )
+        UnderlineTabButton(
+            label = "回收站",
+            selected = trashMode,
+            onClick = { onSwitchTrash(true) },
         )
     }
 }
@@ -1542,7 +1558,7 @@ private fun HeaderIconButton(
         modifier = Modifier
             .size(44.dp)
             .clip(RoundedCornerShape(14.dp))
-            .clickable(onClick = onClick),
+            .noRippleClickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         ReferenceIcon(
@@ -1573,7 +1589,7 @@ private fun FileSelectionHeader(
             fontWeight = FontWeight.Bold,
             modifier = Modifier
                 .clip(RoundedCornerShape(12.dp))
-                .clickable(onClick = onClear)
+                .noRippleClickable(onClick = onClear)
                 .padding(horizontal = 4.dp, vertical = 8.dp),
         )
         Text(
@@ -1590,7 +1606,7 @@ private fun FileSelectionHeader(
             fontWeight = FontWeight.Bold,
             modifier = Modifier
                 .clip(RoundedCornerShape(12.dp))
-                .clickable(onClick = onSelectAll)
+                .noRippleClickable(onClick = onSelectAll)
                 .padding(horizontal = 4.dp, vertical = 8.dp),
         )
     }
@@ -1638,7 +1654,7 @@ private fun FilesSearchField(
                     .height(38.dp)
                     .clip(RoundedCornerShape(12.dp))
                     .background(PrimaryBlueDeep.copy(alpha = 0.10f))
-                    .clickable(onClick = onSearch)
+                    .noRippleClickable(onClick = onSearch)
                     .padding(horizontal = 14.dp),
                 contentAlignment = Alignment.Center,
             ) {
@@ -1663,7 +1679,7 @@ private fun FileSortViewRow(
         Row(
             modifier = Modifier
                 .clip(RoundedCornerShape(12.dp))
-                .clickable(onClick = onFilter)
+                .noRippleClickable(onClick = onFilter)
                 .padding(horizontal = 2.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -1705,7 +1721,7 @@ private fun FileToolbarIconButton(
         modifier = Modifier
             .size(38.dp)
             .clip(RoundedCornerShape(12.dp))
-            .clickable(onClick = onClick),
+            .noRippleClickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         ReferenceIcon(
@@ -1725,10 +1741,9 @@ private fun FileFilterSheet(
     trashMode: Boolean,
     explorer: ExplorerUiState,
     onDismiss: () -> Unit,
-    onApply: (Boolean, Boolean, StorageFileCategory?, StorageNodeFilter) -> Unit,
+    onApply: (Boolean, StorageFileCategory?, StorageNodeFilter) -> Unit,
 ) {
     var draftGridMode by rememberSaveable { mutableStateOf(gridMode) }
-    var draftTrashMode by rememberSaveable { mutableStateOf(trashMode) }
     var draftCategory by rememberSaveable { mutableStateOf(explorer.category) }
     var draftFilter by rememberSaveable { mutableStateOf(explorer.filter) }
 
@@ -1770,23 +1785,7 @@ private fun FileFilterSheet(
                 )
             }
 
-            Text("文件位置", color = Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-                FilterSheetChoice(
-                    label = "文件",
-                    selected = !draftTrashMode,
-                    onClick = { draftTrashMode = false },
-                    modifier = Modifier.weight(1f),
-                )
-                FilterSheetChoice(
-                    label = "回收站",
-                    selected = draftTrashMode,
-                    onClick = { draftTrashMode = true },
-                    modifier = Modifier.weight(1f),
-                )
-            }
-
-            if (!draftTrashMode) {
+            if (!trashMode) {
                 Text("文件类型", color = Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                 FlowRow(
                     modifier = Modifier.fillMaxWidth(),
@@ -1837,7 +1836,6 @@ private fun FileFilterSheet(
                     label = "重置",
                     onClick = {
                         draftGridMode = false
-                        draftTrashMode = false
                         draftCategory = null
                         draftFilter = StorageNodeFilter.ALL
                     },
@@ -1846,7 +1844,7 @@ private fun FileFilterSheet(
                 )
                 FilterFooterButton(
                     label = "确定",
-                    onClick = { onApply(draftGridMode, draftTrashMode, draftCategory, draftFilter) },
+                    onClick = { onApply(draftGridMode, draftCategory, draftFilter) },
                     primary = true,
                     modifier = Modifier.weight(1f),
                 )
@@ -1867,7 +1865,7 @@ private fun FilterSheetModeButton(
         modifier = modifier
             .height(50.dp)
             .clip(RoundedCornerShape(14.dp))
-            .clickable(onClick = onClick)
+            .noRippleClickable(onClick = onClick)
             .border(1.2.dp, if (selected) PrimaryBlueDeep.copy(alpha = 0.72f) else Color.Transparent, RoundedCornerShape(14.dp)),
         color = if (selected) Color.White else Color(0xFFF0F2F6),
         shape = RoundedCornerShape(14.dp),
@@ -1901,7 +1899,7 @@ private fun FilterSheetChoice(
         modifier = modifier
             .height(42.dp)
             .clip(RoundedCornerShape(13.dp))
-            .clickable(onClick = onClick)
+            .noRippleClickable(onClick = onClick)
             .border(
                 width = 1.2.dp,
                 color = if (selected) PrimaryBlueDeep.copy(alpha = 0.72f) else Color.Transparent,
@@ -1932,7 +1930,7 @@ private fun FilterFooterButton(
             .height(54.dp)
             .clip(RoundedCornerShape(16.dp))
             .background(if (primary) PrimaryBlueDeep else Color(0xFFEFF1F6))
-            .clickable(onClick = onClick),
+            .noRippleClickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Text(
@@ -1955,7 +1953,7 @@ private fun AliciaChip(
         modifier = modifier
             .height(38.dp)
             .clip(RoundedCornerShape(14.dp))
-            .clickable(onClick = onClick)
+            .noRippleClickable(onClick = onClick)
             .border(
                 width = 1.dp,
                 color = if (selected) PrimaryBlueDeep.copy(alpha = 0.55f) else Color.Transparent,
@@ -1985,7 +1983,7 @@ private fun CrumbStrip(
                 Surface(
                     modifier = Modifier
                         .clip(RoundedCornerShape(999.dp))
-                        .clickable { onCrumb(index) },
+                        .noRippleClickable { onCrumb(index) },
                     color = Color(0xFFF1F3F8),
                     shape = RoundedCornerShape(999.dp),
                 ) {
@@ -2047,7 +2045,7 @@ private fun NodeListItem(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .combinedClickable(onClick = onClick, onLongClick = onLongPress)
+            .noRippleCombinedClickable(onClick = onClick, onLongClick = onLongPress)
             .border(if (highlighted) 1.2.dp else 0.dp, borderColor, RoundedCornerShape(18.dp)),
         shape = RoundedCornerShape(18.dp),
         color = Color.Transparent,
@@ -2071,7 +2069,7 @@ private fun NodeListItem(
                 } else {
                     Color.Transparent
                 },
-                fallbackIconScale = 2f,
+                fallbackIconScale = 1.45f,
             )
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(node.name, color = Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -2109,7 +2107,7 @@ private fun NodeGridCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .combinedClickable(onClick = onClick, onLongClick = onLongPress),
+            .noRippleCombinedClickable(onClick = onClick, onLongClick = onLongPress),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Box(
@@ -2221,13 +2219,25 @@ private fun SelectionCircle(
     modifier: Modifier = Modifier,
     size: Dp = 22.dp,
 ) {
+    SelectionIndicator(
+        selected = selected,
+        modifier = modifier.noRippleClickable(onClick = onClick),
+        size = size,
+    )
+}
+
+@Composable
+private fun SelectionIndicator(
+    selected: Boolean,
+    modifier: Modifier = Modifier,
+    size: Dp = 22.dp,
+) {
     val borderColor = Color(0xFFCBD1DC)
     val fillColor = Color.White.copy(alpha = 0.68f)
     Box(
         modifier = modifier
             .size(size)
-            .clip(CircleShape)
-            .clickable(onClick = onClick),
+            .clip(CircleShape),
         contentAlignment = Alignment.Center,
     ) {
         if (selected) {
@@ -2267,7 +2277,7 @@ private fun SelectionActionDock(
         modifier = modifier
             .fillMaxWidth()
             .padding(vertical = 8.dp)
-            .shadow(18.dp, RoundedCornerShape(22.dp), ambientColor = Color.Black.copy(alpha = 0.08f), spotColor = Color.Black.copy(alpha = 0.12f)),
+            .shadow(8.dp, RoundedCornerShape(22.dp), ambientColor = Color.Black.copy(alpha = 0.025f), spotColor = Color.Black.copy(alpha = 0.045f)),
         color = Color.White,
         shape = RoundedCornerShape(22.dp),
     ) {
@@ -2307,7 +2317,7 @@ private fun DockAction(
             .width(60.dp)
             .height(56.dp)
             .clip(RoundedCornerShape(16.dp))
-            .clickable(enabled = !disabled, onClick = onClick)
+            .noRippleClickable(enabled = !disabled, onClick = onClick)
             .padding(vertical = 2.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
@@ -2330,7 +2340,6 @@ private fun TransferScreen(
     tasks: List<TransferTask>,
     selectedTab: TransferPanelTab,
     onTab: (TransferPanelTab) -> Unit,
-    onClear: () -> Unit,
     onCancel: (Long) -> Unit,
     onRetryDownload: (Long) -> Unit,
 ) {
@@ -2349,7 +2358,6 @@ private fun TransferScreen(
             TransferStatusFilter.FAILED -> task.status == TransferStatus.FAILED
         }
     }
-    val runningCount = visibleTasks.count { it.isTransferActive() }
     val groupedTasks = visibleTasks.groupBy(::transferDayLabel)
 
     LazyColumn(
@@ -2357,34 +2365,26 @@ private fun TransferScreen(
             .fillMaxSize()
             .padding(paddingValues)
             .background(ScreenBackground),
-        contentPadding = PaddingValues(start = 18.dp, top = 18.dp, end = 18.dp, bottom = 96.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        contentPadding = PaddingValues(start = 18.dp, top = 20.dp, end = 18.dp, bottom = 96.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         item {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("传输列表", fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
-                    Text(if (runningCount > 0) "$runningCount 个任务进行中" else "下载和上传记录会保留在这里", color = Muted, fontSize = 13.sp)
-                }
-                TextButton(onClick = onClear) {
-                    Text("清理完成", color = PrimaryBlueDeep, fontWeight = FontWeight.Bold)
-                }
-            }
+            Text("传输列表", fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
         }
         item {
             TransferTabBar(selectedTab = selectedTab, onTab = onTab)
         }
         item {
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                item { AliciaChip("全部", statusFilter == TransferStatusFilter.ALL, { statusFilter = TransferStatusFilter.ALL }) }
-                item { AliciaChip("已完成", statusFilter == TransferStatusFilter.FINISHED, { statusFilter = TransferStatusFilter.FINISHED }) }
-                item { AliciaChip("进行中", statusFilter == TransferStatusFilter.RUNNING, { statusFilter = TransferStatusFilter.RUNNING }) }
-                item { AliciaChip("失败", statusFilter == TransferStatusFilter.FAILED, { statusFilter = TransferStatusFilter.FAILED }) }
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                item { TransferStatusButton("全部", statusFilter == TransferStatusFilter.ALL) { statusFilter = TransferStatusFilter.ALL } }
+                item { TransferStatusButton("已完成", statusFilter == TransferStatusFilter.FINISHED) { statusFilter = TransferStatusFilter.FINISHED } }
+                item { TransferStatusButton("进行中", statusFilter == TransferStatusFilter.RUNNING) { statusFilter = TransferStatusFilter.RUNNING } }
+                item { TransferStatusButton("失败", statusFilter == TransferStatusFilter.FAILED) { statusFilter = TransferStatusFilter.FAILED } }
             }
         }
         if (visibleTasks.isEmpty()) {
             item {
-                EmptyCard(if (selectedTab == TransferPanelTab.DOWNLOADS) "暂无下载记录" else "暂无上传记录")
+                TransferEmptyState(if (selectedTab == TransferPanelTab.DOWNLOADS) "暂无下载记录" else "暂无上传记录")
             }
         } else {
             groupedTasks.forEach { (label, group) ->
@@ -2408,46 +2408,93 @@ private fun TransferTabBar(
     selectedTab: TransferPanelTab,
     onTab: (TransferPanelTab) -> Unit,
 ) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = Color.White,
-        shape = RoundedCornerShape(18.dp),
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(42.dp),
+        horizontalArrangement = Arrangement.spacedBy(24.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(modifier = Modifier.padding(4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            TransferTabButton(
-                label = "上传",
-                selected = selectedTab == TransferPanelTab.UPLOADS,
-                onClick = { onTab(TransferPanelTab.UPLOADS) },
-                modifier = Modifier.weight(1f),
-            )
-            TransferTabButton(
-                label = "下载",
-                selected = selectedTab == TransferPanelTab.DOWNLOADS,
-                onClick = { onTab(TransferPanelTab.DOWNLOADS) },
-                modifier = Modifier.weight(1f),
-            )
-        }
+        UnderlineTabButton(
+            label = "上传",
+            selected = selectedTab == TransferPanelTab.UPLOADS,
+            onClick = { onTab(TransferPanelTab.UPLOADS) },
+        )
+        UnderlineTabButton(
+            label = "下载",
+            selected = selectedTab == TransferPanelTab.DOWNLOADS,
+            onClick = { onTab(TransferPanelTab.DOWNLOADS) },
+        )
     }
 }
 
 @Composable
-private fun TransferTabButton(
+private fun UnderlineTabButton(
     label: String,
     selected: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier,
 ) {
-    Surface(
-        modifier = modifier
-            .height(48.dp)
-            .clip(RoundedCornerShape(15.dp))
-            .clickable(onClick = onClick),
-        color = if (selected) PrimaryBlueDeep else Color.Transparent,
-        shape = RoundedCornerShape(15.dp),
+    Column(
+        modifier = Modifier
+            .width(48.dp)
+            .fillMaxHeight()
+            .noRippleClickable(onClick = onClick),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Bottom,
     ) {
-        Box(contentAlignment = Alignment.Center) {
-            Text(label, color = if (selected) Color.White else Muted, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
-        }
+        Text(label, color = Ink, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+        Spacer(Modifier.height(7.dp))
+        Box(
+            modifier = Modifier
+                .width(28.dp)
+                .height(3.dp)
+                .clip(RoundedCornerShape(999.dp))
+                .background(if (selected) PrimaryBlueDeep else Color.Transparent),
+        )
+    }
+}
+
+@Composable
+private fun TransferStatusButton(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .height(32.dp)
+            .clip(RoundedCornerShape(9.dp))
+            .background(if (selected) SoftBlue else Color(0xFFF1F3F7))
+            .noRippleClickable(onClick = onClick)
+            .padding(horizontal = 13.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            label,
+            color = if (selected) PrimaryBlueDeep else Ink,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold,
+        )
+    }
+}
+
+@Composable
+private fun TransferEmptyState(message: String) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 44.dp, bottom = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        ReferenceIcon(
+            ReferenceAsset.FolderSolidBlue,
+            contentDescription = null,
+            modifier = Modifier
+                .size(42.dp)
+                .scale(1.35f),
+        )
+        Text(message, color = Muted, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 
@@ -2575,15 +2622,7 @@ private fun MeMainPage(
                     Text("我的", fontSize = 30.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
                     Text("账号、空间和接入环境", color = Muted, fontSize = 14.sp)
                 }
-                Text(
-                    "刷新",
-                    color = PrimaryBlueDeep,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(12.dp))
-                        .clickable(onClick = onRefresh)
-                        .padding(horizontal = 4.dp, vertical = 8.dp),
-                )
+                HeaderIconButton(ReferenceAsset.RefreshBlack, "刷新", onRefresh)
             }
         }
         item {
@@ -2596,14 +2635,18 @@ private fun MeMainPage(
             )
         }
         item {
-            MeMenuCard {
-                MeListRow(ReferenceAsset.MeBlue, "个人资料", "头像、昵称", Color(0xFFEAF2FF)) { onOpenPage(MePage.PROFILE) }
-                MeListRow(ReferenceAsset.EditBlue, "账号安全", "修改登录密码", Color(0xFFF1EBFF)) { onOpenPage(MePage.SECURITY) }
-                MeListRow(ReferenceAsset.RefreshBlack, "接入环境", baseUrl, Color(0xFFE5F6FF)) { onOpenPage(MePage.ENVIRONMENT) }
-                MeListRow(ReferenceAsset.FolderSolidBlue, "空间详情", userUsageLabel(user), Color(0xFFEAF2FF)) { onOpenPage(MePage.STORAGE) }
-                MeListRow(ReferenceAsset.DownloadBlack, "版本更新", "当前 ${BuildConfig.VERSION_NAME}", Color(0xFFFFEFE4)) { onOpenPage(MePage.UPDATES) }
+            MeMenuSection("账号设置") {
+                MeListRow(ReferenceAsset.ProfileSettings, Color(0xFFEAF2FF), "个人资料", "头像、昵称") { onOpenPage(MePage.PROFILE) }
+                MeListRow(ReferenceAsset.AccountSecurity, Color(0xFFF1EBFF), "账号安全", "修改登录密码") { onOpenPage(MePage.SECURITY) }
+            }
+        }
+        item {
+            MeMenuSection("空间与服务") {
+                MeListRow(ReferenceAsset.EnvironmentSettings, Color(0xFFE5F6FF), "接入环境", baseUrl) { onOpenPage(MePage.ENVIRONMENT) }
+                MeListRow(ReferenceAsset.StorageDetails, Color(0xFFEAF2FF), "空间详情", userUsageLabel(user)) { onOpenPage(MePage.STORAGE) }
+                MeListRow(ReferenceAsset.VersionUpdate, Color(0xFFFFF0E7), "版本更新", "当前 ${BuildConfig.VERSION_NAME}") { onOpenPage(MePage.UPDATES) }
                 if (user.isAdmin) {
-                    MeListRow(ReferenceAsset.MeBlack, "账号管理", "用户、额度和密码", Color(0xFFE9F8F2)) { onOpenPage(MePage.ADMIN) }
+                    MeListRow(ReferenceAsset.AccountManage, Color(0xFFE9F8F2), "账号管理", "用户、额度和密码") { onOpenPage(MePage.ADMIN) }
                 }
             }
         }
@@ -2611,18 +2654,24 @@ private fun MeMainPage(
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .addCardChrome(RoundedCornerShape(20.dp))
                     .clip(RoundedCornerShape(20.dp))
-                    .clickable(onClick = onLogout),
+                    .noRippleClickable(onClick = onLogout),
                 color = Color.White,
                 shape = RoundedCornerShape(20.dp),
-                shadowElevation = 2.dp,
             ) {
                 Row(
                     modifier = Modifier.padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                    ReferenceIcon(ReferenceAsset.CloseBlack, contentDescription = null, modifier = Modifier.size(24.dp))
+                    ReferenceIcon(
+                        ReferenceAsset.CloseBlack,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(30.dp)
+                            .scale(1.35f),
+                    )
                     Text("退出登录", color = Danger, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 }
             }
@@ -2641,9 +2690,9 @@ private fun MeAccountCard(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(12.dp, RoundedCornerShape(26.dp), ambientColor = Color.Black.copy(alpha = 0.04f), spotColor = Color.Black.copy(alpha = 0.07f))
+            .addCardChrome(RoundedCornerShape(26.dp))
             .clip(RoundedCornerShape(26.dp))
-            .clickable(onClick = onOpenStorage),
+            .noRippleClickable(onClick = onOpenStorage),
         color = Color.White,
         shape = RoundedCornerShape(26.dp),
     ) {
@@ -2664,61 +2713,101 @@ private fun MeAccountCard(
                     )
                 }
             }
-            Text(userUsageLabel(user), color = Muted, fontSize = 15.sp)
-            LinearProgressIndicator(
-                progress = { formatPercent(user.usedBytes, user.storageQuotaBytes) / 100f },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(7.dp)
-                    .clip(RoundedCornerShape(999.dp)),
-                color = PrimaryBlueDeep,
-                trackColor = Color(0xFFE8EDF7),
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("已用空间", color = Muted, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                Spacer(Modifier.weight(1f))
+                Text(userUsageLabel(user), color = PrimaryBlueDeep, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            }
+            MeStorageProgress(formatPercent(user.usedBytes, user.storageQuotaBytes) / 100f)
         }
     }
 }
 
 @Composable
-private fun MeMenuCard(content: @Composable ColumnScope.() -> Unit) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = Color.White,
-        shape = RoundedCornerShape(22.dp),
-        shadowElevation = 2.dp,
+private fun MeStorageProgress(progress: Float) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(7.dp)
+            .clip(RoundedCornerShape(999.dp))
+            .background(Color(0xFFE8EDF7)),
     ) {
-        Column(modifier = Modifier.padding(vertical = 8.dp), content = content)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(progress.coerceIn(0f, 1f))
+                .fillMaxHeight()
+                .clip(RoundedCornerShape(999.dp))
+                .background(PrimaryBlueDeep),
+        )
+    }
+}
+
+@Composable
+private fun MeMenuSection(
+    title: String,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            title,
+            color = Ink,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.ExtraBold,
+            modifier = Modifier.padding(horizontal = 4.dp),
+        )
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .addCardChrome(RoundedCornerShape(20.dp)),
+            color = Color.White,
+            shape = RoundedCornerShape(20.dp),
+        ) {
+            Column(modifier = Modifier.padding(vertical = 6.dp), content = content)
+        }
     }
 }
 
 @Composable
 private fun MeListRow(
     asset: ReferenceAsset,
+    iconBackground: Color,
     title: String,
     subtitle: String,
-    iconBackground: Color,
     onClick: () -> Unit,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 13.dp),
+            .noRippleClickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 11.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Surface(shape = RoundedCornerShape(14.dp), color = iconBackground) {
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .clip(RoundedCornerShape(13.dp))
+                .background(iconBackground),
+            contentAlignment = Alignment.Center,
+        ) {
             ReferenceIcon(
                 asset = asset,
                 contentDescription = null,
-                modifier = Modifier.padding(10.dp).size(22.dp),
+                modifier = Modifier.size(27.dp),
             )
         }
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(title, color = Ink, fontSize = 16.sp, fontWeight = FontWeight.Bold)
             Text(subtitle, color = Muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        ReferenceIcon(ReferenceAsset.ChevronRightGray, contentDescription = null, modifier = Modifier.size(22.dp))
+        ReferenceIcon(
+            ReferenceAsset.ChevronRightGray,
+            contentDescription = null,
+            modifier = Modifier
+                .size(24.dp)
+                .scale(1.25f),
+        )
     }
 }
 
@@ -2744,7 +2833,7 @@ private fun MePageScaffold(
                     modifier = Modifier
                         .size(42.dp)
                         .clip(RoundedCornerShape(14.dp))
-                        .clickable(onClick = onBack),
+                        .noRippleClickable(onClick = onBack),
                     contentAlignment = Alignment.Center,
                 ) {
                     ReferenceIcon(ReferenceAsset.BackBlack, contentDescription = "返回", modifier = Modifier.size(24.dp))
@@ -2757,10 +2846,11 @@ private fun MePageScaffold(
         }
         item {
             Surface(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .addCardChrome(RoundedCornerShape(24.dp)),
                 color = Color.White,
                 shape = RoundedCornerShape(24.dp),
-                shadowElevation = 3.dp,
             ) {
                 Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp), content = content)
             }
@@ -2922,7 +3012,7 @@ private fun MeAdminPage(
                     modifier = Modifier
                         .size(42.dp)
                         .clip(RoundedCornerShape(14.dp))
-                        .clickable(onClick = onBack),
+                        .noRippleClickable(onClick = onBack),
                     contentAlignment = Alignment.Center,
                 ) {
                     ReferenceIcon(ReferenceAsset.BackBlack, contentDescription = "返回", modifier = Modifier.size(24.dp))
@@ -2937,7 +3027,7 @@ private fun MeAdminPage(
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier
                         .clip(RoundedCornerShape(12.dp))
-                        .clickable(onClick = onRefresh)
+                        .noRippleClickable(onClick = onRefresh)
                         .padding(horizontal = 4.dp, vertical = 8.dp),
                 )
             }
@@ -2970,9 +3060,11 @@ private fun SettingsCard(
     title: String,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    ElevatedCard(
-        colors = CardDefaults.elevatedCardColors(containerColor = Color.White),
+    Card(
+        modifier = Modifier.addCardChrome(RoundedCornerShape(22.dp)),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
         shape = RoundedCornerShape(22.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -3114,11 +3206,10 @@ private fun UploadChoiceTile(
         modifier = modifier
             .height(118.dp)
             .clip(RoundedCornerShape(18.dp))
-            .clickable(onClick = onClick)
+            .noRippleClickable(onClick = onClick)
             .border(1.dp, SoftLine, RoundedCornerShape(18.dp)),
         color = Color.White,
         shape = RoundedCornerShape(18.dp),
-        shadowElevation = 1.dp,
     ) {
         Column(
             modifier = Modifier.padding(7.dp),
@@ -3146,9 +3237,10 @@ private fun UserCard(
     onResetPassword: () -> Unit,
 ) {
     Card(
+        modifier = Modifier.addCardChrome(RoundedCornerShape(22.dp)),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         shape = RoundedCornerShape(22.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -3285,7 +3377,11 @@ private fun MoveTargetSheet(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text("选择移动位置", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Ink)
-            AssistChip(onClick = { onSelect(null) }, label = { Text(if (selectedTargetId == null) "根目录 · 已选" else "根目录") })
+            AliciaChip(
+                label = "根目录",
+                selected = selectedTargetId == null,
+                onClick = { onSelect(null) },
+            )
             if (explorer.moveTargetLoading) {
                 LoadingCard("正在加载文件夹")
             } else {
@@ -3297,11 +3393,13 @@ private fun MoveTargetSheet(
                                 containerColor = if (selectedTargetId == folder.id) Color(0xFFEFF6FF) else Color(0xFFF8FAFE),
                             ),
                             shape = RoundedCornerShape(16.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, SoftLine.copy(alpha = 0.76f)),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                         ) {
                             Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                 ReferenceIcon(ReferenceAsset.FolderSolidBlue, null, Modifier.size(24.dp))
                                 Text(folder.name, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                if (selectedTargetId == folder.id) ReferenceIcon(ReferenceAsset.CheckBlueCircle, null, Modifier.size(24.dp))
+                                if (selectedTargetId == folder.id) SelectionIndicator(selected = true)
                             }
                         }
                     }
@@ -3335,8 +3433,18 @@ private fun CreateUserDialog(
                 OutlinedTextField(value = nickname, onValueChange = { nickname = it }, label = { Text("昵称") }, singleLine = true)
                 OutlinedTextField(value = password, onValueChange = { password = it }, label = { Text("初始密码") }, singleLine = true)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(selected = role == UserRole.USER, onClick = { role = UserRole.USER }, label = { Text("普通用户") })
-                    FilterChip(selected = role == UserRole.ADMIN, onClick = { role = UserRole.ADMIN }, label = { Text("管理员") })
+                    AliciaChip(
+                        label = "普通用户",
+                        selected = role == UserRole.USER,
+                        onClick = { role = UserRole.USER },
+                        modifier = Modifier.weight(1f),
+                    )
+                    AliciaChip(
+                        label = "管理员",
+                        selected = role == UserRole.ADMIN,
+                        onClick = { role = UserRole.ADMIN },
+                        modifier = Modifier.weight(1f),
+                    )
                 }
                 if (role == UserRole.USER) {
                     OutlinedTextField(
@@ -3421,94 +3529,162 @@ private fun TransferTaskCard(
     onRetry: () -> Unit,
 ) {
     val statusColor = transferStatusColor(task.status)
-    val progress = (task.progressPercent ?: if (task.status == TransferStatus.COMPLETED) 100 else 0).coerceIn(0, 100)
-    Surface(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .border(
-                1.dp,
-                if (task.status == TransferStatus.FAILED) Color(0xFFFFB38F) else SoftLine,
-                RoundedCornerShape(20.dp),
-            ),
-        color = Color.White,
-        shape = RoundedCornerShape(20.dp),
-        shadowElevation = 2.dp,
+            .padding(vertical = 3.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Surface(
-                    modifier = Modifier.size(48.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    color = statusColor.copy(alpha = 0.10f),
-                ) {
-                    ReferenceIcon(
-                        asset = if (task.kind == TransferKind.DOWNLOAD) ReferenceAsset.DownloadBlack else ReferenceAsset.UploadFileBlue,
-                        contentDescription = null,
-                        modifier = Modifier.padding(12.dp),
-                    )
-                }
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(task.title, color = Ink, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(transferBytesLabel(task), color = Muted, fontSize = 12.sp)
-                }
-                Text(transferStatusLabel(task.status), color = statusColor, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-            }
-            LinearProgressIndicator(
-                progress = { progress / 100f },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(5.dp)
-                    .clip(RoundedCornerShape(999.dp)),
-                color = statusColor,
-                trackColor = Color(0xFFE8EEF9),
-            )
-            task.locationLabel?.takeIf { it.isNotBlank() }?.let {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(11.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            TransferTaskThumbnail(task)
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(3.dp),
+            ) {
                 Text(
-                    text = if (task.kind == TransferKind.DOWNLOAD) "保存至：$it" else "上传至：$it",
-                    color = Muted,
-                    fontSize = 12.sp,
+                    task.title,
+                    color = Ink,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-            }
-            task.errorMessage?.takeIf { it.isNotBlank() }?.let {
-                Text(it, color = Danger, fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                if (task.isTransferActive()) {
-                    TransferInlineAction("取消", false, Modifier.weight(1f), onCancel)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        transferBytesLabel(task),
+                        modifier = Modifier.weight(1f),
+                        color = Muted,
+                        fontSize = 11.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        transferStatusLabel(task.status),
+                        color = statusColor,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 11.sp,
+                    )
                 }
-                if (task.kind == TransferKind.DOWNLOAD && task.status == TransferStatus.FAILED) {
-                    TransferInlineAction("重新下载", true, Modifier.weight(1f), onRetry)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    TransferProgressBar(
+                        progress = transferProgressFraction(task),
+                        modifier = Modifier.weight(1f),
+                    )
+                    if (task.kind == TransferKind.DOWNLOAD && task.status == TransferStatus.FAILED) {
+                        TransferRetryButton(onClick = onRetry)
+                    }
                 }
             }
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .noRippleClickable(enabled = task.isTransferActive(), onClick = onCancel),
+                contentAlignment = Alignment.Center,
+            ) {
+                ReferenceIcon(
+                    ReferenceAsset.MoreBlack,
+                    contentDescription = if (task.isTransferActive()) "取消任务" else "任务操作",
+                    modifier = Modifier
+                        .size(23.dp)
+                        .scale(1.35f),
+                    opacity = if (task.isTransferActive()) 1f else 0.62f,
+                )
+            }
+        }
+        task.errorMessage?.takeIf { it.isNotBlank() }?.let {
+            Text(
+                it,
+                modifier = Modifier.padding(start = 59.dp, end = 34.dp),
+                color = Danger,
+                fontSize = 11.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }
 
 @Composable
-private fun TransferInlineAction(
-    label: String,
-    primary: Boolean,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit,
-) {
-    Surface(
-        modifier = modifier
-            .height(40.dp)
-            .clip(RoundedCornerShape(14.dp))
-            .clickable(onClick = onClick),
-        color = if (primary) SoftBlue else Color(0xFFF5F6FA),
-        shape = RoundedCornerShape(14.dp),
+private fun TransferTaskThumbnail(task: TransferTask) {
+    val extension = task.title.substringAfterLast('.', "").lowercase()
+    val previewUri = (task.sourceUri ?: task.destinationUri).takeIf {
+        extension in setOf("jpg", "jpeg", "png", "webp", "gif", "bmp", "heic", "heif")
+    }
+    Box(
+        modifier = Modifier.size(48.dp),
+        contentAlignment = Alignment.Center,
     ) {
-        Box(contentAlignment = Alignment.Center) {
-            Text(
-                label,
-                color = if (primary) PrimaryBlueDeep else Ink,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Bold,
+        if (previewUri != null) {
+            SubcomposeAsyncImage(
+                model = previewUri,
+                contentDescription = task.title,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(9.dp)),
+                contentScale = ContentScale.Crop,
+                loading = { TransferTaskFallback(task) },
+                error = { TransferTaskFallback(task) },
+            )
+        } else {
+            TransferTaskFallback(task)
+        }
+    }
+}
+
+@Composable
+private fun TransferTaskFallback(task: TransferTask) {
+    ReferenceIcon(
+        asset = transferTaskReferenceAsset(task),
+        contentDescription = null,
+        modifier = Modifier
+            .size(42.dp)
+            .scale(1.42f),
+    )
+}
+
+@Composable
+private fun TransferProgressBar(
+    progress: Float,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier
+            .height(3.dp)
+            .clip(RoundedCornerShape(999.dp))
+            .background(Color(0xFFE1E5EC)),
+    ) {
+        if (progress > 0f) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(progress.coerceIn(0f, 1f))
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(PrimaryBlueDeep),
             )
         }
+    }
+}
+
+@Composable
+private fun TransferRetryButton(onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .height(26.dp)
+            .clip(RoundedCornerShape(7.dp))
+            .background(SoftBlue)
+            .noRippleClickable(onClick = onClick)
+            .padding(horizontal = 9.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text("重新下载", color = PrimaryBlueDeep, fontSize = 10.sp, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -3669,7 +3845,11 @@ private fun IncomingSharePage(
                 state.error != null -> item { ErrorCard(state.error, onDismiss) }
                 status != null && !status.available -> item { ErrorCard(status.reason ?: "分享链接不可用", onDismiss) }
                 !loggedIn && !state.loginPromptDismissed -> item {
-                    Surface(color = Color.White, shape = RoundedCornerShape(20.dp), shadowElevation = 2.dp) {
+                    Surface(
+                        modifier = Modifier.addCardChrome(RoundedCornerShape(20.dp)),
+                        color = Color.White,
+                        shape = RoundedCornerShape(20.dp),
+                    ) {
                         Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             Text("请先登录后查看和保存分享内容。", color = Ink, fontWeight = FontWeight.SemiBold)
                             IncomingSharePrimaryButton(
@@ -3756,6 +3936,68 @@ private fun IncomingSharePage(
 }
 
 @Composable
+private fun IncomingSharePromptDialog(
+    onDismissRequest: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    Dialog(
+        onDismissRequest = onDismissRequest,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 28.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .shadow(
+                        elevation = 14.dp,
+                        shape = RoundedCornerShape(24.dp),
+                        ambientColor = Color.Black.copy(alpha = 0.045f),
+                        spotColor = Color.Black.copy(alpha = 0.075f),
+                    )
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(Color.White)
+                    .padding(horizontal = 22.dp, vertical = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(18.dp),
+            ) {
+                Text(
+                    text = "发现分享链接",
+                    color = Ink,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                )
+                Text(
+                    text = "检测到 Alicia 云盘分享链接，是否查看？",
+                    color = Muted,
+                    fontSize = 14.sp,
+                    lineHeight = 22.sp,
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    IncomingShareSecondaryButton(
+                        label = "暂不查看",
+                        onClick = onDismissRequest,
+                        modifier = Modifier.weight(1f),
+                    )
+                    IncomingSharePrimaryButton(
+                        label = "查看",
+                        enabled = true,
+                        onClick = onConfirm,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun IncomingShareHeader(
     title: String,
     onBack: () -> Unit,
@@ -3768,12 +4010,17 @@ private fun IncomingShareHeader(
     ) {
         Box(
             modifier = Modifier
-                .size(44.dp)
-                .clip(RoundedCornerShape(14.dp))
-                .clickable(onClick = onBack),
+                .size(48.dp)
+                .noRippleClickable(onClick = onBack),
             contentAlignment = Alignment.Center,
         ) {
-            ReferenceIcon(ReferenceAsset.BackBlack, "返回", Modifier.size(24.dp))
+            ReferenceIcon(
+                ReferenceAsset.BackBlack,
+                "返回",
+                Modifier
+                    .size(38.dp)
+                    .scale(1.22f),
+            )
         }
         Text(
             title,
@@ -3785,51 +4032,7 @@ private fun IncomingShareHeader(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
-        Box(
-            modifier = Modifier.size(44.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            ReferenceIcon(ReferenceAsset.InfoBlack, "分享信息", Modifier.size(22.dp))
-        }
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun IncomingShareInfoPanel(detail: ShareLinkDetailResponse) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = Color.White,
-        shape = RoundedCornerShape(18.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, SoftLine),
-        shadowElevation = 1.dp,
-    ) {
-        Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Text("分享者：${detail.ownerNickname}", color = Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                IncomingShareMetaChip("保存权限：${if (detail.allowSave) "已开放" else "未开放"}")
-                IncomingShareMetaChip("下载权限：${if (detail.allowDownload) "已开放" else "未开放"}")
-                detail.expiresAt?.let { IncomingShareMetaChip("有效期至：${formatDateTime(it)}") }
-            }
-        }
-    }
-}
-
-@Composable
-private fun IncomingShareMetaChip(label: String) {
-    Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(12.dp))
-            .background(Color(0xFFF3F5F9))
-            .padding(horizontal = 10.dp, vertical = 7.dp),
-    ) {
-        Text(label, color = Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+        Spacer(Modifier.size(48.dp))
     }
 }
 
@@ -3842,10 +4045,11 @@ private fun IncomingSharePasswordPanel(
     onVerify: () -> Unit,
 ) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .addCardChrome(RoundedCornerShape(20.dp)),
         color = Color.White,
         shape = RoundedCornerShape(20.dp),
-        shadowElevation = 2.dp,
     ) {
         Column(
             modifier = Modifier.padding(18.dp),
@@ -3890,33 +4094,34 @@ private fun IncomingShareSaveTargetPanel(
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
+                .addCardChrome(RoundedCornerShape(18.dp))
                 .clip(RoundedCornerShape(18.dp))
-                .clickable(onClick = onOpen),
+                .noRippleClickable(onClick = onOpen),
             color = Color.White,
             shape = RoundedCornerShape(18.dp),
-            border = androidx.compose.foundation.BorderStroke(1.dp, SoftLine),
         ) {
             Row(
                 modifier = Modifier.padding(14.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Surface(
-                    modifier = Modifier.size(48.dp),
-                    color = SoftBlue,
-                    shape = RoundedCornerShape(15.dp),
+                Box(
+                    modifier = Modifier.size(52.dp),
+                    contentAlignment = Alignment.Center,
                 ) {
                     ReferenceIcon(
                         asset = if (selectedFolder == null) ReferenceAsset.CloudUploadBlue else ReferenceAsset.FolderSolidBlue,
                         contentDescription = null,
-                        modifier = Modifier.padding(9.dp),
+                        modifier = Modifier
+                            .size(44.dp)
+                            .scale(1.28f),
                     )
                 }
                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Text(targetTitle, color = Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(targetSubtitle, color = Muted, fontSize = 12.sp)
                 }
-                ReferenceIcon(ReferenceAsset.CheckBlueCircle, "已选择", Modifier.size(24.dp))
+                SelectionIndicator(selected = true)
             }
         }
     }
@@ -3933,7 +4138,7 @@ private fun IncomingShareSaveDock(
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .shadow(18.dp, RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp), ambientColor = Color.Black.copy(alpha = 0.05f), spotColor = Color.Black.copy(alpha = 0.08f)),
+            .shadow(8.dp, RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp), ambientColor = Color.Black.copy(alpha = 0.025f), spotColor = Color.Black.copy(alpha = 0.04f)),
         color = Color.White,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
     ) {
@@ -4042,7 +4247,7 @@ private fun IncomingShareTargetRow(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .clickable(onClick = onClick),
+            .noRippleClickable(onClick = onClick),
         color = if (selected) Color(0xFFEFF6FF) else Color.White,
         shape = RoundedCornerShape(16.dp),
         border = androidx.compose.foundation.BorderStroke(1.dp, if (selected) PrimaryBlueDeep.copy(alpha = 0.42f) else SoftLine),
@@ -4052,19 +4257,24 @@ private fun IncomingShareTargetRow(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Surface(
-                modifier = Modifier.size(42.dp),
-                color = if (selected) Color.White else SoftBlue,
-                shape = RoundedCornerShape(14.dp),
+            Box(
+                modifier = Modifier.size(50.dp),
+                contentAlignment = Alignment.Center,
             ) {
-                ReferenceIcon(asset, null, Modifier.padding(8.dp))
+                ReferenceIcon(
+                    asset,
+                    null,
+                    Modifier
+                        .size(42.dp)
+                        .scale(1.28f),
+                )
             }
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text(title, color = Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(subtitle, color = Muted, fontSize = 12.sp)
             }
             if (selected) {
-                ReferenceIcon(ReferenceAsset.CheckBlueCircle, "已选择", Modifier.size(24.dp))
+                SelectionIndicator(selected = true)
             }
         }
     }
@@ -4082,7 +4292,7 @@ private fun IncomingSharePrimaryButton(
             .height(54.dp)
             .clip(RoundedCornerShape(16.dp))
             .background(if (enabled) PrimaryBlueDeep else Color(0xFFDCE5F5))
-            .clickable(enabled = enabled, onClick = onClick),
+            .noRippleClickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Text(label, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold)
@@ -4100,7 +4310,7 @@ private fun IncomingShareSecondaryButton(
             .height(54.dp)
             .clip(RoundedCornerShape(16.dp))
             .background(Color(0xFFF1F3F8))
-            .clickable(onClick = onClick),
+            .noRippleClickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Text(label, color = Ink, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold)
@@ -4112,6 +4322,7 @@ private fun selectedShareBytes(
     selectedNodeIds: Set<Long>,
 ): Long {
     val children = items.groupBy { it.parentId }
+    val selectedRootIds = ShareTreeSelection.minimalSelectedRootIds(items, selectedNodeIds).toSet()
 
     fun nodeBytes(node: StorageNode): Long =
         if (node.type == StorageNodeType.FILE) {
@@ -4121,7 +4332,7 @@ private fun selectedShareBytes(
         }
 
     return items
-        .filter { it.id in selectedNodeIds }
+        .filter { it.id in selectedRootIds }
         .sumOf(::nodeBytes)
 }
 
@@ -4147,11 +4358,11 @@ private fun ShareNodeTree(
         EmptyCard("分享内容为空")
     } else {
         Surface(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .addCardChrome(RoundedCornerShape(18.dp)),
             color = Color.White,
             shape = RoundedCornerShape(18.dp),
-            border = androidx.compose.foundation.BorderStroke(1.dp, SoftLine),
-            shadowElevation = 1.dp,
         ) {
             Column(modifier = Modifier.padding(vertical = 4.dp)) {
             roots.forEach { node ->
@@ -4194,7 +4405,7 @@ private fun ShareNodeRow(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(if (selected) Color(0xFFF7FBFF) else Color.Transparent)
-                .clickable {
+                .noRippleClickable {
                     if (isFolder) {
                         onToggleFolder(node.id)
                     } else if (allowSave) {
@@ -4211,6 +4422,8 @@ private fun ShareNodeRow(
                 authToken = authToken,
                 modifier = Modifier.size(52.dp),
                 shape = RoundedCornerShape(13.dp),
+                backgroundColor = Color.Transparent,
+                fallbackIconScale = 1.45f,
             )
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text(node.name, color = Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -4223,7 +4436,7 @@ private fun ShareNodeRow(
                 SelectionCircle(
                     selected = selected,
                     onClick = { onToggleNode(node.id) },
-                    size = 24.dp,
+                    size = 22.dp,
                 )
             }
         }
@@ -4253,22 +4466,39 @@ private fun SheetActionButton(
     onClick: () -> Unit,
     danger: Boolean = false,
 ) {
+    val asset = sheetActionReferenceAsset(label, danger)
     Card(
         onClick = onClick,
         colors = CardDefaults.cardColors(containerColor = if (danger) Color(0xFFFFF7F2) else Color(0xFFF8FAFE)),
         shape = RoundedCornerShape(18.dp),
-        border = if (danger) androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFB38F)) else null,
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            if (danger) Color(0xFFFFB38F) else SoftLine.copy(alpha = 0.76f),
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Row(
             modifier = Modifier.padding(14.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Surface(shape = CircleShape, color = (if (danger) Danger else PrimaryBlue).copy(alpha = 0.1f)) {
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background((if (danger) Danger else PrimaryBlue).copy(alpha = 0.1f)),
+                contentAlignment = Alignment.Center,
+            ) {
                 ReferenceIcon(
-                    asset = sheetActionReferenceAsset(label, danger),
+                    asset = asset,
                     contentDescription = null,
-                    modifier = Modifier.padding(10.dp).size(24.dp),
+                    modifier = if (asset == ReferenceAsset.RestoreGreen) {
+                        Modifier.size(30.dp)
+                    } else {
+                        Modifier
+                            .size(38.dp)
+                            .scale(1.35f)
+                    },
                 )
             }
             Column(modifier = Modifier.weight(1f)) {
@@ -4301,7 +4531,7 @@ private fun Avatar(
         modifier = Modifier
             .size(size)
             .clip(CircleShape)
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
+            .then(if (onClick != null) Modifier.noRippleClickable(onClick = onClick) else Modifier),
         shape = CircleShape,
         color = Color(0xFFEAF1FF),
     ) {
@@ -4333,14 +4563,16 @@ private fun AvatarFallback(fallback: String) {
 @Composable
 private fun NodeIcon(node: StorageNode) {
     Surface(
-        modifier = Modifier.size(48.dp),
+        modifier = Modifier.size(56.dp),
         shape = RoundedCornerShape(16.dp),
         color = nodeThumbnailBackground(node),
     ) {
         ReferenceIcon(
             asset = nodeReferenceAsset(node),
             contentDescription = null,
-            modifier = Modifier.padding(10.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .scale(1.25f),
         )
     }
 }
@@ -4386,11 +4618,11 @@ private fun CompactNodeCard(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
+            .then(if (elevated) Modifier.addCardChrome(RoundedCornerShape(18.dp)) else Modifier)
             .clip(RoundedCornerShape(18.dp))
-            .clickable(onClick = onClick),
+            .noRippleClickable(onClick = onClick),
         color = Color.White,
         shape = RoundedCornerShape(18.dp),
-        shadowElevation = if (elevated) 2.dp else 0.dp,
     ) {
         Row(
             modifier = Modifier.padding(12.dp),
@@ -4416,7 +4648,12 @@ private fun CompactNodeCard(
 
 @Composable
 private fun LoadingCard(message: String) {
-    Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(20.dp)) {
+    Card(
+        modifier = Modifier.addCardChrome(RoundedCornerShape(20.dp)),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(20.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(18.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -4449,7 +4686,12 @@ private fun ErrorCard(
 
 @Composable
 private fun EmptyCard(message: String) {
-    Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(20.dp)) {
+    Card(
+        modifier = Modifier.addCardChrome(RoundedCornerShape(20.dp)),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(20.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    ) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -4507,11 +4749,31 @@ private fun transferStatusLabel(status: TransferStatus): String =
 
 private fun transferStatusColor(status: TransferStatus): Color =
     when (status) {
-        TransferStatus.COMPLETED -> Success
         TransferStatus.FAILED -> Danger
-        TransferStatus.CANCELED -> Muted
-        else -> PrimaryBlue
+        else -> Muted
     }
+
+private fun transferTaskReferenceAsset(task: TransferTask): ReferenceAsset {
+    val extension = task.title.substringAfterLast('.', "").lowercase()
+    return when {
+        task.itemKind == TransferItemKind.ARCHIVE -> ReferenceAsset.ArchiveColor
+        extension in setOf("jpg", "jpeg", "png", "webp", "gif", "bmp", "heic", "heif") -> ReferenceAsset.PhotoColor
+        extension in setOf("mp4", "mov", "mkv", "avi", "webm", "m4v") -> ReferenceAsset.VideoColor
+        extension in setOf("mp3", "wav", "flac", "aac", "m4a", "ogg") -> ReferenceAsset.AudioColor
+        extension in setOf("zip", "rar", "7z", "tar", "gz") -> ReferenceAsset.ArchiveColor
+        extension == "pdf" -> ReferenceAsset.PdfRed
+        extension in setOf("doc", "docx") -> ReferenceAsset.DocBlue
+        else -> ReferenceAsset.DocumentColor
+    }
+}
+
+private fun transferProgressFraction(task: TransferTask): Float {
+    if (task.status == TransferStatus.COMPLETED) return 1f
+    task.progressPercent?.let { return (it / 100f).coerceIn(0f, 1f) }
+    val total = task.totalBytes ?: return 0f
+    if (total <= 0L) return 0f
+    return (task.transferredBytes.toFloat() / total.toFloat()).coerceIn(0f, 1f)
+}
 
 private fun transferDayLabel(task: TransferTask): String {
     val ageMillis = (System.currentTimeMillis() - task.createdAtMillis).coerceAtLeast(0L)
@@ -4523,13 +4785,15 @@ private fun transferDayLabel(task: TransferTask): String {
 }
 
 private fun transferBytesLabel(task: TransferTask): String {
-    val transferred = task.transferredBytes.takeIf { it > 0L }?.let(::formatBytes)
-    val total = task.totalBytes?.takeIf { it > 0L }?.let(::formatBytes)
+    val totalBytes = task.totalBytes?.takeIf { it > 0L }
+    val transferredBytes = when {
+        task.status == TransferStatus.COMPLETED && totalBytes != null -> totalBytes
+        else -> task.transferredBytes.coerceAtLeast(0L)
+    }
     return when {
-        task.progressPercent != null && transferred != null && total != null -> "${task.progressPercent}% · $transferred / $total"
+        totalBytes != null -> "${formatBytes(transferredBytes)} / ${formatBytes(totalBytes)}"
         task.progressPercent != null -> "${task.progressPercent}%"
-        transferred != null -> "已传输 $transferred"
-        total != null -> "总大小 $total"
+        transferredBytes > 0L -> formatBytes(transferredBytes)
         else -> "等待传输"
     }
 }

@@ -115,6 +115,7 @@ data class TransferTask(
     val title: String,
     val status: TransferStatus,
     val sourceNodeIds: List<Long> = emptyList(),
+    val sourceUri: Uri? = null,
     val destinationUri: Uri? = null,
     val transferredBytes: Long = 0L,
     val totalBytes: Long? = null,
@@ -180,22 +181,6 @@ data class AppUpdateState(
     val downloadUrl: String,
 )
 
-data class CreatedShareState(
-    val title: String,
-    val shareUrl: String,
-    val password: String?,
-    val expiresAt: String?,
-    val allowDownload: Boolean,
-    val allowSave: Boolean,
-    val itemCount: Long,
-)
-
-data class ShareCreationUiState(
-    val isCreating: Boolean = false,
-    val nodeIds: List<Long> = emptyList(),
-    val createdShare: CreatedShareState? = null,
-)
-
 enum class IncomingShareSource {
     CLIPBOARD,
     DEEP_LINK,
@@ -229,16 +214,6 @@ data class IncomingShareUiState(
     val error: String? = null,
 )
 
-private fun CreatedShareState.toShareText(): String = buildString {
-    appendLine("我通过 Alicia 云盘分享了：$title")
-    appendLine(shareUrl)
-    password?.takeIf { it.isNotBlank() }?.let { appendLine("提取码：$it") }
-    expiresAt?.takeIf { it.isNotBlank() }?.let { appendLine("有效期至：$it") }
-}
-
-private fun buildShareUrl(baseUrl: String, shareCode: String): String =
-    "${baseUrl.trim().removeSuffix("/")}/share/$shareCode"
-
 data class AppUiState(
     val isBooting: Boolean = true,
     val isSubmittingLogin: Boolean = false,
@@ -255,7 +230,6 @@ data class AppUiState(
     val team: TeamUiState = TeamUiState(),
     val preview: FilePreviewState = FilePreviewState(),
     val appUpdate: AppUpdateState? = null,
-    val shareCreation: ShareCreationUiState = ShareCreationUiState(),
     val incomingShare: IncomingShareUiState = IncomingShareUiState(),
     val transfers: List<TransferTask> = emptyList(),
     val transferPanelOpen: Boolean = false,
@@ -279,7 +253,6 @@ class MainViewModel(
     private var lastDismissedClipboardShareCode: String? = null
     private var lastDismissedClipboardFingerprint: String? = null
     private var lastDismissedClipboardAtMillis: Long = 0L
-    private var shareCreationInFlight = false
     private var nextTransferId = 1L
     private val transferJobs = mutableMapOf<Long, Job>()
 
@@ -1070,6 +1043,7 @@ class MainViewModel(
                         itemKind = TransferItemKind.FILE,
                         title = descriptor?.fileName ?: uri.lastPathSegment ?: "upload.bin",
                         status = TransferStatus.PREPARING,
+                        sourceUri = uri,
                         totalBytes = descriptor?.sizeBytes,
                         locationLabel = resolveUploadLocationLabel(parentId),
                     ),
@@ -1395,117 +1369,6 @@ class MainViewModel(
         }
     }
 
-    fun createShareLink(
-        nodes: List<StorageNode>,
-        title: String,
-        password: String?,
-        expiresInDays: Int?,
-        allowDownload: Boolean,
-        allowSave: Boolean,
-        onSuccess: () -> Unit = {},
-    ) {
-        val session = authenticatedSession() ?: return
-        val uniqueNodes = nodes.distinctBy(StorageNode::id)
-        if (uniqueNodes.isEmpty() || uniqueNodes.size > 20 || shareCreationInFlight) return
-        val nodeIds = uniqueNodes.map(StorageNode::id)
-        val defaultTitle = if (uniqueNodes.size == 1) uniqueNodes.first().name else "批量分享"
-        val trimmedTitle = title.trim().ifBlank { defaultTitle }
-        val trimmedPassword = password?.trim()?.takeIf { it.isNotEmpty() }
-
-        shareCreationInFlight = true
-        _uiState.update { state ->
-            state.copy(
-                shareCreation = state.shareCreation.copy(
-                    isCreating = true,
-                    nodeIds = nodeIds,
-                    createdShare = null,
-                ),
-            )
-        }
-
-        viewModelScope.launch {
-            try {
-                runCatching {
-                    repository.createShareLink(
-                        baseUrl = session.baseUrl,
-                        token = session.token,
-                        nodeIds = nodeIds,
-                        title = trimmedTitle,
-                        password = trimmedPassword,
-                        expiresInDays = expiresInDays,
-                        allowDownload = allowDownload,
-                        allowSave = allowSave,
-                    )
-                }.onSuccess { share ->
-                    val createdShare = CreatedShareState(
-                        title = share.title.ifBlank { trimmedTitle },
-                        shareUrl = buildShareUrl(session.baseUrl, share.shareCode),
-                        password = trimmedPassword,
-                        expiresAt = share.expiresAt,
-                        allowDownload = share.allowDownload,
-                        allowSave = share.allowSave,
-                        itemCount = share.itemCount,
-                    )
-                    _uiState.update { state ->
-                        state.copy(
-                            files = state.files.copy(actionNodeId = null, selectedNodeIds = emptySet()),
-                            shareCreation = ShareCreationUiState(createdShare = createdShare),
-                        )
-                    }
-                    emitMessage("分享已创建。")
-                    onSuccess()
-                }.onFailure { error ->
-                    _uiState.update { state ->
-                        state.copy(
-                            shareCreation = ShareCreationUiState(),
-                        )
-                    }
-                    handleError(error)
-                }
-            } finally {
-                shareCreationInFlight = false
-            }
-        }
-    }
-
-    fun clearCreatedShare() {
-        _uiState.update { state ->
-            state.copy(shareCreation = state.shareCreation.copy(createdShare = null))
-        }
-    }
-
-    fun copyShareInfo(share: CreatedShareState) {
-        val clipboard = appContext.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
-        if (clipboard == null) {
-            emitMessage("当前设备无法访问剪贴板。")
-            return
-        }
-
-        clipboard.setPrimaryClip(
-            ClipData.newPlainText(
-                "Alicia 云盘分享",
-                share.toShareText(),
-            ),
-        )
-        emitMessage("分享信息已复制。")
-    }
-
-    fun openSystemShareSheet(share: CreatedShareState) {
-        val sendIntent = Intent(Intent.ACTION_SEND).apply {
-            type = "text/plain"
-            putExtra(Intent.EXTRA_TEXT, share.toShareText())
-        }
-        val chooser = Intent.createChooser(sendIntent, "分享 Alicia 云盘链接").apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-
-        runCatching {
-            appContext.startActivity(chooser)
-        }.onFailure {
-            emitMessage("无法打开系统分享面板。")
-        }
-    }
-
     fun handleIncomingShareUri(uri: Uri?) {
         val shareCode = ShareLinkParser.shareCodeFromUri(uri, uiState.value.baseUrl) ?: return
         openIncomingShare(shareCode, IncomingShareSource.DEEP_LINK)
@@ -1631,14 +1494,15 @@ class MainViewModel(
 
     fun toggleIncomingShareNodeSelection(nodeId: Long) {
         _uiState.update { state ->
-            val selectedNodeIds = state.incomingShare.selectedNodeIds
+            val incomingShare = state.incomingShare
+            val detail = incomingShare.detail ?: return@update state
             state.copy(
-                incomingShare = state.incomingShare.copy(
-                    selectedNodeIds = if (nodeId in selectedNodeIds) {
-                        selectedNodeIds - nodeId
-                    } else {
-                        selectedNodeIds + nodeId
-                    },
+                incomingShare = incomingShare.copy(
+                    selectedNodeIds = ShareTreeSelection.toggle(
+                        items = detail.items,
+                        selectedNodeIds = incomingShare.selectedNodeIds,
+                        nodeId = nodeId,
+                    ),
                 ),
             )
         }
@@ -1803,7 +1667,10 @@ class MainViewModel(
         val detail = incomingShare.detail ?: return
         val targetParentId = incomingShare.saveTargetParentId
         val targetFolders = incomingShare.saveTargetFolders
-        val selectedNodeIds = incomingShare.selectedNodeIds.toList()
+        val selectedNodeIds = ShareTreeSelection.minimalSelectedRootIds(
+            items = detail.items,
+            selectedNodeIds = incomingShare.selectedNodeIds,
+        )
         if (selectedNodeIds.isEmpty()) {
             emitMessage("请先选择要保存的分享内容。")
             return
@@ -2741,9 +2608,7 @@ class MainViewModel(
                         state
                     } else {
                         val defaultSelectedNodeIds = if (detail.allowSave) {
-                            detail.rootNodeIds
-                                .ifEmpty { detail.items.filter { it.parentId == null }.map { it.id } }
-                                .toSet()
+                            ShareTreeSelection.allNodeIds(detail.items)
                         } else {
                             emptySet()
                         }

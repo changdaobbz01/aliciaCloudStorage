@@ -24,8 +24,8 @@ android {
         applicationId = "com.alicia.cloudstorage.phone.add"
         minSdk = 26
         targetSdk = 34
-        versionCode = 7
-        versionName = "0.1.6"
+        versionCode = 8
+        versionName = "0.1.7"
 
         buildConfigField("String", "DEFAULT_API_BASE_URL", "\"${resolveApiBaseUrl(project)}\"")
         buildConfigField("boolean", "APP_UPDATE_ENABLED", "true")
@@ -92,6 +92,8 @@ dependencies {
     implementation("com.squareup.retrofit2:converter-gson:2.11.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
+
+    testImplementation("junit:junit:4.13.2")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")

@@ -8,6 +8,8 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import com.google.gson.JsonParser
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType
 import okhttp3.OkHttpClient
@@ -521,7 +523,7 @@ class AliciaRepository(
         nodeIds: List<Long>,
         destinationUri: Uri,
         onProgress: (TransferProgress) -> Unit = {},
-    ): String {
+    ): String = withContext(Dispatchers.IO) {
         val response = serviceFactory.serviceFor(baseUrl)
             .downloadArchive(
                 authorization = authorization(token),
@@ -552,14 +554,14 @@ class AliciaRepository(
             } ?: throw ApiException("无法写入你选择的保存位置。", 400)
         }
 
-        return fileName
+        fileName
     }
 
     suspend fun downloadFile(
         baseUrl: String,
         token: String,
         fileId: Long,
-    ): DownloadedFile {
+    ): DownloadedFile = withContext(Dispatchers.IO) {
         val response = serviceFactory.serviceFor(baseUrl)
             .downloadFile(
                 authorization = authorization(token),
@@ -576,7 +578,7 @@ class AliciaRepository(
 
         val body = response.body() ?: throw ApiException("下载文件失败。", response.code())
         body.use { responseBody ->
-            return DownloadedFile(
+            DownloadedFile(
                 fileName = parseFileName(response.headers()["content-disposition"]) ?: "download.bin",
                 contentType = response.headers()["content-type"],
                 bytes = responseBody.bytes(),
@@ -591,7 +593,7 @@ class AliciaRepository(
         fileId: Long,
         destinationUri: Uri,
         onProgress: (TransferProgress) -> Unit = {},
-    ): String {
+    ): String = withContext(Dispatchers.IO) {
         val response = serviceFactory.serviceFor(baseUrl)
             .downloadFile(
                 authorization = authorization(token),
@@ -622,7 +624,7 @@ class AliciaRepository(
             } ?: throw ApiException("无法写入你选择的保存位置。", 400)
         }
 
-        return fileName
+        fileName
     }
 
     suspend fun downloadFileViaSignedUrl(
@@ -824,7 +826,7 @@ private class ProgressRequestBody(
     }
 }
 
-private fun copyToWithProgress(
+private suspend fun copyToWithProgress(
     input: java.io.InputStream,
     output: java.io.OutputStream,
     totalBytes: Long?,
@@ -835,6 +837,7 @@ private fun copyToWithProgress(
     onProgress(TransferProgress(transferredBytes = transferredBytes, totalBytes = totalBytes))
 
     while (true) {
+        currentCoroutineContext().ensureActive()
         val read = input.read(buffer)
         if (read == -1) {
             break

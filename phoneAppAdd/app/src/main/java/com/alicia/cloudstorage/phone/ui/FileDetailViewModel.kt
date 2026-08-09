@@ -40,7 +40,6 @@ data class FileDetailUiState(
     val downloadPercent: Int? = null,
     val moveFolders: List<StorageNode> = emptyList(),
     val moveFoldersLoading: Boolean = false,
-    val createdShare: FileDetailCreatedShare? = null,
     val message: String? = null,
     val deleted: Boolean = false,
     val contentChanged: Boolean = false,
@@ -48,17 +47,9 @@ data class FileDetailUiState(
 
 enum class FileDetailOperation {
     DOWNLOAD,
-    SHARE,
     MOVE,
     DELETE,
 }
-
-data class FileDetailCreatedShare(
-    val title: String,
-    val shareUrl: String,
-    val password: String?,
-    val expiresAt: String?,
-)
 
 class FileDetailViewModel(
     private val appContext: Context,
@@ -187,56 +178,6 @@ class FileDetailViewModel(
                 finishOperationWithError(error)
             }
         }
-    }
-
-    fun createShare(
-        title: String,
-        password: String?,
-        expiresInDays: Int?,
-        allowDownload: Boolean,
-        allowSave: Boolean,
-    ) {
-        if (_uiState.value.activeOperation != null) return
-        viewModelScope.launch {
-            _uiState.update {
-                it.copy(
-                    activeOperation = FileDetailOperation.SHARE,
-                    createdShare = null,
-                    message = null,
-                )
-            }
-            runCatching {
-                repository.createShareLink(
-                    baseUrl = args.baseUrl,
-                    token = args.authToken,
-                    nodeIds = listOf(args.node.id),
-                    title = title.trim().takeIf(String::isNotBlank),
-                    password = password?.trim()?.takeIf(String::isNotBlank),
-                    expiresInDays = expiresInDays,
-                    allowDownload = allowDownload,
-                    allowSave = allowSave,
-                )
-            }.onSuccess { share ->
-                _uiState.update {
-                    it.copy(
-                        activeOperation = null,
-                        createdShare = FileDetailCreatedShare(
-                            title = share.title.ifBlank { args.node.name },
-                            shareUrl = "${args.baseUrl.trimEnd('/')}/share/${share.shareCode}",
-                            password = password?.trim()?.takeIf(String::isNotBlank),
-                            expiresAt = share.expiresAt,
-                        ),
-                        message = "分享链接已生成。",
-                    )
-                }
-            }.onFailure { error ->
-                finishOperationWithError(error)
-            }
-        }
-    }
-
-    fun clearCreatedShare() {
-        _uiState.update { it.copy(createdShare = null) }
     }
 
     fun clearMessage() {

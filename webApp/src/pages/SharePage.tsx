@@ -23,6 +23,7 @@ import {
 } from '../lib/api';
 import type { ShareLinkDetail, ShareLinkStatus, StorageNode, VerifySharePasswordPayload } from '../types';
 import { ROOT_PARENT_KEY } from '../features/drive/driveShared';
+import { collapseSelectedShareNodeIds } from '../features/drive/shareTreeSelection';
 import type { FolderTreeNode } from '../features/drive/types';
 import { buildAppDownloadUrl, buildShareIntentUrl } from '../lib/mobileApp';
 
@@ -209,6 +210,10 @@ export function SharePage() {
     () => selectedShareRowKeys.map(Number).filter((nodeId) => Number.isFinite(nodeId)),
     [selectedShareRowKeys],
   );
+  const selectedShareRootNodeIds = useMemo(
+    () => collapseSelectedShareNodeIds(detail?.items ?? [], selectedShareNodeIds),
+    [detail, selectedShareNodeIds],
+  );
 
   useEffect(() => {
     setShareAccessToken(loadStoredShareAccess(shareCode));
@@ -343,7 +348,7 @@ export function SharePage() {
       return;
     }
 
-    if (selectedShareNodeIds.length === 0) {
+    if (selectedShareRootNodeIds.length === 0) {
       message.warning('请先选择要保存的分享内容。');
       return;
     }
@@ -364,7 +369,7 @@ export function SharePage() {
       const parentId = saveParentKey === ROOT_PARENT_KEY ? null : Number(saveParentKey);
       await saveShareToDrive(
         detail.shareCode,
-        { parentId, selectedNodeIds: selectedShareNodeIds },
+        { parentId, selectedNodeIds: selectedShareRootNodeIds },
         authToken,
         shareAccessToken,
       );
@@ -489,7 +494,7 @@ export function SharePage() {
                 type="primary"
                 icon={<SaveOutlined />}
                 loading={saving}
-                disabled={selectedShareNodeIds.length === 0}
+                disabled={selectedShareRootNodeIds.length === 0}
                 onClick={openSaveTargetModal}
               >
                 保存到我的网盘
@@ -512,7 +517,7 @@ export function SharePage() {
             detail.allowSave
               ? {
                   selectedRowKeys: selectedShareRowKeys,
-                  checkStrictly: true,
+                  checkStrictly: false,
                   onChange: (nextSelectedRowKeys) => setSelectedShareRowKeys(nextSelectedRowKeys),
                   getCheckboxProps: () => ({ disabled: saving }),
                 }

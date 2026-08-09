@@ -1,9 +1,5 @@
 package com.alicia.cloudstorage.phone.ui
 
-import android.content.ClipData
-import android.content.ClipboardManager
-import android.content.Context
-import android.content.Intent
 import android.media.AudioAttributes
 import android.net.Uri
 import android.widget.VideoView
@@ -37,7 +33,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Surface
@@ -66,9 +61,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -78,6 +71,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.SubcomposeAsyncImage
 import com.alicia.cloudstorage.phone.FileDetailArgs
 import com.alicia.cloudstorage.phone.R
+import com.alicia.cloudstorage.phone.ShareCreateActivity
 import com.alicia.cloudstorage.phone.data.StorageNode
 import com.alicia.cloudstorage.phone.data.StorageNodeType
 import kotlinx.coroutines.delay
@@ -93,7 +87,6 @@ private val DetailDanger = Color(0xFFE84D3D)
 
 private enum class DetailOverlay {
     INFO,
-    SHARE,
     MOVE,
     DELETE,
 }
@@ -112,10 +105,12 @@ fun FileDetailScreen(
     ) { uri ->
         uri?.let(viewModel::downloadToUri)
     }
+    val shareLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) {}
 
     BackHandler(enabled = overlay != null) {
         overlay = null
-        viewModel.clearCreatedShare()
     }
 
     LaunchedEffect(state.message, state.activeOperation) {
@@ -161,38 +156,22 @@ fun FileDetailScreen(
                 onDownload = {
                     downloadLauncher.launch(args.node.name.ifBlank { "download.bin" })
                 },
-                onShare = { overlay = DetailOverlay.SHARE },
+                onShare = {
+                    overlay = null
+                    shareLauncher.launch(
+                        ShareCreateActivity.createIntent(
+                            context = context,
+                            nodes = listOf(args.node),
+                            baseUrl = args.baseUrl,
+                            authToken = args.authToken,
+                        ),
+                    )
+                },
                 onMove = {
                     overlay = DetailOverlay.MOVE
                     viewModel.loadMoveFolders()
                 },
                 onDelete = { overlay = DetailOverlay.DELETE },
-            )
-
-            DetailOverlay.SHARE -> FileShareOverlay(
-                node = args.node,
-                state = state,
-                onDismiss = {
-                    overlay = DetailOverlay.INFO
-                    viewModel.clearCreatedShare()
-                },
-                onCreate = viewModel::createShare,
-                onCopy = { share ->
-                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                    clipboard.setPrimaryClip(ClipData.newPlainText("Alicia 云盘分享", share.toShareText()))
-                    viewModel.showMessage("分享信息已复制。")
-                },
-                onSystemShare = { share ->
-                    context.startActivity(
-                        Intent.createChooser(
-                            Intent(Intent.ACTION_SEND).apply {
-                                type = "text/plain"
-                                putExtra(Intent.EXTRA_TEXT, share.toShareText())
-                            },
-                            "分享文件",
-                        ),
-                    )
-                },
             )
 
             DetailOverlay.MOVE -> FileMoveOverlay(
@@ -279,7 +258,7 @@ private fun DetailIconButton(
         modifier = Modifier
             .size(48.dp)
             .clip(CircleShape)
-            .clickable(
+            .noRippleClickable(
                 enabled = enabled,
                 interactionSource = interactionSource,
                 indication = null,
@@ -783,81 +762,6 @@ private fun FileInformationOverlay(
 }
 
 @Composable
-private fun FileShareOverlay(
-    node: StorageNode,
-    state: FileDetailUiState,
-    onDismiss: () -> Unit,
-    onCreate: (String, String?, Int?, Boolean, Boolean) -> Unit,
-    onCopy: (FileDetailCreatedShare) -> Unit,
-    onSystemShare: (FileDetailCreatedShare) -> Unit,
-) {
-    var title by rememberSaveable(node.id) { mutableStateOf(node.name) }
-    var password by rememberSaveable(node.id) { mutableStateOf("") }
-    var days by rememberSaveable(node.id) { mutableStateOf("7") }
-    var allowDownload by rememberSaveable(node.id) { mutableStateOf(true) }
-    var allowSave by rememberSaveable(node.id) { mutableStateOf(true) }
-    val createdShare = state.createdShare
-
-    DetailBottomOverlay(onDismiss = onDismiss, maxHeight = 680.dp) {
-        DetailOverlayHeader(title = if (createdShare == null) "分享文件" else "分享已创建", onDismiss = onDismiss)
-        if (createdShare == null) {
-            DetailFieldLabel("分享标题")
-            DetailTextField(value = title, onValueChange = { title = it }, placeholder = "输入分享标题")
-            Spacer(modifier = Modifier.height(14.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Column(modifier = Modifier.weight(1f)) {
-                    DetailFieldLabel("提取码（可空）")
-                    DetailTextField(
-                        value = password,
-                        onValueChange = { password = it },
-                        placeholder = "不设置",
-                        password = true,
-                    )
-                }
-                Column(modifier = Modifier.weight(1f)) {
-                    DetailFieldLabel("有效天数")
-                    DetailTextField(value = days, onValueChange = { days = it.filter(Char::isDigit) }, placeholder = "7")
-                }
-            }
-            Spacer(modifier = Modifier.height(18.dp))
-            DetailToggleRow("允许下载", allowDownload) { allowDownload = it }
-            DetailToggleRow("允许保存到网盘", allowSave) { allowSave = it }
-            Spacer(modifier = Modifier.height(22.dp))
-            DetailPrimaryButton(
-                label = "生成分享链接",
-                busy = state.activeOperation == FileDetailOperation.SHARE,
-                onClick = {
-                    onCreate(
-                        title,
-                        password.takeIf { it.isNotBlank() },
-                        days.toIntOrNull(),
-                        allowDownload,
-                        allowSave,
-                    )
-                },
-            )
-        } else {
-            FileInformationValue(label = "标题", value = createdShare.title)
-            DetailDivider()
-            FileInformationValue(label = "分享链接", value = createdShare.shareUrl)
-            createdShare.password?.let {
-                DetailDivider()
-                FileInformationValue(label = "提取码", value = it)
-            }
-            createdShare.expiresAt?.let {
-                DetailDivider()
-                FileInformationValue(label = "到期时间", value = formatDateTime(it))
-            }
-            Spacer(modifier = Modifier.height(20.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                DetailSecondaryButton("复制信息", Modifier.weight(1f)) { onCopy(createdShare) }
-                DetailPrimaryButton("系统分享", false, Modifier.weight(1f)) { onSystemShare(createdShare) }
-            }
-        }
-    }
-}
-
-@Composable
 private fun FileMoveOverlay(
     state: FileDetailUiState,
     currentParentId: Long?,
@@ -943,7 +847,7 @@ private fun DetailBottomOverlay(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color.Black.copy(alpha = 0.24f))
-                .clickable(onClick = onDismiss),
+                .noRippleClickable(onClick = onDismiss),
         )
         Surface(
             modifier = Modifier
@@ -1034,7 +938,7 @@ private fun FileDetailOperationButton(
     Column(
         modifier = Modifier
             .width(68.dp)
-            .clickable(
+            .noRippleClickable(
                 enabled = enabled,
                 interactionSource = interactionSource,
                 indication = null,
@@ -1057,74 +961,6 @@ private fun FileDetailOperationButton(
 }
 
 @Composable
-private fun DetailTextField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    placeholder: String,
-    password: Boolean = false,
-) {
-    BasicTextField(
-        value = value,
-        onValueChange = onValueChange,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(50.dp)
-            .clip(RoundedCornerShape(15.dp))
-            .background(Color(0xFFF5F6FA))
-            .padding(horizontal = 15.dp),
-        singleLine = true,
-        textStyle = TextStyle(color = DetailInk, fontSize = 15.sp, lineHeight = 20.sp),
-        visualTransformation = if (password) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
-        decorationBox = { innerTextField ->
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.CenterStart) {
-                if (value.isBlank()) Text(placeholder, color = DetailMuted, fontSize = 14.sp)
-                innerTextField()
-            }
-        },
-    )
-}
-
-@Composable
-private fun DetailFieldLabel(label: String) {
-    Text(
-        text = label,
-        color = DetailInk,
-        fontSize = 14.sp,
-        fontWeight = FontWeight.SemiBold,
-        modifier = Modifier.padding(bottom = 8.dp),
-    )
-}
-
-@Composable
-private fun DetailToggleRow(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(54.dp)
-            .clickable { onCheckedChange(!checked) },
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(label, modifier = Modifier.weight(1f), color = DetailInk, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-        Box(
-            modifier = Modifier
-                .width(46.dp)
-                .height(27.dp)
-                .clip(CircleShape)
-                .background(if (checked) DetailBlue else Color(0xFFDDE1EA))
-                .padding(3.dp),
-            contentAlignment = if (checked) Alignment.CenterEnd else Alignment.CenterStart,
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(21.dp)
-                    .clip(CircleShape)
-                    .background(Color.White),
-            )
-        }
-    }
-}
-
-@Composable
 private fun MoveTargetRow(label: String, selected: Boolean, onClick: () -> Unit) {
     Row(
         modifier = Modifier
@@ -1132,7 +968,7 @@ private fun MoveTargetRow(label: String, selected: Boolean, onClick: () -> Unit)
             .height(58.dp)
             .clip(RoundedCornerShape(15.dp))
             .background(if (selected) DetailSoftBlue else Color(0xFFF5F6FA))
-            .clickable(onClick = onClick)
+            .noRippleClickable(onClick = onClick)
             .padding(horizontal = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -1177,7 +1013,7 @@ private fun DetailPrimaryButton(
             .height(50.dp)
             .clip(RoundedCornerShape(16.dp))
             .background(if (busy) DetailBlue.copy(alpha = 0.45f) else DetailBlue)
-            .clickable(enabled = !busy, onClick = onClick),
+            .noRippleClickable(enabled = !busy, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Text(if (busy) "处理中" else label, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
@@ -1191,7 +1027,7 @@ private fun DetailSecondaryButton(label: String, modifier: Modifier, onClick: ()
             .height(50.dp)
             .clip(RoundedCornerShape(16.dp))
             .background(Color(0xFFF1F2F6))
-            .clickable(onClick = onClick),
+            .noRippleClickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Text(label, color = DetailInk, fontSize = 15.sp, fontWeight = FontWeight.Bold)
@@ -1205,7 +1041,7 @@ private fun DetailDangerButton(label: String, busy: Boolean, modifier: Modifier,
             .height(50.dp)
             .clip(RoundedCornerShape(16.dp))
             .background(if (busy) DetailDanger.copy(alpha = 0.45f) else DetailDanger)
-            .clickable(enabled = !busy, onClick = onClick),
+            .noRippleClickable(enabled = !busy, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Text(if (busy) "处理中" else label, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
@@ -1303,10 +1139,3 @@ private fun formatPlaybackTime(milliseconds: Int): String {
     val totalSeconds = (milliseconds.coerceAtLeast(0) / 1000)
     return String.format(Locale.US, "%d:%02d", totalSeconds / 60, totalSeconds % 60)
 }
-
-private fun FileDetailCreatedShare.toShareText(): String = buildString {
-    appendLine(title)
-    appendLine(shareUrl)
-    password?.let { appendLine("提取码：$it") }
-    expiresAt?.let { append("到期时间：${formatDateTime(it)}") }
-}.trim()

@@ -1,6 +1,7 @@
 package com.alicia.cloudstorage.phone.ui
 
 import androidx.annotation.DrawableRes
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -10,11 +11,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -46,13 +50,14 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
 import com.alicia.cloudstorage.phone.R
+import com.alicia.cloudstorage.phone.ShareCreateArgs
 import com.alicia.cloudstorage.phone.data.StorageNode
 import com.alicia.cloudstorage.phone.data.StorageNodeType
+import kotlinx.coroutines.delay
 
 private val ShareInk = Color(0xFF111827)
 private val ShareMuted = Color(0xFF8993A6)
@@ -60,6 +65,7 @@ private val ShareBlue = Color(0xFF0B6BFF)
 private val ShareSoftBlue = Color(0xFFEAF2FF)
 private val ShareSoftGray = Color(0xFFF3F5FA)
 private val ShareLine = Color(0xFFE2E6EF)
+private val ShareBackground = Color(0xFFF7F8FD)
 
 data class ShareSelection(val nodes: List<StorageNode>) {
     init {
@@ -75,14 +81,16 @@ data class ShareSelection(val nodes: List<StorageNode>) {
 }
 
 @Composable
-fun CreateShareDialog(
-    selection: ShareSelection,
-    baseUrl: String,
-    authToken: String,
-    creating: Boolean,
-    onDismiss: () -> Unit,
-    onCreate: (String, String?, Int?, Boolean, Boolean) -> Unit,
+fun ShareCreateScreen(
+    args: ShareCreateArgs,
+    viewModel: ShareCreateViewModel,
+    onBack: () -> Unit,
+    onCopy: (String) -> Unit,
+    onSystemShare: (String) -> Unit,
 ) {
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val selection = args.selection
+    val createdShare = state.createdShare
     var title by remember(selection.stateKey) { mutableStateOf(selection.defaultTitle) }
     var password by remember(selection.stateKey) { mutableStateOf("") }
     var expiresInDays by remember(selection.stateKey) { mutableStateOf<Int?>(7) }
@@ -93,172 +101,263 @@ fun CreateShareDialog(
     LaunchedEffect(title, password) {
         validationError = null
     }
+    LaunchedEffect(state.message) {
+        if (state.message != null) {
+            delay(1_800)
+            viewModel.clearMessage()
+        }
+    }
 
-    Dialog(
-        onDismissRequest = { if (!creating) onDismiss() },
-        properties = DialogProperties(
-            dismissOnBackPress = !creating,
-            dismissOnClickOutside = !creating,
-            usePlatformDefaultWidth = false,
-        ),
+    BackHandler(enabled = state.creating) {}
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(ShareBackground),
     ) {
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp)
-                .heightIn(max = 760.dp),
-            color = Color.White,
-            shape = RoundedCornerShape(24.dp),
-            shadowElevation = 12.dp,
-        ) {
-            Column(
-                modifier = Modifier
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 20.dp, vertical = 22.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                Text("创建分享", color = ShareInk, fontSize = 27.sp, fontWeight = FontWeight.Bold)
+        Column(modifier = Modifier.fillMaxSize()) {
+            ShareActivityHeader(
+                title = if (createdShare == null) "创建分享" else "分享已创建",
+                enabled = !state.creating,
+                onBack = onBack,
+            )
 
-                ShareContentModule(selection, baseUrl, authToken)
+            if (createdShare == null) {
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState())
+                        .padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(18.dp),
+                ) {
+                    ShareContentModule(selection, args.baseUrl, args.authToken)
 
-                AddShareTextField(
-                    label = "分享标题",
-                    value = title,
-                    placeholder = "输入分享标题",
-                    enabled = !creating,
-                    onValueChange = { if (it.length <= 255) title = it },
-                )
-                AddShareTextField(
-                    label = "提取码（可空）",
-                    value = password,
-                    placeholder = "4 到 32 个字符",
-                    enabled = !creating,
-                    password = true,
-                    onValueChange = { if (it.length <= 32) password = it },
-                )
+                    AddShareTextField(
+                        label = "分享标题",
+                        value = title,
+                        placeholder = "输入分享标题",
+                        enabled = !state.creating,
+                        onValueChange = { if (it.length <= 255) title = it },
+                    )
+                    AddShareTextField(
+                        label = "提取码（可空）",
+                        value = password,
+                        placeholder = "4 到 32 个字符",
+                        enabled = !state.creating,
+                        password = true,
+                        onValueChange = { if (it.length <= 32) password = it },
+                    )
 
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("有效期", color = ShareInk, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf(1 to "1 天", 7 to "7 天", 30 to "30 天", null to "永久").forEach { (days, label) ->
-                            ShareExpiryOption(
-                                label = label,
-                                selected = expiresInDays == days,
-                                enabled = !creating,
-                                modifier = Modifier.weight(1f),
-                                onClick = { expiresInDays = days },
-                            )
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("有效期", color = ShareInk, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf(1 to "1 天", 7 to "7 天", 30 to "30 天", null to "永久").forEach { (days, label) ->
+                                ShareExpiryOption(
+                                    label = label,
+                                    selected = expiresInDays == days,
+                                    enabled = !state.creating,
+                                    modifier = Modifier.weight(1f),
+                                    onClick = { expiresInDays = days },
+                                )
+                            }
                         }
+                    }
+
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        AddShareToggle("允许下载", allowDownload, !state.creating) { allowDownload = it }
+                        AddShareToggle("允许保存到网盘", allowSave, !state.creating) { allowSave = it }
+                    }
+
+                    (validationError ?: state.error)?.let { error ->
+                        Text(error, color = Color(0xFFE84D3D), fontSize = 13.sp)
                     }
                 }
 
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    AddShareToggle("允许下载", allowDownload, !creating) { allowDownload = it }
-                    AddShareToggle("允许保存到网盘", allowSave, !creating) { allowSave = it }
-                }
+                ShareCreateActionBar(
+                    creating = state.creating,
+                    onCancel = onBack,
+                    onCreate = {
+                        val normalizedTitle = title.trim()
+                        val normalizedPassword = password.trim()
+                        validationError = when {
+                            normalizedTitle.isEmpty() -> "请输入分享标题。"
+                            normalizedPassword.isNotEmpty() && normalizedPassword.length !in 4..32 -> "提取码需为 4 到 32 个字符。"
+                            else -> null
+                        }
+                        if (validationError == null) {
+                            viewModel.createShare(
+                                normalizedTitle,
+                                normalizedPassword.takeIf(String::isNotEmpty),
+                                expiresInDays,
+                                allowDownload,
+                                allowSave,
+                            )
+                        }
+                    },
+                )
+            } else {
+                ShareCreatedPage(
+                    share = createdShare,
+                    onCopy = { onCopy(createdShare.toShareText()) },
+                    onSystemShare = { onSystemShare(createdShare.toShareText()) },
+                    onDone = onBack,
+                )
+            }
+        }
 
-                validationError?.let { error ->
-                    Text(error, color = Color(0xFFE84D3D), fontSize = 13.sp)
-                }
-
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    ShareDialogButton(
-                        label = "取消",
-                        primary = false,
-                        enabled = !creating,
-                        modifier = Modifier.weight(1f),
-                        onClick = onDismiss,
-                    )
-                    ShareDialogButton(
-                        label = if (creating) "生成中" else "生成",
-                        primary = true,
-                        enabled = !creating,
-                        busy = creating,
-                        modifier = Modifier.weight(1f),
-                        onClick = {
-                            val normalizedTitle = title.trim()
-                            val normalizedPassword = password.trim()
-                            validationError = when {
-                                normalizedTitle.isEmpty() -> "请输入分享标题。"
-                                normalizedPassword.isNotEmpty() && normalizedPassword.length !in 4..32 -> "提取码需为 4 到 32 个字符。"
-                                else -> null
-                            }
-                            if (validationError == null) {
-                                onCreate(
-                                    normalizedTitle,
-                                    normalizedPassword.takeIf(String::isNotEmpty),
-                                    expiresInDays,
-                                    allowDownload,
-                                    allowSave,
-                                )
-                            }
-                        },
-                    )
-                }
+        state.message?.let { message ->
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .statusBarsPadding()
+                    .padding(top = 66.dp, start = 24.dp, end = 24.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(ShareInk.copy(alpha = 0.94f))
+                    .padding(horizontal = 18.dp, vertical = 11.dp),
+            ) {
+                Text(message, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Medium)
             }
         }
     }
 }
 
 @Composable
-fun CreatedShareDialog(
-    share: CreatedShareState,
-    onDismiss: () -> Unit,
-    onCopy: () -> Unit,
-    onSystemShare: () -> Unit,
+private fun ShareActivityHeader(
+    title: String,
+    enabled: Boolean,
+    onBack: () -> Unit,
 ) {
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .statusBarsPadding()
+            .height(70.dp)
+            .padding(horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Surface(
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .noRippleClickable(enabled = enabled, onClick = onBack)
+                .alpha(if (enabled) 1f else 0.45f),
+            contentAlignment = Alignment.Center,
+        ) {
+            Image(
+                painter = painterResource(R.drawable.ic_add_back_black),
+                contentDescription = "返回",
+                modifier = Modifier
+                    .size(38.dp)
+                    .scale(1.28f),
+            )
+        }
+        Spacer(Modifier.width(8.dp))
+        Text(
+            title,
+            modifier = Modifier.weight(1f),
+            color = ShareInk,
+            fontSize = 22.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+@Composable
+private fun ShareCreateActionBar(
+    creating: Boolean,
+    onCancel: () -> Unit,
+    onCreate: () -> Unit,
+) {
+    Surface(color = Color.White, shadowElevation = 3.dp) {
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 22.dp),
-            color = Color.White,
-            shape = RoundedCornerShape(24.dp),
-            shadowElevation = 12.dp,
+                .imePadding()
+                .navigationBarsPadding()
+                .padding(horizontal = 20.dp, vertical = 14.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            ShareDialogButton("取消", false, !creating, Modifier.weight(1f), onClick = onCancel)
+            ShareDialogButton("生成", true, !creating, Modifier.weight(1f), busy = creating, onClick = onCreate)
+        }
+    }
+}
+
+@Composable
+private fun ShareCreatedPage(
+    share: ShareCreatedState,
+    onCopy: () -> Unit,
+    onSystemShare: () -> Unit,
+    onDone: () -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp),
+        ) {
+            Text("链接已经生成", color = ShareInk, fontSize = 24.sp, fontWeight = FontWeight.Bold)
             Column(
-                modifier = Modifier.padding(22.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Color.White)
+                    .border(1.dp, ShareLine.copy(alpha = 0.76f), RoundedCornerShape(16.dp))
+                    .padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Text("分享已创建", color = ShareInk, fontSize = 27.sp, fontWeight = FontWeight.Bold)
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(ShareSoftGray)
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    val itemCountLabel = "共 ${share.itemCount} 项分享内容"
+                val itemCountLabel = "共 ${share.itemCount} 项分享内容"
+                Text(
+                    if (share.title == itemCountLabel) "分享内容" else share.title,
+                    color = ShareInk,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(itemCountLabel, color = ShareBlue, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                SelectionContainer {
                     Text(
-                        if (share.title == itemCountLabel) "分享内容" else share.title,
-                        color = ShareInk,
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Text(itemCountLabel, color = ShareBlue, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                    SelectionContainer {
-                        Text(share.shareUrl, color = ShareBlue, fontSize = 14.sp)
-                    }
-                    share.password?.let { code ->
-                        Text("提取码：$code", color = ShareInk, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                    }
-                    Text(
-                        "下载：${if (share.allowDownload) "允许" else "关闭"}  ·  保存：${if (share.allowSave) "允许" else "关闭"}",
-                        color = ShareMuted,
-                        fontSize = 13.sp,
+                        share.shareUrl,
+                        color = ShareBlue,
+                        fontSize = 15.sp,
+                        lineHeight = 22.sp,
                     )
                 }
+                share.password?.let { code ->
+                    Text("提取码：$code", color = ShareInk, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                }
+                Text(
+                    "下载：${if (share.allowDownload) "允许" else "关闭"}  ·  保存：${if (share.allowSave) "允许" else "关闭"}",
+                    color = ShareMuted,
+                    fontSize = 13.sp,
+                )
+                share.expiresAt?.let { expiresAt ->
+                    Text("到期时间：$expiresAt", color = ShareMuted, fontSize = 13.sp)
+                }
+            }
+        }
+        Surface(color = Color.White, shadowElevation = 3.dp) {
+            Column(
+                modifier = Modifier
+                    .navigationBarsPadding()
+                    .padding(horizontal = 20.dp, vertical = 14.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     ShareDialogButton("复制信息", true, true, Modifier.weight(1f), onClick = onCopy)
                     ShareDialogButton("系统分享", false, true, Modifier.weight(1f), onClick = onSystemShare)
                 }
-                ShareDialogButton("关闭", false, true, Modifier.fillMaxWidth(), onClick = onDismiss)
+                ShareDialogButton(
+                    label = "完成",
+                    primary = false,
+                    enabled = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    onClick = onDone,
+                )
             }
         }
     }
@@ -441,7 +540,7 @@ private fun ShareExpiryOption(
             .clip(RoundedCornerShape(10.dp))
             .background(if (selected) ShareSoftBlue else ShareSoftGray)
             .then(if (selected) Modifier.border(1.dp, ShareBlue, RoundedCornerShape(10.dp)) else Modifier)
-            .clickable(enabled = enabled, onClick = onClick)
+            .noRippleClickable(enabled = enabled, onClick = onClick)
             .alpha(if (enabled) 1f else 0.55f),
         contentAlignment = Alignment.Center,
     ) {
@@ -455,7 +554,7 @@ private fun AddShareToggle(label: String, checked: Boolean, enabled: Boolean, on
         modifier = Modifier
             .fillMaxWidth()
             .height(42.dp)
-            .clickable(enabled = enabled) { onCheckedChange(!checked) }
+            .noRippleClickable(enabled = enabled) { onCheckedChange(!checked) }
             .alpha(if (enabled) 1f else 0.55f),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -488,7 +587,7 @@ private fun ShareDialogButton(
             .height(48.dp)
             .clip(RoundedCornerShape(14.dp))
             .background(if (primary) ShareBlue else ShareSoftGray)
-            .clickable(enabled = enabled, onClick = onClick)
+            .noRippleClickable(enabled = enabled, onClick = onClick)
             .alpha(if (enabled || busy) 1f else 0.55f),
         contentAlignment = Alignment.Center,
     ) {

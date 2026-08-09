@@ -13,6 +13,10 @@
         android:usesCleartextTraffic="true"
         android:networkSecurityConfig="@xml/network_security_config">
         <activity
+            android:name=".ShareCreateActivity"
+            android:exported="false"
+            android:theme="@style/Theme.AliciaCloudStorage" />
+        <activity
             android:name=".FileDetailActivity"
             android:exported="false"
             android:theme="@style/Theme.AliciaCloudStorage" />

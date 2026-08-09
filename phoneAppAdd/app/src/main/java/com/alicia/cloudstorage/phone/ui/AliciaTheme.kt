@@ -1,6 +1,10 @@
 package com.alicia.cloudstorage.phone.ui
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.Indication
+import androidx.compose.foundation.IndicationInstance
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.interaction.InteractionSource
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
@@ -8,6 +12,9 @@ import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.drawscope.ContentDrawScope
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -109,12 +116,27 @@ private val AliciaTypography = Typography(
     ),
 )
 
+private object StaticIndication : Indication {
+    private object Instance : IndicationInstance {
+        override fun ContentDrawScope.drawIndication() {
+            drawContent()
+        }
+    }
+
+    @Composable
+    override fun rememberUpdatedInstance(interactionSource: InteractionSource): IndicationInstance =
+        remember { Instance }
+}
+
 @Composable
 fun AliciaCloudTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = if (isSystemInDarkTheme()) DarkColors else LightColors,
         typography = AliciaTypography,
         shapes = AliciaShapes,
-        content = content,
-    )
+    ) {
+        CompositionLocalProvider(LocalIndication provides StaticIndication) {
+            content()
+        }
+    }
 }
