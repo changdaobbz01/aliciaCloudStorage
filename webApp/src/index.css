@@ -1429,6 +1429,18 @@ select {
   border-radius: 8px;
 }
 
+.share-expandable-row {
+  cursor: pointer;
+}
+
+.share-expandable-row .storage-name-title {
+  transition: color 120ms ease;
+}
+
+.share-expandable-row:hover .storage-name-title {
+  color: #2563eb;
+}
+
 .storage-icon-shell {
   width: 38px;
   height: 38px;

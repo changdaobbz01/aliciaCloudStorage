@@ -1,6 +1,5 @@
 package com.alicia.cloudstorage.phone.ui
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.Indication
 import androidx.compose.foundation.IndicationInstance
 import androidx.compose.foundation.LocalIndication
@@ -9,7 +8,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -38,24 +36,6 @@ private val LightColors = lightColorScheme(
     surfaceVariant = Color(0xFFF7F9FC),
     onSurfaceVariant = Color(0xFF7B8599),
     outline = Color(0xFFEDF1F6),
-)
-
-private val DarkColors = darkColorScheme(
-    primary = Color(0xFF9DB9FF),
-    onPrimary = Color(0xFF0E2457),
-    primaryContainer = Color(0xFF1D397A),
-    onPrimaryContainer = Color(0xFFE3EBFF),
-    secondary = Color(0xFFBAC4DB),
-    onSecondary = Color(0xFF23304B),
-    tertiary = Color(0xFFFFB38F),
-    onTertiary = Color(0xFF52230F),
-    background = Color(0xFF0F1420),
-    onBackground = Color(0xFFF4F6FB),
-    surface = Color(0xFF171D2A),
-    onSurface = Color(0xFFF4F6FB),
-    surfaceVariant = Color(0xFF222938),
-    onSurfaceVariant = Color(0xFFB7C1D3),
-    outline = Color(0xFF2B3448),
 )
 
 private val AliciaShapes = Shapes(
@@ -131,7 +111,7 @@ private object StaticIndication : Indication {
 @Composable
 fun AliciaCloudTheme(content: @Composable () -> Unit) {
     MaterialTheme(
-        colorScheme = if (isSystemInDarkTheme()) DarkColors else LightColors,
+        colorScheme = LightColors,
         typography = AliciaTypography,
         shapes = AliciaShapes,
     ) {

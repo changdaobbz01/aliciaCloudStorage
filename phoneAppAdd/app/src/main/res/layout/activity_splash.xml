@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/splash_screen_background"
+    android:gravity="center_horizontal"
+    android:orientation="vertical"
+    android:paddingStart="30dp"
+    android:paddingEnd="30dp">
+
+    <Space
+        android:layout_width="1dp"
+        android:layout_height="0dp"
+        android:layout_weight="0.42" />
+
+    <ImageView
+        android:layout_width="292dp"
+        android:layout_height="292dp"
+        android:adjustViewBounds="true"
+        android:contentDescription="@null"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_alicia_cloud_logo" />
+
+    <Space
+        android:layout_width="1dp"
+        android:layout_height="30dp" />
+
+    <FrameLayout
+        android:id="@+id/splash_progress_container"
+        android:layout_width="match_parent"
+        android:layout_height="24dp"
+        android:clipChildren="false"
+        android:clipToPadding="false">
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="8dp"
+            android:layout_gravity="center_vertical"
+            android:background="@drawable/splash_progress_track" />
+
+        <View
+            android:id="@+id/splash_progress_fill"
+            android:layout_width="match_parent"
+            android:layout_height="8dp"
+            android:layout_gravity="center_vertical"
+            android:background="@drawable/splash_progress_fill"
+            android:scaleX="0.34"
+            android:transformPivotX="0dp" />
+
+        <View
+            android:id="@+id/splash_progress_thumb"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_gravity="start|center_vertical"
+            android:background="@drawable/splash_progress_thumb"
+            android:elevation="7dp" />
+    </FrameLayout>
+
+    <Space
+        android:layout_width="1dp"
+        android:layout_height="12dp" />
+
+    <ImageView
+        android:layout_width="254dp"
+        android:layout_height="52dp"
+        android:contentDescription="@null"
+        android:scaleType="fitCenter"
+        android:src="@drawable/splash_waveform" />
+
+    <Space
+        android:layout_width="1dp"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFamily="sans"
+        android:gravity="center"
+        android:includeFontPadding="false"
+        android:text="正在进入云盘"
+        android:textColor="#111827"
+        android:textSize="32sp"
+        android:textStyle="bold" />
+
+    <Space
+        android:layout_width="1dp"
+        android:layout_height="12dp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFamily="sans"
+        android:gravity="center"
+        android:includeFontPadding="false"
+        android:text="同步文件中，请稍候"
+        android:textColor="#52657C"
+        android:textSize="18sp" />
+
+    <Space
+        android:layout_width="1dp"
+        android:layout_height="0dp"
+        android:layout_weight="0.34" />
+</LinearLayout>

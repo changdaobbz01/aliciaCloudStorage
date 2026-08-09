@@ -527,8 +527,12 @@ export function SharePage() {
           expandable={{
             defaultExpandAllRows: false,
             defaultExpandedRowKeys: [],
+            expandRowByClick: true,
             rowExpandable: (item) => item.type === 'FOLDER' && Boolean(item.children?.length),
           }}
+          onRow={(item) => ({
+            className: item.type === 'FOLDER' && item.children?.length ? 'share-expandable-row' : '',
+          })}
           locale={{ emptyText: '分享内容暂不可用。' }}
         />
       </section>

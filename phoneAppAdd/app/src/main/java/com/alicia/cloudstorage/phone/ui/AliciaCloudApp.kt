@@ -8,6 +8,7 @@ import android.net.Uri
 import android.os.ParcelFileDescriptor
 import androidx.annotation.DrawableRes
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.compose.BackHandler
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -106,8 +107,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -136,6 +135,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -364,20 +364,31 @@ private enum class MePage {
     ADMIN,
 }
 
+private data class AddToastEvent(
+    val id: Long,
+    val message: String,
+)
+
 @Composable
 fun AliciaCloudApp(viewModel: MainViewModel) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val snackbarHostState = remember { SnackbarHostState() }
+    var toastSequence by remember { mutableStateOf(0L) }
+    var toastEvent by remember { mutableStateOf<AddToastEvent?>(null) }
+
+    fun showToast(message: String) {
+        toastSequence += 1L
+        toastEvent = AddToastEvent(id = toastSequence, message = message)
+    }
 
     LaunchedEffect(viewModel) {
         viewModel.messages.collect { message ->
-            snackbarHostState.showSnackbar(message)
+            showToast(message)
         }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
         when {
-            uiState.isBooting -> BootScreen()
+            uiState.isBooting -> AddSplashContent()
             uiState.authToken.isNullOrBlank() -> LoginScreen(
                 baseUrl = uiState.baseUrl,
                 submitting = uiState.isSubmittingLogin,
@@ -387,17 +398,7 @@ fun AliciaCloudApp(viewModel: MainViewModel) {
             else -> MainShell(
                 uiState = uiState,
                 viewModel = viewModel,
-                snackbarHostState = snackbarHostState,
-            )
-        }
-
-        if (uiState.authToken.isNullOrBlank()) {
-            SnackbarHost(
-                hostState = snackbarHostState,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .navigationBarsPadding()
-                    .padding(16.dp),
+                onMessage = ::showToast,
             )
         }
 
@@ -418,6 +419,19 @@ fun AliciaCloudApp(viewModel: MainViewModel) {
                 onSave = viewModel::saveIncomingShareToDrive,
             )
         }
+
+        toastEvent?.let { event ->
+            AddToastOverlay(
+                message = event.message,
+                messageKey = event.id,
+                onExpired = {
+                    if (toastEvent?.id == event.id) {
+                        toastEvent = null
+                    }
+                },
+                modifier = Modifier.align(Alignment.Center),
+            )
+        }
     }
 
     uiState.incomingShare.prompt?.let {
@@ -428,62 +442,65 @@ fun AliciaCloudApp(viewModel: MainViewModel) {
     }
 
     uiState.appUpdate?.let { update ->
-        AlertDialog(
-            onDismissRequest = viewModel::dismissAppUpdate,
-            title = { Text("发现新版本") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("${update.currentVersionName} -> ${update.latestVersionName}")
-                    if (update.releaseNotes.isNotBlank()) {
-                        Text(update.releaseNotes, color = Muted)
-                    }
-                }
-            },
-            confirmButton = {
-                Button(onClick = viewModel::openAppUpdateDownload) {
-                    Text("立即更新")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = viewModel::dismissAppUpdate) {
-                    Text("稍后")
-                }
-            },
+        AppUpdateDialog(
+            update = update,
+            onDismiss = viewModel::dismissAppUpdate,
+            onUpdate = viewModel::openAppUpdateDownload,
         )
     }
 }
 
 @Composable
-private fun BootScreen() {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    listOf(Color(0xFFEFF6FF), ScreenBackground, Color.White),
-                ),
-            )
-            .windowInsetsPadding(WindowInsets.safeDrawing),
+private fun AppUpdateDialog(
+    update: AppUpdateState,
+    onDismiss: () -> Unit,
+    onUpdate: () -> Unit,
+) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
+        val shape = RoundedCornerShape(24.dp)
         Column(
             modifier = Modifier
-                .align(Alignment.Center)
-                .padding(28.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(18.dp),
+                .fillMaxWidth()
+                .padding(horizontal = 26.dp)
+                .addCardChrome(shape)
+                .clip(shape)
+                .background(Color.White)
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Surface(
-                modifier = Modifier
-                    .size(74.dp)
-                    .addCardChrome(RoundedCornerShape(24.dp)),
-                shape = RoundedCornerShape(24.dp),
-                color = Color.White,
+            Text("发现新版本", color = Ink, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold)
+            Text(
+                "${update.currentVersionName}  →  ${update.latestVersionName}",
+                color = PrimaryBlueDeep,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+            )
+            Text(
+                text = update.releaseNotes.ifBlank { "暂无版本更新内容" },
+                color = Muted,
+                fontSize = 13.sp,
+                lineHeight = 20.sp,
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                ReferenceIcon(ReferenceAsset.FolderSolidBlue, contentDescription = null, modifier = Modifier.padding(17.dp))
+                AddActionButton(
+                    label = "稍后",
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f),
+                    primary = false,
+                )
+                AddActionButton(
+                    label = "立即更新",
+                    onClick = onUpdate,
+                    modifier = Modifier.weight(1f),
+                    primary = true,
+                )
             }
-            Text("Alicia 云盘", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Ink)
-            Text("正在同步你的云端空间", color = Muted)
-            CircularProgressIndicator(color = PrimaryBlue, strokeWidth = 3.dp)
         }
     }
 }
@@ -496,78 +513,160 @@ private fun LoginScreen(
 ) {
     var phoneNumber by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
+    var passwordVisible by rememberSaveable { mutableStateOf(false) }
+    val loginEnabled = !submitting && phoneNumber.isNotBlank() && password.isNotBlank()
+    val loginShape = RoundedCornerShape(26.dp)
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .background(ScreenBackground)
-            .statusBarsPadding()
-            .navigationBarsPadding()
-            .verticalScroll(rememberScrollState())
-            .padding(22.dp),
-        verticalArrangement = Arrangement.spacedBy(18.dp),
+            .windowInsetsPadding(WindowInsets.safeDrawing),
     ) {
-        Spacer(modifier = Modifier.height(28.dp))
-        Surface(
+        Column(
             modifier = Modifier
-                .size(72.dp)
-                .addCardChrome(RoundedCornerShape(22.dp)),
-            shape = RoundedCornerShape(22.dp),
-            color = Color.White,
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 24.dp, vertical = 28.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            ReferenceIcon(ReferenceAsset.FolderSolidBlue, contentDescription = null, modifier = Modifier.padding(16.dp))
-        }
-        Text("Alicia 云盘", fontSize = 34.sp, lineHeight = 40.sp, fontWeight = FontWeight.Bold, color = Ink)
-        Text("腾讯 COS 文件工作台", color = Muted, fontSize = 18.sp)
-        Card(
-            modifier = Modifier.addCardChrome(RoundedCornerShape(28.dp)),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            shape = RoundedCornerShape(28.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        ) {
+            Spacer(modifier = Modifier.height(14.dp))
+            Image(
+                painter = painterResource(R.drawable.ic_alicia_cloud_logo),
+                contentDescription = "Alicia 云盘",
+                modifier = Modifier
+                    .size(104.dp)
+                    .clip(RoundedCornerShape(28.dp)),
+                contentScale = ContentScale.Fit,
+            )
+            Spacer(modifier = Modifier.height(18.dp))
+            Text(
+                text = "Alicia 云盘",
+                color = Ink,
+                fontSize = 32.sp,
+                lineHeight = 38.sp,
+                fontWeight = FontWeight.ExtraBold,
+            )
+            Spacer(modifier = Modifier.height(7.dp))
+            Text(
+                text = "轻量文件工作台",
+                color = Muted,
+                fontSize = 15.sp,
+            )
+            Spacer(modifier = Modifier.height(30.dp))
+
             Column(
-                modifier = Modifier.padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(loginShape)
+                    .background(PanelWhite)
+                    .border(1.dp, Color(0xFFE8EDF6), loginShape)
+                    .padding(horizontal = 20.dp, vertical = 22.dp),
             ) {
-                OutlinedTextField(
+                Text(
+                    text = "欢迎回来",
+                    color = Ink,
+                    fontSize = 23.sp,
+                    lineHeight = 29.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                )
+                Spacer(modifier = Modifier.height(5.dp))
+                Text(
+                    text = "登录后继续管理你的云端文件",
+                    color = Muted,
+                    fontSize = 13.sp,
+                )
+                Spacer(modifier = Modifier.height(22.dp))
+                AddTextField(
                     value = phoneNumber,
                     onValueChange = { phoneNumber = it },
-                    label = { Text("手机号") },
-                    singleLine = true,
+                    label = "手机号",
+                    placeholder = "请输入 11 位手机号",
                     modifier = Modifier.fillMaxWidth(),
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                    enabled = !submitting,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Phone,
+                        imeAction = ImeAction.Next,
+                    ),
                 )
-                OutlinedTextField(
+                Spacer(modifier = Modifier.height(16.dp))
+                AddTextField(
                     value = password,
                     onValueChange = { password = it },
-                    label = { Text("密码") },
-                    singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
+                    label = "密码",
+                    placeholder = "请输入登录密码",
                     modifier = Modifier.fillMaxWidth(),
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                    keyboardActions = KeyboardActions(onDone = { onLogin(phoneNumber, password) }),
-                )
-                Button(
-                    onClick = { onLogin(phoneNumber, password) },
                     enabled = !submitting,
+                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Password,
+                        imeAction = ImeAction.Done,
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onDone = {
+                            if (loginEnabled) onLogin(phoneNumber.trim(), password)
+                        },
+                    ),
+                    trailingContent = {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .noRippleClickable(
+                                    role = androidx.compose.ui.semantics.Role.Button,
+                                    onClickLabel = if (passwordVisible) "隐藏密码" else "显示密码",
+                                ) { passwordVisible = !passwordVisible },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            ReferenceIcon(
+                                asset = ReferenceAsset.EyeGray,
+                                contentDescription = if (passwordVisible) "隐藏密码" else "显示密码",
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .alpha(if (passwordVisible) 1f else 0.68f),
+                            )
+                        }
+                    },
+                )
+                Spacer(modifier = Modifier.height(22.dp))
+                AddActionButton(
+                    label = if (submitting) "正在登录..." else "登录",
+                    onClick = { onLogin(phoneNumber.trim(), password) },
+                    primary = true,
+                    enabled = loginEnabled,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(52.dp),
-                    shape = RoundedCornerShape(18.dp),
-                ) {
-                    if (submitting) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(18.dp),
-                            strokeWidth = 2.dp,
-                            color = Color.White,
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
-                    }
-                    Text(if (submitting) "登录中" else "登录")
+                        .height(54.dp),
+                )
+            }
+
+            Spacer(modifier = Modifier.height(18.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Color(0xFFF0F5FF))
+                    .padding(horizontal = 16.dp, vertical = 13.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                ReferenceIcon(
+                    asset = ReferenceAsset.CloudUploadBlue,
+                    contentDescription = null,
+                    modifier = Modifier.size(27.dp),
+                )
+                Spacer(modifier = Modifier.width(11.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("安全连接", color = Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = baseUrl,
+                        color = Muted,
+                        fontSize = 11.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 }
             }
+            Spacer(modifier = Modifier.height(18.dp))
         }
-        Text("当前接入：$baseUrl", color = Muted, fontSize = 12.sp)
     }
 }
 
@@ -576,7 +675,7 @@ private fun LoginScreen(
 private fun MainShell(
     uiState: AppUiState,
     viewModel: MainViewModel,
-    snackbarHostState: SnackbarHostState,
+    onMessage: (String) -> Unit,
 ) {
     val currentUser = uiState.currentUser ?: return
     val context = LocalContext.current
@@ -592,7 +691,6 @@ private fun MainShell(
     var uploadSheetOpen by rememberSaveable { mutableStateOf(false) }
     var createFolderOpen by rememberSaveable { mutableStateOf(false) }
     var actionContext by remember { mutableStateOf<NodeActionContext?>(null) }
-    var shareSelectionWarning by remember { mutableStateOf<String?>(null) }
     var moveSheetOpen by rememberSaveable { mutableStateOf(false) }
     var moveTargetId by rememberSaveable { mutableStateOf<Long?>(null) }
     var createUserOpen by rememberSaveable { mutableStateOf(false) }
@@ -639,18 +737,11 @@ private fun MainShell(
         }
     }
 
-    LaunchedEffect(shareSelectionWarning) {
-        shareSelectionWarning?.let { warning ->
-            snackbarHostState.showSnackbar(warning)
-            shareSelectionWarning = null
-        }
-    }
-
     fun openShareSelection(nodes: List<StorageNode>) {
         val uniqueNodes = nodes.distinctBy(StorageNode::id)
         when {
-            uniqueNodes.isEmpty() -> shareSelectionWarning = "请先选择要分享的文件或文件夹。"
-            uniqueNodes.size > 20 -> shareSelectionWarning = "单个分享最多包含 20 个项目。"
+            uniqueNodes.isEmpty() -> onMessage("请先选择要分享的文件或文件夹。")
+            uniqueNodes.size > 20 -> onMessage("单个分享最多包含 20 个项目。")
             else -> shareCreateLauncher.launch(
                 ShareCreateActivity.createIntent(
                     context = context,
@@ -691,12 +782,6 @@ private fun MainShell(
 
     Scaffold(
         containerColor = ScreenBackground,
-        snackbarHost = {
-            SnackbarHost(
-                hostState = snackbarHostState,
-                modifier = Modifier.navigationBarsPadding(),
-            )
-        },
         floatingActionButton = {
             val selectionActive = visibleTab == AppTab.FILES && explorer.selectedNodeIds.isNotEmpty()
             val addAvailable = visibleTab == AppTab.HOME || visibleTab == AppTab.FILES || visibleTab == AppTab.TRANSFERS
@@ -826,12 +911,15 @@ private fun MainShell(
                 updatingAvatar = uiState.isUpdatingAvatar,
                 updatingProfile = uiState.isUpdatingProfile,
                 changingPassword = uiState.isChangingPassword,
+                versionUpdate = uiState.versionUpdate,
                 team = uiState.team,
                 onRefresh = viewModel::refreshCurrentTab,
                 onAvatar = { avatarLauncher.launch(arrayOf("image/*")) },
                 onNickname = viewModel::updateNickname,
                 onPassword = viewModel::changePassword,
                 onSwitchBaseUrl = viewModel::switchBaseUrl,
+                onCheckForUpdate = viewModel::checkForAppUpdateManually,
+                onOpenUpdate = viewModel::openVersionUpdateDownload,
                 onLogout = viewModel::logout,
                 onCreateUser = { createUserOpen = true },
                 onEditQuota = { quotaUser = it },
@@ -859,8 +947,9 @@ private fun MainShell(
             creating = uiState.files.isCreatingFolder,
             onDismiss = { createFolderOpen = false },
             onCreate = { name ->
-                viewModel.createFolder(name)
-                createFolderOpen = false
+                viewModel.createFolder(name) {
+                    createFolderOpen = false
+                }
             },
         )
     }
@@ -2507,12 +2596,15 @@ private fun MeScreen(
     updatingAvatar: Boolean,
     updatingProfile: Boolean,
     changingPassword: Boolean,
+    versionUpdate: VersionUpdateUiState,
     team: TeamUiState,
     onRefresh: () -> Unit,
     onAvatar: () -> Unit,
     onNickname: (String, () -> Unit) -> Unit,
     onPassword: (String, String, () -> Unit) -> Unit,
     onSwitchBaseUrl: (String) -> Unit,
+    onCheckForUpdate: () -> Unit,
+    onOpenUpdate: () -> Unit,
     onLogout: () -> Unit,
     onCreateUser: () -> Unit,
     onEditQuota: (User) -> Unit,
@@ -2520,8 +2612,17 @@ private fun MeScreen(
 ) {
     var page by rememberSaveable(user.id) { mutableStateOf(MePage.MAIN) }
     var nickname by rememberSaveable(user.id) { mutableStateOf(user.nickname) }
-    var oldPassword by rememberSaveable(user.id) { mutableStateOf("") }
-    var newPassword by rememberSaveable(user.id) { mutableStateOf("") }
+    var oldPassword by remember(user.id) { mutableStateOf("") }
+    var newPassword by remember(user.id) { mutableStateOf("") }
+    val returnToMeMain = {
+        if (page == MePage.SECURITY) {
+            oldPassword = ""
+            newPassword = ""
+        }
+        page = MePage.MAIN
+    }
+
+    BackHandler(enabled = page != MePage.MAIN, onBack = returnToMeMain)
 
     when (page) {
         MePage.MAIN -> MeMainPage(
@@ -2542,7 +2643,7 @@ private fun MeScreen(
             updating = updatingProfile,
             avatarUrl = avatarUrl,
             user = user,
-            onBack = { page = MePage.MAIN },
+            onBack = returnToMeMain,
             onAvatar = onAvatar,
             onNicknameChange = { nickname = it },
             onSave = { onNickname(nickname) { page = MePage.MAIN } },
@@ -2553,7 +2654,7 @@ private fun MeScreen(
             oldPassword = oldPassword,
             newPassword = newPassword,
             changing = changingPassword,
-            onBack = { page = MePage.MAIN },
+            onBack = returnToMeMain,
             onOldPasswordChange = { oldPassword = it },
             onNewPasswordChange = { newPassword = it },
             onSave = {
@@ -2568,26 +2669,29 @@ private fun MeScreen(
         MePage.ENVIRONMENT -> MeEnvironmentPage(
             paddingValues = paddingValues,
             baseUrl = baseUrl,
-            onBack = { page = MePage.MAIN },
+            onBack = returnToMeMain,
             onSwitchBaseUrl = onSwitchBaseUrl,
         )
 
         MePage.STORAGE -> MeStoragePage(
             paddingValues = paddingValues,
             user = user,
-            onBack = { page = MePage.MAIN },
+            onBack = returnToMeMain,
         )
 
         MePage.UPDATES -> MeUpdatePage(
             paddingValues = paddingValues,
-            onBack = { page = MePage.MAIN },
+            state = versionUpdate,
+            onBack = returnToMeMain,
+            onCheckForUpdate = onCheckForUpdate,
+            onOpenUpdate = onOpenUpdate,
         )
 
         MePage.ADMIN -> MeAdminPage(
             paddingValues = paddingValues,
             team = team,
             currentUser = user,
-            onBack = { page = MePage.MAIN },
+            onBack = returnToMeMain,
             onRefresh = onRefresh,
             onCreateUser = onCreateUser,
             onEditQuota = onEditQuota,
@@ -2660,19 +2764,19 @@ private fun MeMainPage(
                 color = Color.White,
                 shape = RoundedCornerShape(20.dp),
             ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                    ReferenceIcon(
-                        ReferenceAsset.CloseBlack,
-                        contentDescription = null,
-                        modifier = Modifier
-                            .size(30.dp)
-                            .scale(1.35f),
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 16.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        "退出登录",
+                        color = Danger,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center,
                     )
-                    Text("退出登录", color = Danger, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -2829,15 +2933,7 @@ private fun MePageScaffold(
     ) {
         item {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Box(
-                    modifier = Modifier
-                        .size(42.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .noRippleClickable(onClick = onBack),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    ReferenceIcon(ReferenceAsset.BackBlack, contentDescription = "返回", modifier = Modifier.size(24.dp))
-                }
+                AddTopBackButton(onClick = onBack)
                 Column {
                     Text(title, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
                     Text(subtitle, color = Muted, fontSize = 13.sp)
@@ -2845,15 +2941,17 @@ private fun MePageScaffold(
             }
         }
         item {
-            Surface(
+            val shape = RoundedCornerShape(24.dp)
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .addCardChrome(RoundedCornerShape(24.dp)),
-                color = Color.White,
-                shape = RoundedCornerShape(24.dp),
-            ) {
-                Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp), content = content)
-            }
+                    .addCardChrome(shape)
+                    .clip(shape)
+                    .background(Color.White)
+                    .padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+                content = content,
+            )
         }
     }
 }
@@ -2874,20 +2972,30 @@ private fun MeProfilePage(
         Box(modifier = Modifier.align(Alignment.CenterHorizontally)) {
             Avatar(url = avatarUrl, fallback = user.nickname, size = 88.dp, onClick = onAvatar)
         }
-        OutlinedButton(onClick = onAvatar, enabled = !updating, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(16.dp)) {
-            Text(if (updating) "头像上传中" else "更换头像")
-        }
-        OutlinedTextField(
+        AddActionButton(
+            label = if (updating) "头像上传中" else "更换头像",
+            onClick = onAvatar,
+            modifier = Modifier.fillMaxWidth(),
+            primary = false,
+            enabled = !updating,
+        )
+        AddTextField(
             value = nickname,
             onValueChange = onNicknameChange,
-            label = { Text("昵称") },
-            singleLine = true,
+            label = "昵称",
+            placeholder = "请输入昵称",
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
+            enabled = !updating,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { if (!updating) onSave() }),
         )
-        Button(onClick = onSave, enabled = !updating, modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(16.dp)) {
-            Text(if (updating) "保存中" else "保存昵称")
-        }
+        AddActionButton(
+            label = if (updating) "保存中" else "保存昵称",
+            onClick = onSave,
+            modifier = Modifier.fillMaxWidth(),
+            primary = true,
+            enabled = !updating && nickname.isNotBlank(),
+        )
     }
 }
 
@@ -2903,27 +3011,40 @@ private fun MeSecurityPage(
     onSave: () -> Unit,
 ) {
     MePageScaffold(paddingValues, "账号安全", "修改登录密码", onBack) {
-        OutlinedTextField(
+        AddTextField(
             value = oldPassword,
             onValueChange = onOldPasswordChange,
-            label = { Text("当前密码") },
-            singleLine = true,
+            label = "当前密码",
+            placeholder = "请输入当前密码",
             visualTransformation = PasswordVisualTransformation(),
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
+            enabled = !changing,
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Password,
+                imeAction = ImeAction.Next,
+            ),
         )
-        OutlinedTextField(
+        AddTextField(
             value = newPassword,
             onValueChange = onNewPasswordChange,
-            label = { Text("新密码") },
-            singleLine = true,
+            label = "新密码",
+            placeholder = "请输入新密码",
             visualTransformation = PasswordVisualTransformation(),
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
+            enabled = !changing,
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Password,
+                imeAction = ImeAction.Done,
+            ),
+            keyboardActions = KeyboardActions(onDone = { if (!changing) onSave() }),
         )
-        Button(onClick = onSave, enabled = !changing, modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(16.dp)) {
-            Text(if (changing) "修改中" else "修改密码")
-        }
+        AddActionButton(
+            label = if (changing) "修改中" else "修改密码",
+            onClick = onSave,
+            modifier = Modifier.fillMaxWidth(),
+            primary = true,
+            enabled = !changing && oldPassword.isNotBlank() && newPassword.isNotBlank(),
+        )
     }
 }
 
@@ -2978,12 +3099,36 @@ private fun MeStoragePage(
 @Composable
 private fun MeUpdatePage(
     paddingValues: PaddingValues,
+    state: VersionUpdateUiState,
     onBack: () -> Unit,
+    onCheckForUpdate: () -> Unit,
+    onOpenUpdate: () -> Unit,
 ) {
-    MePageScaffold(paddingValues, "版本更新", "Add 版本保留启动检查", onBack) {
+    MePageScaffold(paddingValues, "版本更新", "检查应用版本", onBack) {
         Text("当前版本", color = Muted, fontSize = 13.sp)
-        Text(BuildConfig.VERSION_NAME, color = Ink, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold)
-        Text("应用启动和恢复登录后会按现有逻辑检查服务器版本。若发现新版本，会弹出更新提示。", color = Muted, fontSize = 13.sp, lineHeight = 20.sp)
+        Text(state.currentVersionName, color = Ink, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold)
+        Text("版本更新内容", color = Ink, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+        Text(
+            text = when {
+                state.checking && state.releaseNotes.isBlank() -> "正在获取版本更新内容..."
+                state.releaseNotes.isBlank() -> "暂无版本更新内容"
+                else -> state.releaseNotes
+            },
+            color = Muted,
+            fontSize = 13.sp,
+            lineHeight = 20.sp,
+        )
+        AddActionButton(
+            label = when {
+                state.checking -> "检查中"
+                state.updateAvailable -> "立即更新"
+                else -> "检查更新"
+            },
+            onClick = if (state.updateAvailable) onOpenUpdate else onCheckForUpdate,
+            modifier = Modifier.fillMaxWidth(),
+            primary = true,
+            enabled = !state.checking,
+        )
     }
 }
 
@@ -3279,25 +3424,65 @@ private fun CreateFolderDialog(
     onCreate: (String) -> Unit,
 ) {
     var name by rememberSaveable { mutableStateOf("") }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("新建文件夹") },
-        text = {
-            OutlinedTextField(
+    val canCreate = name.isNotBlank() && !creating
+    Dialog(
+        onDismissRequest = { if (!creating) onDismiss() },
+        properties = DialogProperties(
+            dismissOnBackPress = !creating,
+            dismissOnClickOutside = !creating,
+            usePlatformDefaultWidth = false,
+        ),
+    ) {
+        val shape = RoundedCornerShape(24.dp)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 26.dp)
+                .addCardChrome(shape)
+                .clip(shape)
+                .background(Color.White)
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp),
+        ) {
+            Text(
+                text = "新建文件夹",
+                color = Ink,
+                fontSize = 24.sp,
+                fontWeight = FontWeight.ExtraBold,
+            )
+            AddTextField(
                 value = name,
                 onValueChange = { name = it },
-                label = { Text("文件夹名称") },
-                singleLine = true,
+                label = "文件夹名称",
+                placeholder = "请输入文件夹名称",
                 modifier = Modifier.fillMaxWidth(),
+                enabled = !creating,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(
+                    onDone = { if (canCreate) onCreate(name.trim()) },
+                ),
             )
-        },
-        confirmButton = {
-            Button(onClick = { onCreate(name) }, enabled = !creating) {
-                Text(if (creating) "创建中" else "创建")
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                AddActionButton(
+                    label = "取消",
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f),
+                    primary = false,
+                    enabled = !creating,
+                )
+                AddActionButton(
+                    label = if (creating) "创建中" else "创建",
+                    onClick = { onCreate(name.trim()) },
+                    modifier = Modifier.weight(1f),
+                    primary = true,
+                    enabled = canCreate,
+                )
             }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
-    )
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

@@ -72,7 +72,7 @@ class ShareCreateActivity : ComponentActivity() {
 
     private fun copyShareInfo(text: String) {
         val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        clipboard.setPrimaryClip(ClipData.newPlainText("Alicia 云盘分享", text))
+        clipboard.setPrimaryClip(ClipData.newPlainText(ALICIA_SHARE_CLIP_LABEL, text))
         shareViewModel.showMessage("分享信息已复制。")
     }
 

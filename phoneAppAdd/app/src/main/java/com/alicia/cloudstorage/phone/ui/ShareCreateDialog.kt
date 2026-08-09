@@ -57,7 +57,6 @@ import com.alicia.cloudstorage.phone.R
 import com.alicia.cloudstorage.phone.ShareCreateArgs
 import com.alicia.cloudstorage.phone.data.StorageNode
 import com.alicia.cloudstorage.phone.data.StorageNodeType
-import kotlinx.coroutines.delay
 
 private val ShareInk = Color(0xFF111827)
 private val ShareMuted = Color(0xFF8993A6)
@@ -101,13 +100,6 @@ fun ShareCreateScreen(
     LaunchedEffect(title, password) {
         validationError = null
     }
-    LaunchedEffect(state.message) {
-        if (state.message != null) {
-            delay(1_800)
-            viewModel.clearMessage()
-        }
-    }
-
     BackHandler(enabled = state.creating) {}
 
     Box(
@@ -206,17 +198,11 @@ fun ShareCreateScreen(
         }
 
         state.message?.let { message ->
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .statusBarsPadding()
-                    .padding(top = 66.dp, start = 24.dp, end = 24.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(ShareInk.copy(alpha = 0.94f))
-                    .padding(horizontal = 18.dp, vertical = 11.dp),
-            ) {
-                Text(message, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-            }
+            AddToastOverlay(
+                message = message,
+                onExpired = viewModel::clearMessage,
+                modifier = Modifier.align(Alignment.Center),
+            )
         }
     }
 }

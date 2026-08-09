@@ -192,13 +192,10 @@ fun FileDetailScreen(
         }
 
         state.message?.let { message ->
-            DetailMessageBanner(
+            AddToastOverlay(
                 message = message,
                 onExpired = viewModel::clearMessage,
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .statusBarsPadding()
-                    .padding(top = 74.dp, start = 24.dp, end = 24.dp),
+                modifier = Modifier.align(Alignment.Center),
             )
         }
     }
@@ -218,11 +215,7 @@ private fun FileDetailHeader(
             .padding(horizontal = 20.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        DetailIconButton(
-            drawableRes = R.drawable.ic_add_back_black,
-            contentDescription = "返回",
-            onClick = onBack,
-        )
+        AddTopBackButton(onClick = onBack)
         Text(
             text = fileName,
             modifier = Modifier
@@ -1069,29 +1062,6 @@ private fun DetailDivider() {
             .height(1.dp)
             .background(DetailSoftLine),
     )
-}
-
-@Composable
-private fun DetailMessageBanner(message: String, onExpired: () -> Unit, modifier: Modifier = Modifier) {
-    LaunchedEffect(message) {
-        delay(2_500)
-        onExpired()
-    }
-    Surface(
-        modifier = modifier,
-        color = DetailInk.copy(alpha = 0.94f),
-        shape = RoundedCornerShape(16.dp),
-        shadowElevation = 8.dp,
-    ) {
-        Text(
-            text = message,
-            modifier = Modifier.padding(horizontal = 18.dp, vertical = 12.dp),
-            color = Color.White,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.SemiBold,
-            textAlign = TextAlign.Center,
-        )
-    }
 }
 
 private fun detailNodeIcon(node: StorageNode): Int = when {

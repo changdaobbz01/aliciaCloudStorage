@@ -12,6 +12,7 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import com.alicia.cloudstorage.phone.ui.AliciaCloudApp
 import com.alicia.cloudstorage.phone.ui.AliciaCloudTheme
@@ -64,7 +65,6 @@ class MainActivity : ComponentActivity() {
             clipboardManager.addPrimaryClipChangedListener(clipboardChangedListener)
             clipboardListenerRegistered = true
         }
-        scheduleClipboardShareCheck()
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -76,13 +76,6 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         scheduleClipboardShareCheck()
-    }
-
-    override fun onWindowFocusChanged(hasFocus: Boolean) {
-        super.onWindowFocusChanged(hasFocus)
-        if (hasFocus) {
-            scheduleClipboardShareCheck()
-        }
     }
 
     override fun onPause() {
@@ -104,15 +97,10 @@ class MainActivity : ComponentActivity() {
     private fun scheduleClipboardShareCheck() {
         clipboardShareCheckJob?.cancel()
         clipboardShareCheckJob = lifecycleScope.launch {
-            appViewModel.checkClipboardForShareLink()
-            delay(250)
-            appViewModel.checkClipboardForShareLink()
-            delay(550)
-            appViewModel.checkClipboardForShareLink()
-            delay(1_000)
-            appViewModel.checkClipboardForShareLink()
-            delay(1_500)
-            appViewModel.checkClipboardForShareLink()
+            delay(350)
+            if (lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+                appViewModel.checkClipboardForShareLink()
+            }
         }
     }
 }

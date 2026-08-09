@@ -10,15 +10,17 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.alicia.cloudstorage.phone.BuildConfig
+import com.alicia.cloudstorage.phone.AppUpdatePolicy
+import com.alicia.cloudstorage.phone.ClipboardSharePolicy
 import com.alicia.cloudstorage.phone.ShareLinkParser
 import com.alicia.cloudstorage.phone.describeAccessEnvironment
 import com.alicia.cloudstorage.phone.normalizeConfiguredBaseUrl
 import com.alicia.cloudstorage.phone.data.AliciaRepository
 import com.alicia.cloudstorage.phone.data.ApiException
-import com.alicia.cloudstorage.phone.data.AppPackageVersionInfo
 import com.alicia.cloudstorage.phone.data.AppTab
 import com.alicia.cloudstorage.phone.data.DriveOverview
 import com.alicia.cloudstorage.phone.data.FolderCrumb
+import com.alicia.cloudstorage.phone.data.ClipboardShareReceipt
 import com.alicia.cloudstorage.phone.data.SessionStore
 import com.alicia.cloudstorage.phone.data.ShareLinkDetailResponse
 import com.alicia.cloudstorage.phone.data.ShareLinkStatusResponse
@@ -40,12 +42,13 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.io.File
 import java.nio.ByteBuffer
 import java.nio.charset.Charset
 import java.nio.charset.CodingErrorAction
 import java.nio.charset.StandardCharsets
-import java.net.URI
 import kotlin.math.roundToLong
 
 private const val MAX_TEXT_PREVIEW_BYTES = 2L * 1024 * 1024
@@ -181,6 +184,15 @@ data class AppUpdateState(
     val downloadUrl: String,
 )
 
+data class VersionUpdateUiState(
+    val currentVersionName: String = BuildConfig.VERSION_NAME,
+    val latestVersionName: String? = null,
+    val releaseNotes: String = "",
+    val downloadUrl: String? = null,
+    val checking: Boolean = false,
+    val updateAvailable: Boolean = false,
+)
+
 enum class IncomingShareSource {
     CLIPBOARD,
     DEEP_LINK,
@@ -230,6 +242,7 @@ data class AppUiState(
     val team: TeamUiState = TeamUiState(),
     val preview: FilePreviewState = FilePreviewState(),
     val appUpdate: AppUpdateState? = null,
+    val versionUpdate: VersionUpdateUiState = VersionUpdateUiState(),
     val incomingShare: IncomingShareUiState = IncomingShareUiState(),
     val transfers: List<TransferTask> = emptyList(),
     val transferPanelOpen: Boolean = false,
@@ -250,9 +263,12 @@ class MainViewModel(
     private val fileDirectoryCache = mutableMapOf<Long?, List<StorageNode>>()
     private var dismissedUpdateVersionName: String? = null
     private var currentPreviewCacheFile: File? = null
-    private var lastDismissedClipboardShareCode: String? = null
-    private var lastDismissedClipboardFingerprint: String? = null
-    private var lastDismissedClipboardAtMillis: Long = 0L
+    private var lastHandledClipboardShareCode: String? = null
+    private var lastHandledClipboardFingerprint: String? = null
+    private var lastHandledClipboardAtMillis: Long = 0L
+    private var clipboardReceiptLoaded = false
+    private val clipboardReceiptMutex = Mutex()
+    private var appUpdateCheckJob: Job? = null
     private var nextTransferId = 1L
     private val transferJobs = mutableMapOf<Long, Job>()
 
@@ -972,7 +988,10 @@ class MainViewModel(
         }
     }
 
-    fun createFolder(folderName: String) {
+    fun createFolder(
+        folderName: String,
+        onSuccess: () -> Unit = {},
+    ) {
         val session = authenticatedSession() ?: return
         val trimmedName = folderName.trim()
 
@@ -999,6 +1018,7 @@ class MainViewModel(
                 }
                 emitMessage("已创建文件夹：$trimmedName")
                 refreshAfterMutation(refreshFiles = true, refreshTrash = false)
+                onSuccess()
             }.onFailure { error ->
                 _uiState.update { state ->
                     state.copy(files = state.files.copy(isCreatingFolder = false))
@@ -1374,7 +1394,7 @@ class MainViewModel(
         openIncomingShare(shareCode, IncomingShareSource.DEEP_LINK)
     }
 
-    fun checkClipboardForShareLink() {
+    suspend fun checkClipboardForShareLink() {
         val clipboard = appContext.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager ?: return
         val clip = runCatching { clipboard.primaryClip }.getOrNull() ?: return
         if (clip.itemCount <= 0) {
@@ -1397,19 +1417,26 @@ class MainViewModel(
             .firstOrNull()
             ?: return
         val clipboardFingerprint = clipboardFingerprint(clip, clipboardTexts)
+        ensureClipboardReceiptLoaded()
         val incomingShare = uiState.value.incomingShare
-        val dismissedRecently = lastDismissedClipboardShareCode == shareCode &&
-            lastDismissedClipboardFingerprint == clipboardFingerprint &&
-            System.currentTimeMillis() - lastDismissedClipboardAtMillis < 30_000L
 
         if (
             incomingShare.activeShareCode == shareCode ||
             incomingShare.prompt?.shareCode == shareCode ||
-            dismissedRecently
+            !ClipboardSharePolicy.shouldPrompt(
+                clipLabel = clip.description.label?.toString(),
+                shareCode = shareCode,
+                fingerprint = clipboardFingerprint,
+                lastHandledShareCode = lastHandledClipboardShareCode,
+                lastHandledFingerprint = lastHandledClipboardFingerprint,
+                lastHandledAtMillis = lastHandledClipboardAtMillis,
+                nowMillis = System.currentTimeMillis(),
+            )
         ) {
             return
         }
 
+        rememberHandledClipboardShare(shareCode, clipboardFingerprint)
         _uiState.update { state ->
             state.copy(
                 incomingShare = state.incomingShare.copy(
@@ -1419,6 +1446,41 @@ class MainViewModel(
                     ),
                 ),
             )
+        }
+    }
+
+    private suspend fun ensureClipboardReceiptLoaded() {
+        if (clipboardReceiptLoaded) return
+
+        clipboardReceiptMutex.withLock {
+            if (clipboardReceiptLoaded) return@withLock
+
+            val receipt = runCatching {
+                sessionStore.clipboardShareReceiptFlow().first()
+            }.getOrNull()
+            if (receipt != null && receipt.handledAtMillis >= lastHandledClipboardAtMillis) {
+                lastHandledClipboardShareCode = receipt.shareCode
+                lastHandledClipboardFingerprint = receipt.fingerprint
+                lastHandledClipboardAtMillis = receipt.handledAtMillis
+            }
+            clipboardReceiptLoaded = true
+        }
+    }
+
+    private fun rememberHandledClipboardShare(shareCode: String, fingerprint: String) {
+        if (shareCode.isBlank() || fingerprint.isBlank()) return
+
+        val receipt = ClipboardShareReceipt(
+            shareCode = shareCode,
+            fingerprint = fingerprint,
+            handledAtMillis = System.currentTimeMillis(),
+        )
+        lastHandledClipboardShareCode = receipt.shareCode
+        lastHandledClipboardFingerprint = receipt.fingerprint
+        lastHandledClipboardAtMillis = receipt.handledAtMillis
+        clipboardReceiptLoaded = true
+        viewModelScope.launch {
+            runCatching { sessionStore.saveClipboardShareReceipt(receipt) }
         }
     }
 
@@ -1442,9 +1504,9 @@ class MainViewModel(
         val prompt = uiState.value.incomingShare.prompt
         val shareCode = prompt?.shareCode
         if (!shareCode.isNullOrBlank()) {
-            lastDismissedClipboardShareCode = shareCode
-            lastDismissedClipboardFingerprint = prompt.clipboardFingerprint
-            lastDismissedClipboardAtMillis = System.currentTimeMillis()
+            prompt.clipboardFingerprint?.let { fingerprint ->
+                rememberHandledClipboardShare(shareCode, fingerprint)
+            }
         }
 
         _uiState.update { state ->
@@ -1454,6 +1516,9 @@ class MainViewModel(
 
     fun confirmIncomingSharePrompt() {
         val prompt = uiState.value.incomingShare.prompt ?: return
+        prompt.clipboardFingerprint?.let { fingerprint ->
+            rememberHandledClipboardShare(prompt.shareCode, fingerprint)
+        }
         _uiState.update { state ->
             state.copy(incomingShare = state.incomingShare.copy(prompt = null))
         }
@@ -1467,9 +1532,9 @@ class MainViewModel(
     fun closeIncomingShare() {
         val incomingShare = uiState.value.incomingShare
         if (incomingShare.source == IncomingShareSource.CLIPBOARD && !incomingShare.activeShareCode.isNullOrBlank()) {
-            lastDismissedClipboardShareCode = incomingShare.activeShareCode
-            lastDismissedClipboardFingerprint = incomingShare.clipboardFingerprint
-            lastDismissedClipboardAtMillis = System.currentTimeMillis()
+            incomingShare.clipboardFingerprint?.let { fingerprint ->
+                rememberHandledClipboardShare(incomingShare.activeShareCode, fingerprint)
+            }
         }
 
         _uiState.update { state ->
@@ -1840,15 +1905,36 @@ class MainViewModel(
         _uiState.update { state -> state.copy(appUpdate = null) }
     }
 
+    fun checkForAppUpdateManually() {
+        if (uiState.value.versionUpdate.checking) return
+        checkForAppUpdate(uiState.value.baseUrl, requestedByUser = true)
+    }
+
     fun openAppUpdateDownload() {
         val appUpdate = uiState.value.appUpdate ?: return
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(appUpdate.downloadUrl))
+        openAppUpdateDownloadUrl(appUpdate.downloadUrl, dismissPromptAfterOpen = true)
+    }
+
+    fun openVersionUpdateDownload() {
+        val update = uiState.value.versionUpdate
+        if (!update.updateAvailable) {
+            checkForAppUpdateManually()
+            return
+        }
+        val downloadUrl = update.downloadUrl ?: return
+        openAppUpdateDownloadUrl(downloadUrl, dismissPromptAfterOpen = false)
+    }
+
+    private fun openAppUpdateDownloadUrl(downloadUrl: String, dismissPromptAfterOpen: Boolean) {
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(downloadUrl))
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 
         runCatching {
             appContext.startActivity(intent)
         }.onSuccess {
-            dismissAppUpdate()
+            if (dismissPromptAfterOpen) {
+                dismissAppUpdate()
+            }
         }.onFailure {
             emitMessage("无法打开更新链接，请稍后再试。")
         }
@@ -2839,43 +2925,89 @@ class MainViewModel(
         return (quotaGb * BYTES_PER_GIB.toDouble()).roundToLong()
     }
 
-    private fun checkForAppUpdate(baseUrl: String) {
+    private fun checkForAppUpdate(baseUrl: String, requestedByUser: Boolean = false) {
+        val currentVersionName = resolveInstalledVersionName()
         if (!BuildConfig.APP_UPDATE_ENABLED) {
-            _uiState.update { state -> state.copy(appUpdate = null) }
+            _uiState.update { state ->
+                state.copy(
+                    appUpdate = if (requestedByUser) state.appUpdate else null,
+                    versionUpdate = state.versionUpdate.copy(
+                        currentVersionName = currentVersionName,
+                        checking = false,
+                        updateAvailable = false,
+                        downloadUrl = null,
+                    ),
+                )
+            }
+            if (requestedByUser) {
+                emitMessage("当前版本未启用在线更新。")
+            }
             return
         }
 
-        viewModelScope.launch {
+        if (requestedByUser) {
+            _uiState.update { state ->
+                state.copy(
+                    versionUpdate = state.versionUpdate.copy(
+                        currentVersionName = currentVersionName,
+                        checking = true,
+                    ),
+                )
+            }
+        }
+
+        appUpdateCheckJob?.cancel()
+        appUpdateCheckJob = viewModelScope.launch {
             runCatching {
                 repository.fetchLatestAppVersion(baseUrl)
             }.onSuccess { versionInfo ->
                 val latestVersionName = versionInfo.versionName?.trim().orEmpty()
-
-                if (!versionInfo.available || latestVersionName.isBlank()) {
-                    _uiState.update { state -> state.copy(appUpdate = null) }
-                    return@onSuccess
-                }
-
-                if (dismissedUpdateVersionName == latestVersionName) {
-                    _uiState.update { state -> state.copy(appUpdate = null) }
-                    return@onSuccess
-                }
-
-                val currentVersionName = resolveInstalledVersionName()
-                if (compareVersionNames(currentVersionName, latestVersionName) >= 0) {
-                    _uiState.update { state -> state.copy(appUpdate = null) }
-                    return@onSuccess
-                }
+                val releaseNotes = versionInfo.releaseNotes?.trim().orEmpty()
+                val downloadUrl = AppUpdatePolicy.resolveDownloadUrl(baseUrl, versionInfo.downloadUrl)
+                val newerVersionAvailable = versionInfo.available &&
+                    latestVersionName.isNotBlank() &&
+                    compareVersionNames(currentVersionName, latestVersionName) < 0
+                val updateAvailable = newerVersionAvailable && downloadUrl != null
 
                 _uiState.update { state ->
                     state.copy(
-                        appUpdate = AppUpdateState(
+                        appUpdate = when {
+                            requestedByUser -> state.appUpdate
+                            !updateAvailable || dismissedUpdateVersionName == latestVersionName -> null
+                            else -> AppUpdateState(
+                                currentVersionName = currentVersionName,
+                                latestVersionName = latestVersionName,
+                                releaseNotes = releaseNotes,
+                                downloadUrl = requireNotNull(downloadUrl),
+                            )
+                        },
+                        versionUpdate = VersionUpdateUiState(
                             currentVersionName = currentVersionName,
-                            latestVersionName = latestVersionName,
-                            releaseNotes = versionInfo.releaseNotes?.trim().orEmpty(),
-                            downloadUrl = resolveAppUpdateDownloadUrl(baseUrl, versionInfo),
+                            latestVersionName = latestVersionName.ifBlank { null },
+                            releaseNotes = releaseNotes,
+                            downloadUrl = downloadUrl,
+                            checking = false,
+                            updateAvailable = updateAvailable,
                         ),
                     )
+                }
+
+                if (requestedByUser) {
+                    when {
+                        newerVersionAvailable && downloadUrl == null -> emitMessage("更新地址无效，请联系管理员。")
+                        updateAvailable -> emitMessage("发现新版本 $latestVersionName。")
+                        else -> emitMessage("当前已是最新版本。")
+                    }
+                }
+            }.onFailure { error ->
+                if (error is CancellationException) return@onFailure
+                _uiState.update { state ->
+                    state.copy(
+                        versionUpdate = state.versionUpdate.copy(checking = false),
+                    )
+                }
+                if (requestedByUser) {
+                    emitMessage(error.message ?: "检查更新失败，请稍后再试。")
                 }
             }
         }
@@ -2885,19 +3017,6 @@ class MainViewModel(
         BuildConfig.VERSION_NAME
             .trim()
             .ifBlank { "0.0.0" }
-
-    private fun resolveAppUpdateDownloadUrl(baseUrl: String, versionInfo: AppPackageVersionInfo): String =
-        runCatching {
-            URI("${baseUrl.trim().removeSuffix("/")}/")
-                .resolve(versionInfo.downloadUrl)
-                .toString()
-        }.getOrElse {
-            if (versionInfo.downloadUrl.startsWith("http://") || versionInfo.downloadUrl.startsWith("https://")) {
-                versionInfo.downloadUrl
-            } else {
-                "${baseUrl.trim().removeSuffix("/")}/${versionInfo.downloadUrl.trimStart('/')}"
-            }
-        }
 
     private fun compareVersionNames(currentVersionName: String, latestVersionName: String): Int {
         val currentTokens = tokenizeVersionName(currentVersionName)
