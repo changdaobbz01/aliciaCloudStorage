@@ -5,6 +5,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.SystemClock
 import android.provider.OpenableColumns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -41,6 +42,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -54,6 +56,8 @@ import kotlin.math.roundToLong
 private const val MAX_TEXT_PREVIEW_BYTES = 2L * 1024 * 1024
 private const val BYTES_PER_GIB = 1024L * 1024 * 1024
 private const val MAX_TRANSFER_HISTORY = 50
+private const val MIN_GLOBAL_LOADING_MILLIS = 420L
+private const val MIN_BOOT_SPLASH_MILLIS = 850L
 
 private val PREVIEWABLE_TEXT_EXTENSIONS = setOf(
     "txt",
@@ -229,6 +233,8 @@ data class IncomingShareUiState(
 data class AppUiState(
     val isBooting: Boolean = true,
     val isSubmittingLogin: Boolean = false,
+    val isManualRefreshing: Boolean = false,
+    val isRefreshingUser: Boolean = false,
     val isUpdatingProfile: Boolean = false,
     val isUpdatingAvatar: Boolean = false,
     val isChangingPassword: Boolean = false,
@@ -255,6 +261,7 @@ class MainViewModel(
     private val defaultBaseUrl: String,
     private val appContext: Context,
 ) : ViewModel() {
+    private val bootStartedAtMillis = SystemClock.elapsedRealtime()
     private val _uiState = MutableStateFlow(AppUiState(baseUrl = defaultBaseUrl))
     val uiState = _uiState.asStateFlow()
 
@@ -269,6 +276,10 @@ class MainViewModel(
     private var clipboardReceiptLoaded = false
     private val clipboardReceiptMutex = Mutex()
     private var appUpdateCheckJob: Job? = null
+    private var manualRefreshJob: Job? = null
+    private var manualRefreshGeneration = 0L
+    private var currentUserSyncJob: Job? = null
+    private var currentUserSyncGeneration = 0L
     private var nextTransferId = 1L
     private val transferJobs = mutableMapOf<Long, Job>()
 
@@ -295,6 +306,8 @@ class MainViewModel(
         viewModelScope.launch {
             transferJobs.values.forEach { job -> job.cancel() }
             transferJobs.clear()
+            cancelManualRefreshLoading()
+            cancelCurrentUserSync()
             sessionStore.clearToken(normalizedBaseUrl)
             fileDirectoryCache.clear()
             clearPreviewArtifacts()
@@ -392,7 +405,12 @@ class MainViewModel(
     }
 
     fun refreshCurrentTab() {
-        when (uiState.value.selectedTab) {
+        val selectedTab = uiState.value.selectedTab
+        if (selectedTab != AppTab.TRANSFERS) {
+            keepManualRefreshLoadingVisible()
+        }
+
+        when (selectedTab) {
             AppTab.HOME -> refreshHome(forceLoading = true)
             AppTab.FILES -> refreshFiles(forceLoading = true)
             AppTab.TRASH -> refreshTrash(forceLoading = true)
@@ -403,8 +421,6 @@ class MainViewModel(
                 val currentUser = uiState.value.currentUser
                 if (currentUser?.isAdmin == true) {
                     refreshTeam(forceLoading = true)
-                } else {
-                    emitMessage("当前账号信息已经是最新展示。")
                 }
             }
         }
@@ -2252,6 +2268,8 @@ class MainViewModel(
         viewModelScope.launch {
             transferJobs.values.forEach { job -> job.cancel() }
             transferJobs.clear()
+            cancelManualRefreshLoading()
+            cancelCurrentUserSync()
             sessionStore.clearToken(baseUrl)
             fileDirectoryCache.clear()
             clearPreviewArtifacts()
@@ -2269,6 +2287,7 @@ class MainViewModel(
             _uiState.update { state -> state.copy(baseUrl = session.baseUrl) }
 
             if (session.token.isNullOrBlank()) {
+                awaitMinimumBootSplashDuration()
                 _uiState.update { state -> state.copy(isBooting = false) }
                 checkForAppUpdate(session.baseUrl)
                 return@launch
@@ -2278,6 +2297,7 @@ class MainViewModel(
                 val currentUser = repository.fetchCurrentUser(session.baseUrl, session.token)
                 session to currentUser
             }.onSuccess { (savedSession, currentUser) ->
+                awaitMinimumBootSplashDuration()
                 fileDirectoryCache.clear()
                 clearPreviewArtifacts()
                 _uiState.update { state ->
@@ -2292,6 +2312,7 @@ class MainViewModel(
                 checkForAppUpdate(savedSession.baseUrl)
                 refreshIncomingShareDetailIfReady()
             }.onFailure { error ->
+                awaitMinimumBootSplashDuration()
                 sessionStore.clearToken(session.baseUrl)
                 clearPreviewArtifacts()
                 _uiState.update { state ->
@@ -2300,6 +2321,14 @@ class MainViewModel(
                 handleError(error)
                 checkForAppUpdate(session.baseUrl)
             }
+        }
+    }
+
+    private suspend fun awaitMinimumBootSplashDuration() {
+        val elapsedMillis = SystemClock.elapsedRealtime() - bootStartedAtMillis
+        val remainingMillis = MIN_BOOT_SPLASH_MILLIS - elapsedMillis
+        if (remainingMillis > 0L) {
+            delay(remainingMillis)
         }
     }
 
@@ -2355,16 +2384,57 @@ class MainViewModel(
 
     private fun syncCurrentUser() {
         val session = authenticatedSession() ?: return
+        val generation = ++currentUserSyncGeneration
+        val startedAtMillis = SystemClock.elapsedRealtime()
 
-        viewModelScope.launch {
-            runCatching {
-                repository.fetchCurrentUser(session.baseUrl, session.token)
-            }.onSuccess { currentUser ->
-                _uiState.update { state -> state.copy(currentUser = currentUser) }
-            }.onFailure { error ->
-                handleError(error, emitUserMessage = false)
+        currentUserSyncJob?.cancel()
+        _uiState.update { state -> state.copy(isRefreshingUser = true) }
+        currentUserSyncJob = viewModelScope.launch {
+            try {
+                val currentUser = repository.fetchCurrentUser(session.baseUrl, session.token)
+                if (generation == currentUserSyncGeneration) {
+                    _uiState.update { state -> state.copy(currentUser = currentUser) }
+                }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Throwable) {
+                if (generation == currentUserSyncGeneration) {
+                    handleError(error, emitUserMessage = false)
+                }
+            } finally {
+                if (generation == currentUserSyncGeneration) {
+                    val elapsed = SystemClock.elapsedRealtime() - startedAtMillis
+                    delay((MIN_GLOBAL_LOADING_MILLIS - elapsed).coerceAtLeast(0L))
+                    if (generation == currentUserSyncGeneration) {
+                        _uiState.update { state -> state.copy(isRefreshingUser = false) }
+                    }
+                }
             }
         }
+    }
+
+    private fun keepManualRefreshLoadingVisible() {
+        val generation = ++manualRefreshGeneration
+        manualRefreshJob?.cancel()
+        _uiState.update { state -> state.copy(isManualRefreshing = true) }
+        manualRefreshJob = viewModelScope.launch {
+            delay(MIN_GLOBAL_LOADING_MILLIS)
+            if (generation == manualRefreshGeneration) {
+                _uiState.update { state -> state.copy(isManualRefreshing = false) }
+            }
+        }
+    }
+
+    private fun cancelManualRefreshLoading() {
+        manualRefreshGeneration += 1L
+        manualRefreshJob?.cancel()
+        manualRefreshJob = null
+    }
+
+    private fun cancelCurrentUserSync() {
+        currentUserSyncGeneration += 1L
+        currentUserSyncJob?.cancel()
+        currentUserSyncJob = null
     }
 
     private fun refreshHome(forceLoading: Boolean) {

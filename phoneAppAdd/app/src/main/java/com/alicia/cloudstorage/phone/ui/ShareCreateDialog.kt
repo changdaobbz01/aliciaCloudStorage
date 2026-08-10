@@ -26,7 +26,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -204,6 +203,8 @@ fun ShareCreateScreen(
                 modifier = Modifier.align(Alignment.Center),
             )
         }
+
+        AddGlobalLoadingOverlay(visible = state.creating)
     }
 }
 
@@ -577,11 +578,12 @@ private fun ShareDialogButton(
             .alpha(if (enabled || busy) 1f else 0.55f),
         contentAlignment = Alignment.Center,
     ) {
-        if (busy) {
-            CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
-        } else {
-            Text(label, color = if (primary) Color.White else ShareInk, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-        }
+        Text(
+            text = if (busy) "$label..." else label,
+            color = if (primary) Color.White else ShareInk,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Bold,
+        )
     }
 }
 

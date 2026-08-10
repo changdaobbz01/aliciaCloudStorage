@@ -4,6 +4,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
@@ -12,6 +13,7 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import com.alicia.cloudstorage.phone.ui.AliciaCloudApp
@@ -35,7 +37,10 @@ class MainActivity : ComponentActivity() {
     private var clipboardListenerRegistered = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        val systemSplash = installSplashScreen()
         super.onCreate(savedInstanceState)
+        systemSplash.setKeepOnScreenCondition { appViewModel.uiState.value.isBooting }
+        window.setBackgroundDrawable(ColorDrawable(Color.WHITE))
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             window.attributes = window.attributes.apply {
                 layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
@@ -55,7 +60,6 @@ class MainActivity : ComponentActivity() {
                 AliciaCloudApp(viewModel = appViewModel)
             }
         }
-
         appViewModel.handleIncomingShareUri(intent?.data)
     }
 

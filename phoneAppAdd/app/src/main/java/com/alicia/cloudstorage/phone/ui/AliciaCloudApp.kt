@@ -10,6 +10,9 @@ import androidx.annotation.DrawableRes
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.BackHandler
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -43,6 +46,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items as gridItems
@@ -115,6 +119,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -123,6 +128,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
@@ -372,6 +378,7 @@ private data class AddToastEvent(
 @Composable
 fun AliciaCloudApp(viewModel: MainViewModel) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val globalLoading = uiState.shouldShowGlobalLoading()
     var toastSequence by remember { mutableStateOf(0L) }
     var toastEvent by remember { mutableStateOf<AddToastEvent?>(null) }
 
@@ -388,7 +395,11 @@ fun AliciaCloudApp(viewModel: MainViewModel) {
 
     Box(modifier = Modifier.fillMaxSize()) {
         when {
-            uiState.isBooting -> AddSplashContent()
+            uiState.isBooting -> Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(ScreenBackground),
+            )
             uiState.authToken.isNullOrBlank() -> LoginScreen(
                 baseUrl = uiState.baseUrl,
                 submitting = uiState.isSubmittingLogin,
@@ -432,6 +443,8 @@ fun AliciaCloudApp(viewModel: MainViewModel) {
                 modifier = Modifier.align(Alignment.Center),
             )
         }
+
+        AddGlobalLoadingOverlay(visible = globalLoading)
     }
 
     uiState.incomingShare.prompt?.let {
@@ -449,6 +462,37 @@ fun AliciaCloudApp(viewModel: MainViewModel) {
         )
     }
 }
+
+private fun AppUiState.shouldShowGlobalLoading(): Boolean =
+    !isBooting && (
+        isSubmittingLogin ||
+            isManualRefreshing ||
+            isRefreshingUser ||
+            isUpdatingProfile ||
+            isUpdatingAvatar ||
+            isChangingPassword ||
+            home.loading ||
+            files.loading ||
+            trash.loading ||
+            team.loading ||
+            files.isCreatingFolder ||
+            files.actionNodeId != null ||
+            files.isBatchActing ||
+            files.moveTargetLoading ||
+            trash.actionNodeId != null ||
+            trash.isBatchActing ||
+            trash.moveTargetLoading ||
+            team.isCreatingUser ||
+            team.quotaUserId != null ||
+            team.passwordUserId != null ||
+            preview.loading ||
+            versionUpdate.checking ||
+            incomingShare.statusLoading ||
+            incomingShare.detailLoading ||
+            incomingShare.passwordChecking ||
+            incomingShare.saving ||
+            incomingShare.saveTargetLoading
+        )
 
 @Composable
 private fun AppUpdateDialog(
@@ -1210,15 +1254,15 @@ private fun HomeScreen(
             )
             Spacer(modifier = Modifier.height(8.dp))
             when {
-                home.loading -> LoadingCard("正在加载最近文件")
                 home.error != null -> ErrorCard(home.error, onRefresh)
-                home.recentNodes.isEmpty() -> EmptyCard("暂无最近文件")
-                else -> HomeRecentPanel(
+                home.recentNodes.isNotEmpty() -> HomeRecentPanel(
                     nodes = recent,
                     baseUrl = baseUrl,
                     authToken = authToken,
                     onOpenNode = onOpenRecentNode,
                 )
+                home.loading -> LoadingCard("正在加载最近文件")
+                else -> EmptyCard("暂无最近文件")
             }
         }
     }
@@ -1439,6 +1483,13 @@ private fun FilesScreen(
         mutableStateOf(explorer.category == StorageFileCategory.IMAGE || explorer.category == StorageFileCategory.VIDEO)
     }
     var filterSheetOpen by rememberSaveable(trashMode) { mutableStateOf(false) }
+    var sortSheetOpen by rememberSaveable(trashMode) { mutableStateOf(false) }
+    var localSortMode by rememberSaveable(trashMode, explorer.category) {
+        mutableStateOf(FileLocalSortMode.ORIGINAL)
+    }
+    val displayedItems = remember(explorer.items, localSortMode) {
+        sortStorageNodesLocally(explorer.items, localSortMode)
+    }
     val filterHandler = if (trashMode) onTrashFilter else onFilter
 
     Box(
@@ -1482,7 +1533,9 @@ private fun FilesScreen(
 
             FileSortViewRow(
                 gridMode = gridMode,
+                sortMode = localSortMode,
                 onGridMode = { gridMode = it },
+                onSort = { sortSheetOpen = true },
                 onFilter = { filterSheetOpen = true },
             )
 
@@ -1495,7 +1548,7 @@ private fun FilesScreen(
 
             Box(modifier = Modifier.weight(1f)) {
                 when {
-                    explorer.loading -> LoadingCard("正在加载文件")
+                    explorer.loading && explorer.items.isEmpty() -> LoadingCard("正在加载文件")
                     explorer.error != null -> ErrorCard(explorer.error, onRefresh)
                     explorer.items.isEmpty() -> EmptyCard(if (trashMode) "回收站为空" else "这里还没有文件")
                     gridMode -> LazyVerticalGrid(
@@ -1506,7 +1559,7 @@ private fun FilesScreen(
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                         verticalArrangement = Arrangement.spacedBy(18.dp),
                     ) {
-                        gridItems(explorer.items, key = { it.id }) { node ->
+                        gridItems(displayedItems, key = { it.id }) { node ->
                             NodeGridCard(
                                 node = node,
                                 baseUrl = baseUrl,
@@ -1530,7 +1583,7 @@ private fun FilesScreen(
                         contentPadding = PaddingValues(bottom = 120.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
-                        items(explorer.items, key = { it.id }) { node ->
+                        items(displayedItems, key = { it.id }) { node ->
                             NodeListItem(
                                 node = node,
                                 baseUrl = baseUrl,
@@ -1568,6 +1621,17 @@ private fun FilesScreen(
                     .padding(horizontal = 18.dp),
             )
         }
+    }
+
+    if (sortSheetOpen) {
+        FileSortSheet(
+            selectedMode = localSortMode,
+            onDismiss = { sortSheetOpen = false },
+            onApply = { mode ->
+                localSortMode = mode
+                sortSheetOpen = false
+            },
+        )
     }
 
     if (filterSheetOpen) {
@@ -1643,11 +1707,31 @@ private fun HeaderIconButton(
     contentDescription: String,
     onClick: () -> Unit,
 ) {
+    var spinRequest by remember(asset) { mutableIntStateOf(0) }
+    val rotation = remember(asset) { Animatable(0f) }
+
+    LaunchedEffect(asset, spinRequest) {
+        if (asset != ReferenceAsset.RefreshBlack || spinRequest == 0) {
+            return@LaunchedEffect
+        }
+        rotation.snapTo(0f)
+        rotation.animateTo(
+            targetValue = 360f,
+            animationSpec = tween(durationMillis = 650, easing = LinearEasing),
+        )
+        rotation.snapTo(0f)
+    }
+
     Box(
         modifier = Modifier
             .size(44.dp)
             .clip(RoundedCornerShape(14.dp))
-            .noRippleClickable(onClick = onClick),
+            .noRippleClickable {
+                if (asset == ReferenceAsset.RefreshBlack) {
+                    spinRequest += 1
+                }
+                onClick()
+            },
         contentAlignment = Alignment.Center,
     ) {
         ReferenceIcon(
@@ -1655,7 +1739,8 @@ private fun HeaderIconButton(
             contentDescription = contentDescription,
             modifier = Modifier
                 .size(32.dp)
-                .scale(1.6f),
+                .scale(1.6f)
+                .rotate(rotation.value),
         )
     }
 }
@@ -1756,7 +1841,9 @@ private fun FilesSearchField(
 @Composable
 private fun FileSortViewRow(
     gridMode: Boolean,
+    sortMode: FileLocalSortMode,
     onGridMode: (Boolean) -> Unit,
+    onSort: () -> Unit,
     onFilter: () -> Unit,
 ) {
     Row(
@@ -1768,11 +1855,11 @@ private fun FileSortViewRow(
         Row(
             modifier = Modifier
                 .clip(RoundedCornerShape(12.dp))
-                .noRippleClickable(onClick = onFilter)
+                .noRippleClickable(onClick = onSort)
                 .padding(horizontal = 2.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("综合排序", color = Ink, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            Text(sortMode.toolbarLabel, color = Ink, fontSize = 14.sp, fontWeight = FontWeight.Bold)
             ReferenceIcon(
                 asset = ReferenceAsset.ChevronDownBlack,
                 contentDescription = null,
@@ -1797,6 +1884,94 @@ private fun FileSortViewRow(
             contentDescription = "筛选设置",
             onClick = onFilter,
         )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun FileSortSheet(
+    selectedMode: FileLocalSortMode,
+    onDismiss: () -> Unit,
+    onApply: (FileLocalSortMode) -> Unit,
+) {
+    var draftMode by rememberSaveable { mutableStateOf(selectedMode) }
+    val directionOptions = fileSortDirectionOptions(draftMode.criterion)
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = Color.White,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        dragHandle = {
+            Box(
+                modifier = Modifier
+                    .padding(top = 10.dp, bottom = 8.dp)
+                    .width(42.dp)
+                    .height(4.dp)
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(Color(0xFFD4D8E2)),
+            )
+        },
+    ) {
+        Column(
+            modifier = Modifier.padding(start = 20.dp, top = 2.dp, end = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Text("排序方式", color = Ink, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
+
+            Text("排序依据", color = Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                FileSortCriterion.entries.forEach { criterion ->
+                    FilterSheetChoice(
+                        label = criterion.label,
+                        selected = draftMode.criterion == criterion,
+                        onClick = { draftMode = defaultFileSortMode(criterion) },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+
+            if (directionOptions.isNotEmpty()) {
+                Text("排序方向", color = Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    directionOptions.forEach { (mode, label) ->
+                        FilterSheetChoice(
+                            label = label,
+                            selected = draftMode == mode,
+                            onClick = { draftMode = mode },
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(6.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(bottom = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                FilterFooterButton(
+                    label = "重置",
+                    onClick = { draftMode = FileLocalSortMode.ORIGINAL },
+                    primary = false,
+                    modifier = Modifier.weight(1f),
+                )
+                FilterFooterButton(
+                    label = "确定",
+                    onClick = { onApply(draftMode) },
+                    primary = true,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
     }
 }
 
@@ -2066,9 +2241,22 @@ private fun CrumbStrip(
     breadcrumbs: List<com.alicia.cloudstorage.phone.data.FolderCrumb>,
     onCrumb: (Int) -> Unit,
 ) {
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+    val listState = rememberLazyListState()
+    val currentCrumbKey = breadcrumbs.lastOrNull()?.let { "${it.id}:${it.label}" }
+
+    LaunchedEffect(breadcrumbs.size, currentCrumbKey) {
+        if (breadcrumbs.isNotEmpty()) {
+            listState.scrollToItem(breadcrumbs.lastIndex)
+        }
+    }
+
+    LazyRow(
+        state = listState,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
         breadcrumbs.forEachIndexed { index, crumb ->
-            item {
+            item(key = crumb.id ?: "root-$index") {
                 Surface(
                     modifier = Modifier
                         .clip(RoundedCornerShape(999.dp))
@@ -2624,6 +2812,12 @@ private fun MeScreen(
 
     BackHandler(enabled = page != MePage.MAIN, onBack = returnToMeMain)
 
+    LaunchedEffect(user.isAdmin) {
+        if (!user.isAdmin && (page == MePage.ENVIRONMENT || page == MePage.ADMIN)) {
+            page = MePage.MAIN
+        }
+    }
+
     when (page) {
         MePage.MAIN -> MeMainPage(
             paddingValues = paddingValues,
@@ -2724,7 +2918,6 @@ private fun MeMainPage(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text("我的", fontSize = 30.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
-                    Text("账号、空间和接入环境", color = Muted, fontSize = 14.sp)
                 }
                 HeaderIconButton(ReferenceAsset.RefreshBlack, "刷新", onRefresh)
             }
@@ -2746,7 +2939,9 @@ private fun MeMainPage(
         }
         item {
             MeMenuSection("空间与服务") {
-                MeListRow(ReferenceAsset.EnvironmentSettings, Color(0xFFE5F6FF), "接入环境", baseUrl) { onOpenPage(MePage.ENVIRONMENT) }
+                if (user.isAdmin) {
+                    MeListRow(ReferenceAsset.EnvironmentSettings, Color(0xFFE5F6FF), "接入环境", baseUrl) { onOpenPage(MePage.ENVIRONMENT) }
+                }
                 MeListRow(ReferenceAsset.StorageDetails, Color(0xFFEAF2FF), "空间详情", userUsageLabel(user)) { onOpenPage(MePage.STORAGE) }
                 MeListRow(ReferenceAsset.VersionUpdate, Color(0xFFFFF0E7), "版本更新", "当前 ${BuildConfig.VERSION_NAME}") { onOpenPage(MePage.UPDATES) }
                 if (user.isAdmin) {

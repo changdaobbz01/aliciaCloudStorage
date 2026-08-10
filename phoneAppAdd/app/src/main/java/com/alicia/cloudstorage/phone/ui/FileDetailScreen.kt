@@ -198,6 +198,13 @@ fun FileDetailScreen(
                 modifier = Modifier.align(Alignment.Center),
             )
         }
+
+        AddGlobalLoadingOverlay(
+            visible = state.loading ||
+                state.moveFoldersLoading ||
+                state.activeOperation == FileDetailOperation.MOVE ||
+                state.activeOperation == FileDetailOperation.DELETE,
+        )
     }
 }
 
