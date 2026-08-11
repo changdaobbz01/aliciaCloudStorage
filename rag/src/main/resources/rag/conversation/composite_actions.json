@@ -1,0 +1,210 @@
+{
+  "version": "composite_actions_v1",
+  "description": "Config-driven multi-step plans built from atomic action templates.",
+  "composites": {
+    "composite.create_folder_then_upload": {
+      "enabled": true,
+      "phase": 1,
+      "risk": "medium",
+      "confirmationLevel": "conflict_then_final_review",
+      "requiredSlots": ["target_folder", "new_folder_name"],
+      "optionalSlots": ["upload_hint"],
+      "bindings": [
+        {
+          "key": "targetParent",
+          "kind": "target_folder",
+          "candidateType": "FOLDER",
+          "querySlot": "target_folder",
+          "required": true,
+          "requiresUniqueSelection": true
+        },
+        {
+          "key": "clientFiles",
+          "kind": "client_files",
+          "required": true,
+          "providedBy": "client"
+        }
+      ],
+      "conflictChecks": [
+        {
+          "type": "same_name_in_target_parent",
+          "parentBinding": "targetParent",
+          "nameSlot": "new_folder_name",
+          "resolutionPolicy": "folder_create_same_name"
+        }
+      ],
+      "steps": [
+        {
+          "stepId": "create_folder",
+          "action": "folder.create",
+          "params": {
+            "parentId": "$bindings.targetParent.nodeId",
+            "folderName": "$entities.new_folder_name"
+          },
+          "outputKey": "createdFolder"
+        },
+        {
+          "stepId": "upload_files",
+          "action": "file.upload",
+          "dependsOn": ["create_folder"],
+          "params": {
+            "parentId": "$steps.create_folder.outputs.nodeId"
+          },
+          "requiredClientFields": ["files"]
+        }
+      ]
+    },
+    "composite.rename_then_share": {
+      "enabled": true,
+      "phase": 2,
+      "risk": "medium",
+      "confirmationLevel": "candidate_then_final_review",
+      "requiredSlots": ["target_name", "new_name"],
+      "optionalSlots": ["share_options", "target_folder", "file_type", "time_range"],
+      "bindings": [
+        {
+          "key": "targetNode",
+          "kind": "node",
+          "candidateType": "ANY",
+          "querySlot": "target_name",
+          "required": true,
+          "requiresUniqueSelection": true
+        }
+      ],
+      "conflictChecks": [
+        {
+          "type": "same_name_sibling",
+          "nodeBinding": "targetNode",
+          "nameSlot": "new_name",
+          "resolutionPolicy": "rename_same_name"
+        }
+      ],
+      "steps": [
+        {
+          "stepId": "rename_node",
+          "action": "node.rename",
+          "params": {
+            "nodeId": "$bindings.targetNode.nodeId",
+            "name": "$entities.new_name"
+          },
+          "outputKey": "renamedNode"
+        },
+        {
+          "stepId": "create_share",
+          "action": "share.create",
+          "dependsOn": ["rename_node"],
+          "params": {
+            "nodeIds": ["$steps.rename_node.outputs.nodeId"],
+            "title": "$steps.rename_node.outputs.name",
+            "allowDownload": true,
+            "allowSave": true
+          },
+          "outputKey": "share"
+        }
+      ]
+    },
+    "composite.move_then_share": {
+      "enabled": true,
+      "phase": 2,
+      "risk": "medium",
+      "confirmationLevel": "candidate_then_final_review",
+      "requiredSlots": ["target_name", "target_folder"],
+      "optionalSlots": ["share_options", "file_type", "time_range"],
+      "bindings": [
+        {
+          "key": "sourceNode",
+          "kind": "node",
+          "candidateType": "ANY",
+          "querySlot": "target_name",
+          "required": true,
+          "requiresUniqueSelection": true
+        },
+        {
+          "key": "targetParent",
+          "kind": "target_folder",
+          "candidateType": "FOLDER",
+          "querySlot": "target_folder",
+          "required": true,
+          "requiresUniqueSelection": true
+        }
+      ],
+      "conflictChecks": [
+        {
+          "type": "move_same_name_sibling",
+          "nodeBinding": "sourceNode",
+          "parentBinding": "targetParent",
+          "resolutionPolicy": "move_same_name"
+        }
+      ],
+      "steps": [
+        {
+          "stepId": "move_node",
+          "action": "node.move",
+          "params": {
+            "nodeId": "$bindings.sourceNode.nodeId",
+            "parentId": "$bindings.targetParent.nodeId"
+          },
+          "outputKey": "movedNode"
+        },
+        {
+          "stepId": "create_share",
+          "action": "share.create",
+          "dependsOn": ["move_node"],
+          "params": {
+            "nodeIds": ["$steps.move_node.outputs.nodeId"],
+            "title": "$steps.move_node.outputs.name",
+            "allowDownload": true,
+            "allowSave": true
+          },
+          "outputKey": "share"
+        }
+      ]
+    },
+    "composite.restore_then_move": {
+      "enabled": true,
+      "phase": 2,
+      "risk": "medium",
+      "confirmationLevel": "candidate_then_final_review",
+      "requiredSlots": ["target_name", "target_folder"],
+      "optionalSlots": ["file_type", "time_range"],
+      "bindings": [
+        {
+          "key": "trashNode",
+          "kind": "trash_node",
+          "candidateType": "ANY",
+          "querySlot": "target_name",
+          "required": true,
+          "requiresUniqueSelection": true
+        },
+        {
+          "key": "targetParent",
+          "kind": "target_folder",
+          "candidateType": "FOLDER",
+          "querySlot": "target_folder",
+          "required": true,
+          "requiresUniqueSelection": true
+        }
+      ],
+      "steps": [
+        {
+          "stepId": "restore_node",
+          "action": "trash.restore",
+          "params": {
+            "nodeId": "$bindings.trashNode.nodeId"
+          },
+          "outputKey": "restoredNode"
+        },
+        {
+          "stepId": "move_restored_node",
+          "action": "node.move",
+          "dependsOn": ["restore_node"],
+          "params": {
+            "nodeId": "$steps.restore_node.outputs.nodeId",
+            "parentId": "$bindings.targetParent.nodeId"
+          },
+          "outputKey": "movedNode"
+        }
+      ]
+    }
+  }
+}

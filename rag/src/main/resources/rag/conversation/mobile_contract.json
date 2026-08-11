@@ -1,0 +1,256 @@
+{
+  "version": "mobile_contract_v1",
+  "updated_at": "2026-08-11",
+  "description": "Stable client-facing contract for Alicia mobile RAG integration. Mobile consumes plans and executes only local allowlisted handlers.",
+  "encoding": {
+    "intentIds": "string_enum",
+    "actionTypes": "string_enum",
+    "nextActions": "string_enum",
+    "statuses": "string_enum",
+    "forbidNumericTypeCodes": true
+  },
+  "stableResponseFields": [
+    "id",
+    "provider",
+    "model",
+    "intentId",
+    "intentName",
+    "confidence",
+    "entities",
+    "missingSlots",
+    "nextAction",
+    "safety",
+    "actionDraft",
+    "candidateBinding",
+    "actionPlan",
+    "backendActionDraft",
+    "assistantText",
+    "clarificationQuestion",
+    "conversation"
+  ],
+  "clientResponsibilities": [
+    "Render assistantText and clarificationQuestion.",
+    "Preserve conversation.conversationId between turns.",
+    "Never execute an action unless it matches a local action handler allowlist.",
+    "Require visible user confirmation for all mutating actions.",
+    "Use the current app login Authorization when calling RAG and CloudStorageApi.",
+    "Reject absolute URLs, unknown methods, unknown action types, and stale candidate bindings.",
+    "Treat RAG output as a plan, not as proof that an operation has completed."
+  ],
+  "nextActionRouting": {
+    "respond_only": {
+      "screenAction": "show_assistant_message",
+      "mayCallCloudStorageApi": false
+    },
+    "ask_clarification": {
+      "screenAction": "show_question_and_keep_conversation",
+      "mayCallCloudStorageApi": false
+    },
+    "wait_for_backend_binding": {
+      "screenAction": "show_binding_progress_or_candidate_state",
+      "mayCallCloudStorageApi": false
+    },
+    "show_search_results": {
+      "screenAction": "show_search_results",
+      "mayCallCloudStorageApi": false
+    },
+    "wait_for_candidate_selection": {
+      "screenAction": "show_candidate_picker",
+      "mayCallCloudStorageApi": false
+    },
+    "wait_for_user_confirmation": {
+      "screenAction": "show_final_review",
+      "mayCallCloudStorageApi": false
+    },
+    "handoff_to_backend": {
+      "screenAction": "submit_backend_action_draft_after_local_validation",
+      "mayCallCloudStorageApi": true
+    },
+    "handoff_to_client_upload": {
+      "screenAction": "open_file_picker_then_upload_to_bound_folder",
+      "mayCallCloudStorageApi": true
+    }
+  },
+  "localModules": [
+    {
+      "name": "RagAssistantClient",
+      "responsibility": "Call /api/assistant/plan and decode the stable response fields."
+    },
+    {
+      "name": "RagConversationStore",
+      "responsibility": "Persist conversationId, pending candidates, and pending review state in ViewModel state."
+    },
+    {
+      "name": "RagActionBridgeValidator",
+      "responsibility": "Validate backendActionDraft against the local action bridge allowlist before any API call."
+    },
+    {
+      "name": "RagActionExecutor",
+      "responsibility": "Dispatch to existing AliciaRepository methods after validation and user confirmation."
+    },
+    {
+      "name": "RagReviewPresenter",
+      "responsibility": "Build confirmation text for single, composite, collection, and upload plans."
+    }
+  ],
+  "actionHandlers": {
+    "none": {
+      "phase": 1,
+      "implementationStatus": "mobile_supported",
+      "executionMode": "message_only",
+      "cloudStorageApi": null,
+      "mobileRepositoryMethod": null,
+      "requiresFinalConfirmation": false,
+      "notes": "Persona, product Q&A, out-of-scope, and fallback replies."
+    },
+    "search": {
+      "phase": 1,
+      "implementationStatus": "mobile_supported",
+      "executionMode": "display_rag_candidates",
+      "cloudStorageApi": {
+        "method": "GET",
+        "path": "/api/storage/nodes"
+      },
+      "mobileRepositoryMethod": "fetchStorageNodes",
+      "requiresFinalConfirmation": false,
+      "notes": "RAG performs read-only binding through CloudStorageApi; mobile shows candidateBinding or actionPlan bindings."
+    },
+    "rename": {
+      "phase": 1,
+      "implementationStatus": "mobile_api_wrapper_missing",
+      "executionMode": "backend_action_ready",
+      "cloudStorageApi": {
+        "method": "PUT",
+        "path": "/api/storage/nodes/{nodeId}/rename",
+        "body": {
+          "name": "string"
+        }
+      },
+      "mobileRepositoryMethod": "TODO renameNode",
+      "requiresFinalConfirmation": true,
+      "notes": "CloudStorageApi supports this endpoint; phoneAppAdd still needs RenameNodePayload, Retrofit method, and repository wrapper."
+    },
+    "delete": {
+      "phase": 1,
+      "implementationStatus": "mobile_supported",
+      "executionMode": "backend_action_ready",
+      "cloudStorageApi": {
+        "method": "DELETE",
+        "path": "/api/storage/nodes/{nodeId}"
+      },
+      "mobileRepositoryMethod": "moveNodeToTrash",
+      "requiresFinalConfirmation": true,
+      "notes": "Always move to trash in phase 1; permanent delete stays disabled."
+    },
+    "share": {
+      "phase": 1,
+      "implementationStatus": "mobile_supported",
+      "executionMode": "backend_action_ready",
+      "cloudStorageApi": {
+        "method": "POST",
+        "path": "/api/share-links"
+      },
+      "mobileRepositoryMethod": "createShareLink",
+      "requiresFinalConfirmation": true,
+      "notes": "Share options may be adjusted by review UI before submit."
+    },
+    "upload_target": {
+      "phase": 1,
+      "implementationStatus": "mobile_supported",
+      "executionMode": "client_action_required",
+      "cloudStorageApi": {
+        "method": "POST",
+        "path": "/api/storage/files",
+        "contentType": "multipart/form-data"
+      },
+      "mobileRepositoryMethod": "uploadFile",
+      "requiresFinalConfirmation": true,
+      "notes": "RAG only resolves the target folder. Mobile must collect local file URI."
+    },
+    "composite.create_folder_then_upload": {
+      "phase": 1,
+      "implementationStatus": "mobile_orchestration_needed",
+      "executionMode": "client_orchestrated_steps",
+      "cloudStorageApi": [
+        {
+          "method": "POST",
+          "path": "/api/storage/folders"
+        },
+        {
+          "method": "POST",
+          "path": "/api/storage/files",
+          "contentType": "multipart/form-data"
+        }
+      ],
+      "mobileRepositoryMethod": ["createFolder", "uploadFile"],
+      "requiresFinalConfirmation": true,
+      "notes": "After folder creation succeeds, upload selected client files into the created folder."
+    },
+    "collection.trash_by_name_contains": {
+      "phase": 2,
+      "implementationStatus": "mobile_supported",
+      "executionMode": "backend_action_ready",
+      "cloudStorageApi": {
+        "method": "POST",
+        "path": "/api/storage/nodes/batch/trash"
+      },
+      "mobileRepositoryMethod": "moveNodesToTrash",
+      "requiresFinalConfirmation": true,
+      "notes": "Requires collection preview and exact count before submit."
+    },
+    "collection.trash_by_category": {
+      "phase": 2,
+      "implementationStatus": "mobile_supported",
+      "executionMode": "backend_action_ready",
+      "cloudStorageApi": {
+        "method": "POST",
+        "path": "/api/storage/nodes/batch/trash"
+      },
+      "mobileRepositoryMethod": "moveNodesToTrash",
+      "requiresFinalConfirmation": true,
+      "notes": "Requires collection preview and exact count before submit."
+    },
+    "collection.move_by_extension": {
+      "phase": 2,
+      "implementationStatus": "mobile_supported",
+      "executionMode": "backend_action_ready",
+      "cloudStorageApi": {
+        "method": "PUT",
+        "path": "/api/storage/nodes/batch/move"
+      },
+      "mobileRepositoryMethod": "moveNodes",
+      "requiresFinalConfirmation": true,
+      "notes": "Requires exact source collection and resolved target folder."
+    },
+    "collection.move_by_name_contains": {
+      "phase": 2,
+      "implementationStatus": "mobile_supported",
+      "executionMode": "backend_action_ready",
+      "cloudStorageApi": {
+        "method": "PUT",
+        "path": "/api/storage/nodes/batch/move"
+      },
+      "mobileRepositoryMethod": "moveNodes",
+      "requiresFinalConfirmation": true,
+      "notes": "Requires exact source collection and resolved target folder."
+    },
+    "collection.rename_add_prefix": {
+      "phase": 2,
+      "implementationStatus": "planning_only",
+      "executionMode": "blocked_before_execution",
+      "cloudStorageApi": null,
+      "mobileRepositoryMethod": null,
+      "requiresFinalConfirmation": true,
+      "notes": "Recognized for future expansion, but action bridge intentionally does not expose execution yet."
+    }
+  },
+  "preMobileIntegrationGates": [
+    "RAG unit tests pass.",
+    "Debug web validates all automated acceptance scenarios.",
+    "Action bridge paths match CloudStorageApi and mobile allowlist.",
+    "Rename mobile repository wrapper is added before enabling rename execution in app UI.",
+    "RAG service base URL and Authorization forwarding are configurable per environment.",
+    "DeepSeek API key is supplied through environment variables and not committed.",
+    "Destructive actions show candidate path, count, and final confirmation."
+  ]
+}

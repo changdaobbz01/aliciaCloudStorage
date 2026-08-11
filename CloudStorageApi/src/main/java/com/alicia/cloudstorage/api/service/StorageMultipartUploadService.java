@@ -13,6 +13,7 @@ import com.alicia.cloudstorage.api.entity.StorageNode;
 import com.alicia.cloudstorage.api.repository.MultipartUploadPartRepository;
 import com.alicia.cloudstorage.api.repository.MultipartUploadSessionRepository;
 import com.alicia.cloudstorage.api.repository.StorageNodeRepository;
+import com.alicia.cloudstorage.api.storage.StorageNodeEventPublisher;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,6 +42,7 @@ public class StorageMultipartUploadService {
     private final MultipartUploadPartRepository multipartUploadPartRepository;
     private final CosFileStorageService cosFileStorageService;
     private final StorageQuotaService storageQuotaService;
+    private final StorageNodeEventPublisher storageNodeEventPublisher;
     private final boolean cleanupEnabled;
     private final long staleHours;
 
@@ -50,6 +52,7 @@ public class StorageMultipartUploadService {
             MultipartUploadPartRepository multipartUploadPartRepository,
             CosFileStorageService cosFileStorageService,
             StorageQuotaService storageQuotaService,
+            StorageNodeEventPublisher storageNodeEventPublisher,
             @Value("${alicia.multipart-upload.cleanup-enabled:true}") boolean cleanupEnabled,
             @Value("${alicia.multipart-upload.stale-hours:24}") long staleHours
     ) {
@@ -58,6 +61,7 @@ public class StorageMultipartUploadService {
         this.multipartUploadPartRepository = multipartUploadPartRepository;
         this.cosFileStorageService = cosFileStorageService;
         this.storageQuotaService = storageQuotaService;
+        this.storageNodeEventPublisher = storageNodeEventPublisher;
         this.cleanupEnabled = cleanupEnabled;
         this.staleHours = staleHours;
     }
@@ -189,6 +193,7 @@ public class StorageMultipartUploadService {
             session.setFileName(resolvedFileName);
             session.setStatus(MultipartUploadStatus.COMPLETED);
             multipartUploadSessionRepository.save(session);
+            storageNodeEventPublisher.publishUpsert(savedNode);
 
             return toSummary(savedNode);
         } catch (RuntimeException exception) {

@@ -1,0 +1,36 @@
+{
+  "version": "dialogue_templates_v1",
+  "description": "Locale-aware messages for staged ActionPlan guidance. Internal action/status names stay stable across locales.",
+  "locales": {
+    "zh-CN": {
+      "clarification_required": "还需要补充：{missingSlots}。",
+      "candidate_selection_required": "匹配到多个候选，请根据完整路径选择要处理的项目。",
+      "collection_review_required": "已匹配到 {count} 个项目，请先查看预览再确认。",
+      "conflict_resolution_required": "执行前发现冲突：{conflictSummary}。请选择处理方式。",
+      "review_required": "请确认执行计划：{planSummary}",
+      "client_input_required": "还需要你在手机上选择本地文件后再继续。",
+      "ready_to_execute": "执行计划已确认，等待客户端安全执行。",
+      "completed": "操作已完成。",
+      "failed": "操作失败：{reason}",
+      "candidate_path_label": "路径",
+      "collection_preview_label": "预览",
+      "final_confirm_label": "确认执行",
+      "cancel_label": "取消"
+    },
+    "en-US": {
+      "clarification_required": "Please provide: {missingSlots}.",
+      "candidate_selection_required": "Multiple matches were found. Choose the target item by its full path.",
+      "collection_review_required": "{count} items matched. Review the preview before confirming.",
+      "conflict_resolution_required": "A conflict was found before execution: {conflictSummary}. Choose how to continue.",
+      "review_required": "Review the action plan: {planSummary}",
+      "client_input_required": "Please select local files on your phone before continuing.",
+      "ready_to_execute": "The action plan is confirmed and waiting for safe client execution.",
+      "completed": "The operation is complete.",
+      "failed": "The operation failed: {reason}",
+      "candidate_path_label": "Path",
+      "collection_preview_label": "Preview",
+      "final_confirm_label": "Confirm",
+      "cancel_label": "Cancel"
+    }
+  }
+}

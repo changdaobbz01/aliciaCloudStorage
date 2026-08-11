@@ -1,0 +1,13 @@
+{
+  "name": "alicia-rag-debug-web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local debug web service for Alicia Cloud Storage RAG file assistant planning.",
+  "scripts": {
+    "start": "node server.js",
+    "check": "node --check server.js && node --check public/actionBridgeAdapter.js && node --check public/app.js && node actionBridgeAdapter.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

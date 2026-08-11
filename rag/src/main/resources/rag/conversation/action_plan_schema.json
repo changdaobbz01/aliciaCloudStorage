@@ -1,0 +1,126 @@
+{
+  "version": "action_plan_v1",
+  "description": "Stable contract for conversational action planning. RAG plans actions; clients validate and execute through local allowlists.",
+  "statuses": [
+    "understanding",
+    "clarification_required",
+    "binding_required",
+    "candidate_selection_required",
+    "collection_review_required",
+    "conflict_resolution_required",
+    "review_required",
+    "client_input_required",
+    "ready_to_execute",
+    "completed",
+    "failed",
+    "cancelled",
+    "expired"
+  ],
+  "planKinds": [
+    "atomic",
+    "composite",
+    "collection"
+  ],
+  "riskLevels": [
+    "none",
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "confirmationLevels": [
+    "none",
+    "final_review",
+    "candidate_then_final_review",
+    "collection_then_final_review",
+    "conflict_then_final_review",
+    "strong_destructive_review"
+  ],
+  "bindingKinds": [
+    "node",
+    "file",
+    "folder",
+    "trash_node",
+    "source_collection",
+    "target_folder",
+    "client_files"
+  ],
+  "bindingStatuses": [
+    "not_required",
+    "unresolved",
+    "no_candidates",
+    "single_candidate",
+    "multiple_candidates",
+    "selected_candidate",
+    "resolved",
+    "stale",
+    "invalid"
+  ],
+  "collectionFilterFields": [
+    "scope",
+    "nameContains",
+    "category",
+    "extension",
+    "mimeType",
+    "updatedAfter",
+    "updatedBefore",
+    "parentId",
+    "includeFolders"
+  ],
+  "stepStatuses": [
+    "pending",
+    "blocked",
+    "ready",
+    "running",
+    "succeeded",
+    "failed",
+    "skipped",
+    "rolled_back"
+  ],
+  "reservedOutputReferencePrefix": "$steps.",
+  "requiredTopLevelFields": [
+    "version",
+    "planId",
+    "status",
+    "planKind",
+    "actionType",
+    "risk",
+    "confirmationLevel",
+    "locale",
+    "bindings",
+    "steps",
+    "messages"
+  ],
+  "candidateShape": {
+    "requiredFields": [
+      "nodeId",
+      "name",
+      "type",
+      "path"
+    ],
+    "optionalFields": [
+      "parentId",
+      "breadcrumbs",
+      "size",
+      "extension",
+      "mimeType",
+      "updatedAt",
+      "deletedAt"
+    ],
+    "forbiddenFields": [
+      "ownerId",
+      "userId",
+      "storagePath",
+      "objectKey",
+      "cosKey"
+    ]
+  },
+  "executionRules": {
+    "ragExecutesMutations": false,
+    "clientMustUseLocalAllowlist": true,
+    "clientMustUseCurrentAuthSession": true,
+    "clientMustRejectAbsoluteUrls": true,
+    "clientMustRevalidateBindingsBeforeExecute": true,
+    "clientMustRejectUnknownActions": true
+  }
+}

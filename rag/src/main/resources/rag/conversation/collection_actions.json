@@ -1,0 +1,182 @@
+{
+  "version": "collection_actions_v1",
+  "description": "Batch plans that bind a source collection before execution.",
+  "collections": {
+    "collection.trash_by_name_contains": {
+      "enabled": true,
+      "phase": 2,
+      "risk": "high",
+      "confirmationLevel": "collection_then_final_review",
+      "requiredSlots": ["target_name"],
+      "optionalSlots": ["target_folder", "file_type", "time_range"],
+      "sourceCollection": {
+        "key": "sourceCollection",
+        "kind": "source_collection",
+        "candidateType": "FILE",
+        "filter": {
+          "scope": "$entities.scope_or_default",
+          "nameContains": "$entities.target_name",
+          "includeFolders": false
+        },
+        "requiresExactCount": true,
+        "requiresPreview": true
+      },
+      "steps": [
+        {
+          "stepId": "trash_collection",
+          "action": "node.batch_trash",
+          "params": {
+            "nodeIds": "$bindings.sourceCollection.nodeIds"
+          }
+        }
+      ]
+    },
+    "collection.trash_by_category": {
+      "enabled": true,
+      "phase": 2,
+      "risk": "high",
+      "confirmationLevel": "collection_then_final_review",
+      "requiredSlots": ["file_type"],
+      "optionalSlots": ["target_folder", "time_range"],
+      "sourceCollection": {
+        "key": "sourceCollection",
+        "kind": "source_collection",
+        "candidateType": "FILE",
+        "filter": {
+          "scope": "$entities.scope_or_default",
+          "category": "$entities.file_type",
+          "includeFolders": false
+        },
+        "requiresExactCount": true,
+        "requiresPreview": true
+      },
+      "steps": [
+        {
+          "stepId": "trash_collection",
+          "action": "node.batch_trash",
+          "params": {
+            "nodeIds": "$bindings.sourceCollection.nodeIds"
+          }
+        }
+      ]
+    },
+    "collection.move_by_extension": {
+      "enabled": true,
+      "phase": 2,
+      "risk": "medium",
+      "confirmationLevel": "collection_then_final_review",
+      "requiredSlots": ["extension", "target_folder"],
+      "optionalSlots": ["time_range"],
+      "sourceCollection": {
+        "key": "sourceCollection",
+        "kind": "source_collection",
+        "candidateType": "FILE",
+        "filter": {
+          "scope": "$entities.scope_or_default",
+          "extension": "$entities.extension",
+          "includeFolders": false
+        },
+        "requiresExactCount": true,
+        "requiresPreview": true
+      },
+      "bindings": [
+        {
+          "key": "targetParent",
+          "kind": "target_folder",
+          "candidateType": "FOLDER",
+          "querySlot": "target_folder",
+          "required": true,
+          "requiresUniqueSelection": true
+        }
+      ],
+      "steps": [
+        {
+          "stepId": "move_collection",
+          "action": "node.batch_move",
+          "params": {
+            "nodeIds": "$bindings.sourceCollection.nodeIds",
+            "parentId": "$bindings.targetParent.nodeId"
+          }
+        }
+      ]
+    },
+    "collection.move_by_name_contains": {
+      "enabled": true,
+      "phase": 2,
+      "risk": "medium",
+      "confirmationLevel": "collection_then_final_review",
+      "requiredSlots": ["target_name", "target_folder"],
+      "optionalSlots": ["file_type", "time_range"],
+      "sourceCollection": {
+        "key": "sourceCollection",
+        "kind": "source_collection",
+        "candidateType": "FILE",
+        "filter": {
+          "scope": "$entities.scope_or_default",
+          "nameContains": "$entities.target_name",
+          "includeFolders": false
+        },
+        "requiresExactCount": true,
+        "requiresPreview": true
+      },
+      "bindings": [
+        {
+          "key": "targetParent",
+          "kind": "target_folder",
+          "candidateType": "FOLDER",
+          "querySlot": "target_folder",
+          "required": true,
+          "requiresUniqueSelection": true
+        }
+      ],
+      "steps": [
+        {
+          "stepId": "move_collection",
+          "action": "node.batch_move",
+          "params": {
+            "nodeIds": "$bindings.sourceCollection.nodeIds",
+            "parentId": "$bindings.targetParent.nodeId"
+          }
+        }
+      ]
+    },
+    "collection.rename_add_prefix": {
+      "enabled": true,
+      "phase": 2,
+      "risk": "high",
+      "confirmationLevel": "collection_then_final_review",
+      "requiredSlots": ["target_name", "rename_prefix"],
+      "optionalSlots": ["file_type", "extension", "time_range"],
+      "sourceCollection": {
+        "key": "sourceCollection",
+        "kind": "source_collection",
+        "candidateType": "FILE",
+        "filter": {
+          "scope": "$entities.scope_or_default",
+          "nameContains": "$entities.target_name",
+          "includeFolders": false
+        },
+        "requiresExactCount": true,
+        "requiresPreview": true
+      },
+      "steps": [
+        {
+          "stepId": "rename_prefix_collection",
+          "action": "node.batch_rename_prefix",
+          "params": {
+            "nodeIds": "$bindings.sourceCollection.nodeIds",
+            "prefix": "$entities.rename_prefix"
+          }
+        }
+      ]
+    }
+  },
+  "filterAliases": {
+    "suffix": "extension",
+    "ext": "extension",
+    "file_suffix": "extension",
+    "type": "category",
+    "file_type": "category",
+    "name_like": "nameContains"
+  }
+}

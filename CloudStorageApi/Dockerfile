@@ -4,6 +4,7 @@ WORKDIR /build
 COPY .mvn .mvn
 COPY mvnw mvnw.cmd pom.xml ./
 COPY CloudStorageApi/pom.xml CloudStorageApi/pom.xml
+COPY rag/pom.xml rag/pom.xml
 COPY CloudStorageApi/src CloudStorageApi/src
 
 RUN chmod +x mvnw && ./mvnw -pl CloudStorageApi -DskipTests package

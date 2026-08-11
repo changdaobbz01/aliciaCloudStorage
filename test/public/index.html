@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Alicia RAG 文件助手调试台</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Alicia Cloud Storage</p>
+          <h1>RAG 文件助手调试台</h1>
+        </div>
+        <div class="status-pill" id="serviceStatus">连接中</div>
+      </header>
+
+      <section class="workspace">
+        <aside class="schema-pane" aria-label="识别模板">
+          <div class="pane-header">
+            <h2>模板字段</h2>
+          </div>
+          <div class="schema-list" id="schemaList"></div>
+        </aside>
+
+        <section class="chat-pane" aria-label="调试对话">
+          <div class="chat-log" id="chatLog"></div>
+          <section class="debug-config" aria-label="测试配置">
+            <label class="auth-field">
+              <span>Authorization</span>
+              <input id="authInput" type="password" autocomplete="off" spellcheck="false" placeholder="Bearer ..." />
+            </label>
+            <button id="saveAuthButton" type="button" class="secondary-button">保存授权</button>
+            <button id="clearAuthButton" type="button" class="secondary-button">清除</button>
+            <button id="resetConversationButton" type="button" class="secondary-button">新会话</button>
+            <span id="authStatus" class="auth-status">未设置</span>
+          </section>
+          <div class="quick-row" id="quickRow"></div>
+          <form class="composer" id="composer">
+            <input id="messageInput" name="message" autocomplete="off" placeholder="例如：把项目计划重命名为 项目计划-最终版.docx" />
+            <button type="submit">发送</button>
+          </form>
+        </section>
+
+        <aside class="plan-pane" aria-label="意图识别模板">
+          <div class="pane-header">
+            <h2>识别结果</h2>
+            <span class="risk-badge" id="riskBadge">none</span>
+          </div>
+          <div class="plan-body" id="planBody"></div>
+        </aside>
+      </section>
+    </main>
+    <script src="/actionBridgeAdapter.js"></script>
+    <script src="/app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,118 @@
+{
+  "version": "action_policy_v1",
+  "defaultLocale": "zh-CN",
+  "fallbackLocale": "zh-CN",
+  "security": {
+    "ragMayExecuteMutations": false,
+    "allowAbsoluteActionUrls": false,
+    "allowUnknownActions": false,
+    "requireClientAllowlist": true,
+    "requireCurrentUserAuthorization": true,
+    "forbiddenResponseFields": [
+      "ownerId",
+      "userId",
+      "storagePath",
+      "objectKey",
+      "cosKey"
+    ]
+  },
+  "riskPolicies": {
+    "none": {
+      "requiresConfirmation": false,
+      "allowedStatusesBeforeExecution": ["ready_to_execute"]
+    },
+    "low": {
+      "requiresConfirmation": true,
+      "confirmationLevel": "final_review"
+    },
+    "medium": {
+      "requiresConfirmation": true,
+      "confirmationLevel": "candidate_then_final_review"
+    },
+    "high": {
+      "requiresConfirmation": true,
+      "confirmationLevel": "collection_then_final_review",
+      "requiresExactCount": true,
+      "requiresPreview": true
+    },
+    "critical": {
+      "requiresConfirmation": true,
+      "confirmationLevel": "strong_destructive_review",
+      "enabledByDefault": false
+    }
+  },
+  "collectionPolicy": {
+    "defaultScope": "all_drive",
+    "defaultIncludeFolders": false,
+    "previewLimit": 10,
+    "softLimit": 20,
+    "hardLimit": 100,
+    "requiresExactCount": true,
+    "requiresRevalidationBeforeExecute": true,
+    "emptyCollectionStatus": "clarification_required",
+    "largeCollectionStatus": "collection_review_required"
+  },
+  "candidatePolicy": {
+    "maxCandidates": 5,
+    "displayFields": [
+      "name",
+      "type",
+      "path",
+      "size",
+      "updatedAt"
+    ],
+    "requiresFullPathForAmbiguousNames": true,
+    "reuseSelectedCandidateWithinConversation": true,
+    "expireSelectionAfterMinutes": 10
+  },
+  "conflictPolicies": {
+    "folder_create_same_name": {
+      "status": "conflict_resolution_required",
+      "allowedResolutions": [
+        "use_existing_folder",
+        "rename_new_folder",
+        "cancel"
+      ],
+      "defaultResolution": "ask_user"
+    },
+    "rename_same_name": {
+      "status": "conflict_resolution_required",
+      "allowedResolutions": [
+        "rename_again",
+        "cancel"
+      ],
+      "defaultResolution": "ask_user"
+    },
+    "move_same_name": {
+      "status": "conflict_resolution_required",
+      "allowedResolutions": [
+        "allow_auto_rename",
+        "choose_another_folder",
+        "cancel"
+      ],
+      "defaultResolution": "ask_user"
+    },
+    "same_name_file_auto_rename": {
+      "status": "review_required",
+      "allowedResolutions": [
+        "allow_auto_rename",
+        "cancel"
+      ],
+      "defaultResolution": "allow_auto_rename"
+    }
+  },
+  "phasePolicy": {
+    "phase1": {
+      "enabled": true,
+      "description": "Single object actions and create-folder-then-upload."
+    },
+    "phase2": {
+      "enabled": false,
+      "description": "Move, restore, collection actions, and richer composites. Enable after mobile ActionPlan executor is tested."
+    },
+    "phase3": {
+      "enabled": false,
+      "description": "Critical or admin-like actions. Do not enable without strong confirmation UX and audit logs."
+    }
+  }
+}

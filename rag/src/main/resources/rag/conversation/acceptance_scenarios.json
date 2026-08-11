@@ -1,0 +1,351 @@
+{
+  "version": "rag_mobile_acceptance_v1",
+  "updated_at": "2026-08-11",
+  "description": "Acceptance scenarios that must stay valid before Alicia mobile RAG integration.",
+  "automatedScenarios": [
+    {
+      "id": "persona.identity",
+      "group": "assistant_persona",
+      "phase": 1,
+      "message": "你是谁",
+      "expected": {
+        "intentId": "assistant_identity",
+        "nextAction": "respond_only",
+        "actionDraftType": "none",
+        "risk": "none",
+        "requiresConfirmation": false
+      }
+    },
+    {
+      "id": "persona.user_identity",
+      "group": "assistant_persona",
+      "phase": 1,
+      "message": "那么我是谁呢",
+      "expected": {
+        "intentId": "assistant_user_identity",
+        "nextAction": "respond_only",
+        "actionDraftType": "none",
+        "risk": "none",
+        "requiresConfirmation": false
+      }
+    },
+    {
+      "id": "persona.social",
+      "group": "assistant_persona",
+      "phase": 1,
+      "message": "你的形象真漂亮",
+      "expected": {
+        "intentId": "assistant_social",
+        "nextAction": "respond_only",
+        "actionDraftType": "none",
+        "risk": "none",
+        "requiresConfirmation": false
+      }
+    },
+    {
+      "id": "persona.chat",
+      "group": "assistant_persona",
+      "phase": 1,
+      "message": "可以和我聊聊天吗",
+      "expected": {
+        "intentId": "assistant_chat",
+        "nextAction": "respond_only",
+        "actionDraftType": "none",
+        "risk": "none",
+        "requiresConfirmation": false
+      }
+    },
+    {
+      "id": "persona.bored",
+      "group": "assistant_persona",
+      "phase": 1,
+      "message": "我好无聊",
+      "expected": {
+        "intentId": "assistant_bored",
+        "nextAction": "respond_only",
+        "actionDraftType": "none",
+        "risk": "none",
+        "requiresConfirmation": false
+      }
+    },
+    {
+      "id": "boundary.external_movie_resource",
+      "group": "assistant_boundary",
+      "phase": 1,
+      "message": "你知道最近有一部新电影吗，名字叫xx，可以帮我找一下资源吗",
+      "expected": {
+        "intentId": "assistant_external_resource",
+        "nextAction": "respond_only",
+        "actionDraftType": "none",
+        "risk": "none",
+        "requiresConfirmation": false
+      }
+    },
+    {
+      "id": "boundary.writing_help",
+      "group": "assistant_boundary",
+      "phase": 1,
+      "message": "我有一个xx文档要写，你可以辅导我吗？",
+      "expected": {
+        "intentId": "assistant_writing_help",
+        "nextAction": "respond_only",
+        "actionDraftType": "none",
+        "risk": "none",
+        "requiresConfirmation": false
+      }
+    },
+    {
+      "id": "boundary.errand_unsupported",
+      "group": "assistant_boundary",
+      "phase": 1,
+      "message": "我想吃东西，帮我点个xx",
+      "expected": {
+        "intentId": "assistant_errand_unsupported",
+        "nextAction": "respond_only",
+        "actionDraftType": "none",
+        "risk": "none",
+        "requiresConfirmation": false
+      }
+    },
+    {
+      "id": "product.info",
+      "group": "assistant_product",
+      "phase": 1,
+      "message": "这个网盘的优势是什么",
+      "expected": {
+        "intentId": "assistant_product_info",
+        "nextAction": "respond_only",
+        "actionDraftType": "none",
+        "risk": "none",
+        "requiresConfirmation": false
+      }
+    },
+    {
+      "id": "product.reason",
+      "group": "assistant_product",
+      "phase": 1,
+      "message": "给我一个使用这个网盘的理由",
+      "expected": {
+        "intentId": "assistant_product_reason",
+        "nextAction": "respond_only",
+        "actionDraftType": "none",
+        "risk": "none",
+        "requiresConfirmation": false
+      }
+    },
+    {
+      "id": "product.feedback",
+      "group": "assistant_product",
+      "phase": 1,
+      "message": "功能有点少呀",
+      "expected": {
+        "intentId": "assistant_product_feedback",
+        "nextAction": "respond_only",
+        "actionDraftType": "none",
+        "risk": "none",
+        "requiresConfirmation": false
+      }
+    },
+    {
+      "id": "fallback.out_of_scope",
+      "group": "fallback",
+      "phase": 1,
+      "message": "今天的风有点大",
+      "expected": {
+        "intentId": "fallback",
+        "nextAction": "ask_clarification",
+        "actionDraftType": "none",
+        "risk": "none",
+        "requiresConfirmation": false
+      }
+    },
+    {
+      "id": "file.search_name_contains",
+      "group": "file_query",
+      "phase": 1,
+      "message": "帮我将名称带有xx的文件列出来",
+      "expected": {
+        "intentId": "file_search",
+        "nextAction": "wait_for_backend_binding",
+        "actionDraftType": "search",
+        "risk": "none",
+        "requiresConfirmation": false
+      }
+    },
+    {
+      "id": "file.search_category_video",
+      "group": "file_query",
+      "phase": 1,
+      "message": "将视频文件全部找出后列出来",
+      "expected": {
+        "intentId": "file_search",
+        "nextAction": "wait_for_backend_binding",
+        "actionDraftType": "search",
+        "risk": "none",
+        "requiresConfirmation": false
+      }
+    },
+    {
+      "id": "file.rename",
+      "group": "file_mutation",
+      "phase": 1,
+      "message": "把项目计划重命名为 项目计划-最终版.docx",
+      "expected": {
+        "intentId": "file_rename",
+        "nextAction": "wait_for_backend_binding",
+        "actionDraftType": "rename",
+        "risk": "medium",
+        "requiresConfirmation": true
+      }
+    },
+    {
+      "id": "file.share",
+      "group": "file_mutation",
+      "phase": 1,
+      "message": "分享最近的预算表",
+      "expected": {
+        "intentId": "file_share",
+        "nextAction": "wait_for_backend_binding",
+        "actionDraftType": "share",
+        "risk": "medium",
+        "requiresConfirmation": true
+      }
+    },
+    {
+      "id": "file.delete_missing_target",
+      "group": "file_mutation",
+      "phase": 1,
+      "message": "删除",
+      "expected": {
+        "intentId": "file_delete",
+        "nextAction": "ask_clarification",
+        "actionDraftType": "delete",
+        "risk": "high",
+        "requiresConfirmation": true
+      }
+    },
+    {
+      "id": "file.upload_target",
+      "group": "file_mutation",
+      "phase": 1,
+      "message": "上传到项目资料",
+      "expected": {
+        "intentId": "file_upload",
+        "nextAction": "wait_for_backend_binding",
+        "actionDraftType": "upload_target",
+        "risk": "low",
+        "requiresConfirmation": true
+      }
+    },
+    {
+      "id": "composite.create_folder_then_upload",
+      "group": "file_composite_mutation",
+      "phase": 1,
+      "message": "在yy目录下新建名为xx的文件夹，然后将我刚才选择的文件上传到里面去",
+      "expected": {
+        "intentId": "folder_create_then_upload",
+        "nextAction": "wait_for_backend_binding",
+        "actionDraftType": "composite.create_folder_then_upload",
+        "risk": "medium",
+        "requiresConfirmation": true
+      }
+    },
+    {
+      "id": "collection.delete_by_name",
+      "group": "file_collection_mutation",
+      "phase": 2,
+      "message": "我要删除文件名带有xx的文件",
+      "expected": {
+        "intentId": "collection_delete_by_name",
+        "nextAction": "wait_for_backend_binding",
+        "actionDraftType": "collection.trash_by_name_contains",
+        "risk": "high",
+        "requiresConfirmation": true
+      }
+    },
+    {
+      "id": "collection.delete_by_category",
+      "group": "file_collection_mutation",
+      "phase": 2,
+      "message": "帮我将视频类型文件全部删除",
+      "expected": {
+        "intentId": "collection_delete_by_category",
+        "nextAction": "wait_for_backend_binding",
+        "actionDraftType": "collection.trash_by_category",
+        "risk": "high",
+        "requiresConfirmation": true
+      }
+    },
+    {
+      "id": "collection.move_by_extension",
+      "group": "file_collection_mutation",
+      "phase": 2,
+      "message": "帮我将后缀pdf的文件全部移动到归档文件夹中",
+      "expected": {
+        "intentId": "collection_move_by_extension",
+        "nextAction": "wait_for_backend_binding",
+        "actionDraftType": "collection.move_by_extension",
+        "risk": "medium",
+        "requiresConfirmation": true
+      }
+    },
+    {
+      "id": "collection.move_by_name",
+      "group": "file_collection_mutation",
+      "phase": 2,
+      "message": "将名称带有xx的文件全部移动到yy文件夹中",
+      "expected": {
+        "intentId": "collection_move_by_name",
+        "nextAction": "wait_for_backend_binding",
+        "actionDraftType": "collection.move_by_name_contains",
+        "risk": "medium",
+        "requiresConfirmation": true
+      }
+    },
+    {
+      "id": "collection.rename_add_prefix",
+      "group": "file_collection_mutation",
+      "phase": 2,
+      "message": "将名称带有xx的文件重命名，统一在头部加上yy",
+      "expected": {
+        "intentId": "collection_rename_add_prefix",
+        "nextAction": "wait_for_backend_binding",
+        "actionDraftType": "collection.rename_add_prefix",
+        "risk": "high",
+        "requiresConfirmation": true
+      }
+    }
+  ],
+  "manualScenarios": [
+    {
+      "id": "binding.duplicate_file_names",
+      "message": "删除报告",
+      "setup": "CloudStorageApi returns two or more files named like 报告 under different paths.",
+      "expectedFlow": "candidate_selection_required before final confirmation."
+    },
+    {
+      "id": "binding.duplicate_target_folders",
+      "message": "把后缀pdf的文件全部移动到资料文件夹",
+      "setup": "CloudStorageApi returns multiple folders named 资料 in different paths.",
+      "expectedFlow": "candidate_selection_required for targetParent before collection final review."
+    },
+    {
+      "id": "collection.preview_incomplete",
+      "message": "删除所有图片",
+      "setup": "Collection preview scan exceeds configured max scan or exact count cannot be proven.",
+      "expectedFlow": "binding_required; no backendActionDraft may be generated."
+    },
+    {
+      "id": "upload.client_files_required",
+      "message": "上传到项目资料",
+      "setup": "Target folder is uniquely resolved.",
+      "expectedFlow": "handoff_to_client_upload; mobile opens file picker and never asks RAG for local file paths."
+    },
+    {
+      "id": "composite.create_folder_conflict",
+      "message": "在项目资料下新建名为归档的文件夹，然后上传文件",
+      "setup": "Target folder already contains an item named 归档.",
+      "expectedFlow": "conflict_resolution_required before create-folder-then-upload execution."
+    }
+  ]
+}

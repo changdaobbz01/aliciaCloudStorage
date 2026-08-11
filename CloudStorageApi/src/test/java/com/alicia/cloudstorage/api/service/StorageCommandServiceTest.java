@@ -7,6 +7,7 @@ import com.alicia.cloudstorage.api.dto.RenameNodeRequest;
 import com.alicia.cloudstorage.api.entity.NodeType;
 import com.alicia.cloudstorage.api.entity.StorageNode;
 import com.alicia.cloudstorage.api.repository.StorageNodeRepository;
+import com.alicia.cloudstorage.api.storage.StorageNodeEventPublisher;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -39,6 +40,9 @@ class StorageCommandServiceTest {
 
     @Mock
     private StorageQuotaService storageQuotaService;
+
+    @Mock
+    private StorageNodeEventPublisher storageNodeEventPublisher;
 
     @InjectMocks
     private StorageCommandService storageCommandService;
@@ -110,6 +114,7 @@ class StorageCommandServiceTest {
         verify(storageNodeRepository).save(nodeCaptor.capture());
         assertThat(nodeCaptor.getValue().getNodeName()).isEqualTo("photo (1).png");
         assertThat(nodeCaptor.getValue().getStoragePath()).isEqualTo("cos/photo-copy.png");
+        verify(storageNodeEventPublisher).publishUpsert(nodeCaptor.getValue());
     }
 
     @Test
@@ -148,6 +153,7 @@ class StorageCommandServiceTest {
         assertThat(childFile.getDeletedBy()).isEqualTo(userId);
         assertThat(childFile.getDeletedAt()).isEqualTo(rootFolder.getDeletedAt());
         assertThat(childFile.getOriginalParentId()).isEqualTo(31L);
+        verify(storageNodeEventPublisher).publishRemove(List.of(childFile));
     }
 
     @Test

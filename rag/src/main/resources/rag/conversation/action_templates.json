@@ -1,0 +1,267 @@
+{
+  "version": "action_templates_v1",
+  "description": "Atomic action templates. These describe allowed plans only; clients still execute through local handlers.",
+  "actions": {
+    "folder.create": {
+      "enabled": true,
+      "phase": 1,
+      "planKind": "atomic",
+      "capability": "storage.folder.create",
+      "executor": "client",
+      "method": "POST",
+      "pathTemplate": "/api/storage/folders",
+      "contentType": "application/json",
+      "authorizationRequired": true,
+      "risk": "low",
+      "confirmationLevel": "final_review",
+      "requiredParams": ["parentId", "folderName"],
+      "optionalParams": ["conflictPolicy"],
+      "requiredClientFields": [],
+      "outputs": {
+        "nodeId": "$response.id",
+        "name": "$response.name",
+        "parentId": "$response.parentId",
+        "type": "$response.type"
+      },
+      "preconditions": [
+        "folder_name_valid",
+        "target_parent_resolved"
+      ],
+      "conflicts": [
+        "same_name_folder_exists",
+        "same_name_file_exists"
+      ]
+    },
+    "file.upload": {
+      "enabled": true,
+      "phase": 1,
+      "planKind": "atomic",
+      "capability": "storage.file.upload",
+      "executor": "client",
+      "method": "POST",
+      "pathTemplate": "/api/storage/files",
+      "contentType": "multipart/form-data",
+      "authorizationRequired": true,
+      "risk": "low",
+      "confirmationLevel": "final_review",
+      "requiredParams": ["parentId"],
+      "optionalParams": [],
+      "requiredClientFields": ["files"],
+      "outputs": {
+        "uploadedNodeIds": "$response[].id"
+      },
+      "preconditions": [
+        "target_parent_resolved",
+        "client_files_selected",
+        "quota_check_passed"
+      ],
+      "conflicts": [
+        "same_name_file_auto_rename"
+      ]
+    },
+    "node.rename": {
+      "enabled": true,
+      "phase": 1,
+      "planKind": "atomic",
+      "capability": "storage.node.rename",
+      "executor": "client",
+      "method": "PUT",
+      "pathTemplate": "/api/storage/nodes/{nodeId}/rename",
+      "contentType": "application/json",
+      "authorizationRequired": true,
+      "risk": "medium",
+      "confirmationLevel": "candidate_then_final_review",
+      "requiredParams": ["nodeId", "name"],
+      "optionalParams": [],
+      "requiredClientFields": [],
+      "outputs": {
+        "nodeId": "$response.id",
+        "name": "$response.name"
+      },
+      "preconditions": [
+        "target_node_resolved",
+        "new_name_valid"
+      ],
+      "conflicts": [
+        "same_name_sibling_exists"
+      ]
+    },
+    "node.move": {
+      "enabled": true,
+      "phase": 2,
+      "planKind": "atomic",
+      "capability": "storage.node.move",
+      "executor": "client",
+      "method": "PUT",
+      "pathTemplate": "/api/storage/nodes/{nodeId}/move",
+      "contentType": "application/json",
+      "authorizationRequired": true,
+      "risk": "medium",
+      "confirmationLevel": "candidate_then_final_review",
+      "requiredParams": ["nodeId", "parentId"],
+      "optionalParams": [],
+      "requiredClientFields": [],
+      "outputs": {
+        "nodeId": "$response.id",
+        "parentId": "$response.parentId"
+      },
+      "preconditions": [
+        "source_node_resolved",
+        "target_parent_resolved",
+        "not_moving_folder_into_descendant"
+      ],
+      "conflicts": [
+        "same_name_sibling_auto_rename"
+      ]
+    },
+    "node.batch_move": {
+      "enabled": true,
+      "phase": 2,
+      "planKind": "collection",
+      "capability": "storage.node.batch_move",
+      "executor": "client",
+      "method": "PUT",
+      "pathTemplate": "/api/storage/nodes/batch/move",
+      "contentType": "application/json",
+      "authorizationRequired": true,
+      "risk": "medium",
+      "confirmationLevel": "collection_then_final_review",
+      "requiredParams": ["nodeIds", "parentId"],
+      "optionalParams": [],
+      "requiredClientFields": [],
+      "outputs": {
+        "movedNodeIds": "$response[].id"
+      },
+      "preconditions": [
+        "source_collection_resolved",
+        "target_parent_resolved",
+        "collection_revalidated"
+      ],
+      "conflicts": [
+        "same_name_sibling_auto_rename"
+      ]
+    },
+    "node.trash": {
+      "enabled": true,
+      "phase": 1,
+      "planKind": "atomic",
+      "capability": "storage.node.trash",
+      "executor": "client",
+      "method": "DELETE",
+      "pathTemplate": "/api/storage/nodes/{nodeId}",
+      "contentType": "",
+      "authorizationRequired": true,
+      "risk": "high",
+      "confirmationLevel": "candidate_then_final_review",
+      "requiredParams": ["nodeId"],
+      "optionalParams": [],
+      "requiredClientFields": [],
+      "outputs": {
+        "trashedNodeId": "$params.nodeId"
+      },
+      "preconditions": [
+        "target_node_resolved",
+        "node_not_deleted"
+      ],
+      "conflicts": []
+    },
+    "node.batch_trash": {
+      "enabled": true,
+      "phase": 2,
+      "planKind": "collection",
+      "capability": "storage.node.batch_trash",
+      "executor": "client",
+      "method": "POST",
+      "pathTemplate": "/api/storage/nodes/batch/trash",
+      "contentType": "application/json",
+      "authorizationRequired": true,
+      "risk": "high",
+      "confirmationLevel": "collection_then_final_review",
+      "requiredParams": ["nodeIds"],
+      "optionalParams": [],
+      "requiredClientFields": [],
+      "outputs": {
+        "trashedNodeIds": "$params.nodeIds"
+      },
+      "preconditions": [
+        "source_collection_resolved",
+        "collection_revalidated",
+        "collection_count_confirmed"
+      ],
+      "conflicts": []
+    },
+    "share.create": {
+      "enabled": true,
+      "phase": 1,
+      "planKind": "atomic",
+      "capability": "share.create",
+      "executor": "client",
+      "method": "POST",
+      "pathTemplate": "/api/share-links",
+      "contentType": "application/json",
+      "authorizationRequired": true,
+      "risk": "medium",
+      "confirmationLevel": "candidate_then_final_review",
+      "requiredParams": ["nodeIds"],
+      "optionalParams": ["title", "password", "expiresInDays", "allowDownload", "allowSave"],
+      "requiredClientFields": [],
+      "outputs": {
+        "shareId": "$response.id",
+        "shareCode": "$response.shareCode"
+      },
+      "preconditions": [
+        "share_nodes_resolved"
+      ],
+      "conflicts": []
+    },
+    "trash.restore": {
+      "enabled": true,
+      "phase": 2,
+      "planKind": "atomic",
+      "capability": "storage.trash.restore",
+      "executor": "client",
+      "method": "POST",
+      "pathTemplate": "/api/storage/trash/{nodeId}/restore",
+      "contentType": "application/json",
+      "authorizationRequired": true,
+      "risk": "medium",
+      "confirmationLevel": "candidate_then_final_review",
+      "requiredParams": ["nodeId"],
+      "optionalParams": [],
+      "requiredClientFields": [],
+      "outputs": {
+        "nodeId": "$response.id",
+        "parentId": "$response.parentId"
+      },
+      "preconditions": [
+        "trash_node_resolved"
+      ],
+      "conflicts": [
+        "restore_parent_missing",
+        "same_name_sibling_auto_rename"
+      ]
+    },
+    "trash.delete_permanently": {
+      "enabled": false,
+      "phase": 3,
+      "planKind": "atomic",
+      "capability": "storage.trash.delete_permanently",
+      "executor": "client",
+      "method": "DELETE",
+      "pathTemplate": "/api/storage/trash/{nodeId}",
+      "contentType": "",
+      "authorizationRequired": true,
+      "risk": "critical",
+      "confirmationLevel": "strong_destructive_review",
+      "requiredParams": ["nodeId"],
+      "optionalParams": [],
+      "requiredClientFields": [],
+      "outputs": {},
+      "preconditions": [
+        "trash_node_resolved",
+        "permanent_delete_enabled"
+      ],
+      "conflicts": []
+    }
+  }
+}

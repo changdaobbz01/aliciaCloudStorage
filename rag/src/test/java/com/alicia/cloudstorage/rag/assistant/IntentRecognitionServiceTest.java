@@ -1,0 +1,529 @@
+package com.alicia.cloudstorage.rag.assistant;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+class IntentRecognitionServiceTest {
+
+    private RagConfigLoader configLoader;
+    private IntentRouter intentRouter;
+
+    @BeforeEach
+    void setUp() {
+        configLoader = new RagConfigLoader(new ObjectMapper());
+        intentRouter = new IntentRouter(configLoader, new EntityExtractor(configLoader));
+    }
+
+    @Test
+    void returnsDeepSeekIntentTemplateWithoutMockCandidates() {
+        IntentModelClient modelClient = message -> Optional.of(new IntentModelClient.ModelIntentResult(
+                "deepseek",
+                "deepseek-v4-flash",
+                "deepseek_file_intent_recognition",
+                "intent_recognition_v1",
+                Map.ofEntries(
+                        Map.entry("intent_id", "file_rename"),
+                        Map.entry("intent_name", "文件重命名"),
+                        Map.entry("task_type", "file_mutation"),
+                        Map.entry("confidence", 0.91),
+                        Map.entry("user_goal", "把项目计划改成最终版"),
+                        Map.entry("normalized_query", "项目计划"),
+                        Map.entry("entities", Map.of("target_name", "项目计划", "new_name", "项目计划-最终版.docx")),
+                        Map.entry("required_slots", List.of("target_name", "new_name")),
+                        Map.entry("missing_slots", List.of()),
+                        Map.entry("next_action", "wait_for_backend_binding"),
+                        Map.entry("risk", "medium"),
+                        Map.entry("requires_confirmation", true),
+                        Map.entry("action_draft", Map.of(
+                                "type", "rename",
+                                "parameters", Map.of("target_name", "项目计划", "new_name", "项目计划-最终版.docx"),
+                                "needs_backend_binding", true
+                        )),
+                        Map.entry("assistant_text", "已识别为重命名需求，等待后端匹配真实文件。"),
+                        Map.entry("clarification_question", ""),
+                        Map.entry("reason", "用户明确表达重命名。")
+                )
+        ));
+
+        IntentRecognitionResponse response = new IntentRecognitionService(modelClient, intentRouter, configLoader)
+                .recognize("把项目计划重命名为 项目计划-最终版.docx");
+
+        assertThat(response.provider()).isEqualTo("deepseek");
+        assertThat(response.intentId()).isEqualTo("file_rename");
+        assertThat(response.actionDraft().type()).isEqualTo("rename");
+        assertThat(response.actionDraft().needsBackendBinding()).isTrue();
+        assertThat(response.safety().allowedToExecute()).isFalse();
+        assertThat(response.entities()).containsEntry("new_name", "项目计划-最终版.docx");
+    }
+
+    @Test
+    void fallsBackToConfiguredRulesWhenModelUnavailable() {
+        IntentModelClient unavailableClient = message -> Optional.empty();
+
+        IntentRecognitionResponse response = new IntentRecognitionService(unavailableClient, intentRouter, configLoader)
+                .recognize("删除临时截图");
+
+        assertThat(response.provider()).isEqualTo("local_fallback");
+        assertThat(response.intentId()).isEqualTo("file_delete");
+        assertThat(response.safety().risk()).isEqualTo("high");
+        assertThat(response.actionDraft().type()).isEqualTo("delete");
+        assertThat(response.actionDraft().needsBackendBinding()).isTrue();
+    }
+
+    @Test
+    void localFallbackUsesConfiguredOutOfScopeBoundaryText() {
+        IntentModelClient unavailableClient = message -> Optional.empty();
+
+        IntentRecognitionResponse response = new IntentRecognitionService(unavailableClient, intentRouter, configLoader)
+                .recognize("今天的风有点大");
+
+        assertThat(response.provider()).isEqualTo("local_fallback");
+        assertThat(response.intentId()).isEqualTo("fallback");
+        assertThat(response.assistantText()).contains("不在我的管理范围内").contains("其他的问题");
+    }
+
+    @Test
+    void localFallbackSatisfiesMobileAcceptanceScenarios() {
+        IntentModelClient unavailableClient = message -> Optional.empty();
+        IntentRecognitionService service = new IntentRecognitionService(unavailableClient, intentRouter, configLoader);
+        Map<String, Object> scenarios = configLoader.loadJsonMap("rag/conversation/acceptance_scenarios.json");
+
+        for (Object item : list(scenarios, "automatedScenarios")) {
+            Map<String, Object> scenario = map(item);
+            Map<String, Object> expected = map(scenario, "expected");
+            IntentRecognitionResponse response = service.recognize(String.valueOf(scenario.get("message")));
+
+            assertThat(response.intentId())
+                    .as("scenario %s intentId", scenario.get("id"))
+                    .isEqualTo(expected.get("intentId"));
+            assertThat(response.nextAction())
+                    .as("scenario %s nextAction", scenario.get("id"))
+                    .isEqualTo(expected.get("nextAction"));
+            assertThat(response.actionDraft().type())
+                    .as("scenario %s actionDraftType", scenario.get("id"))
+                    .isEqualTo(expected.get("actionDraftType"));
+            assertThat(response.safety().risk())
+                    .as("scenario %s risk", scenario.get("id"))
+                    .isEqualTo(expected.get("risk"));
+            assertThat(response.safety().requiresConfirmation())
+                    .as("scenario %s requiresConfirmation", scenario.get("id"))
+                    .isEqualTo(expected.get("requiresConfirmation"));
+        }
+    }
+
+    @Test
+    void modelFallbackUsesConfiguredTemplateInsteadOfGeneratedText() {
+        IntentModelClient modelClient = message -> Optional.of(new IntentModelClient.ModelIntentResult(
+                "deepseek",
+                "deepseek-v4-flash",
+                "deepseek_file_intent_recognition",
+                "intent_recognition_v1",
+                Map.ofEntries(
+                        Map.entry("intent_id", "fallback"),
+                        Map.entry("intent_name", "兜底澄清"),
+                        Map.entry("task_type", "fallback"),
+                        Map.entry("confidence", 0.4),
+                        Map.entry("user_goal", "闲聊天气"),
+                        Map.entry("normalized_query", ""),
+                        Map.entry("entities", Map.of()),
+                        Map.entry("required_slots", List.of("operation")),
+                        Map.entry("missing_slots", List.of("operation")),
+                        Map.entry("next_action", "ask_clarification"),
+                        Map.entry("risk", "none"),
+                        Map.entry("requires_confirmation", false),
+                        Map.entry("action_draft", Map.of(
+                                "type", "none",
+                                "parameters", Map.of(),
+                                "needs_backend_binding", false
+                        )),
+                        Map.entry("assistant_text", "请补充要执行的操作。"),
+                        Map.entry("clarification_question", ""),
+                        Map.entry("reason", "模型认为需要兜底。")
+                )
+        ));
+
+        IntentRecognitionResponse response = new IntentRecognitionService(modelClient, intentRouter, configLoader)
+                .recognize("今天的风有点大");
+
+        assertThat(response.provider()).isEqualTo("deepseek");
+        assertThat(response.intentId()).isEqualTo("fallback");
+        assertThat(response.assistantText()).contains("不在我的管理范围内").doesNotContain("请补充要执行的操作");
+    }
+
+    @Test
+    void normalizesUnsafeModelOutputToConfiguredContract() {
+        IntentModelClient modelClient = message -> Optional.of(new IntentModelClient.ModelIntentResult(
+                "deepseek",
+                "deepseek-v4-flash",
+                "deepseek_file_intent_recognition",
+                "intent_recognition_v1",
+                Map.ofEntries(
+                        Map.entry("intent_id", "file_delete"),
+                        Map.entry("intent_name", "文件删除"),
+                        Map.entry("task_type", "file_mutation"),
+                        Map.entry("confidence", 1.7),
+                        Map.entry("user_goal", "删除临时截图"),
+                        Map.entry("normalized_query", "临时截图"),
+                        Map.entry("entities", Map.of(
+                                "target_name", "临时截图",
+                                "nodeId", 12,
+                                "ownerId", 7
+                        )),
+                        Map.entry("required_slots", List.of()),
+                        Map.entry("missing_slots", List.of()),
+                        Map.entry("next_action", "execute_action"),
+                        Map.entry("risk", "none"),
+                        Map.entry("requires_confirmation", false),
+                        Map.entry("action_draft", Map.of(
+                                "type", "download",
+                                "parameters", Map.of(
+                                        "target_name", "临时截图",
+                                        "nodeId", 12,
+                                        "storagePath", "cos/private/path.png"
+                                ),
+                                "needs_backend_binding", false
+                        )),
+                        Map.entry("assistant_text", "已删除临时截图。"),
+                        Map.entry("clarification_question", ""),
+                        Map.entry("reason", "模型输出包含不可信执行信息。")
+                )
+        ));
+
+        IntentRecognitionResponse response = new IntentRecognitionService(modelClient, intentRouter, configLoader)
+                .recognize("删除临时截图");
+
+        assertThat(response.confidence()).isEqualTo(1.0);
+        assertThat(response.intentId()).isEqualTo("file_delete");
+        assertThat(response.nextAction()).isEqualTo("wait_for_backend_binding");
+        assertThat(response.safety().risk()).isEqualTo("high");
+        assertThat(response.safety().requiresConfirmation()).isTrue();
+        assertThat(response.actionDraft().type()).isEqualTo("delete");
+        assertThat(response.actionDraft().needsBackendBinding()).isTrue();
+        assertThat(response.entities()).containsEntry("target_name", "临时截图");
+        assertThat(response.entities()).doesNotContainKeys("nodeId", "ownerId");
+        assertThat(response.actionDraft().parameters()).doesNotContainKeys("nodeId", "storagePath");
+    }
+
+    @Test
+    void ignoresOptionalShareRecipientClarification() {
+        IntentModelClient modelClient = message -> Optional.of(new IntentModelClient.ModelIntentResult(
+                "deepseek",
+                "deepseek-v4-flash",
+                "deepseek_file_intent_recognition",
+                "intent_recognition_v1",
+                Map.ofEntries(
+                        Map.entry("intent_id", "file_share"),
+                        Map.entry("intent_name", "文件分享"),
+                        Map.entry("task_type", "file_mutation"),
+                        Map.entry("confidence", 0.7),
+                        Map.entry("user_goal", "分享最近的预算表"),
+                        Map.entry("normalized_query", "最近的预算表"),
+                        Map.entry("entities", Map.of("target_name", "最近的预算表")),
+                        Map.entry("required_slots", List.of("target_name", "share_scope")),
+                        Map.entry("missing_slots", List.of("share_scope")),
+                        Map.entry("next_action", "ask_clarification"),
+                        Map.entry("risk", "medium"),
+                        Map.entry("requires_confirmation", true),
+                        Map.entry("action_draft", Map.of(
+                                "type", "share",
+                                "parameters", Map.of("target_name", "最近的预算表"),
+                                "needs_backend_binding", true
+                        )),
+                        Map.entry("assistant_text", "请说明要分享给谁。"),
+                        Map.entry("clarification_question", "要分享给谁？"),
+                        Map.entry("reason", "模型误把收件人当必填。")
+                )
+        ));
+
+        IntentRecognitionResponse response = new IntentRecognitionService(modelClient, intentRouter, configLoader)
+                .recognize("分享最近的预算表");
+
+        assertThat(response.intentId()).isEqualTo("file_share");
+        assertThat(response.missingSlots()).isEmpty();
+        assertThat(response.nextAction()).isEqualTo("wait_for_backend_binding");
+        assertThat(response.clarificationQuestion()).isBlank();
+        assertThat(response.assistantText()).doesNotContain("分享给谁");
+    }
+
+    @Test
+    void uploadTargetsCloudFolderInsteadOfLocalFilePath() {
+        IntentModelClient modelClient = message -> Optional.of(new IntentModelClient.ModelIntentResult(
+                "deepseek",
+                "deepseek-v4-flash",
+                "deepseek_file_intent_recognition",
+                "intent_recognition_v1",
+                Map.ofEntries(
+                        Map.entry("intent_id", "file_upload"),
+                        Map.entry("intent_name", "上传目标定位"),
+                        Map.entry("task_type", "file_mutation"),
+                        Map.entry("confidence", 0.85),
+                        Map.entry("user_goal", "上传到项目资料"),
+                        Map.entry("normalized_query", "项目资料"),
+                        Map.entry("entities", Map.of("target_folder", "项目资料")),
+                        Map.entry("required_slots", List.of("target_folder", "file_path")),
+                        Map.entry("missing_slots", List.of("file_path")),
+                        Map.entry("next_action", "ask_clarification"),
+                        Map.entry("risk", "low"),
+                        Map.entry("requires_confirmation", true),
+                        Map.entry("action_draft", Map.of(
+                                "type", "upload_target",
+                                "parameters", Map.of("target_folder", "项目资料", "file_path", "C:/secret.txt"),
+                                "needs_backend_binding", true
+                        )),
+                        Map.entry("assistant_text", "请提供本地文件路径。"),
+                        Map.entry("clarification_question", "要上传哪个本地文件？"),
+                        Map.entry("reason", "模型误把本地路径当必填。")
+                )
+        ));
+
+        IntentRecognitionResponse response = new IntentRecognitionService(modelClient, intentRouter, configLoader)
+                .recognize("上传到项目资料");
+
+        assertThat(response.intentId()).isEqualTo("file_upload");
+        assertThat(response.entities()).containsEntry("target_folder", "项目资料");
+        assertThat(response.missingSlots()).isEmpty();
+        assertThat(response.nextAction()).isEqualTo("wait_for_backend_binding");
+        assertThat(response.actionDraft().parameters()).doesNotContainKey("file_path");
+    }
+
+    @Test
+    void localFallbackAsksForDeleteTargetWhenMissing() {
+        IntentModelClient unavailableClient = message -> Optional.empty();
+
+        IntentRecognitionResponse response = new IntentRecognitionService(unavailableClient, intentRouter, configLoader)
+                .recognize("删除");
+
+        assertThat(response.provider()).isEqualTo("local_fallback");
+        assertThat(response.intentId()).isEqualTo("file_delete");
+        assertThat(response.nextAction()).isEqualTo("ask_clarification");
+        assertThat(response.missingSlots()).containsExactly("target_name");
+        assertThat(response.clarificationQuestion()).contains("要删除");
+    }
+
+    @Test
+    void localFallbackRecognizesNameContainsListAsSearch() {
+        IntentModelClient unavailableClient = message -> Optional.empty();
+
+        IntentRecognitionResponse response = new IntentRecognitionService(unavailableClient, intentRouter, configLoader)
+                .recognize("帮我将名称带有xx的文件列出来");
+
+        assertThat(response.intentId()).isEqualTo("file_search");
+        assertThat(response.actionDraft().type()).isEqualTo("search");
+        assertThat(response.entities()).containsEntry("target_name", "xx");
+        assertThat(response.missingSlots()).isEmpty();
+    }
+
+    @Test
+    void localFallbackRecognizesNameContainsDeleteAsCollectionDelete() {
+        IntentModelClient unavailableClient = message -> Optional.empty();
+
+        IntentRecognitionResponse response = new IntentRecognitionService(unavailableClient, intentRouter, configLoader)
+                .recognize("我要删除文件名带有xx的文件");
+
+        assertThat(response.intentId()).isEqualTo("collection_delete_by_name");
+        assertThat(response.actionDraft().type()).isEqualTo("collection.trash_by_name_contains");
+        assertThat(response.entities()).containsEntry("target_name", "xx");
+        assertThat(response.safety().risk()).isEqualTo("high");
+    }
+
+    @Test
+    void localFallbackRecognizesBatchRenamePrefixAsUnsupportedCollectionPlan() {
+        IntentModelClient unavailableClient = message -> Optional.empty();
+
+        IntentRecognitionResponse response = new IntentRecognitionService(unavailableClient, intentRouter, configLoader)
+                .recognize("将名称带有xx的文件重命名，统一在头部加上yy");
+
+        assertThat(response.intentId()).isEqualTo("collection_rename_add_prefix");
+        assertThat(response.actionDraft().type()).isEqualTo("collection.rename_add_prefix");
+        assertThat(response.entities())
+                .containsEntry("target_name", "xx")
+                .containsEntry("rename_prefix", "yy");
+        assertThat(response.assistantText()).contains("暂不开放批量重命名执行");
+    }
+
+    @Test
+    void localFallbackRecognizesVideoListAsSearch() {
+        IntentModelClient unavailableClient = message -> Optional.empty();
+
+        IntentRecognitionResponse response = new IntentRecognitionService(unavailableClient, intentRouter, configLoader)
+                .recognize("将视频文件全部找出后列出来");
+
+        assertThat(response.intentId()).isEqualTo("file_search");
+        assertThat(response.actionDraft().type()).isEqualTo("search");
+        assertThat(response.entities()).containsEntry("file_type", "视频");
+        assertThat(response.safety().risk()).isEqualTo("none");
+    }
+
+    @Test
+    void localFallbackRecognizesAssistantIdentity() {
+        IntentModelClient unavailableClient = message -> Optional.empty();
+
+        IntentRecognitionResponse response = new IntentRecognitionService(unavailableClient, intentRouter, configLoader)
+                .recognize("你是谁");
+
+        assertThat(response.intentId()).isEqualTo("assistant_identity");
+        assertThat(response.nextAction()).isEqualTo("respond_only");
+        assertThat(response.actionDraft().type()).isEqualTo("none");
+        assertThat(response.actionDraft().needsBackendBinding()).isFalse();
+        assertThat(response.assistantText()).contains("安安").contains("文件管家");
+        assertThat(response.missingSlots()).isEmpty();
+    }
+
+    @Test
+    void localFallbackRecognizesAssistantUserIdentityQuestion() {
+        IntentModelClient unavailableClient = message -> Optional.empty();
+
+        IntentRecognitionResponse response = new IntentRecognitionService(unavailableClient, intentRouter, configLoader)
+                .recognize("那么我是谁呢");
+
+        assertThat(response.intentId()).isEqualTo("assistant_user_identity");
+        assertThat(response.nextAction()).isEqualTo("respond_only");
+        assertThat(response.actionDraft().type()).isEqualTo("none");
+        assertThat(response.actionDraft().needsBackendBinding()).isFalse();
+        assertThat(response.assistantText()).contains("不能凭空知道").contains("当前登录会话");
+        assertThat(response.missingSlots()).isEmpty();
+    }
+
+    @Test
+    void localFallbackRecognizesAssistantSocialCompliment() {
+        IntentModelClient unavailableClient = message -> Optional.empty();
+
+        IntentRecognitionResponse response = new IntentRecognitionService(unavailableClient, intentRouter, configLoader)
+                .recognize("你的形象真漂亮");
+
+        assertThat(response.intentId()).isEqualTo("assistant_social");
+        assertThat(response.nextAction()).isEqualTo("respond_only");
+        assertThat(response.assistantText()).contains("谢谢").contains("文件");
+        assertThat(response.safety().risk()).isEqualTo("none");
+    }
+
+    @Test
+    void localFallbackRecognizesAssistantChat() {
+        IntentModelClient unavailableClient = message -> Optional.empty();
+
+        IntentRecognitionResponse response = new IntentRecognitionService(unavailableClient, intentRouter, configLoader)
+                .recognize("可以和我聊聊天吗");
+
+        assertThat(response.intentId()).isEqualTo("assistant_chat");
+        assertThat(response.nextAction()).isEqualTo("respond_only");
+        assertThat(response.assistantText()).contains("可以").contains("文件");
+        assertThat(response.safety().requiresConfirmation()).isFalse();
+    }
+
+    @Test
+    void localFallbackRecognizesExternalMovieResourceBoundary() {
+        IntentModelClient unavailableClient = message -> Optional.empty();
+
+        IntentRecognitionResponse response = new IntentRecognitionService(unavailableClient, intentRouter, configLoader)
+                .recognize("你知道最近有一部新电影吗，名字叫xx，可以帮我找一下资源吗");
+
+        assertThat(response.intentId()).isEqualTo("assistant_external_resource");
+        assertThat(response.nextAction()).isEqualTo("respond_only");
+        assertThat(response.actionDraft().type()).isEqualTo("none");
+        assertThat(response.actionDraft().needsBackendBinding()).isFalse();
+        assertThat(response.assistantText()).contains("不能").contains("云盘");
+        assertThat(response.safety().requiresConfirmation()).isFalse();
+    }
+
+    @Test
+    void localFallbackRecognizesWritingHelp() {
+        IntentModelClient unavailableClient = message -> Optional.empty();
+
+        IntentRecognitionResponse response = new IntentRecognitionService(unavailableClient, intentRouter, configLoader)
+                .recognize("我有一个xx文档要写，你可以辅导我吗？");
+
+        assertThat(response.intentId()).isEqualTo("assistant_writing_help");
+        assertThat(response.nextAction()).isEqualTo("respond_only");
+        assertThat(response.actionDraft().type()).isEqualTo("none");
+        assertThat(response.assistantText()).contains("提纲").contains("段落");
+        assertThat(response.safety().risk()).isEqualTo("none");
+    }
+
+    @Test
+    void localFallbackRecognizesUnsupportedErrand() {
+        IntentModelClient unavailableClient = message -> Optional.empty();
+
+        IntentRecognitionResponse response = new IntentRecognitionService(unavailableClient, intentRouter, configLoader)
+                .recognize("我想吃东西，帮我点个xx");
+
+        assertThat(response.intentId()).isEqualTo("assistant_errand_unsupported");
+        assertThat(response.nextAction()).isEqualTo("respond_only");
+        assertThat(response.actionDraft().type()).isEqualTo("none");
+        assertThat(response.assistantText()).contains("不能").contains("点餐");
+        assertThat(response.missingSlots()).isEmpty();
+    }
+
+    @Test
+    void localFallbackRecognizesBoredCompanionChat() {
+        IntentModelClient unavailableClient = message -> Optional.empty();
+
+        IntentRecognitionResponse response = new IntentRecognitionService(unavailableClient, intentRouter, configLoader)
+                .recognize("我好无聊");
+
+        assertThat(response.intentId()).isEqualTo("assistant_bored");
+        assertThat(response.nextAction()).isEqualTo("respond_only");
+        assertThat(response.actionDraft().type()).isEqualTo("none");
+        assertThat(response.assistantText()).contains("陪你").contains("整理");
+        assertThat(response.safety().requiresConfirmation()).isFalse();
+    }
+
+    @Test
+    void localFallbackRecognizesProductInfo() {
+        IntentModelClient unavailableClient = message -> Optional.empty();
+
+        IntentRecognitionResponse response = new IntentRecognitionService(unavailableClient, intentRouter, configLoader)
+                .recognize("这个网盘的优势是什么");
+
+        assertThat(response.intentId()).isEqualTo("assistant_product_info");
+        assertThat(response.nextAction()).isEqualTo("respond_only");
+        assertThat(response.assistantText()).contains("Alicia").contains("优势");
+        assertThat(response.actionDraft().needsBackendBinding()).isFalse();
+    }
+
+    @Test
+    void localFallbackRecognizesProductReason() {
+        IntentModelClient unavailableClient = message -> Optional.empty();
+
+        IntentRecognitionResponse response = new IntentRecognitionService(unavailableClient, intentRouter, configLoader)
+                .recognize("给我一个使用这个网盘的理由");
+
+        assertThat(response.intentId()).isEqualTo("assistant_product_reason");
+        assertThat(response.nextAction()).isEqualTo("respond_only");
+        assertThat(response.assistantText()).contains("理由").contains("安安");
+        assertThat(response.safety().risk()).isEqualTo("none");
+    }
+
+    @Test
+    void localFallbackRecognizesProductFeedback() {
+        IntentModelClient unavailableClient = message -> Optional.empty();
+
+        IntentRecognitionResponse response = new IntentRecognitionService(unavailableClient, intentRouter, configLoader)
+                .recognize("功能有点少呀");
+
+        assertThat(response.intentId()).isEqualTo("assistant_product_feedback");
+        assertThat(response.nextAction()).isEqualTo("respond_only");
+        assertThat(response.assistantText()).contains("功能").contains("逐步");
+        assertThat(response.missingSlots()).isEmpty();
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> map(Object source) {
+        return (Map<String, Object>) source;
+    }
+
+    private static Map<String, Object> map(Map<String, Object> source, String key) {
+        return map(source.get(key));
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<Object> list(Map<String, Object> source, String key) {
+        return (List<Object>) source.get(key);
+    }
+}

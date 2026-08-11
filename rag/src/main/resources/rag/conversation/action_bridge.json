@@ -1,0 +1,170 @@
+{
+  "version": "action_bridge_v1",
+  "actions": {
+    "rename": {
+      "enabled": true,
+      "status": "backend_action_ready",
+      "next_action": "handoff_to_backend",
+      "executable_by_backend": true,
+      "authorization_required": true,
+      "method": "PUT",
+      "path_template": "/api/storage/nodes/{nodeId}/rename",
+      "content_type": "application/json",
+      "required_candidate_fields": ["nodeId"],
+      "required_entity_slots": ["new_name"],
+      "required_client_fields": [],
+      "path_variables": {
+        "nodeId": "$candidate.nodeId"
+      },
+      "query_parameters": {},
+      "body": {
+        "name": "$entities.new_name"
+      },
+      "message": "已生成重命名后端请求草稿，等待调用方提交给 CloudStorageApi。"
+    },
+    "delete": {
+      "enabled": true,
+      "status": "backend_action_ready",
+      "next_action": "handoff_to_backend",
+      "executable_by_backend": true,
+      "authorization_required": true,
+      "method": "DELETE",
+      "path_template": "/api/storage/nodes/{nodeId}",
+      "content_type": "",
+      "required_candidate_fields": ["nodeId"],
+      "required_entity_slots": [],
+      "required_client_fields": [],
+      "path_variables": {
+        "nodeId": "$candidate.nodeId"
+      },
+      "query_parameters": {},
+      "body": {},
+      "message": "已生成删除后端请求草稿，CloudStorageApi 仍需校验用户权限和节点状态。"
+    },
+    "share": {
+      "enabled": true,
+      "status": "backend_action_ready",
+      "next_action": "handoff_to_backend",
+      "executable_by_backend": true,
+      "authorization_required": true,
+      "method": "POST",
+      "path_template": "/api/share-links",
+      "content_type": "application/json",
+      "required_candidate_fields": ["nodeId"],
+      "required_entity_slots": [],
+      "required_client_fields": [],
+      "path_variables": {},
+      "query_parameters": {},
+      "body": {
+        "nodeIds": ["$candidate.nodeId"],
+        "title": "$candidate.name",
+        "password": null,
+        "expiresInDays": null,
+        "allowDownload": true,
+        "allowSave": true
+      },
+      "message": "已生成分享链接创建请求草稿，分享参数可由调用方在提交前二次确认。"
+    },
+    "upload_target": {
+      "enabled": true,
+      "status": "client_action_required",
+      "next_action": "handoff_to_client_upload",
+      "executable_by_backend": false,
+      "authorization_required": true,
+      "method": "POST",
+      "path_template": "/api/storage/files",
+      "content_type": "multipart/form-data",
+      "required_candidate_fields": ["nodeId"],
+      "required_entity_slots": [],
+      "required_client_fields": ["file"],
+      "path_variables": {},
+      "query_parameters": {
+        "parentId": "$candidate.nodeId"
+      },
+      "body": {},
+      "message": "已确认上传目标目录，调用方需要让用户选择本地文件后再提交上传。"
+    },
+    "collection.trash_by_name_contains": {
+      "enabled": true,
+      "status": "backend_action_ready",
+      "next_action": "handoff_to_backend",
+      "executable_by_backend": true,
+      "authorization_required": true,
+      "method": "POST",
+      "path_template": "/api/storage/nodes/batch/trash",
+      "content_type": "application/json",
+      "required_candidate_fields": [],
+      "required_entity_slots": ["target_name"],
+      "required_client_fields": [],
+      "required_bindings": ["sourceCollection"],
+      "path_variables": {},
+      "query_parameters": {},
+      "body": {
+        "nodeIds": "$bindings.sourceCollection.nodeIds"
+      },
+      "message": "已生成按名称批量移入回收站请求草稿，提交前仍需由调用方复核预览集合。"
+    },
+    "collection.trash_by_category": {
+      "enabled": true,
+      "status": "backend_action_ready",
+      "next_action": "handoff_to_backend",
+      "executable_by_backend": true,
+      "authorization_required": true,
+      "method": "POST",
+      "path_template": "/api/storage/nodes/batch/trash",
+      "content_type": "application/json",
+      "required_candidate_fields": [],
+      "required_entity_slots": ["file_type"],
+      "required_client_fields": [],
+      "required_bindings": ["sourceCollection"],
+      "path_variables": {},
+      "query_parameters": {},
+      "body": {
+        "nodeIds": "$bindings.sourceCollection.nodeIds"
+      },
+      "message": "已生成按类型批量移入回收站请求草稿，提交前仍需由调用方复核预览集合。"
+    },
+    "collection.move_by_extension": {
+      "enabled": true,
+      "status": "backend_action_ready",
+      "next_action": "handoff_to_backend",
+      "executable_by_backend": true,
+      "authorization_required": true,
+      "method": "PUT",
+      "path_template": "/api/storage/nodes/batch/move",
+      "content_type": "application/json",
+      "required_candidate_fields": [],
+      "required_entity_slots": ["extension", "target_folder"],
+      "required_client_fields": [],
+      "required_bindings": ["sourceCollection", "targetParent"],
+      "path_variables": {},
+      "query_parameters": {},
+      "body": {
+        "nodeIds": "$bindings.sourceCollection.nodeIds",
+        "parentId": "$bindings.targetParent.nodeId"
+      },
+      "message": "已生成按后缀批量移动请求草稿，提交前仍需由调用方复核预览集合和目标目录。"
+    },
+    "collection.move_by_name_contains": {
+      "enabled": true,
+      "status": "backend_action_ready",
+      "next_action": "handoff_to_backend",
+      "executable_by_backend": true,
+      "authorization_required": true,
+      "method": "PUT",
+      "path_template": "/api/storage/nodes/batch/move",
+      "content_type": "application/json",
+      "required_candidate_fields": [],
+      "required_entity_slots": ["target_name", "target_folder"],
+      "required_client_fields": [],
+      "required_bindings": ["sourceCollection", "targetParent"],
+      "path_variables": {},
+      "query_parameters": {},
+      "body": {
+        "nodeIds": "$bindings.sourceCollection.nodeIds",
+        "parentId": "$bindings.targetParent.nodeId"
+      },
+      "message": "已生成按名称批量移动请求草稿，提交前仍需由调用方复核预览集合和目标目录。"
+    }
+  }
+}

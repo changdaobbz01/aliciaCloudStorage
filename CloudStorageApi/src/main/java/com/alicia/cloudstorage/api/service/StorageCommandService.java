@@ -10,6 +10,7 @@ import com.alicia.cloudstorage.api.dto.StorageNodeSummaryResponse;
 import com.alicia.cloudstorage.api.entity.NodeType;
 import com.alicia.cloudstorage.api.entity.StorageNode;
 import com.alicia.cloudstorage.api.repository.StorageNodeRepository;
+import com.alicia.cloudstorage.api.storage.StorageNodeEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -32,15 +33,18 @@ public class StorageCommandService {
     private final StorageNodeRepository storageNodeRepository;
     private final CosFileStorageService cosFileStorageService;
     private final StorageQuotaService storageQuotaService;
+    private final StorageNodeEventPublisher storageNodeEventPublisher;
 
     public StorageCommandService(
             StorageNodeRepository storageNodeRepository,
             CosFileStorageService cosFileStorageService,
-            StorageQuotaService storageQuotaService
+            StorageQuotaService storageQuotaService,
+            StorageNodeEventPublisher storageNodeEventPublisher
     ) {
         this.storageNodeRepository = storageNodeRepository;
         this.cosFileStorageService = cosFileStorageService;
         this.storageQuotaService = storageQuotaService;
+        this.storageNodeEventPublisher = storageNodeEventPublisher;
     }
 
     /**
@@ -90,7 +94,9 @@ public class StorageCommandService {
             fileNode.setStoragePath(storedCosFile.objectKey());
             clearTrashMetadata(fileNode);
 
-            return toSummary(storageNodeRepository.save(fileNode));
+            StorageNode savedFileNode = storageNodeRepository.save(fileNode);
+            storageNodeEventPublisher.publishUpsert(savedFileNode);
+            return toSummary(savedFileNode);
         } catch (RuntimeException exception) {
             cosFileStorageService.deleteObjectQuietly(storedCosFile.objectKey());
             throw exception;
@@ -173,7 +179,9 @@ public class StorageCommandService {
             node.setFileExtension(extractExtension(nextName));
         }
 
-        return toSummary(storageNodeRepository.save(node));
+        StorageNode savedNode = storageNodeRepository.save(node);
+        storageNodeEventPublisher.publishUpsert(List.of(savedNode), savedNode.getNodeType() == NodeType.FOLDER);
+        return toSummary(savedNode);
     }
 
     /**
@@ -266,7 +274,7 @@ public class StorageCommandService {
         List<String> copiedObjectKeys = new ArrayList<>();
 
         try {
-            List<StorageNodeSummaryResponse> copiedRoots = new ArrayList<>();
+            List<StorageNode> copiedRoots = new ArrayList<>();
             Set<String> reservedRootNames = new HashSet<>();
 
             for (StorageNode sourceRootNode : activeRootNodes) {
@@ -284,10 +292,11 @@ public class StorageCommandService {
                         targetRootName,
                         copiedObjectKeys
                 );
-                copiedRoots.add(toSummary(copiedRoot));
+                copiedRoots.add(copiedRoot);
             }
 
-            return copiedRoots;
+            storageNodeEventPublisher.publishUpsert(copiedRoots, true);
+            return copiedRoots.stream().map(this::toSummary).toList();
         } catch (RuntimeException exception) {
             copiedObjectKeys.forEach(cosFileStorageService::deleteObjectQuietly);
             throw exception;
@@ -324,6 +333,7 @@ public class StorageCommandService {
         }
 
         storageNodeRepository.saveAll(rootNodes);
+        storageNodeEventPublisher.publishUpsert(rootNodes, true);
         return rootNodes.stream().map(this::toSummary).toList();
     }
 
@@ -426,6 +436,7 @@ public class StorageCommandService {
 
         subtreeNodes.forEach(subtreeNode -> markNodeDeleted(subtreeNode, userId, deletedAt));
         storageNodeRepository.saveAll(subtreeNodes);
+        storageNodeEventPublisher.publishRemove(filterFileNodes(subtreeNodes));
         return rootNodes.size();
     }
 
@@ -466,6 +477,7 @@ public class StorageCommandService {
         }
 
         storageNodeRepository.saveAll(subtreeNodes);
+        storageNodeEventPublisher.publishUpsert(filterFileNodes(subtreeNodes), false);
         return restorePlans.stream()
                 .map(RestorePlan::node)
                 .map(this::toSummary)
@@ -486,15 +498,26 @@ public class StorageCommandService {
             subtreeNodes.addAll(collectSubtree(userId, rootNode, false));
         }
 
-        subtreeNodes.stream()
-                .filter(subtreeNode -> subtreeNode.getNodeType() == NodeType.FILE)
+        List<StorageNode> removedFileNodes = filterFileNodes(subtreeNodes);
+        removedFileNodes.stream()
                 .map(StorageNode::getStoragePath)
                 .filter(storagePath -> storagePath != null && !storagePath.isBlank())
                 .forEach(cosFileStorageService::deleteObjectQuietly);
 
         Collections.reverse(subtreeNodes);
         storageNodeRepository.deleteAll(subtreeNodes);
+        storageNodeEventPublisher.publishRemove(removedFileNodes);
         return rootNodes.size();
+    }
+
+    private List<StorageNode> filterFileNodes(List<StorageNode> nodes) {
+        if (nodes == null || nodes.isEmpty()) {
+            return List.of();
+        }
+
+        return nodes.stream()
+                .filter(node -> node.getNodeType() == NodeType.FILE)
+                .toList();
     }
 
     /**

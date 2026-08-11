@@ -1,0 +1,21 @@
+template_id,enabled,priority,intent_id,message_template,next_action
+intent_template_assistant_identity,true,130,assistant_identity,"{persona_identity}",respond_only
+intent_template_assistant_user_identity,true,130,assistant_user_identity,"{persona_user_identity_reply}",respond_only
+intent_template_assistant_social,true,130,assistant_social,"{persona_social_reply}",respond_only
+intent_template_assistant_chat,true,130,assistant_chat,"{persona_chat_reply}",respond_only
+intent_template_assistant_bored,true,130,assistant_bored,"{persona_bored_reply}",respond_only
+intent_template_assistant_external_resource,true,130,assistant_external_resource,"{persona_external_resource_reply}",respond_only
+intent_template_assistant_writing_help,true,130,assistant_writing_help,"{persona_writing_help_reply}",respond_only
+intent_template_assistant_errand_unsupported,true,130,assistant_errand_unsupported,"{persona_errand_unsupported_reply}",respond_only
+intent_template_assistant_product_info,true,130,assistant_product_info,"{persona_product_info_reply}",respond_only
+intent_template_assistant_product_reason,true,130,assistant_product_reason,"{persona_product_reason_reply}",respond_only
+intent_template_assistant_product_feedback,true,130,assistant_product_feedback,"{persona_product_feedback_reply}",respond_only
+intent_template_default,true,100,*,"已识别为「{intent_name}」，下一步等待后端根据线索匹配真实文件或目录。",wait_for_backend_binding
+intent_template_collection_rename_prefix,true,110,collection_rename_add_prefix,"已识别为「{intent_name}」，当前先进入受控 ActionPlan 扩展位，暂不开放批量重命名执行。",wait_for_backend_binding
+intent_template_search_results,true,95,file_search,"已完成文件检索，可展示候选结果。",show_search_results
+intent_template_choose_candidate,true,95,*,"已匹配到多个候选，请选择要处理的那一项。",wait_for_candidate_selection
+intent_template_confirm,true,90,*,"已识别为「{intent_name}」，等待用户确认后交给后端执行。",wait_for_user_confirmation
+intent_template_handoff_backend,true,90,*,"用户已确认，已生成可提交给后端校验执行的请求草稿。",handoff_to_backend
+intent_template_handoff_upload,true,90,file_upload,"用户已确认上传目标，请在客户端选择本地文件后提交上传。",handoff_to_client_upload
+intent_template_clarify,true,100,*,"已识别为「{intent_name}」，还需要补充：{missing_slots_text}。",ask_clarification
+intent_template_fallback,true,120,fallback,"这个问题不在我的管理范围内，可以问问我其他的问题。也可以告诉我想找文件、重命名、分享、删除、移动还是上传。",ask_clarification

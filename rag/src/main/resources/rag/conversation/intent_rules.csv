@@ -1,0 +1,23 @@
+intent_id,enabled,priority,confidence,required_groups,excluded_keywords,reason
+assistant_identity,true,150,0.96,你是谁|你叫什么|你的名字|介绍一下自己|who are you,,识别为安安身份介绍
+assistant_user_identity,true,149,0.95,我是谁|你知道我是谁|认识我吗|知道我吗|who am i,,识别为用户身份反问
+assistant_external_resource,true,148,0.94,电影|电视剧|综艺|动漫|片源|影视;资源|下载|找资源|找一下资源,,识别为外部影视资源边界请求
+assistant_writing_help,true,147,0.93,文档|文章|报告|方案|论文|作文;写|辅导|指导|帮我写|提纲,,识别为写作辅导请求
+assistant_errand_unsupported,true,146,0.92,吃东西|外卖|点个|点一份|点餐|帮我点|买个,,识别为生活服务越界请求
+assistant_product_info,true,145,0.92,网盘|云盘|Alicia;优势|特点|好处|是什么,,识别为产品优势咨询
+assistant_product_reason,true,144,0.91,网盘|云盘|Alicia;理由|为什么|使用|选择,,识别为产品使用理由咨询
+assistant_product_feedback,true,143,0.91,功能;少|太少|有点少|不够|建议|吐槽,,识别为产品功能反馈
+assistant_bored,true,142,0.93,无聊|没意思|不知道干嘛|空虚,,识别为安安陪伴回应
+assistant_chat,true,141,0.94,聊天|聊聊天|聊一聊|陪我聊|说说话|talk|chat,,识别为安安闲聊
+assistant_social,true,146,0.93,你好|您好|漂亮|好看|可爱|温柔|喜欢你|谢谢|辛苦|真棒|厉害,,识别为安安社交回应
+folder_create_then_upload,true,130,0.95,新建|创建|建立|mkdir|create;上传|传到|放到|upload,,识别为新建文件夹后上传组合需求
+collection_move_by_extension,true,125,0.93,后缀|扩展名|extension|ext;移动|移到|move;文件夹|目录|folder,,识别为按后缀批量移动需求
+collection_move_by_name,true,123,0.92,名字|名称|文件名|name;带有|包含|含有|contains;移动|移到|move,,识别为按名称批量移动需求
+collection_rename_add_prefix,true,122,0.91,名字|名称|文件名|name;带有|包含|含有|contains;重命名|改名|命名|rename;头部|开头|前缀|prefix,,识别为按名称批量加前缀重命名需求
+collection_delete_by_name,true,121,0.92,名字|名称|文件名|name;带有|包含|含有|contains;删除|移除|清理|delete|remove|trash,,识别为按名称批量删除需求
+collection_delete_by_category,true,119,0.91,类型|图片|照片|视频|音频|音乐|文档|压缩包|image|photo|video|audio|document|archive;删除|移除|清理|delete|remove|trash,,识别为按文件类型批量删除需求
+file_delete,true,100,0.94,删除|移除|扔到回收站|清理|delete|remove|trash,,识别为文件删除需求
+file_rename,true,95,0.92,重命名|改名|命名|改成|rename,,识别为文件重命名需求
+file_share,true,90,0.90,分享|发给我|共享|链接|share,,识别为文件分享需求
+file_upload,true,85,0.88,上传|传到|放到|upload,,识别为上传目标定位需求
+file_search,true,10,0.78,找|查|搜索|看看|定位|打开|查看|列出|列出来|显示|展示|list|search|find,,识别为文件检索需求

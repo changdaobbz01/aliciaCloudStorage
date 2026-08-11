@@ -8,6 +8,7 @@ import com.alicia.cloudstorage.api.entity.StorageNode;
 import com.alicia.cloudstorage.api.repository.MultipartUploadPartRepository;
 import com.alicia.cloudstorage.api.repository.MultipartUploadSessionRepository;
 import com.alicia.cloudstorage.api.repository.StorageNodeRepository;
+import com.alicia.cloudstorage.api.storage.StorageNodeEventPublisher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -46,6 +47,9 @@ class StorageMultipartUploadServiceTest {
     @Mock
     private StorageQuotaService storageQuotaService;
 
+    @Mock
+    private StorageNodeEventPublisher storageNodeEventPublisher;
+
     private StorageMultipartUploadService storageMultipartUploadService;
 
     @BeforeEach
@@ -56,6 +60,7 @@ class StorageMultipartUploadServiceTest {
                 multipartUploadPartRepository,
                 cosFileStorageService,
                 storageQuotaService,
+                storageNodeEventPublisher,
                 true,
                 24L
         );
@@ -211,6 +216,7 @@ class StorageMultipartUploadServiceTest {
         ArgumentCaptor<List<CosFileStorageService.StoredCosPart>> partsCaptor = ArgumentCaptor.forClass(List.class);
         verify(cosFileStorageService).completeMultipartUpload(eq("cos/design.pdf"), eq("cos-upload-103"), partsCaptor.capture());
         assertThat(partsCaptor.getValue()).extracting(CosFileStorageService.StoredCosPart::partNumber).containsExactly(1, 2);
+        verify(storageNodeEventPublisher).publishUpsert(any(StorageNode.class));
     }
 
     @Test

@@ -18,6 +18,7 @@
 
     <modules>
         <module>CloudStorageApi</module>
+        <module>rag</module>
     </modules>
 
     <properties>
