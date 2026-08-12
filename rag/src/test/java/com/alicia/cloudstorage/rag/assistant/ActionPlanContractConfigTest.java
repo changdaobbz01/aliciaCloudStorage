@@ -24,7 +24,7 @@ class ActionPlanContractConfigTest {
         List<Object> statuses = list(schema, "statuses");
         Map<String, Object> executionRules = map(schema, "executionRules");
 
-        assertThat(schema).containsEntry("version", "action_plan_v1");
+        assertThat(schema).containsEntry("version", "action_plan_v2");
         assertThat(statuses).contains(
                 "clarification_required",
                 "candidate_selection_required",
@@ -117,6 +117,7 @@ class ActionPlanContractConfigTest {
         assertThat(collections.keySet()).contains(
                 "collection.trash_by_name_contains",
                 "collection.trash_by_category",
+                "collection.move_by_category",
                 "collection.move_by_extension",
                 "collection.move_by_name_contains"
         );
@@ -187,7 +188,9 @@ class ActionPlanContractConfigTest {
                 .containsEntry("implementationStatus", "mobile_supported")
                 .containsEntry("mobileRepositoryMethod", "renameNode");
         assertThat(map(actionHandlers, "delete")).containsEntry("mobileRepositoryMethod", "moveNodeToTrash");
-        assertThat(map(actionHandlers, "collection.rename_add_prefix")).containsEntry("implementationStatus", "planning_only");
+        assertThat(map(actionHandlers, "collection.rename_add_prefix"))
+                .containsEntry("implementationStatus", "mobile_supported")
+                .containsEntry("mobileRepositoryMethod", "renameNodes");
     }
 
     @Test
@@ -224,6 +227,19 @@ class ActionPlanContractConfigTest {
                     .as("scenario %s expected actionDraftType", scenario.get("id"))
                     .contains(String.valueOf(expected.get("actionDraftType")));
         }
+    }
+
+    @Test
+    void capabilityContractPublishesSemanticBoundaryVersion() {
+        Map<String, Object> capabilities = configLoader.loadJsonMap("rag/conversation/capabilities.json");
+        Map<String, Object> boundaries = configLoader.loadJsonMap(
+                "rag/conversation/capability_boundaries.json"
+        );
+
+        assertThat(capabilities)
+                .containsEntry("semanticFrameVersion", "semantic_frame_v2")
+                .containsEntry("capabilityBoundaryVersion", boundaries.get("version"));
+        assertThat(list(boundaries, "boundaries")).hasSizeGreaterThanOrEqualTo(5);
     }
 
     @SuppressWarnings("unchecked")

@@ -17,7 +17,7 @@ public class BackendActionDraftService {
 
     public BackendActionDraftService(RagConfigLoader configLoader) {
         JsonNode config = configLoader.loadJson("rag/conversation/action_bridge.json");
-        this.bridgeVersion = config.path("version").asText("action_bridge_v1");
+        this.bridgeVersion = config.path("version").asText("action_bridge_v2");
         this.actionsByType = loadActions(config.path("actions"));
     }
 
@@ -112,6 +112,14 @@ public class BackendActionDraftService {
         }
         if (!"collection_review_required".equals(plan.status())) {
             return BackendActionDraft.skipped("collection_preview_not_ready", "集合预览尚未就绪，不能生成批量请求草稿。");
+        }
+
+        List<String> missingEntitySlots = missingEntitySlots(definition.requiredEntitySlots(), response.entities());
+        if (!missingEntitySlots.isEmpty()) {
+            return BackendActionDraft.skipped(
+                    "missing_required_entities",
+                    "缺少执行所需槽位：" + String.join("、", missingEntitySlots)
+            );
         }
 
         List<String> missingBindings = missingBindings(definition.requiredBindings(), plan.bindings());
@@ -263,7 +271,7 @@ public class BackendActionDraftService {
         if (!expression.startsWith("$")) {
             return expression;
         }
-        Object bindingValue = resolveBindingExpression(expression, plan);
+        Object bindingValue = resolveBindingExpression(expression, response, plan);
         if (bindingValue != null) {
             return bindingValue;
         }
@@ -283,13 +291,34 @@ public class BackendActionDraftService {
         };
     }
 
-    private Object resolveBindingExpression(String expression, ActionPlan plan) {
+    private Object resolveBindingExpression(
+            String expression,
+            IntentRecognitionResponse response,
+            ActionPlan plan
+    ) {
         if (plan == null || !expression.startsWith("$bindings.")) {
             return null;
         }
         if ("$bindings.sourceCollection.nodeIds".equals(expression)) {
             ActionPlanBinding sourceCollection = sourceCollectionBinding(plan);
             return sourceCollection == null ? List.of() : nodeIds(sourceCollection);
+        }
+        if ("$bindings.sourceCollection.renamePrefixItems".equals(expression)) {
+            ActionPlanBinding sourceCollection = sourceCollectionBinding(plan);
+            if (sourceCollection == null) {
+                return List.of();
+            }
+            String prefix = String.valueOf(response.entities().getOrDefault("rename_prefix", "")).trim();
+            if (prefix.isBlank()) {
+                return List.of();
+            }
+            return sourceCollection.candidates().stream()
+                    .filter(candidate -> candidate.nodeId() != null && candidate.name() != null && !candidate.name().isBlank())
+                    .map(candidate -> Map.<String, Object>of(
+                            "nodeId", candidate.nodeId(),
+                            "name", prefix + candidate.name()
+                    ))
+                    .toList();
         }
         if ("$bindings.targetParent.nodeId".equals(expression)) {
             ActionPlanBinding targetParent = plan.bindings().get("targetParent");

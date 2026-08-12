@@ -155,6 +155,31 @@ class RagActionExecutorTest {
     }
 
     @Test
+    fun `executes transactional batch rename items`() = runBlocking {
+        val repository = FakeRagActionRepositoryPort()
+        val executor = RagActionExecutor(repositoryPort = repository, executionEnabled = true)
+
+        val result = executor.execute(
+            context = context,
+            draft = draft(
+                actionType = "collection.rename_add_prefix",
+                method = "PUT",
+                pathTemplate = "/api/storage/nodes/batch/rename",
+                body = mapOf(
+                    "items" to listOf(
+                        mapOf("nodeId" to 1L, "name" to "归档-合同.pdf"),
+                        mapOf("nodeId" to "2", "name" to "归档-报告.docx"),
+                    ),
+                ),
+            ),
+        )
+
+        assertEquals(RagActionExecutionStatus.COMPLETED, result.status)
+        assertEquals(listOf(1L, 2L), result.affectedNodeIds)
+        assertTrue(repository.calls.single().startsWith("batch-rename:"))
+    }
+
+    @Test
     fun `executes share and returns share code`() = runBlocking {
         val repository = FakeRagActionRepositoryPort()
         val executor = RagActionExecutor(repositoryPort = repository, executionEnabled = true)
@@ -200,7 +225,7 @@ class RagActionExecutorTest {
 
         return RagBackendActionDraft(
             status = status,
-            bridgeVersion = "action_bridge_v1",
+            bridgeVersion = "action_bridge_v2",
             actionType = actionType,
             nextAction = "handoff_to_backend",
             confirmedByUser = confirmedByUser,
@@ -226,6 +251,15 @@ private class FakeRagActionRepositoryPort : RagActionRepositoryPort {
     override suspend fun renameNode(baseUrl: String, token: String, nodeId: Long, name: String): StorageNode {
         calls += "rename:$nodeId:$name"
         return storageNode(nodeId, name)
+    }
+
+    override suspend fun renameNodes(
+        baseUrl: String,
+        token: String,
+        items: List<BatchRenameNodeItemPayload>,
+    ): List<StorageNode> {
+        calls += "batch-rename:$items"
+        return items.map { item -> storageNode(item.nodeId, item.name) }
     }
 
     override suspend fun moveNodeToTrash(baseUrl: String, token: String, nodeId: Long): ApiMessageResponse {

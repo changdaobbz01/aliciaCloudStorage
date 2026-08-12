@@ -1,5 +1,5 @@
 {
-  "version": "action_bridge_v1",
+  "version": "action_bridge_v2",
   "actions": {
     "rename": {
       "enabled": true,
@@ -124,6 +124,27 @@
       },
       "message": "已生成按类型批量移入回收站请求草稿，提交前仍需由调用方复核预览集合。"
     },
+    "collection.move_by_category": {
+      "enabled": true,
+      "status": "backend_action_ready",
+      "next_action": "handoff_to_backend",
+      "executable_by_backend": true,
+      "authorization_required": true,
+      "method": "PUT",
+      "path_template": "/api/storage/nodes/batch/move",
+      "content_type": "application/json",
+      "required_candidate_fields": [],
+      "required_entity_slots": ["file_type", "target_folder"],
+      "required_client_fields": [],
+      "required_bindings": ["sourceCollection", "targetParent"],
+      "path_variables": {},
+      "query_parameters": {},
+      "body": {
+        "nodeIds": "$bindings.sourceCollection.nodeIds",
+        "parentId": "$bindings.targetParent.nodeId"
+      },
+      "message": "已生成按类型批量移动请求草稿，提交前仍需复核预览集合和目标目录。"
+    },
     "collection.move_by_extension": {
       "enabled": true,
       "status": "backend_action_ready",
@@ -145,6 +166,27 @@
       },
       "message": "已生成按后缀批量移动请求草稿，提交前仍需由调用方复核预览集合和目标目录。"
     },
+    "collection.move_exact": {
+      "enabled": true,
+      "status": "backend_action_ready",
+      "next_action": "handoff_to_backend",
+      "executable_by_backend": true,
+      "authorization_required": true,
+      "method": "PUT",
+      "path_template": "/api/storage/nodes/batch/move",
+      "content_type": "application/json",
+      "required_candidate_fields": [],
+      "required_entity_slots": ["target_name", "target_folder"],
+      "required_client_fields": [],
+      "required_bindings": ["sourceCollection", "targetParent"],
+      "path_variables": {},
+      "query_parameters": {},
+      "body": {
+        "nodeIds": "$bindings.sourceCollection.nodeIds",
+        "parentId": "$bindings.targetParent.nodeId"
+      },
+      "message": "已生成单节点移动请求草稿，提交前仍需复核源节点和目标目录。"
+    },
     "collection.move_by_name_contains": {
       "enabled": true,
       "status": "backend_action_ready",
@@ -165,6 +207,26 @@
         "parentId": "$bindings.targetParent.nodeId"
       },
       "message": "已生成按名称批量移动请求草稿，提交前仍需由调用方复核预览集合和目标目录。"
+    },
+    "collection.rename_add_prefix": {
+      "enabled": true,
+      "status": "backend_action_ready",
+      "next_action": "handoff_to_backend",
+      "executable_by_backend": true,
+      "authorization_required": true,
+      "method": "PUT",
+      "path_template": "/api/storage/nodes/batch/rename",
+      "content_type": "application/json",
+      "required_candidate_fields": [],
+      "required_entity_slots": ["rename_prefix"],
+      "required_client_fields": [],
+      "required_bindings": ["sourceCollection"],
+      "path_variables": {},
+      "query_parameters": {},
+      "body": {
+        "items": "$bindings.sourceCollection.renamePrefixItems"
+      },
+      "message": "已生成批量重命名请求草稿，提交前仍需复核完整的新旧名称对照。"
     }
   }
 }

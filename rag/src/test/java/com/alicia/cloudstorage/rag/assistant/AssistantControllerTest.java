@@ -2,14 +2,20 @@ package com.alicia.cloudstorage.rag.assistant;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 class AssistantControllerTest {
 
@@ -25,8 +31,15 @@ class AssistantControllerTest {
         Map<?, ?> actions = (Map<?, ?>) contract.get("actions");
         List<String> actionKeys = actions.keySet().stream().map(String::valueOf).toList();
 
-        assertThat(contract).containsEntry("version", "action_bridge_v1");
-        assertThat(actionKeys).contains("rename", "delete", "share", "upload_target");
+        assertThat(contract).containsEntry("version", "action_bridge_v2");
+        assertThat(actionKeys).contains(
+                "rename",
+                "delete",
+                "share",
+                "upload_target",
+                "collection.move_by_category",
+                "collection.rename_add_prefix"
+        );
     }
 
     @Test
@@ -76,7 +89,7 @@ class AssistantControllerTest {
                 "mobile",
                 "acceptanceScenarios"
         );
-        assertThat(map(contract.get("schema"))).containsEntry("version", "action_plan_v1");
+        assertThat(map(contract.get("schema"))).containsEntry("version", "action_plan_v2");
         assertThat(map(contract.get("actions"))).containsEntry("version", "action_templates_v1");
         assertThat(map(contract.get("composites"))).containsEntry("version", "composite_actions_v1");
         assertThat(map(contract.get("collections"))).containsEntry("version", "collection_actions_v1");
@@ -96,22 +109,33 @@ class AssistantControllerTest {
         assertThat(map(config.get("prompt")).get("system_message").toString())
                 .contains("single semantic understanding layer");
         assertThat(map(config.get("prompt"))).containsEntry("version", "semantic_frame_v2");
+        assertThat(map(config.get("prompt")).get("user_template").toString())
+                .contains("{retrieval_examples_json}");
     }
 
     @Test
-    void streamStatusTextDoesNotExposeDebugIntentWording() throws Exception {
+    void exposesVersionedCapabilityRegistry() {
         AssistantController controller = new AssistantController(
                 null,
                 new RagConfigLoader(new ObjectMapper()),
                 new ObjectMapper().findAndRegisterModules()
         );
-        var method = AssistantController.class.getDeclaredMethod("streamStatusText", IntentRecognitionResponse.class);
-        method.setAccessible(true);
 
-        String status = (String) method.invoke(
-                controller,
-                responseWithNextAction("安安身份介绍", "respond_only")
-        );
+        Map<String, Object> capabilities = controller.capabilities();
+
+        assertThat(capabilities)
+                .containsEntry("protocolVersion", "assistant_protocol_v2")
+                .containsEntry("actionBridgeVersion", "action_bridge_v2");
+        assertThat((List<?>) capabilities.get("operations"))
+                .extracting(String::valueOf)
+                .contains("NAVIGATE", "OPEN_FILE");
+    }
+
+    @Test
+    void streamStatusTextDoesNotExposeDebugIntentWording() throws Exception {
+        AssistantPlanStreamService streamService = new AssistantPlanStreamService(null, 3_000L);
+
+        String status = streamService.statusText(responseWithNextAction("安安身份介绍", "respond_only"));
 
         assertThat(status)
                 .doesNotContain("识别为")
@@ -136,6 +160,27 @@ class AssistantControllerTest {
                 eq(new AssistantPlanRequest("选择第1个", "conversation-1", context, event)),
                 eq("Bearer token")
         );
+    }
+
+    @Test
+    void streamSendsHeartbeatWhilePlanIsStillRunning() throws Exception {
+        AssistantConversationService service = mock(AssistantConversationService.class);
+        AssistantPlanRequest request = new AssistantPlanRequest("删除第一个文件", "conversation-1");
+        when(service.plan(eq(request), eq("Bearer token"))).thenAnswer(invocation -> {
+            Thread.sleep(600L);
+            return responseWithNextAction("文件删除", "wait_for_user_confirmation");
+        });
+        AssistantPlanStreamService streamService = new AssistantPlanStreamService(service, 250L);
+        CapturingSseEmitter emitter = new CapturingSseEmitter();
+
+        streamService.stream(request, "Bearer token", emitter);
+
+        assertThat(emitter.awaitCompletion()).isTrue();
+        assertThat(emitter.payload())
+                .contains("安安还在结合上下文认真理解")
+                .contains("status")
+                .contains("final")
+                .contains("done");
     }
 
     @SuppressWarnings("unchecked")
@@ -172,5 +217,34 @@ class AssistantControllerTest {
                 null,
                 null
         );
+    }
+
+    private static final class CapturingSseEmitter extends SseEmitter {
+        private final List<String> values = new ArrayList<>();
+        private final CountDownLatch completed = new CountDownLatch(1);
+
+        @Override
+        public void send(SseEventBuilder builder) throws IOException {
+            builder.build().forEach(item -> values.add(String.valueOf(item.getData())));
+        }
+
+        @Override
+        public synchronized void complete() {
+            completed.countDown();
+        }
+
+        @Override
+        public synchronized void completeWithError(Throwable error) {
+            values.add("error:" + error.getMessage());
+            completed.countDown();
+        }
+
+        boolean awaitCompletion() throws InterruptedException {
+            return completed.await(2, TimeUnit.SECONDS);
+        }
+
+        String payload() {
+            return String.join("\n", values);
+        }
     }
 }

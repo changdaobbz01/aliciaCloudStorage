@@ -569,7 +569,7 @@ public class StorageQueryService {
             case "updatedAt" -> Comparator.comparing(StorageNode::getUpdatedAt);
             case "createdAt" -> Comparator.comparing(StorageNode::getCreatedAt);
             case "name" -> Comparator.comparing(StorageNode::getNodeName, String.CASE_INSENSITIVE_ORDER);
-            default -> throw new IllegalArgumentException("鏂囦欢鍒楄〃鎺掑簭瀛楁涓嶅悎娉曘€?");
+            default -> throw new IllegalArgumentException("文件列表排序字段不合法。");
         };
 
         comparator = comparator.thenComparing(

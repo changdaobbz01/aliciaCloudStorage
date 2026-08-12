@@ -10,6 +10,7 @@ import javax.net.ssl.SSLException
 internal data class RagAssistantFailure(
     val userMessage: String,
     val retryWithoutStreaming: Boolean,
+    val markOffline: Boolean,
 )
 
 internal fun Throwable.toRagAssistantFailure(): RagAssistantFailure {
@@ -19,42 +20,49 @@ internal fun Throwable.toRagAssistantFailure(): RagAssistantFailure {
         return RagAssistantFailure(
             userMessage = "安安的服务暂时没有连接上，请稍后再试。",
             retryWithoutStreaming = false,
+            markOffline = true,
         )
     }
     causes.filterIsInstance<SocketTimeoutException>().firstOrNull()?.let {
         return RagAssistantFailure(
-            userMessage = "安安等待服务响应超时了，请稍后再试。",
+            userMessage = "这次理解花得有点久，安安仍然在线，请再试一次。",
             retryWithoutStreaming = false,
+            markOffline = false,
         )
     }
     causes.filterIsInstance<UnknownHostException>().firstOrNull()?.let {
         return RagAssistantFailure(
             userMessage = "当前网络暂时找不到安安的服务，请检查网络后再试。",
             retryWithoutStreaming = false,
+            markOffline = true,
         )
     }
     causes.filterIsInstance<SSLException>().firstOrNull()?.let {
         return RagAssistantFailure(
             userMessage = "安安暂时无法建立安全连接，请稍后再试。",
             retryWithoutStreaming = false,
+            markOffline = true,
         )
     }
     causes.filterIsInstance<ApiException>().firstOrNull()?.let { error ->
         return RagAssistantFailure(
             userMessage = error.message.takeIf { it.isNotBlank() } ?: DEFAULT_RAG_FAILURE_MESSAGE,
             retryWithoutStreaming = error.status in STREAM_FALLBACK_HTTP_STATUSES,
+            markOffline = false,
         )
     }
     causes.filterIsInstance<IOException>().firstOrNull()?.let {
         return RagAssistantFailure(
-            userMessage = "安安的网络连接暂时不可用，请稍后再试。",
+            userMessage = "这次连接意外中断了，请再试一次。",
             retryWithoutStreaming = false,
+            markOffline = false,
         )
     }
 
     return RagAssistantFailure(
         userMessage = DEFAULT_RAG_FAILURE_MESSAGE,
         retryWithoutStreaming = true,
+        markOffline = false,
     )
 }
 

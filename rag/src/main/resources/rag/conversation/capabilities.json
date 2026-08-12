@@ -1,0 +1,44 @@
+{
+  "protocolVersion": "assistant_protocol_v2",
+  "semanticFrameVersion": "semantic_frame_v2",
+  "capabilityBoundaryVersion": "capability_boundaries_v1",
+  "actionPlanVersion": "action_plan_v2",
+  "actionBridgeVersion": "action_bridge_v2",
+  "operations": [
+    "SEARCH",
+    "LIST_CHILDREN",
+    "OPEN_FILE",
+    "NAVIGATE",
+    "UPLOAD",
+    "DELETE",
+    "MOVE",
+    "RENAME",
+    "SHARE",
+    "CREATE_FOLDER"
+  ],
+  "executableActions": [
+    "rename",
+    "delete",
+    "share",
+    "upload_target",
+    "composite.create_folder_then_upload",
+    "collection.trash_by_name_contains",
+    "collection.trash_by_category",
+    "collection.move_exact",
+    "collection.move_by_category",
+    "collection.move_by_extension",
+    "collection.move_by_name_contains",
+    "collection.rename_add_prefix"
+  ],
+  "clientOrchestratedActions": [
+    "upload_target",
+    "composite.create_folder_then_upload",
+    "NAVIGATE",
+    "OPEN_FILE"
+  ],
+  "limits": {
+    "maxBatchNodes": 500,
+    "maxUploadFiles": 500,
+    "maxCandidatePreview": 20
+  }
+}

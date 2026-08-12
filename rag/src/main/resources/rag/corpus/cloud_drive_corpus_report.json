@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "cloud_drive_semantic_corpus_v1",
+  "generatedAt": "2026-08-13",
+  "sourceWorkbook": "云盘_RAG_自然语言语料库.xlsx",
+  "policy": {
+    "executionExamplesRequireMappedActionContract": true,
+    "capabilityQuestionsAreNonMutating": true,
+    "unsupportedCompositeRulesRequireClarification": true,
+    "deterministicHeldOutPercent": 20
+  },
+  "counts": {
+    "sourceRows": 869,
+    "capability": 56,
+    "supported": 420,
+    "heldOut": 82,
+    "unsupported": 449,
+    "runtimeExamples": 338,
+    "evaluationExamples": 531
+  }
+}

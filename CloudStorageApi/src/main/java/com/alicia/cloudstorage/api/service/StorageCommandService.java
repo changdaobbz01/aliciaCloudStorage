@@ -3,6 +3,8 @@ package com.alicia.cloudstorage.api.service;
 import com.alicia.cloudstorage.api.dto.ApiMessageResponse;
 import com.alicia.cloudstorage.api.dto.BatchMoveNodeRequest;
 import com.alicia.cloudstorage.api.dto.BatchNodeRequest;
+import com.alicia.cloudstorage.api.dto.BatchRenameNodeItem;
+import com.alicia.cloudstorage.api.dto.BatchRenameNodeRequest;
 import com.alicia.cloudstorage.api.dto.CreateFolderRequest;
 import com.alicia.cloudstorage.api.dto.MoveNodeRequest;
 import com.alicia.cloudstorage.api.dto.RenameNodeRequest;
@@ -23,8 +25,10 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 @Service
 @Transactional
@@ -182,6 +186,71 @@ public class StorageCommandService {
         StorageNode savedNode = storageNodeRepository.save(node);
         storageNodeEventPublisher.publishUpsert(List.of(savedNode), savedNode.getNodeType() == NodeType.FOLDER);
         return toSummary(savedNode);
+    }
+
+    public List<StorageNodeSummaryResponse> renameNodes(Long userId, BatchRenameNodeRequest request) {
+        List<BatchRenameNodeItem> requestedItems = request.items();
+        LinkedHashSet<Long> requestedIds = requestedItems.stream()
+                .map(BatchRenameNodeItem::nodeId)
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+        if (requestedIds.size() != requestedItems.size()) {
+            throw new IllegalArgumentException("批量重命名请求包含重复项目。");
+        }
+
+        List<StorageNode> nodes = loadOwnedNodes(userId, List.copyOf(requestedIds), false, "文件或文件夹不存在。");
+        Map<Long, StorageNode> nodesById = nodes.stream()
+                .collect(java.util.stream.Collectors.toMap(StorageNode::getId, node -> node));
+        Map<Long, String> nextNames = new java.util.LinkedHashMap<>();
+        Map<String, List<StorageNode>> siblingsByParent = new java.util.HashMap<>();
+        Set<String> plannedNames = new HashSet<>();
+
+        for (BatchRenameNodeItem item : requestedItems) {
+            StorageNode node = nodesById.get(item.nodeId());
+            String nextName = normalizeNodeName(item.name(), "名称");
+            String parentKey = (node.getParentId() == null ? "ROOT" : node.getParentId().toString())
+                    + "\u0000" + nextName.toLowerCase(Locale.ROOT);
+            if (!plannedNames.add(parentKey)) {
+                throw new IllegalArgumentException("批量重命名后的名称存在冲突。");
+            }
+            List<StorageNode> siblings = siblingsByParent.computeIfAbsent(
+                    node.getParentId() == null ? "ROOT" : node.getParentId().toString(),
+                    ignored -> storageNodeRepository.findByOwnerIdAndParentIdAndDeletedFalse(userId, node.getParentId())
+            );
+            boolean conflictsWithUnchangedSibling = siblings.stream()
+                    .anyMatch(sibling -> !requestedIds.contains(sibling.getId())
+                            && nextName.equalsIgnoreCase(sibling.getNodeName()));
+            if (conflictsWithUnchangedSibling) {
+                throw new IllegalArgumentException("当前目录下已存在同名文件或文件夹。");
+            }
+            nextNames.put(node.getId(), nextName);
+        }
+
+        List<StorageNode> orderedNodes = requestedItems.stream()
+                .map(item -> nodesById.get(item.nodeId()))
+                .toList();
+        for (StorageNode node : orderedNodes) {
+            String temporaryName = ".batch-rename-" + node.getId() + "-" + UUID.randomUUID();
+            node.setNodeName(temporaryName);
+            if (node.getNodeType() == NodeType.FILE) {
+                node.setFileExtension("");
+            }
+        }
+        storageNodeRepository.saveAllAndFlush(orderedNodes);
+
+        for (StorageNode node : orderedNodes) {
+            String nextName = nextNames.get(node.getId());
+            node.setNodeName(nextName);
+            if (node.getNodeType() == NodeType.FILE) {
+                node.setFileExtension(extractExtension(nextName));
+            }
+        }
+
+        storageNodeRepository.saveAll(orderedNodes);
+        storageNodeEventPublisher.publishUpsert(
+                orderedNodes,
+                orderedNodes.stream().anyMatch(node -> node.getNodeType() == NodeType.FOLDER)
+        );
+        return orderedNodes.stream().map(this::toSummary).toList();
     }
 
     /**

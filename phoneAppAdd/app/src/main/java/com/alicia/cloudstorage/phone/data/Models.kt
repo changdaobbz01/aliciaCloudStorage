@@ -111,6 +111,19 @@ data class RenameNodePayload(
     val name: String,
 )
 
+data class MoveNodePayload(
+    val parentId: Long?,
+)
+
+data class BatchRenameNodeItemPayload(
+    val nodeId: Long,
+    val name: String,
+)
+
+data class BatchRenameNodePayload(
+    val items: List<BatchRenameNodeItemPayload>,
+)
+
 data class BatchNodePayload(
     val nodeIds: List<Long>,
 )

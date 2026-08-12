@@ -13,7 +13,7 @@ class AiChatExecutionFeedbackTest {
             AiChatExecutionFeedback.progressMessage("collection.trash_by_category"),
         )
         assertEquals(
-            "正在为你移动文件，请稍等...",
+            "正在为你移动文件或文件夹，请稍等...",
             AiChatExecutionFeedback.progressMessage("collection.move_by_extension"),
         )
         assertEquals("正在为你创建分享，请稍等...", AiChatExecutionFeedback.progressMessage("share"))

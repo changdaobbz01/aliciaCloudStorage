@@ -19,8 +19,9 @@ public class IntentRecognitionService {
 
     private final IntentModelClient modelClient;
     private final IntentRouter intentRouter;
-    private final AssistantReplyPolisher replyPolisher;
     private final SemanticFrameResolver semanticFrameResolver;
+    private final SemanticExampleRetriever semanticExampleRetriever;
+    private final SemanticCapabilityBoundaryGuard capabilityBoundaryGuard;
     private final List<ResponseTemplate> responseTemplates;
     private final Map<String, String> personaPlaceholders;
 
@@ -31,16 +32,63 @@ public class IntentRecognitionService {
             RagConfigLoader configLoader,
             AssistantReplyPolisher replyPolisher,
             FileQueryPlanResolver fileQueryPlanResolver,
-            SemanticFrameResolver semanticFrameResolver
+            SemanticFrameResolver semanticFrameResolver,
+            SemanticExampleRetriever semanticExampleRetriever,
+            SemanticCapabilityBoundaryGuard capabilityBoundaryGuard
     ) {
         this.modelClient = modelClient;
         this.intentRouter = intentRouter;
-        this.replyPolisher = replyPolisher == null ? AssistantReplyPolisher.noop() : replyPolisher;
         this.semanticFrameResolver = semanticFrameResolver == null
                 ? new SemanticFrameResolver()
                 : semanticFrameResolver;
+        this.semanticExampleRetriever = semanticExampleRetriever == null
+                ? new CorpusSemanticExampleRetriever(configLoader)
+                : semanticExampleRetriever;
+        this.capabilityBoundaryGuard = capabilityBoundaryGuard == null
+                ? new SemanticCapabilityBoundaryGuard(configLoader)
+                : capabilityBoundaryGuard;
         this.responseTemplates = loadResponseTemplates(configLoader);
         this.personaPlaceholders = loadPersonaPlaceholders(configLoader);
+    }
+
+    public IntentRecognitionService(
+            IntentModelClient modelClient,
+            IntentRouter intentRouter,
+            RagConfigLoader configLoader,
+            AssistantReplyPolisher replyPolisher,
+            FileQueryPlanResolver fileQueryPlanResolver,
+            SemanticFrameResolver semanticFrameResolver,
+            SemanticExampleRetriever semanticExampleRetriever
+    ) {
+        this(
+                modelClient,
+                intentRouter,
+                configLoader,
+                replyPolisher,
+                fileQueryPlanResolver,
+                semanticFrameResolver,
+                semanticExampleRetriever,
+                new SemanticCapabilityBoundaryGuard(configLoader)
+        );
+    }
+
+    public IntentRecognitionService(
+            IntentModelClient modelClient,
+            IntentRouter intentRouter,
+            RagConfigLoader configLoader,
+            AssistantReplyPolisher replyPolisher,
+            FileQueryPlanResolver fileQueryPlanResolver,
+            SemanticFrameResolver semanticFrameResolver
+    ) {
+        this(
+                modelClient,
+                intentRouter,
+                configLoader,
+                replyPolisher,
+                fileQueryPlanResolver,
+                semanticFrameResolver,
+                new CorpusSemanticExampleRetriever(configLoader)
+        );
     }
 
     public IntentRecognitionService(
@@ -82,33 +130,54 @@ public class IntentRecognitionService {
         AssistantClientContext safeClientContext = clientContext == null
                 ? AssistantClientContext.empty()
                 : clientContext;
-        IntentModelClient.ModelIntentResult modelResult = modelClient.recognize(
-                        new IntentModelClient.IntentModelRequest(
-                                message,
-                                semanticContext(conversation, safeClientContext)
-                        )
-                )
+        SemanticCapabilityBoundaryGuard.BoundaryDecision configuredBoundary = capabilityBoundaryGuard
+                .evaluate(message)
                 .orElse(null);
+        IntentModelClient.ModelIntentResult modelResult = configuredBoundary == null
+                ? modelClient.recognize(
+                                new IntentModelClient.IntentModelRequest(
+                                        message,
+                                        semanticContext(conversation, safeClientContext)
+                                )
+                        )
+                        .orElse(null)
+                : null;
         IntentRecognitionResponse response = modelResult == null
-                ? fromFallback(message, "DeepSeek 未配置或暂时不可用")
+                ? fromFallback(
+                        message,
+                        configuredBoundary == null
+                                ? "DeepSeek 未配置或暂时不可用"
+                                : "配置能力边界命中：" + configuredBoundary.id()
+                )
                 : fromModel(message, modelResult);
-        IntentRouter.IntentRouteResult localRoute = intentRouter.route(message);
+        IntentRouter.IntentRouteResult localRoute = semanticFallbackRoute(message, intentRouter.route(message));
+        boolean guardedByBoundary = configuredBoundary != null
+                || localRoute.reason().startsWith("语料能力边界命中");
         boolean guardedByLocalRoute = shouldUseLocalRouteGuard(response, localRoute);
-        if (guardedByLocalRoute) {
-            response = fromFallback(message, "DeepSeek 未可靠命中，已由高置信配置规则复核。");
+        if (guardedByBoundary || guardedByLocalRoute) {
+            response = fromFallback(
+                    message,
+                    guardedByBoundary
+                            ? "当前请求包含尚未开放的组合规则，需要用户进一步明确。"
+                            : "DeepSeek 未可靠命中，已由高置信配置规则复核。"
+            );
         }
-        Map<String, Object> modelPayload = modelResult == null || guardedByLocalRoute
+        Map<String, Object> modelPayload = modelResult == null || guardedByBoundary || guardedByLocalRoute
                 ? Map.of()
                 : modelResult.payload();
-        SemanticFrame semanticFrame = semanticFrameResolver.resolve(
-                message,
-                response,
-                conversation,
-                safeClientContext,
-                modelPayload
-        );
+        SemanticFrame semanticFrame = configuredBoundary == null
+                ? semanticFrameResolver.resolve(
+                        message,
+                        response,
+                        conversation,
+                        safeClientContext,
+                        modelPayload
+                )
+                : capabilityBoundaryFrame(configuredBoundary);
 
-        if ("fallback".equals(response.intentId()) && "SEARCH".equals(semanticFrame.operation())) {
+        if (!guardedByBoundary
+                && "fallback".equals(response.intentId())
+                && "SEARCH".equals(semanticFrame.operation())) {
             response = rebuildForConversation(
                     response,
                     "file_search",
@@ -124,13 +193,44 @@ public class IntentRecognitionService {
             );
         }
 
-        Map<String, Object> entities = semanticFrameResolver.entitiesForFrame(response, semanticFrame);
-        ActionDraft actionDraft = semanticFrameResolver.actionDraftFor(response, semanticFrame, entities);
+        Map<String, Object> entities = configuredBoundary == null
+                ? semanticFrameResolver.entitiesForFrame(response, semanticFrame)
+                : Map.of();
+        ActionDraft actionDraft = guardedByBoundary
+                ? new ActionDraft("none", Map.of(), false)
+                : semanticFrameResolver.actionDraftFor(response, semanticFrame, entities);
         response = response.withSemanticFrame(semanticFrame, entities, actionDraft);
         if (semanticFrame.needsClarification()) {
             response = response.withSemanticClarification(semanticFrame);
         }
+        if (configuredBoundary != null) {
+            response = response.withCapabilityBoundary(
+                    configuredBoundary.id(),
+                    configuredBoundary.userMessage(),
+                    configuredBoundary.guidance()
+            );
+        }
         return response;
+    }
+
+    private SemanticFrame capabilityBoundaryFrame(
+            SemanticCapabilityBoundaryGuard.BoundaryDecision decision
+    ) {
+        return new SemanticFrame(
+                SemanticFrame.VERSION,
+                "NEW_TASK",
+                "UNKNOWN",
+                SemanticFrame.Query.empty(),
+                SemanticFrame.Scope.empty(),
+                SemanticFrame.Reference.empty(),
+                1.0,
+                List.of(decision.id()),
+                new SemanticFrame.Clarification(
+                        decision.reason(),
+                        decision.guidance(),
+                        List.of()
+                )
+        );
     }
 
     private boolean shouldUseLocalRouteGuard(
@@ -282,7 +382,7 @@ public class IntentRecognitionService {
                 fallbackActionDraft(intent, entities),
                 BackendActionDraft.skipped("not_requested", "用户尚未确认，未生成后端请求草稿。"),
                 ActionPlan.skipped("understanding", "ActionPlan 尚未生成。"),
-                templateText(baseResponse.message(), intent, nextAction, missingSlots),
+                rebuiltAssistantText(baseResponse, intent, nextAction, missingSlots),
                 clarificationQuestion(intent, missingSlots),
                 reason,
                 baseResponse.fallbackReason(),
@@ -325,7 +425,7 @@ public class IntentRecognitionService {
                 response.actionDraft(),
                 response.backendActionDraft(),
                 response.actionPlan(),
-                templateText(response.message(), intent, safeNextAction, response.missingSlots()),
+                flowStateAssistantText(response, intent, safeNextAction),
                 response.clarificationQuestion(),
                 safeReason,
                 response.fallbackReason(),
@@ -337,7 +437,7 @@ public class IntentRecognitionService {
     }
 
     private IntentRecognitionResponse fromFallback(String message, String fallbackReason) {
-        IntentRouter.IntentRouteResult route = intentRouter.route(message);
+        IntentRouter.IntentRouteResult route = semanticFallbackRoute(message, intentRouter.route(message));
         IntentRouter.IntentDefinition intent = intentRouter.getIntent(route.intent());
         Map<String, Object> entities = sanitizeSlotMap(new LinkedHashMap<>(route.entities()), intent.allowedSlots());
         List<String> missingSlots = missingSlots(intent.requiredSlots(), entities);
@@ -372,6 +472,64 @@ public class IntentRecognitionService {
                 fallbackReason,
                 CandidateBindingResult.skipped("not_requested", "候选绑定尚未执行。"),
                 null
+        );
+    }
+
+    private IntentRouter.IntentRouteResult semanticFallbackRoute(
+            String message,
+            IntentRouter.IntentRouteResult configuredRoute
+    ) {
+        if (configuredRoute == null) {
+            return configuredRoute;
+        }
+        List<SemanticExampleRetriever.SemanticExample> matches = semanticExampleRetriever.retrieve(message, 5)
+                .stream()
+                .filter(example -> intentRouter.hasIntent(example.intentId()))
+                .toList();
+        double supportedTopScore = matches.isEmpty() ? 0.0 : matches.get(0).score();
+        List<SemanticExampleRetriever.SemanticBoundary> boundaries =
+                semanticExampleRetriever.retrieveBoundaries(message, 1);
+        double boundaryThreshold = "fallback".equals(configuredRoute.intent()) ? 0.58 : 0.99;
+        if (!boundaries.isEmpty()
+                && boundaries.get(0).score() >= boundaryThreshold
+                && boundaries.get(0).score() >= supportedTopScore + 0.04) {
+            return intentRouter.routeAs(
+                    message,
+                    "fallback",
+                    Math.min(0.95, boundaries.get(0).score()),
+                    "语料能力边界命中，需要澄清当前尚未支持的组合规则"
+            );
+        }
+        if (matches.isEmpty() || supportedTopScore < 0.34) {
+            return configuredRoute;
+        }
+
+        Map<String, Double> votes = new LinkedHashMap<>();
+        for (SemanticExampleRetriever.SemanticExample match : matches) {
+            votes.merge(match.intentId(), match.score() * match.score(), Double::sum);
+        }
+        List<Map.Entry<String, Double>> ranked = votes.entrySet().stream()
+                .sorted(Map.Entry.<String, Double>comparingByValue().reversed())
+                .toList();
+        Map.Entry<String, Double> winner = ranked.get(0);
+        double runnerUp = ranked.size() > 1 ? ranked.get(1).getValue() : 0.0;
+        boolean strongTopMatch = matches.get(0).intentId().equals(winner.getKey())
+                && matches.get(0).score() >= 0.48;
+        boolean stableVote = winner.getValue() >= 0.30 && winner.getValue() - runnerUp >= 0.08;
+        if (!strongTopMatch && !stableVote) {
+            return configuredRoute;
+        }
+
+        if (!"fallback".equals(configuredRoute.intent())) {
+            return configuredRoute;
+        }
+
+        double confidence = Math.min(0.89, Math.max(0.68, supportedTopScore));
+        return intentRouter.routeAs(
+                message,
+                winner.getKey(),
+                confidence,
+                "语料检索高置信命中，由当前输入重新抽取执行参数"
         );
     }
 
@@ -549,18 +707,10 @@ public class IntentRecognitionService {
         boolean safeModelText = !modelText.isBlank()
                 && slotsCompatible
                 && isSafeAssistantText(modelText, intent);
-        if ("fallback".equals(intent.id())) {
-            return safeModelText
-                    ? modelText
-                    : polishedTemplateText(message, intent, nextAction, missingSlots, rendered.message());
-        }
-        if (rendered.preferTemplate()) {
-            return polishedTemplateText(message, intent, nextAction, missingSlots, rendered.message());
-        }
         if (safeModelText) {
             return modelText;
         }
-        return polishedTemplateText(message, intent, nextAction, missingSlots, rendered.message());
+        return rendered.message();
     }
 
     private String templateText(
@@ -570,35 +720,35 @@ public class IntentRecognitionService {
             List<String> missingSlots
     ) {
         RenderedResponseTemplate rendered = renderTemplate(intent.id(), intent.name(), nextAction, missingSlots);
-        return polishedTemplateText(message, intent, nextAction, missingSlots, rendered.message());
+        return rendered.message();
     }
 
-    private String polishedTemplateText(
-            String message,
+    private String rebuiltAssistantText(
+            IntentRecognitionResponse baseResponse,
             IntentRouter.IntentDefinition intent,
             String nextAction,
-            List<String> missingSlots,
-            String templateText
+            List<String> missingSlots
     ) {
-        if (templateText == null || templateText.isBlank()) {
-            return "";
+        boolean sameIntent = intent.id().equals(baseResponse.intentId());
+        boolean sameMissingSlots = sameSlots(baseResponse.missingSlots(), missingSlots);
+        if (sameIntent
+                && sameMissingSlots
+                && isSafeAssistantText(baseResponse.assistantText(), intent)) {
+            return baseResponse.assistantText();
         }
-        AssistantReplyPolisher.PolishRequest request = new AssistantReplyPolisher.PolishRequest(
-                message,
-                intent.id(),
-                intent.name(),
-                intent.taskType(),
-                nextAction,
-                intent.actionType(),
-                normalizeRisk(intent.risk()),
-                intent.requiresConfirmation(),
-                missingSlots,
-                templateText
-        );
-        return replyPolisher.polish(request)
-                .map(String::trim)
-                .filter(text -> isSafeAssistantText(text, intent))
-                .orElse(templateText);
+        return templateText(baseResponse.message(), intent, nextAction, missingSlots);
+    }
+
+    private String flowStateAssistantText(
+            IntentRecognitionResponse response,
+            IntentRouter.IntentDefinition intent,
+            String nextAction
+    ) {
+        if ("deepseek".equalsIgnoreCase(response.provider())
+                && isSafeAssistantText(response.assistantText(), intent)) {
+            return response.assistantText();
+        }
+        return templateText(response.message(), intent, nextAction, response.missingSlots());
     }
 
     private boolean sameSlots(List<String> left, List<String> right) {

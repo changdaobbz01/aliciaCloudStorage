@@ -79,21 +79,29 @@ public class ConversationContextResolver {
         }
 
         if (resolution.shouldRewrite()) {
-            IntentRecognitionResponse rewritten = intentRecognitionService.recognize(resolution.rewrittenMessage());
-            if (!resolution.carriedEntities().isEmpty()) {
-                Map<String, Object> merged = new LinkedHashMap<>(rewritten.entities());
-                merged.putAll(resolution.carriedEntities());
-                rewritten = intentRecognitionService.rebuildForConversation(
-                        rewritten,
-                        rewritten.intentId(),
-                        merged,
-                        resolution.reason().isBlank() ? "根据上下文改写后合并实体。" : resolution.reason()
-                );
-            }
+            Map<String, Object> merged = new LinkedHashMap<>(baseResponse.entities());
+            merged.putAll(resolution.carriedEntities());
+            IntentRecognitionResponse rewritten = intentRecognitionService.rebuildForConversation(
+                    baseResponse,
+                    intentIdForContextAction(resolution.contextAction(), baseResponse.intentId()),
+                    merged,
+                    resolution.reason().isBlank() ? "根据上下文合并上一轮候选。" : resolution.reason()
+            );
             return ContextAttempt.rewritten(rewritten, resolution);
         }
 
         return ContextAttempt.notApplied();
+    }
+
+    private String intentIdForContextAction(String action, String fallbackIntentId) {
+        return switch (action == null ? "" : action) {
+            case "delete" -> "file_delete";
+            case "share" -> "file_share";
+            case "rename" -> "file_rename";
+            case "move" -> "node_move";
+            case "upload" -> "file_upload";
+            default -> fallbackIntentId;
+        };
     }
 
     private boolean shouldTrustModelResolution(
@@ -445,6 +453,10 @@ public class ConversationContextResolver {
     }
 
     private CandidateSelection selectedReference(String message, AssistantConversationFocus focus) {
+        CandidateSelection relativeSelection = relativeSelection(message, focus);
+        if (relativeSelection.selectedCandidate() != null || relativeSelection.outOfRange()) {
+            return relativeSelection;
+        }
         Optional<Integer> index = parseSelectionIndex(message);
         if (index.isEmpty() || focus == null || focus.candidateBinding() == null) {
             return CandidateSelection.notSelected();
@@ -455,6 +467,32 @@ public class ConversationContextResolver {
             return CandidateSelection.outOfRange(selectedBinding.message());
         }
         return CandidateSelection.selected(selectedBinding.selectedCandidate(), selectedBinding.selectedIndex());
+    }
+
+    private CandidateSelection relativeSelection(String message, AssistantConversationFocus focus) {
+        boolean asksAnother = containsAny(message, List.of("另一个", "另外一个", "下一个"));
+        boolean asksRemaining = containsAny(message, List.of("剩下的", "剩余的", "其余的", "其他的"));
+        if ((!asksAnother && !asksRemaining) || focus == null || focus.candidateBinding() == null) {
+            return CandidateSelection.notSelected();
+        }
+
+        List<CandidateItem> candidates = focus.candidateBinding().candidates();
+        CandidateItem current = focus.effectiveCandidate();
+        if (current == null) {
+            return CandidateSelection.outOfRange("上一轮还没有锁定当前项，请先说“第一个”或直接点选一个候选。");
+        }
+        List<CandidateItem> remaining = candidates.stream()
+                .filter(candidate -> !candidate.equals(current))
+                .toList();
+        if (remaining.size() != 1) {
+            return CandidateSelection.outOfRange(
+                    remaining.isEmpty()
+                            ? "上一轮没有其他候选可以继续处理。"
+                            : "上一轮还有 " + remaining.size() + " 个其他候选，请再明确序号或名称。"
+            );
+        }
+        CandidateItem selected = remaining.getFirst();
+        return CandidateSelection.selected(selected, candidates.indexOf(selected) + 1);
     }
 
     private Optional<Integer> parseSelectionIndex(String message) {

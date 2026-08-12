@@ -197,7 +197,7 @@
       },
       "mobileRepositoryMethod": "moveNodesToTrash",
       "requiresFinalConfirmation": true,
-      "notes": "Mobile shows exact count, filter summary, preview rows, and incomplete-preview blocking text before any submit; RagActionExecutor remains disabled by default."
+      "notes": "Mobile shows exact count, filter summary, preview rows, and incomplete-preview blocking text before any submit; execution remains controlled by the environment feature flag."
     },
     "collection.trash_by_category": {
       "phase": 2,
@@ -209,7 +209,19 @@
       },
       "mobileRepositoryMethod": "moveNodesToTrash",
       "requiresFinalConfirmation": true,
-      "notes": "Mobile shows exact count, filter summary, preview rows, and incomplete-preview blocking text before any submit; RagActionExecutor remains disabled by default."
+      "notes": "Mobile shows exact count, filter summary, preview rows, and incomplete-preview blocking text before any submit; execution remains controlled by the environment feature flag."
+    },
+    "collection.move_by_category": {
+      "phase": 2,
+      "implementationStatus": "mobile_supported",
+      "executionMode": "backend_action_ready",
+      "cloudStorageApi": {
+        "method": "PUT",
+        "path": "/api/storage/nodes/batch/move"
+      },
+      "mobileRepositoryMethod": "moveNodes",
+      "requiresFinalConfirmation": true,
+      "notes": "Mobile shows the exact category-matched source set and target folder before final confirmation."
     },
     "collection.move_by_extension": {
       "phase": 2,
@@ -221,7 +233,19 @@
       },
       "mobileRepositoryMethod": "moveNodes",
       "requiresFinalConfirmation": true,
-      "notes": "Mobile shows exact source count, filter summary, preview rows, and resolved target folder before any submit; RagActionExecutor remains disabled by default."
+      "notes": "Mobile shows exact source count, filter summary, preview rows, and resolved target folder before any submit; execution remains controlled by the environment feature flag."
+    },
+    "collection.move_exact": {
+      "phase": 2,
+      "implementationStatus": "mobile_supported",
+      "executionMode": "backend_action_ready",
+      "cloudStorageApi": {
+        "method": "PUT",
+        "path": "/api/storage/nodes/batch/move"
+      },
+      "mobileRepositoryMethod": "moveNodes",
+      "requiresFinalConfirmation": true,
+      "notes": "A single file or folder is represented as an exact one-item source collection and uses the same fully validated batch move endpoint."
     },
     "collection.move_by_name_contains": {
       "phase": 2,
@@ -233,23 +257,26 @@
       },
       "mobileRepositoryMethod": "moveNodes",
       "requiresFinalConfirmation": true,
-      "notes": "Mobile shows exact source count, filter summary, preview rows, and resolved target folder before any submit; RagActionExecutor remains disabled by default."
+      "notes": "Mobile shows exact source count, filter summary, preview rows, and resolved target folder before any submit; execution remains controlled by the environment feature flag."
     },
     "collection.rename_add_prefix": {
       "phase": 2,
-      "implementationStatus": "planning_only",
-      "executionMode": "blocked_before_execution",
-      "cloudStorageApi": null,
-      "mobileRepositoryMethod": null,
+      "implementationStatus": "mobile_supported",
+      "executionMode": "backend_action_ready",
+      "cloudStorageApi": {
+        "method": "PUT",
+        "path": "/api/storage/nodes/batch/rename"
+      },
+      "mobileRepositoryMethod": "renameNodes",
       "requiresFinalConfirmation": true,
-      "notes": "Recognized for future expansion, but action bridge intentionally does not expose execution yet."
+      "notes": "Mobile shows the complete old/new name preview, validates the allowlist draft, and submits one transactional batch rename request after final confirmation."
     }
   },
   "preMobileIntegrationGates": [
     "RAG unit tests pass.",
     "Debug web validates all automated acceptance scenarios.",
     "Action bridge paths match CloudStorageApi and mobile allowlist.",
-    "RagActionExecutor stays disabled by default through ALICIA_RAG_ACTION_EXECUTION_ENABLED=false until mobile review UI validates the draft, shows final confirmation, and explicitly enables app UI submission.",
+    "ALICIA_RAG_ACTION_EXECUTION_ENABLED is explicitly configured per environment; every enabled mutation still requires allowlist validation, review UI, and final user confirmation.",
     "RAG service base URL and Authorization forwarding are configurable per environment.",
     "DeepSeek API key is supplied through environment variables and not committed.",
     "Destructive actions show candidate path, count, and final confirmation."

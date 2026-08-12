@@ -19,8 +19,10 @@ public record ActionPlan(
         String summary,
         List<ActionPlanMessage> messages
 ) {
+    private static final String CURRENT_VERSION = "action_plan_v2";
+
     public ActionPlan {
-        version = version == null || version.isBlank() ? "action_plan_v1" : version;
+        version = version == null || version.isBlank() ? CURRENT_VERSION : version;
         planId = planId == null ? "" : planId;
         status = status == null || status.isBlank() ? "understanding" : status;
         planKind = planKind == null || planKind.isBlank() ? "atomic" : planKind;
@@ -37,7 +39,7 @@ public record ActionPlan(
 
     public static ActionPlan skipped(String status, String message) {
         return new ActionPlan(
-                "action_plan_v1",
+                CURRENT_VERSION,
                 "",
                 status,
                 "atomic",

@@ -62,7 +62,7 @@ class CandidateBindingServiceTest {
 
         assertThat(result.status()).isEqualTo("single_candidate");
         assertThat(port.lastRequest.intentId()).isEqualTo("file_delete");
-        assertThat(port.lastRequest.candidateType()).isEqualTo("FILE");
+        assertThat(port.lastRequest.candidateType()).isEqualTo("ANY");
         assertThat(port.lastRequest.queryRole()).isEqualTo("target_name");
         assertThat(port.lastRequest.query()).isEqualTo("临时截图");
         assertThat(port.lastRequest.authorizationHeader()).isEqualTo("Bearer token");

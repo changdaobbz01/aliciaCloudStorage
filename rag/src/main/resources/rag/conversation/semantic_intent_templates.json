@@ -277,6 +277,7 @@
       "requiredEntities": ["target_name", "target_folder"],
       "templates": [
         "把名字包含{target_name}的文件移动到{target_folder}",
+        "把名称中有{target_name}的文件夹移动到{target_folder}",
         "名称带有{target_name}的文件放到{target_folder}",
         "文件名含有{target_name}的都移到{target_folder}",
         "将文件名包含{target_name}的资料归档到{target_folder}",

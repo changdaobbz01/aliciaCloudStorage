@@ -364,6 +364,32 @@ class AliciaRepository(
             )
             .requireBody(fallback = "重命名失败。")
 
+    suspend fun renameNodes(
+        baseUrl: String,
+        token: String,
+        items: List<BatchRenameNodeItemPayload>,
+    ): List<StorageNode> =
+        serviceFactory.serviceFor(baseUrl)
+            .renameNodes(
+                authorization = authorization(token),
+                payload = BatchRenameNodePayload(items = items),
+            )
+            .requireBody(fallback = "批量重命名失败。")
+
+    suspend fun moveNode(
+        baseUrl: String,
+        token: String,
+        nodeId: Long,
+        parentId: Long?,
+    ): StorageNode =
+        serviceFactory.serviceFor(baseUrl)
+            .moveNode(
+                authorization = authorization(token),
+                nodeId = nodeId,
+                payload = MoveNodePayload(parentId = parentId),
+            )
+            .requireBody(fallback = "移动失败。")
+
     suspend fun moveNodes(
         baseUrl: String,
         token: String,

@@ -211,6 +211,7 @@ public class AssistantConversationService {
                 || !conversation.hasPendingSlots()
                 || conversation.pendingIntentId() == null
                 || conversation.pendingIntentId().isBlank()
+                || isCapabilityBoundary(baseResponse)
                 || isResetMessage(message)
                 || isConfirmMessage(message)) {
             return false;
@@ -226,6 +227,12 @@ public class AssistantConversationService {
                 || !baseResponse.entities().isEmpty()
                 || !localRoute.entities().isEmpty()
                 || localRoute.intent().equals("fallback");
+    }
+
+    private boolean isCapabilityBoundary(IntentRecognitionResponse response) {
+        return response != null
+                && response.fallbackReason() != null
+                && response.fallbackReason().startsWith("capability_boundary:");
     }
 
     private boolean shouldPreservePendingIntent(AssistantConversationState conversation, String message) {
@@ -353,11 +360,20 @@ public class AssistantConversationService {
     ) {
         if (conversation == null
                 || conversation.focus() == null
-                || contextResolution == null
-                || !List.of("previous_candidate", "selected_candidate").contains(contextResolution.referent())
                 || response == null
                 || response.actionDraft() == null
                 || !response.actionDraft().needsBackendBinding()) {
+            return null;
+        }
+
+        SemanticFrame frame = response.semanticFrame();
+        if (frame != null
+                && List.of("NAVIGATE", "OPEN_FILE").contains(frame.operation())
+                && "PREVIOUS_RESULTS".equals(frame.scope().type())) {
+            return conversation.focus().selectedBinding("已根据上一轮上下文锁定要打开的候选。");
+        }
+        if (contextResolution == null
+                || !List.of("previous_candidate", "selected_candidate").contains(contextResolution.referent())) {
             return null;
         }
 

@@ -15,7 +15,8 @@ import java.util.regex.Pattern;
 public class SemanticFrameResolver {
 
     private static final Set<String> OPERATIONS = Set.of(
-            "UNKNOWN", "RESPOND", "SEARCH", "UPLOAD", "DELETE", "MOVE", "RENAME", "SHARE", "CREATE_FOLDER"
+            "UNKNOWN", "RESPOND", "SEARCH", "LIST_CHILDREN", "OPEN_FILE", "NAVIGATE",
+            "UPLOAD", "DELETE", "MOVE", "RENAME", "SHARE", "CREATE_FOLDER"
     );
     private static final Set<String> RELATIONS = Set.of(
             "NEW_TASK", "FOLLOW_UP", "CORRECTION", "SLOT_FILL", "CANDIDATE_SELECTION", "CONFIRMATION", "CANCELLATION"
@@ -24,9 +25,10 @@ public class SemanticFrameResolver {
             "NONE", "NAME_SEARCH", "NAME_EXACT", "NAME_CONTAINS", "LIST_CHILDREN", "FILTER"
     );
     private static final Set<String> RESULT_TYPES = Set.of("ANY", "FILE", "FOLDER");
-    private static final Set<String> SCOPE_TYPES = Set.of("ALL", "ROOT", "CURRENT", "NAMED_FOLDER", "PREVIOUS_RESULTS");
+    private static final Set<String> SCOPE_TYPES = Set.of("ALL", "ROOT", "CURRENT", "PARENT", "NAMED_FOLDER", "PREVIOUS_RESULTS");
     private static final Set<String> REFERENCE_TYPES = Set.of(
-            "NONE", "PREVIOUS_CANDIDATE", "PREVIOUS_CANDIDATE_SET", "SELECTED_CANDIDATE", "PREVIOUS_ACTION", "CLIENT_INPUT"
+            "NONE", "PREVIOUS_CANDIDATE", "PREVIOUS_CANDIDATE_SET", "SELECTED_CANDIDATE",
+            "ANOTHER_CANDIDATE", "REMAINING_CANDIDATES", "PREVIOUS_ACTION", "CLIENT_INPUT"
     );
     private static final Set<String> FILTER_KEYS = Set.of("extension", "file_type", "time_range");
 
@@ -322,6 +324,78 @@ public class SemanticFrameResolver {
             );
         }
 
+        if (looksLikeNavigation(safeMessage) && List.of("UNKNOWN", "SEARCH", "NAVIGATE", "OPEN_FILE").contains(frame.operation())) {
+            if (TextSupport.containsAny(safeMessage, List.of("根目录", "云盘首页"))) {
+                return copyFrame(
+                        frame,
+                        "NEW_TASK",
+                        "NAVIGATE",
+                        new SemanticFrame.Query("LIST_CHILDREN", "FOLDER", "", "", frame.query().filters()),
+                        new SemanticFrame.Scope("ROOT", "", ""),
+                        SemanticFrame.Reference.empty(),
+                        List.of(),
+                        SemanticFrame.Clarification.empty()
+                );
+            }
+            if (TextSupport.containsAny(safeMessage, List.of("上一级", "上一层", "父目录"))) {
+                return copyFrame(
+                        frame,
+                        "NEW_TASK",
+                        "NAVIGATE",
+                        new SemanticFrame.Query("LIST_CHILDREN", "FOLDER", "", "", frame.query().filters()),
+                        new SemanticFrame.Scope("PARENT", "", ""),
+                        SemanticFrame.Reference.empty(),
+                        List.of(),
+                        SemanticFrame.Clarification.empty()
+                );
+            }
+            String operation = navigationOperation(safeMessage, frame.query().resultType(), conversation);
+            if (isGenericNavigationReference(safeMessage) && conversation != null && conversation.focus() != null
+                    && conversation.focus().hasSingleCandidateFocus()) {
+                CandidateItem candidate = conversation.focus().effectiveCandidate();
+                String resultType = candidate == null ? frame.query().resultType() : candidate.type();
+                return copyFrame(
+                        frame,
+                        "FOLLOW_UP",
+                        operationForCandidate(candidate, operation),
+                        new SemanticFrame.Query("NAME_EXACT", resultType, "", "", frame.query().filters()),
+                        new SemanticFrame.Scope("PREVIOUS_RESULTS", "", ""),
+                        contextReference(conversation),
+                        List.of(),
+                        SemanticFrame.Clarification.empty()
+                );
+            }
+            if (isGenericNavigationReference(safeMessage)
+                    && conversation != null
+                    && conversation.focus() != null
+                    && conversation.focus().candidateCount() > 1) {
+                return copyFrame(
+                        frame,
+                        "FOLLOW_UP",
+                        operation,
+                        new SemanticFrame.Query("NAME_EXACT", frame.query().resultType(), "", "", frame.query().filters()),
+                        new SemanticFrame.Scope("PREVIOUS_RESULTS", "", ""),
+                        new SemanticFrame.Reference("PREVIOUS_CANDIDATE_SET", null, null),
+                        List.of("candidate_reference"),
+                        new SemanticFrame.Clarification(
+                                "candidate_reference",
+                                "上一轮有多个候选，请告诉我要打开第几个，或者直接点选对应文件或文件夹。",
+                                List.of("打开第一个", "打开第二个")
+                        )
+                );
+            }
+            return copyFrame(
+                    frame,
+                    "NEW_TASK",
+                    operation,
+                    frame.query(),
+                    frame.scope(),
+                    frame.reference(),
+                    frame.ambiguities(),
+                    frame.clarification()
+            );
+        }
+
         Integer ordinal = ordinalIndex(safeMessage);
         if (ordinal != null && List.of("DELETE", "MOVE", "RENAME", "SHARE").contains(frame.operation())) {
             return copyFrame(
@@ -336,6 +410,38 @@ public class SemanticFrameResolver {
             );
         }
         return frame;
+    }
+
+    private boolean looksLikeNavigation(String message) {
+        return TextSupport.containsAny(message, List.of("打开", "进入", "进去", "跳转到", "前往", "回到", "返回", "open"));
+    }
+
+    private boolean isGenericNavigationReference(String message) {
+        String value = normalizeName(message)
+                .replace("打开", "")
+                .replace("进入", "")
+                .replace("进去", "")
+                .replace("跳转到", "")
+                .replace("前往", "")
+                .trim();
+        return List.of("文件", "这个文件", "文件夹", "这个文件夹", "目录", "这个目录", "它", "那个").contains(value);
+    }
+
+    private String navigationOperation(String message, String resultType, AssistantConversationState conversation) {
+        if ("FILE".equalsIgnoreCase(resultType) || message.contains("文件") && !message.contains("文件夹")) {
+            return "OPEN_FILE";
+        }
+        if (conversation != null && conversation.focus() != null && conversation.focus().effectiveCandidate() != null) {
+            return operationForCandidate(conversation.focus().effectiveCandidate(), "NAVIGATE");
+        }
+        return "NAVIGATE";
+    }
+
+    private String operationForCandidate(CandidateItem candidate, String fallback) {
+        if (candidate == null) {
+            return fallback;
+        }
+        return "FILE".equalsIgnoreCase(candidate.type()) ? "OPEN_FILE" : "NAVIGATE";
     }
 
     private SearchSemantics parseDirectoryContents(String message, SemanticFrame.Query fallbackQuery) {
@@ -583,7 +689,8 @@ public class SemanticFrameResolver {
         }
         String value = message == null ? "" : message.trim();
         boolean hasReference = TextSupport.containsAny(value, List.of(
-                "它", "这个", "那个", "刚才", "上一个", "前一个", "第一个", "第二个", "第三个"
+                "它", "这个", "那个", "刚才", "上一个", "前一个", "第一个", "第二个", "第三个",
+                "另一个", "另外一个", "下一个", "剩下的", "剩余的", "其余的"
         ));
         boolean asksProperty = TextSupport.containsAny(value, List.of(
                 "什么格式", "什么类型", "多大", "大小", "后缀", "扩展名", "名称", "名字", "什么时候", "修改时间", "路径"
@@ -603,7 +710,8 @@ public class SemanticFrameResolver {
             return false;
         }
         return TextSupport.containsAny(message, List.of(
-                "它", "这个", "那个", "刚才", "上一个", "前一个", "第一个", "第二个", "第三个"
+                "它", "这个", "那个", "刚才", "上一个", "前一个", "第一个", "第二个", "第三个",
+                "另一个", "另外一个", "下一个", "剩下的", "剩余的", "其余的"
         ));
     }
 
@@ -719,7 +827,7 @@ public class SemanticFrameResolver {
             case "search" -> "SEARCH";
             case "upload_target", "composite.create_folder_then_upload" -> "UPLOAD";
             case "delete", "collection.trash_by_name_contains", "collection.trash_by_category" -> "DELETE";
-            case "collection.move_by_extension", "collection.move_by_name_contains", "move" -> "MOVE";
+            case "collection.move_exact", "collection.move_by_category", "collection.move_by_extension", "collection.move_by_name_contains", "move" -> "MOVE";
             case "rename", "collection.rename_add_prefix" -> "RENAME";
             case "share" -> "SHARE";
             case "folder.create" -> "CREATE_FOLDER";

@@ -21,7 +21,7 @@ public class CollectionPreviewService {
             @Value("${alicia.rag.collection-preview.max-scan-items:500}") int maxScanItems
     ) {
         this.collectionPreviewPort = collectionPreviewPort;
-        this.maxPreviewItems = Math.max(1, Math.min(100, maxPreviewItems));
+        this.maxPreviewItems = Math.max(1, Math.min(500, maxPreviewItems));
         this.maxScanItems = Math.max(this.maxPreviewItems, maxScanItems);
     }
 

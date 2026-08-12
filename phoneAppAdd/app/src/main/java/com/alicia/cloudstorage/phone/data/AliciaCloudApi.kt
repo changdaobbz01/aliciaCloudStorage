@@ -142,6 +142,19 @@ interface AliciaCloudService {
         @Body payload: RenameNodePayload,
     ): Response<StorageNode>
 
+    @PUT("api/storage/nodes/batch/rename")
+    suspend fun renameNodes(
+        @Header("Authorization") authorization: String,
+        @Body payload: BatchRenameNodePayload,
+    ): Response<List<StorageNode>>
+
+    @PUT("api/storage/nodes/{nodeId}/move")
+    suspend fun moveNode(
+        @Header("Authorization") authorization: String,
+        @Path("nodeId") nodeId: Long,
+        @Body payload: MoveNodePayload,
+    ): Response<StorageNode>
+
     @PUT("api/storage/nodes/batch/move")
     suspend fun moveNodes(
         @Header("Authorization") authorization: String,

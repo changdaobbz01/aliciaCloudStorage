@@ -1,5 +1,5 @@
 {
-  "version": "action_plan_v1",
+  "version": "action_plan_v2",
   "description": "Stable contract for conversational action planning. RAG plans actions; clients validate and execute through local allowlists.",
   "statuses": [
     "understanding",

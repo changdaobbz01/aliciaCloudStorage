@@ -16,7 +16,7 @@ internal class RagReviewPresenter {
         val plan = response.actionPlan
         val backendDraft = response.backendActionDraft
         val actionType = plan?.actionType ?: backendDraft?.actionType.orEmpty()
-        val candidates = response.reviewCandidates()
+        val candidates = response.reviewCandidates().withOperationPreview(response)
         val kind = response.reviewKind(plan, backendDraft, actionType, candidates)
         val lines = response.reviewLines(plan, backendDraft, actionType)
 
@@ -267,6 +267,26 @@ private fun List<RagCandidateItem>.toReviewCandidates(): List<RagReviewCandidate
                 updatedAt = candidate.updatedAt,
             )
         }
+
+private fun List<RagReviewCandidate>.withOperationPreview(
+    response: RagAssistantPlanResponse,
+): List<RagReviewCandidate> {
+    val actionType = response.actionPlan?.actionType ?: response.actionDraft?.type
+    if (!actionType.equalsNormalized("collection.rename_add_prefix")) {
+        return this
+    }
+    val prefix = response.entities
+        ?.get("rename_prefix")
+        ?.toString()
+        ?.trim()
+        .orEmpty()
+    if (prefix.isBlank()) {
+        return this
+    }
+    return map { candidate ->
+        candidate.copy(detail = "原名称：${candidate.name}  ->  新名称：$prefix${candidate.name}")
+    }
+}
 
 private fun RagAssistantPlanResponse.requiresFinalConfirmation(kind: RagReviewKind): Boolean {
     if (kind == RagReviewKind.FINAL_CONFIRMATION || kind == RagReviewKind.COLLECTION_REVIEW) {

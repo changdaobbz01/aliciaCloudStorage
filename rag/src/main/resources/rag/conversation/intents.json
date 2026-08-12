@@ -24,6 +24,8 @@
       "composite.create_folder_then_upload",
       "collection.trash_by_name_contains",
       "collection.trash_by_category",
+      "collection.move_exact",
+      "collection.move_by_category",
       "collection.move_by_extension",
       "collection.move_by_name_contains",
       "collection.rename_add_prefix"
@@ -385,7 +387,7 @@
       "risk": "medium",
       "requires_confirmation": true,
       "action_type": "rename",
-      "candidate_type": "FILE",
+      "candidate_type": "ANY",
       "target_missing_slot": "target_name",
       "next_action": "wait_for_backend_binding",
       "clarification_question": "请补充要重命名的文件，以及新的名称。"
@@ -402,7 +404,7 @@
       "risk": "medium",
       "requires_confirmation": true,
       "action_type": "share",
-      "candidate_type": "FILE",
+      "candidate_type": "ANY",
       "target_missing_slot": "target_name",
       "next_action": "wait_for_backend_binding",
       "clarification_question": "请补充要分享的文件或文件夹名称。"
@@ -419,7 +421,7 @@
       "risk": "high",
       "requires_confirmation": true,
       "action_type": "delete",
-      "candidate_type": "FILE",
+      "candidate_type": "ANY",
       "target_missing_slot": "target_name",
       "next_action": "wait_for_backend_binding",
       "clarification_question": "请补充要删除的文件或文件夹名称。"
@@ -440,6 +442,23 @@
       "target_missing_slot": "target_folder",
       "next_action": "wait_for_backend_binding",
       "clarification_question": "请补充要上传到哪个文件夹。"
+    },
+    {
+      "id": "node_move",
+      "name": "文件或文件夹移动",
+      "task_type": "file_mutation",
+      "description": "精确定位单个文件或文件夹，并移动到指定目录。",
+      "sample_utterances": ["把项目计划移动到项目资料", "将测试目录挪到归档目录"],
+      "required_slots": ["target_name", "target_folder"],
+      "optional_slots": ["scope", "file_type", "extension", "time_range"],
+      "allowed_slots": ["target_name", "target_folder", "scope", "file_type", "extension", "time_range"],
+      "risk": "medium",
+      "requires_confirmation": true,
+      "action_type": "collection.move_exact",
+      "candidate_type": "FOLDER",
+      "target_missing_slot": "target_name",
+      "next_action": "wait_for_backend_binding",
+      "clarification_question": "请补充要移动的文件或文件夹名称，以及目标目录。"
     },
     {
       "id": "folder_create_then_upload",
@@ -493,6 +512,23 @@
       "clarification_question": "请补充要批量删除的文件类型。"
     },
     {
+      "id": "collection_move_by_category",
+      "name": "按类型批量移动",
+      "task_type": "file_collection_mutation",
+      "description": "按文件类型匹配文件集合，并生成批量移动到目标目录的计划。",
+      "sample_utterances": ["把图片都移动到图片文件夹", "将所有文档归档到资料目录"],
+      "required_slots": ["file_type", "target_folder"],
+      "optional_slots": ["scope", "time_range"],
+      "allowed_slots": ["file_type", "target_folder", "scope", "time_range"],
+      "risk": "medium",
+      "requires_confirmation": true,
+      "action_type": "collection.move_by_category",
+      "candidate_type": "FOLDER",
+      "target_missing_slot": "target_folder",
+      "next_action": "wait_for_backend_binding",
+      "clarification_question": "请补充要移动的文件类型和目标文件夹。"
+    },
+    {
       "id": "collection_move_by_extension",
       "name": "按后缀批量移动",
       "task_type": "file_collection_mutation",
@@ -530,7 +566,7 @@
       "id": "collection_rename_add_prefix",
       "name": "按名称批量加前缀重命名",
       "task_type": "file_collection_mutation",
-      "description": "按名称包含规则匹配文件集合，并计划统一在文件名头部添加前缀。当前仅作为受控意图和 ActionPlan 扩展位，暂不开放执行桥接。",
+      "description": "按名称包含规则匹配文件或文件夹集合，预览完整的新旧名称对照，并在用户确认后批量添加前缀。",
       "sample_utterances": ["将名称带有草稿的文件重命名，统一在头部加上 archived-", "把名字包含 xx 的文件全部加前缀 yy"],
       "required_slots": ["target_name", "rename_prefix"],
       "optional_slots": ["scope", "file_type", "extension", "time_range"],

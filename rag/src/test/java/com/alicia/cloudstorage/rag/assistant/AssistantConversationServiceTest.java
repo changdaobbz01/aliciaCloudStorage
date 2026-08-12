@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -44,14 +45,22 @@ class AssistantConversationServiceTest {
             CandidateSearchPort candidateSearchPort,
             CollectionPreviewPort collectionPreviewPort
     ) {
+        return conversationServiceWith(candidateSearchPort, collectionPreviewPort, intentRecognitionService);
+    }
+
+    private AssistantConversationService conversationServiceWith(
+            CandidateSearchPort candidateSearchPort,
+            CollectionPreviewPort collectionPreviewPort,
+            IntentRecognitionService recognitionService
+    ) {
         CandidateBindingService candidateBindingService = new CandidateBindingService(candidateSearchPort, intentRouter, 5);
         ConversationContextResolver contextResolver = new ConversationContextResolver(
                 (message, conversation, baseResponse) -> Optional.empty(),
-                intentRecognitionService,
+                recognitionService,
                 configLoader
         );
         return new AssistantConversationService(
-                intentRecognitionService,
+                recognitionService,
                 intentRouter,
                 new AssistantConversationStore(30, 100),
                 candidateBindingService,
@@ -361,6 +370,38 @@ class AssistantConversationServiceTest {
     }
 
     @Test
+    void mutationFollowUpPerformsOnlyOneSemanticRecognitionPerTurn() {
+        AtomicInteger recognitionCalls = new AtomicInteger();
+        IntentModelClient countingUnavailableClient = request -> {
+            recognitionCalls.incrementAndGet();
+            return Optional.empty();
+        };
+        IntentRecognitionService countingRecognitionService = new IntentRecognitionService(
+                countingUnavailableClient,
+                intentRouter,
+                configLoader
+        );
+        SingleSearchResultPort port = new SingleSearchResultPort(
+                new CandidateItem(703L, null, "codex_ui.xml", "FILE", 2048L, "xml", "application/xml", "")
+        );
+        AssistantConversationService service = conversationServiceWith(
+                port,
+                request -> CollectionPreviewResult.skipped("not_requested", "测试环境不执行集合预览。"),
+                countingRecognitionService
+        );
+
+        IntentRecognitionResponse firstTurn = service.plan(new AssistantPlanRequest("查找 codex", ""), "Bearer token");
+        IntentRecognitionResponse secondTurn = service.plan(new AssistantPlanRequest(
+                "把它删了",
+                firstTurn.conversation().conversationId()
+        ), "Bearer token");
+
+        assertThat(secondTurn.intentId()).isEqualTo("file_delete");
+        assertThat(secondTurn.candidateBinding().selectedCandidate().nodeId()).isEqualTo(703L);
+        assertThat(recognitionCalls).hasValue(2);
+    }
+
+    @Test
     void rewritesOrdinalMutationFollowUpAndReusesSelectedCandidateBinding() {
         SearchResultsPort port = new SearchResultsPort();
         AssistantConversationService service = conversationServiceWith(port);
@@ -587,6 +628,10 @@ class AssistantConversationServiceTest {
                 new AssistantPlanRequest("删除第一个文件", contents.conversation().conversationId()),
                 "Bearer token"
         );
+        IntentRecognitionResponse deleteAnother = service.plan(
+                new AssistantPlanRequest("删除另一个文件", delete.conversation().conversationId()),
+                "Bearer token"
+        );
         IntentRecognitionResponse rename = service.plan(
                 new AssistantPlanRequest("重命名第一个文件", contents.conversation().conversationId()),
                 "Bearer token"
@@ -612,6 +657,11 @@ class AssistantConversationServiceTest {
         assertThat(delete.candidateBinding().selectedCandidate().nodeId()).isEqualTo(811L);
         assertThat(delete.interaction().stage()).isEqualTo("NEED_CONFIRMATION");
 
+        assertThat(deleteAnother.intentId()).isEqualTo("file_delete");
+        assertThat(deleteAnother.entities()).containsEntry("target_name", "报告二.docx");
+        assertThat(deleteAnother.candidateBinding().selectedCandidate().nodeId()).isEqualTo(812L);
+        assertThat(deleteAnother.interaction().stage()).isEqualTo("NEED_CONFIRMATION");
+
         assertThat(rename.intentId()).isEqualTo("file_rename");
         assertThat(rename.entities()).containsEntry("target_name", "报告一.pdf");
         assertThat(rename.missingSlots()).contains("new_name");
@@ -625,6 +675,33 @@ class AssistantConversationServiceTest {
         assertThat(renamed.candidateBinding().selectedCandidate().nodeId()).isEqualTo(811L);
         assertThat(renamed.interaction().stage()).isEqualTo("NEED_CONFIRMATION");
         assertThat(requests).hasSize(2);
+    }
+
+    @Test
+    void genericOpenUsesUniquePreviousCandidateInsteadOfSearchingForGenericNoun() {
+        CandidateSearchPort port = request -> new CandidateBindingResult(
+                "search_results_ready",
+                "test",
+                request.query(),
+                "FOLDER",
+                List.of(new CandidateItem(821L, null, "测试目录", "FOLDER", 0L, "", "", "")),
+                "找到测试目录。"
+        );
+        AssistantConversationService service = conversationServiceWith(port);
+
+        IntentRecognitionResponse found = service.plan(
+                new AssistantPlanRequest("找到测试目录这个文件夹", ""),
+                "Bearer token"
+        );
+        IntentRecognitionResponse opened = service.plan(
+                new AssistantPlanRequest("打开文件夹", found.conversation().conversationId()),
+                "Bearer token"
+        );
+
+        assertThat(opened.semanticFrame().relation()).isEqualTo("FOLLOW_UP");
+        assertThat(opened.semanticFrame().operation()).isEqualTo("NAVIGATE");
+        assertThat(opened.semanticFrame().scope().type()).isEqualTo("PREVIOUS_RESULTS");
+        assertThat(opened.candidateBinding().selectedCandidate().nodeId()).isEqualTo(821L);
     }
 
     @Test
@@ -765,7 +842,7 @@ class AssistantConversationServiceTest {
         assertThat(sourceCollection.candidates()).hasSize(2);
         assertThat(sourceCollection.count()).isEqualTo(2);
         assertThat(sourceCollection.filter()).containsEntry("nameContains", "测试");
-        assertThat(sourceCollection.filter()).containsEntry("includeFolders", false);
+        assertThat(sourceCollection.filter()).containsEntry("includeFolders", true);
         assertThat(plan.steps()).hasSize(1);
         assertThat(plan.steps().getFirst().action()).isEqualTo("node.batch_trash");
         assertThat(plan.steps().getFirst().params())
@@ -902,6 +979,66 @@ class AssistantConversationServiceTest {
         assertThat(secondTurn.actionPlan().status()).isEqualTo("ready_to_execute");
         assertThat(secondTurn.actionPlan().steps().getFirst().status()).isEqualTo("ready");
         assertThat(previewPort.calls).isEqualTo(2);
+    }
+
+    @Test
+    void categoryMoveBuildsExecutableBatchMoveDraft() {
+        SingleCandidateSearchPort port = new SingleCandidateSearchPort(920L, "图片目录");
+        PreviewPort previewPort = new PreviewPort(List.of(
+                new CandidateItem(921L, null, "照片.jpg", "FILE", 120L, "jpg", "image/jpeg", ""),
+                new CandidateItem(922L, null, "截图.png", "FILE", 80L, "png", "image/png", "")
+        ), 2, true);
+        AssistantConversationService service = conversationServiceWith(port, previewPort);
+
+        IntentRecognitionResponse firstTurn = service.plan(new AssistantPlanRequest(
+                "把所有图片移动到图片目录",
+                ""
+        ), "Bearer token");
+        IntentRecognitionResponse secondTurn = service.plan(new AssistantPlanRequest(
+                "确认",
+                firstTurn.conversation().conversationId()
+        ), "Bearer token");
+
+        assertThat(firstTurn.intentId()).isEqualTo("collection_move_by_category");
+        assertThat(firstTurn.actionPlan().actionType()).isEqualTo("collection.move_by_category");
+        assertThat(firstTurn.actionPlan().bindings().get("sourceCollection").filter())
+                .containsEntry("category", "图片");
+        assertThat(secondTurn.backendActionDraft().status()).isEqualTo("backend_action_ready");
+        assertThat(secondTurn.backendActionDraft().body())
+                .containsEntry("nodeIds", List.of(921L, 922L))
+                .containsEntry("parentId", 920L);
+    }
+
+    @Test
+    void batchRenameConfirmationContainsCompleteOldToNewMapping() {
+        PreviewPort previewPort = new PreviewPort(List.of(
+                new CandidateItem(931L, null, "合同.pdf", "FILE", 120L, "pdf", "application/pdf", ""),
+                new CandidateItem(932L, null, "合同附件", "FOLDER", 0L, "", "", "")
+        ), 2, true);
+        AssistantConversationService service = conversationServiceWith(
+                request -> {
+                    throw new AssertionError("batch rename should not use single candidate binding");
+                },
+                previewPort
+        );
+
+        IntentRecognitionResponse firstTurn = service.plan(new AssistantPlanRequest(
+                "将名称带有合同的文件或文件夹统一在头部加上归档-",
+                ""
+        ), "Bearer token");
+        IntentRecognitionResponse secondTurn = service.plan(new AssistantPlanRequest(
+                "确认",
+                firstTurn.conversation().conversationId()
+        ), "Bearer token");
+
+        assertThat(firstTurn.intentId()).isEqualTo("collection_rename_add_prefix");
+        assertThat(firstTurn.actionPlan().bindings().get("sourceCollection").candidates()).hasSize(2);
+        assertThat(secondTurn.backendActionDraft().status()).isEqualTo("backend_action_ready");
+        assertThat(secondTurn.backendActionDraft().path()).isEqualTo("/api/storage/nodes/batch/rename");
+        assertThat(secondTurn.backendActionDraft().body().get("items")).isEqualTo(List.of(
+                Map.of("nodeId", 931L, "name", "归档-合同.pdf"),
+                Map.of("nodeId", 932L, "name", "归档-合同附件")
+        ));
     }
 
     @Test

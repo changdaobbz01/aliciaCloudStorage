@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -325,7 +326,11 @@ class IntentRecognitionServiceTest {
                         Map.entry("reason", "模型未匹配受控文件意图。")
                 )
         ));
-        AssistantReplyPolisher polisher = request -> Optional.of("嗯，我听到啦。想继续聊也可以；要整理云盘文件时，直接告诉我目标就好。");
+        AtomicInteger polishCalls = new AtomicInteger();
+        AssistantReplyPolisher polisher = request -> {
+            polishCalls.incrementAndGet();
+            return Optional.of("嗯，我听到啦。想继续聊也可以；要整理云盘文件时，直接告诉我目标就好。");
+        };
 
         IntentRecognitionResponse response = new IntentRecognitionService(modelClient, intentRouter, configLoader, polisher)
                 .recognize("好吧，今天先这样");
@@ -333,14 +338,19 @@ class IntentRecognitionServiceTest {
         assertThat(response.provider()).isEqualTo("local_fallback");
         assertThat(response.intentId()).isEqualTo("assistant_acknowledgement");
         assertThat(response.assistantText())
-                .contains("听到啦")
+                .contains("好呀")
                 .doesNotContain("识别为");
+        assertThat(polishCalls).hasValue(0);
     }
 
     @Test
-    void unsafePolishedTemplateFallsBackToConfiguredText() {
+    void unavailableModelUsesConfiguredTextWithoutRetryingReplyPolisher() {
         IntentModelClient unavailableClient = message -> Optional.empty();
-        AssistantReplyPolisher polisher = request -> Optional.of("已删除临时截图，处理好了。");
+        AtomicInteger polishCalls = new AtomicInteger();
+        AssistantReplyPolisher polisher = request -> {
+            polishCalls.incrementAndGet();
+            return Optional.of("已删除临时截图，处理好了。");
+        };
 
         IntentRecognitionResponse response = new IntentRecognitionService(unavailableClient, intentRouter, configLoader, polisher)
                 .recognize("删除临时截图");
@@ -350,6 +360,50 @@ class IntentRecognitionServiceTest {
                 .doesNotContain("已删除")
                 .contains("移入回收站")
                 .contains("删除计划");
+        assertThat(polishCalls).hasValue(0);
+    }
+
+    @Test
+    void safeModelReplyIsReusedWithoutASecondPolishingCall() {
+        IntentModelClient modelClient = message -> Optional.of(new IntentModelClient.ModelIntentResult(
+                "deepseek",
+                "deepseek-v4-flash",
+                "deepseek_file_intent_recognition",
+                "intent_recognition_v1",
+                Map.ofEntries(
+                        Map.entry("intent_id", "assistant_identity"),
+                        Map.entry("intent_name", "助手身份咨询"),
+                        Map.entry("task_type", "assistant_conversation"),
+                        Map.entry("confidence", 0.96),
+                        Map.entry("user_goal", "询问安安能力"),
+                        Map.entry("normalized_query", message),
+                        Map.entry("entities", Map.of()),
+                        Map.entry("required_slots", List.of()),
+                        Map.entry("missing_slots", List.of()),
+                        Map.entry("next_action", "respond_only"),
+                        Map.entry("risk", "none"),
+                        Map.entry("requires_confirmation", false),
+                        Map.entry("action_draft", Map.of(
+                                "type", "none",
+                                "parameters", Map.of(),
+                                "needs_backend_binding", false
+                        )),
+                        Map.entry("assistant_text", "我是安安，可以帮你查找、整理和分享云盘里的文件。"),
+                        Map.entry("clarification_question", ""),
+                        Map.entry("reason", "用户在询问助手能力。")
+                )
+        ));
+        AtomicInteger polishCalls = new AtomicInteger();
+        AssistantReplyPolisher polisher = request -> {
+            polishCalls.incrementAndGet();
+            return Optional.of("不应调用");
+        };
+
+        IntentRecognitionResponse response = new IntentRecognitionService(modelClient, intentRouter, configLoader, polisher)
+                .recognize("你能做什么？");
+
+        assertThat(response.assistantText()).isEqualTo("我是安安，可以帮你查找、整理和分享云盘里的文件。");
+        assertThat(polishCalls).hasValue(0);
     }
 
     @Test
@@ -626,7 +680,35 @@ class IntentRecognitionServiceTest {
     }
 
     @Test
-    void localFallbackRecognizesBatchRenamePrefixAsUnsupportedCollectionPlan() {
+    void localFallbackRecognizesCategoryBatchMove() {
+        IntentModelClient unavailableClient = message -> Optional.empty();
+
+        IntentRecognitionResponse response = new IntentRecognitionService(unavailableClient, intentRouter, configLoader)
+                .recognize("把所有图片移动到图片目录");
+
+        assertThat(response.intentId()).isEqualTo("collection_move_by_category");
+        assertThat(response.actionDraft().type()).isEqualTo("collection.move_by_category");
+        assertThat(response.entities())
+                .containsEntry("file_type", "图片")
+                .containsEntry("target_folder", "图片目录");
+        assertThat(response.missingSlots()).isEmpty();
+    }
+
+    @Test
+    void localFallbackSeparatesMoveSourceFromDestination() {
+        IntentModelClient unavailableClient = message -> Optional.empty();
+
+        IntentRecognitionResponse response = new IntentRecognitionService(unavailableClient, intentRouter, configLoader)
+                .recognize("把项目计划文件夹移动到资料目录");
+
+        assertThat(response.intentId()).isEqualTo("node_move");
+        assertThat(response.entities())
+                .containsEntry("target_name", "项目计划")
+                .containsEntry("target_folder", "资料目录");
+    }
+
+    @Test
+    void localFallbackRecognizesExecutableBatchRenamePrefixPlan() {
         IntentModelClient unavailableClient = message -> Optional.empty();
 
         IntentRecognitionResponse response = new IntentRecognitionService(unavailableClient, intentRouter, configLoader)
@@ -638,8 +720,8 @@ class IntentRecognitionServiceTest {
                 .containsEntry("target_name", "xx")
                 .containsEntry("rename_prefix", "yy");
         assertThat(response.assistantText())
-                .contains("批量加前缀")
-                .contains("不直接执行");
+                .contains("新旧名称对照")
+                .contains("确认");
     }
 
     @Test
@@ -891,6 +973,49 @@ class IntentRecognitionServiceTest {
         assertThat(response.nextAction()).isEqualTo("respond_only");
         assertThat(response.assistantText()).contains("功能").contains("逐步");
         assertThat(response.missingSlots()).isEmpty();
+    }
+
+    @Test
+    void configuredCapabilityBoundaryPreventsModelMisclassificationAndExecutionDraft() {
+        AtomicInteger modelCalls = new AtomicInteger();
+        IntentModelClient modelClient = message -> {
+            modelCalls.incrementAndGet();
+            return Optional.of(new IntentModelClient.ModelIntentResult(
+                    "deepseek",
+                    "deepseek-v4-flash",
+                    "deepseek_file_intent_recognition",
+                    "intent_recognition_v1",
+                    Map.of("intent_id", "folder_create_then_upload")
+            ));
+        };
+
+        IntentRecognitionResponse response = new IntentRecognitionService(modelClient, intentRouter, configLoader)
+                .recognize("如果图片目录不存在就先新建，再把图片全部放进去");
+
+        assertThat(modelCalls).hasValue(0);
+        assertThat(response.intentId()).isEqualTo("fallback");
+        assertThat(response.nextAction()).isEqualTo("ask_clarification");
+        assertThat(response.actionDraft().type()).isEqualTo("none");
+        assertThat(response.actionDraft().needsBackendBinding()).isFalse();
+        assertThat(response.safety().allowedToExecute()).isFalse();
+        assertThat(response.assistantText()).contains("不能").contains("先让我新建目标文件夹");
+        assertThat(response.fallbackReason()).startsWith("capability_boundary:");
+        assertThat(response.actionPlan().version()).isEqualTo("action_plan_v2");
+    }
+
+    @Test
+    void localFallbackRecognizesNameContainsSynonymForBatchFolderMove() {
+        IntentModelClient unavailableClient = message -> Optional.empty();
+
+        IntentRecognitionResponse response = new IntentRecognitionService(unavailableClient, intentRouter, configLoader)
+                .recognize("把名称中有调测的文件夹移动到测试目录");
+
+        assertThat(response.intentId()).isEqualTo("collection_move_by_name");
+        assertThat(response.semanticFrame().operation()).isEqualTo("MOVE");
+        assertThat(response.actionDraft().type()).isEqualTo("collection.move_by_name_contains");
+        assertThat(response.entities())
+                .containsEntry("target_name", "调测")
+                .containsEntry("target_folder", "测试目录");
     }
 
     @SuppressWarnings("unchecked")

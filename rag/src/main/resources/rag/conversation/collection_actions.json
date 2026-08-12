@@ -12,11 +12,11 @@
       "sourceCollection": {
         "key": "sourceCollection",
         "kind": "source_collection",
-        "candidateType": "FILE",
+        "candidateType": "ANY",
         "filter": {
           "scope": "$entities.scope_or_default",
           "nameContains": "$entities.target_name",
-          "includeFolders": false
+          "includeFolders": true
         },
         "requiresExactCount": true,
         "requiresPreview": true
@@ -56,6 +56,46 @@
           "action": "node.batch_trash",
           "params": {
             "nodeIds": "$bindings.sourceCollection.nodeIds"
+          }
+        }
+      ]
+    },
+    "collection.move_by_category": {
+      "enabled": true,
+      "phase": 2,
+      "risk": "medium",
+      "confirmationLevel": "collection_then_final_review",
+      "requiredSlots": ["file_type", "target_folder"],
+      "optionalSlots": ["time_range"],
+      "sourceCollection": {
+        "key": "sourceCollection",
+        "kind": "source_collection",
+        "candidateType": "FILE",
+        "filter": {
+          "scope": "$entities.scope_or_default",
+          "category": "$entities.file_type",
+          "includeFolders": false
+        },
+        "requiresExactCount": true,
+        "requiresPreview": true
+      },
+      "bindings": [
+        {
+          "key": "targetParent",
+          "kind": "target_folder",
+          "candidateType": "FOLDER",
+          "querySlot": "target_folder",
+          "required": true,
+          "requiresUniqueSelection": true
+        }
+      ],
+      "steps": [
+        {
+          "stepId": "move_collection",
+          "action": "node.batch_move",
+          "params": {
+            "nodeIds": "$bindings.sourceCollection.nodeIds",
+            "parentId": "$bindings.targetParent.nodeId"
           }
         }
       ]
@@ -100,6 +140,46 @@
         }
       ]
     },
+    "collection.move_exact": {
+      "enabled": true,
+      "phase": 2,
+      "risk": "medium",
+      "confirmationLevel": "candidate_then_final_review",
+      "requiredSlots": ["target_name", "target_folder"],
+      "optionalSlots": ["scope"],
+      "sourceCollection": {
+        "key": "sourceCollection",
+        "kind": "source_collection",
+        "candidateType": "ANY",
+        "filter": {
+          "scope": "$entities.scope_or_default",
+          "exactName": "$entities.target_name",
+          "includeFolders": true
+        },
+        "requiresExactCount": true,
+        "requiresPreview": true
+      },
+      "bindings": [
+        {
+          "key": "targetParent",
+          "kind": "target_folder",
+          "candidateType": "FOLDER",
+          "querySlot": "target_folder",
+          "required": true,
+          "requiresUniqueSelection": true
+        }
+      ],
+      "steps": [
+        {
+          "stepId": "move_node",
+          "action": "node.move",
+          "params": {
+            "nodeIds": "$bindings.sourceCollection.nodeIds",
+            "parentId": "$bindings.targetParent.nodeId"
+          }
+        }
+      ]
+    },
     "collection.move_by_name_contains": {
       "enabled": true,
       "phase": 2,
@@ -110,11 +190,11 @@
       "sourceCollection": {
         "key": "sourceCollection",
         "kind": "source_collection",
-        "candidateType": "FILE",
+        "candidateType": "ANY",
         "filter": {
           "scope": "$entities.scope_or_default",
           "nameContains": "$entities.target_name",
-          "includeFolders": false
+          "includeFolders": true
         },
         "requiresExactCount": true,
         "requiresPreview": true
@@ -150,11 +230,11 @@
       "sourceCollection": {
         "key": "sourceCollection",
         "kind": "source_collection",
-        "candidateType": "FILE",
+        "candidateType": "ANY",
         "filter": {
           "scope": "$entities.scope_or_default",
           "nameContains": "$entities.target_name",
-          "includeFolders": false
+          "includeFolders": true
         },
         "requiresExactCount": true,
         "requiresPreview": true

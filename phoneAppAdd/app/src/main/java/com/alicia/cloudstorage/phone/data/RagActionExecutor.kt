@@ -31,9 +31,12 @@ internal class RagActionExecutor(
                 "collection.trash_by_name_contains",
                 "collection.trash_by_category",
                 -> executeBatchTrash(context, safeDraft, validation)
+                "collection.move_by_category",
                 "collection.move_by_extension",
+                "collection.move_exact",
                 "collection.move_by_name_contains",
                 -> executeBatchMove(context, safeDraft, validation)
+                "collection.rename_add_prefix" -> executeBatchRename(context, safeDraft, validation)
                 else -> RagActionExecutionResult.invalidDraft("移动端暂不支持该执行动作。", validation)
             }
         }.getOrElse { error ->
@@ -146,10 +149,34 @@ internal class RagActionExecutor(
             affectedNodeIds = nodeIds,
         )
     }
+
+    private suspend fun executeBatchRename(
+        context: RagActionExecutionContext,
+        draft: RagBackendActionDraft,
+        validation: RagActionBridgeValidation,
+    ): RagActionExecutionResult {
+        val items = draft.body.renameItemsValue("items")
+        if (items.isEmpty()) {
+            return RagActionExecutionResult.invalidDraft("缺少批量重命名目标。", validation)
+        }
+        repositoryPort.renameNodes(context.baseUrl, context.token, items)
+        return RagActionExecutionResult.completed(
+            actionType = draft.actionType,
+            message = "已完成批量重命名操作。",
+            validation = validation,
+            affectedNodeIds = items.map(BatchRenameNodeItemPayload::nodeId),
+        )
+    }
 }
 
 internal interface RagActionRepositoryPort {
     suspend fun renameNode(baseUrl: String, token: String, nodeId: Long, name: String): StorageNode
+
+    suspend fun renameNodes(
+        baseUrl: String,
+        token: String,
+        items: List<BatchRenameNodeItemPayload>,
+    ): List<StorageNode>
 
     suspend fun moveNodeToTrash(baseUrl: String, token: String, nodeId: Long): ApiMessageResponse
 
@@ -174,6 +201,12 @@ internal class AliciaRagActionRepositoryPort(
 ) : RagActionRepositoryPort {
     override suspend fun renameNode(baseUrl: String, token: String, nodeId: Long, name: String): StorageNode =
         repository.renameNode(baseUrl, token, nodeId, name)
+
+    override suspend fun renameNodes(
+        baseUrl: String,
+        token: String,
+        items: List<BatchRenameNodeItemPayload>,
+    ): List<StorageNode> = repository.renameNodes(baseUrl, token, items)
 
     override suspend fun moveNodeToTrash(baseUrl: String, token: String, nodeId: Long): ApiMessageResponse =
         repository.moveNodeToTrash(baseUrl, token, nodeId)
@@ -313,6 +346,15 @@ private fun Map<String, Any>?.longListValue(key: String): List<Long> =
         is Array<*> -> value.mapNotNull { it.toLongOrNullValue() }
         else -> value?.toLongOrNullValue()?.let(::listOf).orEmpty()
     }
+
+private fun Map<String, Any>?.renameItemsValue(key: String): List<BatchRenameNodeItemPayload> =
+    ((this?.get(key) as? Iterable<*>) ?: emptyList<Any?>())
+        .mapNotNull { rawItem ->
+            val item = rawItem as? Map<*, *> ?: return@mapNotNull null
+            val nodeId = item["nodeId"].toLongOrNullValue() ?: return@mapNotNull null
+            val name = item["name"]?.toString()?.trim()?.takeIf(String::isNotBlank) ?: return@mapNotNull null
+            BatchRenameNodeItemPayload(nodeId = nodeId, name = name)
+        }
 
 private fun Any?.toLongOrNullValue(): Long? =
     when (this) {

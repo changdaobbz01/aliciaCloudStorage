@@ -113,6 +113,7 @@ public class StorageApiCollectionPreviewClient implements CollectionPreviewPort 
     private record QueryPlan(
             Long parentId,
             String keyword,
+            String exactName,
             String type,
             String category,
             String extension,
@@ -121,6 +122,7 @@ public class StorageApiCollectionPreviewClient implements CollectionPreviewPort 
     ) {
         private static QueryPlan from(Map<String, Object> filter) {
             String nameContains = stringValue(filter.get("nameContains"));
+            String exactName = stringValue(filter.get("exactName"));
             String category = normalizeCategory(stringValue(filter.get("category")));
             String extension = normalizeExtension(stringValue(filter.get("extension")));
             String mimeType = normalizeLower(stringValue(filter.get("mimeType")));
@@ -130,7 +132,8 @@ public class StorageApiCollectionPreviewClient implements CollectionPreviewPort 
             String type = includeFolders ? "" : "FILE";
             return new QueryPlan(
                     parentId,
-                    nameContains,
+                    exactName.isBlank() ? nameContains : exactName,
+                    exactName,
                     type,
                     category,
                     extension,
@@ -148,7 +151,7 @@ public class StorageApiCollectionPreviewClient implements CollectionPreviewPort 
         }
 
         private boolean needsClientFiltering() {
-            return !extension.isBlank() || !mimeType.isBlank();
+            return !exactName.isBlank() || !extension.isBlank() || !mimeType.isBlank();
         }
 
         private StorageApiNodeQuery toStorageQuery(int page, int size) {
@@ -166,6 +169,9 @@ public class StorageApiCollectionPreviewClient implements CollectionPreviewPort 
         }
 
         private boolean matchesClientFilters(CandidateItem item) {
+            if (!exactName.isBlank() && !exactName.equalsIgnoreCase(item.name())) {
+                return false;
+            }
             if (!extension.isBlank() && !extension.equals(normalizeExtension(item.extension()))) {
                 return false;
             }

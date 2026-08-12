@@ -24,7 +24,7 @@ intent_template_collection_delete_category_lookup,true,108,collection_delete_by_
 intent_template_collection_move_extension_lookup,true,108,collection_move_by_extension,"我先按后缀筛选文件并匹配目标文件夹，确认后再整理移动计划。",wait_for_backend_binding,false
 intent_template_collection_move_name_lookup,true,108,collection_move_by_name,"我先按名称关键字筛选文件并匹配目标文件夹，确认后再整理移动计划。",wait_for_backend_binding,false
 intent_template_default,true,100,*,"我先按你说的线索去云盘里匹配真实文件或目录，找到后会把候选展示出来。",wait_for_backend_binding,false
-intent_template_collection_rename_prefix,true,110,collection_rename_add_prefix,"这个批量加前缀的需求我会先整理成计划并找出候选，目前先不直接执行批量重命名。",wait_for_backend_binding,true
+intent_template_collection_rename_prefix,true,110,collection_rename_add_prefix,"我会先列出完整的新旧名称对照，等你确认后再统一重命名。",wait_for_backend_binding,true
 intent_template_search_results,true,95,file_search,"我找到了匹配的候选，先给你列出来看看。",show_search_results,true
 intent_template_choose_candidate,true,95,*,"已匹配到多个候选，请选择要处理的那一项。",wait_for_candidate_selection,true
 intent_template_confirm,true,90,*,"我已经整理好这一步的操作计划，等你确认后再继续处理。",wait_for_user_confirmation,true

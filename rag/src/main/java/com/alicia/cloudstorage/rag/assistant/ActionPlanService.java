@@ -12,7 +12,7 @@ import java.util.Map;
 @Service
 public class ActionPlanService {
 
-    private static final String VERSION = "action_plan_v1";
+    private static final String VERSION = "action_plan_v2";
 
     private final String defaultLocale;
     private final JsonNode compositeDefinitions;

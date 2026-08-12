@@ -162,7 +162,17 @@ internal class RagActionBridgeValidator(
                 pathTemplate = "/api/storage/nodes/batch/trash",
                 bodyKeys = setOf("nodeIds"),
             ),
+            "collection.move_by_category" to RagAllowedBridgeRoute(
+                method = "PUT",
+                pathTemplate = "/api/storage/nodes/batch/move",
+                bodyKeys = setOf("nodeIds", "parentId"),
+            ),
             "collection.move_by_extension" to RagAllowedBridgeRoute(
+                method = "PUT",
+                pathTemplate = "/api/storage/nodes/batch/move",
+                bodyKeys = setOf("nodeIds", "parentId"),
+            ),
+            "collection.move_exact" to RagAllowedBridgeRoute(
                 method = "PUT",
                 pathTemplate = "/api/storage/nodes/batch/move",
                 bodyKeys = setOf("nodeIds", "parentId"),
@@ -171,6 +181,11 @@ internal class RagActionBridgeValidator(
                 method = "PUT",
                 pathTemplate = "/api/storage/nodes/batch/move",
                 bodyKeys = setOf("nodeIds", "parentId"),
+            ),
+            "collection.rename_add_prefix" to RagAllowedBridgeRoute(
+                method = "PUT",
+                pathTemplate = "/api/storage/nodes/batch/rename",
+                bodyKeys = setOf("items"),
             ),
         )
     }

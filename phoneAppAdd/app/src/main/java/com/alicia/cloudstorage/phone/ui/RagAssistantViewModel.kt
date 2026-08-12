@@ -46,6 +46,8 @@ internal class RagAssistantViewModel(
     val clientUploadRequests = clientUploadRequestChannel.receiveAsFlow()
     private val _composerAttachmentClearRequests = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val composerAttachmentClearRequests = _composerAttachmentClearRequests.asSharedFlow()
+    private val _navigationRequests = MutableSharedFlow<AiChatFileResult>(extraBufferCapacity = 1)
+    val navigationRequests = _navigationRequests.asSharedFlow()
 
     private var conversationId: String? = null
     private var currentFolderId: Long? = null
@@ -208,7 +210,7 @@ internal class RagAssistantViewModel(
                 }
                 val streamFailure = error.toRagAssistantFailure()
                 if (!streamFailure.retryWithoutStreaming) {
-                    showConversationFailure(assistantMessageId, streamFailure.userMessage)
+                    showConversationFailure(assistantMessageId, streamFailure)
                     return@onFailure
                 }
                 runCatching {
@@ -230,7 +232,7 @@ internal class RagAssistantViewModel(
                     if (fallbackError is CancellationException) {
                         throw fallbackError
                     }
-                    showConversationFailure(assistantMessageId, fallbackError.readableRagMessage())
+                    showConversationFailure(assistantMessageId, fallbackError.toRagAssistantFailure())
                 }
             }
         }
@@ -282,6 +284,7 @@ internal class RagAssistantViewModel(
         if (clearPendingAttachments) {
             _composerAttachmentClearRequests.tryEmit(Unit)
         }
+        response.toNavigationTargetOrNull()?.let(_navigationRequests::tryEmit)
     }
 
     private fun updateAssistantStreamingText(
@@ -306,14 +309,14 @@ internal class RagAssistantViewModel(
         }
     }
 
-    private fun showConversationFailure(messageId: Long, text: String) {
+    private fun showConversationFailure(messageId: Long, failure: RagAssistantFailure) {
         _uiState.update { state ->
             state.copy(
                 messages = state.messages.map { existing ->
-                    if (existing.id == messageId) existing.copy(text = text) else existing
+                    if (existing.id == messageId) existing.copy(text = failure.userMessage) else existing
                 },
                 sending = false,
-                online = false,
+                online = !failure.markOffline,
             )
         }
     }

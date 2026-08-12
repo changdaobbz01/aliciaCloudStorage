@@ -13,8 +13,13 @@ internal object AiChatExecutionFeedback {
             mutationScope = AiChatFileMutationScope.FILES_AND_TRASH,
         )
         register(
-            actionTypes = listOf("collection.move_by_extension", "collection.move_by_name_contains"),
-            progressMessage = "正在为你移动文件，请稍等...",
+            actionTypes = listOf(
+                "collection.move_exact",
+                "collection.move_by_category",
+                "collection.move_by_extension",
+                "collection.move_by_name_contains",
+            ),
+            progressMessage = "正在为你移动文件或文件夹，请稍等...",
             mutationScope = AiChatFileMutationScope.FILES_ONLY,
         )
         register(listOf("share"), "正在为你创建分享，请稍等...")

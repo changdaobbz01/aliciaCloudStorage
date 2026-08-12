@@ -21,6 +21,7 @@ class RagAssistantFailurePolicyTest {
         assertEquals("安安的服务暂时没有连接上，请稍后再试。", failure.userMessage)
         assertFalse(failure.userMessage.contains("127.0.0.1"))
         assertFalse(failure.retryWithoutStreaming)
+        assertTrue(failure.markOffline)
     }
 
     @Test
@@ -32,12 +33,16 @@ class RagAssistantFailurePolicyTest {
 
         assertEquals("安安的服务暂时没有连接上，请稍后再试。", failure.userMessage)
         assertFalse(failure.retryWithoutStreaming)
+        assertTrue(failure.markOffline)
     }
 
     @Test
     fun `common network failures have stable user messages`() {
+        assertFalse(SocketTimeoutException("timeout").toRagAssistantFailure().markOffline)
+        assertTrue(UnknownHostException("rag.internal").toRagAssistantFailure().markOffline)
+        assertFalse(IOException("socket closed").toRagAssistantFailure().markOffline)
         assertEquals(
-            "安安等待服务响应超时了，请稍后再试。",
+            "这次理解花得有点久，安安仍然在线，请再试一次。",
             SocketTimeoutException("timeout").readableRagMessage(),
         )
         assertEquals(
@@ -49,7 +54,7 @@ class RagAssistantFailurePolicyTest {
             SSLException("handshake failed").readableRagMessage(),
         )
         assertEquals(
-            "安安的网络连接暂时不可用，请稍后再试。",
+            "这次连接意外中断了，请再试一次。",
             IOException("socket closed").readableRagMessage(),
         )
     }
@@ -61,6 +66,7 @@ class RagAssistantFailurePolicyTest {
 
         assertEquals("安安服务暂时不可用，请稍后再试。", failure.userMessage)
         assertFalse(failure.retryWithoutStreaming)
+        assertFalse(failure.markOffline)
     }
 
     @Test

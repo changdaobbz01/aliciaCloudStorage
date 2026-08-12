@@ -1,0 +1,3156 @@
+{
+  "schemaVersion": "cloud_drive_semantic_corpus_v1",
+  "generatedAt": "2026-08-13",
+  "sourceWorkbook": "云盘_RAG_自然语言语料库.xlsx",
+  "policy": {
+    "executionExamplesRequireMappedActionContract": true,
+    "capabilityQuestionsAreNonMutating": true,
+    "unsupportedCompositeRulesRequireClarification": true,
+    "deterministicHeldOutPercent": 20
+  },
+  "boundaries": [
+    {
+      "id": "ORG-0002",
+      "utterance": "/云盘/下载里面的jpg/png/heic/gif文件放到/云盘/图片，没有这个目录就新建",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0008",
+      "utterance": "如果/云盘/图片不存在先建一个，再把图片放进去",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0012",
+      "utterance": "/云盘/工作资料里面的doc/docx/txt/md文件放到/云盘/文档资料，没有这个目录就新建",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0018",
+      "utterance": "如果/云盘/文档资料不存在先建一个，再把文档放进去",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0021",
+      "utterance": "帮我把/云盘/工作资料里的PDF都整理到/云盘/PDF文件夹",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0022",
+      "utterance": "/云盘/临时文件里面的pdf文件放到/云盘/PDF，没有这个目录就新建",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0023",
+      "utterance": "按文件类型清一下/云盘/项目资料，PDF归到/云盘/PDF",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0024",
+      "utterance": "把云盘里散着的PDF集中到/云盘/PDF目录",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0025",
+      "utterance": "将所有PDF移到对应的/云盘/PDF目录",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0026",
+      "utterance": "我想把pdf统一归档，目标目录叫/云盘/PDF",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0027",
+      "utterance": "整理一下/云盘/工作资料，扫描件别和其他文件混在一起",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0028",
+      "utterance": "如果/云盘/PDF不存在先建一个，再把PDF放进去",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0029",
+      "utterance": "把/云盘/项目资料下同类型的电子书收纳到/云盘/PDF",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0030",
+      "utterance": "请自动识别/云盘/共享空间里的PDF并分到/云盘/PDF",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0031",
+      "utterance": "帮我把/云盘/临时文件里的表格都整理到/云盘/表格文件夹",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0032",
+      "utterance": "/云盘/项目资料里面的xls/xlsx/csv文件放到/云盘/表格，没有这个目录就新建",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0033",
+      "utterance": "按文件类型清一下/云盘/共享空间，表格归到/云盘/表格",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0034",
+      "utterance": "把云盘里散着的表格集中到/云盘/表格目录",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0035",
+      "utterance": "将所有表格移到对应的/云盘/表格目录",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0036",
+      "utterance": "我想把excel统一归档，目标目录叫/云盘/表格",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0037",
+      "utterance": "整理一下/云盘/临时文件，清单别和其他文件混在一起",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0038",
+      "utterance": "如果/云盘/表格不存在先建一个，再把表格放进去",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0039",
+      "utterance": "把/云盘/共享空间下同类型的数据表收纳到/云盘/表格",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0040",
+      "utterance": "请自动识别/云盘/我的文件里的表格并分到/云盘/表格",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0041",
+      "utterance": "帮我把/云盘/项目资料里的演示文稿都整理到/云盘/PPT文件夹",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0042",
+      "utterance": "/云盘/共享空间里面的ppt/pptx文件放到/云盘/PPT，没有这个目录就新建",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0043",
+      "utterance": "按文件类型清一下/云盘/我的文件，演示文稿归到/云盘/PPT",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0044",
+      "utterance": "把云盘里散着的演示文稿集中到/云盘/PPT目录",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0045",
+      "utterance": "将所有演示文稿移到对应的/云盘/PPT目录",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0046",
+      "utterance": "我想把汇报统一归档，目标目录叫/云盘/PPT",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0047",
+      "utterance": "整理一下/云盘/项目资料，课件别和其他文件混在一起",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0048",
+      "utterance": "如果/云盘/PPT不存在先建一个，再把演示文稿放进去",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0049",
+      "utterance": "把/云盘/我的文件下同类型的演示收纳到/云盘/PPT",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0050",
+      "utterance": "请自动识别/云盘/下载里的演示文稿并分到/云盘/PPT",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0052",
+      "utterance": "/云盘/我的文件里面的mp4/mov/mkv文件放到/云盘/视频，没有这个目录就新建",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0058",
+      "utterance": "如果/云盘/视频不存在先建一个，再把视频放进去",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0062",
+      "utterance": "/云盘/下载里面的mp3/wav/m4a文件放到/云盘/音频，没有这个目录就新建",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0068",
+      "utterance": "如果/云盘/音频不存在先建一个，再把音频放进去",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0072",
+      "utterance": "/云盘/工作资料里面的zip/rar/7z文件放到/云盘/压缩包，没有这个目录就新建",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0078",
+      "utterance": "如果/云盘/压缩包不存在先建一个，再把压缩包放进去",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0081",
+      "utterance": "帮我把/云盘/工作资料里的合同都整理到/云盘/合同文件夹",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0082",
+      "utterance": "/云盘/临时文件里面的docx/pdf文件放到/云盘/合同，没有这个目录就新建",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0083",
+      "utterance": "按文件类型清一下/云盘/项目资料，合同归到/云盘/合同",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0084",
+      "utterance": "把云盘里散着的合同集中到/云盘/合同目录",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0085",
+      "utterance": "将所有合同移到对应的/云盘/合同目录",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0086",
+      "utterance": "我想把协议统一归档，目标目录叫/云盘/合同",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0087",
+      "utterance": "整理一下/云盘/工作资料，合同别和其他文件混在一起",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0088",
+      "utterance": "如果/云盘/合同不存在先建一个，再把合同放进去",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0089",
+      "utterance": "把/云盘/项目资料下同类型的签署文件收纳到/云盘/合同",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0090",
+      "utterance": "请自动识别/云盘/共享空间里的合同并分到/云盘/合同",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0091",
+      "utterance": "帮我把/云盘/临时文件里的发票都整理到/云盘/发票文件夹",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0092",
+      "utterance": "/云盘/项目资料里面的pdf/jpg/png文件放到/云盘/发票，没有这个目录就新建",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0093",
+      "utterance": "按文件类型清一下/云盘/共享空间，发票归到/云盘/发票",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0094",
+      "utterance": "把云盘里散着的发票集中到/云盘/发票目录",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0095",
+      "utterance": "将所有发票移到对应的/云盘/发票目录",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0096",
+      "utterance": "我想把电子发票统一归档，目标目录叫/云盘/发票",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0097",
+      "utterance": "整理一下/云盘/临时文件，票据别和其他文件混在一起",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0098",
+      "utterance": "如果/云盘/发票不存在先建一个，再把发票放进去",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0099",
+      "utterance": "把/云盘/共享空间下同类型的报销凭证收纳到/云盘/发票",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0100",
+      "utterance": "请自动识别/云盘/我的文件里的发票并分到/云盘/发票",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0101",
+      "utterance": "帮我把/云盘/项目资料里的报销单都整理到/云盘/财务报销文件夹",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0102",
+      "utterance": "/云盘/共享空间里面的xlsx/pdf/jpg文件放到/云盘/财务报销，没有这个目录就新建",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0103",
+      "utterance": "按文件类型清一下/云盘/我的文件，报销单归到/云盘/财务报销",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0104",
+      "utterance": "把云盘里散着的报销单集中到/云盘/财务报销目录",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0105",
+      "utterance": "将所有报销单移到对应的/云盘/财务报销目录",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0106",
+      "utterance": "我想把报销统一归档，目标目录叫/云盘/财务报销",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0107",
+      "utterance": "整理一下/云盘/项目资料，付款单别和其他文件混在一起",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0108",
+      "utterance": "如果/云盘/财务报销不存在先建一个，再把报销单放进去",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0109",
+      "utterance": "把/云盘/我的文件下同类型的费用收纳到/云盘/财务报销",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0110",
+      "utterance": "请自动识别/云盘/下载里的报销单并分到/云盘/财务报销",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0111",
+      "utterance": "帮我把/云盘/共享空间里的代码文件都整理到/云盘/代码文件夹",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0112",
+      "utterance": "/云盘/我的文件里面的js/py/java/go文件放到/云盘/代码，没有这个目录就新建",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0113",
+      "utterance": "按文件类型清一下/云盘/下载，代码文件归到/云盘/代码",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0114",
+      "utterance": "把云盘里散着的代码文件集中到/云盘/代码目录",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0115",
+      "utterance": "将所有代码文件移到对应的/云盘/代码目录",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0116",
+      "utterance": "我想把源码统一归档，目标目录叫/云盘/代码",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0117",
+      "utterance": "整理一下/云盘/共享空间，脚本别和其他文件混在一起",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0118",
+      "utterance": "如果/云盘/代码不存在先建一个，再把代码文件放进去",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0119",
+      "utterance": "把/云盘/下载下同类型的工程代码收纳到/云盘/代码",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0120",
+      "utterance": "请自动识别/云盘/工作资料里的代码文件并分到/云盘/代码",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0121",
+      "utterance": "帮我把/云盘/我的文件里的安装包都整理到/云盘/安装包文件夹",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0122",
+      "utterance": "/云盘/下载里面的exe/dmg/apk/msi文件放到/云盘/安装包，没有这个目录就新建",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0123",
+      "utterance": "按文件类型清一下/云盘/工作资料，安装包归到/云盘/安装包",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0124",
+      "utterance": "把云盘里散着的安装包集中到/云盘/安装包目录",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0125",
+      "utterance": "将所有安装包移到对应的/云盘/安装包目录",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0126",
+      "utterance": "我想把软件包统一归档，目标目录叫/云盘/安装包",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0127",
+      "utterance": "整理一下/云盘/我的文件，客户端别和其他文件混在一起",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0128",
+      "utterance": "如果/云盘/安装包不存在先建一个，再把安装包放进去",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0129",
+      "utterance": "把/云盘/工作资料下同类型的安装程序收纳到/云盘/安装包",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0130",
+      "utterance": "请自动识别/云盘/临时文件里的安装包并分到/云盘/安装包",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0131",
+      "utterance": "帮我把/云盘/下载里的日志都整理到/云盘/日志文件夹",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0132",
+      "utterance": "/云盘/工作资料里面的log/txt文件放到/云盘/日志，没有这个目录就新建",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0133",
+      "utterance": "按文件类型清一下/云盘/临时文件，日志归到/云盘/日志",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0134",
+      "utterance": "把云盘里散着的日志集中到/云盘/日志目录",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0135",
+      "utterance": "将所有日志移到对应的/云盘/日志目录",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0136",
+      "utterance": "我想把运行日志统一归档，目标目录叫/云盘/日志",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0137",
+      "utterance": "整理一下/云盘/下载，错误日志别和其他文件混在一起",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0138",
+      "utterance": "如果/云盘/日志不存在先建一个，再把日志放进去",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0139",
+      "utterance": "把/云盘/临时文件下同类型的排查记录收纳到/云盘/日志",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0140",
+      "utterance": "请自动识别/云盘/项目资料里的日志并分到/云盘/日志",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0141",
+      "utterance": "帮我把/云盘/工作资料里的临时文件都整理到/云盘/临时文件文件夹",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0142",
+      "utterance": "/云盘/临时文件里面的tmp/bak/cache文件放到/云盘/临时文件，没有这个目录就新建",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0143",
+      "utterance": "按文件类型清一下/云盘/项目资料，临时文件归到/云盘/临时文件",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0144",
+      "utterance": "把云盘里散着的临时文件集中到/云盘/临时文件目录",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0145",
+      "utterance": "将所有临时文件移到对应的/云盘/临时文件目录",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0146",
+      "utterance": "我想把缓存统一归档，目标目录叫/云盘/临时文件",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0147",
+      "utterance": "整理一下/云盘/工作资料，备份文件别和其他文件混在一起",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0148",
+      "utterance": "如果/云盘/临时文件不存在先建一个，再把临时文件放进去",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0149",
+      "utterance": "把/云盘/项目资料下同类型的临时目录收纳到/云盘/临时文件",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0150",
+      "utterance": "请自动识别/云盘/共享空间里的临时文件并分到/云盘/临时文件",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0151",
+      "utterance": "帮我把/云盘/临时文件里的会议纪要都整理到/云盘/会议纪要文件夹",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0152",
+      "utterance": "/云盘/项目资料里面的docx/pdf/md文件放到/云盘/会议纪要，没有这个目录就新建",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0153",
+      "utterance": "按文件类型清一下/云盘/共享空间，会议纪要归到/云盘/会议纪要",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0154",
+      "utterance": "把云盘里散着的会议纪要集中到/云盘/会议纪要目录",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0155",
+      "utterance": "将所有会议纪要移到对应的/云盘/会议纪要目录",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0156",
+      "utterance": "我想把纪要统一归档，目标目录叫/云盘/会议纪要",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0157",
+      "utterance": "整理一下/云盘/临时文件，会议记录别和其他文件混在一起",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0158",
+      "utterance": "如果/云盘/会议纪要不存在先建一个，再把会议纪要放进去",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0159",
+      "utterance": "把/云盘/共享空间下同类型的meeting notes收纳到/云盘/会议纪要",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0160",
+      "utterance": "请自动识别/云盘/我的文件里的会议纪要并分到/云盘/会议纪要",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0161",
+      "utterance": "帮我把/云盘/项目资料里的学习资料都整理到/云盘/学习资料文件夹",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0162",
+      "utterance": "/云盘/共享空间里面的pdf/ppt/docx/mp4文件放到/云盘/学习资料，没有这个目录就新建",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0163",
+      "utterance": "按文件类型清一下/云盘/我的文件，学习资料归到/云盘/学习资料",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0164",
+      "utterance": "把云盘里散着的学习资料集中到/云盘/学习资料目录",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0165",
+      "utterance": "将所有学习资料移到对应的/云盘/学习资料目录",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0166",
+      "utterance": "我想把课程统一归档，目标目录叫/云盘/学习资料",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0167",
+      "utterance": "整理一下/云盘/项目资料，教材别和其他文件混在一起",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0168",
+      "utterance": "如果/云盘/学习资料不存在先建一个，再把学习资料放进去",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0169",
+      "utterance": "把/云盘/我的文件下同类型的培训材料收纳到/云盘/学习资料",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0170",
+      "utterance": "请自动识别/云盘/下载里的学习资料并分到/云盘/学习资料",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0171",
+      "utterance": "帮我把/云盘/共享空间里的设计素材都整理到/云盘/设计素材文件夹",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0172",
+      "utterance": "/云盘/我的文件里面的psd/fig/png/svg文件放到/云盘/设计素材，没有这个目录就新建",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0173",
+      "utterance": "按文件类型清一下/云盘/下载，设计素材归到/云盘/设计素材",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0174",
+      "utterance": "把云盘里散着的设计素材集中到/云盘/设计素材目录",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0175",
+      "utterance": "将所有设计素材移到对应的/云盘/设计素材目录",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0176",
+      "utterance": "我想把设计稿统一归档，目标目录叫/云盘/设计素材",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0177",
+      "utterance": "整理一下/云盘/共享空间，切图别和其他文件混在一起",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0178",
+      "utterance": "如果/云盘/设计素材不存在先建一个，再把设计素材放进去",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0179",
+      "utterance": "把/云盘/下载下同类型的素材收纳到/云盘/设计素材",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "ORG-0180",
+      "utterance": "请自动识别/云盘/工作资料里的设计素材并分到/云盘/设计素材",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.organize_by_type",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0049",
+      "utterance": "把/云盘/图片里所有文件批量按拍摄日期命名",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0050",
+      "utterance": "请按“按拍摄日期命名”规则重命名/云盘/图片下的文件",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0051",
+      "utterance": "/云盘/图片里的文件名称统一处理一下，规则是按拍摄日期命名",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0052",
+      "utterance": "给这些文件重新起名，示例格式像20260812_001.jpg",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0053",
+      "utterance": "将/云盘/图片中选中的文件批量改名成20260812_001.jpg这种格式",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0054",
+      "utterance": "批量修改/云盘/图片里的文件名：按拍摄日期命名",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0055",
+      "utterance": "帮我统一/云盘/图片下文件的命名规范，按按拍摄日期命名",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0056",
+      "utterance": "把/云盘/图片里面不规范的文件名整理成20260812_001.jpg这种样子",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0057",
+      "utterance": "把/云盘/发票里所有文件批量加上发票_前缀",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0058",
+      "utterance": "请按“加上发票_前缀”规则重命名/云盘/发票下的文件",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0059",
+      "utterance": "/云盘/发票里的文件名称统一处理一下，规则是加上发票_前缀",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0060",
+      "utterance": "给这些文件重新起名，示例格式像发票_办公用品.pdf",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0061",
+      "utterance": "将/云盘/发票中选中的文件批量改名成发票_办公用品.pdf这种格式",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0062",
+      "utterance": "批量修改/云盘/发票里的文件名：加上发票_前缀",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0063",
+      "utterance": "帮我统一/云盘/发票下文件的命名规范，按加上发票_前缀",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0064",
+      "utterance": "把/云盘/发票里面不规范的文件名整理成发票_办公用品.pdf这种样子",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0065",
+      "utterance": "把/云盘/合同里所有文件批量把旧版替换为正式版",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0066",
+      "utterance": "请按“把旧版替换为正式版”规则重命名/云盘/合同下的文件",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0067",
+      "utterance": "/云盘/合同里的文件名称统一处理一下，规则是把旧版替换为正式版",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0068",
+      "utterance": "给这些文件重新起名，示例格式像正式版_销售合同.docx",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0069",
+      "utterance": "将/云盘/合同中选中的文件批量改名成正式版_销售合同.docx这种格式",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0070",
+      "utterance": "批量修改/云盘/合同里的文件名：把旧版替换为正式版",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0071",
+      "utterance": "帮我统一/云盘/合同下文件的命名规范，按把旧版替换为正式版",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0072",
+      "utterance": "把/云盘/合同里面不规范的文件名整理成正式版_销售合同.docx这种样子",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0073",
+      "utterance": "把/云盘/会议纪要里所有文件批量追加_已归档后缀",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0074",
+      "utterance": "请按“追加_已归档后缀”规则重命名/云盘/会议纪要下的文件",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0075",
+      "utterance": "/云盘/会议纪要里的文件名称统一处理一下，规则是追加_已归档后缀",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0076",
+      "utterance": "给这些文件重新起名，示例格式像周会纪要_已归档.md",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0077",
+      "utterance": "将/云盘/会议纪要中选中的文件批量改名成周会纪要_已归档.md这种格式",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0078",
+      "utterance": "批量修改/云盘/会议纪要里的文件名：追加_已归档后缀",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0079",
+      "utterance": "帮我统一/云盘/会议纪要下文件的命名规范，按追加_已归档后缀",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0080",
+      "utterance": "把/云盘/会议纪要里面不规范的文件名整理成周会纪要_已归档.md这种样子",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0081",
+      "utterance": "把/云盘/项目资料里所有文件批量从001开始顺序编号",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0082",
+      "utterance": "请按“从001开始顺序编号”规则重命名/云盘/项目资料下的文件",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0083",
+      "utterance": "/云盘/项目资料里的文件名称统一处理一下，规则是从001开始顺序编号",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0084",
+      "utterance": "给这些文件重新起名，示例格式像项目资料_001.pdf",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0085",
+      "utterance": "将/云盘/项目资料中选中的文件批量改名成项目资料_001.pdf这种格式",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0086",
+      "utterance": "批量修改/云盘/项目资料里的文件名：从001开始顺序编号",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0087",
+      "utterance": "帮我统一/云盘/项目资料下文件的命名规范，按从001开始顺序编号",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0088",
+      "utterance": "把/云盘/项目资料里面不规范的文件名整理成项目资料_001.pdf这种样子",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0089",
+      "utterance": "把/云盘/下载里所有文件批量去掉文件名里的空格",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0090",
+      "utterance": "请按“去掉文件名里的空格”规则重命名/云盘/下载下的文件",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0091",
+      "utterance": "/云盘/下载里的文件名称统一处理一下，规则是去掉文件名里的空格",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0092",
+      "utterance": "给这些文件重新起名，示例格式像客户名单.xlsx",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0093",
+      "utterance": "将/云盘/下载中选中的文件批量改名成客户名单.xlsx这种格式",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0094",
+      "utterance": "批量修改/云盘/下载里的文件名：去掉文件名里的空格",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0095",
+      "utterance": "帮我统一/云盘/下载下文件的命名规范，按去掉文件名里的空格",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0096",
+      "utterance": "把/云盘/下载里面不规范的文件名整理成客户名单.xlsx这种样子",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0097",
+      "utterance": "把/云盘/视频里所有文件批量统一改成小写扩展名",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0098",
+      "utterance": "请按“统一改成小写扩展名”规则重命名/云盘/视频下的文件",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0099",
+      "utterance": "/云盘/视频里的文件名称统一处理一下，规则是统一改成小写扩展名",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0100",
+      "utterance": "给这些文件重新起名，示例格式像demo.mp4",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0101",
+      "utterance": "将/云盘/视频中选中的文件批量改名成demo.mp4这种格式",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0102",
+      "utterance": "批量修改/云盘/视频里的文件名：统一改成小写扩展名",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0103",
+      "utterance": "帮我统一/云盘/视频下文件的命名规范，按统一改成小写扩展名",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0104",
+      "utterance": "把/云盘/视频里面不规范的文件名整理成demo.mp4这种样子",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0105",
+      "utterance": "把/云盘/设计素材里所有文件批量将微信图片改成设计素材",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0106",
+      "utterance": "请按“将微信图片改成设计素材”规则重命名/云盘/设计素材下的文件",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0107",
+      "utterance": "/云盘/设计素材里的文件名称统一处理一下，规则是将微信图片改成设计素材",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0108",
+      "utterance": "给这些文件重新起名，示例格式像设计素材_001.png",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0109",
+      "utterance": "将/云盘/设计素材中选中的文件批量改名成设计素材_001.png这种格式",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0110",
+      "utterance": "批量修改/云盘/设计素材里的文件名：将微信图片改成设计素材",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0111",
+      "utterance": "帮我统一/云盘/设计素材下文件的命名规范，按将微信图片改成设计素材",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0112",
+      "utterance": "把/云盘/设计素材里面不规范的文件名整理成设计素材_001.png这种样子",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0113",
+      "utterance": "把/云盘/项目资料里所有文件夹批量给每个项目文件夹加2026_前缀",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0114",
+      "utterance": "请按“给每个项目文件夹加2026_前缀”规则重命名/云盘/项目资料下的文件夹",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0115",
+      "utterance": "/云盘/项目资料里的文件夹名称统一处理一下，规则是给每个项目文件夹加2026_前缀",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0116",
+      "utterance": "给这些文件夹重新起名，示例格式像2026_A项目",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0117",
+      "utterance": "将/云盘/项目资料中选中的文件夹批量改名成2026_A项目这种格式",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0118",
+      "utterance": "批量修改/云盘/项目资料里的文件夹名：给每个项目文件夹加2026_前缀",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0119",
+      "utterance": "帮我统一/云盘/项目资料下文件夹的命名规范，按给每个项目文件夹加2026_前缀",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0120",
+      "utterance": "把/云盘/项目资料里面不规范的文件夹名整理成2026_A项目这种样子",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0121",
+      "utterance": "把/云盘/共享空间里所有文件夹批量把临时改成共享临时",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0122",
+      "utterance": "请按“把临时改成共享临时”规则重命名/云盘/共享空间下的文件夹",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0123",
+      "utterance": "/云盘/共享空间里的文件夹名称统一处理一下，规则是把临时改成共享临时",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0124",
+      "utterance": "给这些文件夹重新起名，示例格式像共享临时_客户资料",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0125",
+      "utterance": "将/云盘/共享空间中选中的文件夹批量改名成共享临时_客户资料这种格式",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0126",
+      "utterance": "批量修改/云盘/共享空间里的文件夹名：把临时改成共享临时",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0127",
+      "utterance": "帮我统一/云盘/共享空间下文件夹的命名规范，按把临时改成共享临时",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0128",
+      "utterance": "把/云盘/共享空间里面不规范的文件夹名整理成共享临时_客户资料这种样子",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0129",
+      "utterance": "把/云盘/学习资料里所有文件夹批量按课程名称统一命名",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0130",
+      "utterance": "请按“按课程名称统一命名”规则重命名/云盘/学习资料下的文件夹",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0131",
+      "utterance": "/云盘/学习资料里的文件夹名称统一处理一下，规则是按课程名称统一命名",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0132",
+      "utterance": "给这些文件夹重新起名，示例格式像课程_数据分析",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0133",
+      "utterance": "将/云盘/学习资料中选中的文件夹批量改名成课程_数据分析这种格式",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0134",
+      "utterance": "批量修改/云盘/学习资料里的文件夹名：按课程名称统一命名",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0135",
+      "utterance": "帮我统一/云盘/学习资料下文件夹的命名规范，按按课程名称统一命名",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0136",
+      "utterance": "把/云盘/学习资料里面不规范的文件夹名整理成课程_数据分析这种样子",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0137",
+      "utterance": "把/云盘/财务报销里所有文件夹批量按月份重命名",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0138",
+      "utterance": "请按“按月份重命名”规则重命名/云盘/财务报销下的文件夹",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0139",
+      "utterance": "/云盘/财务报销里的文件夹名称统一处理一下，规则是按月份重命名",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0140",
+      "utterance": "给这些文件夹重新起名，示例格式像2026-08_报销资料",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0141",
+      "utterance": "将/云盘/财务报销中选中的文件夹批量改名成2026-08_报销资料这种格式",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0142",
+      "utterance": "批量修改/云盘/财务报销里的文件夹名：按月份重命名",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0143",
+      "utterance": "帮我统一/云盘/财务报销下文件夹的命名规范，按按月份重命名",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0144",
+      "utterance": "把/云盘/财务报销里面不规范的文件夹名整理成2026-08_报销资料这种样子",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0145",
+      "utterance": "把/云盘/PDF里所有文件批量把scan替换成扫描件",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0146",
+      "utterance": "请按“把scan替换成扫描件”规则重命名/云盘/PDF下的文件",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0147",
+      "utterance": "/云盘/PDF里的文件名称统一处理一下，规则是把scan替换成扫描件",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0148",
+      "utterance": "给这些文件重新起名，示例格式像扫描件_001.pdf",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0149",
+      "utterance": "将/云盘/PDF中选中的文件批量改名成扫描件_001.pdf这种格式",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0150",
+      "utterance": "批量修改/云盘/PDF里的文件名：把scan替换成扫描件",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0151",
+      "utterance": "帮我统一/云盘/PDF下文件的命名规范，按把scan替换成扫描件",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0152",
+      "utterance": "把/云盘/PDF里面不规范的文件名整理成扫描件_001.pdf这种样子",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0153",
+      "utterance": "把/云盘/音频里所有文件批量加上录音日期",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0154",
+      "utterance": "请按“加上录音日期”规则重命名/云盘/音频下的文件",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0155",
+      "utterance": "/云盘/音频里的文件名称统一处理一下，规则是加上录音日期",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0156",
+      "utterance": "给这些文件重新起名，示例格式像2026-08-12_访谈.m4a",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0157",
+      "utterance": "将/云盘/音频中选中的文件批量改名成2026-08-12_访谈.m4a这种格式",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0158",
+      "utterance": "批量修改/云盘/音频里的文件名：加上录音日期",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0159",
+      "utterance": "帮我统一/云盘/音频下文件的命名规范，按加上录音日期",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0160",
+      "utterance": "把/云盘/音频里面不规范的文件名整理成2026-08-12_访谈.m4a这种样子",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0161",
+      "utterance": "把/云盘/图片里所有文件夹批量去掉重复的副本字样",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0162",
+      "utterance": "请按“去掉重复的副本字样”规则重命名/云盘/图片下的文件夹",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0163",
+      "utterance": "/云盘/图片里的文件夹名称统一处理一下，规则是去掉重复的副本字样",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0164",
+      "utterance": "给这些文件夹重新起名，示例格式像旅行照片",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0165",
+      "utterance": "将/云盘/图片中选中的文件夹批量改名成旅行照片这种格式",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0166",
+      "utterance": "批量修改/云盘/图片里的文件夹名：去掉重复的副本字样",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0167",
+      "utterance": "帮我统一/云盘/图片下文件夹的命名规范，按去掉重复的副本字样",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "REN-0168",
+      "utterance": "把/云盘/图片里面不规范的文件夹名整理成旅行照片这种样子",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.rename",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0057",
+      "utterance": "批量移到回收站/云盘/下载里符合条件的文件：删除所有重复压缩包",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0058",
+      "utterance": "帮我清理/云盘/下载，规则是删除所有重复压缩包",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0059",
+      "utterance": "把/云盘/下载下需要清掉的文件都移到回收站",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0060",
+      "utterance": "/云盘/下载里的文件按删除所有重复压缩包处理，删之前给我确认",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0061",
+      "utterance": "请找出/云盘/下载中删除所有重复压缩包的内容并删除",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0062",
+      "utterance": "我想一键清掉/云盘/下载里的这些文件，条件：删除所有重复压缩包",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0063",
+      "utterance": "删除所有重复压缩包，范围是/云盘/下载，确认后再删",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0064",
+      "utterance": "批量删除/云盘/临时文件里符合条件的文件：删除超过30天未访问的临时文件",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0065",
+      "utterance": "帮我清理/云盘/临时文件，规则是删除超过30天未访问的临时文件",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0066",
+      "utterance": "把/云盘/临时文件下需要清掉的文件都删除",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0067",
+      "utterance": "/云盘/临时文件里的文件按删除超过30天未访问的临时文件处理，删之前给我确认",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0068",
+      "utterance": "请找出/云盘/临时文件中删除超过30天未访问的临时文件的内容并删除",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0069",
+      "utterance": "我想一键清掉/云盘/临时文件里的这些文件，条件：删除超过30天未访问的临时文件",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0070",
+      "utterance": "删除超过30天未访问的临时文件，范围是/云盘/临时文件，确认后再删",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0073",
+      "utterance": "把/云盘/图片下需要清掉的文件都移到回收站",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0078",
+      "utterance": "批量删除/云盘/视频里符合条件的文件：删除大小超过2GB的旧视频",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0079",
+      "utterance": "帮我清理/云盘/视频，规则是删除大小超过2GB的旧视频",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0080",
+      "utterance": "把/云盘/视频下需要清掉的文件都删除",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0081",
+      "utterance": "/云盘/视频里的文件按删除大小超过2GB的旧视频处理，删之前给我确认",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0082",
+      "utterance": "请找出/云盘/视频中删除大小超过2GB的旧视频的内容并删除",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0083",
+      "utterance": "我想一键清掉/云盘/视频里的这些文件，条件：删除大小超过2GB的旧视频",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0084",
+      "utterance": "删除大小超过2GB的旧视频，范围是/云盘/视频，确认后再删",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0085",
+      "utterance": "批量永久删除/云盘/日志里符合条件的文件：删除上个月以前的日志",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0086",
+      "utterance": "帮我清理/云盘/日志，规则是删除上个月以前的日志",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0087",
+      "utterance": "把/云盘/日志下需要清掉的文件都永久删除",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0088",
+      "utterance": "/云盘/日志里的文件按删除上个月以前的日志处理，删之前给我确认",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0089",
+      "utterance": "请找出/云盘/日志中删除上个月以前的日志的内容并删除",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0090",
+      "utterance": "我想一键清掉/云盘/日志里的这些文件，条件：删除上个月以前的日志",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0091",
+      "utterance": "删除上个月以前的日志，范围是/云盘/日志，确认后再删",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0092",
+      "utterance": "批量移到回收站/云盘/发票里符合条件的文件：删除重复上传的发票",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0093",
+      "utterance": "帮我清理/云盘/发票，规则是删除重复上传的发票",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0094",
+      "utterance": "把/云盘/发票下需要清掉的文件都移到回收站",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0095",
+      "utterance": "/云盘/发票里的文件按删除重复上传的发票处理，删之前给我确认",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0096",
+      "utterance": "请找出/云盘/发票中删除重复上传的发票的内容并删除",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0097",
+      "utterance": "我想一键清掉/云盘/发票里的这些文件，条件：删除重复上传的发票",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0098",
+      "utterance": "删除重复上传的发票，范围是/云盘/发票，确认后再删",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0099",
+      "utterance": "批量删除/云盘/下载里符合条件的文件夹：删除空文件夹",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0100",
+      "utterance": "帮我清理/云盘/下载，规则是删除空文件夹",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0101",
+      "utterance": "把/云盘/下载下需要清掉的文件夹都删除",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0102",
+      "utterance": "/云盘/下载里的文件夹按删除空文件夹处理，删之前给我确认",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0103",
+      "utterance": "请找出/云盘/下载中删除空文件夹的内容并删除",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0104",
+      "utterance": "我想一键清掉/云盘/下载里的这些文件夹，条件：删除空文件夹",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0105",
+      "utterance": "删除空文件夹，范围是/云盘/下载，确认后再删",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0106",
+      "utterance": "批量删除/云盘/共享空间里符合条件的文件夹：删除已过期共享目录",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0107",
+      "utterance": "帮我清理/云盘/共享空间，规则是删除已过期共享目录",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0108",
+      "utterance": "把/云盘/共享空间下需要清掉的文件夹都删除",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0109",
+      "utterance": "/云盘/共享空间里的文件夹按删除已过期共享目录处理，删之前给我确认",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0110",
+      "utterance": "请找出/云盘/共享空间中删除已过期共享目录的内容并删除",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0111",
+      "utterance": "我想一键清掉/云盘/共享空间里的这些文件夹，条件：删除已过期共享目录",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0112",
+      "utterance": "删除已过期共享目录，范围是/云盘/共享空间，确认后再删",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0113",
+      "utterance": "批量移到回收站/云盘/项目资料里符合条件的文件夹：删除名称以test开头的文件夹",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0114",
+      "utterance": "帮我清理/云盘/项目资料，规则是删除名称以test开头的文件夹",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0115",
+      "utterance": "把/云盘/项目资料下需要清掉的文件夹都移到回收站",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0116",
+      "utterance": "/云盘/项目资料里的文件夹按删除名称以test开头的文件夹处理，删之前给我确认",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0117",
+      "utterance": "请找出/云盘/项目资料中删除名称以test开头的文件夹的内容并删除",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0118",
+      "utterance": "我想一键清掉/云盘/项目资料里的这些文件夹，条件：删除名称以test开头的文件夹",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0119",
+      "utterance": "删除名称以test开头的文件夹，范围是/云盘/项目资料，确认后再删",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0120",
+      "utterance": "批量永久删除/云盘/临时文件里符合条件的文件夹：清空所有临时目录",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0121",
+      "utterance": "帮我清理/云盘/临时文件，规则是清空所有临时目录",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0122",
+      "utterance": "把/云盘/临时文件下需要清掉的文件夹都永久删除",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0123",
+      "utterance": "/云盘/临时文件里的文件夹按清空所有临时目录处理，删之前给我确认",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0124",
+      "utterance": "请找出/云盘/临时文件中清空所有临时目录的内容并删除",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0125",
+      "utterance": "我想一键清掉/云盘/临时文件里的这些文件夹，条件：清空所有临时目录",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0126",
+      "utterance": "清空所有临时目录，范围是/云盘/临时文件，确认后再删",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0127",
+      "utterance": "批量移到回收站/云盘/PDF里符合条件的文件：删除空白扫描件",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0128",
+      "utterance": "帮我清理/云盘/PDF，规则是删除空白扫描件",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0129",
+      "utterance": "把/云盘/PDF下需要清掉的文件都移到回收站",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0130",
+      "utterance": "/云盘/PDF里的文件按删除空白扫描件处理，删之前给我确认",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0131",
+      "utterance": "请找出/云盘/PDF中删除空白扫描件的内容并删除",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0132",
+      "utterance": "我想一键清掉/云盘/PDF里的这些文件，条件：删除空白扫描件",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0133",
+      "utterance": "删除空白扫描件，范围是/云盘/PDF，确认后再删",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0134",
+      "utterance": "批量删除/云盘/表格里符合条件的文件：删除旧版备份表格",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0135",
+      "utterance": "帮我清理/云盘/表格，规则是删除旧版备份表格",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0136",
+      "utterance": "把/云盘/表格下需要清掉的文件都删除",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0137",
+      "utterance": "/云盘/表格里的文件按删除旧版备份表格处理，删之前给我确认",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0138",
+      "utterance": "请找出/云盘/表格中删除旧版备份表格的内容并删除",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0139",
+      "utterance": "我想一键清掉/云盘/表格里的这些文件，条件：删除旧版备份表格",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0140",
+      "utterance": "删除旧版备份表格，范围是/云盘/表格，确认后再删",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0141",
+      "utterance": "批量删除/云盘/安装包里符合条件的文件：删除旧版本安装包",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0142",
+      "utterance": "帮我清理/云盘/安装包，规则是删除旧版本安装包",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0143",
+      "utterance": "把/云盘/安装包下需要清掉的文件都删除",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0144",
+      "utterance": "/云盘/安装包里的文件按删除旧版本安装包处理，删之前给我确认",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0145",
+      "utterance": "请找出/云盘/安装包中删除旧版本安装包的内容并删除",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0146",
+      "utterance": "我想一键清掉/云盘/安装包里的这些文件，条件：删除旧版本安装包",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0147",
+      "utterance": "删除旧版本安装包，范围是/云盘/安装包，确认后再删",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0148",
+      "utterance": "批量移到回收站/云盘/图片里符合条件的文件夹：删除重复的相册文件夹",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0149",
+      "utterance": "帮我清理/云盘/图片，规则是删除重复的相册文件夹",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0150",
+      "utterance": "把/云盘/图片下需要清掉的文件夹都移到回收站",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0151",
+      "utterance": "/云盘/图片里的文件夹按删除重复的相册文件夹处理，删之前给我确认",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0152",
+      "utterance": "请找出/云盘/图片中删除重复的相册文件夹的内容并删除",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0153",
+      "utterance": "我想一键清掉/云盘/图片里的这些文件夹，条件：删除重复的相册文件夹",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0154",
+      "utterance": "删除重复的相册文件夹，范围是/云盘/图片，确认后再删",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0155",
+      "utterance": "批量删除/云盘/音频里符合条件的文件：删除转写完成后的原始录音",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0156",
+      "utterance": "帮我清理/云盘/音频，规则是删除转写完成后的原始录音",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0157",
+      "utterance": "把/云盘/音频下需要清掉的文件都删除",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0158",
+      "utterance": "/云盘/音频里的文件按删除转写完成后的原始录音处理，删之前给我确认",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0159",
+      "utterance": "请找出/云盘/音频中删除转写完成后的原始录音的内容并删除",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0160",
+      "utterance": "我想一键清掉/云盘/音频里的这些文件，条件：删除转写完成后的原始录音",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "DEL-0161",
+      "utterance": "删除转写完成后的原始录音，范围是/云盘/音频，确认后再删",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.delete",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0057",
+      "utterance": "把/云盘/下载里所有PDF批量移动到/云盘/PDF",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0058",
+      "utterance": "请将/云盘/下载下符合“所有PDF”的文件转移到/云盘/PDF",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0059",
+      "utterance": "/云盘/下载里面的所有PDF都搬到/云盘/PDF",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0060",
+      "utterance": "帮我把选中的文件移动到/云盘/PDF，来源是/云盘/下载",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0061",
+      "utterance": "把/云盘/下载下这些文件统一挪进/云盘/PDF",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0062",
+      "utterance": "将所有PDF归档到/云盘/PDF，原位置在/云盘/下载",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0063",
+      "utterance": "批量移动/云盘/下载的文件，筛选条件是所有PDF，目标/云盘/PDF",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0064",
+      "utterance": "从/云盘/下载把所有PDF放到/云盘/PDF下面",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0065",
+      "utterance": "把/云盘/发票里本月发票批量移动到/云盘/财务报销/2026-08",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0066",
+      "utterance": "请将/云盘/发票下符合“本月发票”的文件转移到/云盘/财务报销/2026-08",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0067",
+      "utterance": "/云盘/发票里面的本月发票都搬到/云盘/财务报销/2026-08",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0068",
+      "utterance": "帮我把选中的文件移动到/云盘/财务报销/2026-08，来源是/云盘/发票",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0069",
+      "utterance": "把/云盘/发票下这些文件统一挪进/云盘/财务报销/2026-08",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0070",
+      "utterance": "将本月发票归档到/云盘/财务报销/2026-08，原位置在/云盘/发票",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0071",
+      "utterance": "批量移动/云盘/发票的文件，筛选条件是本月发票，目标/云盘/财务报销/2026-08",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0072",
+      "utterance": "从/云盘/发票把本月发票放到/云盘/财务报销/2026-08下面",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0073",
+      "utterance": "把/云盘/合同里已签署合同批量移动到/云盘/归档/合同",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0074",
+      "utterance": "请将/云盘/合同下符合“已签署合同”的文件转移到/云盘/归档/合同",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0075",
+      "utterance": "/云盘/合同里面的已签署合同都搬到/云盘/归档/合同",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0076",
+      "utterance": "帮我把选中的文件移动到/云盘/归档/合同，来源是/云盘/合同",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0077",
+      "utterance": "把/云盘/合同下这些文件统一挪进/云盘/归档/合同",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0078",
+      "utterance": "将已签署合同归档到/云盘/归档/合同，原位置在/云盘/合同",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0079",
+      "utterance": "批量移动/云盘/合同的文件，筛选条件是已签署合同，目标/云盘/归档/合同",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0080",
+      "utterance": "从/云盘/合同把已签署合同放到/云盘/归档/合同下面",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0084",
+      "utterance": "帮我把选中的文件移动到/云盘/设计素材/截图，来源是/云盘/图片",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0085",
+      "utterance": "把/云盘/图片下这些文件统一挪进/云盘/设计素材/截图",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0089",
+      "utterance": "把/云盘/视频里会议录屏批量移动到/云盘/会议录像",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0090",
+      "utterance": "请将/云盘/视频下符合“会议录屏”的文件转移到/云盘/会议录像",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0091",
+      "utterance": "/云盘/视频里面的会议录屏都搬到/云盘/会议录像",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0092",
+      "utterance": "帮我把选中的文件移动到/云盘/会议录像，来源是/云盘/视频",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0093",
+      "utterance": "把/云盘/视频下这些文件统一挪进/云盘/会议录像",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0094",
+      "utterance": "将会议录屏归档到/云盘/会议录像，原位置在/云盘/视频",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0095",
+      "utterance": "批量移动/云盘/视频的文件，筛选条件是会议录屏，目标/云盘/会议录像",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0096",
+      "utterance": "从/云盘/视频把会议录屏放到/云盘/会议录像下面",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0097",
+      "utterance": "把/云盘/项目资料里A项目相关文件批量移动到/云盘/归档/A项目",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0098",
+      "utterance": "请将/云盘/项目资料下符合“A项目相关文件”的文件转移到/云盘/归档/A项目",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0099",
+      "utterance": "/云盘/项目资料里面的A项目相关文件都搬到/云盘/归档/A项目",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0100",
+      "utterance": "帮我把选中的文件移动到/云盘/归档/A项目，来源是/云盘/项目资料",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0101",
+      "utterance": "把/云盘/项目资料下这些文件统一挪进/云盘/归档/A项目",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0102",
+      "utterance": "将A项目相关文件归档到/云盘/归档/A项目，原位置在/云盘/项目资料",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0103",
+      "utterance": "批量移动/云盘/项目资料的文件，筛选条件是A项目相关文件，目标/云盘/归档/A项目",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0104",
+      "utterance": "从/云盘/项目资料把A项目相关文件放到/云盘/归档/A项目下面",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0105",
+      "utterance": "把/云盘/项目资料里2025年项目文件夹批量移动到/云盘/归档/2025",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0106",
+      "utterance": "请将/云盘/项目资料下符合“2025年项目文件夹”的文件夹转移到/云盘/归档/2025",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0107",
+      "utterance": "/云盘/项目资料里面的2025年项目文件夹都搬到/云盘/归档/2025",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0108",
+      "utterance": "帮我把选中的文件夹移动到/云盘/归档/2025，来源是/云盘/项目资料",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0109",
+      "utterance": "把/云盘/项目资料下这些文件夹统一挪进/云盘/归档/2025",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0110",
+      "utterance": "将2025年项目文件夹归档到/云盘/归档/2025，原位置在/云盘/项目资料",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0111",
+      "utterance": "批量移动/云盘/项目资料的文件夹，筛选条件是2025年项目文件夹，目标/云盘/归档/2025",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0112",
+      "utterance": "从/云盘/项目资料把2025年项目文件夹放到/云盘/归档/2025下面",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0113",
+      "utterance": "把/云盘/共享空间里过期共享文件夹批量移动到/云盘/归档/共享",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0114",
+      "utterance": "请将/云盘/共享空间下符合“过期共享文件夹”的文件夹转移到/云盘/归档/共享",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0115",
+      "utterance": "/云盘/共享空间里面的过期共享文件夹都搬到/云盘/归档/共享",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0116",
+      "utterance": "帮我把选中的文件夹移动到/云盘/归档/共享，来源是/云盘/共享空间",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0117",
+      "utterance": "把/云盘/共享空间下这些文件夹统一挪进/云盘/归档/共享",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0118",
+      "utterance": "将过期共享文件夹归档到/云盘/归档/共享，原位置在/云盘/共享空间",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0119",
+      "utterance": "批量移动/云盘/共享空间的文件夹，筛选条件是过期共享文件夹，目标/云盘/归档/共享",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0120",
+      "utterance": "从/云盘/共享空间把过期共享文件夹放到/云盘/归档/共享下面",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0121",
+      "utterance": "把/云盘/学习资料里已学完课程目录批量移动到/云盘/学习资料/已完成",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0122",
+      "utterance": "请将/云盘/学习资料下符合“已学完课程目录”的文件夹转移到/云盘/学习资料/已完成",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0123",
+      "utterance": "/云盘/学习资料里面的已学完课程目录都搬到/云盘/学习资料/已完成",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0124",
+      "utterance": "帮我把选中的文件夹移动到/云盘/学习资料/已完成，来源是/云盘/学习资料",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0125",
+      "utterance": "把/云盘/学习资料下这些文件夹统一挪进/云盘/学习资料/已完成",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0126",
+      "utterance": "将已学完课程目录归档到/云盘/学习资料/已完成，原位置在/云盘/学习资料",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0127",
+      "utterance": "批量移动/云盘/学习资料的文件夹，筛选条件是已学完课程目录，目标/云盘/学习资料/已完成",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0128",
+      "utterance": "从/云盘/学习资料把已学完课程目录放到/云盘/学习资料/已完成下面",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0129",
+      "utterance": "把/云盘/临时文件里不能识别类型的文件批量移动到/云盘/待确认",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0130",
+      "utterance": "请将/云盘/临时文件下符合“不能识别类型的文件”的文件转移到/云盘/待确认",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0131",
+      "utterance": "/云盘/临时文件里面的不能识别类型的文件都搬到/云盘/待确认",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0132",
+      "utterance": "帮我把选中的文件移动到/云盘/待确认，来源是/云盘/临时文件",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0133",
+      "utterance": "把/云盘/临时文件下这些文件统一挪进/云盘/待确认",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0134",
+      "utterance": "将不能识别类型的文件归档到/云盘/待确认，原位置在/云盘/临时文件",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0135",
+      "utterance": "批量移动/云盘/临时文件的文件，筛选条件是不能识别类型的文件，目标/云盘/待确认",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0136",
+      "utterance": "从/云盘/临时文件把不能识别类型的文件放到/云盘/待确认下面",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0137",
+      "utterance": "把/云盘/安装包里所有安装包批量移动到/云盘/软件备份",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0138",
+      "utterance": "请将/云盘/安装包下符合“所有安装包”的文件转移到/云盘/软件备份",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0139",
+      "utterance": "/云盘/安装包里面的所有安装包都搬到/云盘/软件备份",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0140",
+      "utterance": "帮我把选中的文件移动到/云盘/软件备份，来源是/云盘/安装包",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0141",
+      "utterance": "把/云盘/安装包下这些文件统一挪进/云盘/软件备份",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0142",
+      "utterance": "将所有安装包归档到/云盘/软件备份，原位置在/云盘/安装包",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0143",
+      "utterance": "批量移动/云盘/安装包的文件，筛选条件是所有安装包，目标/云盘/软件备份",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0144",
+      "utterance": "从/云盘/安装包把所有安装包放到/云盘/软件备份下面",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0145",
+      "utterance": "把/云盘/图片里今年新建相册批量移动到/云盘/相册/2026",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0146",
+      "utterance": "请将/云盘/图片下符合“今年新建相册”的文件夹转移到/云盘/相册/2026",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0147",
+      "utterance": "/云盘/图片里面的今年新建相册都搬到/云盘/相册/2026",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0148",
+      "utterance": "帮我把选中的文件夹移动到/云盘/相册/2026，来源是/云盘/图片",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0149",
+      "utterance": "把/云盘/图片下这些文件夹统一挪进/云盘/相册/2026",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0150",
+      "utterance": "将今年新建相册归档到/云盘/相册/2026，原位置在/云盘/图片",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0151",
+      "utterance": "批量移动/云盘/图片的文件夹，筛选条件是今年新建相册，目标/云盘/相册/2026",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    },
+    {
+      "id": "MOV-0152",
+      "utterance": "从/云盘/图片把今年新建相册放到/云盘/相册/2026下面",
+      "expectedDisposition": "CLARIFY_UNSUPPORTED_RULE",
+      "sourceIntent": "file.move",
+      "reason": "The source corpus requests a selector or composite behavior not represented by an executable action contract."
+    }
+  ]
+}

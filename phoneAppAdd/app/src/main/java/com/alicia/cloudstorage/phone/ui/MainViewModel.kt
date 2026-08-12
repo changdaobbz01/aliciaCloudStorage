@@ -713,6 +713,13 @@ class MainViewModel(
         }
     }
 
+    fun openParentFolderFromAssistant() {
+        val breadcrumbs = uiState.value.files.breadcrumbs
+        val target = breadcrumbs.getOrNull((breadcrumbs.lastIndex - 1).coerceAtLeast(0))
+            ?: defaultBreadCrumbs.first()
+        openFolderFromAssistant(target.id, target.label)
+    }
+
     fun loadMoveTargets() {
         val session = authenticatedSession() ?: return
 

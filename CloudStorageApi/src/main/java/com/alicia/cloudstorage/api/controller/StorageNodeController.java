@@ -4,6 +4,7 @@ import com.alicia.cloudstorage.api.auth.AuthRequestAttributes;
 import com.alicia.cloudstorage.api.dto.ApiMessageResponse;
 import com.alicia.cloudstorage.api.dto.BatchMoveNodeRequest;
 import com.alicia.cloudstorage.api.dto.BatchNodeRequest;
+import com.alicia.cloudstorage.api.dto.BatchRenameNodeRequest;
 import com.alicia.cloudstorage.api.dto.CreateFolderRequest;
 import com.alicia.cloudstorage.api.dto.CreateMultipartUploadRequest;
 import com.alicia.cloudstorage.api.dto.DriveOverviewResponse;
@@ -223,6 +224,17 @@ public class StorageNodeController {
             @Valid @RequestBody RenameNodeRequest request
     ) {
         return storageCommandService.renameNode(userId, nodeId, request);
+    }
+
+    /**
+     * 批量重命名当前用户自己的文件或文件夹。请求会先整体校验，任一项冲突时不会落库。
+     */
+    @PutMapping("/nodes/batch/rename")
+    public List<StorageNodeSummaryResponse> renameNodes(
+            @RequestAttribute(AuthRequestAttributes.CURRENT_USER_ID) Long userId,
+            @Valid @RequestBody BatchRenameNodeRequest request
+    ) {
+        return storageCommandService.renameNodes(userId, request);
     }
 
     /**

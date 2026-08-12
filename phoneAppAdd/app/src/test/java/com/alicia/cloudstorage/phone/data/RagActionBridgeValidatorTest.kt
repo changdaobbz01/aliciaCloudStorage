@@ -72,7 +72,7 @@ class RagActionBridgeValidatorTest {
     fun `rejects unsupported action types`() {
         val validation = validator.validate(
             draft(
-                actionType = "collection.rename_add_prefix",
+                actionType = "collection.unknown",
                 method = "PUT",
                 pathTemplate = "/api/storage/nodes/batch/rename",
             ),
@@ -80,6 +80,21 @@ class RagActionBridgeValidatorTest {
 
         assertFalse(validation.allowed)
         assertEquals(RagActionBridgeValidationCode.UNSUPPORTED_ACTION, validation.code)
+    }
+
+    @Test
+    fun `allows transactional batch rename draft`() {
+        val validation = validator.validate(
+            draft(
+                actionType = "collection.rename_add_prefix",
+                method = "PUT",
+                pathTemplate = "/api/storage/nodes/batch/rename",
+                body = mapOf("items" to listOf(mapOf("nodeId" to 1L, "name" to "归档-合同.pdf"))),
+            ),
+        )
+
+        assertTrue(validation.allowed)
+        assertEquals(RagActionBridgeValidationCode.ALLOWED, validation.code)
     }
 
     @Test
@@ -172,7 +187,7 @@ class RagActionBridgeValidatorTest {
 
         return RagBackendActionDraft(
             status = status,
-            bridgeVersion = "action_bridge_v1",
+            bridgeVersion = "action_bridge_v2",
             actionType = actionType,
             nextAction = "handoff_to_backend",
             confirmedByUser = confirmedByUser,

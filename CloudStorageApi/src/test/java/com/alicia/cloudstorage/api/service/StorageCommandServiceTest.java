@@ -2,6 +2,8 @@ package com.alicia.cloudstorage.api.service;
 
 import com.alicia.cloudstorage.api.dto.BatchMoveNodeRequest;
 import com.alicia.cloudstorage.api.dto.BatchNodeRequest;
+import com.alicia.cloudstorage.api.dto.BatchRenameNodeItem;
+import com.alicia.cloudstorage.api.dto.BatchRenameNodeRequest;
 import com.alicia.cloudstorage.api.dto.MoveNodeRequest;
 import com.alicia.cloudstorage.api.dto.RenameNodeRequest;
 import com.alicia.cloudstorage.api.entity.NodeType;
@@ -61,6 +63,109 @@ class StorageCommandServiceTest {
         assertThat(summary.name()).isEqualTo("report-final.pdf");
         assertThat(fileNode.getNodeName()).isEqualTo("report-final.pdf");
         assertThat(fileNode.getFileExtension()).isEqualTo("pdf");
+    }
+
+    @Test
+    void renameNodesValidatesThenRenamesFilesAndFoldersTogether() {
+        Long userId = 7L;
+        StorageNode fileNode = fileNode(11L, userId, null, "report.txt", "report-key");
+        StorageNode folderNode = folderNode(12L, userId, null, "资料");
+        when(storageNodeRepository.findByOwnerIdAndIdInAndDeletedFalse(userId, List.of(11L, 12L)))
+                .thenReturn(List.of(fileNode, folderNode));
+        when(storageNodeRepository.findByOwnerIdAndParentIdAndDeletedFalse(userId, null))
+                .thenReturn(List.of(fileNode, folderNode));
+        when(storageNodeRepository.saveAll(anyList())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var result = storageCommandService.renameNodes(userId, new BatchRenameNodeRequest(List.of(
+                new BatchRenameNodeItem(11L, "archived-report.txt"),
+                new BatchRenameNodeItem(12L, "归档资料")
+        )));
+
+        assertThat(result).extracting(item -> item.name()).containsExactly("archived-report.txt", "归档资料");
+        assertThat(fileNode.getFileExtension()).isEqualTo("txt");
+        verify(storageNodeEventPublisher).publishUpsert(List.of(fileNode, folderNode), true);
+    }
+
+    @Test
+    void renameNodesRejectsConflictingPlannedNamesBeforeMutatingAnything() {
+        Long userId = 7L;
+        StorageNode first = fileNode(11L, userId, null, "first.txt", "first-key");
+        StorageNode second = folderNode(12L, userId, null, "second");
+        when(storageNodeRepository.findByOwnerIdAndIdInAndDeletedFalse(userId, List.of(11L, 12L)))
+                .thenReturn(List.of(first, second));
+        when(storageNodeRepository.findByOwnerIdAndParentIdAndDeletedFalse(userId, null))
+                .thenReturn(List.of(first, second));
+
+        assertThatThrownBy(() -> storageCommandService.renameNodes(userId, new BatchRenameNodeRequest(List.of(
+                new BatchRenameNodeItem(11L, "same-name"),
+                new BatchRenameNodeItem(12L, "same-name")
+        ))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("批量重命名后的名称存在冲突。");
+
+        assertThat(first.getNodeName()).isEqualTo("first.txt");
+        assertThat(second.getNodeName()).isEqualTo("second");
+        verify(storageNodeRepository, never()).saveAll(anyList());
+    }
+
+    @Test
+    void renameNodesAllowsNamesVacatedByAnotherItemInTheSameBatch() {
+        Long userId = 7L;
+        StorageNode first = fileNode(11L, userId, null, "report.txt", "first-key");
+        StorageNode second = fileNode(12L, userId, null, "archived-report.txt", "second-key");
+        when(storageNodeRepository.findByOwnerIdAndIdInAndDeletedFalse(userId, List.of(11L, 12L)))
+                .thenReturn(List.of(first, second));
+        when(storageNodeRepository.findByOwnerIdAndParentIdAndDeletedFalse(userId, null))
+                .thenReturn(List.of(first, second));
+        when(storageNodeRepository.saveAll(anyList())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var result = storageCommandService.renameNodes(userId, new BatchRenameNodeRequest(List.of(
+                new BatchRenameNodeItem(11L, "archived-report.txt"),
+                new BatchRenameNodeItem(12L, "archived-archived-report.txt")
+        )));
+
+        assertThat(result).extracting(item -> item.name())
+                .containsExactly("archived-report.txt", "archived-archived-report.txt");
+        verify(storageNodeRepository).saveAllAndFlush(List.of(first, second));
+    }
+
+    @Test
+    void renameNodesRejectsANameOwnedByAnUnchangedSibling() {
+        Long userId = 7L;
+        StorageNode selected = fileNode(11L, userId, null, "report.txt", "first-key");
+        StorageNode unchanged = folderNode(13L, userId, null, "archive");
+        when(storageNodeRepository.findByOwnerIdAndIdInAndDeletedFalse(userId, List.of(11L)))
+                .thenReturn(List.of(selected));
+        when(storageNodeRepository.findByOwnerIdAndParentIdAndDeletedFalse(userId, null))
+                .thenReturn(List.of(selected, unchanged));
+
+        assertThatThrownBy(() -> storageCommandService.renameNodes(userId, new BatchRenameNodeRequest(List.of(
+                new BatchRenameNodeItem(11L, "archive")
+        ))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("当前目录下已存在同名文件或文件夹。");
+
+        assertThat(selected.getNodeName()).isEqualTo("report.txt");
+        verify(storageNodeRepository, never()).saveAll(anyList());
+    }
+
+    @Test
+    void renameNodesRejectsCaseInsensitiveSiblingConflict() {
+        Long userId = 7L;
+        StorageNode selected = fileNode(11L, userId, null, "report.txt", "first-key");
+        StorageNode unchanged = folderNode(13L, userId, null, "Archive");
+        when(storageNodeRepository.findByOwnerIdAndIdInAndDeletedFalse(userId, List.of(11L)))
+                .thenReturn(List.of(selected));
+        when(storageNodeRepository.findByOwnerIdAndParentIdAndDeletedFalse(userId, null))
+                .thenReturn(List.of(selected, unchanged));
+
+        assertThatThrownBy(() -> storageCommandService.renameNodes(userId, new BatchRenameNodeRequest(List.of(
+                new BatchRenameNodeItem(11L, "archive")
+        ))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("当前目录下已存在同名文件或文件夹。");
+
+        verify(storageNodeRepository, never()).saveAllAndFlush(anyList());
     }
 
     @Test

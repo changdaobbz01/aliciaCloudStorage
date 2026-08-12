@@ -84,6 +84,17 @@ public class IntentRouter {
         );
     }
 
+    public IntentRouteResult routeAs(
+            String message,
+            String intentId,
+            double confidence,
+            String reason
+    ) {
+        String safeIntentId = hasIntent(intentId) ? intentId : fallbackPolicy.outOfScopeIntentId();
+        Map<String, String> entities = entityExtractor.extract(message == null ? "" : message.trim());
+        return buildResult(safeIntentId, entities, confidence, reason);
+    }
+
     public IntentDefinition getIntent(String intentId) {
         IntentDefinition intent = intentsById.get(intentId);
         return intent != null ? intent : intentsById.get("fallback");

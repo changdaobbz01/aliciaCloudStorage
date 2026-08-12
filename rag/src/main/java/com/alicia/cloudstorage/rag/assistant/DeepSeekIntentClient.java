@@ -26,16 +26,19 @@ public class DeepSeekIntentClient implements IntentModelClient {
 
     private final RagConfigLoader configLoader;
     private final ObjectMapper objectMapper;
+    private final SemanticExampleRetriever exampleRetriever;
     private final HttpClient httpClient;
     private final String apiKey;
 
     public DeepSeekIntentClient(
             RagConfigLoader configLoader,
             ObjectMapper objectMapper,
+            SemanticExampleRetriever exampleRetriever,
             @Value("${alicia.rag.deepseek.api-key:}") String apiKey
     ) {
         this.configLoader = configLoader;
         this.objectMapper = objectMapper;
+        this.exampleRetriever = exampleRetriever;
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(5))
                 .build();
@@ -75,7 +78,11 @@ public class DeepSeekIntentClient implements IntentModelClient {
                 log.warn("DeepSeek intent recognition returned HTTP status {}", response.statusCode());
                 return Optional.empty();
             }
-            return parseResponse(settings, response.body());
+            Optional<ModelIntentResult> result = parseResponse(settings, response.body());
+            if (result.isEmpty()) {
+                log.warn("DeepSeek intent recognition returned HTTP 200 without a usable assistant JSON payload");
+            }
+            return result;
         } catch (JsonProcessingException exception) {
             log.warn("DeepSeek intent recognition returned an invalid JSON payload: {}", exception.getOriginalMessage());
             return Optional.empty();
@@ -99,9 +106,15 @@ public class DeepSeekIntentClient implements IntentModelClient {
             IntentModelRequest request
     ) throws JsonProcessingException {
         String contextJson = objectMapper.writeValueAsString(request.context());
+        String examplesJson = objectMapper.writeValueAsString(
+                exampleRetriever.retrieve(request.message(), 5).stream()
+                        .map(SemanticExampleRetriever.SemanticExample::promptPayload)
+                        .toList()
+        );
         String userContent = settings.userTemplate()
                 .replace("{message}", request.message())
                 .replace("{context_json}", contextJson)
+                .replace("{retrieval_examples_json}", examplesJson)
                 + "\n\n"
                 + settings.semanticQueryInstructions();
         return Map.of(
@@ -117,6 +130,7 @@ public class DeepSeekIntentClient implements IntentModelClient {
                 ),
                 "temperature", settings.temperature(),
                 "max_tokens", settings.maxTokens(),
+                "thinking", Map.of("type", "disabled"),
                 "stream", false,
                 "response_format", Map.of("type", settings.responseFormat())
         );

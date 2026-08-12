@@ -366,6 +366,41 @@ class RagReviewPresenterTest {
         assertFalse(review.requiresFinalConfirmation)
     }
 
+    @Test
+    fun `batch rename review shows old and new names`() {
+        val review = presenter.present(
+            response(
+                nextAction = "wait_for_user_confirmation",
+                actionDraft = RagActionDraft(
+                    type = "collection.rename_add_prefix",
+                    parameters = emptyMap(),
+                    needsBackendBinding = true,
+                ),
+                actionPlan = plan(
+                    status = "collection_review_required",
+                    actionType = "collection.rename_add_prefix",
+                    risk = "high",
+                    planKind = "collection",
+                    bindings = mapOf(
+                        "sourceCollection" to RagActionPlanBinding(
+                            key = "sourceCollection",
+                            kind = "source_collection",
+                            status = "resolved",
+                            query = "合同",
+                            selectedCandidate = null,
+                            candidates = listOf(candidate(1L, "合同.pdf")),
+                            count = 1,
+                            filter = mapOf("nameContains" to "合同"),
+                        ),
+                    ),
+                ),
+                entities = mapOf("rename_prefix" to "归档-"),
+            ),
+        )
+
+        assertEquals("原名称：合同.pdf  ->  新名称：归档-合同.pdf", review!!.candidates.single().detail)
+    }
+
     private fun response(
         nextAction: String = "respond_only",
         actionDraft: RagActionDraft? = RagActionDraft(
@@ -384,6 +419,7 @@ class RagReviewPresenterTest {
         ),
         candidateBinding: RagCandidateBinding? = null,
         interaction: RagAssistantInteraction? = null,
+        entities: Map<String, Any>? = emptyMap(),
     ) = RagAssistantPlanResponse(
         id = "response-1",
         schemaVersion = "intent_recognition_v1",
@@ -397,7 +433,7 @@ class RagReviewPresenterTest {
         confidence = 1.0,
         userGoal = null,
         normalizedQuery = null,
-        entities = emptyMap(),
+        entities = entities,
         requiredSlots = emptyList(),
         missingSlots = emptyList(),
         nextAction = nextAction,
@@ -462,7 +498,7 @@ class RagReviewPresenterTest {
         requiredClientFields: List<String>? = emptyList(),
     ) = RagBackendActionDraft(
         status = status,
-        bridgeVersion = "action_bridge_v1",
+        bridgeVersion = "action_bridge_v2",
         actionType = actionType,
         nextAction = "handoff_to_backend",
         confirmedByUser = confirmedByUser,

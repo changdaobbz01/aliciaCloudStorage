@@ -1,28 +1,34 @@
 package com.alicia.cloudstorage.rag.assistant;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Comparator;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class AssistantConversationStore {
 
-    private final ConcurrentHashMap<String, AssistantConversationState> conversations = new ConcurrentHashMap<>();
+    private final AssistantConversationStateRepository repository;
     private final Duration ttl;
     private final int maxConversations;
 
+    @Autowired
     public AssistantConversationStore(
+            AssistantConversationStateRepository repository,
             @Value("${alicia.rag.conversation.ttl-minutes:30}") long ttlMinutes,
             @Value("${alicia.rag.conversation.max-conversations:500}") int maxConversations
     ) {
+        this.repository = repository;
         this.ttl = Duration.ofMinutes(Math.max(1L, ttlMinutes));
         this.maxConversations = Math.max(32, maxConversations);
+    }
+
+    public AssistantConversationStore(long ttlMinutes, int maxConversations) {
+        this(new InMemoryAssistantConversationStateRepository(), ttlMinutes, maxConversations);
     }
 
     public AssistantConversationState resolve(String requestedConversationId) {
@@ -30,7 +36,7 @@ public class AssistantConversationStore {
         purgeExpired(now);
         String conversationId = normalizeConversationId(requestedConversationId);
         if (!conversationId.isBlank()) {
-            AssistantConversationState existing = conversations.get(conversationId);
+            AssistantConversationState existing = repository.find(conversationId).orElse(null);
             if (existing != null && !existing.isExpired(now)) {
                 return existing;
             }
@@ -58,7 +64,7 @@ public class AssistantConversationStore {
                 response.semanticFrame(),
                 now.plus(ttl)
         );
-        conversations.put(next.conversationId(), next);
+        repository.save(next);
         return next;
     }
 
@@ -90,19 +96,10 @@ public class AssistantConversationStore {
     }
 
     private void purgeExpired(Instant now) {
-        conversations.entrySet().removeIf(entry -> entry.getValue().isExpired(now));
+        repository.purgeExpired(now);
     }
 
     private void trimIfNeeded() {
-        if (conversations.size() < maxConversations) {
-            return;
-        }
-
-        conversations.entrySet().stream()
-                .sorted(Comparator.comparing(entry -> entry.getValue().expiresAt()))
-                .limit(Math.max(1, conversations.size() - maxConversations + 1L))
-                .map(Map.Entry::getKey)
-                .toList()
-                .forEach(conversations::remove);
+        repository.trimToSize(maxConversations);
     }
 }

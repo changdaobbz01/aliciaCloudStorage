@@ -1,0 +1,3884 @@
+{
+  "schemaVersion": "cloud_drive_semantic_corpus_v1",
+  "generatedAt": "2026-08-13",
+  "sourceWorkbook": "云盘_RAG_自然语言语料库.xlsx",
+  "policy": {
+    "executionExamplesRequireMappedActionContract": true,
+    "capabilityQuestionsAreNonMutating": true,
+    "unsupportedCompositeRulesRequireClarification": true,
+    "deterministicHeldOutPercent": 20
+  },
+  "examples": [
+    {
+      "id": "ORG-0001",
+      "utterance": "帮我把/云盘/我的文件里的图片都整理到/云盘/图片文件夹",
+      "intentId": "collection_move_by_category",
+      "operation": "MOVE",
+      "entities": {
+        "file_type": "图片",
+        "target_folder": "图片"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.organize_by_type"
+    },
+    {
+      "id": "ORG-0004",
+      "utterance": "把云盘里散着的图片集中到/云盘/图片目录",
+      "intentId": "collection_move_by_category",
+      "operation": "MOVE",
+      "entities": {
+        "file_type": "图片",
+        "target_folder": "图片"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.organize_by_type"
+    },
+    {
+      "id": "ORG-0005",
+      "utterance": "将所有图片移到对应的/云盘/图片目录",
+      "intentId": "collection_move_by_category",
+      "operation": "MOVE",
+      "entities": {
+        "file_type": "图片",
+        "target_folder": "图片"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.organize_by_type"
+    },
+    {
+      "id": "ORG-0007",
+      "utterance": "整理一下/云盘/我的文件，截图别和其他文件混在一起",
+      "intentId": "collection_move_by_category",
+      "operation": "MOVE",
+      "entities": {
+        "file_type": "图片",
+        "target_folder": "图片"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.organize_by_type"
+    },
+    {
+      "id": "ORG-0009",
+      "utterance": "把/云盘/工作资料下同类型的图片素材收纳到/云盘/图片",
+      "intentId": "collection_move_by_category",
+      "operation": "MOVE",
+      "entities": {
+        "file_type": "图片",
+        "target_folder": "图片"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.organize_by_type"
+    },
+    {
+      "id": "ORG-0010",
+      "utterance": "请自动识别/云盘/临时文件里的图片并分到/云盘/图片",
+      "intentId": "collection_move_by_category",
+      "operation": "MOVE",
+      "entities": {
+        "file_type": "图片",
+        "target_folder": "图片"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.organize_by_type"
+    },
+    {
+      "id": "ORG-0011",
+      "utterance": "帮我把/云盘/下载里的文档都整理到/云盘/文档资料文件夹",
+      "intentId": "collection_move_by_category",
+      "operation": "MOVE",
+      "entities": {
+        "file_type": "文档",
+        "target_folder": "文档资料"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.organize_by_type"
+    },
+    {
+      "id": "ORG-0014",
+      "utterance": "把云盘里散着的文档集中到/云盘/文档资料目录",
+      "intentId": "collection_move_by_category",
+      "operation": "MOVE",
+      "entities": {
+        "file_type": "文档",
+        "target_folder": "文档资料"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.organize_by_type"
+    },
+    {
+      "id": "ORG-0015",
+      "utterance": "将所有文档移到对应的/云盘/文档资料目录",
+      "intentId": "collection_move_by_category",
+      "operation": "MOVE",
+      "entities": {
+        "file_type": "文档",
+        "target_folder": "文档资料"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.organize_by_type"
+    },
+    {
+      "id": "ORG-0016",
+      "utterance": "我想把word统一归档，目标目录叫/云盘/文档资料",
+      "intentId": "collection_move_by_category",
+      "operation": "MOVE",
+      "entities": {
+        "file_type": "文档",
+        "target_folder": "文档资料"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.organize_by_type"
+    },
+    {
+      "id": "ORG-0017",
+      "utterance": "整理一下/云盘/下载，说明文档别和其他文件混在一起",
+      "intentId": "collection_move_by_category",
+      "operation": "MOVE",
+      "entities": {
+        "file_type": "文档",
+        "target_folder": "文档资料"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.organize_by_type"
+    },
+    {
+      "id": "ORG-0020",
+      "utterance": "请自动识别/云盘/项目资料里的文档并分到/云盘/文档资料",
+      "intentId": "collection_move_by_category",
+      "operation": "MOVE",
+      "entities": {
+        "file_type": "文档",
+        "target_folder": "文档资料"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.organize_by_type"
+    },
+    {
+      "id": "ORG-0051",
+      "utterance": "帮我把/云盘/共享空间里的视频都整理到/云盘/视频文件夹",
+      "intentId": "collection_move_by_category",
+      "operation": "MOVE",
+      "entities": {
+        "file_type": "视频",
+        "target_folder": "视频"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.organize_by_type"
+    },
+    {
+      "id": "ORG-0053",
+      "utterance": "按文件类型清一下/云盘/下载，视频归到/云盘/视频",
+      "intentId": "collection_move_by_category",
+      "operation": "MOVE",
+      "entities": {
+        "file_type": "视频",
+        "target_folder": "视频"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.organize_by_type"
+    },
+    {
+      "id": "ORG-0054",
+      "utterance": "把云盘里散着的视频集中到/云盘/视频目录",
+      "intentId": "collection_move_by_category",
+      "operation": "MOVE",
+      "entities": {
+        "file_type": "视频",
+        "target_folder": "视频"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.organize_by_type"
+    },
+    {
+      "id": "ORG-0056",
+      "utterance": "我想把录像统一归档，目标目录叫/云盘/视频",
+      "intentId": "collection_move_by_category",
+      "operation": "MOVE",
+      "entities": {
+        "file_type": "视频",
+        "target_folder": "视频"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.organize_by_type"
+    },
+    {
+      "id": "ORG-0057",
+      "utterance": "整理一下/云盘/共享空间，短片别和其他文件混在一起",
+      "intentId": "collection_move_by_category",
+      "operation": "MOVE",
+      "entities": {
+        "file_type": "视频",
+        "target_folder": "视频"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.organize_by_type"
+    },
+    {
+      "id": "ORG-0059",
+      "utterance": "把/云盘/下载下同类型的会议录屏收纳到/云盘/视频",
+      "intentId": "collection_move_by_category",
+      "operation": "MOVE",
+      "entities": {
+        "file_type": "视频",
+        "target_folder": "视频"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.organize_by_type"
+    },
+    {
+      "id": "ORG-0060",
+      "utterance": "请自动识别/云盘/工作资料里的视频并分到/云盘/视频",
+      "intentId": "collection_move_by_category",
+      "operation": "MOVE",
+      "entities": {
+        "file_type": "视频",
+        "target_folder": "视频"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.organize_by_type"
+    },
+    {
+      "id": "ORG-0061",
+      "utterance": "帮我把/云盘/我的文件里的音频都整理到/云盘/音频文件夹",
+      "intentId": "collection_move_by_category",
+      "operation": "MOVE",
+      "entities": {
+        "file_type": "音频",
+        "target_folder": "音频"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.organize_by_type"
+    },
+    {
+      "id": "ORG-0063",
+      "utterance": "按文件类型清一下/云盘/工作资料，音频归到/云盘/音频",
+      "intentId": "collection_move_by_category",
+      "operation": "MOVE",
+      "entities": {
+        "file_type": "音频",
+        "target_folder": "音频"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.organize_by_type"
+    },
+    {
+      "id": "ORG-0064",
+      "utterance": "把云盘里散着的音频集中到/云盘/音频目录",
+      "intentId": "collection_move_by_category",
+      "operation": "MOVE",
+      "entities": {
+        "file_type": "音频",
+        "target_folder": "音频"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.organize_by_type"
+    },
+    {
+      "id": "ORG-0066",
+      "utterance": "我想把录音统一归档，目标目录叫/云盘/音频",
+      "intentId": "collection_move_by_category",
+      "operation": "MOVE",
+      "entities": {
+        "file_type": "音频",
+        "target_folder": "音频"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.organize_by_type"
+    },
+    {
+      "id": "ORG-0067",
+      "utterance": "整理一下/云盘/我的文件，语音别和其他文件混在一起",
+      "intentId": "collection_move_by_category",
+      "operation": "MOVE",
+      "entities": {
+        "file_type": "音频",
+        "target_folder": "音频"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.organize_by_type"
+    },
+    {
+      "id": "ORG-0069",
+      "utterance": "把/云盘/工作资料下同类型的音频资料收纳到/云盘/音频",
+      "intentId": "collection_move_by_category",
+      "operation": "MOVE",
+      "entities": {
+        "file_type": "音频",
+        "target_folder": "音频"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.organize_by_type"
+    },
+    {
+      "id": "ORG-0070",
+      "utterance": "请自动识别/云盘/临时文件里的音频并分到/云盘/音频",
+      "intentId": "collection_move_by_category",
+      "operation": "MOVE",
+      "entities": {
+        "file_type": "音频",
+        "target_folder": "音频"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.organize_by_type"
+    },
+    {
+      "id": "ORG-0073",
+      "utterance": "按文件类型清一下/云盘/临时文件，压缩包归到/云盘/压缩包",
+      "intentId": "collection_move_by_category",
+      "operation": "MOVE",
+      "entities": {
+        "file_type": "压缩包",
+        "target_folder": "压缩包"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.organize_by_type"
+    },
+    {
+      "id": "ORG-0075",
+      "utterance": "将所有压缩包移到对应的/云盘/压缩包目录",
+      "intentId": "collection_move_by_category",
+      "operation": "MOVE",
+      "entities": {
+        "file_type": "压缩包",
+        "target_folder": "压缩包"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.organize_by_type"
+    },
+    {
+      "id": "ORG-0076",
+      "utterance": "我想把压缩文件统一归档，目标目录叫/云盘/压缩包",
+      "intentId": "collection_move_by_category",
+      "operation": "MOVE",
+      "entities": {
+        "file_type": "压缩包",
+        "target_folder": "压缩包"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.organize_by_type"
+    },
+    {
+      "id": "ORG-0077",
+      "utterance": "整理一下/云盘/下载，归档包别和其他文件混在一起",
+      "intentId": "collection_move_by_category",
+      "operation": "MOVE",
+      "entities": {
+        "file_type": "压缩包",
+        "target_folder": "压缩包"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.organize_by_type"
+    },
+    {
+      "id": "ORG-0079",
+      "utterance": "把/云盘/临时文件下同类型的安装包压缩收纳到/云盘/压缩包",
+      "intentId": "collection_move_by_category",
+      "operation": "MOVE",
+      "entities": {
+        "file_type": "压缩包",
+        "target_folder": "压缩包"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.organize_by_type"
+    },
+    {
+      "id": "ORG-0080",
+      "utterance": "请自动识别/云盘/项目资料里的压缩包并分到/云盘/压缩包",
+      "intentId": "collection_move_by_category",
+      "operation": "MOVE",
+      "entities": {
+        "file_type": "压缩包",
+        "target_folder": "压缩包"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.organize_by_type"
+    },
+    {
+      "id": "ORG-0181",
+      "utterance": "云盘能不能自动把同类文件分到不同目录？",
+      "intentId": "assistant_capability_examples",
+      "operation": "RESPOND",
+      "entities": {},
+      "objectType": "未指定",
+      "sourceIntent": "file.organize_by_type"
+    },
+    {
+      "id": "ORG-0182",
+      "utterance": "怎么按文件类型整理网盘里的资料？",
+      "intentId": "assistant_capability_examples",
+      "operation": "RESPOND",
+      "entities": {},
+      "objectType": "未指定",
+      "sourceIntent": "file.organize_by_type"
+    },
+    {
+      "id": "ORG-0183",
+      "utterance": "如果目标文件夹不存在，整理文件时可以自动创建吗？",
+      "intentId": "assistant_capability_examples",
+      "operation": "RESPOND",
+      "entities": {},
+      "objectType": "未指定",
+      "sourceIntent": "file.organize_by_type"
+    },
+    {
+      "id": "ORG-0184",
+      "utterance": "我只想把照片和视频分开，支持这种整理吗？",
+      "intentId": "assistant_capability_examples",
+      "operation": "RESPOND",
+      "entities": {},
+      "objectType": "未指定",
+      "sourceIntent": "file.organize_by_type"
+    },
+    {
+      "id": "ORG-0186",
+      "utterance": "整理文件的时候会不会改变原文件内容？",
+      "intentId": "assistant_capability_examples",
+      "operation": "RESPOND",
+      "entities": {},
+      "objectType": "未指定",
+      "sourceIntent": "file.organize_by_type"
+    },
+    {
+      "id": "ORG-0187",
+      "utterance": "批量分类前能先给我一个整理预览吗？",
+      "intentId": "assistant_capability_examples",
+      "operation": "RESPOND",
+      "entities": {},
+      "objectType": "未指定",
+      "sourceIntent": "file.organize_by_type"
+    },
+    {
+      "id": "ORG-0188",
+      "utterance": "能不能把最近上传的文件按类型放好？",
+      "intentId": "assistant_capability_examples",
+      "operation": "RESPOND",
+      "entities": {},
+      "objectType": "未指定",
+      "sourceIntent": "file.organize_by_type"
+    },
+    {
+      "id": "ORG-0189",
+      "utterance": "云盘里的杂文件可以一键收拾到各自目录吗？",
+      "intentId": "assistant_capability_examples",
+      "operation": "RESPOND",
+      "entities": {},
+      "objectType": "未指定",
+      "sourceIntent": "file.organize_by_type"
+    },
+    {
+      "id": "ORG-0190",
+      "utterance": "我可以让系统自己判断哪些是图片哪些是文档吗？",
+      "intentId": "assistant_capability_examples",
+      "operation": "RESPOND",
+      "entities": {},
+      "objectType": "未指定",
+      "sourceIntent": "file.organize_by_type"
+    },
+    {
+      "id": "ORG-0192",
+      "utterance": "文件目录没有时自动新建这个规则怎么表达？",
+      "intentId": "assistant_capability_examples",
+      "operation": "RESPOND",
+      "entities": {},
+      "objectType": "未指定",
+      "sourceIntent": "file.organize_by_type"
+    },
+    {
+      "id": "REN-0002",
+      "utterance": "帮我重命名/云盘/合同/旧合同.docx，叫2026销售合同.docx",
+      "intentId": "file_rename",
+      "operation": "RENAME",
+      "entities": {
+        "target_name": "旧合同.docx",
+        "new_name": "2026销售合同.docx"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.rename"
+    },
+    {
+      "id": "REN-0003",
+      "utterance": "/云盘/合同/旧合同.docx这个文件名太乱了，改成2026销售合同.docx",
+      "intentId": "file_rename",
+      "operation": "RENAME",
+      "entities": {
+        "target_name": "旧合同.docx",
+        "new_name": "2026销售合同.docx"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.rename"
+    },
+    {
+      "id": "REN-0004",
+      "utterance": "能把/云盘/合同/旧合同.docx的名称修改为2026销售合同.docx吗",
+      "intentId": "file_rename",
+      "operation": "RENAME",
+      "entities": {
+        "target_name": "旧合同.docx",
+        "new_name": "2026销售合同.docx"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.rename"
+    },
+    {
+      "id": "REN-0005",
+      "utterance": "请将/云盘/合同/旧合同.docx重命名成2026销售合同.docx",
+      "intentId": "file_rename",
+      "operation": "RENAME",
+      "entities": {
+        "target_name": "旧合同.docx",
+        "new_name": "2026销售合同.docx"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.rename"
+    },
+    {
+      "id": "REN-0007",
+      "utterance": "把/云盘/发票/IMG_2048.jpg改名为8月办公用品发票.jpg",
+      "intentId": "file_rename",
+      "operation": "RENAME",
+      "entities": {
+        "target_name": "IMG_2048.jpg",
+        "new_name": "8月办公用品发票.jpg"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.rename"
+    },
+    {
+      "id": "REN-0008",
+      "utterance": "帮我重命名/云盘/发票/IMG_2048.jpg，叫8月办公用品发票.jpg",
+      "intentId": "file_rename",
+      "operation": "RENAME",
+      "entities": {
+        "target_name": "IMG_2048.jpg",
+        "new_name": "8月办公用品发票.jpg"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.rename"
+    },
+    {
+      "id": "REN-0009",
+      "utterance": "/云盘/发票/IMG_2048.jpg这个文件名太乱了，改成8月办公用品发票.jpg",
+      "intentId": "file_rename",
+      "operation": "RENAME",
+      "entities": {
+        "target_name": "IMG_2048.jpg",
+        "new_name": "8月办公用品发票.jpg"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.rename"
+    },
+    {
+      "id": "REN-0011",
+      "utterance": "请将/云盘/发票/IMG_2048.jpg重命名成8月办公用品发票.jpg",
+      "intentId": "file_rename",
+      "operation": "RENAME",
+      "entities": {
+        "target_name": "IMG_2048.jpg",
+        "new_name": "8月办公用品发票.jpg"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.rename"
+    },
+    {
+      "id": "REN-0012",
+      "utterance": "我想把/云盘/发票/IMG_2048.jpg换个名字：8月办公用品发票.jpg",
+      "intentId": "file_rename",
+      "operation": "RENAME",
+      "entities": {
+        "target_name": "IMG_2048.jpg",
+        "new_name": "8月办公用品发票.jpg"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.rename"
+    },
+    {
+      "id": "REN-0013",
+      "utterance": "把/云盘/会议纪要/未命名文档.md改名为周会纪要_2026-08-12.md",
+      "intentId": "file_rename",
+      "operation": "RENAME",
+      "entities": {
+        "target_name": "未命名文档.md",
+        "new_name": "周会纪要_2026-08-12.md"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.rename"
+    },
+    {
+      "id": "REN-0014",
+      "utterance": "帮我重命名/云盘/会议纪要/未命名文档.md，叫周会纪要_2026-08-12.md",
+      "intentId": "file_rename",
+      "operation": "RENAME",
+      "entities": {
+        "target_name": "未命名文档.md",
+        "new_name": "周会纪要_2026-08-12.md"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.rename"
+    },
+    {
+      "id": "REN-0015",
+      "utterance": "/云盘/会议纪要/未命名文档.md这个文件名太乱了，改成周会纪要_2026-08-12.md",
+      "intentId": "file_rename",
+      "operation": "RENAME",
+      "entities": {
+        "target_name": "未命名文档.md",
+        "new_name": "周会纪要_2026-08-12.md"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.rename"
+    },
+    {
+      "id": "REN-0016",
+      "utterance": "能把/云盘/会议纪要/未命名文档.md的名称修改为周会纪要_2026-08-12.md吗",
+      "intentId": "file_rename",
+      "operation": "RENAME",
+      "entities": {
+        "target_name": "未命名文档.md",
+        "new_name": "周会纪要_2026-08-12.md"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.rename"
+    },
+    {
+      "id": "REN-0017",
+      "utterance": "请将/云盘/会议纪要/未命名文档.md重命名成周会纪要_2026-08-12.md",
+      "intentId": "file_rename",
+      "operation": "RENAME",
+      "entities": {
+        "target_name": "未命名文档.md",
+        "new_name": "周会纪要_2026-08-12.md"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.rename"
+    },
+    {
+      "id": "REN-0018",
+      "utterance": "我想把/云盘/会议纪要/未命名文档.md换个名字：周会纪要_2026-08-12.md",
+      "intentId": "file_rename",
+      "operation": "RENAME",
+      "entities": {
+        "target_name": "未命名文档.md",
+        "new_name": "周会纪要_2026-08-12.md"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.rename"
+    },
+    {
+      "id": "REN-0019",
+      "utterance": "把/云盘/PDF/scan001.pdf改名为客户资料扫描件.pdf",
+      "intentId": "file_rename",
+      "operation": "RENAME",
+      "entities": {
+        "target_name": "scan001.pdf",
+        "new_name": "客户资料扫描件.pdf"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.rename"
+    },
+    {
+      "id": "REN-0020",
+      "utterance": "帮我重命名/云盘/PDF/scan001.pdf，叫客户资料扫描件.pdf",
+      "intentId": "file_rename",
+      "operation": "RENAME",
+      "entities": {
+        "target_name": "scan001.pdf",
+        "new_name": "客户资料扫描件.pdf"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.rename"
+    },
+    {
+      "id": "REN-0021",
+      "utterance": "/云盘/PDF/scan001.pdf这个文件名太乱了，改成客户资料扫描件.pdf",
+      "intentId": "file_rename",
+      "operation": "RENAME",
+      "entities": {
+        "target_name": "scan001.pdf",
+        "new_name": "客户资料扫描件.pdf"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.rename"
+    },
+    {
+      "id": "REN-0022",
+      "utterance": "能把/云盘/PDF/scan001.pdf的名称修改为客户资料扫描件.pdf吗",
+      "intentId": "file_rename",
+      "operation": "RENAME",
+      "entities": {
+        "target_name": "scan001.pdf",
+        "new_name": "客户资料扫描件.pdf"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.rename"
+    },
+    {
+      "id": "REN-0023",
+      "utterance": "请将/云盘/PDF/scan001.pdf重命名成客户资料扫描件.pdf",
+      "intentId": "file_rename",
+      "operation": "RENAME",
+      "entities": {
+        "target_name": "scan001.pdf",
+        "new_name": "客户资料扫描件.pdf"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.rename"
+    },
+    {
+      "id": "REN-0024",
+      "utterance": "我想把/云盘/PDF/scan001.pdf换个名字：客户资料扫描件.pdf",
+      "intentId": "file_rename",
+      "operation": "RENAME",
+      "entities": {
+        "target_name": "scan001.pdf",
+        "new_name": "客户资料扫描件.pdf"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.rename"
+    },
+    {
+      "id": "REN-0025",
+      "utterance": "把/云盘/项目资料/新建文件夹改名为A项目交付资料",
+      "intentId": "file_rename",
+      "operation": "RENAME",
+      "entities": {
+        "target_name": "新建文件夹",
+        "new_name": "A项目交付资料"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.rename"
+    },
+    {
+      "id": "REN-0027",
+      "utterance": "/云盘/项目资料/新建文件夹这个文件夹名太乱了，改成A项目交付资料",
+      "intentId": "file_rename",
+      "operation": "RENAME",
+      "entities": {
+        "target_name": "新建文件夹",
+        "new_name": "A项目交付资料"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.rename"
+    },
+    {
+      "id": "REN-0028",
+      "utterance": "能把/云盘/项目资料/新建文件夹的名称修改为A项目交付资料吗",
+      "intentId": "file_rename",
+      "operation": "RENAME",
+      "entities": {
+        "target_name": "新建文件夹",
+        "new_name": "A项目交付资料"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.rename"
+    },
+    {
+      "id": "REN-0029",
+      "utterance": "请将/云盘/项目资料/新建文件夹重命名成A项目交付资料",
+      "intentId": "file_rename",
+      "operation": "RENAME",
+      "entities": {
+        "target_name": "新建文件夹",
+        "new_name": "A项目交付资料"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.rename"
+    },
+    {
+      "id": "REN-0030",
+      "utterance": "我想把/云盘/项目资料/新建文件夹换个名字：A项目交付资料",
+      "intentId": "file_rename",
+      "operation": "RENAME",
+      "entities": {
+        "target_name": "新建文件夹",
+        "new_name": "A项目交付资料"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.rename"
+    },
+    {
+      "id": "REN-0031",
+      "utterance": "把/云盘/下载/资料改名为待整理资料",
+      "intentId": "file_rename",
+      "operation": "RENAME",
+      "entities": {
+        "target_name": "资料",
+        "new_name": "待整理资料"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.rename"
+    },
+    {
+      "id": "REN-0032",
+      "utterance": "帮我重命名/云盘/下载/资料，叫待整理资料",
+      "intentId": "file_rename",
+      "operation": "RENAME",
+      "entities": {
+        "target_name": "资料",
+        "new_name": "待整理资料"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.rename"
+    },
+    {
+      "id": "REN-0035",
+      "utterance": "请将/云盘/下载/资料重命名成待整理资料",
+      "intentId": "file_rename",
+      "operation": "RENAME",
+      "entities": {
+        "target_name": "资料",
+        "new_name": "待整理资料"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.rename"
+    },
+    {
+      "id": "REN-0036",
+      "utterance": "我想把/云盘/下载/资料换个名字：待整理资料",
+      "intentId": "file_rename",
+      "operation": "RENAME",
+      "entities": {
+        "target_name": "资料",
+        "new_name": "待整理资料"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.rename"
+    },
+    {
+      "id": "REN-0037",
+      "utterance": "把/云盘/共享空间/temp改名为临时共享",
+      "intentId": "file_rename",
+      "operation": "RENAME",
+      "entities": {
+        "target_name": "temp",
+        "new_name": "临时共享"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.rename"
+    },
+    {
+      "id": "REN-0038",
+      "utterance": "帮我重命名/云盘/共享空间/temp，叫临时共享",
+      "intentId": "file_rename",
+      "operation": "RENAME",
+      "entities": {
+        "target_name": "temp",
+        "new_name": "临时共享"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.rename"
+    },
+    {
+      "id": "REN-0039",
+      "utterance": "/云盘/共享空间/temp这个文件夹名太乱了，改成临时共享",
+      "intentId": "file_rename",
+      "operation": "RENAME",
+      "entities": {
+        "target_name": "temp",
+        "new_name": "临时共享"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.rename"
+    },
+    {
+      "id": "REN-0040",
+      "utterance": "能把/云盘/共享空间/temp的名称修改为临时共享吗",
+      "intentId": "file_rename",
+      "operation": "RENAME",
+      "entities": {
+        "target_name": "temp",
+        "new_name": "临时共享"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.rename"
+    },
+    {
+      "id": "REN-0042",
+      "utterance": "我想把/云盘/共享空间/temp换个名字：临时共享",
+      "intentId": "file_rename",
+      "operation": "RENAME",
+      "entities": {
+        "target_name": "temp",
+        "new_name": "临时共享"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.rename"
+    },
+    {
+      "id": "REN-0043",
+      "utterance": "把/云盘/图片/旅行改名为2026暑期旅行照片",
+      "intentId": "file_rename",
+      "operation": "RENAME",
+      "entities": {
+        "target_name": "旅行",
+        "new_name": "2026暑期旅行照片"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.rename"
+    },
+    {
+      "id": "REN-0045",
+      "utterance": "/云盘/图片/旅行这个文件夹名太乱了，改成2026暑期旅行照片",
+      "intentId": "file_rename",
+      "operation": "RENAME",
+      "entities": {
+        "target_name": "旅行",
+        "new_name": "2026暑期旅行照片"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.rename"
+    },
+    {
+      "id": "REN-0046",
+      "utterance": "能把/云盘/图片/旅行的名称修改为2026暑期旅行照片吗",
+      "intentId": "file_rename",
+      "operation": "RENAME",
+      "entities": {
+        "target_name": "旅行",
+        "new_name": "2026暑期旅行照片"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.rename"
+    },
+    {
+      "id": "REN-0047",
+      "utterance": "请将/云盘/图片/旅行重命名成2026暑期旅行照片",
+      "intentId": "file_rename",
+      "operation": "RENAME",
+      "entities": {
+        "target_name": "旅行",
+        "new_name": "2026暑期旅行照片"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.rename"
+    },
+    {
+      "id": "REN-0048",
+      "utterance": "我想把/云盘/图片/旅行换个名字：2026暑期旅行照片",
+      "intentId": "file_rename",
+      "operation": "RENAME",
+      "entities": {
+        "target_name": "旅行",
+        "new_name": "2026暑期旅行照片"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.rename"
+    },
+    {
+      "id": "REN-0169",
+      "utterance": "云盘支持批量修改文件名吗？",
+      "intentId": "assistant_capability_examples",
+      "operation": "RESPOND",
+      "entities": {},
+      "objectType": "未指定",
+      "sourceIntent": "file.rename"
+    },
+    {
+      "id": "REN-0170",
+      "utterance": "能不能一次性给多个文件夹改名字？",
+      "intentId": "assistant_capability_examples",
+      "operation": "RESPOND",
+      "entities": {},
+      "objectType": "未指定",
+      "sourceIntent": "file.rename"
+    },
+    {
+      "id": "REN-0171",
+      "utterance": "怎么把一批照片按日期重命名？",
+      "intentId": "assistant_capability_examples",
+      "operation": "RESPOND",
+      "entities": {},
+      "objectType": "未指定",
+      "sourceIntent": "file.rename"
+    },
+    {
+      "id": "REN-0172",
+      "utterance": "文件名里的指定文字可以统一替换吗？",
+      "intentId": "assistant_capability_examples",
+      "operation": "RESPOND",
+      "entities": {},
+      "objectType": "未指定",
+      "sourceIntent": "file.rename"
+    },
+    {
+      "id": "REN-0173",
+      "utterance": "批量改名之前能看到预览吗？",
+      "intentId": "assistant_capability_examples",
+      "operation": "RESPOND",
+      "entities": {},
+      "objectType": "未指定",
+      "sourceIntent": "file.rename"
+    },
+    {
+      "id": "REN-0175",
+      "utterance": "重命名文件夹会影响里面的文件吗？",
+      "intentId": "assistant_capability_examples",
+      "operation": "RESPOND",
+      "entities": {},
+      "objectType": "未指定",
+      "sourceIntent": "file.rename"
+    },
+    {
+      "id": "REN-0176",
+      "utterance": "能把文件名里的空格批量去掉吗？",
+      "intentId": "assistant_capability_examples",
+      "operation": "RESPOND",
+      "entities": {},
+      "objectType": "未指定",
+      "sourceIntent": "file.rename"
+    },
+    {
+      "id": "REN-0177",
+      "utterance": "如何给文件批量编号？",
+      "intentId": "assistant_capability_examples",
+      "operation": "RESPOND",
+      "entities": {},
+      "objectType": "未指定",
+      "sourceIntent": "file.rename"
+    },
+    {
+      "id": "REN-0178",
+      "utterance": "改名时遇到同名文件会怎么处理？",
+      "intentId": "assistant_capability_examples",
+      "operation": "RESPOND",
+      "entities": {},
+      "objectType": "未指定",
+      "sourceIntent": "file.rename"
+    },
+    {
+      "id": "REN-0179",
+      "utterance": "文件和文件夹都能改名吗？",
+      "intentId": "assistant_capability_examples",
+      "operation": "RESPOND",
+      "entities": {},
+      "objectType": "未指定",
+      "sourceIntent": "file.rename"
+    },
+    {
+      "id": "REN-0180",
+      "utterance": "可以按我给的格式统一命名吗？",
+      "intentId": "assistant_capability_examples",
+      "operation": "RESPOND",
+      "entities": {},
+      "objectType": "未指定",
+      "sourceIntent": "file.rename"
+    },
+    {
+      "id": "DEL-0001",
+      "utterance": "删除/云盘/下载/重复资料.zip",
+      "intentId": "file_delete",
+      "operation": "DELETE",
+      "entities": {
+        "target_name": "重复资料.zip"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.delete"
+    },
+    {
+      "id": "DEL-0002",
+      "utterance": "帮我把/云盘/下载/重复资料.zip删了",
+      "intentId": "file_delete",
+      "operation": "DELETE",
+      "entities": {
+        "target_name": "重复资料.zip"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.delete"
+    },
+    {
+      "id": "DEL-0004",
+      "utterance": "/云盘/下载/重复资料.zip不要了，帮我清掉",
+      "intentId": "file_delete",
+      "operation": "DELETE",
+      "entities": {
+        "target_name": "重复资料.zip"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.delete"
+    },
+    {
+      "id": "DEL-0005",
+      "utterance": "把/云盘/下载/重复资料.zip从云盘里移除",
+      "intentId": "file_delete",
+      "operation": "DELETE",
+      "entities": {
+        "target_name": "重复资料.zip"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.delete"
+    },
+    {
+      "id": "DEL-0006",
+      "utterance": "我想移到回收站/云盘/下载/重复资料.zip",
+      "intentId": "file_delete",
+      "operation": "DELETE",
+      "entities": {
+        "target_name": "重复资料.zip"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.delete"
+    },
+    {
+      "id": "DEL-0007",
+      "utterance": "能不能删掉/云盘/下载/重复资料.zip这个文件",
+      "intentId": "file_delete",
+      "operation": "DELETE",
+      "entities": {
+        "target_name": "重复资料.zip"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.delete"
+    },
+    {
+      "id": "DEL-0008",
+      "utterance": "删除/云盘/临时文件/debug.log",
+      "intentId": "file_delete",
+      "operation": "DELETE",
+      "entities": {
+        "target_name": "debug.log"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.delete"
+    },
+    {
+      "id": "DEL-0009",
+      "utterance": "帮我把/云盘/临时文件/debug.log删了",
+      "intentId": "file_delete",
+      "operation": "DELETE",
+      "entities": {
+        "target_name": "debug.log"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.delete"
+    },
+    {
+      "id": "DEL-0010",
+      "utterance": "请将/云盘/临时文件/debug.log删除",
+      "intentId": "file_delete",
+      "operation": "DELETE",
+      "entities": {
+        "target_name": "debug.log"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.delete"
+    },
+    {
+      "id": "DEL-0012",
+      "utterance": "把/云盘/临时文件/debug.log从云盘里移除",
+      "intentId": "file_delete",
+      "operation": "DELETE",
+      "entities": {
+        "target_name": "debug.log"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.delete"
+    },
+    {
+      "id": "DEL-0013",
+      "utterance": "我想删除/云盘/临时文件/debug.log",
+      "intentId": "file_delete",
+      "operation": "DELETE",
+      "entities": {
+        "target_name": "debug.log"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.delete"
+    },
+    {
+      "id": "DEL-0015",
+      "utterance": "删除/云盘/图片/模糊照片.jpg",
+      "intentId": "file_delete",
+      "operation": "DELETE",
+      "entities": {
+        "target_name": "模糊照片.jpg"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.delete"
+    },
+    {
+      "id": "DEL-0016",
+      "utterance": "帮我把/云盘/图片/模糊照片.jpg删了",
+      "intentId": "file_delete",
+      "operation": "DELETE",
+      "entities": {
+        "target_name": "模糊照片.jpg"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.delete"
+    },
+    {
+      "id": "DEL-0017",
+      "utterance": "请将/云盘/图片/模糊照片.jpg删除",
+      "intentId": "file_delete",
+      "operation": "DELETE",
+      "entities": {
+        "target_name": "模糊照片.jpg"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.delete"
+    },
+    {
+      "id": "DEL-0018",
+      "utterance": "/云盘/图片/模糊照片.jpg不要了，帮我清掉",
+      "intentId": "file_delete",
+      "operation": "DELETE",
+      "entities": {
+        "target_name": "模糊照片.jpg"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.delete"
+    },
+    {
+      "id": "DEL-0019",
+      "utterance": "把/云盘/图片/模糊照片.jpg从云盘里移除",
+      "intentId": "file_delete",
+      "operation": "DELETE",
+      "entities": {
+        "target_name": "模糊照片.jpg"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.delete"
+    },
+    {
+      "id": "DEL-0020",
+      "utterance": "我想删除/云盘/图片/模糊照片.jpg",
+      "intentId": "file_delete",
+      "operation": "DELETE",
+      "entities": {
+        "target_name": "模糊照片.jpg"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.delete"
+    },
+    {
+      "id": "DEL-0022",
+      "utterance": "删除/云盘/PDF/旧版报价.pdf",
+      "intentId": "file_delete",
+      "operation": "DELETE",
+      "entities": {
+        "target_name": "旧版报价.pdf"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.delete"
+    },
+    {
+      "id": "DEL-0023",
+      "utterance": "帮我把/云盘/PDF/旧版报价.pdf删了",
+      "intentId": "file_delete",
+      "operation": "DELETE",
+      "entities": {
+        "target_name": "旧版报价.pdf"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.delete"
+    },
+    {
+      "id": "DEL-0024",
+      "utterance": "请将/云盘/PDF/旧版报价.pdf永久删除",
+      "intentId": "file_delete",
+      "operation": "DELETE",
+      "entities": {
+        "target_name": "旧版报价.pdf"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.delete"
+    },
+    {
+      "id": "DEL-0025",
+      "utterance": "/云盘/PDF/旧版报价.pdf不要了，帮我清掉",
+      "intentId": "file_delete",
+      "operation": "DELETE",
+      "entities": {
+        "target_name": "旧版报价.pdf"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.delete"
+    },
+    {
+      "id": "DEL-0026",
+      "utterance": "把/云盘/PDF/旧版报价.pdf从云盘里移除",
+      "intentId": "file_delete",
+      "operation": "DELETE",
+      "entities": {
+        "target_name": "旧版报价.pdf"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.delete"
+    },
+    {
+      "id": "DEL-0027",
+      "utterance": "我想永久删除/云盘/PDF/旧版报价.pdf",
+      "intentId": "file_delete",
+      "operation": "DELETE",
+      "entities": {
+        "target_name": "旧版报价.pdf"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.delete"
+    },
+    {
+      "id": "DEL-0028",
+      "utterance": "能不能删掉/云盘/PDF/旧版报价.pdf这个文件",
+      "intentId": "file_delete",
+      "operation": "DELETE",
+      "entities": {
+        "target_name": "旧版报价.pdf"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.delete"
+    },
+    {
+      "id": "DEL-0029",
+      "utterance": "删除/云盘/临时文件/无用目录",
+      "intentId": "file_delete",
+      "operation": "DELETE",
+      "entities": {
+        "target_name": "无用目录"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.delete"
+    },
+    {
+      "id": "DEL-0031",
+      "utterance": "请将/云盘/临时文件/无用目录删除",
+      "intentId": "file_delete",
+      "operation": "DELETE",
+      "entities": {
+        "target_name": "无用目录"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.delete"
+    },
+    {
+      "id": "DEL-0032",
+      "utterance": "/云盘/临时文件/无用目录不要了，帮我清掉",
+      "intentId": "file_delete",
+      "operation": "DELETE",
+      "entities": {
+        "target_name": "无用目录"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.delete"
+    },
+    {
+      "id": "DEL-0033",
+      "utterance": "把/云盘/临时文件/无用目录从云盘里移除",
+      "intentId": "file_delete",
+      "operation": "DELETE",
+      "entities": {
+        "target_name": "无用目录"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.delete"
+    },
+    {
+      "id": "DEL-0034",
+      "utterance": "我想删除/云盘/临时文件/无用目录",
+      "intentId": "file_delete",
+      "operation": "DELETE",
+      "entities": {
+        "target_name": "无用目录"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.delete"
+    },
+    {
+      "id": "DEL-0036",
+      "utterance": "删除/云盘/共享空间/过期共享",
+      "intentId": "file_delete",
+      "operation": "DELETE",
+      "entities": {
+        "target_name": "过期共享"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.delete"
+    },
+    {
+      "id": "DEL-0037",
+      "utterance": "帮我把/云盘/共享空间/过期共享删了",
+      "intentId": "file_delete",
+      "operation": "DELETE",
+      "entities": {
+        "target_name": "过期共享"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.delete"
+    },
+    {
+      "id": "DEL-0038",
+      "utterance": "请将/云盘/共享空间/过期共享移到回收站",
+      "intentId": "file_delete",
+      "operation": "DELETE",
+      "entities": {
+        "target_name": "过期共享"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.delete"
+    },
+    {
+      "id": "DEL-0039",
+      "utterance": "/云盘/共享空间/过期共享不要了，帮我清掉",
+      "intentId": "file_delete",
+      "operation": "DELETE",
+      "entities": {
+        "target_name": "过期共享"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.delete"
+    },
+    {
+      "id": "DEL-0041",
+      "utterance": "我想移到回收站/云盘/共享空间/过期共享",
+      "intentId": "file_delete",
+      "operation": "DELETE",
+      "entities": {
+        "target_name": "过期共享"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.delete"
+    },
+    {
+      "id": "DEL-0042",
+      "utterance": "能不能删掉/云盘/共享空间/过期共享这个文件夹",
+      "intentId": "file_delete",
+      "operation": "DELETE",
+      "entities": {
+        "target_name": "过期共享"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.delete"
+    },
+    {
+      "id": "DEL-0043",
+      "utterance": "删除/云盘/下载/空文件夹",
+      "intentId": "file_delete",
+      "operation": "DELETE",
+      "entities": {
+        "target_name": "空文件夹"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.delete"
+    },
+    {
+      "id": "DEL-0044",
+      "utterance": "帮我把/云盘/下载/空文件夹删了",
+      "intentId": "file_delete",
+      "operation": "DELETE",
+      "entities": {
+        "target_name": "空文件夹"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.delete"
+    },
+    {
+      "id": "DEL-0045",
+      "utterance": "请将/云盘/下载/空文件夹删除",
+      "intentId": "file_delete",
+      "operation": "DELETE",
+      "entities": {
+        "target_name": "空文件夹"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.delete"
+    },
+    {
+      "id": "DEL-0046",
+      "utterance": "/云盘/下载/空文件夹不要了，帮我清掉",
+      "intentId": "file_delete",
+      "operation": "DELETE",
+      "entities": {
+        "target_name": "空文件夹"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.delete"
+    },
+    {
+      "id": "DEL-0047",
+      "utterance": "把/云盘/下载/空文件夹从云盘里移除",
+      "intentId": "file_delete",
+      "operation": "DELETE",
+      "entities": {
+        "target_name": "空文件夹"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.delete"
+    },
+    {
+      "id": "DEL-0048",
+      "utterance": "我想删除/云盘/下载/空文件夹",
+      "intentId": "file_delete",
+      "operation": "DELETE",
+      "entities": {
+        "target_name": "空文件夹"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.delete"
+    },
+    {
+      "id": "DEL-0050",
+      "utterance": "删除/云盘/项目资料/废弃项目",
+      "intentId": "file_delete",
+      "operation": "DELETE",
+      "entities": {
+        "target_name": "废弃项目"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.delete"
+    },
+    {
+      "id": "DEL-0052",
+      "utterance": "请将/云盘/项目资料/废弃项目永久删除",
+      "intentId": "file_delete",
+      "operation": "DELETE",
+      "entities": {
+        "target_name": "废弃项目"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.delete"
+    },
+    {
+      "id": "DEL-0053",
+      "utterance": "/云盘/项目资料/废弃项目不要了，帮我清掉",
+      "intentId": "file_delete",
+      "operation": "DELETE",
+      "entities": {
+        "target_name": "废弃项目"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.delete"
+    },
+    {
+      "id": "DEL-0054",
+      "utterance": "把/云盘/项目资料/废弃项目从云盘里移除",
+      "intentId": "file_delete",
+      "operation": "DELETE",
+      "entities": {
+        "target_name": "废弃项目"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.delete"
+    },
+    {
+      "id": "DEL-0055",
+      "utterance": "我想永久删除/云盘/项目资料/废弃项目",
+      "intentId": "file_delete",
+      "operation": "DELETE",
+      "entities": {
+        "target_name": "废弃项目"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.delete"
+    },
+    {
+      "id": "DEL-0072",
+      "utterance": "帮我清理/云盘/图片，规则是删除名称包含副本的图片",
+      "intentId": "collection_delete_by_name",
+      "operation": "DELETE",
+      "entities": {
+        "target_name": "副本的图片"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.delete"
+    },
+    {
+      "id": "DEL-0075",
+      "utterance": "请找出/云盘/图片中删除名称包含副本的图片的内容并删除",
+      "intentId": "collection_delete_by_name",
+      "operation": "DELETE",
+      "entities": {
+        "target_name": "副本的图片的内容并删除"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.delete"
+    },
+    {
+      "id": "DEL-0076",
+      "utterance": "我想一键清掉/云盘/图片里的这些文件，条件：删除名称包含副本的图片",
+      "intentId": "collection_delete_by_name",
+      "operation": "DELETE",
+      "entities": {
+        "target_name": "副本的图片"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.delete"
+    },
+    {
+      "id": "DEL-0077",
+      "utterance": "删除名称包含副本的图片，范围是/云盘/图片，确认后再删",
+      "intentId": "collection_delete_by_name",
+      "operation": "DELETE",
+      "entities": {
+        "target_name": "副本的图片"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.delete"
+    },
+    {
+      "id": "DEL-0162",
+      "utterance": "云盘删除文件前会不会让我确认？",
+      "intentId": "assistant_capability_examples",
+      "operation": "RESPOND",
+      "entities": {},
+      "objectType": "未指定",
+      "sourceIntent": "file.delete"
+    },
+    {
+      "id": "DEL-0163",
+      "utterance": "批量删除文件夹安全吗？",
+      "intentId": "assistant_capability_examples",
+      "operation": "RESPOND",
+      "entities": {},
+      "objectType": "未指定",
+      "sourceIntent": "file.delete"
+    },
+    {
+      "id": "DEL-0165",
+      "utterance": "能不能只把文件移到回收站，不永久删除？",
+      "intentId": "assistant_capability_examples",
+      "operation": "RESPOND",
+      "entities": {},
+      "objectType": "未指定",
+      "sourceIntent": "file.delete"
+    },
+    {
+      "id": "DEL-0166",
+      "utterance": "永久删除和普通删除有什么区别？",
+      "intentId": "assistant_capability_examples",
+      "operation": "RESPOND",
+      "entities": {},
+      "objectType": "未指定",
+      "sourceIntent": "file.delete"
+    },
+    {
+      "id": "DEL-0167",
+      "utterance": "删除一批文件前可以先预览列表吗？",
+      "intentId": "assistant_capability_examples",
+      "operation": "RESPOND",
+      "entities": {},
+      "objectType": "未指定",
+      "sourceIntent": "file.delete"
+    },
+    {
+      "id": "DEL-0168",
+      "utterance": "怎么清理重复上传的资料？",
+      "intentId": "assistant_capability_examples",
+      "operation": "RESPOND",
+      "entities": {},
+      "objectType": "未指定",
+      "sourceIntent": "file.delete"
+    },
+    {
+      "id": "DEL-0169",
+      "utterance": "可以按时间删除过期文件吗？",
+      "intentId": "assistant_capability_examples",
+      "operation": "RESPOND",
+      "entities": {},
+      "objectType": "未指定",
+      "sourceIntent": "file.delete"
+    },
+    {
+      "id": "DEL-0171",
+      "utterance": "批量清理云盘需要哪些确认步骤？",
+      "intentId": "assistant_capability_examples",
+      "operation": "RESPOND",
+      "entities": {},
+      "objectType": "未指定",
+      "sourceIntent": "file.delete"
+    },
+    {
+      "id": "MOV-0001",
+      "utterance": "把/云盘/下载/客户名单.xlsx移动到/云盘/表格/客户资料",
+      "intentId": "node_move",
+      "operation": "MOVE",
+      "entities": {
+        "target_name": "客户名单.xlsx",
+        "target_folder": "客户资料"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.move"
+    },
+    {
+      "id": "MOV-0002",
+      "utterance": "请将/云盘/下载/客户名单.xlsx挪到/云盘/表格/客户资料目录",
+      "intentId": "node_move",
+      "operation": "MOVE",
+      "entities": {
+        "target_name": "客户名单.xlsx",
+        "target_folder": "客户资料"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.move"
+    },
+    {
+      "id": "MOV-0003",
+      "utterance": "帮我把/云盘/下载/客户名单.xlsx放进/云盘/表格/客户资料",
+      "intentId": "node_move",
+      "operation": "MOVE",
+      "entities": {
+        "target_name": "客户名单.xlsx",
+        "target_folder": "客户资料"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.move"
+    },
+    {
+      "id": "MOV-0004",
+      "utterance": "/云盘/下载/客户名单.xlsx这个文件搬到/云盘/表格/客户资料",
+      "intentId": "node_move",
+      "operation": "MOVE",
+      "entities": {
+        "target_name": "客户名单.xlsx",
+        "target_folder": "客户资料"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.move"
+    },
+    {
+      "id": "MOV-0005",
+      "utterance": "我想把/云盘/下载/客户名单.xlsx转移到/云盘/表格/客户资料",
+      "intentId": "node_move",
+      "operation": "MOVE",
+      "entities": {
+        "target_name": "客户名单.xlsx",
+        "target_folder": "客户资料"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.move"
+    },
+    {
+      "id": "MOV-0006",
+      "utterance": "把/云盘/下载/客户名单.xlsx归档到/云盘/表格/客户资料下面",
+      "intentId": "node_move",
+      "operation": "MOVE",
+      "entities": {
+        "target_name": "客户名单.xlsx",
+        "target_folder": "客户资料"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.move"
+    },
+    {
+      "id": "MOV-0007",
+      "utterance": "能不能把/云盘/下载/客户名单.xlsx拖到/云盘/表格/客户资料里",
+      "intentId": "node_move",
+      "operation": "MOVE",
+      "entities": {
+        "target_name": "客户名单.xlsx",
+        "target_folder": "客户资料"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.move"
+    },
+    {
+      "id": "MOV-0008",
+      "utterance": "把/云盘/图片/logo.png移动到/云盘/设计素材/品牌",
+      "intentId": "node_move",
+      "operation": "MOVE",
+      "entities": {
+        "target_name": "logo.png",
+        "target_folder": "品牌"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.move"
+    },
+    {
+      "id": "MOV-0009",
+      "utterance": "请将/云盘/图片/logo.png挪到/云盘/设计素材/品牌目录",
+      "intentId": "node_move",
+      "operation": "MOVE",
+      "entities": {
+        "target_name": "logo.png",
+        "target_folder": "品牌"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.move"
+    },
+    {
+      "id": "MOV-0010",
+      "utterance": "帮我把/云盘/图片/logo.png放进/云盘/设计素材/品牌",
+      "intentId": "node_move",
+      "operation": "MOVE",
+      "entities": {
+        "target_name": "logo.png",
+        "target_folder": "品牌"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.move"
+    },
+    {
+      "id": "MOV-0012",
+      "utterance": "我想把/云盘/图片/logo.png转移到/云盘/设计素材/品牌",
+      "intentId": "node_move",
+      "operation": "MOVE",
+      "entities": {
+        "target_name": "logo.png",
+        "target_folder": "品牌"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.move"
+    },
+    {
+      "id": "MOV-0013",
+      "utterance": "把/云盘/图片/logo.png归档到/云盘/设计素材/品牌下面",
+      "intentId": "node_move",
+      "operation": "MOVE",
+      "entities": {
+        "target_name": "logo.png",
+        "target_folder": "品牌"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.move"
+    },
+    {
+      "id": "MOV-0014",
+      "utterance": "能不能把/云盘/图片/logo.png拖到/云盘/设计素材/品牌里",
+      "intentId": "node_move",
+      "operation": "MOVE",
+      "entities": {
+        "target_name": "logo.png",
+        "target_folder": "品牌"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.move"
+    },
+    {
+      "id": "MOV-0015",
+      "utterance": "把/云盘/PDF/报价单.pdf移动到/云盘/项目资料/A项目",
+      "intentId": "node_move",
+      "operation": "MOVE",
+      "entities": {
+        "target_name": "报价单.pdf",
+        "target_folder": "A项目"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.move"
+    },
+    {
+      "id": "MOV-0017",
+      "utterance": "帮我把/云盘/PDF/报价单.pdf放进/云盘/项目资料/A项目",
+      "intentId": "node_move",
+      "operation": "MOVE",
+      "entities": {
+        "target_name": "报价单.pdf",
+        "target_folder": "A项目"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.move"
+    },
+    {
+      "id": "MOV-0018",
+      "utterance": "/云盘/PDF/报价单.pdf这个文件搬到/云盘/项目资料/A项目",
+      "intentId": "node_move",
+      "operation": "MOVE",
+      "entities": {
+        "target_name": "报价单.pdf",
+        "target_folder": "A项目"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.move"
+    },
+    {
+      "id": "MOV-0019",
+      "utterance": "我想把/云盘/PDF/报价单.pdf转移到/云盘/项目资料/A项目",
+      "intentId": "node_move",
+      "operation": "MOVE",
+      "entities": {
+        "target_name": "报价单.pdf",
+        "target_folder": "A项目"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.move"
+    },
+    {
+      "id": "MOV-0020",
+      "utterance": "把/云盘/PDF/报价单.pdf归档到/云盘/项目资料/A项目下面",
+      "intentId": "node_move",
+      "operation": "MOVE",
+      "entities": {
+        "target_name": "报价单.pdf",
+        "target_folder": "A项目"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.move"
+    },
+    {
+      "id": "MOV-0021",
+      "utterance": "能不能把/云盘/PDF/报价单.pdf拖到/云盘/项目资料/A项目里",
+      "intentId": "node_move",
+      "operation": "MOVE",
+      "entities": {
+        "target_name": "报价单.pdf",
+        "target_folder": "A项目"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.move"
+    },
+    {
+      "id": "MOV-0023",
+      "utterance": "请将/云盘/会议纪要/周会.md挪到/云盘/会议纪要/2026目录",
+      "intentId": "node_move",
+      "operation": "MOVE",
+      "entities": {
+        "target_name": "周会.md",
+        "target_folder": "2026"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.move"
+    },
+    {
+      "id": "MOV-0024",
+      "utterance": "帮我把/云盘/会议纪要/周会.md放进/云盘/会议纪要/2026",
+      "intentId": "node_move",
+      "operation": "MOVE",
+      "entities": {
+        "target_name": "周会.md",
+        "target_folder": "2026"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.move"
+    },
+    {
+      "id": "MOV-0025",
+      "utterance": "/云盘/会议纪要/周会.md这个文件搬到/云盘/会议纪要/2026",
+      "intentId": "node_move",
+      "operation": "MOVE",
+      "entities": {
+        "target_name": "周会.md",
+        "target_folder": "2026"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.move"
+    },
+    {
+      "id": "MOV-0026",
+      "utterance": "我想把/云盘/会议纪要/周会.md转移到/云盘/会议纪要/2026",
+      "intentId": "node_move",
+      "operation": "MOVE",
+      "entities": {
+        "target_name": "周会.md",
+        "target_folder": "2026"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.move"
+    },
+    {
+      "id": "MOV-0028",
+      "utterance": "能不能把/云盘/会议纪要/周会.md拖到/云盘/会议纪要/2026里",
+      "intentId": "node_move",
+      "operation": "MOVE",
+      "entities": {
+        "target_name": "周会.md",
+        "target_folder": "2026"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.move"
+    },
+    {
+      "id": "MOV-0030",
+      "utterance": "请将/云盘/下载/客户资料挪到/云盘/项目资料/客户资料目录",
+      "intentId": "node_move",
+      "operation": "MOVE",
+      "entities": {
+        "target_name": "客户资料",
+        "target_folder": "客户资料"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.move"
+    },
+    {
+      "id": "MOV-0031",
+      "utterance": "帮我把/云盘/下载/客户资料放进/云盘/项目资料/客户资料",
+      "intentId": "node_move",
+      "operation": "MOVE",
+      "entities": {
+        "target_name": "客户资料",
+        "target_folder": "客户资料"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.move"
+    },
+    {
+      "id": "MOV-0033",
+      "utterance": "我想把/云盘/下载/客户资料转移到/云盘/项目资料/客户资料",
+      "intentId": "node_move",
+      "operation": "MOVE",
+      "entities": {
+        "target_name": "客户资料",
+        "target_folder": "客户资料"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.move"
+    },
+    {
+      "id": "MOV-0034",
+      "utterance": "把/云盘/下载/客户资料归档到/云盘/项目资料/客户资料下面",
+      "intentId": "node_move",
+      "operation": "MOVE",
+      "entities": {
+        "target_name": "客户资料",
+        "target_folder": "客户资料"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.move"
+    },
+    {
+      "id": "MOV-0035",
+      "utterance": "能不能把/云盘/下载/客户资料拖到/云盘/项目资料/客户资料里",
+      "intentId": "node_move",
+      "operation": "MOVE",
+      "entities": {
+        "target_name": "客户资料",
+        "target_folder": "客户资料"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.move"
+    },
+    {
+      "id": "MOV-0036",
+      "utterance": "把/云盘/共享空间/临时共享移动到/云盘/归档/共享资料",
+      "intentId": "node_move",
+      "operation": "MOVE",
+      "entities": {
+        "target_name": "临时共享",
+        "target_folder": "共享资料"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.move"
+    },
+    {
+      "id": "MOV-0039",
+      "utterance": "/云盘/共享空间/临时共享这个文件夹搬到/云盘/归档/共享资料",
+      "intentId": "node_move",
+      "operation": "MOVE",
+      "entities": {
+        "target_name": "临时共享",
+        "target_folder": "共享资料"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.move"
+    },
+    {
+      "id": "MOV-0040",
+      "utterance": "我想把/云盘/共享空间/临时共享转移到/云盘/归档/共享资料",
+      "intentId": "node_move",
+      "operation": "MOVE",
+      "entities": {
+        "target_name": "临时共享",
+        "target_folder": "共享资料"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.move"
+    },
+    {
+      "id": "MOV-0041",
+      "utterance": "把/云盘/共享空间/临时共享归档到/云盘/归档/共享资料下面",
+      "intentId": "node_move",
+      "operation": "MOVE",
+      "entities": {
+        "target_name": "临时共享",
+        "target_folder": "共享资料"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.move"
+    },
+    {
+      "id": "MOV-0042",
+      "utterance": "能不能把/云盘/共享空间/临时共享拖到/云盘/归档/共享资料里",
+      "intentId": "node_move",
+      "operation": "MOVE",
+      "entities": {
+        "target_name": "临时共享",
+        "target_folder": "共享资料"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.move"
+    },
+    {
+      "id": "MOV-0043",
+      "utterance": "把/云盘/图片/产品图移动到/云盘/设计素材/产品图",
+      "intentId": "node_move",
+      "operation": "MOVE",
+      "entities": {
+        "target_name": "产品图",
+        "target_folder": "产品图"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.move"
+    },
+    {
+      "id": "MOV-0045",
+      "utterance": "帮我把/云盘/图片/产品图放进/云盘/设计素材/产品图",
+      "intentId": "node_move",
+      "operation": "MOVE",
+      "entities": {
+        "target_name": "产品图",
+        "target_folder": "产品图"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.move"
+    },
+    {
+      "id": "MOV-0046",
+      "utterance": "/云盘/图片/产品图这个文件夹搬到/云盘/设计素材/产品图",
+      "intentId": "node_move",
+      "operation": "MOVE",
+      "entities": {
+        "target_name": "产品图",
+        "target_folder": "产品图"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.move"
+    },
+    {
+      "id": "MOV-0047",
+      "utterance": "我想把/云盘/图片/产品图转移到/云盘/设计素材/产品图",
+      "intentId": "node_move",
+      "operation": "MOVE",
+      "entities": {
+        "target_name": "产品图",
+        "target_folder": "产品图"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.move"
+    },
+    {
+      "id": "MOV-0048",
+      "utterance": "把/云盘/图片/产品图归档到/云盘/设计素材/产品图下面",
+      "intentId": "node_move",
+      "operation": "MOVE",
+      "entities": {
+        "target_name": "产品图",
+        "target_folder": "产品图"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.move"
+    },
+    {
+      "id": "MOV-0049",
+      "utterance": "能不能把/云盘/图片/产品图拖到/云盘/设计素材/产品图里",
+      "intentId": "node_move",
+      "operation": "MOVE",
+      "entities": {
+        "target_name": "产品图",
+        "target_folder": "产品图"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.move"
+    },
+    {
+      "id": "MOV-0051",
+      "utterance": "请将/云盘/学习资料/Python挪到/云盘/学习资料/编程目录",
+      "intentId": "node_move",
+      "operation": "MOVE",
+      "entities": {
+        "target_name": "Python",
+        "target_folder": "编程"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.move"
+    },
+    {
+      "id": "MOV-0052",
+      "utterance": "帮我把/云盘/学习资料/Python放进/云盘/学习资料/编程",
+      "intentId": "node_move",
+      "operation": "MOVE",
+      "entities": {
+        "target_name": "Python",
+        "target_folder": "编程"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.move"
+    },
+    {
+      "id": "MOV-0053",
+      "utterance": "/云盘/学习资料/Python这个文件夹搬到/云盘/学习资料/编程",
+      "intentId": "node_move",
+      "operation": "MOVE",
+      "entities": {
+        "target_name": "Python",
+        "target_folder": "编程"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.move"
+    },
+    {
+      "id": "MOV-0054",
+      "utterance": "我想把/云盘/学习资料/Python转移到/云盘/学习资料/编程",
+      "intentId": "node_move",
+      "operation": "MOVE",
+      "entities": {
+        "target_name": "Python",
+        "target_folder": "编程"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.move"
+    },
+    {
+      "id": "MOV-0055",
+      "utterance": "把/云盘/学习资料/Python归档到/云盘/学习资料/编程下面",
+      "intentId": "node_move",
+      "operation": "MOVE",
+      "entities": {
+        "target_name": "Python",
+        "target_folder": "编程"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.move"
+    },
+    {
+      "id": "MOV-0056",
+      "utterance": "能不能把/云盘/学习资料/Python拖到/云盘/学习资料/编程里",
+      "intentId": "node_move",
+      "operation": "MOVE",
+      "entities": {
+        "target_name": "Python",
+        "target_folder": "编程"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.move"
+    },
+    {
+      "id": "MOV-0081",
+      "utterance": "把/云盘/图片里名称包含截图的图片批量移动到/云盘/设计素材/截图",
+      "intentId": "collection_move_by_name",
+      "operation": "MOVE",
+      "entities": {
+        "target_name": "截图的图片批量移动到/云盘/设计素材/截图",
+        "target_folder": "截图"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.move"
+    },
+    {
+      "id": "MOV-0082",
+      "utterance": "请将/云盘/图片下符合“名称包含截图的图片”的文件转移到/云盘/设计素材/截图",
+      "intentId": "collection_move_by_name",
+      "operation": "MOVE",
+      "entities": {
+        "target_name": "截图的图片”的文件转移到/云盘/设计素材/截图",
+        "target_folder": "截图"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.move"
+    },
+    {
+      "id": "MOV-0083",
+      "utterance": "/云盘/图片里面的名称包含截图的图片都搬到/云盘/设计素材/截图",
+      "intentId": "collection_move_by_name",
+      "operation": "MOVE",
+      "entities": {
+        "target_name": "截图的图片都搬到/云盘/设计素材/截图",
+        "target_folder": "截图"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.move"
+    },
+    {
+      "id": "MOV-0086",
+      "utterance": "将名称包含截图的图片归档到/云盘/设计素材/截图，原位置在/云盘/图片",
+      "intentId": "collection_move_by_name",
+      "operation": "MOVE",
+      "entities": {
+        "target_name": "截图的图片归档到/云盘/设计素材/截图",
+        "target_folder": "截图"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.move"
+    },
+    {
+      "id": "MOV-0087",
+      "utterance": "批量移动/云盘/图片的文件，筛选条件是名称包含截图的图片，目标/云盘/设计素材/截图",
+      "intentId": "collection_move_by_name",
+      "operation": "MOVE",
+      "entities": {
+        "target_name": "截图的图片",
+        "target_folder": "截图"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.move"
+    },
+    {
+      "id": "MOV-0088",
+      "utterance": "从/云盘/图片把名称包含截图的图片放到/云盘/设计素材/截图下面",
+      "intentId": "collection_move_by_name",
+      "operation": "MOVE",
+      "entities": {
+        "target_name": "截图的图片放到/云盘/设计素材/截图下面",
+        "target_folder": "截图"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.move"
+    },
+    {
+      "id": "MOV-0153",
+      "utterance": "云盘可以批量移动文件夹吗？",
+      "intentId": "assistant_capability_examples",
+      "operation": "RESPOND",
+      "entities": {},
+      "objectType": "未指定",
+      "sourceIntent": "file.move"
+    },
+    {
+      "id": "MOV-0154",
+      "utterance": "怎么把文件移动到指定目录？",
+      "intentId": "assistant_capability_examples",
+      "operation": "RESPOND",
+      "entities": {},
+      "objectType": "未指定",
+      "sourceIntent": "file.move"
+    },
+    {
+      "id": "MOV-0156",
+      "utterance": "目标目录不存在时能自动新建吗？",
+      "intentId": "assistant_capability_examples",
+      "operation": "RESPOND",
+      "entities": {},
+      "objectType": "未指定",
+      "sourceIntent": "file.move"
+    },
+    {
+      "id": "MOV-0157",
+      "utterance": "移动文件会保留分享链接吗？",
+      "intentId": "assistant_capability_examples",
+      "operation": "RESPOND",
+      "entities": {},
+      "objectType": "未指定",
+      "sourceIntent": "file.move"
+    },
+    {
+      "id": "MOV-0159",
+      "utterance": "我可以一次选择多个文件移动吗？",
+      "intentId": "assistant_capability_examples",
+      "operation": "RESPOND",
+      "entities": {},
+      "objectType": "未指定",
+      "sourceIntent": "file.move"
+    },
+    {
+      "id": "MOV-0160",
+      "utterance": "文件夹移动后里面的层级还在吗？",
+      "intentId": "assistant_capability_examples",
+      "operation": "RESPOND",
+      "entities": {},
+      "objectType": "未指定",
+      "sourceIntent": "file.move"
+    },
+    {
+      "id": "MOV-0161",
+      "utterance": "怎么把最近上传的文件转移到项目目录？",
+      "intentId": "assistant_capability_examples",
+      "operation": "RESPOND",
+      "entities": {},
+      "objectType": "未指定",
+      "sourceIntent": "file.move"
+    },
+    {
+      "id": "UPL-0002",
+      "utterance": "帮我把C:/Users/admin/Desktop/合同.docx传到云盘的/云盘/合同",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "合同",
+        "upload_hint": "single"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0003",
+      "utterance": "请将本地文件C:/Users/admin/Desktop/合同.docx上传到/云盘/合同",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "合同",
+        "upload_hint": "single"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0005",
+      "utterance": "我想把C:/Users/admin/Desktop/合同.docx备份到/云盘/合同",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "合同",
+        "upload_hint": "single"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0006",
+      "utterance": "C:/Users/admin/Desktop/合同.docx这个文件传一下，目标目录/云盘/合同",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "合同",
+        "upload_hint": "single"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0007",
+      "utterance": "能不能把C:/Users/admin/Desktop/合同.docx导入云盘/云盘/合同",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "合同",
+        "upload_hint": "single"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0008",
+      "utterance": "上传C:/Users/admin/Desktop/发票.pdf到/云盘/发票",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "发票",
+        "upload_hint": "single"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0009",
+      "utterance": "帮我把C:/Users/admin/Desktop/发票.pdf传到云盘的/云盘/发票",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "发票",
+        "upload_hint": "single"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0010",
+      "utterance": "请将本地文件C:/Users/admin/Desktop/发票.pdf上传到/云盘/发票",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "发票",
+        "upload_hint": "single"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0011",
+      "utterance": "把C:/Users/admin/Desktop/发票.pdf放到网盘/云盘/发票里",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "发票",
+        "upload_hint": "single"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0013",
+      "utterance": "C:/Users/admin/Desktop/发票.pdf这个文件传一下，目标目录/云盘/发票",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "发票",
+        "upload_hint": "single"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0014",
+      "utterance": "能不能把C:/Users/admin/Desktop/发票.pdf导入云盘/云盘/发票",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "发票",
+        "upload_hint": "single"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0015",
+      "utterance": "上传D:/资料/客户名单.xlsx到/云盘/表格/客户资料",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "客户资料",
+        "upload_hint": "single"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0016",
+      "utterance": "帮我把D:/资料/客户名单.xlsx传到云盘的/云盘/表格/客户资料",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "客户资料",
+        "upload_hint": "single"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0017",
+      "utterance": "请将本地文件D:/资料/客户名单.xlsx上传到/云盘/表格/客户资料",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "客户资料",
+        "upload_hint": "single"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0019",
+      "utterance": "我想把D:/资料/客户名单.xlsx备份到/云盘/表格/客户资料",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "客户资料",
+        "upload_hint": "single"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0020",
+      "utterance": "D:/资料/客户名单.xlsx这个文件传一下，目标目录/云盘/表格/客户资料",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "客户资料",
+        "upload_hint": "single"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0022",
+      "utterance": "上传D:/图片/logo.png到/云盘/设计素材/品牌",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "品牌",
+        "upload_hint": "single"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0023",
+      "utterance": "帮我把D:/图片/logo.png传到云盘的/云盘/设计素材/品牌",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "品牌",
+        "upload_hint": "single"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0025",
+      "utterance": "把D:/图片/logo.png放到网盘/云盘/设计素材/品牌里",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "品牌",
+        "upload_hint": "single"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0026",
+      "utterance": "我想把D:/图片/logo.png备份到/云盘/设计素材/品牌",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "品牌",
+        "upload_hint": "single"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0027",
+      "utterance": "D:/图片/logo.png这个文件传一下，目标目录/云盘/设计素材/品牌",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "品牌",
+        "upload_hint": "single"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0028",
+      "utterance": "能不能把D:/图片/logo.png导入云盘/云盘/设计素材/品牌",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "品牌",
+        "upload_hint": "single"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0029",
+      "utterance": "上传D:/视频/会议录屏.mp4到/云盘/会议录像",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "会议录像",
+        "upload_hint": "single"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0031",
+      "utterance": "请将本地文件D:/视频/会议录屏.mp4上传到/云盘/会议录像",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "会议录像",
+        "upload_hint": "single"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0032",
+      "utterance": "把D:/视频/会议录屏.mp4放到网盘/云盘/会议录像里",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "会议录像",
+        "upload_hint": "single"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0033",
+      "utterance": "我想把D:/视频/会议录屏.mp4备份到/云盘/会议录像",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "会议录像",
+        "upload_hint": "single"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0034",
+      "utterance": "D:/视频/会议录屏.mp4这个文件传一下，目标目录/云盘/会议录像",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "会议录像",
+        "upload_hint": "single"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0036",
+      "utterance": "上传D:/项目/A项目资料到/云盘/项目资料/A项目",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "A项目",
+        "upload_hint": "single"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0037",
+      "utterance": "帮我把D:/项目/A项目资料传到云盘的/云盘/项目资料/A项目",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "A项目",
+        "upload_hint": "single"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0038",
+      "utterance": "请将本地文件夹D:/项目/A项目资料上传到/云盘/项目资料/A项目",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "A项目",
+        "upload_hint": "single"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0039",
+      "utterance": "把D:/项目/A项目资料放到网盘/云盘/项目资料/A项目里",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "A项目",
+        "upload_hint": "single"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0040",
+      "utterance": "我想把D:/项目/A项目资料备份到/云盘/项目资料/A项目",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "A项目",
+        "upload_hint": "single"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0041",
+      "utterance": "D:/项目/A项目资料这个文件夹传一下，目标目录/云盘/项目资料/A项目",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "A项目",
+        "upload_hint": "single"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0042",
+      "utterance": "能不能把D:/项目/A项目资料导入云盘/云盘/项目资料/A项目",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "A项目",
+        "upload_hint": "single"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0043",
+      "utterance": "上传C:/Users/admin/Desktop/报销凭证到/云盘/财务报销/2026-08",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "2026-08",
+        "upload_hint": "single"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0044",
+      "utterance": "帮我把C:/Users/admin/Desktop/报销凭证传到云盘的/云盘/财务报销/2026-08",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "2026-08",
+        "upload_hint": "single"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0045",
+      "utterance": "请将本地文件夹C:/Users/admin/Desktop/报销凭证上传到/云盘/财务报销/2026-08",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "2026-08",
+        "upload_hint": "single"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0047",
+      "utterance": "我想把C:/Users/admin/Desktop/报销凭证备份到/云盘/财务报销/2026-08",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "2026-08",
+        "upload_hint": "single"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0049",
+      "utterance": "能不能把C:/Users/admin/Desktop/报销凭证导入云盘/云盘/财务报销/2026-08",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "2026-08",
+        "upload_hint": "single"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0050",
+      "utterance": "上传D:/课程/Python入门到/云盘/学习资料/编程",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "编程",
+        "upload_hint": "single"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0051",
+      "utterance": "帮我把D:/课程/Python入门传到云盘的/云盘/学习资料/编程",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "编程",
+        "upload_hint": "single"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0052",
+      "utterance": "请将本地文件夹D:/课程/Python入门上传到/云盘/学习资料/编程",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "编程",
+        "upload_hint": "single"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0055",
+      "utterance": "D:/课程/Python入门这个文件夹传一下，目标目录/云盘/学习资料/编程",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "编程",
+        "upload_hint": "single"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0056",
+      "utterance": "能不能把D:/课程/Python入门导入云盘/云盘/学习资料/编程",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "编程",
+        "upload_hint": "single"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0057",
+      "utterance": "批量上传PDF：从C:/Users/admin/Desktop/*.pdf到/云盘/PDF",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "PDF",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0058",
+      "utterance": "帮我把C:/Users/admin/Desktop/*.pdf里的文件批量上传到/云盘/PDF",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "PDF",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0060",
+      "utterance": "C:/Users/admin/Desktop/*.pdf这些文件都传到/云盘/PDF",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "PDF",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0061",
+      "utterance": "把本地C:/Users/admin/Desktop/*.pdf导入云盘/云盘/PDF，规则是批量上传PDF",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "PDF",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0062",
+      "utterance": "批量上传文件到/云盘/PDF，来源路径C:/Users/admin/Desktop/*.pdf",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "PDF",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0064",
+      "utterance": "将C:/Users/admin/Desktop/*.pdf同步到云盘/云盘/PDF，同名文件按规则处理",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "PDF",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0065",
+      "utterance": "批量上传照片：从D:/图片/旅行/*.jpg到/云盘/相册/旅行",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "旅行",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0066",
+      "utterance": "帮我把D:/图片/旅行/*.jpg里的文件批量上传到/云盘/相册/旅行",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "旅行",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0067",
+      "utterance": "请上传D:/图片/旅行/*.jpg，目标云盘目录是/云盘/相册/旅行",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "旅行",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0069",
+      "utterance": "把本地D:/图片/旅行/*.jpg导入云盘/云盘/相册/旅行，规则是批量上传照片",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "旅行",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0070",
+      "utterance": "批量上传文件到/云盘/相册/旅行，来源路径D:/图片/旅行/*.jpg",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "旅行",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0071",
+      "utterance": "把D:/图片/旅行/*.jpg里的内容备份到/云盘/相册/旅行，保留目录结构",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "旅行",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0072",
+      "utterance": "将D:/图片/旅行/*.jpg同步到云盘/云盘/相册/旅行，同名文件按规则处理",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "旅行",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0074",
+      "utterance": "帮我把D:/发票/2026-08/*里的文件批量上传到/云盘/发票/2026-08",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "2026-08",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0075",
+      "utterance": "请上传D:/发票/2026-08/*，目标云盘目录是/云盘/发票/2026-08",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "2026-08",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0077",
+      "utterance": "把本地D:/发票/2026-08/*导入云盘/云盘/发票/2026-08，规则是上传本月发票",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "2026-08",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0078",
+      "utterance": "批量上传文件到/云盘/发票/2026-08，来源路径D:/发票/2026-08/*",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "2026-08",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0080",
+      "utterance": "将D:/发票/2026-08/*同步到云盘/云盘/发票/2026-08，同名文件按规则处理",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "2026-08",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0081",
+      "utterance": "上传访谈录音：从D:/录音/*.m4a到/云盘/音频/访谈",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "访谈",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0082",
+      "utterance": "帮我把D:/录音/*.m4a里的文件批量上传到/云盘/音频/访谈",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "访谈",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0083",
+      "utterance": "请上传D:/录音/*.m4a，目标云盘目录是/云盘/音频/访谈",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "访谈",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0084",
+      "utterance": "D:/录音/*.m4a这些文件都传到/云盘/音频/访谈",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "访谈",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0086",
+      "utterance": "批量上传文件到/云盘/音频/访谈，来源路径D:/录音/*.m4a",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "访谈",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0087",
+      "utterance": "把D:/录音/*.m4a里的内容备份到/云盘/音频/访谈，保留目录结构",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "访谈",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0089",
+      "utterance": "上传所有安装包：从D:/安装包/*到/云盘/安装包",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "安装包",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0090",
+      "utterance": "帮我把D:/安装包/*里的文件批量上传到/云盘/安装包",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "安装包",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0091",
+      "utterance": "请上传D:/安装包/*，目标云盘目录是/云盘/安装包",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "安装包",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0092",
+      "utterance": "D:/安装包/*这些文件都传到/云盘/安装包",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "安装包",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0093",
+      "utterance": "把本地D:/安装包/*导入云盘/云盘/安装包，规则是上传所有安装包",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "安装包",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0094",
+      "utterance": "批量上传文件到/云盘/安装包，来源路径D:/安装包/*",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "安装包",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0096",
+      "utterance": "将D:/安装包/*同步到云盘/云盘/安装包，同名文件按规则处理",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "安装包",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0097",
+      "utterance": "批量上传项目文件夹：从D:/项目/*到/云盘/项目资料",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "项目资料",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0099",
+      "utterance": "请上传D:/项目/*，目标云盘目录是/云盘/项目资料",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "项目资料",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0101",
+      "utterance": "把本地D:/项目/*导入云盘/云盘/项目资料，规则是批量上传项目文件夹",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "项目资料",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0102",
+      "utterance": "批量上传文件夹到/云盘/项目资料，来源路径D:/项目/*",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "项目资料",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0103",
+      "utterance": "把D:/项目/*里的内容备份到/云盘/项目资料，保留目录结构",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "项目资料",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0104",
+      "utterance": "将D:/项目/*同步到云盘/云盘/项目资料，同名文件按规则处理",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "项目资料",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0106",
+      "utterance": "帮我把C:/Users/admin/Desktop/课程资料/*里的文件夹批量上传到/云盘/学习资料",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "学习资料",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0107",
+      "utterance": "请上传C:/Users/admin/Desktop/课程资料/*，目标云盘目录是/云盘/学习资料",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "学习资料",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0108",
+      "utterance": "C:/Users/admin/Desktop/课程资料/*这些文件夹都传到/云盘/学习资料",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "学习资料",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0109",
+      "utterance": "把本地C:/Users/admin/Desktop/课程资料/*导入云盘/云盘/学习资料，规则是上传多个课程目录",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "学习资料",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0110",
+      "utterance": "批量上传文件夹到/云盘/学习资料，来源路径C:/Users/admin/Desktop/课程资料/*",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "学习资料",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0112",
+      "utterance": "将C:/Users/admin/Desktop/课程资料/*同步到云盘/云盘/学习资料，同名文件按规则处理",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "学习资料",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0113",
+      "utterance": "上传设计素材目录：从D:/设计素材/*到/云盘/设计素材",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "设计素材",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0115",
+      "utterance": "请上传D:/设计素材/*，目标云盘目录是/云盘/设计素材",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "设计素材",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0116",
+      "utterance": "D:/设计素材/*这些文件夹都传到/云盘/设计素材",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "设计素材",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0117",
+      "utterance": "把本地D:/设计素材/*导入云盘/云盘/设计素材，规则是上传设计素材目录",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "设计素材",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0118",
+      "utterance": "批量上传文件夹到/云盘/设计素材，来源路径D:/设计素材/*",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "设计素材",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0119",
+      "utterance": "把D:/设计素材/*里的内容备份到/云盘/设计素材，保留目录结构",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "设计素材",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0120",
+      "utterance": "将D:/设计素材/*同步到云盘/云盘/设计素材，同名文件按规则处理",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "设计素材",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0121",
+      "utterance": "重新上传失败文件：从D:/待上传/失败列表.txt到/云盘/待确认",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "待确认",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0123",
+      "utterance": "请上传D:/待上传/失败列表.txt，目标云盘目录是/云盘/待确认",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "待确认",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0124",
+      "utterance": "D:/待上传/失败列表.txt这些文件都传到/云盘/待确认",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "待确认",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0125",
+      "utterance": "把本地D:/待上传/失败列表.txt导入云盘/云盘/待确认，规则是重新上传失败文件",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "待确认",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0126",
+      "utterance": "批量上传文件到/云盘/待确认，来源路径D:/待上传/失败列表.txt",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "待确认",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0127",
+      "utterance": "把D:/待上传/失败列表.txt里的内容备份到/云盘/待确认，保留目录结构",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "待确认",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0129",
+      "utterance": "上传整个备份目录并保留层级：从D:/备份/2026-08到/云盘/备份",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "备份",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0130",
+      "utterance": "帮我把D:/备份/2026-08里的文件夹批量上传到/云盘/备份",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "备份",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0131",
+      "utterance": "请上传D:/备份/2026-08，目标云盘目录是/云盘/备份",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "备份",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0133",
+      "utterance": "把本地D:/备份/2026-08导入云盘/云盘/备份，规则是上传整个备份目录并保留层级",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "备份",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0134",
+      "utterance": "批量上传文件夹到/云盘/备份，来源路径D:/备份/2026-08",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "备份",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0135",
+      "utterance": "把D:/备份/2026-08里的内容备份到/云盘/备份，保留目录结构",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "备份",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0136",
+      "utterance": "将D:/备份/2026-08同步到云盘/云盘/备份，同名文件按规则处理",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "备份",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0137",
+      "utterance": "上传Excel文件并跳过同名：从D:/表格/*.xlsx到/云盘/表格",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "表格",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0139",
+      "utterance": "请上传D:/表格/*.xlsx，目标云盘目录是/云盘/表格",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "表格",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0140",
+      "utterance": "D:/表格/*.xlsx这些文件都传到/云盘/表格",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "表格",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0141",
+      "utterance": "把本地D:/表格/*.xlsx导入云盘/云盘/表格，规则是上传Excel文件并跳过同名",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "表格",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0142",
+      "utterance": "批量上传文件到/云盘/表格，来源路径D:/表格/*.xlsx",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "表格",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0144",
+      "utterance": "将D:/表格/*.xlsx同步到云盘/云盘/表格，同名文件按规则处理",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "表格",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0145",
+      "utterance": "上传客户资料文件夹，遇到同名自动编号：从D:/客户资料/*到/云盘/客户资料",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "客户资料",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0147",
+      "utterance": "请上传D:/客户资料/*，目标云盘目录是/云盘/客户资料",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "客户资料",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0148",
+      "utterance": "D:/客户资料/*这些文件夹都传到/云盘/客户资料",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "客户资料",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0150",
+      "utterance": "批量上传文件夹到/云盘/客户资料，来源路径D:/客户资料/*",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "客户资料",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0151",
+      "utterance": "把D:/客户资料/*里的内容备份到/云盘/客户资料，保留目录结构",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "客户资料",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0152",
+      "utterance": "将D:/客户资料/*同步到云盘/云盘/客户资料，同名文件按规则处理",
+      "intentId": "file_upload",
+      "operation": "UPLOAD",
+      "entities": {
+        "target_folder": "客户资料",
+        "upload_hint": "multiple"
+      },
+      "objectType": "文件夹",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0154",
+      "utterance": "怎么批量上传文件？",
+      "intentId": "assistant_capability_examples",
+      "operation": "RESPOND",
+      "entities": {},
+      "objectType": "未指定",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0155",
+      "utterance": "上传文件夹时会保留里面的目录结构吗？",
+      "intentId": "assistant_capability_examples",
+      "operation": "RESPOND",
+      "entities": {},
+      "objectType": "未指定",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0156",
+      "utterance": "同名文件上传时可以选择覆盖或跳过吗？",
+      "intentId": "assistant_capability_examples",
+      "operation": "RESPOND",
+      "entities": {},
+      "objectType": "未指定",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0157",
+      "utterance": "上传失败的文件能重新上传吗？",
+      "intentId": "assistant_capability_examples",
+      "operation": "RESPOND",
+      "entities": {},
+      "objectType": "未指定",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0159",
+      "utterance": "能不能拖拽上传多个文件？",
+      "intentId": "assistant_capability_examples",
+      "operation": "RESPOND",
+      "entities": {},
+      "objectType": "未指定",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0160",
+      "utterance": "上传前目标文件夹不存在怎么办？",
+      "intentId": "assistant_capability_examples",
+      "operation": "RESPOND",
+      "entities": {},
+      "objectType": "未指定",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0161",
+      "utterance": "上传大视频有进度提示吗？",
+      "intentId": "assistant_capability_examples",
+      "operation": "RESPOND",
+      "entities": {},
+      "objectType": "未指定",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0163",
+      "utterance": "可以上传多个文件夹到同一个目录吗？",
+      "intentId": "assistant_capability_examples",
+      "operation": "RESPOND",
+      "entities": {},
+      "objectType": "未指定",
+      "sourceIntent": "file.upload"
+    },
+    {
+      "id": "UPL-0164",
+      "utterance": "上传文件和备份到云盘是同一个功能吗？",
+      "intentId": "assistant_capability_examples",
+      "operation": "RESPOND",
+      "entities": {},
+      "objectType": "未指定",
+      "sourceIntent": "file.upload"
+    }
+  ]
+}

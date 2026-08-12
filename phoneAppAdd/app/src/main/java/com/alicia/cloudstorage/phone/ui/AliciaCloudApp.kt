@@ -802,7 +802,6 @@ private fun MainShell(
     var aiChatOpen by rememberSaveable { mutableStateOf(false) }
     var pendingAiUploadTarget by remember { mutableStateOf<PendingAiUploadTarget?>(null) }
     var pendingAiComposerAttachments by remember { mutableStateOf<List<PendingAiComposerAttachment>>(emptyList()) }
-    var pendingAiFolderOpen by remember { mutableStateOf<AiChatFolderOpenTarget?>(null) }
     var pendingAiComposerAttachComplete by remember {
         mutableStateOf<((List<AiChatPendingAttachment>) -> Unit)?>(null)
     }
@@ -913,8 +912,14 @@ private fun MainShell(
     }
 
     fun openAiFileResult(file: AiChatFileResult) {
+        if (file.type.equals("FOLDER", ignoreCase = true) && file.path == "..") {
+            aiChatOpen = false
+            viewModel.openParentFolderFromAssistant()
+            return
+        }
         file.toFolderOpenTargetOrNull()?.let { folder ->
-            pendingAiFolderOpen = folder
+            aiChatOpen = false
+            viewModel.openFolderFromAssistant(folder.nodeId, folder.name)
             return
         }
         val node = file.toStorageNodeOrNull()
@@ -1159,20 +1164,6 @@ private fun MainShell(
                     },
             )
         }
-    }
-
-    pendingAiFolderOpen?.let { folder ->
-        AliciaConfirmDialog(
-            title = "进入文件夹",
-            message = "是否收起对话窗并进入「${folder.name}」？",
-            confirmLabel = "进入",
-            onDismiss = { pendingAiFolderOpen = null },
-            onConfirm = {
-                pendingAiFolderOpen = null
-                aiChatOpen = false
-                viewModel.openFolderFromAssistant(folder.nodeId, folder.name)
-            },
-        )
     }
 
     if (uploadSheetOpen) {

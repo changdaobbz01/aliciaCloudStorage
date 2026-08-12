@@ -351,6 +351,46 @@ public record IntentRecognitionResponse(
         );
     }
 
+    public IntentRecognitionResponse withCapabilityBoundary(
+            String boundaryId,
+            String userMessage,
+            String guidance
+    ) {
+        String marker = "capability_boundary:" + (boundaryId == null ? "unknown" : boundaryId);
+        String safeMessage = userMessage == null ? "请把需求描述得更明确一些。" : userMessage.trim();
+        String safeGuidance = guidance == null ? "" : guidance.trim();
+        return new IntentRecognitionResponse(
+                id,
+                schemaVersion,
+                templateId,
+                provider,
+                model,
+                message,
+                "fallback",
+                intentName,
+                taskType,
+                1.0,
+                userGoal,
+                normalizedQuery,
+                Map.of(),
+                List.of(),
+                List.of(),
+                "ask_clarification",
+                new SafetyDecision("none", false, false, marker),
+                new ActionDraft("none", Map.of(), false),
+                BackendActionDraft.skipped("clarification_required", safeMessage),
+                ActionPlan.skipped("clarification_required", safeMessage),
+                safeMessage,
+                safeGuidance,
+                marker,
+                marker,
+                CandidateBindingResult.skipped("capability_boundary", safeMessage),
+                conversation,
+                semanticFrame,
+                interaction
+        );
+    }
+
     public IntentRecognitionResponse withInteraction(AssistantInteraction interaction) {
         return new IntentRecognitionResponse(
                 id,

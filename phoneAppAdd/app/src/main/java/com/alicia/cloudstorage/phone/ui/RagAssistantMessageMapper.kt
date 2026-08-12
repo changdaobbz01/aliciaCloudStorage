@@ -28,6 +28,67 @@ internal fun RagAssistantPlanResponse.toAssistantMessage(id: Long): AiChatMessag
     )
 }
 
+internal fun RagAssistantPlanResponse.toNavigationTargetOrNull(): AiChatFileResult? {
+    val operation = semanticFrame?.operation?.trim()?.uppercase().orEmpty()
+    if (operation !in setOf("NAVIGATE", "OPEN_FILE")) {
+        return null
+    }
+    if (semanticFrame?.scope?.type.equals("ROOT", ignoreCase = true)) {
+        return AiChatFileResult(
+            id = "root",
+            nodeId = null,
+            parentId = null,
+            name = "根目录",
+            detail = "/ · FOLDER",
+            type = "FOLDER",
+            size = null,
+            extension = null,
+            mimeType = null,
+            updatedAt = null,
+            path = "/",
+        )
+    }
+    if (semanticFrame?.scope?.type.equals("PARENT", ignoreCase = true)) {
+        return AiChatFileResult(
+            id = "parent",
+            nodeId = null,
+            parentId = null,
+            name = "上一级",
+            detail = ".. · FOLDER",
+            type = "FOLDER",
+            size = null,
+            extension = null,
+            mimeType = null,
+            updatedAt = null,
+            path = "..",
+        )
+    }
+    val binding = candidateBinding ?: return null
+    val candidate = binding.selectedCandidate
+        ?: binding.candidates.orEmpty().singleOrNull()
+        ?: return null
+    val type = candidate.type?.trim()?.uppercase()
+    if (operation == "NAVIGATE" && type != "FOLDER") {
+        return null
+    }
+    if (operation == "OPEN_FILE" && type != "FILE") {
+        return null
+    }
+    return AiChatFileResult(
+        id = candidate.nodeId?.toString() ?: candidate.path.orEmpty(),
+        nodeId = candidate.nodeId,
+        parentId = candidate.parentId,
+        name = candidate.name.orEmpty(),
+        detail = listOfNotNull(candidate.path, candidate.type).joinToString(" · "),
+        type = candidate.type,
+        size = candidate.size,
+        extension = candidate.extension,
+        mimeType = candidate.mimeType,
+        updatedAt = candidate.updatedAt,
+        path = candidate.path,
+    )
+}
+
 internal fun RagActionExecutionResult.toAssistantMessage(id: Long): AiChatMessage =
     AiChatMessage(
         id = id,

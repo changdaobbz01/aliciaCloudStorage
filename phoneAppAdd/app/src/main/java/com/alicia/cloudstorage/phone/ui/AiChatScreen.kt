@@ -115,6 +115,7 @@ internal fun AiChatRoute(
     val currentOnFileMutation by rememberUpdatedState(onFileMutation)
     val currentOnClientUpload by rememberUpdatedState(onClientUpload)
     val currentOnClearAttachedFiles by rememberUpdatedState(onClearAttachedFiles)
+    val currentOnOpenFileResult by rememberUpdatedState(onOpenFileResult)
 
     androidx.compose.runtime.LaunchedEffect(viewModel, currentFolderId, currentFolderPath) {
         viewModel.updateFileContext(currentFolderId, currentFolderPath)
@@ -145,6 +146,12 @@ internal fun AiChatRoute(
     LaunchedEffect(viewModel) {
         viewModel.composerAttachmentClearRequests.collect {
             currentOnClearAttachedFiles()
+        }
+    }
+
+    LaunchedEffect(viewModel) {
+        viewModel.navigationRequests.collect { target ->
+            currentOnOpenFileResult(target)
         }
     }
 

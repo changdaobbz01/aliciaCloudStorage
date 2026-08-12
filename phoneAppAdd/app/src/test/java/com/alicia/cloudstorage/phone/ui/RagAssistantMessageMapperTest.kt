@@ -12,6 +12,8 @@ import com.alicia.cloudstorage.phone.data.RagAssistantPlanResponse
 import com.alicia.cloudstorage.phone.data.RagBackendActionDraft
 import com.alicia.cloudstorage.phone.data.RagCandidateBinding
 import com.alicia.cloudstorage.phone.data.RagCandidateItem
+import com.alicia.cloudstorage.phone.data.RagSemanticFrame
+import com.alicia.cloudstorage.phone.data.RagSemanticScope
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -516,6 +518,31 @@ class RagAssistantMessageMapperTest {
         assertNull(signal)
     }
 
+    @Test
+    fun `navigation semantic frame opens selected folder and virtual root`() {
+        val selectedFolder = candidate(700L, "测试目录", type = "FOLDER")
+        val folderTarget = response(
+            candidateBinding = RagCandidateBinding(
+                status = "selected_candidate",
+                source = "test",
+                query = "测试目录",
+                candidateType = "FOLDER",
+                candidates = listOf(selectedFolder),
+                message = "已锁定目标。",
+                selectedCandidate = selectedFolder,
+                selectedIndex = 1,
+            ),
+            semanticFrame = semanticFrame(operation = "NAVIGATE", scope = "PREVIOUS_RESULTS"),
+        ).toNavigationTargetOrNull()
+        val rootTarget = response(
+            semanticFrame = semanticFrame(operation = "NAVIGATE", scope = "ROOT"),
+        ).toNavigationTargetOrNull()
+
+        assertEquals(700L, folderTarget?.nodeId)
+        assertEquals("FOLDER", folderTarget?.type)
+        assertEquals("/", rootTarget?.path)
+    }
+
     private fun response(
         intentId: String = "assistant_social",
         nextAction: String = "respond_only",
@@ -545,6 +572,7 @@ class RagAssistantMessageMapperTest {
             message = null,
         ),
         candidateBinding: RagCandidateBinding? = null,
+        semanticFrame: RagSemanticFrame? = null,
     ) = RagAssistantPlanResponse(
         id = "response-1",
         schemaVersion = "intent_recognition_v1",
@@ -572,6 +600,19 @@ class RagAssistantMessageMapperTest {
         fallbackReason = null,
         candidateBinding = candidateBinding,
         conversation = null,
+        semanticFrame = semanticFrame,
+    )
+
+    private fun semanticFrame(operation: String, scope: String) = RagSemanticFrame(
+        schemaVersion = "semantic_frame_v2",
+        relation = "FOLLOW_UP",
+        operation = operation,
+        query = null,
+        scope = RagSemanticScope(type = scope, folderSurface = "", folderNormalized = ""),
+        reference = null,
+        confidence = 1.0,
+        ambiguities = emptyList(),
+        clarification = null,
     )
 
     private fun plan(
@@ -611,7 +652,7 @@ class RagAssistantMessageMapperTest {
         targetCandidate: RagCandidateItem? = null,
     ) = RagBackendActionDraft(
         status = status,
-        bridgeVersion = "action_bridge_v1",
+        bridgeVersion = "action_bridge_v2",
         actionType = actionType,
         nextAction = nextAction,
         confirmedByUser = false,
