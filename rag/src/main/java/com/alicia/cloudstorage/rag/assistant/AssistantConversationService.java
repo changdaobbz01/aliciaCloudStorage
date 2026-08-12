@@ -100,6 +100,7 @@ public class AssistantConversationService {
         }
 
         ConversationContextResolver.ContextAttempt contextAttempt = "FOLLOW_UP".equals(baseResponse.semanticFrame().relation())
+                && !"SEARCH".equals(baseResponse.semanticFrame().operation())
                 ? conversationContextResolver.resolve(
                         message,
                         conversation,
@@ -119,21 +120,24 @@ public class AssistantConversationService {
         }
 
         boolean preservePendingIntent = shouldPreservePendingIntent(conversation, message);
+        boolean continuePendingIntent = shouldContinuePendingIntent(conversation, baseResponse, message);
         IntentRecognitionResponse response = preservePendingIntent
                 ? rebuildFromStoredConversation(conversation, baseResponse, "用户确认或延续上一轮待处理意图。")
-                : shouldContinuePendingIntent(conversation, baseResponse, message)
+                : continuePendingIntent
                 ? continuePendingIntent(conversation, baseResponse, message)
                 : baseResponse;
 
         CandidateBindingResult contextualBinding = contextualCandidateBinding(conversation, response, contextResolution);
+        AssistantClientContext bindingClientContext = contextualClientContext(conversation, response, clientContext);
         CandidateBindingResult candidateBinding = contextualBinding != null
                 ? contextualBinding
-                : preservePendingIntent && shouldReuseCandidateBinding(conversation.candidateBinding())
+                : (preservePendingIntent || continuePendingIntent)
+                && shouldReuseCandidateBinding(conversation.candidateBinding())
                 ? conversation.candidateBinding()
                 : candidateBindingService.bind(
                         response,
                         authorizationHeader,
-                        clientContext
+                        bindingClientContext
                 );
         response = applyCandidateBindingState(response, candidateBinding);
         response = applyActionPlan(response, clientContext);
@@ -239,6 +243,9 @@ public class AssistantConversationService {
     ) {
         IntentRecognitionResponse boundResponse = response.withCandidateBinding(candidateBinding);
         if (candidateBinding == null) {
+            return boundResponse;
+        }
+        if (!response.missingSlots().isEmpty() || "ask_clarification".equals(response.nextAction())) {
             return boundResponse;
         }
         return switch (candidateBinding.status()) {
@@ -367,6 +374,54 @@ public class AssistantConversationService {
         }
 
         return conversation.focus().selectedBinding("已根据上一轮上下文锁定候选，等待用户确认。");
+    }
+
+    private AssistantClientContext contextualClientContext(
+            AssistantConversationState conversation,
+            IntentRecognitionResponse response,
+            AssistantClientContext clientContext
+    ) {
+        AssistantClientContext safeContext = clientContext == null ? AssistantClientContext.empty() : clientContext;
+        if (conversation == null
+                || response == null
+                || response.semanticFrame() == null
+                || !"SEARCH".equals(response.semanticFrame().operation())
+                || !"LIST_CHILDREN".equals(response.semanticFrame().query().mode())
+                || !"PREVIOUS_RESULTS".equals(response.semanticFrame().scope().type())
+                || conversation.focus() == null) {
+            return safeContext;
+        }
+        CandidateItem folder = candidateForReference(conversation.focus(), response.semanticFrame().reference());
+        if (folder == null || folder.nodeId() == null || !"FOLDER".equalsIgnoreCase(folder.type())) {
+            return safeContext;
+        }
+        return new AssistantClientContext(
+                folder.nodeId(),
+                folder.path() == null || folder.path().isBlank() ? folder.name() : folder.path(),
+                safeContext.availableClientInputs()
+        );
+    }
+
+    private CandidateItem candidateForReference(
+            AssistantConversationFocus focus,
+            SemanticFrame.Reference reference
+    ) {
+        if (focus == null) {
+            return null;
+        }
+        if (reference != null && reference.candidateIndex() != null && focus.candidateBinding() != null) {
+            int index = reference.candidateIndex() - 1;
+            if (index >= 0 && index < focus.candidateBinding().candidates().size()) {
+                return focus.candidateBinding().candidates().get(index);
+            }
+        }
+        if (reference != null && reference.candidateId() != null && focus.candidateBinding() != null) {
+            return focus.candidateBinding().candidates().stream()
+                    .filter(candidate -> reference.candidateId().equals(candidate.nodeId()))
+                    .findFirst()
+                    .orElse(focus.effectiveCandidate());
+        }
+        return focus.effectiveCandidate();
     }
 
     private String guessSingleSlotValue(

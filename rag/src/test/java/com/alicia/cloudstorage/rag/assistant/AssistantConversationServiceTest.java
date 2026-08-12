@@ -545,6 +545,101 @@ class AssistantConversationServiceTest {
     }
 
     @Test
+    void browsesPreviousFolderThenResolvesOrdinalFileOperations() {
+        List<CandidateSearchRequest> requests = new java.util.ArrayList<>();
+        CandidateSearchPort port = request -> {
+            requests.add(request);
+            if (requests.size() == 1) {
+                return new CandidateBindingResult(
+                        "search_results_ready",
+                        "test",
+                        request.query(),
+                        "FOLDER",
+                        List.of(new CandidateItem(
+                                801L, null, "测试目录", "FOLDER", 0L, "", "", "", "/测试目录", List.of()
+                        )),
+                        "找到测试目录。"
+                );
+            }
+            return new CandidateBindingResult(
+                    "search_results_ready",
+                    "test",
+                    request.query(),
+                    "FILE",
+                    List.of(
+                            new CandidateItem(811L, 801L, "报告一.pdf", "FILE", 10L, "pdf", "application/pdf", ""),
+                            new CandidateItem(812L, 801L, "报告二.docx", "FILE", 20L, "docx", "application/docx", "")
+                    ),
+                    "已列出测试目录中的文件。"
+            );
+        };
+        AssistantConversationService service = conversationServiceWith(port);
+
+        IntentRecognitionResponse folder = service.plan(
+                new AssistantPlanRequest("找到测试目录这个文件夹", ""),
+                "Bearer token"
+        );
+        IntentRecognitionResponse contents = service.plan(
+                new AssistantPlanRequest("这个文件夹中文件有哪些", folder.conversation().conversationId()),
+                "Bearer token"
+        );
+        IntentRecognitionResponse delete = service.plan(
+                new AssistantPlanRequest("删除第一个文件", contents.conversation().conversationId()),
+                "Bearer token"
+        );
+        IntentRecognitionResponse rename = service.plan(
+                new AssistantPlanRequest("重命名第一个文件", contents.conversation().conversationId()),
+                "Bearer token"
+        );
+        IntentRecognitionResponse renamed = service.plan(
+                new AssistantPlanRequest("改成最终报告.pdf", rename.conversation().conversationId()),
+                "Bearer token"
+        );
+
+        assertThat(folder.semanticFrame().query().nameSurface()).isEqualTo("测试目录");
+        assertThat(contents.semanticFrame().relation()).isEqualTo("FOLLOW_UP");
+        assertThat(contents.semanticFrame().query().mode()).isEqualTo("LIST_CHILDREN");
+        assertThat(contents.semanticFrame().scope().type()).isEqualTo("PREVIOUS_RESULTS");
+        assertThat(contents.candidateBinding().candidates()).extracting(CandidateItem::name)
+                .containsExactly("报告一.pdf", "报告二.docx");
+        assertThat(requests).hasSize(2);
+        assertThat(requests.get(1).queryMode()).isEqualTo("directory_list");
+        assertThat(requests.get(1).scope()).isEqualTo("current");
+        assertThat(requests.get(1).currentFolderId()).isEqualTo(801L);
+
+        assertThat(delete.intentId()).isEqualTo("file_delete");
+        assertThat(delete.entities()).containsEntry("target_name", "报告一.pdf");
+        assertThat(delete.candidateBinding().selectedCandidate().nodeId()).isEqualTo(811L);
+        assertThat(delete.interaction().stage()).isEqualTo("NEED_CONFIRMATION");
+
+        assertThat(rename.intentId()).isEqualTo("file_rename");
+        assertThat(rename.entities()).containsEntry("target_name", "报告一.pdf");
+        assertThat(rename.missingSlots()).contains("new_name");
+        assertThat(rename.interaction().stage()).isEqualTo("NEED_CLARIFICATION");
+        assertThat(rename.assistantText()).contains("新名称");
+
+        assertThat(renamed.intentId()).isEqualTo("file_rename");
+        assertThat(renamed.entities())
+                .containsEntry("target_name", "报告一.pdf")
+                .containsEntry("new_name", "最终报告.pdf");
+        assertThat(renamed.candidateBinding().selectedCandidate().nodeId()).isEqualTo(811L);
+        assertThat(renamed.interaction().stage()).isEqualTo("NEED_CONFIRMATION");
+        assertThat(requests).hasSize(2);
+    }
+
+    @Test
+    void ordinalMutationWithoutCandidateContextAsksForAReferent() {
+        IntentRecognitionResponse response = conversationService.plan(
+                new AssistantPlanRequest("删除第一个文件", ""),
+                "Bearer token"
+        );
+
+        assertThat(response.nextAction()).isEqualTo("ask_clarification");
+        assertThat(response.interaction().stage()).isEqualTo("NEED_CLARIFICATION");
+        assertThat(response.assistantText()).contains("还没有可以承接的文件上下文");
+    }
+
+    @Test
     void rootUploadUsesNullParentWithoutStorageSearch() {
         CandidateSearchPort unexpectedSearch = request -> {
             throw new AssertionError("Root upload must not query a physical folder candidate.");

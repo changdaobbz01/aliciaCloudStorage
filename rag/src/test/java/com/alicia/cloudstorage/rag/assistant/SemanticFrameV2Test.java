@@ -56,6 +56,47 @@ class SemanticFrameV2Test {
     }
 
     @Test
+    void stripsReferentialClassifierWithoutTruncatingRealFolderName() {
+        IntentRecognitionResponse response = service.recognize("找到测试目录这个文件夹");
+
+        assertThat(response.intentId()).isEqualTo("file_search");
+        assertThat(response.semanticFrame().query().nameSurface()).isEqualTo("测试目录");
+        assertThat(response.semanticFrame().query().resultType()).isEqualTo("FOLDER");
+        assertThat(response.entities()).containsEntry("target_name", "测试目录");
+    }
+
+    @Test
+    void infersFolderTypeFromDirectorySurfaceName() {
+        IntentRecognitionResponse response = service.recognize("打开测试目录");
+
+        assertThat(response.semanticFrame().query().nameSurface()).isEqualTo("测试目录");
+        assertThat(response.semanticFrame().query().resultType()).isEqualTo("FOLDER");
+    }
+
+    @Test
+    void understandsDirectoryContentsWithoutExplicitListVerb() {
+        IntentRecognitionResponse response = service.recognize("测试目录中的文件");
+
+        assertThat(response.intentId()).isEqualTo("file_search");
+        assertThat(response.semanticFrame().operation()).isEqualTo("SEARCH");
+        assertThat(response.semanticFrame().query().mode()).isEqualTo("LIST_CHILDREN");
+        assertThat(response.semanticFrame().query().resultType()).isEqualTo("FILE");
+        assertThat(response.semanticFrame().scope().type()).isEqualTo("NAMED_FOLDER");
+        assertThat(response.semanticFrame().scope().folderSurface()).isEqualTo("测试目录");
+    }
+
+    @Test
+    void asksForFolderContextWhenDeicticDirectoryHasNoReferent() {
+        IntentRecognitionResponse response = service.recognize("这个文件夹中文件有哪些");
+
+        assertThat(response.intentId()).isEqualTo("file_search");
+        assertThat(response.semanticFrame().query().mode()).isEqualTo("LIST_CHILDREN");
+        assertThat(response.semanticFrame().scope().type()).isEqualTo("PREVIOUS_RESULTS");
+        assertThat(response.semanticFrame().ambiguities()).contains("folder_reference");
+        assertThat(response.assistantText()).contains("不知道“这个文件夹”指的是哪一个");
+    }
+
+    @Test
     void uploadDestinationKeepsExactSurfaceName() {
         IntentRecognitionResponse response = service.recognize(
                 "将这个文件上传到测试目录",

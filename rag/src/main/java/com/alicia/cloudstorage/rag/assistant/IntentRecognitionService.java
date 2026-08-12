@@ -108,7 +108,14 @@ public class IntentRecognitionService {
                 modelPayload
         );
 
-        if (semanticFrameResolver.shouldReusePreviousIntent(semanticFrame, response, conversation)) {
+        if ("fallback".equals(response.intentId()) && "SEARCH".equals(semanticFrame.operation())) {
+            response = rebuildForConversation(
+                    response,
+                    "file_search",
+                    semanticFrameResolver.entitiesForFrame(response, semanticFrame),
+                    "根据统一语义帧补全为文件查询。"
+            );
+        } else if (semanticFrameResolver.shouldReusePreviousIntent(semanticFrame, response, conversation)) {
             response = rebuildForConversation(
                     response,
                     conversation.pendingIntentId(),

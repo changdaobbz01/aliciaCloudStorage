@@ -54,6 +54,10 @@ public class SemanticFrameResolver {
             "(?:找到|找出|查找|搜索|检索|定位|查看|打开|找|查)(?:一下|下)?|看看|看下|列出|列一下|展示|显示",
             Pattern.CASE_INSENSITIVE
     );
+    private static final Pattern REFERENTIAL_OBJECT_SUFFIX = Pattern.compile(
+            "^(.+?)(?:这个|那个|该)(?:文件夹|目录|文件)$",
+            Pattern.CASE_INSENSITIVE
+    );
 
     public SemanticFrame resolve(
             String message,
@@ -66,6 +70,7 @@ public class SemanticFrameResolver {
         SemanticFrame rawFrame = modelFrame == null
                 ? localFrame(message, response, conversation)
                 : modelFrame;
+        rawFrame = applyMessageSemantics(message, rawFrame, conversation);
         return validate(rawFrame, response, clientContext);
     }
 
@@ -78,7 +83,8 @@ public class SemanticFrameResolver {
             return false;
         }
         return "fallback".equals(response.intentId())
-                && List.of("CORRECTION", "SLOT_FILL").contains(frame.relation())
+                && (List.of("CORRECTION", "SLOT_FILL").contains(frame.relation())
+                || "FOLLOW_UP".equals(frame.relation()) && "SEARCH".equals(frame.operation()))
                 && conversation.pendingIntentId() != null
                 && !conversation.pendingIntentId().isBlank()
                 && !"UNKNOWN".equals(frame.operation());
@@ -273,6 +279,109 @@ public class SemanticFrameResolver {
         return new SearchSemantics(fallbackQuery, fallbackScope);
     }
 
+    private SemanticFrame applyMessageSemantics(
+            String message,
+            SemanticFrame frame,
+            AssistantConversationState conversation
+    ) {
+        String safeMessage = message == null ? "" : message.trim();
+        SearchSemantics directoryContents = List.of("UNKNOWN", "SEARCH").contains(frame.operation())
+                ? parseDirectoryContents(safeMessage, frame.query())
+                : null;
+        if (directoryContents != null) {
+            SemanticFrame.Scope parsedScope = directoryContents.scope();
+            if (isPreviousFolderReference(parsedScope.folderSurface())) {
+                boolean hasFolderContext = hasSingleFolderContext(conversation);
+                SemanticFrame.Clarification clarification = hasFolderContext
+                        ? SemanticFrame.Clarification.empty()
+                        : new SemanticFrame.Clarification(
+                        "missing_folder_reference",
+                        "我还不知道“这个文件夹”指的是哪一个，请先找到或选择一个文件夹。",
+                        List.of("找到测试目录", "打开项目资料文件夹", "列出根目录文件夹")
+                );
+                return copyFrame(
+                        frame,
+                        "FOLLOW_UP",
+                        "SEARCH",
+                        directoryContents.query(),
+                        new SemanticFrame.Scope("PREVIOUS_RESULTS", "", ""),
+                        contextReference(conversation),
+                        hasFolderContext ? List.of() : List.of("folder_reference"),
+                        clarification
+                );
+            }
+            return copyFrame(
+                    frame,
+                    "NEW_TASK",
+                    "SEARCH",
+                    directoryContents.query(),
+                    parsedScope,
+                    SemanticFrame.Reference.empty(),
+                    List.of(),
+                    SemanticFrame.Clarification.empty()
+            );
+        }
+
+        Integer ordinal = ordinalIndex(safeMessage);
+        if (ordinal != null && List.of("DELETE", "MOVE", "RENAME", "SHARE").contains(frame.operation())) {
+            return copyFrame(
+                    frame,
+                    "FOLLOW_UP",
+                    frame.operation(),
+                    frame.query(),
+                    frame.scope(),
+                    ordinalReference(conversation, ordinal),
+                    frame.ambiguities(),
+                    frame.clarification()
+            );
+        }
+        return frame;
+    }
+
+    private SearchSemantics parseDirectoryContents(String message, SemanticFrame.Query fallbackQuery) {
+        Matcher directoryMatcher = NAMED_DIRECTORY_CONTENT.matcher(message);
+        if (!directoryMatcher.find()) {
+            directoryMatcher = NAMED_LOCATION_CONTENT.matcher(message);
+        }
+        if (!directoryMatcher.find(0)) {
+            return null;
+        }
+        String folder = cleanFolderSurface(directoryMatcher.group(1));
+        String type = resultType(directoryMatcher.group(2), message, "ANY");
+        String scopeType = isPreviousFolderReference(folder) ? "PREVIOUS_RESULTS" : rootScope(folder);
+        return new SearchSemantics(
+                new SemanticFrame.Query("LIST_CHILDREN", type, "", "", fallbackQuery.filters()),
+                new SemanticFrame.Scope(
+                        scopeType,
+                        "NAMED_FOLDER".equals(scopeType) || "PREVIOUS_RESULTS".equals(scopeType) ? folder : "",
+                        "NAMED_FOLDER".equals(scopeType) ? normalizeName(folder) : ""
+                )
+        );
+    }
+
+    private SemanticFrame copyFrame(
+            SemanticFrame source,
+            String relation,
+            String operation,
+            SemanticFrame.Query query,
+            SemanticFrame.Scope scope,
+            SemanticFrame.Reference reference,
+            List<String> ambiguities,
+            SemanticFrame.Clarification clarification
+    ) {
+        return new SemanticFrame(
+                SemanticFrame.VERSION,
+                relation,
+                operation,
+                query,
+                scope,
+                reference,
+                source.confidence(),
+                ambiguities,
+                clarification
+        );
+    }
+
     private SemanticFrame validate(
             SemanticFrame frame,
             IntentRecognitionResponse response,
@@ -281,15 +390,21 @@ public class SemanticFrameResolver {
         String relation = allowed(frame.relation(), RELATIONS, "NEW_TASK");
         String operation = allowed(frame.operation(), OPERATIONS, operationFor(response));
         String mode = allowed(frame.query().mode(), QUERY_MODES, "NONE");
+        String nameSurface = cleanReferentialObjectSuffix(frame.query().nameSurface());
         String resultType = allowed(frame.query().resultType(), RESULT_TYPES, "ANY");
+        if ("ANY".equals(resultType)
+                && !"LIST_CHILDREN".equals(mode)
+                && (nameSurface.endsWith("文件夹") || nameSurface.endsWith("目录"))) {
+            resultType = "FOLDER";
+        }
         String scopeType = allowed(frame.scope().type(), SCOPE_TYPES, "ALL");
         SemanticFrame.Query query = new SemanticFrame.Query(
                 mode,
                 resultType,
-                frame.query().nameSurface(),
+                nameSurface,
                 frame.query().nameNormalized().isBlank()
-                        ? normalizeName(frame.query().nameSurface())
-                        : frame.query().nameNormalized(),
+                        ? normalizeName(nameSurface)
+                        : normalizeName(nameSurface),
                 safeFilters(frame.query().filters())
         );
         SemanticFrame.Scope scope = new SemanticFrame.Scope(
@@ -493,6 +608,9 @@ public class SemanticFrameResolver {
     }
 
     private SemanticFrame.Reference contextReference(AssistantConversationState conversation) {
+        if (conversation == null || conversation.focus() == null) {
+            return new SemanticFrame.Reference("PREVIOUS_CANDIDATE_SET", null, null);
+        }
         CandidateBindingResult binding = conversation.candidateBinding();
         if (binding != null && binding.selectedCandidate() != null) {
             return new SemanticFrame.Reference("SELECTED_CANDIDATE", binding.selectedCandidate().nodeId(), null);
@@ -505,6 +623,64 @@ public class SemanticFrameResolver {
             );
         }
         return new SemanticFrame.Reference("PREVIOUS_CANDIDATE_SET", null, null);
+    }
+
+    private SemanticFrame.Reference ordinalReference(AssistantConversationState conversation, int ordinal) {
+        if (conversation != null
+                && conversation.focus() != null
+                && conversation.focus().candidateBinding() != null
+                && ordinal > 0
+                && ordinal <= conversation.focus().candidateBinding().candidates().size()) {
+            CandidateItem candidate = conversation.focus().candidateBinding().candidates().get(ordinal - 1);
+            return new SemanticFrame.Reference("SELECTED_CANDIDATE", candidate.nodeId(), ordinal);
+        }
+        return new SemanticFrame.Reference("PREVIOUS_CANDIDATE_SET", null, ordinal);
+    }
+
+    private boolean hasSingleFolderContext(AssistantConversationState conversation) {
+        if (conversation == null || conversation.focus() == null || !conversation.focus().hasSingleCandidateFocus()) {
+            return false;
+        }
+        CandidateItem candidate = conversation.focus().effectiveCandidate();
+        return candidate != null && "FOLDER".equalsIgnoreCase(candidate.type()) && candidate.nodeId() != null;
+    }
+
+    private boolean isPreviousFolderReference(String value) {
+        String normalized = normalizeName(value);
+        return List.of(
+                "这个文件夹", "这个目录", "那个文件夹", "那个目录", "该文件夹", "该目录",
+                "刚才那个文件夹", "刚才那个目录", "上一个文件夹", "上一个目录"
+        ).contains(normalized);
+    }
+
+    private Integer ordinalIndex(String message) {
+        Matcher matcher = Pattern.compile("第\\s*(\\d+|一|二|三|四|五|六|七|八|九|十)\\s*个?").matcher(message == null ? "" : message);
+        if (!matcher.find()) {
+            return null;
+        }
+        String value = matcher.group(1);
+        return switch (value) {
+            case "一" -> 1;
+            case "二" -> 2;
+            case "三" -> 3;
+            case "四" -> 4;
+            case "五" -> 5;
+            case "六" -> 6;
+            case "七" -> 7;
+            case "八" -> 8;
+            case "九" -> 9;
+            case "十" -> 10;
+            default -> Integer.parseInt(value);
+        };
+    }
+
+    private String cleanReferentialObjectSuffix(String value) {
+        String surface = cleanName(value);
+        Matcher matcher = REFERENTIAL_OBJECT_SUFFIX.matcher(surface);
+        if (matcher.matches() && !matcher.group(1).isBlank()) {
+            return cleanName(matcher.group(1));
+        }
+        return surface;
     }
 
     private Map<String, Object> safeFilters(Map<String, Object> filters) {

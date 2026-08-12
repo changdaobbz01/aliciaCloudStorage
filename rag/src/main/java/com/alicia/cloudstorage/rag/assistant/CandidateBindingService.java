@@ -188,6 +188,7 @@ public class CandidateBindingService {
             String scope = switch (frame.scope().type()) {
                 case "ROOT" -> FileQueryPlanResolver.SCOPE_ROOT;
                 case "CURRENT" -> FileQueryPlanResolver.SCOPE_CURRENT;
+                case "PREVIOUS_RESULTS" -> FileQueryPlanResolver.SCOPE_CURRENT;
                 case "NAMED_FOLDER" -> FileQueryPlanResolver.SCOPE_NAMED_FOLDER;
                 default -> FileQueryPlanResolver.SCOPE_ALL;
             };
