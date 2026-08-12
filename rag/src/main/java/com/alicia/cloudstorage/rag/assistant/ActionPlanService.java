@@ -26,26 +26,41 @@ public class ActionPlanService {
     }
 
     public ActionPlan build(IntentRecognitionResponse response) {
+        return build(response, AssistantClientContext.empty());
+    }
+
+    public ActionPlan build(IntentRecognitionResponse response, AssistantClientContext clientContext) {
         if (response == null) {
             return ActionPlan.skipped("understanding", "ActionPlan 尚未生成。");
         }
+
+        AssistantClientContext safeClientContext = clientContext == null
+                ? AssistantClientContext.empty()
+                : clientContext;
 
         String rawActionType = response.actionDraft() == null ? "none" : response.actionDraft().type();
         if (rawActionType == null || rawActionType.isBlank() || "none".equals(rawActionType)) {
             return ActionPlan.skipped("completed", response.assistantText());
         }
         if (rawActionType.startsWith("composite.")) {
-            return buildCompositePlan(response, rawActionType);
+            return buildCompositePlan(response, rawActionType, safeClientContext);
         }
         if (rawActionType.startsWith("collection.")) {
-            return buildCollectionPlan(response, rawActionType);
+            return buildCollectionPlan(response, rawActionType, safeClientContext);
         }
         String canonicalAction = canonicalActionType(rawActionType);
         String status = planStatus(response);
         String risk = response.safety() == null ? "none" : response.safety().risk();
         CandidateItem selectedCandidate = selectedCandidate(response.candidateBinding());
         Map<String, ActionPlanBinding> bindings = bindingsFor(response, rawActionType, selectedCandidate);
-        List<ActionPlanStep> steps = stepsFor(response, rawActionType, canonicalAction, selectedCandidate, status);
+        List<ActionPlanStep> steps = stepsFor(
+                response,
+                rawActionType,
+                canonicalAction,
+                selectedCandidate,
+                status,
+                safeClientContext
+        );
         List<String> requiredClientFields = steps.stream()
                 .flatMap(step -> step.requiredClientFields().stream())
                 .distinct()
@@ -116,7 +131,11 @@ public class ActionPlanService {
         );
     }
 
-    private ActionPlan buildCompositePlan(IntentRecognitionResponse response, String actionType) {
+    private ActionPlan buildCompositePlan(
+            IntentRecognitionResponse response,
+            String actionType,
+            AssistantClientContext clientContext
+    ) {
         JsonNode definition = compositeDefinitions.path(actionType);
         if (definition.isMissingNode() || !definition.path("enabled").asBoolean(false)) {
             return unsupportedConfiguredPlan(response, actionType, "composite");
@@ -128,9 +147,17 @@ public class ActionPlanService {
                 response,
                 definition.path("bindings"),
                 selectedCandidate,
-                Map.of()
+                Map.of(),
+                clientContext
         );
-        List<ActionPlanStep> steps = configuredSteps(definition.path("steps"), response, selectedCandidate, Map.of(), status);
+        List<ActionPlanStep> steps = configuredSteps(
+                definition.path("steps"),
+                response,
+                selectedCandidate,
+                Map.of(),
+                status,
+                clientContext
+        );
         List<String> requiredClientFields = requiredClientFields(steps);
 
         return new ActionPlan(
@@ -150,7 +177,11 @@ public class ActionPlanService {
         );
     }
 
-    private ActionPlan buildCollectionPlan(IntentRecognitionResponse response, String actionType) {
+    private ActionPlan buildCollectionPlan(
+            IntentRecognitionResponse response,
+            String actionType,
+            AssistantClientContext clientContext
+    ) {
         JsonNode definition = collectionDefinitions.path(actionType);
         if (definition.isMissingNode() || !definition.path("enabled").asBoolean(false)) {
             return unsupportedConfiguredPlan(response, actionType, "collection");
@@ -170,9 +201,22 @@ public class ActionPlanService {
                 null,
                 sourceFilter
         ));
-        bindings.putAll(configuredBindings(response, definition.path("bindings"), selectedCandidate, sourceFilter));
+        bindings.putAll(configuredBindings(
+                response,
+                definition.path("bindings"),
+                selectedCandidate,
+                sourceFilter,
+                clientContext
+        ));
 
-        List<ActionPlanStep> steps = configuredSteps(definition.path("steps"), response, selectedCandidate, sourceFilter, status);
+        List<ActionPlanStep> steps = configuredSteps(
+                definition.path("steps"),
+                response,
+                selectedCandidate,
+                sourceFilter,
+                status,
+                clientContext
+        );
         List<String> requiredClientFields = requiredClientFields(steps);
 
         return new ActionPlan(
@@ -287,12 +331,13 @@ public class ActionPlanService {
             String rawActionType,
             String canonicalAction,
             CandidateItem selectedCandidate,
-            String status
+            String status,
+            AssistantClientContext clientContext
     ) {
         if (selectedCandidate == null) {
             return List.of();
         }
-        if (selectedCandidate.nodeId() == null) {
+        if (selectedCandidate.nodeId() == null && !"upload_target".equals(rawActionType)) {
             return List.of();
         }
 
@@ -300,21 +345,29 @@ public class ActionPlanService {
             case "rename" -> renameParams(response, selectedCandidate);
             case "delete" -> Map.of("nodeId", selectedCandidate.nodeId());
             case "share" -> shareParams(response, selectedCandidate);
-            case "upload_target" -> Map.of("parentId", selectedCandidate.nodeId());
+            case "upload_target" -> {
+                Map<String, Object> uploadParams = new LinkedHashMap<>();
+                uploadParams.put("parentId", selectedCandidate.nodeId());
+                yield Collections.unmodifiableMap(uploadParams);
+            }
             default -> Map.of();
         };
 
-        if (params.isEmpty()) {
+        if (params.isEmpty() && !"upload_target".equals(rawActionType)) {
             return List.of();
         }
 
+        List<String> requiredClientFields = remainingClientFields(
+                "upload_target".equals(rawActionType) ? List.of("files") : List.of(),
+                clientContext
+        );
         return List.of(new ActionPlanStep(
                 stepId(canonicalAction),
                 canonicalAction,
-                stepStatus(status),
+                stepStatus(status, requiredClientFields),
                 params,
                 List.of(),
-                "upload_target".equals(rawActionType) ? List.of("files") : List.of(),
+                requiredClientFields,
                 outputKey(canonicalAction)
         ));
     }
@@ -347,7 +400,8 @@ public class ActionPlanService {
             IntentRecognitionResponse response,
             JsonNode bindingDefinitions,
             CandidateItem selectedCandidate,
-            Map<String, Object> sourceFilter
+            Map<String, Object> sourceFilter,
+            AssistantClientContext clientContext
     ) {
         if (!bindingDefinitions.isArray()) {
             return Map.of();
@@ -361,14 +415,15 @@ public class ActionPlanService {
                 continue;
             }
             if ("client_files".equals(kind)) {
+                int availableCount = clientContext.availableClientInputs().getOrDefault("files", 0);
                 result.put(key, new ActionPlanBinding(
                         key,
                         kind,
-                        "unresolved",
+                        availableCount > 0 ? "resolved" : "unresolved",
                         "",
                         null,
                         List.of(),
-                        null,
+                        availableCount > 0 ? availableCount : null,
                         Map.of("providedBy", binding.path("providedBy").asText("client"))
                 ));
                 continue;
@@ -398,7 +453,8 @@ public class ActionPlanService {
             IntentRecognitionResponse response,
             CandidateItem selectedCandidate,
             Map<String, Object> sourceFilter,
-            String planStatus
+            String planStatus,
+            AssistantClientContext clientContext
     ) {
         if (!stepDefinitions.isArray()) {
             return List.of();
@@ -406,7 +462,10 @@ public class ActionPlanService {
 
         List<ActionPlanStep> result = new ArrayList<>();
         for (JsonNode step : stepDefinitions) {
-            List<String> requiredClientFields = stringList(step.path("requiredClientFields"));
+            List<String> requiredClientFields = remainingClientFields(
+                    stringList(step.path("requiredClientFields")),
+                    clientContext
+            );
             result.add(new ActionPlanStep(
                     step.path("stepId").asText(""),
                     step.path("action").asText(""),
@@ -485,9 +544,7 @@ public class ActionPlanService {
             return value == null ? "" : value;
         }
         if ("$bindings.targetParent.nodeId".equals(expression)) {
-            return selectedCandidate == null || selectedCandidate.nodeId() == null
-                    ? expression
-                    : selectedCandidate.nodeId();
+            return selectedCandidate == null ? expression : selectedCandidate.nodeId();
         }
         if ("$bindings.targetParent.path".equals(expression)) {
             return selectedCandidate == null ? expression : selectedCandidate.path();
@@ -599,6 +656,19 @@ public class ActionPlanService {
                 .toList();
     }
 
+    private List<String> remainingClientFields(
+            List<String> requiredClientFields,
+            AssistantClientContext clientContext
+    ) {
+        AssistantClientContext safeClientContext = clientContext == null
+                ? AssistantClientContext.empty()
+                : clientContext;
+        return requiredClientFields.stream()
+                .filter(field -> !safeClientContext.provides(field))
+                .distinct()
+                .toList();
+    }
+
     private String configuredStepStatus(String planStatus, List<String> requiredClientFields) {
         if ("ready_to_execute".equals(planStatus)) {
             return "ready";
@@ -695,10 +765,10 @@ public class ActionPlanService {
         return "candidate_then_final_review";
     }
 
-    private String stepStatus(String planStatus) {
+    private String stepStatus(String planStatus, List<String> requiredClientFields) {
         return switch (planStatus) {
             case "ready_to_execute" -> "ready";
-            case "client_input_required" -> "blocked";
+            case "client_input_required" -> requiredClientFields.isEmpty() ? "ready" : "blocked";
             default -> "pending";
         };
     }

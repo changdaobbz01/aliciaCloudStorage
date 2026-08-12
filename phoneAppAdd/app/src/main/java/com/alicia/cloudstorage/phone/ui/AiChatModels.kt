@@ -16,13 +16,34 @@ internal data class AiChatFileResult(
     val extension: String?,
     val mimeType: String?,
     val updatedAt: String?,
+    val path: String? = null,
     val selectionAction: AiChatCandidateSelectionAction? = null,
 )
+
+internal data class AiChatFolderOpenTarget(
+    val nodeId: Long?,
+    val name: String,
+)
+
+internal fun AiChatFileResult.toFolderOpenTargetOrNull(): AiChatFolderOpenTarget? {
+    if (!type.equals("FOLDER", ignoreCase = true)) {
+        return null
+    }
+    if (nodeId != null) {
+        return AiChatFolderOpenTarget(nodeId = nodeId, name = name)
+    }
+    return path
+        ?.trim()
+        ?.takeIf { it == "/" }
+        ?.let { AiChatFolderOpenTarget(nodeId = null, name = name.ifBlank { "根目录" }) }
+}
 
 internal data class AiChatCandidateSelectionAction(
     val label: String,
     val requestMessage: String,
     val displayText: String,
+    val candidateId: Long? = null,
+    val candidateIndex: Int? = null,
 )
 
 internal data class AiChatPlanPreview(
@@ -43,20 +64,10 @@ internal data class AiChatPlanClientActionControls(
     val uploadRequest: AiChatClientUploadRequest,
 )
 
-internal data class AiChatClientUploadRequest(
-    val parentId: Long?,
-    val targetName: String?,
-    val createFolderName: String? = null,
-)
-
-internal data class AiChatClientUploadLaunch(
-    val messageId: Long,
-    val request: AiChatClientUploadRequest,
-)
-
 internal data class AiChatPendingAttachment(
     val id: String,
     val name: String,
+    val isFolder: Boolean = false,
 )
 
 internal data class AiChatFileMutationSignal(

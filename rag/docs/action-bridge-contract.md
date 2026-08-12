@@ -9,6 +9,8 @@
 
 调用 `POST /api/assistant/plan` 时，可携带用户自己的 `Authorization` 请求头。该请求头只用于 RAG 服务向 CloudStorageApi 做只读候选查询，不写入会话状态，也不会出现在响应体。
 
+移动端还可通过 `clientContext.availableClientInputs` 只提交客户端已具备的输入数量，例如 `{ "files": 3, "folders": 1 }`。RAG 只用这些计数判断 `requiredClientFields` 是否已满足；本地 URI、路径和文件名不得发给 RAG。
+
 ## 状态流
 
 ```mermaid
@@ -47,7 +49,7 @@ flowchart TD
 - `executableByBackend`：是否可由调用方提交到 CloudStorageApi。
 - `authorizationRequired`：提交 CloudStorageApi 时是否必须携带用户授权。
 - `method`、`path`、`queryParameters`、`body`：调用方请求草稿。
-- `requiredClientFields`：仍需客户端补充的字段。上传目标定位会要求 `file`。
+- `requiredClientFields`：仍需客户端补充的字段。上传目标定位会要求 `files`；若 `clientContext.availableClientInputs.files > 0`，计划与草稿会将该字段视为已满足。
 - `targetCandidate`：上一轮 CloudStorageApi 只读候选查询返回并经用户选择或确认的真实候选。
 
 集合动作会在用户确认轮重新生成只读预览。只有预览状态为完整、预览候选覆盖全部匹配项、所有候选都具备 `nodeId` 时，才会生成批量请求草稿。
@@ -68,7 +70,7 @@ flowchart TD
 
 - `backendActionDraft.status = client_action_required`
 - `backendActionDraft.nextAction = handoff_to_client_upload`
-- 调用方必须让用户选择本地文件
+- 调用方必须已有本地选择，或先让用户选择本地文件/文件夹
 - 再调用 `POST /api/storage/files?parentId={nodeId}`，以 `multipart/form-data` 上传
 
 ## CloudStorageApi 安全边界
@@ -86,7 +88,7 @@ CloudStorageApi 必须继续把 RAG 输出视为不可信输入：
 - `rename`：`PUT /api/storage/nodes/{nodeId}/rename`，body 为 `{ "name": new_name }`。
 - `delete`：`DELETE /api/storage/nodes/{nodeId}`，移动到回收站。
 - `share`：`POST /api/share-links`，body 包含 `nodeIds`、`title` 和默认分享选项。
-- `upload_target`：`POST /api/storage/files?parentId={nodeId}`，需要客户端补充本地文件。
+- `upload_target`：客户端逐个调用 `POST /api/storage/files?parentId={nodeId}`，需要客户端补充一个或多个本地文件；目录上传由客户端先创建同名目录并递归逐文件提交。
 - `collection.trash_by_name_contains`：`POST /api/storage/nodes/batch/trash`，body 为 `{ "nodeIds": [...] }`。
 - `collection.trash_by_category`：`POST /api/storage/nodes/batch/trash`，body 为 `{ "nodeIds": [...] }`。
 - `collection.move_by_extension`：`PUT /api/storage/nodes/batch/move`，body 为 `{ "nodeIds": [...], "parentId": targetParentId }`。

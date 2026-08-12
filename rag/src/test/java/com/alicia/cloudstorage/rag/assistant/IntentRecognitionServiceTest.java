@@ -64,6 +64,51 @@ class IntentRecognitionServiceTest {
     }
 
     @Test
+    void preservesDeepSeekSemanticDirectoryQueryPlan() {
+        IntentModelClient modelClient = message -> Optional.of(new IntentModelClient.ModelIntentResult(
+                "deepseek",
+                "deepseek-v4-flash",
+                "deepseek_file_intent_recognition",
+                "intent_recognition_v3",
+                Map.ofEntries(
+                        Map.entry("intent_id", "file_search"),
+                        Map.entry("intent_name", "文件检索"),
+                        Map.entry("task_type", "file_query"),
+                        Map.entry("confidence", 0.98),
+                        Map.entry("normalized_query", "列出根目录文件夹"),
+                        Map.entry("entities", Map.of(
+                                "query_mode", "directory_list",
+                                "scope", "root",
+                                "result_type", "FOLDER"
+                        )),
+                        Map.entry("missing_slots", List.of()),
+                        Map.entry("next_action", "wait_for_backend_binding"),
+                        Map.entry("action_draft", Map.of(
+                                "type", "search",
+                                "parameters", Map.of(
+                                        "query_mode", "directory_list",
+                                        "scope", "root",
+                                        "result_type", "FOLDER"
+                                ),
+                                "needs_backend_binding", true
+                        )),
+                        Map.entry("assistant_text", "我来列出根目录下的文件夹。")
+                )
+        ));
+
+        IntentRecognitionResponse response = new IntentRecognitionService(modelClient, intentRouter, configLoader)
+                .recognize("列出根目录文件夹列表");
+
+        assertThat(response.provider()).isEqualTo("deepseek");
+        assertThat(response.intentId()).isEqualTo("file_search");
+        assertThat(response.entities())
+                .containsEntry("query_mode", "directory_list")
+                .containsEntry("scope", "root")
+                .containsEntry("result_type", "FOLDER")
+                .doesNotContainKey("target_name");
+    }
+
+    @Test
     void fallsBackToConfiguredRulesWhenModelUnavailable() {
         IntentModelClient unavailableClient = message -> Optional.empty();
 
@@ -78,6 +123,53 @@ class IntentRecognitionServiceTest {
     }
 
     @Test
+    void highConfidenceConfiguredIntentGuardsAgainstStochasticModelFallback() {
+        IntentModelClient modelClient = message -> Optional.of(new IntentModelClient.ModelIntentResult(
+                "deepseek",
+                "deepseek-v4-flash",
+                "deepseek_semantic_frame_v2",
+                "semantic_frame_v2",
+                Map.of(
+                        "intent_id", "fallback",
+                        "confidence", 0.2,
+                        "entities", Map.of(),
+                        "assistant_text", "我没有理解你的意思。"
+                )
+        ));
+
+        IntentRecognitionResponse response = new IntentRecognitionService(modelClient, intentRouter, configLoader)
+                .recognize("你是谁");
+
+        assertThat(response.provider()).isEqualTo("local_fallback");
+        assertThat(response.intentId()).isEqualTo("assistant_identity");
+        assertThat(response.semanticFrame().operation()).isEqualTo("RESPOND");
+        assertThat(response.assistantText()).contains("安安").doesNotContain("没有理解");
+    }
+
+    @Test
+    void configuredIntentContractOverridesModelNextAction() {
+        IntentModelClient modelClient = message -> Optional.of(new IntentModelClient.ModelIntentResult(
+                "deepseek",
+                "deepseek-v4-flash",
+                "deepseek_semantic_frame_v2",
+                "semantic_frame_v2",
+                Map.of(
+                        "intent_id", "assistant_capability_examples",
+                        "confidence", 0.98,
+                        "entities", Map.of(),
+                        "next_action", "wait_for_backend_binding",
+                        "assistant_text", "我可以帮你管理云盘文件。"
+                )
+        ));
+
+        IntentRecognitionResponse response = new IntentRecognitionService(modelClient, intentRouter, configLoader)
+                .recognize("你能做什么");
+
+        assertThat(response.intentId()).isEqualTo("assistant_capability_examples");
+        assertThat(response.nextAction()).isEqualTo("respond_only");
+    }
+
+    @Test
     void localFallbackUsesConfiguredOutOfScopeBoundaryText() {
         IntentModelClient unavailableClient = message -> Optional.empty();
 
@@ -86,7 +178,9 @@ class IntentRecognitionServiceTest {
 
         assertThat(response.provider()).isEqualTo("local_fallback");
         assertThat(response.intentId()).isEqualTo("fallback");
-        assertThat(response.assistantText()).contains("还没完全抓住你的意思").contains("换个说法");
+        assertThat(response.assistantText()).contains("再明确一点");
+        assertThat(response.semanticFrame().ambiguities()).contains("operation");
+        assertThat(response.semanticFrame().clarification().suggestions()).isNotEmpty();
     }
 
     @Test
@@ -155,7 +249,7 @@ class IntentRecognitionServiceTest {
         assertThat(response.provider()).isEqualTo("deepseek");
         assertThat(response.intentId()).isEqualTo("fallback");
         assertThat(response.assistantText())
-                .contains("还没完全抓住你的意思")
+                .contains("再明确一点")
                 .doesNotContain("识别为")
                 .doesNotContain("请补充要执行的操作");
     }
@@ -197,13 +291,12 @@ class IntentRecognitionServiceTest {
         assertThat(response.provider()).isEqualTo("deepseek");
         assertThat(response.intentId()).isEqualTo("fallback");
         assertThat(response.assistantText())
-                .contains("随口感叹")
-                .doesNotContain("还没完全抓住你的意思")
+                .contains("再明确一点")
                 .doesNotContain("识别为");
     }
 
     @Test
-    void modelFallbackCanUseSafePolishedTemplateText() {
+    void highConfidenceAcknowledgementOverridesModelFallbackAndKeepsNaturalReply() {
         IntentModelClient modelClient = message -> Optional.of(new IntentModelClient.ModelIntentResult(
                 "deepseek",
                 "deepseek-v4-flash",
@@ -237,11 +330,10 @@ class IntentRecognitionServiceTest {
         IntentRecognitionResponse response = new IntentRecognitionService(modelClient, intentRouter, configLoader, polisher)
                 .recognize("好吧，今天先这样");
 
-        assertThat(response.provider()).isEqualTo("deepseek");
-        assertThat(response.intentId()).isEqualTo("fallback");
+        assertThat(response.provider()).isEqualTo("local_fallback");
+        assertThat(response.intentId()).isEqualTo("assistant_acknowledgement");
         assertThat(response.assistantText())
-                .contains("我听到啦")
-                .doesNotContain("还没完全抓住你的意思")
+                .contains("听到啦")
                 .doesNotContain("识别为");
     }
 

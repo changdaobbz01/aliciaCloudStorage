@@ -14,12 +14,14 @@ public record AssistantConversationState(
         ActionDraft pendingActionDraft,
         CandidateBindingResult candidateBinding,
         AssistantConversationFocus focus,
+        SemanticFrame semanticFrame,
         Instant expiresAt
 ) {
     public AssistantConversationState {
         entities = entities == null ? Map.of() : Map.copyOf(new LinkedHashMap<>(entities));
         pendingSlots = pendingSlots == null ? List.of() : List.copyOf(pendingSlots);
         focus = focus == null ? AssistantConversationFocus.empty() : focus;
+        semanticFrame = semanticFrame == null ? SemanticFrame.empty() : semanticFrame;
     }
 
     boolean isExpired(Instant now) {

@@ -123,6 +123,29 @@ class StorageApiCandidateSearchClientTest {
     }
 
     @Test
+    void exactFolderNameWinsOverFuzzyAndNestedMatches() {
+        StorageApiCandidateSearchClient client = new StorageApiCandidateSearchClient(
+                FakeStorageApiNodeReadClient.withFolders(List.of(
+                        new CandidateItem(23L, null, "测试目录", "FOLDER", 0L, "", "", ""),
+                        new CandidateItem(24L, 23L, "测试目录2", "FOLDER", 0L, "", "", ""),
+                        new CandidateItem(25L, null, "旧测试目录", "FOLDER", 0L, "", "", "")
+                ))
+        );
+
+        CandidateBindingResult result = client.search(new CandidateSearchRequest(
+                "file_upload",
+                "upload_target",
+                "FOLDER",
+                "测试目录",
+                5,
+                "Bearer token"
+        ));
+
+        assertThat(result.status()).isEqualTo("single_candidate");
+        assertThat(result.candidates()).extracting(CandidateItem::name).containsExactly("测试目录");
+    }
+
+    @Test
     void folderSearchDoesNotSplitArbitraryUserDefinedNounsByDefault() {
         StorageApiCandidateSearchClient client = new StorageApiCandidateSearchClient(
                 FakeStorageApiNodeReadClient.withFolders(List.of(
@@ -142,6 +165,73 @@ class StorageApiCandidateSearchClientTest {
 
         assertThat(result.status()).isEqualTo("no_candidates");
         assertThat(result.candidates()).isEmpty();
+    }
+
+    @Test
+    void listsRootFoldersWithoutTurningTheSentenceIntoAKeyword() {
+        FakeStorageApiNodeReadClient storageApi = FakeStorageApiNodeReadClient.withNodeResults(Map.of(
+                "", List.of(
+                        new CandidateItem(31L, null, "项目资料", "FOLDER", 0L, "", "", ""),
+                        new CandidateItem(32L, null, "说明.txt", "FILE", 10L, "txt", "text/plain", "")
+                )
+        ));
+        StorageApiCandidateSearchClient client = new StorageApiCandidateSearchClient(storageApi);
+
+        CandidateBindingResult result = client.search(new CandidateSearchRequest(
+                "file_search",
+                "search",
+                "FOLDER",
+                "directory_scope",
+                "",
+                "directory_list",
+                "root",
+                "",
+                99L,
+                "根目录/其他位置",
+                20,
+                "Bearer token"
+        ));
+
+        assertThat(result.status()).isEqualTo("search_results_ready");
+        assertThat(result.query()).isEqualTo("根目录");
+        assertThat(result.candidates()).extracting(CandidateItem::name).containsExactly("项目资料");
+        assertThat(storageApi.nodeQueries()).singleElement().satisfies(query -> {
+            assertThat(query.parentId()).isNull();
+            assertThat(query.recursive()).isFalse();
+            assertThat(query.keyword()).isBlank();
+            assertThat(query.type()).isEqualTo("FOLDER");
+        });
+    }
+
+    @Test
+    void listsFilesFromTheClientCurrentFolder() {
+        FakeStorageApiNodeReadClient storageApi = FakeStorageApiNodeReadClient.withNodeResults(Map.of(
+                "", List.of(new CandidateItem(41L, 77L, "合同.pdf", "FILE", 10L, "pdf", "application/pdf", ""))
+        ));
+        StorageApiCandidateSearchClient client = new StorageApiCandidateSearchClient(storageApi);
+
+        CandidateBindingResult result = client.search(new CandidateSearchRequest(
+                "file_search",
+                "search",
+                "FILE",
+                "directory_scope",
+                "",
+                "directory_list",
+                "current",
+                "",
+                77L,
+                "根目录/合同",
+                20,
+                "Bearer token"
+        ));
+
+        assertThat(result.candidates()).extracting(CandidateItem::name).containsExactly("合同.pdf");
+        assertThat(storageApi.nodeQueries()).singleElement().satisfies(query -> {
+            assertThat(query.parentId()).isEqualTo(77L);
+            assertThat(query.recursive()).isFalse();
+            assertThat(query.keyword()).isBlank();
+            assertThat(query.type()).isEqualTo("FILE");
+        });
     }
 
     private static class FakeStorageApiNodeReadClient extends StorageApiNodeReadClient {

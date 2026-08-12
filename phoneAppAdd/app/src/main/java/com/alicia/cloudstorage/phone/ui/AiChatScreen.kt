@@ -32,6 +32,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material3.Icon
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
@@ -40,6 +41,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -82,7 +84,7 @@ internal fun AiChatRoute(
     onBack: () -> Unit,
     onFileMutation: (AiChatFileMutationSignal) -> Unit,
     onOpenFileResult: (AiChatFileResult) -> Unit,
-    onClientUpload: (AiChatClientUploadRequest, (Boolean) -> Unit) -> Unit,
+    onClientUpload: (AiChatClientUploadRequest, AiChatClientUploadCallbacks) -> Unit,
     onAttachFiles: ((List<AiChatPendingAttachment>) -> Unit) -> Unit,
     onClearAttachedFiles: () -> Unit,
     modifier: Modifier = Modifier,
@@ -91,6 +93,8 @@ internal fun AiChatRoute(
     actionExecutionEnabled: Boolean = BuildConfig.RAG_ACTION_EXECUTION_ENABLED,
     confirmationMessage: String = BuildConfig.RAG_CONFIRMATION_MESSAGE,
     authToken: String = "",
+    currentFolderId: Long? = null,
+    currentFolderPath: String = "根目录",
 ) {
     val context = LocalContext.current
     val viewModelKey = remember(ragBaseUrl, apiBaseUrl, actionExecutionEnabled, confirmationMessage, authToken) {
@@ -108,24 +112,39 @@ internal fun AiChatRoute(
         ),
     )
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val currentOnFileMutation by rememberUpdatedState(onFileMutation)
+    val currentOnClientUpload by rememberUpdatedState(onClientUpload)
+    val currentOnClearAttachedFiles by rememberUpdatedState(onClearAttachedFiles)
 
-    androidx.compose.runtime.LaunchedEffect(viewModel) {
+    androidx.compose.runtime.LaunchedEffect(viewModel, currentFolderId, currentFolderPath) {
+        viewModel.updateFileContext(currentFolderId, currentFolderPath)
+    }
+
+    LaunchedEffect(viewModel) {
         viewModel.fileMutationSignals.collect { signal ->
-            onFileMutation(signal)
+            currentOnFileMutation(signal)
         }
     }
 
-    androidx.compose.runtime.LaunchedEffect(viewModel, onClientUpload) {
+    LaunchedEffect(viewModel) {
         viewModel.clientUploadRequests.collect { launch ->
-            onClientUpload(launch.request) { filesSelected ->
-                viewModel.completeClientUploadSelection(launch, filesSelected)
-            }
+            currentOnClientUpload(
+                launch.request,
+                AiChatClientUploadCallbacks(
+                    onSelectionResolved = { filesSelected ->
+                        viewModel.completeClientUploadSelection(launch, filesSelected)
+                    },
+                    onExecutionCompleted = { result ->
+                        viewModel.completeClientUploadExecution(launch, result)
+                    },
+                ),
+            )
         }
     }
 
-    androidx.compose.runtime.LaunchedEffect(viewModel, onClearAttachedFiles) {
+    LaunchedEffect(viewModel) {
         viewModel.composerAttachmentClearRequests.collect {
-            onClearAttachedFiles()
+            currentOnClearAttachedFiles()
         }
     }
 
@@ -784,12 +803,21 @@ private fun AiPendingAttachmentChip(
             .padding(horizontal = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Image(
-            painter = painterResource(R.drawable.ic_ai_document),
-            contentDescription = null,
-            modifier = Modifier.size(19.dp),
-            contentScale = ContentScale.Fit,
-        )
+        if (attachment.isFolder) {
+            Icon(
+                imageVector = Icons.Rounded.Folder,
+                contentDescription = null,
+                tint = AiBlue,
+                modifier = Modifier.size(19.dp),
+            )
+        } else {
+            Image(
+                painter = painterResource(R.drawable.ic_ai_document),
+                contentDescription = null,
+                modifier = Modifier.size(19.dp),
+                contentScale = ContentScale.Fit,
+            )
+        }
         Spacer(modifier = Modifier.width(6.dp))
         Text(
             text = attachment.name,

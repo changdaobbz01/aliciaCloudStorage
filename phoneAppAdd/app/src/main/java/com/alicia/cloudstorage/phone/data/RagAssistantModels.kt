@@ -3,6 +3,20 @@ package com.alicia.cloudstorage.phone.data
 data class RagAssistantPlanRequest(
     val message: String,
     val conversationId: String? = null,
+    val clientContext: RagAssistantClientContext? = null,
+    val clientEvent: RagAssistantClientEvent? = null,
+)
+
+data class RagAssistantClientEvent(
+    val type: String,
+    val candidateId: Long? = null,
+    val candidateIndex: Int? = null,
+)
+
+data class RagAssistantClientContext(
+    val currentFolderId: Long?,
+    val currentFolderPath: String,
+    val availableClientInputs: Map<String, Int> = emptyMap(),
 )
 
 data class RagAssistantPlanResponse(
@@ -32,6 +46,58 @@ data class RagAssistantPlanResponse(
     val fallbackReason: String?,
     val candidateBinding: RagCandidateBinding?,
     val conversation: RagConversationSnapshot?,
+    val semanticFrame: RagSemanticFrame? = null,
+    val interaction: RagAssistantInteraction? = null,
+)
+
+data class RagSemanticFrame(
+    val schemaVersion: String?,
+    val relation: String?,
+    val operation: String?,
+    val query: RagSemanticQuery?,
+    val scope: RagSemanticScope?,
+    val reference: RagSemanticReference?,
+    val confidence: Double?,
+    val ambiguities: List<String>?,
+    val clarification: RagSemanticClarification?,
+)
+
+data class RagSemanticQuery(
+    val mode: String?,
+    val resultType: String?,
+    val nameSurface: String?,
+    val nameNormalized: String?,
+    val filters: Map<String, Any>?,
+)
+
+data class RagSemanticScope(
+    val type: String?,
+    val folderSurface: String?,
+    val folderNormalized: String?,
+)
+
+data class RagSemanticReference(
+    val type: String?,
+    val candidateId: Long?,
+    val candidateIndex: Int?,
+)
+
+data class RagSemanticClarification(
+    val reason: String?,
+    val question: String?,
+    val suggestions: List<String>?,
+)
+
+data class RagAssistantInteraction(
+    val stage: String?,
+    val allowedActions: List<RagAllowedAction>?,
+    val clarification: RagSemanticClarification?,
+)
+
+data class RagAllowedAction(
+    val type: String?,
+    val label: String?,
+    val payload: Map<String, Any>?,
 )
 
 data class RagAssistantStreamEvent(

@@ -38,13 +38,26 @@ public class ConversationContextResolver {
             AssistantConversationState conversation,
             IntentRecognitionResponse baseResponse
     ) {
+        return resolve(message, conversation, baseResponse, null);
+    }
+
+    public ContextAttempt resolve(
+            String message,
+            AssistantConversationState conversation,
+            IntentRecognitionResponse baseResponse,
+            SemanticFrame semanticFrame
+    ) {
         if (!settings.enabled() || conversation == null || conversation.focus() == null) {
             return ContextAttempt.notApplied();
         }
 
         AssistantConversationFocus focus = conversation.focus();
         ConversationContextResolution localResolution = localResolve(message, focus, baseResponse);
-        Optional<ConversationContextResolution> modelResolution = modelClient
+        boolean semanticAuthority = semanticFrame != null
+                && SemanticFrame.VERSION.equals(semanticFrame.schemaVersion());
+        Optional<ConversationContextResolution> modelResolution = semanticAuthority
+                ? Optional.empty()
+                : modelClient
                 .resolve(message, conversation, baseResponse)
                 .map(result -> resolutionFromModel(result.payload()))
                 .filter(item -> item.confidence() >= settings.minConfidence());
@@ -158,6 +171,10 @@ public class ConversationContextResolver {
             return ConversationContextResolution.newTask("空输入不承接上下文。");
         }
 
+        if (referencesClientInput(cleanMessage, baseResponse)) {
+            return ConversationContextResolution.newTask("上传动作中的代词指向客户端已选择内容，不承接云盘候选上下文。");
+        }
+
         if (!referencesContext(cleanMessage)) {
             return ConversationContextResolution.newTask("未检测到上下文引用。");
         }
@@ -242,6 +259,16 @@ public class ConversationContextResolver {
         }
 
         return ConversationContextResolution.newTask("承接表达未形成可解析上下文动作。");
+    }
+
+    private boolean referencesClientInput(String message, IntentRecognitionResponse baseResponse) {
+        if (baseResponse == null || baseResponse.actionDraft() == null) {
+            return false;
+        }
+        String actionType = baseResponse.actionDraft().type();
+        return settings.clientInputActionTypes().contains(actionType)
+                && (TextSupport.containsAny(message, settings.referenceTerms())
+                || TextSupport.containsAny(message, settings.setReferenceTerms()));
     }
 
     private ConversationContextResolution rewriteMutation(
@@ -652,6 +679,7 @@ public class ConversationContextResolver {
             Map<String, String> messages,
             List<String> referenceTerms,
             List<String> setReferenceTerms,
+            List<String> clientInputActionTypes,
             List<String> followUpQuestionMarkers,
             Map<String, List<String>> mutationMarkers,
             Map<String, Integer> ordinalAliases
@@ -666,6 +694,7 @@ public class ConversationContextResolver {
                     stringMap(root.path("messages")),
                     stringList(localFallback.path("reference_terms")),
                     stringList(localFallback.path("set_reference_terms")),
+                    stringList(localFallback.path("client_input_action_types")),
                     stringList(localFallback.path("follow_up_question_markers")),
                     stringListMap(localFallback.path("mutation_markers")),
                     ordinalAliases(candidateSelection.path("ordinal_aliases"))

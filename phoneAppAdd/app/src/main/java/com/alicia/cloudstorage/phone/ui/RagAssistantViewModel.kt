@@ -7,15 +7,19 @@ import androidx.lifecycle.viewModelScope
 import com.alicia.cloudstorage.phone.data.RagActionExecutionContext
 import com.alicia.cloudstorage.phone.data.RagActionExecutor
 import com.alicia.cloudstorage.phone.data.RagAssistantClient
+import com.alicia.cloudstorage.phone.data.RagAssistantClientContext
+import com.alicia.cloudstorage.phone.data.RagAssistantClientEvent
 import com.alicia.cloudstorage.phone.data.RagBackendActionDraft
 import com.alicia.cloudstorage.phone.data.RagConversationStore
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -38,14 +42,17 @@ internal class RagAssistantViewModel(
     val uiState = _uiState.asStateFlow()
     private val _fileMutationSignals = MutableSharedFlow<AiChatFileMutationSignal>(extraBufferCapacity = 1)
     val fileMutationSignals = _fileMutationSignals.asSharedFlow()
-    private val _clientUploadRequests = MutableSharedFlow<AiChatClientUploadLaunch>(extraBufferCapacity = 1)
-    val clientUploadRequests = _clientUploadRequests.asSharedFlow()
+    private val clientUploadRequestChannel = Channel<AiChatClientUploadLaunch>(capacity = Channel.BUFFERED)
+    val clientUploadRequests = clientUploadRequestChannel.receiveAsFlow()
     private val _composerAttachmentClearRequests = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val composerAttachmentClearRequests = _composerAttachmentClearRequests.asSharedFlow()
 
     private var conversationId: String? = null
+    private var currentFolderId: Long? = null
+    private var currentFolderPath: String = "根目录"
     private var nextMessageId = 10L
     private val pendingBackendDrafts = mutableMapOf<Long, RagBackendActionDraft>()
+    private val clientUploadTracker = AiChatClientUploadTracker()
 
     init {
         viewModelScope.launch {
@@ -57,10 +64,16 @@ internal class RagAssistantViewModel(
         _uiState.update { state -> state.copy(draft = value) }
     }
 
+    fun updateFileContext(folderId: Long?, folderPath: String) {
+        currentFolderId = folderId
+        currentFolderPath = folderPath.trim().ifBlank { "根目录" }
+    }
+
     fun startNewConversation() {
         viewModelScope.launch {
             conversationId = null
             pendingBackendDrafts.clear()
+            clientUploadTracker.clear()
             conversationStore.clearConversation()
             _uiState.value = AiChatUiState(
                 messages = initialRagMessages(),
@@ -95,6 +108,11 @@ internal class RagAssistantViewModel(
             requestMessage = selection.requestMessage,
             displayText = selection.displayText,
             clearDraft = true,
+            clientEvent = RagAssistantClientEvent(
+                type = "SELECT_CANDIDATE",
+                candidateId = selection.candidateId,
+                candidateIndex = selection.candidateIndex,
+            ),
         )
     }
 
@@ -102,6 +120,7 @@ internal class RagAssistantViewModel(
         requestMessage: String,
         displayText: String,
         clearDraft: Boolean,
+        clientEvent: RagAssistantClientEvent? = null,
     ) {
         val message = requestMessage.trim()
         val visibleText = displayText.trim().ifBlank { message }
@@ -144,6 +163,8 @@ internal class RagAssistantViewModel(
                     token = authToken,
                     message = message,
                     conversationId = conversationId,
+                    clientContext = currentClientContext(),
+                    clientEvent = clientEvent,
                 ).collect { event ->
                     when (event.type?.trim()?.lowercase()) {
                         "status" -> {
@@ -185,12 +206,19 @@ internal class RagAssistantViewModel(
                 if (error is CancellationException) {
                     throw error
                 }
+                val streamFailure = error.toRagAssistantFailure()
+                if (!streamFailure.retryWithoutStreaming) {
+                    showConversationFailure(assistantMessageId, streamFailure.userMessage)
+                    return@onFailure
+                }
                 runCatching {
                     client.plan(
                         baseUrl = ragBaseUrl,
                         token = authToken,
                         message = message,
                         conversationId = conversationId,
+                        clientContext = currentClientContext(),
+                        clientEvent = clientEvent,
                     )
                 }.onSuccess { response ->
                     applyAssistantResponse(
@@ -202,19 +230,7 @@ internal class RagAssistantViewModel(
                     if (fallbackError is CancellationException) {
                         throw fallbackError
                     }
-                    _uiState.update { state ->
-                        state.copy(
-                            messages = state.messages.map { existing ->
-                                if (existing.id == assistantMessageId) {
-                                    existing.copy(text = fallbackError.readableRagMessage())
-                                } else {
-                                    existing
-                                }
-                            },
-                            sending = false,
-                            online = false,
-                        )
-                    }
+                    showConversationFailure(assistantMessageId, fallbackError.readableRagMessage())
                 }
             }
         }
@@ -290,6 +306,18 @@ internal class RagAssistantViewModel(
         }
     }
 
+    private fun showConversationFailure(messageId: Long, text: String) {
+        _uiState.update { state ->
+            state.copy(
+                messages = state.messages.map { existing ->
+                    if (existing.id == messageId) existing.copy(text = text) else existing
+                },
+                sending = false,
+                online = false,
+            )
+        }
+    }
+
     fun confirmReview(messageId: Long) {
         if (uiState.value.sending) {
             return
@@ -306,7 +334,8 @@ internal class RagAssistantViewModel(
             return
         }
 
-        _uiState.update { state -> state.copy(sending = true, online = true) }
+        val executionMessageId = allocateMessageId()
+        showOperationMessage(executionMessageId, draft.actionType)
         viewModelScope.launch {
             runCatching {
                 actionExecutor.execute(
@@ -320,29 +349,23 @@ internal class RagAssistantViewModel(
                 result.toFileMutationSignal()?.let { signal ->
                     _fileMutationSignals.tryEmit(signal)
                 }
-                _uiState.update { state ->
-                    state.copy(
-                        messages = state.messages + result.toAssistantMessage(allocateMessageId()),
-                        sending = false,
-                        online = true,
-                    )
-                }
+                replaceOperationMessage(
+                    messageId = executionMessageId,
+                    message = result.toAssistantMessage(executionMessageId),
+                )
             }.onFailure { error ->
                 if (error is CancellationException) {
                     throw error
                 }
 
-                _uiState.update { state ->
-                    state.copy(
-                        messages = state.messages + AiChatMessage(
-                            id = allocateMessageId(),
-                            author = AiChatAuthor.ASSISTANT,
-                            text = error.readableRagMessage(),
-                        ),
-                        sending = false,
-                        online = false,
-                    )
-                }
+                replaceOperationMessage(
+                    messageId = executionMessageId,
+                    message = AiChatMessage(
+                        id = executionMessageId,
+                        author = AiChatAuthor.ASSISTANT,
+                        text = error.readableRagMessage(),
+                    ),
+                )
             }
         }
     }
@@ -390,47 +413,58 @@ internal class RagAssistantViewModel(
             return
         }
 
-        if (!_clientUploadRequests.tryEmit(AiChatClientUploadLaunch(messageId, request))) {
+        val launch = clientUploadTracker.start(messageId, request)
+        if (launch == null) {
+            appendAssistantMessage("还有一个文件选择或上传任务正在处理，请完成后再试。")
+            return
+        }
+        val hasPendingAttachments = uiState.value.pendingAttachments.isNotEmpty()
+        if (clientUploadRequestChannel.trySend(launch).isFailure) {
+            clientUploadTracker.cancel(launch)
             appendAssistantMessage("系统文件选择器暂时没有打开，请稍后再试。")
             return
         }
 
-        val targetText = request.targetName?.takeIf { it.isNotBlank() }
-        val createFolderName = request.createFolderName?.takeIf { it.isNotBlank() }
-        val message = if (createFolderName != null) {
-            "请在系统文件选择器中选择要上传到「${targetText ?: createFolderName}」的文件，选择后我会先创建文件夹再上传。"
-        } else {
-            "请在系统文件选择器中选择要上传${targetText?.let { "到「$it」" }.orEmpty()}的文件。"
+        if (!hasPendingAttachments) {
+            appendAssistantMessage(AiChatExecutionFeedback.uploadSelectionPrompt(request))
         }
-        appendAssistantMessage(message)
     }
 
     fun completeClientUploadSelection(
         launch: AiChatClientUploadLaunch,
         filesSelected: Boolean,
     ) {
-        val uploadStillAvailable = uiState.value.messages.any { message ->
-            message.id == launch.messageId &&
-                message.plan?.clientActionControls?.uploadRequest == launch.request
-        }
-        if (!uploadStillAvailable) {
-            return
-        }
-
         if (filesSelected) {
-            markClientActionHandled(launch.messageId)
-            val message = if (launch.request.createFolderName.isNullOrBlank()) {
-                "已收到文件选择，开始上传。"
-            } else {
-                "已收到文件选择，开始创建文件夹并上传。"
+            val executionMessageId = allocateMessageId()
+            if (!clientUploadTracker.markSelected(launch, executionMessageId)) {
+                return
             }
-            _uiState.update { state ->
-                state.copy(pendingAttachments = emptyList())
-            }
-            appendAssistantMessage(message)
+            showOperationMessage(
+                messageId = executionMessageId,
+                actionType = AiChatExecutionFeedback.uploadActionType(launch.request),
+                handledClientActionMessageId = launch.messageId,
+                clearPendingAttachments = true,
+            )
         } else {
-            appendAssistantMessage("已取消文件选择，这条上传计划还保留着，需要时可以重新选择文件。")
+            if (clientUploadTracker.cancel(launch)) {
+                appendAssistantMessage("已取消文件选择，这条上传计划还保留着，需要时可以重新选择文件。")
+            }
         }
+    }
+
+    fun completeClientUploadExecution(
+        launch: AiChatClientUploadLaunch,
+        result: OperationOutcome,
+    ) {
+        val executionMessageId = clientUploadTracker.complete(launch) ?: return
+        replaceOperationMessage(
+            messageId = executionMessageId,
+            message = AiChatMessage(
+                id = executionMessageId,
+                author = AiChatAuthor.ASSISTANT,
+                text = result.message,
+            ),
+        )
     }
 
     private fun markReviewHandled(messageId: Long) {
@@ -440,21 +474,6 @@ internal class RagAssistantViewModel(
                     val plan = message.plan
                     if (message.id == messageId && plan?.actionControls != null) {
                         message.copy(plan = plan.copy(actionControls = null))
-                    } else {
-                        message
-                    }
-                },
-            )
-        }
-    }
-
-    private fun markClientActionHandled(messageId: Long) {
-        _uiState.update { state ->
-            state.copy(
-                messages = state.messages.map { message ->
-                    val plan = message.plan
-                    if (message.id == messageId && plan?.clientActionControls != null) {
-                        message.copy(plan = plan.copy(clientActionControls = null))
                     } else {
                         message
                     }
@@ -477,7 +496,75 @@ internal class RagAssistantViewModel(
         }
     }
 
+    private fun showOperationMessage(
+        messageId: Long,
+        actionType: String?,
+        handledClientActionMessageId: Long? = null,
+        clearPendingAttachments: Boolean = false,
+    ) {
+        _uiState.update { state ->
+            val previousMessages = if (handledClientActionMessageId == null) {
+                state.messages
+            } else {
+                state.messages.map { message ->
+                    val plan = message.plan
+                    if (message.id == handledClientActionMessageId && plan?.clientActionControls != null) {
+                        message.copy(plan = plan.copy(clientActionControls = null))
+                    } else {
+                        message
+                    }
+                }
+            }
+            state.copy(
+                messages = previousMessages + AiChatMessage(
+                    id = messageId,
+                    author = AiChatAuthor.ASSISTANT,
+                    text = AiChatExecutionFeedback.progressMessage(actionType),
+                ),
+                pendingAttachments = if (clearPendingAttachments) emptyList() else state.pendingAttachments,
+                sending = true,
+                online = true,
+            )
+        }
+    }
+
+    private fun replaceOperationMessage(
+        messageId: Long,
+        message: AiChatMessage,
+    ) {
+        _uiState.update { state ->
+            state.copy(
+                messages = state.messages.map { existing ->
+                    if (existing.id == messageId) message else existing
+                },
+                sending = false,
+                online = true,
+            )
+        }
+    }
+
     private fun allocateMessageId(): Long = nextMessageId++
+
+    private fun currentClientContext(): RagAssistantClientContext = RagAssistantClientContext(
+        currentFolderId = currentFolderId,
+        currentFolderPath = currentFolderPath,
+        availableClientInputs = uiState.value.pendingAttachments
+            .takeIf { it.isNotEmpty() }
+            ?.let { attachments ->
+                buildMap {
+                    put("files", attachments.size)
+                    attachments.count(AiChatPendingAttachment::isFolder)
+                        .takeIf { it > 0 }
+                        ?.let { put("folders", it) }
+                }
+            }
+            .orEmpty(),
+    )
+
+    override fun onCleared() {
+        clientUploadRequestChannel.close()
+        super.onCleared()
+    }
 
     companion object {
         fun provideFactory(

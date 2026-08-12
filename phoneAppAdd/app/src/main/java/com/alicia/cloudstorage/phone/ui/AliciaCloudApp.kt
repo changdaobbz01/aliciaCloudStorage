@@ -7,7 +7,7 @@ import android.graphics.Bitmap
 import android.graphics.pdf.PdfRenderer
 import android.net.Uri
 import android.os.ParcelFileDescriptor
-import android.provider.OpenableColumns
+import android.provider.DocumentsContract
 import androidx.annotation.DrawableRes
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.BackHandler
@@ -127,6 +127,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -210,15 +211,14 @@ private data class NodeActionContext(
 )
 
 private data class PendingAiUploadTarget(
-    val parentId: Long?,
-    val targetName: String?,
-    val createFolderName: String?,
-    val onSelectionComplete: (Boolean) -> Unit,
+    val request: AiChatClientUploadRequest,
+    val callbacks: AiChatClientUploadCallbacks,
 )
 
 private data class PendingAiComposerAttachment(
     val uri: Uri,
     val name: String,
+    val kind: LocalUploadSelectionKind,
 )
 
 private data class FileCategorySpec(
@@ -328,13 +328,13 @@ private enum class ReferenceAsset(@DrawableRes val resId: Int) {
 private fun ReferenceIcon(
     asset: ReferenceAsset,
     contentDescription: String?,
-    modifier: Modifier = Modifier.size(24.dp),
+    modifier: Modifier = Modifier,
     opacity: Float = 1f,
 ) {
     Image(
         painter = painterResource(asset.resId),
         contentDescription = contentDescription,
-        modifier = modifier.alpha(opacity),
+        modifier = modifier.size(24.dp).alpha(opacity),
         contentScale = ContentScale.Fit,
     )
 }
@@ -405,8 +405,9 @@ private data class AddToastEvent(
 @Composable
 fun AliciaCloudApp(viewModel: MainViewModel) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val globalLoading = uiState.shouldShowGlobalLoading()
-    var toastSequence by remember { mutableStateOf(0L) }
+    var aiChatVisible by remember { mutableStateOf(false) }
+    val globalLoading = uiState.shouldShowGlobalLoading(aiChatVisible)
+    var toastSequence by remember { mutableLongStateOf(0L) }
     var toastEvent by remember { mutableStateOf<AddToastEvent?>(null) }
 
     fun showToast(message: String) {
@@ -437,6 +438,7 @@ fun AliciaCloudApp(viewModel: MainViewModel) {
                 uiState = uiState,
                 viewModel = viewModel,
                 onMessage = ::showToast,
+                onAiChatVisibilityChanged = { visible -> aiChatVisible = visible },
             )
         }
 
@@ -490,37 +492,6 @@ fun AliciaCloudApp(viewModel: MainViewModel) {
     }
 }
 
-private fun AppUiState.shouldShowGlobalLoading(): Boolean =
-    !isBooting && (
-        isSubmittingLogin ||
-            isManualRefreshing ||
-            isRefreshingUser ||
-            isUpdatingProfile ||
-            isUpdatingAvatar ||
-            isChangingPassword ||
-            home.loading ||
-            files.loading ||
-            trash.loading ||
-            team.loading ||
-            files.isCreatingFolder ||
-            files.actionNodeId != null ||
-            files.isBatchActing ||
-            files.moveTargetLoading ||
-            trash.actionNodeId != null ||
-            trash.isBatchActing ||
-            trash.moveTargetLoading ||
-            team.isCreatingUser ||
-            team.quotaUserId != null ||
-            team.passwordUserId != null ||
-            preview.loading ||
-            versionUpdate.checking ||
-            incomingShare.statusLoading ||
-            incomingShare.detailLoading ||
-            incomingShare.passwordChecking ||
-            incomingShare.saving ||
-            incomingShare.saveTargetLoading
-        )
-
 @Composable
 private fun AppUpdateDialog(
     update: AppUpdateState,
@@ -568,6 +539,62 @@ private fun AppUpdateDialog(
                 AddActionButton(
                     label = "立即更新",
                     onClick = onUpdate,
+                    modifier = Modifier.weight(1f),
+                    primary = true,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AliciaConfirmDialog(
+    title: String,
+    message: String,
+    confirmLabel: String,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        val shape = RoundedCornerShape(24.dp)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 26.dp)
+                .addCardChrome(shape)
+                .clip(shape)
+                .background(Color.White)
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Text(
+                text = title,
+                color = Ink,
+                fontSize = 22.sp,
+                fontWeight = FontWeight.ExtraBold,
+            )
+            Text(
+                text = message,
+                color = Muted,
+                fontSize = 14.sp,
+                lineHeight = 21.sp,
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                AddActionButton(
+                    label = "取消",
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f),
+                    primary = false,
+                )
+                AddActionButton(
+                    label = confirmLabel,
+                    onClick = onConfirm,
                     modifier = Modifier.weight(1f),
                     primary = true,
                 )
@@ -747,6 +774,7 @@ private fun MainShell(
     uiState: AppUiState,
     viewModel: MainViewModel,
     onMessage: (String) -> Unit,
+    onAiChatVisibilityChanged: (Boolean) -> Unit,
 ) {
     val currentUser = uiState.currentUser ?: return
     val context = LocalContext.current
@@ -760,6 +788,8 @@ private fun MainShell(
     }
 
     var uploadSheetOpen by rememberSaveable { mutableStateOf(false) }
+    var localUploadPickerOpen by rememberSaveable { mutableStateOf(false) }
+    var localUploadRootUri by remember { mutableStateOf(context.findPersistedLocalUploadRoot()) }
     var createFolderOpen by rememberSaveable { mutableStateOf(false) }
     var actionContext by remember { mutableStateOf<NodeActionContext?>(null) }
     var moveSheetOpen by rememberSaveable { mutableStateOf(false) }
@@ -772,11 +802,18 @@ private fun MainShell(
     var aiChatOpen by rememberSaveable { mutableStateOf(false) }
     var pendingAiUploadTarget by remember { mutableStateOf<PendingAiUploadTarget?>(null) }
     var pendingAiComposerAttachments by remember { mutableStateOf<List<PendingAiComposerAttachment>>(emptyList()) }
-    var pendingAiFolderOpen by remember { mutableStateOf<StorageNode?>(null) }
+    var pendingAiFolderOpen by remember { mutableStateOf<AiChatFolderOpenTarget?>(null) }
     var pendingAiComposerAttachComplete by remember {
         mutableStateOf<((List<AiChatPendingAttachment>) -> Unit)?>(null)
     }
     val aiChatTransition = remember { Animatable(if (aiChatOpen) 1f else 0f) }
+
+    LaunchedEffect(aiChatOpen) {
+        onAiChatVisibilityChanged(aiChatOpen)
+    }
+    DisposableEffect(Unit) {
+        onDispose { onAiChatVisibilityChanged(false) }
+    }
 
     LaunchedEffect(aiChatOpen) {
         aiChatTransition.animateTo(
@@ -798,43 +835,10 @@ private fun MainShell(
         aiChatOpen = false
     }
 
-    val uploadLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
-        val aiUploadTarget = pendingAiUploadTarget
-        val aiComposerAttachComplete = pendingAiComposerAttachComplete
-        pendingAiUploadTarget = null
-        pendingAiComposerAttachComplete = null
-        aiUploadTarget?.onSelectionComplete?.invoke(uris.isNotEmpty())
-
-        if (aiComposerAttachComplete != null) {
-            persistReadPermissions(context, uris)
-            pendingAiComposerAttachments = uris.mapIndexed { index, uri ->
-                PendingAiComposerAttachment(
-                    uri = uri,
-                    name = context.resolveDisplayName(uri) ?: "文件 ${index + 1}",
-                )
-            }
-            aiComposerAttachComplete(
-                pendingAiComposerAttachments.mapIndexed { index, attachment ->
-                    AiChatPendingAttachment(
-                        id = attachment.uri.toString(),
-                        name = attachment.name.ifBlank { "文件 ${index + 1}" },
-                    )
-                },
-            )
-            return@rememberLauncherForActivityResult
-        }
-
-        if (uris.isNotEmpty() && aiUploadTarget != null) {
-            persistReadPermissions(context, uris)
-            if (aiUploadTarget.createFolderName != null) {
-                viewModel.createFolderThenUploadDocuments(
-                    uris = uris,
-                    parentId = aiUploadTarget.parentId,
-                    folderName = aiUploadTarget.createFolderName,
-                )
-            } else {
-                viewModel.uploadDocumentsToFolder(uris, aiUploadTarget.parentId)
-            }
+    val localDirectoryAccessLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri != null) {
+            persistReadPermissions(context, listOf(uri))
+            localUploadRootUri = uri
         }
     }
     val avatarLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -909,17 +913,17 @@ private fun MainShell(
     }
 
     fun openAiFileResult(file: AiChatFileResult) {
+        file.toFolderOpenTargetOrNull()?.let { folder ->
+            pendingAiFolderOpen = folder
+            return
+        }
         val node = file.toStorageNodeOrNull()
         if (node == null) {
             onMessage("这个候选缺少节点信息，暂时不能打开。")
             return
         }
 
-        if (node.type == StorageNodeType.FOLDER) {
-            pendingAiFolderOpen = node
-        } else {
-            openFileDetail(node)
-        }
+        openFileDetail(node)
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -1095,41 +1099,40 @@ private fun MainShell(
                         ragBaseUrl = BuildConfig.DEFAULT_RAG_BASE_URL,
                         apiBaseUrl = uiState.baseUrl,
                         authToken = uiState.authToken.orEmpty(),
+                        currentFolderId = uiState.files.currentFolderId,
+                        currentFolderPath = uiState.files.breadcrumbs.joinToString("/") { crumb -> crumb.label },
                         onBack = { aiChatOpen = false },
                         onFileMutation = viewModel::refreshAfterAiFileMutation,
                         onOpenFileResult = ::openAiFileResult,
-                        onClientUpload = { request, onSelectionComplete ->
-                            val attachedUris = pendingAiComposerAttachments.map(PendingAiComposerAttachment::uri)
-                            if (attachedUris.isNotEmpty()) {
-                                persistReadPermissions(context, attachedUris)
-                                onSelectionComplete(true)
+                        onClientUpload = { request, callbacks ->
+                            val attachedSelections = pendingAiComposerAttachments.map { attachment ->
+                                LocalUploadSelection(attachment.uri, attachment.kind)
+                            }
+                            if (attachedSelections.isNotEmpty()) {
+                                persistReadPermissions(context, attachedSelections.map(LocalUploadSelection::uri))
+                                callbacks.onSelectionResolved(true)
                                 pendingAiComposerAttachments = emptyList()
-                                if (request.createFolderName != null) {
-                                    viewModel.createFolderThenUploadDocuments(
-                                        uris = attachedUris,
-                                        parentId = request.parentId,
-                                        folderName = request.createFolderName,
-                                    )
-                                } else {
-                                    viewModel.uploadDocumentsToFolder(attachedUris, request.parentId)
-                                }
+                                viewModel.uploadLocalSelections(
+                                    selections = attachedSelections,
+                                    parentId = request.parentId,
+                                    createFolderName = request.createFolderName,
+                                    onCompleted = callbacks.onExecutionCompleted,
+                                )
                             } else {
                                 pendingAiUploadTarget = PendingAiUploadTarget(
-                                    parentId = request.parentId,
-                                    targetName = request.targetName,
-                                    createFolderName = request.createFolderName,
-                                    onSelectionComplete = onSelectionComplete,
+                                    request = request,
+                                    callbacks = callbacks,
                                 )
                                 pendingAiComposerAttachComplete = null
                                 uploadSheetOpen = false
-                                uploadLauncher.launch(arrayOf("*/*"))
+                                localUploadPickerOpen = true
                             }
                         },
                         onAttachFiles = { onSelectionComplete ->
                             pendingAiUploadTarget = null
                             pendingAiComposerAttachComplete = onSelectionComplete
                             uploadSheetOpen = false
-                            uploadLauncher.launch(arrayOf("*/*"))
+                            localUploadPickerOpen = true
                         },
                         onClearAttachedFiles = {
                             pendingAiComposerAttachments = emptyList()
@@ -1159,25 +1162,15 @@ private fun MainShell(
     }
 
     pendingAiFolderOpen?.let { folder ->
-        AlertDialog(
-            onDismissRequest = { pendingAiFolderOpen = null },
-            title = { Text("进入文件夹") },
-            text = { Text("是否收起对话窗并进入「${folder.name}」？") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        pendingAiFolderOpen = null
-                        aiChatOpen = false
-                        viewModel.openFolderFromAssistant(folder)
-                    },
-                ) {
-                    Text("进入")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { pendingAiFolderOpen = null }) {
-                    Text("取消")
-                }
+        AliciaConfirmDialog(
+            title = "进入文件夹",
+            message = "是否收起对话窗并进入「${folder.name}」？",
+            confirmLabel = "进入",
+            onDismiss = { pendingAiFolderOpen = null },
+            onConfirm = {
+                pendingAiFolderOpen = null
+                aiChatOpen = false
+                viewModel.openFolderFromAssistant(folder.nodeId, folder.name)
             },
         )
     }
@@ -1185,14 +1178,70 @@ private fun MainShell(
     if (uploadSheetOpen) {
         UploadSheet(
             onDismiss = { uploadSheetOpen = false },
-            onUpload = { mimeTypes ->
+            onUploadLocal = {
                 uploadSheetOpen = false
                 pendingAiUploadTarget = null
-                uploadLauncher.launch(mimeTypes)
+                pendingAiComposerAttachComplete = null
+                localUploadPickerOpen = true
             },
             onCreateFolder = {
                 uploadSheetOpen = false
                 createFolderOpen = true
+            },
+        )
+    }
+
+    if (localUploadPickerOpen) {
+        LocalUploadPicker(
+            rootUri = localUploadRootUri,
+            onRequestDirectoryAccess = {
+                localDirectoryAccessLauncher.launch(localUploadRootUri)
+            },
+            onDismiss = {
+                localUploadPickerOpen = false
+                pendingAiUploadTarget?.callbacks?.onSelectionResolved?.invoke(false)
+                pendingAiUploadTarget = null
+                pendingAiComposerAttachComplete = null
+            },
+            onConfirm = { selections ->
+                val aiUploadTarget = pendingAiUploadTarget
+                val aiComposerAttachComplete = pendingAiComposerAttachComplete
+                localUploadPickerOpen = false
+                pendingAiUploadTarget = null
+                pendingAiComposerAttachComplete = null
+
+                if (aiComposerAttachComplete != null && aiUploadTarget == null) {
+                    pendingAiComposerAttachments = selections.mapIndexed { index, selection ->
+                        PendingAiComposerAttachment(
+                            uri = selection.uri,
+                            name = selection.displayName?.ifBlank { null }
+                                ?: if (selection.kind == LocalUploadSelectionKind.FOLDER) "文件夹 ${index + 1}" else "文件 ${index + 1}",
+                            kind = selection.kind,
+                        )
+                    }
+                    aiComposerAttachComplete(
+                        pendingAiComposerAttachments.map { attachment ->
+                            AiChatPendingAttachment(
+                                id = attachment.uri.toString(),
+                                name = attachment.name,
+                                isFolder = attachment.kind == LocalUploadSelectionKind.FOLDER,
+                            )
+                        },
+                    )
+                } else if (aiUploadTarget != null) {
+                    aiUploadTarget.callbacks.onSelectionResolved(true)
+                    viewModel.uploadLocalSelections(
+                        selections = selections,
+                        parentId = aiUploadTarget.request.parentId,
+                        createFolderName = aiUploadTarget.request.createFolderName,
+                        onCompleted = aiUploadTarget.callbacks.onExecutionCompleted,
+                    )
+                } else {
+                    viewModel.uploadLocalSelections(
+                        selections = selections,
+                        parentId = uiState.files.currentFolderId,
+                    )
+                }
             },
         )
     }
@@ -1511,10 +1560,12 @@ private fun AiChatHostScreen(
     ragBaseUrl: String,
     apiBaseUrl: String,
     authToken: String,
+    currentFolderId: Long?,
+    currentFolderPath: String,
     onBack: () -> Unit,
     onFileMutation: (AiChatFileMutationSignal) -> Unit,
     onOpenFileResult: (AiChatFileResult) -> Unit,
-    onClientUpload: (AiChatClientUploadRequest, (Boolean) -> Unit) -> Unit,
+    onClientUpload: (AiChatClientUploadRequest, AiChatClientUploadCallbacks) -> Unit,
     onAttachFiles: ((List<AiChatPendingAttachment>) -> Unit) -> Unit,
     onClearAttachedFiles: () -> Unit,
 ) {
@@ -1556,6 +1607,8 @@ private fun AiChatHostScreen(
                 ragBaseUrl = ragBaseUrl,
                 apiBaseUrl = apiBaseUrl,
                 authToken = authToken,
+                currentFolderId = currentFolderId,
+                currentFolderPath = currentFolderPath,
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
@@ -3007,7 +3060,7 @@ private fun NodeThumbnailFallback(node: StorageNode, iconScale: Float = 1f) {
 }
 
 @Composable
-private fun SelectionCircle(
+internal fun SelectionCircle(
     selected: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -4001,7 +4054,7 @@ private fun TeamScreen(
 @Composable
 private fun UploadSheet(
     onDismiss: () -> Unit,
-    onUpload: (Array<String>) -> Unit,
+    onUploadLocal: () -> Unit,
     onCreateFolder: () -> Unit,
 ) {
     ModalBottomSheet(
@@ -4025,28 +4078,10 @@ private fun UploadSheet(
                     .clip(RoundedCornerShape(999.dp))
                     .background(Color(0xFFD7DBE5)),
             )
-            Text("上传文件", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
-            Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth()) {
-                    UploadChoiceTile("相册", ReferenceAsset.PhotoColor, Modifier.weight(1f)) {
-                        onUpload(arrayOf("image/*", "video/*"))
-                    }
-                    UploadChoiceTile("文档", ReferenceAsset.DocumentColor, Modifier.weight(1f)) {
-                        onUpload(arrayOf("application/pdf", "text/*", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"))
-                    }
-                    UploadChoiceTile("压缩包", ReferenceAsset.ArchiveColor, Modifier.weight(1f)) {
-                        onUpload(arrayOf("application/zip", "application/x-rar-compressed", "application/x-7z-compressed", "application/octet-stream"))
-                    }
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth()) {
-                    UploadChoiceTile("音频", ReferenceAsset.AudioColor, Modifier.weight(1f)) {
-                        onUpload(arrayOf("audio/*"))
-                    }
-                    UploadChoiceTile("其他文件", ReferenceAsset.UploadFileBlue, Modifier.weight(1f)) {
-                        onUpload(arrayOf("*/*"))
-                    }
-                    UploadChoiceTile("新建文件夹", ReferenceAsset.NewFolderBlue, Modifier.weight(1f), onCreateFolder)
-                }
+            Text("新增", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth()) {
+                UploadChoiceTile("上传文件或文件夹", ReferenceAsset.UploadFileBlue, Modifier.weight(1f), onUploadLocal)
+                UploadChoiceTile("新建云盘文件夹", ReferenceAsset.NewFolderBlue, Modifier.weight(1f), onCreateFolder)
             }
         }
     }
@@ -4645,7 +4680,7 @@ private fun PreviewDialog(
 @Composable
 private fun PdfPreviewContent(filePath: String) {
     val document = remember(filePath) { runCatching { PdfPreviewDocument(filePath) }.getOrNull() }
-    var pageIndex by rememberSaveable(filePath) { mutableStateOf(0) }
+    var pageIndex by rememberSaveable(filePath) { mutableIntStateOf(0) }
     val pageCount = document?.pageCount ?: 0
     val pageBitmap = remember(filePath, pageIndex) { document?.renderPage(pageIndex) }
 
@@ -5735,26 +5770,12 @@ private fun persistReadPermissions(context: Context, uris: List<Uri>) {
     }
 }
 
-private fun Context.resolveDisplayName(uri: Uri): String? {
-    contentResolver
-        .query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
-        ?.use { cursor ->
-            if (cursor.moveToFirst()) {
-                val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-                if (nameIndex >= 0 && !cursor.isNull(nameIndex)) {
-                    cursor.getString(nameIndex)
-                        ?.trim()
-                        ?.takeIf { it.isNotBlank() }
-                        ?.let { return it }
-                }
-            }
+private fun Context.findPersistedLocalUploadRoot(): Uri? =
+    contentResolver.persistedUriPermissions
+        .firstOrNull { permission ->
+            permission.isReadPermission && DocumentsContract.isTreeUri(permission.uri)
         }
-
-    return uri.lastPathSegment
-        ?.substringAfterLast('/')
-        ?.trim()
-        ?.takeIf { it.isNotBlank() }
-}
+        ?.uri
 
 private class PdfPreviewDocument(filePath: String) {
     private val descriptor = ParcelFileDescriptor.open(File(filePath), ParcelFileDescriptor.MODE_READ_ONLY)

@@ -26,6 +26,15 @@ public class BackendActionDraftService {
             CandidateBindingResult candidateBinding,
             boolean confirmedByUser
     ) {
+        return build(response, candidateBinding, confirmedByUser, AssistantClientContext.empty());
+    }
+
+    public BackendActionDraft build(
+            IntentRecognitionResponse response,
+            CandidateBindingResult candidateBinding,
+            boolean confirmedByUser,
+            AssistantClientContext clientContext
+    ) {
         if (!confirmedByUser) {
             return BackendActionDraft.skipped("not_confirmed", "用户尚未确认，暂不生成后端请求草稿。");
         }
@@ -69,6 +78,9 @@ public class BackendActionDraftService {
         Map<String, Object> pathVariables = renderMap(definition.pathVariables(), response, candidate);
         Map<String, Object> queryParameters = renderMap(definition.queryParameters(), response, candidate);
         Map<String, Object> body = renderMap(definition.body(), response, candidate);
+        List<String> remainingClientFields = definition.requiredClientFields().stream()
+                .filter(field -> clientContext == null || !clientContext.provides(field))
+                .toList();
         return new BackendActionDraft(
                 definition.status(),
                 bridgeVersion,
@@ -84,7 +96,7 @@ public class BackendActionDraftService {
                 pathVariables,
                 queryParameters,
                 body,
-                definition.requiredClientFields(),
+                remainingClientFields,
                 candidate,
                 definition.message()
         );

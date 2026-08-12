@@ -22,17 +22,66 @@ public class CandidateSelectionService {
     }
 
     public SelectionAttempt select(CandidateBindingResult binding, String message) {
+        return select(binding, message, AssistantClientEvent.none());
+    }
+
+    public SelectionAttempt select(
+            CandidateBindingResult binding,
+            String message,
+            AssistantClientEvent clientEvent
+    ) {
+        AssistantClientEvent safeEvent = clientEvent == null ? AssistantClientEvent.none() : clientEvent;
+        if (safeEvent.isCandidateSelection()) {
+            if (binding == null || binding.candidates().isEmpty()) {
+                return unavailableSelection();
+            }
+            Integer eventIndex = candidateIndex(binding, safeEvent);
+            if (eventIndex == null) {
+                return new SelectionAttempt(true, new CandidateBindingResult(
+                        "candidate_selection_out_of_range",
+                        binding.source(),
+                        binding.query(),
+                        binding.candidateType(),
+                        binding.candidates(),
+                        "选择的候选已经失效，请重新选择。"
+                ));
+            }
+            return new SelectionAttempt(true, binding.select(eventIndex));
+        }
+
         OptionalInt index = parseSelectionIndex(message);
         if (index.isEmpty()) {
             return SelectionAttempt.notMatched();
         }
         if (binding == null || binding.candidates().isEmpty()) {
-            return new SelectionAttempt(true, CandidateBindingResult.skipped(
-                    "candidate_selection_unavailable",
-                    "当前没有可选择的候选，请先提供要处理的文件或目录线索。"
-            ));
+            return unavailableSelection();
         }
         return new SelectionAttempt(true, binding.select(index.getAsInt()));
+    }
+
+    private SelectionAttempt unavailableSelection() {
+        return new SelectionAttempt(true, CandidateBindingResult.skipped(
+                "candidate_selection_unavailable",
+                "当前没有可选择的候选，请重新告诉我你想处理的文件或文件夹。"
+        ));
+    }
+
+    private Integer candidateIndex(CandidateBindingResult binding, AssistantClientEvent event) {
+        if (event.candidateId() != null) {
+            for (int index = 0; index < binding.candidates().size(); index++) {
+                if (event.candidateId().equals(binding.candidates().get(index).nodeId())) {
+                    return index;
+                }
+            }
+            return null;
+        }
+        if (event.candidateIndex() != null) {
+            int zeroBasedIndex = event.candidateIndex() - 1;
+            return zeroBasedIndex >= 0 && zeroBasedIndex < binding.candidates().size()
+                    ? zeroBasedIndex
+                    : null;
+        }
+        return null;
     }
 
     private OptionalInt parseSelectionIndex(String message) {

@@ -5,6 +5,7 @@ import com.alicia.cloudstorage.phone.data.RagActionPlan
 import com.alicia.cloudstorage.phone.data.RagActionPlanBinding
 import com.alicia.cloudstorage.phone.data.RagActionPlanMessage
 import com.alicia.cloudstorage.phone.data.RagAssistantPlanResponse
+import com.alicia.cloudstorage.phone.data.RagAssistantInteraction
 import com.alicia.cloudstorage.phone.data.RagBackendActionDraft
 import com.alicia.cloudstorage.phone.data.RagCandidateBinding
 import com.alicia.cloudstorage.phone.data.RagCandidateItem
@@ -73,6 +74,45 @@ class RagReviewPresenterTest {
         assertEquals(RagReviewRisk.MEDIUM, review.risk)
         assertTrue(review.requiresFinalConfirmation)
         assertTrue(review.lines.contains("匹配到多个候选，请先选择一个。"))
+    }
+
+    @Test
+    fun `server confirmation stage wins over historical candidate count`() {
+        val selected = candidate(1L, "测试目录", "FOLDER")
+        val review = presenter.present(
+            response(
+                nextAction = "wait_for_user_confirmation",
+                actionDraft = RagActionDraft(
+                    type = "upload_target",
+                    parameters = mapOf("target_folder" to "测试目录"),
+                    needsBackendBinding = true,
+                ),
+                actionPlan = plan(
+                    status = "review_required",
+                    actionType = "file.upload",
+                    risk = "low",
+                ),
+                candidateBinding = RagCandidateBinding(
+                    status = "selected_candidate",
+                    source = "storage_api",
+                    query = "测试目录",
+                    candidateType = "FOLDER",
+                    candidates = listOf(selected, candidate(2L, "测试目录2", "FOLDER")),
+                    message = "已选择测试目录",
+                    selectedCandidate = selected,
+                    selectedIndex = 1,
+                ),
+                interaction = RagAssistantInteraction(
+                    stage = "NEED_CONFIRMATION",
+                    allowedActions = emptyList(),
+                    clarification = null,
+                ),
+            ),
+        )
+
+        assertEquals(RagReviewKind.FINAL_CONFIRMATION, review!!.kind)
+        assertEquals(listOf("测试目录"), review.candidates.map { it.name })
+        assertTrue(review.requiresFinalConfirmation)
     }
 
     @Test
@@ -343,6 +383,7 @@ class RagReviewPresenterTest {
             confirmedByUser = false,
         ),
         candidateBinding: RagCandidateBinding? = null,
+        interaction: RagAssistantInteraction? = null,
     ) = RagAssistantPlanResponse(
         id = "response-1",
         schemaVersion = "intent_recognition_v1",
@@ -370,6 +411,7 @@ class RagReviewPresenterTest {
         fallbackReason = null,
         candidateBinding = candidateBinding,
         conversation = null,
+        interaction = interaction,
     )
 
     private fun plan(

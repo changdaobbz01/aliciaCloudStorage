@@ -7,6 +7,9 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 class AssistantControllerTest {
 
@@ -91,7 +94,8 @@ class AssistantControllerTest {
         assertThat(config).containsEntry("api_key_env", "DEEPSEEK_API_KEY");
         assertThat(config).doesNotContainKey("api_key");
         assertThat(map(config.get("prompt")).get("system_message").toString())
-                .contains("semantic parser");
+                .contains("single semantic understanding layer");
+        assertThat(map(config.get("prompt"))).containsEntry("version", "semantic_frame_v2");
     }
 
     @Test
@@ -113,6 +117,25 @@ class AssistantControllerTest {
                 .doesNotContain("识别为")
                 .doesNotContain("意图")
                 .isEqualTo("安安正在整理回复...");
+    }
+
+    @Test
+    void preservesStructuredClientEventWhenSanitizingPlanRequest() {
+        AssistantConversationService service = mock(AssistantConversationService.class);
+        AssistantController controller = new AssistantController(
+                service,
+                new RagConfigLoader(new ObjectMapper()),
+                new ObjectMapper().findAndRegisterModules()
+        );
+        AssistantClientEvent event = new AssistantClientEvent("SELECT_CANDIDATE", 501L, 1);
+        AssistantClientContext context = new AssistantClientContext(null, "/", Map.of("files", 1));
+
+        controller.plan(new AssistantPlanRequest("  选择第1个  ", "conversation-1", context, event), "Bearer token");
+
+        verify(service).plan(
+                eq(new AssistantPlanRequest("选择第1个", "conversation-1", context, event)),
+                eq("Bearer token")
+        );
     }
 
     @SuppressWarnings("unchecked")

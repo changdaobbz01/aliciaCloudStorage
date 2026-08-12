@@ -63,6 +63,7 @@
     "enabled": true,
     "reference_terms": ["它", "他", "这个", "这个文件", "该文件", "刚才那个", "上一个", "刚才的", "那个文件", "这个候选"],
     "set_reference_terms": ["这些", "那几个", "它们", "他们", "上面这些", "刚才那些"],
+    "client_input_action_types": ["upload_target", "composite.create_folder_then_upload"],
     "follow_up_question_markers": ["什么", "多少", "多大", "在哪", "哪里", "什么时候", "是否", "是不是", "吗", "呢"],
     "mutation_markers": {
       "delete": ["删", "删除", "移入回收站", "扔到回收站"],

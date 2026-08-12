@@ -114,6 +114,14 @@
       "label": "处理范围",
       "clarification": "请说明是在当前目录还是全部云盘中处理。"
     },
+    "query_mode": {
+      "label": "查询方式",
+      "clarification": "请说明是列出目录内容，还是按名称搜索。"
+    },
+    "result_type": {
+      "label": "结果类型",
+      "clarification": "请说明要查看文件、文件夹还是两者都看。"
+    },
     "share_options": {
       "label": "分享参数",
       "clarification": "请补充分享链接的有效期、密码或下载权限等要求。"
@@ -355,8 +363,8 @@
       "description": "根据文件名、路径、类型和更新时间查找候选文件或目录。",
       "sample_utterances": ["找一下合同", "搜索预算表", "看看 RAG 调试说明"],
       "required_slots": [],
-      "optional_slots": ["target_name", "file_type", "extension", "time_range", "scope"],
-      "allowed_slots": ["target_name", "file_type", "extension", "time_range", "scope"],
+      "optional_slots": ["target_name", "target_folder", "file_type", "extension", "time_range", "scope", "query_mode", "result_type"],
+      "allowed_slots": ["target_name", "target_folder", "file_type", "extension", "time_range", "scope", "query_mode", "result_type"],
       "risk": "none",
       "requires_confirmation": false,
       "action_type": "search",

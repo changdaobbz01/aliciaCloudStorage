@@ -120,6 +120,18 @@ private fun RagAssistantPlanResponse.reviewKind(
 ): RagReviewKind {
     val candidateStatus = candidateBinding?.status?.trim()?.lowercase()
     val planStatus = plan?.status?.trim()?.lowercase()
+    when (interaction?.stage?.trim()?.uppercase()) {
+        "NEED_CANDIDATE_SELECTION" -> return RagReviewKind.CANDIDATE_SELECTION
+        "NEED_CONFIRMATION" -> return if (
+            planStatus == "collection_review_required" || plan?.planKind.equalsNormalized("collection")
+        ) {
+            RagReviewKind.COLLECTION_REVIEW
+        } else {
+            RagReviewKind.FINAL_CONFIRMATION
+        }
+        "NEED_CLIENT_INPUT" -> return RagReviewKind.CLIENT_INPUT
+        "BLOCKED" -> return RagReviewKind.BLOCKED
+    }
 
     if (candidateStatus in blockedCandidateStatuses) {
         return RagReviewKind.BLOCKED
@@ -137,8 +149,7 @@ private fun RagAssistantPlanResponse.reviewKind(
         return RagReviewKind.COLLECTION_REVIEW
     }
     if (planStatus == "candidate_selection_required" ||
-        candidateStatus == "multiple_candidates" ||
-        (candidates.size > 1 && !actionType.equalsNormalized("search"))
+        candidateStatus == "multiple_candidates"
     ) {
         return RagReviewKind.CANDIDATE_SELECTION
     }
@@ -270,10 +281,18 @@ private fun RagAssistantPlanResponse.requiresFinalConfirmation(kind: RagReviewKi
 }
 
 private fun RagCandidateBinding.displayCandidates(): List<RagCandidateItem> =
-    listOfNotNull(selectedCandidate) + candidates.orEmpty()
+    if (status.equalsNormalized("selected_candidate") && selectedCandidate != null) {
+        listOf(selectedCandidate)
+    } else {
+        listOfNotNull(selectedCandidate) + candidates.orEmpty()
+    }
 
 private fun RagActionPlanBinding.displayCandidates(): List<RagCandidateItem> =
-    listOfNotNull(selectedCandidate) + candidates.orEmpty()
+    if (status.equalsNormalized("selected_candidate") && selectedCandidate != null) {
+        listOf(selectedCandidate)
+    } else {
+        listOfNotNull(selectedCandidate) + candidates.orEmpty()
+    }
 
 private fun RagCandidateBinding?.isSelectableCandidateBinding(): Boolean =
     this?.status?.trim()?.lowercase() in selectableCandidateStatuses

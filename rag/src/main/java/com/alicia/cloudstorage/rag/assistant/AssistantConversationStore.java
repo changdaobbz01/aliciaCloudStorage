@@ -55,6 +55,7 @@ public class AssistantConversationStore {
                 response.actionDraft(),
                 response.candidateBinding(),
                 AssistantConversationFocus.next(previous.focus(), response),
+                response.semanticFrame(),
                 now.plus(ttl)
         );
         conversations.put(next.conversationId(), next);
@@ -75,6 +76,7 @@ public class AssistantConversationStore {
                 null,
                 null,
                 AssistantConversationFocus.empty(),
+                SemanticFrame.empty(),
                 now.plus(ttl)
         );
     }

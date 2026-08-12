@@ -27,6 +27,8 @@ internal class RagAssistantClient(
         token: String?,
         message: String,
         conversationId: String?,
+        clientContext: RagAssistantClientContext?,
+        clientEvent: RagAssistantClientEvent? = null,
     ): RagAssistantPlanResponse =
         serviceFactory.serviceFor(baseUrl)
             .plan(
@@ -36,6 +38,8 @@ internal class RagAssistantClient(
                 payload = RagAssistantPlanRequest(
                     message = message,
                     conversationId = conversationId?.takeIf { it.isNotBlank() },
+                    clientContext = clientContext,
+                    clientEvent = clientEvent,
                 ),
             )
             .requireRagBody(fallback = "安安暂时连接不上，请稍后再试。")
@@ -45,11 +49,15 @@ internal class RagAssistantClient(
         token: String?,
         message: String,
         conversationId: String?,
+        clientContext: RagAssistantClientContext?,
+        clientEvent: RagAssistantClientEvent? = null,
     ): Flow<RagAssistantStreamEvent> = flow {
         val serviceBundle = serviceFactory.bundleFor(baseUrl)
         val payload = RagAssistantPlanRequest(
             message = message,
             conversationId = conversationId?.takeIf { it.isNotBlank() },
+            clientContext = clientContext,
+            clientEvent = clientEvent,
         )
         val request = Request.Builder()
             .url("${ensureTrailingSlash(baseUrl)}api/assistant/plan/stream")

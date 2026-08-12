@@ -84,6 +84,64 @@ class CandidateBindingServiceTest {
         assertThat(port.lastRequest.query()).isEqualTo("项目资料");
     }
 
+    @Test
+    void resolvesConfiguredCloudDriveRootWithoutCallingStorageSearch() {
+        CapturingCandidateSearchPort port = new CapturingCandidateSearchPort();
+        CandidateBindingService service = new CandidateBindingService(port, intentRouter, 5);
+
+        IntentRecognitionResponse response = intentRecognitionService.recognize("把这些文件上传到根目录");
+        CandidateBindingResult result = service.bind(response, "Bearer token");
+
+        assertThat(response.intentId()).isEqualTo("file_upload");
+        assertThat(result.status()).isEqualTo("single_candidate");
+        assertThat(result.source()).isEqualTo("virtual:cloud-drive-root");
+        assertThat(result.candidates()).singleElement().satisfies(candidate -> {
+            assertThat(candidate.nodeId()).isNull();
+            assertThat(candidate.name()).isEqualTo("根目录");
+            assertThat(candidate.path()).isEqualTo("/");
+        });
+        assertThat(port.lastRequest).isNull();
+    }
+
+    @Test
+    void convertsRootFolderListIntoDirectoryQueryWithoutKeyword() {
+        CapturingCandidateSearchPort port = new CapturingCandidateSearchPort();
+        CandidateBindingService service = new CandidateBindingService(port, intentRouter, 5);
+
+        IntentRecognitionResponse response = intentRecognitionService.recognize("列出根目录文件夹列表");
+        service.bind(response, "Bearer token", new AssistantClientContext(88L, "根目录/项目"));
+
+        assertThat(response.provider()).isEqualTo("local_fallback");
+        assertThat(response.intentId()).isEqualTo("file_search");
+        assertThat(port.lastRequest.queryMode()).isEqualTo("directory_list");
+        assertThat(port.lastRequest.scope()).isEqualTo("root");
+        assertThat(port.lastRequest.candidateType()).isEqualTo("FOLDER");
+        assertThat(port.lastRequest.query()).isBlank();
+        assertThat(port.lastRequest.maxResults()).isEqualTo(50);
+        assertThat(port.lastRequest.currentFolderId()).isEqualTo(88L);
+        assertThat(response.entities())
+                .containsEntry("query_mode", "directory_list")
+                .containsEntry("scope", "root")
+                .containsEntry("result_type", "FOLDER")
+                .doesNotContainKey("target_name");
+    }
+
+    @Test
+    void keepsCurrentDirectoryContextSeparateFromNaturalLanguage() {
+        CapturingCandidateSearchPort port = new CapturingCandidateSearchPort();
+        CandidateBindingService service = new CandidateBindingService(port, intentRouter, 5);
+
+        IntentRecognitionResponse response = intentRecognitionService.recognize("显示当前目录的文件");
+        service.bind(response, "Bearer token", new AssistantClientContext(42L, "根目录/资料"));
+
+        assertThat(port.lastRequest.queryMode()).isEqualTo("directory_list");
+        assertThat(port.lastRequest.scope()).isEqualTo("current");
+        assertThat(port.lastRequest.candidateType()).isEqualTo("FILE");
+        assertThat(port.lastRequest.currentFolderId()).isEqualTo(42L);
+        assertThat(port.lastRequest.currentFolderPath()).isEqualTo("根目录/资料");
+        assertThat(port.lastRequest.query()).isBlank();
+    }
+
     private static class CapturingCandidateSearchPort implements CandidateSearchPort {
         private CandidateSearchRequest lastRequest;
 

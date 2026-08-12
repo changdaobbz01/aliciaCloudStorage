@@ -20,6 +20,7 @@ public class AssistantConversationService {
     private final BackendActionDraftService backendActionDraftService;
     private final ActionPlanService actionPlanService;
     private final CollectionPreviewService collectionPreviewService;
+    private final AssistantInteractionService interactionService = new AssistantInteractionService();
     private final List<String> confirmMessages;
     private final List<String> resetMessages;
 
@@ -55,13 +56,24 @@ public class AssistantConversationService {
 
     public IntentRecognitionResponse plan(AssistantPlanRequest request, String authorizationHeader) {
         String message = request == null || request.message() == null ? "" : request.message().trim();
+        AssistantClientContext clientContext = request == null
+                ? AssistantClientContext.empty()
+                : request.clientContext();
         AssistantConversationState conversation = isResetMessage(message)
                 ? conversationStore.restart()
                 : conversationStore.resolve(request == null ? "" : request.conversationId());
 
-        IntentRecognitionResponse baseResponse = intentRecognitionService.recognize(message);
+        IntentRecognitionResponse baseResponse = intentRecognitionService.recognize(
+                message,
+                conversation,
+                clientContext
+        );
         CandidateSelectionService.SelectionAttempt selectionAttempt = canUseCandidateSelection(conversation)
-                ? candidateSelectionService.select(conversation.candidateBinding(), message)
+                ? candidateSelectionService.select(
+                        conversation.candidateBinding(),
+                        message,
+                        request == null ? AssistantClientEvent.none() : request.clientEvent()
+                )
                 : CandidateSelectionService.SelectionAttempt.notMatched();
         if (selectionAttempt.matched()) {
             IntentRecognitionResponse selectedResponse = rebuildFromStoredConversation(
@@ -69,22 +81,37 @@ public class AssistantConversationService {
                     baseResponse,
                     "用户选择了上一轮候选。"
             );
-            selectedResponse = applyCandidateBindingState(selectedResponse, selectionAttempt.candidateBinding());
-            selectedResponse = applyActionPlan(selectedResponse);
+            CandidateBindingResult selectedBinding = selectionAttempt.candidateBinding();
+            CandidateItem selectedCandidate = selectedBinding == null ? null : selectedBinding.selectedCandidate();
+            Integer selectedIndex = selectedCandidateIndex(selectedBinding, selectedCandidate);
+            SemanticFrame selectedFrame = conversation.semanticFrame()
+                    .forCandidateSelection(selectedCandidate, selectedIndex);
+            selectedResponse = selectedResponse.withSemanticFrame(
+                    selectedFrame,
+                    selectedResponse.entities(),
+                    selectedResponse.actionDraft()
+            );
+            selectedResponse = applyCandidateBindingState(selectedResponse, selectedBinding);
+            selectedResponse = applyActionPlan(selectedResponse, clientContext);
             selectedResponse = applyCollectionPreview(selectedResponse, authorizationHeader);
+            selectedResponse = selectedResponse.withInteraction(interactionService.build(selectedResponse));
             AssistantConversationState savedConversation = conversationStore.save(conversation, selectedResponse);
             return selectedResponse.withConversation(savedConversation.snapshot(statusFor(selectedResponse)));
         }
 
-        ConversationContextResolver.ContextAttempt contextAttempt = conversationContextResolver.resolve(
-                message,
-                conversation,
-                baseResponse
-        );
+        ConversationContextResolver.ContextAttempt contextAttempt = "FOLLOW_UP".equals(baseResponse.semanticFrame().relation())
+                ? conversationContextResolver.resolve(
+                        message,
+                        conversation,
+                        baseResponse,
+                        baseResponse.semanticFrame()
+                )
+                : ConversationContextResolver.ContextAttempt.notApplied();
         ConversationContextResolution contextResolution = contextAttempt.resolution();
         if (contextAttempt.applied() && contextAttempt.response() != null) {
             if (contextResolution == null || !contextResolution.shouldRewrite()) {
                 IntentRecognitionResponse answeredResponse = contextAttempt.response();
+                answeredResponse = answeredResponse.withInteraction(interactionService.build(answeredResponse));
                 AssistantConversationState savedConversation = conversationStore.save(conversation, answeredResponse);
                 return answeredResponse.withConversation(savedConversation.snapshot(statusFor(answeredResponse)));
             }
@@ -103,18 +130,33 @@ public class AssistantConversationService {
                 ? contextualBinding
                 : preservePendingIntent && shouldReuseCandidateBinding(conversation.candidateBinding())
                 ? conversation.candidateBinding()
-                : candidateBindingService.bind(response, authorizationHeader);
+                : candidateBindingService.bind(
+                        response,
+                        authorizationHeader,
+                        clientContext
+                );
         response = applyCandidateBindingState(response, candidateBinding);
-        response = applyActionPlan(response);
+        response = applyActionPlan(response, clientContext);
         response = applyCollectionPreview(response, authorizationHeader);
         if (preservePendingIntent && isConfirmMessage(message)) {
-            BackendActionDraft backendActionDraft = backendActionDraftService.build(response, candidateBinding, true);
+            BackendActionDraft backendActionDraft = backendActionDraftService.build(
+                    response,
+                    candidateBinding,
+                    true,
+                    clientContext
+            );
             response = applyBackendActionDraftState(
                     response,
                     backendActionDraft
             );
-            response = applyPostBackendActionPlan(response, backendActionDraft, authorizationHeader);
+            response = applyPostBackendActionPlan(
+                    response,
+                    backendActionDraft,
+                    authorizationHeader,
+                    clientContext
+            );
         }
+        response = response.withInteraction(interactionService.build(response));
         AssistantConversationState savedConversation = conversationStore.save(conversation, response);
         return response.withConversation(savedConversation.snapshot(statusFor(response)));
     }
@@ -237,8 +279,11 @@ public class AssistantConversationService {
         };
     }
 
-    private IntentRecognitionResponse applyActionPlan(IntentRecognitionResponse response) {
-        return response == null ? null : response.withActionPlan(actionPlanService.build(response));
+    private IntentRecognitionResponse applyActionPlan(
+            IntentRecognitionResponse response,
+            AssistantClientContext clientContext
+    ) {
+        return response == null ? null : response.withActionPlan(actionPlanService.build(response, clientContext));
     }
 
     private IntentRecognitionResponse applyCollectionPreview(
@@ -251,12 +296,13 @@ public class AssistantConversationService {
     private IntentRecognitionResponse applyPostBackendActionPlan(
             IntentRecognitionResponse response,
             BackendActionDraft backendActionDraft,
-            String authorizationHeader
+            String authorizationHeader,
+            AssistantClientContext clientContext
     ) {
         if (response.actionPlan() != null && "collection".equals(response.actionPlan().planKind())) {
             return response.withActionPlan(actionPlanService.withBackendActionDraft(response.actionPlan(), backendActionDraft));
         }
-        response = applyActionPlan(response);
+        response = applyActionPlan(response, clientContext);
         return applyCollectionPreview(response, authorizationHeader);
     }
 
@@ -268,6 +314,19 @@ public class AssistantConversationService {
                 && !"search".equals(conversation.pendingActionDraft().type())
                 && conversation.candidateBinding() != null
                 && !conversation.candidateBinding().candidates().isEmpty();
+    }
+
+    private Integer selectedCandidateIndex(CandidateBindingResult binding, CandidateItem selectedCandidate) {
+        if (binding == null || selectedCandidate == null) {
+            return null;
+        }
+        for (int index = 0; index < binding.candidates().size(); index++) {
+            CandidateItem candidate = binding.candidates().get(index);
+            if (candidate.equals(selectedCandidate)) {
+                return index + 1;
+            }
+        }
+        return null;
     }
 
     private boolean shouldReuseCandidateBinding(CandidateBindingResult candidateBinding) {

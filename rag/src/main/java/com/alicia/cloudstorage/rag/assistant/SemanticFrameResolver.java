@@ -1,0 +1,704 @@
+package com.alicia.cloudstorage.rag.assistant;
+
+import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+@Service
+public class SemanticFrameResolver {
+
+    private static final Set<String> OPERATIONS = Set.of(
+            "UNKNOWN", "RESPOND", "SEARCH", "UPLOAD", "DELETE", "MOVE", "RENAME", "SHARE", "CREATE_FOLDER"
+    );
+    private static final Set<String> RELATIONS = Set.of(
+            "NEW_TASK", "FOLLOW_UP", "CORRECTION", "SLOT_FILL", "CANDIDATE_SELECTION", "CONFIRMATION", "CANCELLATION"
+    );
+    private static final Set<String> QUERY_MODES = Set.of(
+            "NONE", "NAME_SEARCH", "NAME_EXACT", "NAME_CONTAINS", "LIST_CHILDREN", "FILTER"
+    );
+    private static final Set<String> RESULT_TYPES = Set.of("ANY", "FILE", "FOLDER");
+    private static final Set<String> SCOPE_TYPES = Set.of("ALL", "ROOT", "CURRENT", "NAMED_FOLDER", "PREVIOUS_RESULTS");
+    private static final Set<String> REFERENCE_TYPES = Set.of(
+            "NONE", "PREVIOUS_CANDIDATE", "PREVIOUS_CANDIDATE_SET", "SELECTED_CANDIDATE", "PREVIOUS_ACTION", "CLIENT_INPUT"
+    );
+    private static final Set<String> FILTER_KEYS = Set.of("extension", "file_type", "time_range");
+
+    private static final Pattern NAME_FILTER = Pattern.compile(
+            "(?:名字|名称|文件名)(?:中|里|里面|内)?\\s*(?:带有|带|包含|含有|有)\\s*[\\\"'“”]*([^\\\"'“”，。,.!?！？的]+)[\\\"'“”]*(?:的)?\\s*(文件夹|目录|文件|文档)?",
+            Pattern.CASE_INSENSITIVE
+    );
+    private static final Pattern NAMED_DIRECTORY_CONTENT = Pattern.compile(
+            "(?:列出|列一下|展示|显示|查看|看看|看下|浏览)?\\s*(?:在\\s*)?(.+?(?:目录|文件夹))\\s*(?:下|中|里|内)(?:的)?\\s*(文件夹|目录|文件|内容|列表)",
+            Pattern.CASE_INSENSITIVE
+    );
+    private static final Pattern NAMED_LOCATION_CONTENT = Pattern.compile(
+            "(?:列出|列一下|展示|显示|查看|看看|看下|浏览)?\\s*(?:在\\s*)?([^\\s，。,.!?！？]+?)\\s*(?:下|中|里|内)(?:的)?\\s*(文件夹|目录|文件|内容|列表)",
+            Pattern.CASE_INSENSITIVE
+    );
+    private static final Pattern UPLOAD_DESTINATION = Pattern.compile(
+            "(?:上传到|上传至|传到|传进|放到|upload\\s+to)\\s*([^，。,.!?！？]+)",
+            Pattern.CASE_INSENSITIVE
+    );
+    private static final Pattern MOVE_DESTINATION = Pattern.compile(
+            "(?:移动到|移到|归档到|转移到|移动至|放进|move\\s+to)\\s*([^，。,.!?！？]+)",
+            Pattern.CASE_INSENSITIVE
+    );
+    private static final Pattern SEARCH_COMMAND = Pattern.compile(
+            "(?:找到|找出|查找|搜索|检索|定位|查看|打开|找|查)(?:一下|下)?|看看|看下|列出|列一下|展示|显示",
+            Pattern.CASE_INSENSITIVE
+    );
+
+    public SemanticFrame resolve(
+            String message,
+            IntentRecognitionResponse response,
+            AssistantConversationState conversation,
+            AssistantClientContext clientContext,
+            Map<String, Object> modelPayload
+    ) {
+        SemanticFrame modelFrame = frameFromModel(modelPayload);
+        SemanticFrame rawFrame = modelFrame == null
+                ? localFrame(message, response, conversation)
+                : modelFrame;
+        return validate(rawFrame, response, clientContext);
+    }
+
+    public boolean shouldReusePreviousIntent(
+            SemanticFrame frame,
+            IntentRecognitionResponse response,
+            AssistantConversationState conversation
+    ) {
+        if (frame == null || response == null || conversation == null) {
+            return false;
+        }
+        return "fallback".equals(response.intentId())
+                && List.of("CORRECTION", "SLOT_FILL").contains(frame.relation())
+                && conversation.pendingIntentId() != null
+                && !conversation.pendingIntentId().isBlank()
+                && !"UNKNOWN".equals(frame.operation());
+    }
+
+    public Map<String, Object> entitiesForFrame(IntentRecognitionResponse response, SemanticFrame frame) {
+        Map<String, Object> entities = new LinkedHashMap<>();
+        if (response != null && response.entities() != null && !"CORRECTION".equals(frame.relation())) {
+            entities.putAll(response.entities());
+        }
+
+        if ("SEARCH".equals(frame.operation())) {
+            entities.keySet().removeAll(List.of("target_name", "target_folder", "query_mode", "scope", "result_type"));
+            entities.put("query_mode", "LIST_CHILDREN".equals(frame.query().mode()) ? "directory_list" : "name_search");
+            entities.put("scope", frame.scope().type().toLowerCase(Locale.ROOT));
+            entities.put("result_type", frame.query().resultType());
+            if (!"LIST_CHILDREN".equals(frame.query().mode()) && !frame.query().nameSurface().isBlank()) {
+                entities.put("target_name", frame.query().nameSurface());
+            }
+            if ("NAMED_FOLDER".equals(frame.scope().type()) && !frame.scope().folderSurface().isBlank()) {
+                entities.put("target_folder", frame.scope().folderSurface());
+            }
+            entities.putAll(frame.query().filters());
+        } else if (List.of("UPLOAD", "MOVE", "CREATE_FOLDER").contains(frame.operation())) {
+            if (!frame.scope().folderSurface().isBlank()) {
+                entities.put("target_folder", frame.scope().folderSurface());
+            }
+            entities.putAll(frame.query().filters());
+        }
+        return Map.copyOf(entities);
+    }
+
+    public ActionDraft actionDraftFor(IntentRecognitionResponse response, SemanticFrame frame, Map<String, Object> entities) {
+        String type = switch (frame.operation()) {
+            case "SEARCH" -> "search";
+            case "UPLOAD" -> response != null
+                    && response.actionDraft() != null
+                    && "composite.create_folder_then_upload".equals(response.actionDraft().type())
+                    ? response.actionDraft().type()
+                    : "upload_target";
+            case "DELETE" -> response != null && response.actionDraft() != null ? response.actionDraft().type() : "delete";
+            case "MOVE", "RENAME", "SHARE", "CREATE_FOLDER" ->
+                    response != null && response.actionDraft() != null ? response.actionDraft().type() : "none";
+            default -> response != null && response.actionDraft() != null ? response.actionDraft().type() : "none";
+        };
+        return new ActionDraft(type, entities, !"none".equals(type));
+    }
+
+    private SemanticFrame frameFromModel(Map<String, Object> payload) {
+        if (payload == null || payload.isEmpty()) {
+            return null;
+        }
+        Map<String, Object> frame = objectMap(payload.get("semantic_frame"));
+        if (frame.isEmpty()) {
+            return null;
+        }
+
+        Map<String, Object> query = objectMap(frame.get("query"));
+        Map<String, Object> scope = objectMap(frame.get("scope"));
+        Map<String, Object> reference = objectMap(frame.get("reference"));
+        Map<String, Object> clarification = objectMap(frame.get("clarification"));
+        return new SemanticFrame(
+                string(frame, "schema_version", SemanticFrame.VERSION),
+                string(frame, "relation", "NEW_TASK"),
+                string(frame, "operation", "UNKNOWN"),
+                new SemanticFrame.Query(
+                        string(query, "mode", "NONE"),
+                        string(query, "result_type", "ANY"),
+                        string(query, "name_surface", ""),
+                        string(query, "name_normalized", ""),
+                        safeFilters(objectMap(query.get("filters")))
+                ),
+                new SemanticFrame.Scope(
+                        string(scope, "type", "ALL"),
+                        string(scope, "folder_surface", ""),
+                        string(scope, "folder_normalized", "")
+                ),
+                new SemanticFrame.Reference(
+                        string(reference, "type", "NONE"),
+                        longValue(reference.get("candidate_id")),
+                        integer(reference.get("candidate_index"))
+                ),
+                decimal(frame.get("confidence")),
+                stringList(frame.get("ambiguities")),
+                new SemanticFrame.Clarification(
+                        string(clarification, "reason", ""),
+                        string(clarification, "question", ""),
+                        stringList(clarification.get("suggestions"))
+                )
+        );
+    }
+
+    private SemanticFrame localFrame(
+            String message,
+            IntentRecognitionResponse response,
+            AssistantConversationState conversation
+    ) {
+        String safeMessage = message == null ? "" : message.trim();
+        String operation = operationFor(response);
+        String relation = "NEW_TASK";
+        SemanticFrame.Reference reference = SemanticFrame.Reference.empty();
+        if (isContextFollowUp(safeMessage, conversation)) {
+            operation = "RESPOND";
+            relation = "FOLLOW_UP";
+            reference = contextReference(conversation);
+        } else if (isContextMutationFollowUp(safeMessage, operation, conversation)) {
+            relation = "FOLLOW_UP";
+            reference = contextReference(conversation);
+        } else if (isSearchCorrection(safeMessage, response, conversation)) {
+            operation = "SEARCH";
+            relation = "CORRECTION";
+        }
+
+        SemanticFrame.Query query = "CORRECTION".equals(relation) && conversation != null
+                ? queryFromEntities(conversation.entities())
+                : queryFromResponse(response);
+        SemanticFrame.Scope scope = "CORRECTION".equals(relation) && conversation != null
+                ? scopeFromEntities(conversation.entities())
+                : scopeFromResponse(response);
+        if ("SEARCH".equals(operation)) {
+            SearchSemantics semantics = parseSearch(safeMessage, query, scope);
+            query = semantics.query();
+            scope = semantics.scope();
+        } else if ("UPLOAD".equals(operation)) {
+            scope = destinationScope(safeMessage, UPLOAD_DESTINATION, scope);
+        } else if ("MOVE".equals(operation)) {
+            scope = destinationScope(safeMessage, MOVE_DESTINATION, scope);
+        }
+
+        return new SemanticFrame(
+                SemanticFrame.VERSION,
+                relation,
+                operation,
+                query,
+                scope,
+                reference,
+                response == null ? 0.0 : response.confidence(),
+                List.of(),
+                SemanticFrame.Clarification.empty()
+        );
+    }
+
+    private SearchSemantics parseSearch(
+            String message,
+            SemanticFrame.Query fallbackQuery,
+            SemanticFrame.Scope fallbackScope
+    ) {
+        Matcher filterMatcher = NAME_FILTER.matcher(message);
+        if (filterMatcher.find()) {
+            String clue = cleanName(filterMatcher.group(1));
+            String resultType = resultType(filterMatcher.group(2), message, "ANY");
+            return new SearchSemantics(
+                    new SemanticFrame.Query("NAME_CONTAINS", resultType, clue, normalizeName(clue), fallbackQuery.filters()),
+                    new SemanticFrame.Scope("ALL", "", "")
+            );
+        }
+
+        Matcher directoryMatcher = NAMED_DIRECTORY_CONTENT.matcher(message);
+        if (!directoryMatcher.find()) {
+            directoryMatcher = NAMED_LOCATION_CONTENT.matcher(message);
+        }
+        if (directoryMatcher.find(0)) {
+            String folder = cleanFolderSurface(directoryMatcher.group(1));
+            String resultType = resultType(directoryMatcher.group(2), message, "ANY");
+            String scopeType = rootScope(folder);
+            return new SearchSemantics(
+                    new SemanticFrame.Query("LIST_CHILDREN", resultType, "", "", fallbackQuery.filters()),
+                    new SemanticFrame.Scope(
+                            scopeType,
+                            "NAMED_FOLDER".equals(scopeType) ? folder : "",
+                            "NAMED_FOLDER".equals(scopeType) ? normalizeName(folder) : ""
+                    )
+            );
+        }
+
+        if (looksLikeExplicitRootList(message)) {
+            return new SearchSemantics(
+                    new SemanticFrame.Query("LIST_CHILDREN", resultType("", message, fallbackQuery.resultType()), "", "", fallbackQuery.filters()),
+                    new SemanticFrame.Scope(message.contains("当前") ? "CURRENT" : "ROOT", "", "")
+            );
+        }
+
+        String clue = cleanSearchClue(message);
+        if (!clue.isBlank()) {
+            String resultType = resultType("", message, fallbackQuery.resultType());
+            return new SearchSemantics(
+                    new SemanticFrame.Query("NAME_SEARCH", resultType, clue, normalizeName(clue), fallbackQuery.filters()),
+                    new SemanticFrame.Scope("ALL", "", "")
+            );
+        }
+
+        return new SearchSemantics(fallbackQuery, fallbackScope);
+    }
+
+    private SemanticFrame validate(
+            SemanticFrame frame,
+            IntentRecognitionResponse response,
+            AssistantClientContext clientContext
+    ) {
+        String relation = allowed(frame.relation(), RELATIONS, "NEW_TASK");
+        String operation = allowed(frame.operation(), OPERATIONS, operationFor(response));
+        String mode = allowed(frame.query().mode(), QUERY_MODES, "NONE");
+        String resultType = allowed(frame.query().resultType(), RESULT_TYPES, "ANY");
+        String scopeType = allowed(frame.scope().type(), SCOPE_TYPES, "ALL");
+        SemanticFrame.Query query = new SemanticFrame.Query(
+                mode,
+                resultType,
+                frame.query().nameSurface(),
+                frame.query().nameNormalized().isBlank()
+                        ? normalizeName(frame.query().nameSurface())
+                        : frame.query().nameNormalized(),
+                safeFilters(frame.query().filters())
+        );
+        SemanticFrame.Scope scope = new SemanticFrame.Scope(
+                scopeType,
+                frame.scope().folderSurface(),
+                frame.scope().folderNormalized().isBlank()
+                        ? normalizeName(frame.scope().folderSurface())
+                        : frame.scope().folderNormalized()
+        );
+
+        List<String> ambiguities = new ArrayList<>(frame.ambiguities());
+        SemanticFrame.Clarification clarification = frame.clarification();
+        if ("UNKNOWN".equals(operation)) {
+            addAmbiguity(ambiguities, "operation");
+            clarification = clarification(
+                    clarification,
+                    "operation",
+                    "我还没能准确判断你想进行哪种操作，可以再明确一点吗？",
+                    List.of("查找云盘文件", "查看文件夹内容", "上传文件")
+            );
+        } else if ("SEARCH".equals(operation)
+                && !"LIST_CHILDREN".equals(mode)
+                && query.nameSurface().isBlank()
+                && query.filters().isEmpty()) {
+            addAmbiguity(ambiguities, "search_query");
+            clarification = clarification(
+                    clarification,
+                    "search_query",
+                    "你想查找什么文件或文件夹？可以告诉我名称、后缀或类型。",
+                    List.of("查找名字带测试的文件夹", "查找 PDF 文件", "列出当前文件夹")
+            );
+        } else if ("SEARCH".equals(operation)
+                && "LIST_CHILDREN".equals(mode)
+                && "NAMED_FOLDER".equals(scope.type())
+                && scope.folderSurface().isBlank()) {
+            addAmbiguity(ambiguities, "target_folder");
+            clarification = clarification(
+                    clarification,
+                    "target_folder",
+                    "你想查看哪个文件夹里的内容？请告诉我文件夹名称。",
+                    List.of("列出测试目录下的文件", "列出根目录文件", "列出当前文件夹")
+            );
+        } else if ("UPLOAD".equals(operation)
+                && !"ROOT".equals(scope.type())
+                && scope.folderSurface().isBlank()) {
+            addAmbiguity(ambiguities, "target_folder");
+            clarification = clarification(
+                    clarification,
+                    "target_folder",
+                    "你想把文件上传到哪个云盘文件夹？",
+                    List.of("上传到根目录", "上传到测试目录", "上传到当前文件夹")
+            );
+        }
+
+        double confidence = frame.confidence();
+        if (!ambiguities.isEmpty()) {
+            confidence = Math.min(confidence, 0.69);
+        }
+        return new SemanticFrame(
+                SemanticFrame.VERSION,
+                relation,
+                operation,
+                query,
+                scope,
+                new SemanticFrame.Reference(
+                        allowed(frame.reference().type(), REFERENCE_TYPES, "NONE"),
+                        frame.reference().candidateId(),
+                        frame.reference().candidateIndex()
+                ),
+                confidence,
+                ambiguities,
+                clarification
+        );
+    }
+
+    private SemanticFrame.Clarification clarification(
+            SemanticFrame.Clarification current,
+            String reason,
+            String question,
+            List<String> suggestions
+    ) {
+        if (current != null && !current.question().isBlank()) {
+            return current;
+        }
+        return new SemanticFrame.Clarification(reason, question, suggestions);
+    }
+
+    private void addAmbiguity(List<String> ambiguities, String value) {
+        if (!ambiguities.contains(value)) {
+            ambiguities.add(value);
+        }
+    }
+
+    private SemanticFrame.Query queryFromResponse(IntentRecognitionResponse response) {
+        return queryFromEntities(response == null ? Map.of() : response.entities());
+    }
+
+    private SemanticFrame.Query queryFromEntities(Map<String, Object> source) {
+        Map<String, Object> entities = source == null ? Map.of() : source;
+        String rawMode = text(entities.get("query_mode"));
+        String mode = switch (rawMode.toLowerCase(Locale.ROOT)) {
+            case "directory_list", "list", "list_children" -> "LIST_CHILDREN";
+            case "name_search", "search", "keyword_search" -> "NAME_SEARCH";
+            default -> entities.containsKey("target_name") ? "NAME_SEARCH" : "NONE";
+        };
+        String resultType = text(entities.get("result_type"));
+        String name = text(entities.get("target_name"));
+        Map<String, Object> filters = new LinkedHashMap<>();
+        List.of("extension", "file_type", "time_range").forEach(key -> {
+            if (entities.containsKey(key)) {
+                filters.put(key, entities.get(key));
+            }
+        });
+        if (name.isBlank() && !filters.isEmpty() && "NONE".equals(mode)) {
+            mode = "FILTER";
+        }
+        return new SemanticFrame.Query(
+                mode,
+                resultType.isBlank() ? "ANY" : resultType,
+                name,
+                normalizeName(name),
+                filters
+        );
+    }
+
+    private SemanticFrame.Scope scopeFromResponse(IntentRecognitionResponse response) {
+        return scopeFromEntities(response == null ? Map.of() : response.entities());
+    }
+
+    private SemanticFrame.Scope scopeFromEntities(Map<String, Object> source) {
+        Map<String, Object> entities = source == null ? Map.of() : source;
+        String targetFolder = text(entities.get("target_folder"));
+        String type = text(entities.get("scope"));
+        if (type.isBlank()) {
+            type = targetFolder.isBlank() ? "ALL" : rootScope(targetFolder);
+        }
+        return new SemanticFrame.Scope(type, "NAMED_FOLDER".equalsIgnoreCase(type) ? targetFolder : "", normalizeName(targetFolder));
+    }
+
+    private SemanticFrame.Scope destinationScope(
+            String message,
+            Pattern pattern,
+            SemanticFrame.Scope fallback
+    ) {
+        Matcher matcher = pattern.matcher(message == null ? "" : message);
+        if (!matcher.find()) {
+            return fallback;
+        }
+        String folder = cleanDestination(matcher.group(1));
+        String type = rootScope(folder);
+        return new SemanticFrame.Scope(
+                type,
+                "NAMED_FOLDER".equals(type) ? folder : "",
+                "NAMED_FOLDER".equals(type) ? normalizeName(folder) : ""
+        );
+    }
+
+    private boolean isSearchCorrection(
+            String message,
+            IntentRecognitionResponse response,
+            AssistantConversationState conversation
+    ) {
+        if (conversation == null || !"file_search".equals(conversation.pendingIntentId())) {
+            return false;
+        }
+        if (response != null && !"fallback".equals(response.intentId())) {
+            return startsLikeCorrection(message);
+        }
+        return startsLikeCorrection(message)
+                || TextSupport.containsAny(message, List.of("名字", "名称", "文件名", "文件夹", "目录", "文件", "文档"));
+    }
+
+    private boolean isContextFollowUp(String message, AssistantConversationState conversation) {
+        if (conversation == null || conversation.focus() == null || !conversation.focus().hasCandidateContext()) {
+            return false;
+        }
+        String value = message == null ? "" : message.trim();
+        boolean hasReference = TextSupport.containsAny(value, List.of(
+                "它", "这个", "那个", "刚才", "上一个", "前一个", "第一个", "第二个", "第三个"
+        ));
+        boolean asksProperty = TextSupport.containsAny(value, List.of(
+                "什么格式", "什么类型", "多大", "大小", "后缀", "扩展名", "名称", "名字", "什么时候", "修改时间", "路径"
+        ));
+        return hasReference && asksProperty;
+    }
+
+    private boolean isContextMutationFollowUp(
+            String message,
+            String operation,
+            AssistantConversationState conversation
+    ) {
+        if (conversation == null
+                || conversation.focus() == null
+                || !conversation.focus().hasCandidateContext()
+                || !List.of("DELETE", "MOVE", "RENAME", "SHARE").contains(operation)) {
+            return false;
+        }
+        return TextSupport.containsAny(message, List.of(
+                "它", "这个", "那个", "刚才", "上一个", "前一个", "第一个", "第二个", "第三个"
+        ));
+    }
+
+    private SemanticFrame.Reference contextReference(AssistantConversationState conversation) {
+        CandidateBindingResult binding = conversation.candidateBinding();
+        if (binding != null && binding.selectedCandidate() != null) {
+            return new SemanticFrame.Reference("SELECTED_CANDIDATE", binding.selectedCandidate().nodeId(), null);
+        }
+        if (conversation.focus().hasSingleCandidateFocus() && conversation.focus().effectiveCandidate() != null) {
+            return new SemanticFrame.Reference(
+                    "PREVIOUS_CANDIDATE",
+                    conversation.focus().effectiveCandidate().nodeId(),
+                    null
+            );
+        }
+        return new SemanticFrame.Reference("PREVIOUS_CANDIDATE_SET", null, null);
+    }
+
+    private Map<String, Object> safeFilters(Map<String, Object> filters) {
+        if (filters == null || filters.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, Object> safe = new LinkedHashMap<>();
+        filters.forEach((key, value) -> {
+            if (FILTER_KEYS.contains(key) && value != null && !String.valueOf(value).isBlank()) {
+                safe.put(key, value);
+            }
+        });
+        return Map.copyOf(safe);
+    }
+
+    private boolean startsLikeCorrection(String message) {
+        String value = message == null ? "" : message.trim();
+        return value.startsWith("是")
+                || value.startsWith("不是")
+                || value.startsWith("不对")
+                || value.startsWith("我是说")
+                || value.startsWith("改成")
+                || value.endsWith("呢？")
+                || value.endsWith("呢?");
+    }
+
+    private String operationFor(IntentRecognitionResponse response) {
+        if (response == null) {
+            return "UNKNOWN";
+        }
+        if (response.intentId() != null && response.intentId().startsWith("assistant_")) {
+            return "RESPOND";
+        }
+        String action = response.actionDraft() == null ? "" : response.actionDraft().type();
+        return switch (action == null ? "" : action) {
+            case "search" -> "SEARCH";
+            case "upload_target", "composite.create_folder_then_upload" -> "UPLOAD";
+            case "delete", "collection.trash_by_name_contains", "collection.trash_by_category" -> "DELETE";
+            case "collection.move_by_extension", "collection.move_by_name_contains", "move" -> "MOVE";
+            case "rename", "collection.rename_add_prefix" -> "RENAME";
+            case "share" -> "SHARE";
+            case "folder.create" -> "CREATE_FOLDER";
+            default -> "fallback".equals(response.intentId()) ? "UNKNOWN" : "RESPOND";
+        };
+    }
+
+    private String cleanSearchClue(String message) {
+        String value = message == null ? "" : message.trim();
+        value = value.replaceFirst("^(?:你|请|麻烦)?(?:给我|帮我)?\\s*", "");
+        value = value.replaceFirst("^(?:我(?:想要|想|要)|想要|想)\\s*", "");
+        value = value.replaceFirst("^(?:能不能|能否|可不可以|可以不可以|可以)\\s*", "");
+        value = value.replaceFirst("^(?:把|将|给)\\s*", "");
+        Matcher commandMatcher = SEARCH_COMMAND.matcher(value);
+        if (commandMatcher.find() && commandMatcher.start() == 0) {
+            value = value.substring(commandMatcher.end()).trim();
+        }
+        value = value.replaceFirst("^(?:是|不是|不对|我是说|改成)\\s*", "");
+        value = value.replaceFirst("^(?:有没有|是否有|有无|名为|名称为|叫做|叫)\\s*", "");
+        value = value.replaceFirst("(?:列出来|列出|找出来|展示出来|显示出来)$", "");
+        value = value.replaceFirst("的(?:文件|文档|资料)$", "");
+        value = value.replaceAll("[呢吗呀啊吧\\s？?。！!]+$", "");
+        return cleanName(value);
+    }
+
+    private String cleanFolderSurface(String value) {
+        String folder = value == null ? "" : value.trim();
+        folder = folder.replaceFirst("^(?:你|请|麻烦)?(?:给我|帮我)?\\s*", "");
+        folder = folder.replaceFirst("^(?:列出|列一下|展示|显示|查看|看看|看下|浏览)\\s*", "");
+        folder = folder.replaceFirst("^在\\s*", "");
+        return cleanName(folder);
+    }
+
+    private String cleanDestination(String value) {
+        String folder = cleanName(value);
+        folder = folder.replaceAll("(?:中|里|内|下)(?:面)?(?:吧)?$", "");
+        folder = folder.replaceAll("(?:吧|呢)$", "");
+        return folder.trim();
+    }
+
+    private String cleanName(String value) {
+        String name = value == null ? "" : value.trim();
+        name = name.replaceAll("^[\\\"'“”]+|[\\\"'“”]+$", "");
+        return TextSupport.sanitizeNodeName(name);
+    }
+
+    private String normalizeName(String value) {
+        return cleanName(value).toLowerCase(Locale.ROOT).replaceAll("\\s+", "");
+    }
+
+    private String rootScope(String folder) {
+        String normalized = normalizeName(folder);
+        if (List.of("根", "根目录", "根文件夹", "云盘根目录", "/").contains(normalized)) {
+            return "ROOT";
+        }
+        if (List.of("当前", "当前目录", "当前文件夹").contains(normalized)) {
+            return "CURRENT";
+        }
+        return folder == null || folder.isBlank() ? "ALL" : "NAMED_FOLDER";
+    }
+
+    private boolean looksLikeExplicitRootList(String message) {
+        return TextSupport.containsAny(message, List.of("列出", "列一下", "展示", "显示", "有哪些", "list", "show"))
+                && TextSupport.containsAny(message, List.of("根目录", "根文件夹", "当前目录", "当前文件夹"));
+    }
+
+    private String resultType(String explicitType, String message, String fallback) {
+        String value = explicitType == null ? "" : explicitType.trim();
+        String text = message == null ? "" : message;
+        if (text.matches(".*(?:文件或文件夹|文件和文件夹|文件及文件夹|文件、文件夹).*")) {
+            return "ANY";
+        }
+        if (value.contains("文件夹") || "目录".equals(value)) {
+            return "FOLDER";
+        }
+        if (value.contains("文件") || value.contains("文档")) {
+            return "FILE";
+        }
+        if (text.contains("文件夹") || text.matches(".*(?:目录列表|有哪些目录|所有目录).*")) {
+            return "FOLDER";
+        }
+        if (text.matches(".*(?:目录下的文件|目录里的文件|目录中的文件|目录的文件|文件夹下的文件|文件夹里的文件|文件列表|有哪些文件|所有文件).*")) {
+            return "FILE";
+        }
+        String safeFallback = fallback == null ? "" : fallback.trim().toUpperCase(Locale.ROOT);
+        return RESULT_TYPES.contains(safeFallback) ? safeFallback : "ANY";
+    }
+
+    private String allowed(String value, Set<String> allowed, String fallback) {
+        String normalized = value == null ? "" : value.trim().toUpperCase(Locale.ROOT);
+        if (allowed.contains(normalized)) {
+            return normalized;
+        }
+        String safeFallback = fallback == null ? "" : fallback.trim().toUpperCase(Locale.ROOT);
+        return allowed.contains(safeFallback) ? safeFallback : allowed.iterator().next();
+    }
+
+    private Map<String, Object> objectMap(Object value) {
+        if (!(value instanceof Map<?, ?> map)) {
+            return Map.of();
+        }
+        Map<String, Object> result = new LinkedHashMap<>();
+        map.forEach((key, item) -> result.put(String.valueOf(key), item));
+        return result;
+    }
+
+    private List<String> stringList(Object value) {
+        if (!(value instanceof List<?> list)) {
+            return List.of();
+        }
+        return list.stream().map(String::valueOf).filter(item -> !item.isBlank()).toList();
+    }
+
+    private String string(Map<String, Object> map, String key, String fallback) {
+        String value = text(map.get(key));
+        return value.isBlank() ? fallback : value;
+    }
+
+    private String text(Object value) {
+        return value == null ? "" : String.valueOf(value).trim();
+    }
+
+    private Integer integer(Object value) {
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        try {
+            return value == null ? null : Integer.valueOf(String.valueOf(value));
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
+    }
+
+    private Long longValue(Object value) {
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        try {
+            return value == null ? null : Long.valueOf(String.valueOf(value));
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
+    }
+
+    private double decimal(Object value) {
+        if (value instanceof Number number) {
+            return number.doubleValue();
+        }
+        try {
+            return value == null ? 0.0 : Double.parseDouble(String.valueOf(value));
+        } catch (NumberFormatException ignored) {
+            return 0.0;
+        }
+    }
+
+    private record SearchSemantics(SemanticFrame.Query query, SemanticFrame.Scope scope) {
+    }
+}

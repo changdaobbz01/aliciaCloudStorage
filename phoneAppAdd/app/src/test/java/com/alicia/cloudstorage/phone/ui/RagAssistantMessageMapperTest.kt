@@ -127,9 +127,64 @@ class RagAssistantMessageMapperTest {
         assertNotNull(plan)
         assertNull(plan!!.actionControls)
         val clientControls = plan.clientActionControls ?: error("Expected client upload controls.")
-        assertEquals("选择文件", clientControls.label)
+        assertEquals("选择文件并上传", clientControls.label)
         assertEquals(501L, clientControls.uploadRequest.parentId)
         assertEquals("项目资料", clientControls.uploadRequest.targetName)
+    }
+
+    @Test
+    fun `prepared upload target exposes confirmation and keeps virtual root navigable`() {
+        val root = RagCandidateItem(
+            nodeId = null,
+            parentId = null,
+            name = "根目录",
+            type = "FOLDER",
+            size = 0L,
+            extension = null,
+            mimeType = null,
+            updatedAt = null,
+            path = "/",
+            breadcrumbs = emptyList(),
+        )
+        val message = response(
+            intentId = "file_upload",
+            nextAction = "wait_for_user_confirmation",
+            actionDraft = RagActionDraft(
+                type = "upload_target",
+                parameters = mapOf("target_folder" to "根目录"),
+                needsBackendBinding = false,
+            ),
+            actionPlan = plan(
+                status = "review_required",
+                actionType = "file.upload",
+                risk = "low",
+                bindings = mapOf(
+                    "targetParent" to RagActionPlanBinding(
+                        key = "targetParent",
+                        kind = "target_folder",
+                        status = "single_candidate",
+                        query = "根目录",
+                        selectedCandidate = root,
+                        candidates = listOf(root),
+                        count = 1,
+                        filter = emptyMap(),
+                    ),
+                ),
+                requiredClientFields = emptyList(),
+            ),
+            backendActionDraft = null,
+        ).toAssistantMessage(id = 31L)
+
+        val controls = message.plan?.clientActionControls ?: error("Expected upload confirmation.")
+        assertNull(message.plan.actionControls)
+        assertEquals("确认上传", controls.label)
+        assertNull(controls.uploadRequest.parentId)
+        assertEquals("根目录", controls.uploadRequest.targetName)
+        assertEquals("/", message.files.single().path)
+        assertEquals(
+            AiChatFolderOpenTarget(nodeId = null, name = "根目录"),
+            message.files.single().toFolderOpenTargetOrNull(),
+        )
     }
 
     @Test
@@ -225,6 +280,7 @@ class RagAssistantMessageMapperTest {
                         outputKey = null,
                     ),
                 ),
+                requiredClientFields = listOf("files"),
             ),
             backendActionDraft = null,
         ).toAssistantMessage(id = 28L)

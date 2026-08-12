@@ -7,7 +7,7 @@
 - 手机号 + 密码登录
 - 首页概览、空间使用进度、最近文件、文件分类入口
 - 文件页：目录浏览、全盘分类、关键字搜索、文件/文件夹筛选
-- 文件操作：上传文件、新建文件夹、预览、下载、分享、移动、删除到回收站
+- 文件操作：自建文件/文件夹选择页、批量逐文件上传、新建文件夹、预览、下载、分享、移动、删除到回收站
 - 批量操作：多选下载 ZIP、移动、删除、回收站恢复和彻底删除
 - 传输管理：底部导航独立页面、下载/上传进度、失败态、下载失败重试
 - 分享链接：剪贴板/深链识别、提取码校验、选中内容保存到网盘
@@ -49,7 +49,36 @@ ALICIA_RAG_ACTION_EXECUTION_ENABLED=false
 ALICIA_RAG_CONFIRMATION_MESSAGE=确认
 ```
 
-如果连接的是 USB 真机，可先执行 `adb reverse tcp:8081 tcp:8081`，再将 `ALICIA_RAG_BASE_URL` 配为 `http://127.0.0.1:8081`。
+如果连接的是 USB 真机，将 `ALICIA_RAG_BASE_URL` 配为 `http://127.0.0.1:8081` 后，使用下面的脚本安装。它会检查本地 RAG、安装 Debug 包、重建 `adb reverse`，并从设备侧验证健康接口：
+
+```powershell
+.\scripts\install-debug-device.ps1
+```
+
+手机重连或重启后，`adb reverse` 可能失效。只恢复连接而不重新安装时可执行：
+
+```powershell
+.\scripts\install-debug-device.ps1 -SkipInstall
+```
+
+独立启动 RAG 时，还必须给 RAG 进程配置可信的 CloudStorageApi 地址，否则文件查询和目标目录匹配会被安全地跳过。例如移动端连接线上 API 时：
+
+```powershell
+$env:ALICIA_STORAGE_API_BASE_URL="https://windwindwind-alicia.cn"
+.\mvnw.cmd -pl rag spring-boot:run
+```
+
+Docker Compose 环境使用 `http://api:8080`。这个地址只能由服务端部署配置，不能由移动端请求动态指定，避免把用户登录令牌转发到不可信地址。
+
+本地启动前需要确保当前终端进程真正继承了 DeepSeek 配置。若密钥保存在 Windows 用户级环境变量中，可先同步到当前终端，再启动 RAG：
+
+```powershell
+$env:DEEPSEEK_API_KEY=[Environment]::GetEnvironmentVariable("DEEPSEEK_API_KEY", "User")
+$env:ALICIA_STORAGE_API_BASE_URL="https://windwindwind-alicia.cn"
+.\mvnw.cmd -pl rag spring-boot:run
+```
+
+启动后访问 `http://127.0.0.1:8081/api/health`。其中 `deepseekConfigured` 和 `storageApiConfigured` 都应为 `true`；该接口只返回配置状态，不返回任何密钥。目录列举默认最多返回 50 项，可通过 `ALICIA_RAG_CANDIDATE_BINDING_DIRECTORY_LIST_MAX_RESULTS` 调整。
 
 `ALICIA_RAG_ACTION_EXECUTION_ENABLED` 默认必须保持 `false`。它只控制 AI 文件操作执行器是否真的提交到 CloudStorageApi；聊天、候选展示、候选选择和最终确认 UI 不依赖这个开关。正式打开前需要完成候选选择、最终确认、本地 allowlist 和后端鉴权验收。
 

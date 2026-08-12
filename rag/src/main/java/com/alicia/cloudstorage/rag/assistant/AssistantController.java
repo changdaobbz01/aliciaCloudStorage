@@ -82,7 +82,7 @@ public class AssistantController {
         }
         String conversationId = request == null ? "" : request.conversationId();
         return assistantConversationService.plan(
-                new AssistantPlanRequest(message.trim(), conversationId),
+                new AssistantPlanRequest(message.trim(), conversationId, request.clientContext(), request.clientEvent()),
                 authorizationHeader
         );
     }
@@ -98,7 +98,12 @@ public class AssistantController {
         }
 
         String conversationId = request == null ? "" : request.conversationId();
-        AssistantPlanRequest sanitizedRequest = new AssistantPlanRequest(message.trim(), conversationId);
+        AssistantPlanRequest sanitizedRequest = new AssistantPlanRequest(
+                message.trim(),
+                conversationId,
+                request.clientContext(),
+                request.clientEvent()
+        );
 
         return outputStream -> {
             writeStreamEvent(outputStream, AssistantStreamEvent.status("安安正在理解你的意思..."));

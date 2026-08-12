@@ -44,6 +44,14 @@ public class DeepSeekIntentClient implements IntentModelClient {
 
     @Override
     public Optional<ModelIntentResult> recognize(String message) {
+        return recognize(new IntentModelRequest(message, Map.of()));
+    }
+
+    @Override
+    public Optional<ModelIntentResult> recognize(IntentModelRequest modelRequest) {
+        IntentModelRequest safeRequest = modelRequest == null
+                ? new IntentModelRequest("", Map.of())
+                : modelRequest;
         DeepSeekSettings settings = loadSettings();
         String resolvedApiKey = resolvedApiKey(settings);
         if (!settings.enabled() || resolvedApiKey.isBlank()) {
@@ -52,7 +60,7 @@ public class DeepSeekIntentClient implements IntentModelClient {
         }
 
         try {
-            String body = objectMapper.writeValueAsString(buildRequestBody(settings, message));
+            String body = objectMapper.writeValueAsString(buildRequestBody(settings, safeRequest));
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(settings.baseUrl().replaceAll("/+$", "") + "/chat/completions"))
                     .timeout(Duration.ofSeconds(settings.timeoutSeconds()))
@@ -77,12 +85,35 @@ public class DeepSeekIntentClient implements IntentModelClient {
         }
     }
 
-    private Map<String, Object> buildRequestBody(DeepSeekSettings settings, String message) {
+    public boolean isConfigured() {
+        DeepSeekSettings settings = loadSettings();
+        return settings.enabled() && !resolvedApiKey(settings).isBlank();
+    }
+
+    public String configuredModel() {
+        return loadSettings().model();
+    }
+
+    private Map<String, Object> buildRequestBody(
+            DeepSeekSettings settings,
+            IntentModelRequest request
+    ) throws JsonProcessingException {
+        String contextJson = objectMapper.writeValueAsString(request.context());
+        String userContent = settings.userTemplate()
+                .replace("{message}", request.message())
+                .replace("{context_json}", contextJson)
+                + "\n\n"
+                + settings.semanticQueryInstructions();
         return Map.of(
                 "model", settings.model(),
                 "messages", List.of(
                         Map.of("role", "system", "content", settings.systemMessage()),
-                        Map.of("role", "user", "content", settings.userTemplate().replace("{message}", message))
+                        Map.of(
+                                "role",
+                                "user",
+                                "content",
+                                userContent
+                        )
                 ),
                 "temperature", settings.temperature(),
                 "max_tokens", settings.maxTokens(),
@@ -129,6 +160,7 @@ public class DeepSeekIntentClient implements IntentModelClient {
                 root.path("response_format").asText("json_object"),
                 prompt.path("version").asText("intent_recognition_v1"),
                 prompt.path("template_id").asText("deepseek_file_intent_recognition"),
+                prompt.path("semantic_query_instructions").asText(""),
                 prompt.path("system_message").asText(),
                 prompt.path("user_template").asText()
         );
@@ -163,6 +195,7 @@ public class DeepSeekIntentClient implements IntentModelClient {
             String responseFormat,
             String promptVersion,
             String templateId,
+            String semanticQueryInstructions,
             String systemMessage,
             String userTemplate
     ) {

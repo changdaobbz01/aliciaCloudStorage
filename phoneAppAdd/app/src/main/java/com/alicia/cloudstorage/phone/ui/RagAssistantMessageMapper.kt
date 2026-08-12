@@ -1,6 +1,5 @@
 package com.alicia.cloudstorage.phone.ui
 
-import com.alicia.cloudstorage.phone.data.ApiException
 import com.alicia.cloudstorage.phone.data.RagActionExecutionResult
 import com.alicia.cloudstorage.phone.data.RagActionExecutionStatus
 import com.alicia.cloudstorage.phone.data.RagActionPlan
@@ -42,19 +41,7 @@ internal fun RagActionExecutionResult.toFileMutationSignal(): AiChatFileMutation
     }
 
     val normalizedActionType = actionType?.trim().orEmpty()
-    val scope = when (normalizedActionType) {
-        "rename",
-        "collection.move_by_extension",
-        "collection.move_by_name_contains",
-        -> AiChatFileMutationScope.FILES_ONLY
-
-        "delete",
-        "collection.trash_by_name_contains",
-        "collection.trash_by_category",
-        -> AiChatFileMutationScope.FILES_AND_TRASH
-
-        else -> return null
-    }
+    val scope = AiChatExecutionFeedback.mutationScope(normalizedActionType) ?: return null
 
     return AiChatFileMutationSignal(
         actionType = normalizedActionType,
@@ -79,6 +66,7 @@ private fun RagReviewPresentation?.toAiChatFileResults(): List<AiChatFileResult>
                     extension = candidate.extension,
                     mimeType = candidate.mimeType,
                     updatedAt = candidate.updatedAt,
+                    path = candidate.source,
                     selectionAction = review.toCandidateSelectionAction(index, candidate),
                 )
             }
@@ -97,6 +85,8 @@ private fun RagReviewPresentation.toCandidateSelectionAction(
         label = "选择",
         requestMessage = "选第${oneBasedIndex}个",
         displayText = "选择第 $oneBasedIndex 个：${candidate.name}",
+        candidateId = candidate.nodeId,
+        candidateIndex = oneBasedIndex,
     )
 }
 
@@ -121,6 +111,9 @@ private fun RagReviewPresentation.toAiChatPlanActionControls(
 
     val hasExecutableDraft = backendDraft.isReviewableBackendDraft()
     if (!hasExecutableDraft && !plan.canRequestBackendDraft(kind)) {
+        return null
+    }
+    if (plan.isClientUploadPlan()) {
         return null
     }
 
@@ -161,19 +154,34 @@ private fun RagReviewPresentation.toAiChatPlanClientActionControls(
     plan: RagActionPlan?,
     backendDraft: RagBackendActionDraft?,
 ): AiChatPlanClientActionControls? {
-    if (kind == RagReviewKind.CLIENT_INPUT) {
-        backendDraft.toUploadClientRequest()?.let { request ->
+    if (kind == RagReviewKind.CANDIDATE_SELECTION || kind == RagReviewKind.BLOCKED) {
+        return null
+    }
+
+    plan.toUploadTargetRequest()
+        ?.let { request ->
             return AiChatPlanClientActionControls(
-                label = "选择文件",
+                label = if (plan.hasMissingUploadInput(backendDraft)) "选择文件并上传" else "确认上传",
                 uploadRequest = request,
             )
         }
-    }
 
-    if (kind == RagReviewKind.FINAL_CONFIRMATION || kind == RagReviewKind.CLIENT_INPUT) {
-        plan.toCreateFolderThenUploadRequest()?.let { request ->
+    plan.toCreateFolderThenUploadRequest()
+        ?.let { request ->
             return AiChatPlanClientActionControls(
-                label = "新建并选择文件",
+                label = if (plan.hasMissingUploadInput(backendDraft)) {
+                    "新建并选择文件"
+                } else {
+                    "确认新建并上传"
+                },
+                uploadRequest = request,
+            )
+        }
+
+    if (kind == RagReviewKind.CLIENT_INPUT) {
+        backendDraft.toUploadClientRequest()?.let { request ->
+            return AiChatPlanClientActionControls(
+                label = if (backendDraft?.requiredClientFields.orEmpty().isEmpty()) "确认上传" else "选择文件并上传",
                 uploadRequest = request,
             )
         }
@@ -212,12 +220,6 @@ private fun RagAssistantPlanResponse.assistantDisplayText(): String {
         .ifBlank { "我已经收到你的请求，但这次没有可展示的回复内容。" }
 }
 
-internal fun Throwable.readableRagMessage(): String =
-    when (this) {
-        is ApiException -> message
-        else -> message?.takeIf { it.isNotBlank() } ?: "安安暂时没有回应，请稍后再试。"
-    }
-
 private fun RagBackendActionDraft?.isReviewableBackendDraft(): Boolean =
     this != null &&
         status.equals("backend_action_ready", ignoreCase = true) &&
@@ -228,11 +230,7 @@ private fun RagBackendActionDraft?.isReviewableBackendDraft(): Boolean =
 private fun RagBackendActionDraft?.isUploadClientActionDraft(): Boolean =
     this != null &&
         actionType.equals("upload_target", ignoreCase = true) &&
-        requiredClientFields.orEmpty().any { field ->
-            field.equals("file", ignoreCase = true) ||
-                field.equals("files", ignoreCase = true) ||
-                field.equals("client_file", ignoreCase = true)
-        }
+        status.equals("client_action_required", ignoreCase = true)
 
 private fun RagBackendActionDraft?.toUploadClientRequest(): AiChatClientUploadRequest? {
     val draft = this ?: return null
@@ -273,6 +271,46 @@ private fun RagActionPlan?.toCreateFolderThenUploadRequest(): AiChatClientUpload
         targetName = listOfNotNull(parentName, folderName).joinToString("/"),
         createFolderName = folderName,
     )
+}
+
+private fun RagActionPlan?.toUploadTargetRequest(): AiChatClientUploadRequest? {
+    val plan = this ?: return null
+    if (!plan.actionType.equals("file.upload", ignoreCase = true) &&
+        !plan.actionType.equals("upload_target", ignoreCase = true)
+    ) {
+        return null
+    }
+
+    val targetBinding = plan.bindings
+        .orEmpty()
+        .get("targetParent")
+        ?: return null
+    val target = targetBinding.selectedCandidate
+        ?: targetBinding.candidates.orEmpty().singleOrNull()
+        ?: return null
+    val uploadStep = plan.steps
+        .orEmpty()
+        .firstOrNull { step -> step.action.equals("file.upload", ignoreCase = true) }
+
+    return AiChatClientUploadRequest(
+        parentId = uploadStep?.params.longValue("parentId") ?: target.nodeId,
+        targetName = target.name?.takeIf { it.isNotBlank() } ?: "根目录",
+    )
+}
+
+private fun RagActionPlan?.isClientUploadPlan(): Boolean =
+    this?.actionType.equals("file.upload", ignoreCase = true) ||
+        this?.actionType.equals("upload_target", ignoreCase = true) ||
+        this?.actionType.equals("composite.create_folder_then_upload", ignoreCase = true)
+
+private fun RagActionPlan?.hasMissingUploadInput(backendDraft: RagBackendActionDraft?): Boolean {
+    val requiredFields = this?.requiredClientFields.orEmpty() + backendDraft?.requiredClientFields.orEmpty()
+    return requiredFields.any { field ->
+        field.equals("file", ignoreCase = true) ||
+            field.equals("files", ignoreCase = true) ||
+            field.equals("client_file", ignoreCase = true) ||
+            field.equals("client_files", ignoreCase = true)
+    }
 }
 
 private fun Map<String, Any>?.longValue(key: String): Long? =

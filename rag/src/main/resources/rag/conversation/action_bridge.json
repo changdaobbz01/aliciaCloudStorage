@@ -74,9 +74,9 @@
       "method": "POST",
       "path_template": "/api/storage/files",
       "content_type": "multipart/form-data",
-      "required_candidate_fields": ["nodeId"],
+      "required_candidate_fields": [],
       "required_entity_slots": [],
-      "required_client_fields": ["file"],
+      "required_client_fields": ["files"],
       "path_variables": {},
       "query_parameters": {
         "parentId": "$candidate.nodeId"

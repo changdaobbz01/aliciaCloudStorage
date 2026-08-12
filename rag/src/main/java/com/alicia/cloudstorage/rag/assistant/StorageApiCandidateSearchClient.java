@@ -36,17 +36,155 @@ public class StorageApiCandidateSearchClient implements CandidateSearchPort {
         if (request.authorizationHeader() == null || request.authorizationHeader().isBlank()) {
             return CandidateBindingResult.skipped("missing_authorization", "缺少用户 Authorization，已跳过真实候选绑定。");
         }
-        if (request.query() == null || request.query().isBlank()) {
+        if (!isDirectoryList(request) && (request.query() == null || request.query().isBlank())) {
             return CandidateBindingResult.skipped("missing_query", "缺少可用于候选绑定的自然语言线索。");
         }
 
         try {
+            if (isDirectoryList(request)) {
+                return listDirectory(request);
+            }
             return "FOLDER".equalsIgnoreCase(request.candidateType())
                     ? searchFolders(request)
                     : searchNodes(request);
         } catch (RuntimeException exception) {
             return CandidateBindingResult.skipped("storage_api_error", "候选查询暂时不可用。");
         }
+    }
+
+    private CandidateBindingResult listDirectory(CandidateSearchRequest request) {
+        String scope = request.scope().toLowerCase();
+        return switch (scope) {
+            case FileQueryPlanResolver.SCOPE_ROOT -> listNodesInScope(request, null, false, "根目录");
+            case FileQueryPlanResolver.SCOPE_CURRENT -> listNodesInScope(
+                    request,
+                    request.currentFolderId(),
+                    false,
+                    request.currentFolderPath().isBlank() ? "当前目录" : request.currentFolderPath()
+            );
+            case FileQueryPlanResolver.SCOPE_NAMED_FOLDER -> listNamedFolder(request);
+            case FileQueryPlanResolver.SCOPE_ALL -> listNodesInScope(request, null, true, "全部云盘");
+            default -> listNodesInScope(request, request.currentFolderId(), false, "当前目录");
+        };
+    }
+
+    private CandidateBindingResult listNamedFolder(CandidateSearchRequest request) {
+        if (request.targetFolder().isBlank()) {
+            return CandidateBindingResult.skipped("missing_query", "缺少要列出内容的目录范围。");
+        }
+
+        List<CandidateItem> allFolders = storageApi.fetchAllFolders(request.authorizationHeader());
+        Map<Long, CandidateItem> folderById = storageApi.folderMap(allFolders);
+        CandidateSearchRequest folderQuery = new CandidateSearchRequest(
+                request.intentId(),
+                request.actionType(),
+                "FOLDER",
+                "target_folder",
+                request.targetFolder(),
+                FileQueryPlanResolver.NAME_SEARCH,
+                FileQueryPlanResolver.SCOPE_ALL,
+                "",
+                request.currentFolderId(),
+                request.currentFolderPath(),
+                request.maxResults(),
+                request.authorizationHeader()
+        );
+        List<String> variants = queryPlanner.variants(folderQuery);
+        List<CandidateItem> matchingFolders = storageApi.enrichWithPaths(allFolders, folderById).stream()
+                .filter(candidate -> queryPlanner.matchScore(candidate, variants) < Integer.MAX_VALUE)
+                .sorted(Comparator.comparingInt(candidate -> queryPlanner.matchScore(candidate, variants)))
+                .limit(request.maxResults())
+                .toList();
+        if (matchingFolders.isEmpty()) {
+            return directoryListResult(request, List.of(), "cloud-storage-api:/api/storage/folders", request.targetFolder());
+        }
+
+        Map<String, CandidateItem> candidatesByKey = new LinkedHashMap<>();
+        for (CandidateItem folder : matchingFolders) {
+            if (folder.nodeId() == null || candidatesByKey.size() >= request.maxResults()) {
+                continue;
+            }
+            fetchDirectoryNodes(request, folder.nodeId(), false, folderById).forEach(candidate ->
+                    candidatesByKey.putIfAbsent(candidateKey(candidate), candidate)
+            );
+        }
+        return directoryListResult(
+                request,
+                candidatesByKey.values().stream().limit(request.maxResults()).toList(),
+                "cloud-storage-api:/api/storage/nodes",
+                request.targetFolder()
+        );
+    }
+
+    private CandidateBindingResult listNodesInScope(
+            CandidateSearchRequest request,
+            Long parentId,
+            boolean recursive,
+            String scopeLabel
+    ) {
+        Map<Long, CandidateItem> folderById = storageApi.safeFolderMap(request.authorizationHeader());
+        List<CandidateItem> candidates = fetchDirectoryNodes(request, parentId, recursive, folderById).stream()
+                .limit(request.maxResults())
+                .toList();
+        return directoryListResult(
+                request,
+                candidates,
+                "cloud-storage-api:/api/storage/nodes",
+                scopeLabel
+        );
+    }
+
+    private List<CandidateItem> fetchDirectoryNodes(
+            CandidateSearchRequest request,
+            Long parentId,
+            boolean recursive,
+            Map<Long, CandidateItem> folderById
+    ) {
+        StorageApiNodePage page = storageApi.searchNodes(new StorageApiNodeQuery(
+                parentId,
+                recursive,
+                "",
+                nodeTypeFilter(request),
+                null,
+                1,
+                request.maxResults(),
+                "updatedAt",
+                "desc"
+        ), request.authorizationHeader());
+        return storageApi.enrichWithPaths(page.items(), folderById).stream()
+                .filter(candidate -> matchesCandidateType(candidate, request.candidateType()))
+                .toList();
+    }
+
+    private CandidateBindingResult directoryListResult(
+            CandidateSearchRequest request,
+            List<CandidateItem> candidates,
+            String source,
+            String scopeLabel
+    ) {
+        String typeLabel = switch (request.candidateType().toUpperCase()) {
+            case "FILE" -> "文件";
+            case "FOLDER" -> "文件夹";
+            default -> "内容";
+        };
+        if (candidates.isEmpty()) {
+            return new CandidateBindingResult(
+                    "no_candidates",
+                    source,
+                    scopeLabel,
+                    request.candidateType(),
+                    candidates,
+                    scopeLabel + "下没有可展示的" + typeLabel + "。"
+            );
+        }
+        return new CandidateBindingResult(
+                "search_results_ready",
+                source,
+                scopeLabel,
+                request.candidateType(),
+                candidates,
+                "已列出" + scopeLabel + "下的 " + candidates.size() + " 个" + typeLabel + "。"
+        );
     }
 
     private CandidateBindingResult searchNodes(CandidateSearchRequest request) {
@@ -74,7 +212,10 @@ public class StorageApiCandidateSearchClient implements CandidateSearchPort {
                     .forEach(candidate -> candidatesByKey.putIfAbsent(candidateKey(candidate), candidate));
         }
 
-        List<CandidateItem> candidates = rank(candidatesByKey.values().stream().toList(), queryVariants).stream()
+        List<CandidateItem> candidates = narrowToExactMatches(
+                rank(candidatesByKey.values().stream().toList(), queryVariants),
+                queryVariants
+        ).stream()
                 .limit(Math.max(1, request.maxResults()))
                 .toList();
         return result(request, candidates, "cloud-storage-api:/api/storage/nodes");
@@ -84,9 +225,11 @@ public class StorageApiCandidateSearchClient implements CandidateSearchPort {
         List<CandidateItem> allFolders = storageApi.fetchAllFolders(request.authorizationHeader());
         Map<Long, CandidateItem> folderById = storageApi.folderMap(allFolders);
         List<String> queryVariants = queryPlanner.variants(request);
-        List<CandidateItem> candidates = storageApi.enrichWithPaths(allFolders, folderById).stream()
+        List<CandidateItem> rankedCandidates = storageApi.enrichWithPaths(allFolders, folderById).stream()
                 .filter(candidate -> queryPlanner.matchScore(candidate, queryVariants) < Integer.MAX_VALUE)
                 .sorted(Comparator.comparingInt(candidate -> queryPlanner.matchScore(candidate, queryVariants)))
+                .toList();
+        List<CandidateItem> candidates = narrowToExactMatches(rankedCandidates, queryVariants).stream()
                 .limit(Math.max(1, request.maxResults()))
                 .toList();
         return result(request, candidates, "cloud-storage-api:/api/storage/folders");
@@ -98,9 +241,34 @@ public class StorageApiCandidateSearchClient implements CandidateSearchPort {
         return List.copyOf(ranked);
     }
 
+    private List<CandidateItem> narrowToExactMatches(
+            List<CandidateItem> candidates,
+            List<String> queryVariants
+    ) {
+        if (candidates == null || candidates.isEmpty() || queryVariants == null || queryVariants.isEmpty()) {
+            return candidates == null ? List.of() : candidates;
+        }
+        String surface = normalizeMatchValue(queryVariants.getFirst());
+        if (surface.isBlank()) {
+            return candidates;
+        }
+        List<CandidateItem> exactMatches = candidates.stream()
+                .filter(candidate -> normalizeMatchValue(candidate.name()).equals(surface)
+                        || normalizeMatchValue(candidate.path()).equals(surface))
+                .toList();
+        return exactMatches.isEmpty() ? candidates : exactMatches;
+    }
+
+    private String normalizeMatchValue(String value) {
+        return value == null ? "" : value.trim().toLowerCase().replaceAll("\\s+", "");
+    }
+
     private String nodeTypeFilter(CandidateSearchRequest request) {
         String candidateType = request.candidateType() == null ? "" : request.candidateType().trim();
-        return "FILE".equalsIgnoreCase(candidateType) ? "FILE" : "";
+        return List.of("FILE", "FOLDER").stream()
+                .filter(type -> type.equalsIgnoreCase(candidateType))
+                .findFirst()
+                .orElse("");
     }
 
     private boolean matchesCandidateType(CandidateItem candidate, String candidateType) {
@@ -134,6 +302,10 @@ public class StorageApiCandidateSearchClient implements CandidateSearchPort {
 
     private boolean isSearchAction(CandidateSearchRequest request) {
         return "search".equalsIgnoreCase(request.actionType());
+    }
+
+    private boolean isDirectoryList(CandidateSearchRequest request) {
+        return FileQueryPlanResolver.DIRECTORY_LIST.equalsIgnoreCase(request.queryMode());
     }
 
     private CandidateBindingResult searchResult(

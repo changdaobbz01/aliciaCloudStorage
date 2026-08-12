@@ -41,9 +41,11 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.io.File
@@ -55,9 +57,11 @@ import kotlin.math.roundToLong
 
 private const val MAX_TEXT_PREVIEW_BYTES = 2L * 1024 * 1024
 private const val BYTES_PER_GIB = 1024L * 1024 * 1024
-private const val MAX_TRANSFER_HISTORY = 50
+private const val MAX_TRANSFER_HISTORY = 600
 private const val MIN_GLOBAL_LOADING_MILLIS = 420L
 private const val MIN_BOOT_SPLASH_MILLIS = 850L
+private const val MAX_UPLOAD_BATCH_FILES = 500
+private const val MAX_FOLDER_UPLOAD_DIRECTORIES = 500
 
 private val PREVIEWABLE_TEXT_EXTENSIONS = setOf(
     "txt",
@@ -261,6 +265,10 @@ class MainViewModel(
     private val defaultBaseUrl: String,
     private val appContext: Context,
 ) : ViewModel() {
+    private val localFolderUploadPlanner = LocalFolderUploadPlanner(
+        maxFiles = MAX_UPLOAD_BATCH_FILES,
+        maxDirectories = MAX_FOLDER_UPLOAD_DIRECTORIES,
+    )
     private val bootStartedAtMillis = SystemClock.elapsedRealtime()
     private val _uiState = MutableStateFlow(AppUiState(baseUrl = defaultBaseUrl))
     val uiState = _uiState.asStateFlow()
@@ -650,23 +658,27 @@ class MainViewModel(
         }
     }
 
-    fun openFolderFromAssistant(node: StorageNode) {
-        if (node.type != StorageNodeType.FOLDER) {
-            previewFile(node)
-            return
-        }
-
+    fun openFolderFromAssistant(folderId: Long?, folderName: String) {
         val session = authenticatedSession() ?: return
-        rememberCurrentDirectorySnapshot()
+        val files = uiState.value.files
+        val sameFolder = files.currentFolderId == folderId && files.category == null
+        if (!sameFolder) {
+            rememberCurrentDirectorySnapshot()
+        }
+        val cachedItems = fileDirectoryCache[folderId]
         _uiState.update { state ->
             state.copy(
                 selectedTab = AppTab.FILES,
                 files = state.files.copy(
-                    currentFolderId = node.id,
-                    breadcrumbs = defaultBreadCrumbs + FolderCrumb(id = node.id, label = node.name),
-                    items = emptyList(),
-                    hasLoadedFolder = false,
-                    loading = true,
+                    currentFolderId = folderId,
+                    breadcrumbs = if (folderId == null) {
+                        defaultBreadCrumbs
+                    } else {
+                        defaultBreadCrumbs + FolderCrumb(id = folderId, label = folderName)
+                    },
+                    items = cachedItems ?: emptyList(),
+                    hasLoadedFolder = cachedItems != null,
+                    loading = cachedItems == null,
                     error = null,
                     selectedNodeIds = emptySet(),
                     highlightedNodeId = null,
@@ -675,17 +687,22 @@ class MainViewModel(
                 ),
             )
         }
-        refreshFiles(forceLoading = false)
+        if (cachedItems == null) {
+            refreshFiles(forceLoading = false)
+        }
 
+        if (folderId == null) {
+            return
+        }
         viewModelScope.launch {
             runCatching {
                 repository.fetchFolders(session.baseUrl, session.token)
             }.onSuccess { folders ->
                 _uiState.update { state ->
-                    if (state.files.currentFolderId == node.id) {
+                    if (state.files.currentFolderId == folderId) {
                         state.copy(
                             files = state.files.copy(
-                                breadcrumbs = resolveFolderBreadcrumbs(folders + node, node.id),
+                                breadcrumbs = resolveFolderBreadcrumbs(folders, folderId, folderName),
                             ),
                         )
                     } else {
@@ -1116,47 +1133,11 @@ class MainViewModel(
         parentId: Long?,
         folderName: String,
     ) {
-        val session = authenticatedSession() ?: return
-        val uniqueUris = uris.distinct()
-        val trimmedName = folderName.trim()
-        if (uniqueUris.isEmpty()) {
-            return
-        }
-        if (trimmedName.isBlank()) {
-            emitMessage("请输入文件夹名称。")
-            return
-        }
-
-        viewModelScope.launch {
-            _uiState.update { state ->
-                state.copy(files = state.files.copy(isCreatingFolder = true))
-            }
-
-            runCatching {
-                repository.createFolder(
-                    baseUrl = session.baseUrl,
-                    token = session.token,
-                    parentId = parentId,
-                    folderName = trimmedName,
-                )
-            }.onSuccess { createdFolder ->
-                _uiState.update { state ->
-                    state.copy(files = state.files.copy(isCreatingFolder = false))
-                }
-                emitMessage("已创建文件夹：$trimmedName，开始上传文件。")
-                refreshAfterMutation(refreshFiles = true, refreshTrash = false)
-                uploadDocumentsToFolder(
-                    uris = uniqueUris,
-                    parentId = createdFolder.id,
-                    locationLabelOverride = trimmedName,
-                )
-            }.onFailure { error ->
-                _uiState.update { state ->
-                    state.copy(files = state.files.copy(isCreatingFolder = false))
-                }
-                handleError(error)
-            }
-        }
+        uploadLocalSelections(
+            selections = uris.map { uri -> LocalUploadSelection(uri, LocalUploadSelectionKind.FILE) },
+            parentId = parentId,
+            createFolderName = folderName,
+        )
     }
 
     internal fun uploadDocumentsToFolder(
@@ -1164,113 +1145,270 @@ class MainViewModel(
         parentId: Long?,
         locationLabelOverride: String? = null,
     ) {
-        val session = authenticatedSession() ?: return
-        val uniqueUris = uris.distinct()
-        if (uniqueUris.isEmpty()) {
+        uploadLocalSelections(
+            selections = uris.map { uri -> LocalUploadSelection(uri, LocalUploadSelectionKind.FILE) },
+            parentId = parentId,
+            locationLabelOverride = locationLabelOverride,
+        )
+    }
+
+    internal fun uploadDocumentTree(treeUri: Uri, parentId: Long?) {
+        uploadLocalSelections(
+            selections = listOf(LocalUploadSelection(treeUri, LocalUploadSelectionKind.FOLDER)),
+            parentId = parentId,
+        )
+    }
+
+    internal fun uploadLocalSelections(
+        selections: List<LocalUploadSelection>,
+        parentId: Long?,
+        createFolderName: String? = null,
+        locationLabelOverride: String? = null,
+        onCompleted: ((OperationOutcome) -> Unit)? = null,
+    ) {
+        val session = authenticatedSession()
+        if (session == null) {
+            onCompleted?.invoke(OperationOutcome.failed("登录状态已失效，请重新登录后再上传。"))
             return
         }
-        val targetParentId = parentId
-        val uploadLocationLabel = locationLabelOverride
-            ?.takeIf { it.isNotBlank() }
-            ?: resolveUploadLocationLabel(targetParentId)
+        val uniqueSelections = selections.distinctBy { selection -> selection.kind to selection.uri }
+        if (uniqueSelections.isEmpty()) {
+            onCompleted?.invoke(OperationOutcome.failed("没有可上传的文件。"))
+            return
+        }
+        if (uniqueSelections.count { selection -> selection.kind == LocalUploadSelectionKind.FILE } > MAX_UPLOAD_BATCH_FILES) {
+            val message = "单次最多上传 $MAX_UPLOAD_BATCH_FILES 个文件。"
+            reportOperationOutcome(OperationOutcome.failed(message), onCompleted)
+            return
+        }
+        val trimmedCreateFolderName = createFolderName?.trim()
+        if (createFolderName != null && trimmedCreateFolderName.isNullOrBlank()) {
+            val message = "请输入文件夹名称。"
+            reportOperationOutcome(OperationOutcome.failed(message), onCompleted)
+            return
+        }
 
         viewModelScope.launch {
             _uiState.update { state ->
                 state.copy(
-                    files = state.files.copy(isUploading = true),
+                    files = state.files.copy(
+                        isUploading = true,
+                        isCreatingFolder = trimmedCreateFolderName != null,
+                    ),
                     transferPanelOpen = false,
                     transferPanelTab = TransferPanelTab.UPLOADS,
                 )
             }
 
-            var successCount = 0
-            var firstError: Throwable? = null
+            val summary = UploadBatchSummary()
+            runCatching {
+                val directSelections = uniqueSelections
+                    .filter { selection -> selection.kind == LocalUploadSelectionKind.FILE }
+                val folderPlans = withContext(Dispatchers.IO) {
+                    uniqueSelections
+                        .filter { selection -> selection.kind == LocalUploadSelectionKind.FOLDER }
+                        .map { selection -> localFolderUploadPlanner.build(appContext, selection.uri) }
+                }
+                val requestedFileCount = directSelections.size + folderPlans.sumOf { plan -> plan.files.size }
+                if (requestedFileCount > MAX_UPLOAD_BATCH_FILES) {
+                    throw ApiException("单次最多上传 $MAX_UPLOAD_BATCH_FILES 个文件。", 400)
+                }
 
-            uniqueUris.forEach { uri ->
-                val descriptor = runCatching {
-                    repository.describeUploadAsset(appContext, uri)
-                }.getOrNull()
-                val taskId = appendTransfer(
+                var targetParentId = parentId
+                var uploadLocationLabel = locationLabelOverride
+                    ?.takeIf { it.isNotBlank() }
+                    ?: resolveUploadLocationLabel(parentId)
+
+                if (trimmedCreateFolderName != null) {
+                    val createdFolder = repository.createFolder(
+                        baseUrl = session.baseUrl,
+                        token = session.token,
+                        parentId = parentId,
+                        folderName = trimmedCreateFolderName,
+                    )
+                    targetParentId = createdFolder.id
+                    uploadLocationLabel = trimmedCreateFolderName
+                    summary.createdFolderCount += 1
+                    _uiState.update { state ->
+                        state.copy(files = state.files.copy(isCreatingFolder = false))
+                    }
+                }
+
+                val directFiles = directSelections.map { selection ->
+                        val descriptor = runCatching {
+                            repository.describeUploadAsset(appContext, selection.uri)
+                        }.getOrNull()
+                        ResolvedLocalUploadFile(
+                            uri = selection.uri,
+                            name = descriptor?.fileName ?: selection.uri.lastPathSegment ?: "upload.bin",
+                            sizeBytes = descriptor?.sizeBytes,
+                            parentId = targetParentId,
+                            locationLabel = uploadLocationLabel,
+                        )
+                    }
+                uploadFilesSequentially(session, directFiles, summary)
+
+                folderPlans.forEach { folderPlan ->
+                        uploadFolderPlan(
+                            session = session,
+                            plan = folderPlan,
+                            parentId = targetParentId,
+                            parentLocationLabel = uploadLocationLabel,
+                            summary = summary,
+                        )
+                }
+            }.onFailure { error ->
+                if (summary.firstError == null) {
+                    summary.firstError = error
+                }
+            }
+
+            _uiState.update { state ->
+                state.copy(
+                    files = state.files.copy(
+                        isUploading = false,
+                        isCreatingFolder = false,
+                    ),
+                )
+            }
+
+            summary.firstError?.let { error ->
+                handleError(error, emitUserMessage = false)
+            }
+            reportOperationOutcome(
+                outcome = summary.toOutcome(summary.firstError?.readableMessage()),
+                onCompleted = onCompleted,
+            )
+            if (summary.changedStorage) {
+                refreshAfterMutation(refreshFiles = true, refreshTrash = false)
+            }
+        }
+    }
+
+    private suspend fun uploadFolderPlan(
+        session: AuthSession,
+        plan: LocalFolderUploadPlan,
+        parentId: Long?,
+        parentLocationLabel: String,
+        summary: UploadBatchSummary,
+    ) {
+        if (summary.totalFiles + plan.files.size > MAX_UPLOAD_BATCH_FILES) {
+            throw ApiException("单次最多上传 $MAX_UPLOAD_BATCH_FILES 个文件。", 400)
+        }
+        summary.totalFiles += plan.files.size
+        runCatching {
+            val rootFolder = repository.createFolder(
+                baseUrl = session.baseUrl,
+                token = session.token,
+                parentId = parentId,
+                folderName = plan.rootName,
+            )
+            summary.createdFolderCount += 1
+            val folderIds = mutableMapOf<List<String>, Long>(emptyList<String>() to rootFolder.id)
+
+            plan.directories
+                .sortedWith(compareBy<List<String>> { path -> path.size }.thenBy { path -> path.joinToString("/") })
+                .forEach { relativePath ->
+                    val directory = repository.createFolder(
+                        baseUrl = session.baseUrl,
+                        token = session.token,
+                        parentId = folderIds[relativePath.dropLast(1)]
+                            ?: throw ApiException("无法还原本地文件夹层级。", 400),
+                        folderName = relativePath.last(),
+                    )
+                    folderIds[relativePath] = directory.id
+                    summary.createdFolderCount += 1
+                }
+
+            val resolvedFiles = plan.files.map { file ->
+                ResolvedLocalUploadFile(
+                    uri = file.uri,
+                    name = file.name,
+                    sizeBytes = file.sizeBytes,
+                    parentId = folderIds[file.relativeDirectory],
+                    locationLabel = listOf(
+                        parentLocationLabel,
+                        plan.rootName,
+                        file.relativeDirectory.joinToString("/"),
+                    ).filter { segment -> segment.isNotBlank() }.joinToString("/"),
+                )
+            }
+            uploadFilesSequentially(session, resolvedFiles, summary, countTotal = false)
+        }.onFailure { error ->
+            if (summary.firstError == null) {
+                summary.firstError = error
+            }
+        }
+    }
+
+    private suspend fun uploadFilesSequentially(
+        session: AuthSession,
+        files: List<ResolvedLocalUploadFile>,
+        summary: UploadBatchSummary,
+        countTotal: Boolean = true,
+    ) {
+        if (countTotal) {
+            summary.totalFiles += files.size
+        }
+        val queuedUploads = files.map { file ->
+            QueuedLocalUpload(
+                file = file,
+                taskId = appendTransfer(
                     TransferTask(
                         id = allocateTransferId(),
                         kind = TransferKind.UPLOAD,
                         itemKind = TransferItemKind.FILE,
-                        title = descriptor?.fileName ?: uri.lastPathSegment ?: "upload.bin",
-                        status = TransferStatus.PREPARING,
-                        sourceUri = uri,
-                        totalBytes = descriptor?.sizeBytes,
-                        locationLabel = uploadLocationLabel,
+                        title = file.name,
+                        status = TransferStatus.QUEUED,
+                        sourceUri = file.uri,
+                        totalBytes = file.sizeBytes,
+                        locationLabel = file.locationLabel,
                     ),
-                )
+                ),
+            )
+        }
 
-                val taskJob = launch {
-                    runCatching {
-                        repository.uploadFile(
-                            context = appContext,
-                            baseUrl = session.baseUrl,
-                            token = session.token,
-                            parentId = targetParentId,
-                            uri = uri,
-                            onProgress = { progress ->
-                                updateTransferProgress(taskId, progress)
-                            },
+        queuedUploads.forEach { queued ->
+            updateTransfer(queued.taskId) { task -> task.copy(status = TransferStatus.PREPARING) }
+            val taskJob = viewModelScope.launch {
+                runCatching {
+                    repository.uploadFile(
+                        context = appContext,
+                        baseUrl = session.baseUrl,
+                        token = session.token,
+                        parentId = queued.file.parentId,
+                        uri = queued.file.uri,
+                        onProgress = { progress -> updateTransferProgress(queued.taskId, progress) },
+                    )
+                }.onSuccess {
+                    summary.successCount += 1
+                    updateTransfer(queued.taskId) { task ->
+                        task.copy(
+                            status = TransferStatus.COMPLETED,
+                            transferredBytes = task.totalBytes ?: task.transferredBytes,
+                            progressPercent = 100,
+                            errorMessage = null,
                         )
-                    }.onSuccess {
-                        successCount += 1
-                        updateTransfer(taskId) { task ->
+                    }
+                }.onFailure { error ->
+                    if (error is CancellationException) {
+                        updateTransfer(queued.taskId) { task -> task.copy(status = TransferStatus.CANCELED) }
+                    } else {
+                        if (summary.firstError == null) {
+                            summary.firstError = error
+                        }
+                        updateTransfer(queued.taskId) { task ->
                             task.copy(
-                                status = TransferStatus.COMPLETED,
-                                transferredBytes = task.totalBytes ?: task.transferredBytes,
-                                progressPercent = 100,
-                                errorMessage = null,
+                                status = TransferStatus.FAILED,
+                                errorMessage = error.readableMessage(),
                             )
                         }
-                    }.onFailure { error ->
-                        if (error is CancellationException) {
-                            updateTransfer(taskId) { task ->
-                                task.copy(status = TransferStatus.CANCELED)
-                            }
-                        } else {
-                            if (firstError == null) {
-                                firstError = error
-                            }
-                            updateTransfer(taskId) { task ->
-                                task.copy(
-                                    status = TransferStatus.FAILED,
-                                    errorMessage = error.readableMessage(),
-                                )
-                            }
-                        }
-                    }.also {
-                        transferJobs.remove(taskId)
                     }
                 }
-
-                transferJobs[taskId] = taskJob
-                taskJob.invokeOnCompletion { transferJobs.remove(taskId) }
-                taskJob.join()
             }
-
-            _uiState.update { state ->
-                state.copy(files = state.files.copy(isUploading = false))
-            }
-
-            when {
-                successCount == uniqueUris.size -> {
-                    emitMessage(if (successCount == 1) "上传完成。" else "已上传 $successCount 个文件。")
-                    refreshAfterMutation(refreshFiles = true, refreshTrash = false)
-                }
-
-                successCount > 0 -> {
-                    emitMessage("已上传 $successCount 个文件，${uniqueUris.size - successCount} 个失败。")
-                    firstError?.let { handleError(it) }
-                    refreshAfterMutation(refreshFiles = true, refreshTrash = false)
-                }
-
-                else -> {
-                    handleError(firstError ?: ApiException("上传失败。", 400))
-                }
-            }
+            transferJobs[queued.taskId] = taskJob
+            taskJob.invokeOnCompletion { transferJobs.remove(queued.taskId) }
+            taskJob.join()
         }
     }
 
@@ -1626,13 +1764,13 @@ class MainViewModel(
         ).joinToString(separator = "\u001E")
 
     private fun clipboardItemTexts(item: ClipData.Item): List<String> =
-        buildList {
-            item.text?.toString()?.takeIf { it.isNotBlank() }?.let(::add)
-            item.htmlText?.takeIf { it.isNotBlank() }?.let(::add)
-            item.uri?.toString()?.takeIf { it.isNotBlank() }?.let(::add)
-            item.intent?.dataString?.takeIf { it.isNotBlank() }?.let(::add)
-            item.coerceToText(appContext)?.toString()?.takeIf { it.isNotBlank() }?.let(::add)
-        }.distinct()
+        listOfNotNull(
+            item.text?.toString()?.takeIf { it.isNotBlank() },
+            item.htmlText?.takeIf { it.isNotBlank() },
+            item.uri?.toString()?.takeIf { it.isNotBlank() },
+            item.intent?.dataString?.takeIf { it.isNotBlank() },
+            item.coerceToText(appContext)?.toString()?.takeIf { it.isNotBlank() },
+        ).distinct()
 
     fun dismissIncomingSharePrompt() {
         val prompt = uiState.value.incomingShare.prompt
@@ -3079,6 +3217,7 @@ class MainViewModel(
     private fun resolveFolderBreadcrumbs(
         folders: List<StorageNode>,
         targetFolderId: Long?,
+        fallbackLabel: String = "目标目录",
     ): List<FolderCrumb> {
         if (targetFolderId == null) {
             return defaultBreadCrumbs
@@ -3095,7 +3234,7 @@ class MainViewModel(
         }
 
         if (path.isEmpty()) {
-            return defaultBreadCrumbs + FolderCrumb(id = targetFolderId, label = "目标目录")
+            return defaultBreadCrumbs + FolderCrumb(id = targetFolderId, label = fallbackLabel)
         }
 
         return defaultBreadCrumbs + path.asReversed().map { folder ->
@@ -3248,6 +3387,17 @@ class MainViewModel(
     private fun emitMessage(message: String) {
         viewModelScope.launch {
             _messages.emit(message)
+        }
+    }
+
+    private fun reportOperationOutcome(
+        outcome: OperationOutcome,
+        onCompleted: ((OperationOutcome) -> Unit)?,
+    ) {
+        if (onCompleted == null) {
+            emitMessage(outcome.message)
+        } else {
+            onCompleted(outcome)
         }
     }
 

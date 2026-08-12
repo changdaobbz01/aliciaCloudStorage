@@ -59,6 +59,33 @@
     "max_query_variants": 6,
     "min_variant_length": 2,
     "match_path": true,
+    "virtual_roots": {
+      "aliases": ["根", "根目录", "根文件夹", "云盘根目录", "我的云盘", "顶层目录", "最外层", "/"],
+      "supported_actions": ["upload_target", "composite.create_folder_then_upload"]
+    },
+    "semantic_query": {
+      "query_mode_aliases": {
+        "name_search": ["name_search", "search", "keyword_search", "按名称搜索", "名称检索"],
+        "directory_list": ["directory_list", "list", "list_children", "browse", "列目录", "目录列表"]
+      },
+      "scope_aliases": {
+        "all": ["all", "global", "cloud", "全部", "全盘", "全部云盘", "整个云盘"],
+        "root": ["root", "根", "根目录", "根文件夹", "云盘根目录", "/"],
+        "current": ["current", "current_folder", "当前", "当前目录", "当前文件夹"],
+        "named_folder": ["named_folder", "folder", "指定目录", "指定文件夹"]
+      },
+      "result_type_aliases": {
+        "ANY": ["ANY", "NODE", "all", "内容", "全部", "文件和文件夹"],
+        "FILE": ["FILE", "files", "文件", "文档", "图片", "视频", "音频", "压缩包"],
+        "FOLDER": ["FOLDER", "folders", "directory", "directories", "文件夹", "目录"]
+      },
+      "local_fallback": {
+        "list_verbs": ["列出", "列一下", "展示", "显示", "有哪些", "list", "show"],
+        "list_context_terms": ["目录", "文件夹", "列表", "内容", "云盘"],
+        "folder_result_phrases": ["文件夹列表", "目录列表", "有哪些文件夹", "所有文件夹"],
+        "file_result_phrases": ["文件列表", "有哪些文件", "所有文件", "目录下的文件", "目录里的文件", "目录的文件", "文件夹下的文件", "文件夹里的文件"]
+      }
+    },
     "roles": {
       "target_folder": {
         "phrase_role": "object",

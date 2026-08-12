@@ -5,6 +5,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -465,11 +466,143 @@ class AssistantConversationServiceTest {
         assertThat(secondTurn.backendActionDraft().path()).isEqualTo("/api/storage/files");
         assertThat(secondTurn.backendActionDraft().contentType()).isEqualTo("multipart/form-data");
         assertThat(secondTurn.backendActionDraft().queryParameters()).containsEntry("parentId", 501L);
-        assertThat(secondTurn.backendActionDraft().requiredClientFields()).containsExactly("file");
+        assertThat(secondTurn.backendActionDraft().requiredClientFields()).containsExactly("files");
         assertThat(secondTurn.actionPlan().status()).isEqualTo("client_input_required");
         assertThat(secondTurn.actionPlan().actionType()).isEqualTo("file.upload");
         assertThat(secondTurn.actionPlan().requiredClientFields()).containsExactly("files");
         assertThat(secondTurn.actionPlan().steps().getFirst().params()).containsEntry("parentId", 501L);
+    }
+
+    @Test
+    void structuredUploadCandidateSelectionAdvancesToConfirmationWithoutLooping() {
+        CandidateSearchPort port = request -> new CandidateBindingResult(
+                "multiple_candidates",
+                "test",
+                request.query(),
+                "FOLDER",
+                List.of(
+                        new CandidateItem(501L, null, "测试目录", "FOLDER", 0L, "", "", ""),
+                        new CandidateItem(502L, 501L, "测试目录2", "FOLDER", 0L, "", "", "")
+                ),
+                "匹配到多个候选，需要用户选择。"
+        );
+        AssistantConversationService service = conversationServiceWith(port);
+        AssistantClientContext clientContext = new AssistantClientContext(null, "/", Map.of("files", 1));
+
+        IntentRecognitionResponse firstTurn = service.plan(new AssistantPlanRequest(
+                "将这个文件上传到测试目录",
+                "",
+                clientContext
+        ), "Bearer token");
+        IntentRecognitionResponse secondTurn = service.plan(new AssistantPlanRequest(
+                "选第1个",
+                firstTurn.conversation().conversationId(),
+                clientContext,
+                new AssistantClientEvent("SELECT_CANDIDATE", 501L, 1)
+        ), "Bearer token");
+
+        assertThat(firstTurn.interaction().stage()).isEqualTo("NEED_CANDIDATE_SELECTION");
+        assertThat(secondTurn.candidateBinding().status()).isEqualTo("selected_candidate");
+        assertThat(secondTurn.candidateBinding().selectedCandidate().nodeId()).isEqualTo(501L);
+        assertThat(secondTurn.actionPlan().status()).isEqualTo("review_required");
+        assertThat(secondTurn.interaction().stage()).isEqualTo("NEED_CONFIRMATION");
+        assertThat(secondTurn.interaction().allowedActions())
+                .extracting(AssistantInteraction.AllowedAction::type)
+                .containsExactly("CONFIRM_UPLOAD");
+    }
+
+    @Test
+    void naturalLanguageCorrectionReusesPreviousSearchSemantics() {
+        CandidateSearchRequest[] lastRequest = new CandidateSearchRequest[1];
+        CandidateSearchPort port = request -> {
+            lastRequest[0] = request;
+            return new CandidateBindingResult(
+                    "search_results_ready",
+                    "test",
+                    request.query(),
+                    request.candidateType(),
+                    List.of(new CandidateItem(601L, null, "测试目录", "FOLDER", 0L, "", "", "")),
+                    "已完成文件检索。"
+            );
+        };
+        AssistantConversationService service = conversationServiceWith(port);
+
+        IntentRecognitionResponse firstTurn = service.plan(
+                new AssistantPlanRequest("你列出名字带测试的文件夹", ""),
+                "Bearer token"
+        );
+        IntentRecognitionResponse secondTurn = service.plan(
+                new AssistantPlanRequest("测试目录呢？", firstTurn.conversation().conversationId()),
+                "Bearer token"
+        );
+
+        assertThat(secondTurn.semanticFrame().relation()).isEqualTo("CORRECTION");
+        assertThat(secondTurn.semanticFrame().operation()).isEqualTo("SEARCH");
+        assertThat(secondTurn.semanticFrame().query().resultType()).isEqualTo("FOLDER");
+        assertThat(secondTurn.entities()).containsEntry("target_name", "测试目录");
+        assertThat(lastRequest[0].query()).isEqualTo("测试目录");
+        assertThat(lastRequest[0].candidateType()).isEqualTo("FOLDER");
+    }
+
+    @Test
+    void rootUploadUsesNullParentWithoutStorageSearch() {
+        CandidateSearchPort unexpectedSearch = request -> {
+            throw new AssertionError("Root upload must not query a physical folder candidate.");
+        };
+        AssistantConversationService service = conversationServiceWith(unexpectedSearch);
+
+        IntentRecognitionResponse firstTurn = service.plan(
+                new AssistantPlanRequest("将这些文件上传到根目录", ""),
+                "Bearer token"
+        );
+        IntentRecognitionResponse secondTurn = service.plan(new AssistantPlanRequest(
+                "确认",
+                firstTurn.conversation().conversationId()
+        ));
+
+        assertThat(firstTurn.intentId()).isEqualTo("file_upload");
+        assertThat(firstTurn.entities()).containsEntry("target_folder", "根");
+        assertThat(firstTurn.candidateBinding().source()).isEqualTo("virtual:cloud-drive-root");
+        assertThat(firstTurn.actionPlan().status()).isEqualTo("review_required");
+        assertThat(firstTurn.actionPlan().steps()).singleElement().satisfies(step ->
+                assertThat(step.params()).containsEntry("parentId", null)
+        );
+        assertThat(secondTurn.nextAction()).isEqualTo("handoff_to_client_upload");
+        assertThat(secondTurn.backendActionDraft().status()).isEqualTo("client_action_required");
+        assertThat(secondTurn.backendActionDraft().queryParameters()).containsEntry("parentId", null);
+        assertThat(secondTurn.backendActionDraft().requiredClientFields()).containsExactly("files");
+    }
+
+    @Test
+    void selectedLocalItemsSatisfyUploadClientInputWithoutExposingLocalPaths() {
+        SingleCandidateSearchPort port = new SingleCandidateSearchPort(501L, "项目资料");
+        AssistantConversationService service = conversationServiceWith(port);
+        AssistantClientContext clientContext = new AssistantClientContext(
+                null,
+                "根目录",
+                Map.of("files", 3, "folders", 1)
+        );
+
+        IntentRecognitionResponse firstTurn = service.plan(new AssistantPlanRequest(
+                "把这些文件上传到项目资料",
+                "",
+                clientContext
+        ), "Bearer token");
+        IntentRecognitionResponse secondTurn = service.plan(new AssistantPlanRequest(
+                "确认",
+                firstTurn.conversation().conversationId(),
+                clientContext
+        ));
+
+        assertThat(firstTurn.actionPlan().status()).isEqualTo("review_required");
+        assertThat(firstTurn.actionPlan().requiredClientFields()).isEmpty();
+        assertThat(firstTurn.actionPlan().steps()).singleElement().satisfies(step -> {
+            assertThat(step.requiredClientFields()).isEmpty();
+            assertThat(step.params()).containsEntry("parentId", 501L);
+        });
+        assertThat(secondTurn.backendActionDraft().requiredClientFields()).isEmpty();
+        assertThat(secondTurn.actionPlan().requiredClientFields()).isEmpty();
+        assertThat(clientContext.availableClientInputs()).containsOnlyKeys("files", "folders");
     }
 
     @Test
@@ -598,7 +731,7 @@ class AssistantConversationServiceTest {
 
         assertThat(response.intentId()).isEqualTo("collection_move_by_extension");
         assertThat(port.lastRequest.candidateType()).isEqualTo("FOLDER");
-        assertThat(port.lastRequest.query()).isEqualTo("归档");
+        assertThat(port.lastRequest.query()).isEqualTo("归档文件夹");
         assertThat(plan.planKind()).isEqualTo("collection");
         assertThat(plan.actionType()).isEqualTo("collection.move_by_extension");
         assertThat(plan.status()).isEqualTo("collection_review_required");
@@ -634,9 +767,9 @@ class AssistantConversationServiceTest {
 
         assertThat(response.intentId()).isEqualTo("collection_move_by_extension");
         assertThat(response.entities()).containsEntry("extension", "PDF");
-        assertThat(response.entities()).containsEntry("target_folder", "资料");
+        assertThat(response.entities()).containsEntry("target_folder", "资料文件夹");
         assertThat(port.lastRequest.candidateType()).isEqualTo("FOLDER");
-        assertThat(port.lastRequest.query()).isEqualTo("资料");
+        assertThat(port.lastRequest.query()).isEqualTo("资料文件夹");
         assertThat(plan.actionType()).isEqualTo("collection.move_by_extension");
         assertThat(plan.status()).isEqualTo("collection_review_required");
         assertThat(previewPort.lastRequest.filter()).containsEntry("extension", "PDF");

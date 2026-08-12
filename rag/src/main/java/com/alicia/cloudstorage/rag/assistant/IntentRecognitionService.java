@@ -20,6 +20,7 @@ public class IntentRecognitionService {
     private final IntentModelClient modelClient;
     private final IntentRouter intentRouter;
     private final AssistantReplyPolisher replyPolisher;
+    private final SemanticFrameResolver semanticFrameResolver;
     private final List<ResponseTemplate> responseTemplates;
     private final Map<String, String> personaPlaceholders;
 
@@ -28,13 +29,37 @@ public class IntentRecognitionService {
             IntentModelClient modelClient,
             IntentRouter intentRouter,
             RagConfigLoader configLoader,
-            AssistantReplyPolisher replyPolisher
+            AssistantReplyPolisher replyPolisher,
+            FileQueryPlanResolver fileQueryPlanResolver,
+            SemanticFrameResolver semanticFrameResolver
     ) {
         this.modelClient = modelClient;
         this.intentRouter = intentRouter;
         this.replyPolisher = replyPolisher == null ? AssistantReplyPolisher.noop() : replyPolisher;
+        this.semanticFrameResolver = semanticFrameResolver == null
+                ? new SemanticFrameResolver()
+                : semanticFrameResolver;
         this.responseTemplates = loadResponseTemplates(configLoader);
         this.personaPlaceholders = loadPersonaPlaceholders(configLoader);
+    }
+
+    public IntentRecognitionService(
+            IntentModelClient modelClient,
+            IntentRouter intentRouter,
+            RagConfigLoader configLoader,
+            AssistantReplyPolisher replyPolisher,
+            FileQueryPlanResolver fileQueryPlanResolver
+    ) {
+        this(modelClient, intentRouter, configLoader, replyPolisher, fileQueryPlanResolver, new SemanticFrameResolver());
+    }
+
+    public IntentRecognitionService(
+            IntentModelClient modelClient,
+            IntentRouter intentRouter,
+            RagConfigLoader configLoader,
+            AssistantReplyPolisher replyPolisher
+    ) {
+        this(modelClient, intentRouter, configLoader, replyPolisher, FileQueryPlanResolver.defaults());
     }
 
     public IntentRecognitionService(
@@ -46,9 +71,118 @@ public class IntentRecognitionService {
     }
 
     public IntentRecognitionResponse recognize(String message) {
-        return modelClient.recognize(message)
-                .map(result -> fromModel(message, result))
-                .orElseGet(() -> fromFallback(message, "DeepSeek 未配置或暂时不可用"));
+        return recognize(message, null, AssistantClientContext.empty());
+    }
+
+    public IntentRecognitionResponse recognize(
+            String message,
+            AssistantConversationState conversation,
+            AssistantClientContext clientContext
+    ) {
+        AssistantClientContext safeClientContext = clientContext == null
+                ? AssistantClientContext.empty()
+                : clientContext;
+        IntentModelClient.ModelIntentResult modelResult = modelClient.recognize(
+                        new IntentModelClient.IntentModelRequest(
+                                message,
+                                semanticContext(conversation, safeClientContext)
+                        )
+                )
+                .orElse(null);
+        IntentRecognitionResponse response = modelResult == null
+                ? fromFallback(message, "DeepSeek 未配置或暂时不可用")
+                : fromModel(message, modelResult);
+        IntentRouter.IntentRouteResult localRoute = intentRouter.route(message);
+        boolean guardedByLocalRoute = shouldUseLocalRouteGuard(response, localRoute);
+        if (guardedByLocalRoute) {
+            response = fromFallback(message, "DeepSeek 未可靠命中，已由高置信配置规则复核。");
+        }
+        Map<String, Object> modelPayload = modelResult == null || guardedByLocalRoute
+                ? Map.of()
+                : modelResult.payload();
+        SemanticFrame semanticFrame = semanticFrameResolver.resolve(
+                message,
+                response,
+                conversation,
+                safeClientContext,
+                modelPayload
+        );
+
+        if (semanticFrameResolver.shouldReusePreviousIntent(semanticFrame, response, conversation)) {
+            response = rebuildForConversation(
+                    response,
+                    conversation.pendingIntentId(),
+                    semanticFrameResolver.entitiesForFrame(response, semanticFrame),
+                    "用户正在修正或补充上一轮语义。"
+            );
+        }
+
+        Map<String, Object> entities = semanticFrameResolver.entitiesForFrame(response, semanticFrame);
+        ActionDraft actionDraft = semanticFrameResolver.actionDraftFor(response, semanticFrame, entities);
+        response = response.withSemanticFrame(semanticFrame, entities, actionDraft);
+        if (semanticFrame.needsClarification()) {
+            response = response.withSemanticClarification(semanticFrame);
+        }
+        return response;
+    }
+
+    private boolean shouldUseLocalRouteGuard(
+            IntentRecognitionResponse modelResponse,
+            IntentRouter.IntentRouteResult localRoute
+    ) {
+        if (modelResponse == null || localRoute == null || "fallback".equals(localRoute.intent())) {
+            return false;
+        }
+        boolean modelUncertain = "fallback".equals(modelResponse.intentId()) || modelResponse.confidence() < 0.65;
+        return modelUncertain && localRoute.confidence() >= 0.9;
+    }
+
+    private Map<String, Object> semanticContext(
+            AssistantConversationState conversation,
+            AssistantClientContext clientContext
+    ) {
+        Map<String, Object> context = new LinkedHashMap<>();
+        if (conversation != null) {
+            context.put("conversation_id", conversation.conversationId());
+            context.put("turn_index", conversation.turnIndex());
+            context.put("pending_intent_id", conversation.pendingIntentId());
+            context.put("pending_entities", conversation.entities());
+            context.put("pending_slots", conversation.pendingSlots());
+            AssistantConversationFocus focus = conversation.focus();
+            if (focus != null) {
+                context.put("focus_kind", focus.focusKind());
+                context.put("focus_action_type", focus.actionType());
+                context.put("focus_entities", focus.entities());
+                context.put("selected_candidate", candidateContext(focus.effectiveCandidate()));
+                context.put("candidates", focus.candidateBinding() == null
+                        ? List.of()
+                        : focus.candidateBinding().candidates().stream()
+                        .map(this::candidateContext)
+                        .toList());
+            }
+        }
+        context.put("client_context", Map.of(
+                "current_folder_id", clientContext.currentFolderId() == null ? "" : clientContext.currentFolderId(),
+                "current_folder_path", clientContext.currentFolderPath(),
+                "available_client_inputs", clientContext.availableClientInputs()
+        ));
+        return Map.copyOf(context);
+    }
+
+    private Map<String, Object> candidateContext(CandidateItem candidate) {
+        if (candidate == null) {
+            return Map.of();
+        }
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("name", candidate.name());
+        result.put("type", candidate.type());
+        result.put("path", candidate.path());
+        result.put("extension", candidate.extension());
+        result.put("updated_at", candidate.updatedAt());
+        if (candidate.size() != null) {
+            result.put("size", candidate.size());
+        }
+        return Map.copyOf(result);
     }
 
     private IntentRecognitionResponse fromModel(String message, IntentModelClient.ModelIntentResult result) {
@@ -59,8 +193,7 @@ public class IntentRecognitionService {
         List<String> requiredSlots = intent.requiredSlots();
         List<String> modelMissingSlots = normalizeAllowedSlots(stringList(payload.get("missing_slots")), intent.allowedSlots());
         List<String> missingSlots = missingSlots(requiredSlots, entities);
-        String rawNextAction = stringValue(payload, "next_action", "");
-        String nextAction = normalizeNextAction(intent, rawNextAction, missingSlots);
+        String nextAction = normalizeNextAction(intent, missingSlots);
         String risk = normalizeRisk(intent.risk());
         boolean requiresConfirmation = intent.requiresConfirmation();
         String assistantText = assistantText(message, payload, intent, nextAction, missingSlots, modelMissingSlots);
@@ -110,7 +243,7 @@ public class IntentRecognitionService {
         IntentRouter.IntentDefinition intent = validIntent(intentId);
         Map<String, Object> entities = sanitizeSlotMap(mergedEntities, intent.allowedSlots());
         List<String> missingSlots = missingSlots(intent.requiredSlots(), entities);
-        String nextAction = normalizeNextAction(intent, baseResponse.nextAction(), missingSlots);
+        String nextAction = normalizeNextAction(intent, missingSlots);
         String risk = normalizeRisk(intent.risk());
         String reason = conversationReason == null || conversationReason.isBlank()
                 ? baseResponse.reason()
@@ -147,7 +280,9 @@ public class IntentRecognitionService {
                 reason,
                 baseResponse.fallbackReason(),
                 CandidateBindingResult.skipped("not_requested", "候选绑定尚未执行。"),
-                null
+                null,
+                baseResponse.semanticFrame(),
+                baseResponse.interaction()
         );
     }
 
@@ -188,7 +323,9 @@ public class IntentRecognitionService {
                 safeReason,
                 response.fallbackReason(),
                 response.candidateBinding(),
-                response.conversation()
+                response.conversation(),
+                response.semanticFrame(),
+                response.interaction()
         );
     }
 
@@ -197,7 +334,7 @@ public class IntentRecognitionService {
         IntentRouter.IntentDefinition intent = intentRouter.getIntent(route.intent());
         Map<String, Object> entities = sanitizeSlotMap(new LinkedHashMap<>(route.entities()), intent.allowedSlots());
         List<String> missingSlots = missingSlots(intent.requiredSlots(), entities);
-        String nextAction = normalizeNextAction(intent, route.nextAction(), missingSlots);
+        String nextAction = normalizeNextAction(intent, missingSlots);
         String assistantText = templateText(message, intent, nextAction, missingSlots);
         String risk = normalizeRisk(intent.risk());
 
@@ -358,20 +495,20 @@ public class IntentRecognitionService {
 
     private String normalizeNextAction(
             IntentRouter.IntentDefinition intent,
-            String requestedNextAction,
             List<String> missingSlots
     ) {
         if ("fallback".equals(intent.id()) || !missingSlots.isEmpty()) {
             return "ask_clarification";
         }
 
-        if (!intentRouter.isAllowedNextAction(requestedNextAction)
-                || "ask_clarification".equals(requestedNextAction)
-                || "wait_for_user_confirmation".equals(requestedNextAction)) {
-            return "wait_for_backend_binding";
+        String configuredNextAction = intent.nextAction();
+        if (intentRouter.isAllowedNextAction(configuredNextAction)
+                && !"ask_clarification".equals(configuredNextAction)
+                && !"wait_for_user_confirmation".equals(configuredNextAction)) {
+            return configuredNextAction;
         }
 
-        return requestedNextAction;
+        return "none".equals(intent.actionType()) ? "respond_only" : "wait_for_backend_binding";
     }
 
     private String normalizeRisk(String risk) {
@@ -397,25 +534,26 @@ public class IntentRecognitionService {
             IntentRouter.IntentDefinition intent,
             String nextAction,
             List<String> missingSlots,
-            List<String> modelMissingSlots
+        List<String> modelMissingSlots
     ) {
         RenderedResponseTemplate rendered = renderTemplate(intent.id(), intent.name(), nextAction, missingSlots);
-        String templateText = polishedTemplateText(message, intent, nextAction, missingSlots, rendered.message());
         String modelText = stringValue(payload, "assistant_text", "");
         boolean slotsCompatible = "fallback".equals(intent.id()) || sameSlots(modelMissingSlots, missingSlots);
         boolean safeModelText = !modelText.isBlank()
                 && slotsCompatible
                 && isSafeAssistantText(modelText, intent);
         if ("fallback".equals(intent.id())) {
-            return safeModelText ? modelText : templateText;
+            return safeModelText
+                    ? modelText
+                    : polishedTemplateText(message, intent, nextAction, missingSlots, rendered.message());
         }
         if (rendered.preferTemplate()) {
-            return templateText;
+            return polishedTemplateText(message, intent, nextAction, missingSlots, rendered.message());
         }
-        if (!safeModelText) {
-            return templateText;
+        if (safeModelText) {
+            return modelText;
         }
-        return modelText;
+        return polishedTemplateText(message, intent, nextAction, missingSlots, rendered.message());
     }
 
     private String templateText(
@@ -466,6 +604,9 @@ public class IntentRecognitionService {
         }
         String trimmed = text.trim();
         if (trimmed.length() > 600) {
+            return false;
+        }
+        if (trimmed.matches("^安安[，,:：].*")) {
             return false;
         }
         if (TextSupport.containsAny(trimmed, List.of(
