@@ -54,5 +54,40 @@
       "第十个": 10
     },
     "noise_words": ["选", "选择", "就", "要", "用", "打开", "确认", "确定", "第", "个", "项", "条", "号", "吧", " "]
+  },
+  "candidate_binding": {
+    "max_query_variants": 6,
+    "min_variant_length": 2,
+    "match_path": true,
+    "roles": {
+      "target_folder": {
+        "phrase_role": "object",
+        "candidate_head_nouns": ["文件夹", "目录", "文件目录", "文件夹目录"],
+        "removable_descriptors": ["文件夹", "目录", "文件目录", "云盘目录", "资料夹"],
+        "include_head_noun_alone": true,
+        "include_modifier_alone": true
+      },
+      "target_name": {
+        "phrase_role": "object",
+        "candidate_head_nouns": ["文件", "文档", "照片", "图片", "视频", "音频", "压缩包"],
+        "removable_descriptors": ["文件"],
+        "include_head_noun_alone": false,
+        "include_modifier_alone": true
+      },
+      "search_query": {
+        "phrase_role": "object",
+        "candidate_head_nouns": ["文件", "文档", "照片", "图片", "视频", "音频", "压缩包", "目录", "文件夹"],
+        "removable_descriptors": ["文件"],
+        "include_head_noun_alone": true,
+        "include_modifier_alone": true
+      },
+      "message": {
+        "phrase_role": "utterance",
+        "candidate_head_nouns": ["文件", "文档", "照片", "图片", "视频", "音频", "压缩包", "目录", "文件夹"],
+        "removable_descriptors": ["文件"],
+        "include_head_noun_alone": true,
+        "include_modifier_alone": true
+      }
+    }
   }
 }

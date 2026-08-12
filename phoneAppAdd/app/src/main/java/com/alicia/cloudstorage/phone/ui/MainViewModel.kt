@@ -430,6 +430,19 @@ class MainViewModel(
         refreshAfterMutation(refreshFiles = true, refreshTrash = true)
     }
 
+    internal fun refreshAfterAiFileMutation(signal: AiChatFileMutationSignal) {
+        when (signal.scope) {
+            AiChatFileMutationScope.FILES_ONLY -> refreshAfterMutation(
+                refreshFiles = true,
+                refreshTrash = false,
+            )
+            AiChatFileMutationScope.FILES_AND_TRASH -> refreshAfterMutation(
+                refreshFiles = true,
+                refreshTrash = true,
+            )
+        }
+    }
+
     fun openTransferPanel(tab: TransferPanelTab = TransferPanelTab.DOWNLOADS) {
         _uiState.update { state ->
             state.copy(
@@ -634,6 +647,52 @@ class MainViewModel(
 
         if (!sameFolder) {
             refreshFiles(forceLoading = false)
+        }
+    }
+
+    fun openFolderFromAssistant(node: StorageNode) {
+        if (node.type != StorageNodeType.FOLDER) {
+            previewFile(node)
+            return
+        }
+
+        val session = authenticatedSession() ?: return
+        rememberCurrentDirectorySnapshot()
+        _uiState.update { state ->
+            state.copy(
+                selectedTab = AppTab.FILES,
+                files = state.files.copy(
+                    currentFolderId = node.id,
+                    breadcrumbs = defaultBreadCrumbs + FolderCrumb(id = node.id, label = node.name),
+                    items = emptyList(),
+                    hasLoadedFolder = false,
+                    loading = true,
+                    error = null,
+                    selectedNodeIds = emptySet(),
+                    highlightedNodeId = null,
+                    category = null,
+                    searchScope = FileSearchScope.CURRENT_FOLDER,
+                ),
+            )
+        }
+        refreshFiles(forceLoading = false)
+
+        viewModelScope.launch {
+            runCatching {
+                repository.fetchFolders(session.baseUrl, session.token)
+            }.onSuccess { folders ->
+                _uiState.update { state ->
+                    if (state.files.currentFolderId == node.id) {
+                        state.copy(
+                            files = state.files.copy(
+                                breadcrumbs = resolveFolderBreadcrumbs(folders + node, node.id),
+                            ),
+                        )
+                    } else {
+                        state
+                    }
+                }
+            }
         }
     }
 
@@ -1049,11 +1108,71 @@ class MainViewModel(
     }
 
     fun uploadDocuments(uris: List<Uri>) {
+        uploadDocumentsToFolder(uris, uiState.value.files.currentFolderId)
+    }
+
+    internal fun createFolderThenUploadDocuments(
+        uris: List<Uri>,
+        parentId: Long?,
+        folderName: String,
+    ) {
+        val session = authenticatedSession() ?: return
+        val uniqueUris = uris.distinct()
+        val trimmedName = folderName.trim()
+        if (uniqueUris.isEmpty()) {
+            return
+        }
+        if (trimmedName.isBlank()) {
+            emitMessage("请输入文件夹名称。")
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.update { state ->
+                state.copy(files = state.files.copy(isCreatingFolder = true))
+            }
+
+            runCatching {
+                repository.createFolder(
+                    baseUrl = session.baseUrl,
+                    token = session.token,
+                    parentId = parentId,
+                    folderName = trimmedName,
+                )
+            }.onSuccess { createdFolder ->
+                _uiState.update { state ->
+                    state.copy(files = state.files.copy(isCreatingFolder = false))
+                }
+                emitMessage("已创建文件夹：$trimmedName，开始上传文件。")
+                refreshAfterMutation(refreshFiles = true, refreshTrash = false)
+                uploadDocumentsToFolder(
+                    uris = uniqueUris,
+                    parentId = createdFolder.id,
+                    locationLabelOverride = trimmedName,
+                )
+            }.onFailure { error ->
+                _uiState.update { state ->
+                    state.copy(files = state.files.copy(isCreatingFolder = false))
+                }
+                handleError(error)
+            }
+        }
+    }
+
+    internal fun uploadDocumentsToFolder(
+        uris: List<Uri>,
+        parentId: Long?,
+        locationLabelOverride: String? = null,
+    ) {
         val session = authenticatedSession() ?: return
         val uniqueUris = uris.distinct()
         if (uniqueUris.isEmpty()) {
             return
         }
+        val targetParentId = parentId
+        val uploadLocationLabel = locationLabelOverride
+            ?.takeIf { it.isNotBlank() }
+            ?: resolveUploadLocationLabel(targetParentId)
 
         viewModelScope.launch {
             _uiState.update { state ->
@@ -1064,7 +1183,6 @@ class MainViewModel(
                 )
             }
 
-            val parentId = uiState.value.files.currentFolderId
             var successCount = 0
             var firstError: Throwable? = null
 
@@ -1081,7 +1199,7 @@ class MainViewModel(
                         status = TransferStatus.PREPARING,
                         sourceUri = uri,
                         totalBytes = descriptor?.sizeBytes,
-                        locationLabel = resolveUploadLocationLabel(parentId),
+                        locationLabel = uploadLocationLabel,
                     ),
                 )
 
@@ -1091,7 +1209,7 @@ class MainViewModel(
                             context = appContext,
                             baseUrl = session.baseUrl,
                             token = session.token,
-                            parentId = parentId,
+                            parentId = targetParentId,
                             uri = uri,
                             onProgress = { progress ->
                                 updateTransferProgress(taskId, progress)

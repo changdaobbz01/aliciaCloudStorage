@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 @Service
 public class IntentRouter {
@@ -233,6 +234,8 @@ public class IntentRouter {
                     parseDouble(row.get("confidence")),
                     TextSupport.parseKeywordGroups(row.get("required_groups")),
                     TextSupport.parseKeywords(row.get("excluded_keywords")),
+                    parsePatterns(row.get("required_patterns")),
+                    parsePatterns(row.get("excluded_patterns")),
                     row.getOrDefault("reason", ""),
                     index + 2
             ));
@@ -299,6 +302,17 @@ public class IntentRouter {
         return value == null || value.isBlank() ? 0.0 : Double.parseDouble(value.trim());
     }
 
+    private static List<Pattern> parsePatterns(String value) {
+        if (value == null || value.isBlank()) {
+            return List.of();
+        }
+        return java.util.Arrays.stream(value.split(";"))
+                .map(String::trim)
+                .filter(pattern -> !pattern.isBlank())
+                .map(pattern -> Pattern.compile(pattern, Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE))
+                .toList();
+    }
+
     private record FallbackPolicy(
             double lowConfidenceThreshold,
             String defaultIntentId,
@@ -338,6 +352,8 @@ public class IntentRouter {
             double confidence,
             List<List<String>> requiredGroups,
             List<String> excludedKeywords,
+            List<Pattern> requiredPatterns,
+            List<Pattern> excludedPatterns,
             String reason,
             int rowNumber
     ) {
@@ -348,7 +364,12 @@ public class IntentRouter {
             if (!excludedKeywords.isEmpty() && TextSupport.containsAny(message, excludedKeywords)) {
                 return false;
             }
-            return requiredGroups.stream().allMatch(group -> TextSupport.containsAny(message, group));
+            if (!excludedPatterns.isEmpty()
+                    && excludedPatterns.stream().anyMatch(pattern -> pattern.matcher(message).find())) {
+                return false;
+            }
+            return requiredGroups.stream().allMatch(group -> TextSupport.containsAny(message, group))
+                    && requiredPatterns.stream().allMatch(pattern -> pattern.matcher(message).find());
         }
     }
 

@@ -23,8 +23,8 @@
 | `RagAssistantClient` | 调用 `/api/assistant/plan`，解析稳定响应字段。 |
 | `RagConversationStore` | 保存 `conversationId`、待选候选、待确认计划。 |
 | `RagActionBridgeValidator` | 校验 `backendActionDraft` 是否命中本地 allowlist。 |
-| `RagActionExecutor` | 把已验证动作分发到现有 `AliciaRepository` 方法。 |
-| `RagReviewPresenter` | 生成候选选择、批量预览、最终确认 UI 所需展示数据。 |
+| `RagActionExecutor` | 封装已验证动作到现有 `AliciaRepository` 的分发入口，默认关闭；成功后发出文件变更信号，交给主页面刷新列表。 |
+| `RagReviewPresenter` | 生成候选选择、客户端上传、批量预览、最终确认控件所需展示数据。 |
 
 UI 只依赖这些模块，不直接解析 action bridge 的低层请求字段。
 
@@ -38,14 +38,14 @@ UI 只依赖这些模块，不直接解析 action bridge 的低层请求字段�
 - `file_search`：展示 RAG 返回的搜索候选。
 - `file_delete`：单文件移入回收站，需候选确认和最终确认。
 - `file_share`：创建分享链接，需候选确认和最终确认。
-- `file_upload`：RAG 只定位目标目录，移动端选择本地文件后上传。
-- `folder_create_then_upload`：新建文件夹后上传，先走客户端编排，不让 RAG 执行。
+- `file_upload`：RAG 只定位目标目录，移动端展示“选择文件”客户端动作，选择本地文件后调用现有上传流程。
+- `folder_create_then_upload`：移动端展示“新建并选择文件”，选择本地文件后先创建文件夹再上传，不让 RAG 接触本地文件。
+- `collection_delete_by_name`、`collection_delete_by_category`：展示命中数量、筛选条件、预览列表和不完整预览阻断提示，真实提交仍默认关闭。
+- `collection_move_by_extension`、`collection_move_by_name`：展示命中数量、筛选条件、目标目录和预览列表，真实提交仍默认关闭。
 
 需要补齐后再开放：
 
-- `file_rename`：后端已支持 `PUT /api/storage/nodes/{nodeId}/rename`，但 `phoneAppAdd` 还缺 Retrofit 方法、`RenameNodePayload` 和 repository wrapper。
-- `collection_delete_by_name`、`collection_delete_by_category`：需要移动端批量预览确认 UI。
-- `collection_move_by_extension`、`collection_move_by_name`：需要目标目录候选选择和集合预览确认 UI。
+- `file_rename`：`phoneAppAdd` 已补齐 Retrofit 方法、`RenameNodePayload`、repository wrapper、候选点击回传、基础最终确认控件和默认关闭的 executor 路由；开放真实执行前仍需显式启用提交。
 
 暂不开放真实执行：
 
@@ -61,6 +61,8 @@ UI 只依赖这些模块，不直接解析 action bridge 的低层请求字段�
 - 调试 Web 使用真实 `Authorization` 跑通候选绑定。
 - 多候选、无候选、重名目录、集合预览不完整这些人工场景有明确 UI 状态。
 - `backendActionDraft` 命中本地 allowlist 后才可提交。
+- `RagActionExecutor` 通过 `ALICIA_RAG_ACTION_EXECUTION_ENABLED=false` 保持默认关闭，只有最终确认 UI 完成校验和确认后才打开提交开关。
+- 后端草稿只有 executor 返回完成状态后，移动端才通过 `AiChatFileMutationSignal` 刷新文件页和回收站；客户端上传沿用现有上传成功后的列表刷新。
 - DeepSeek API key 通过环境变量注入，不提交到仓库。
 - 危险动作确认文案包含名称、路径、数量和操作后果。
 
@@ -68,10 +70,11 @@ UI 只依赖这些模块，不直接解析 action bridge 的低层请求字段�
 
 | 能力 | 后端 | RAG | 移动端现状 | 处理建议 |
 | --- | --- | --- | --- | --- |
-| 重命名 | 已有 | 已桥接 | 缺 wrapper | 接入前补 `RenameNodePayload`、Retrofit `renameNode`、Repository `renameNode`。 |
-| 新建文件夹后上传 | 已有原子接口 | 已有 composite ActionPlan | 缺 RAG 编排器 | 在 `RagActionExecutor` 中先 `createFolder`，成功后再打开文件选择并上传。 |
-| 批量删除 | 已有 | 已桥接 | 有 repository 方法 | 先补集合预览确认 UI，再开放。 |
-| 批量移动 | 已有 | 已桥接 | 有 repository 方法 | 先补目标目录选择和集合预览确认 UI，再开放。 |
+| 重命名 | 已有 | 已桥接 | wrapper、候选选择、基础确认控件、执行开关、完成后刷新信号和 executor 路由已补齐，默认未启用 | 通过 `RagActionBridgeValidator` 后仍需显式启用提交。 |
+| 上传到已绑定目录 | 已有 | 已桥接 | `upload_target` 已展示客户端“选择文件”动作，并复用系统文件选择器和现有上传流程 | 保持 RAG 不接触本地文件 Uri，后续补选择取消后的 UI 恢复策略。 |
+| 新建文件夹后上传 | 已有原子接口 | 已有 composite ActionPlan | 已接入客户端编排，选择文件后先 `createFolder` 再上传到新目录 | 继续补选择取消后的 UI 恢复策略和重名冲突提示。 |
+| 批量删除 | 已有 | 已桥接 | 基础集合预览确认 UI、repository 方法和 executor 路由已补齐，默认未启用 | 继续用真实账号验收完整预览、不完整预览和确认后禁用执行提示。 |
+| 批量移动 | 已有 | 已桥接 | 基础集合预览确认 UI、目标目录展示、repository 方法和 executor 路由已补齐，默认未启用 | 继续补目标目录多候选选择人工验收。 |
 | 批量前缀重命名 | 缺批量接口 | 仅规划 | 不开放 | 保持 planning only，后续单独设计批量 rename API。 |
 
 ## 调试顺序

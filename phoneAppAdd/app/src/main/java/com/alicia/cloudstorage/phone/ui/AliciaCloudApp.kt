@@ -1,17 +1,22 @@
 package com.alicia.cloudstorage.phone.ui
 
 import android.app.Activity
+import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.pdf.PdfRenderer
 import android.net.Uri
 import android.os.ParcelFileDescriptor
+import android.provider.OpenableColumns
 import androidx.annotation.DrawableRes
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.BackHandler
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -19,6 +24,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
@@ -133,9 +140,15 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -145,6 +158,8 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -192,6 +207,18 @@ private fun Modifier.addCardChrome(shape: RoundedCornerShape): Modifier =
 private data class NodeActionContext(
     val node: StorageNode,
     val isTrashMode: Boolean,
+)
+
+private data class PendingAiUploadTarget(
+    val parentId: Long?,
+    val targetName: String?,
+    val createFolderName: String?,
+    val onSelectionComplete: (Boolean) -> Unit,
+)
+
+private data class PendingAiComposerAttachment(
+    val uri: Uri,
+    val name: String,
 )
 
 private data class FileCategorySpec(
@@ -742,15 +769,72 @@ private fun MainShell(
     var passwordUser by remember { mutableStateOf<User?>(null) }
     var pendingDownloadNode by remember { mutableStateOf<StorageNode?>(null) }
     var pendingArchiveNodeIds by remember { mutableStateOf<List<Long>>(emptyList()) }
+    var aiChatOpen by rememberSaveable { mutableStateOf(false) }
+    var pendingAiUploadTarget by remember { mutableStateOf<PendingAiUploadTarget?>(null) }
+    var pendingAiComposerAttachments by remember { mutableStateOf<List<PendingAiComposerAttachment>>(emptyList()) }
+    var pendingAiFolderOpen by remember { mutableStateOf<StorageNode?>(null) }
+    var pendingAiComposerAttachComplete by remember {
+        mutableStateOf<((List<AiChatPendingAttachment>) -> Unit)?>(null)
+    }
+    val aiChatTransition = remember { Animatable(if (aiChatOpen) 1f else 0f) }
+
+    LaunchedEffect(aiChatOpen) {
+        aiChatTransition.animateTo(
+            targetValue = if (aiChatOpen) 1f else 0f,
+            animationSpec = tween(
+                durationMillis = if (aiChatOpen) 280 else 220,
+                easing = if (aiChatOpen) FastOutSlowInEasing else FastOutLinearInEasing,
+            ),
+        )
+    }
+
+    val aiChatProgress = aiChatTransition.value.coerceIn(0f, 1f)
+    val density = LocalDensity.current
+    val navigationExitDistance = with(density) { 118.dp.toPx() }
+    val fabExitDistance = with(density) { 44.dp.toPx() }
+    val selectionActive = visibleTab == AppTab.FILES && explorer.selectedNodeIds.isNotEmpty()
+
+    BackHandler(enabled = aiChatOpen) {
+        aiChatOpen = false
+    }
 
     val uploadLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
-        if (uris.isNotEmpty()) {
-            uris.forEach { uri ->
-                runCatching {
-                    context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                }
+        val aiUploadTarget = pendingAiUploadTarget
+        val aiComposerAttachComplete = pendingAiComposerAttachComplete
+        pendingAiUploadTarget = null
+        pendingAiComposerAttachComplete = null
+        aiUploadTarget?.onSelectionComplete?.invoke(uris.isNotEmpty())
+
+        if (aiComposerAttachComplete != null) {
+            persistReadPermissions(context, uris)
+            pendingAiComposerAttachments = uris.mapIndexed { index, uri ->
+                PendingAiComposerAttachment(
+                    uri = uri,
+                    name = context.resolveDisplayName(uri) ?: "文件 ${index + 1}",
+                )
             }
-            viewModel.uploadDocuments(uris)
+            aiComposerAttachComplete(
+                pendingAiComposerAttachments.mapIndexed { index, attachment ->
+                    AiChatPendingAttachment(
+                        id = attachment.uri.toString(),
+                        name = attachment.name.ifBlank { "文件 ${index + 1}" },
+                    )
+                },
+            )
+            return@rememberLauncherForActivityResult
+        }
+
+        if (uris.isNotEmpty() && aiUploadTarget != null) {
+            persistReadPermissions(context, uris)
+            if (aiUploadTarget.createFolderName != null) {
+                viewModel.createFolderThenUploadDocuments(
+                    uris = uris,
+                    parentId = aiUploadTarget.parentId,
+                    folderName = aiUploadTarget.createFolderName,
+                )
+            } else {
+                viewModel.uploadDocumentsToFolder(uris, aiUploadTarget.parentId)
+            }
         }
     }
     val avatarLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -824,15 +908,37 @@ private fun MainShell(
         )
     }
 
-    Scaffold(
-        containerColor = ScreenBackground,
-        floatingActionButton = {
-            val selectionActive = visibleTab == AppTab.FILES && explorer.selectedNodeIds.isNotEmpty()
+    fun openAiFileResult(file: AiChatFileResult) {
+        val node = file.toStorageNodeOrNull()
+        if (node == null) {
+            onMessage("这个候选缺少节点信息，暂时不能打开。")
+            return
+        }
+
+        if (node.type == StorageNodeType.FOLDER) {
+            pendingAiFolderOpen = node
+        } else {
+            openFileDetail(node)
+        }
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        Scaffold(
+            containerColor = ScreenBackground,
+            floatingActionButton = {
             val addAvailable = visibleTab == AppTab.HOME || visibleTab == AppTab.FILES || visibleTab == AppTab.TRANSFERS
-            if (addAvailable && !isTrashMode && !selectionActive) {
+            if (aiChatProgress < 0.999f && addAvailable && !isTrashMode && !selectionActive) {
                 Box(
                     modifier = Modifier
                         .size(64.dp)
+                        .offset(y = (-68).dp)
+                        .graphicsLayer {
+                            alpha = 1f - aiChatProgress
+                            translationY = fabExitDistance * aiChatProgress
+                            val transitionScale = 1f - (0.04f * aiChatProgress)
+                            scaleX = transitionScale
+                            scaleY = transitionScale
+                        }
                         .shadow(18.dp, CircleShape, ambientColor = PrimaryBlue.copy(alpha = 0.24f), spotColor = PrimaryBlue.copy(alpha = 0.38f))
                         .clip(CircleShape)
                         .noRippleClickable {
@@ -852,15 +958,15 @@ private fun MainShell(
                     )
                 }
             }
-        },
-        bottomBar = {
-            AliciaBottomBar(
-                selectedTab = visibleTab,
-                onSelect = viewModel::selectTab,
-            )
-        },
-    ) { paddingValues ->
-        when (uiState.selectedTab) {
+            },
+            bottomBar = {},
+        ) { paddingValues ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer { alpha = 1f - aiChatProgress },
+            ) {
+                when (uiState.selectedTab) {
             AppTab.HOME -> HomeScreen(
                 paddingValues = paddingValues,
                 user = currentUser,
@@ -945,7 +1051,7 @@ private fun MainShell(
                 onResetPassword = { passwordUser = it },
             )
 
-            AppTab.ME -> MeScreen(
+                AppTab.ME -> MeScreen(
                 paddingValues = paddingValues,
                 user = currentUser,
                 baseUrl = uiState.baseUrl,
@@ -968,8 +1074,112 @@ private fun MainShell(
                 onCreateUser = { createUserOpen = true },
                 onEditQuota = { quotaUser = it },
                 onResetPassword = { passwordUser = it },
+                )
+                }
+            }
+
+            if (aiChatOpen || aiChatProgress > 0.001f) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer { alpha = aiChatProgress },
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .noRippleClickable(onClick = {}),
+                    )
+                    AiChatHostScreen(
+                        paddingValues = paddingValues,
+                        transitionProgress = aiChatProgress,
+                        ragBaseUrl = BuildConfig.DEFAULT_RAG_BASE_URL,
+                        apiBaseUrl = uiState.baseUrl,
+                        authToken = uiState.authToken.orEmpty(),
+                        onBack = { aiChatOpen = false },
+                        onFileMutation = viewModel::refreshAfterAiFileMutation,
+                        onOpenFileResult = ::openAiFileResult,
+                        onClientUpload = { request, onSelectionComplete ->
+                            val attachedUris = pendingAiComposerAttachments.map(PendingAiComposerAttachment::uri)
+                            if (attachedUris.isNotEmpty()) {
+                                persistReadPermissions(context, attachedUris)
+                                onSelectionComplete(true)
+                                pendingAiComposerAttachments = emptyList()
+                                if (request.createFolderName != null) {
+                                    viewModel.createFolderThenUploadDocuments(
+                                        uris = attachedUris,
+                                        parentId = request.parentId,
+                                        folderName = request.createFolderName,
+                                    )
+                                } else {
+                                    viewModel.uploadDocumentsToFolder(attachedUris, request.parentId)
+                                }
+                            } else {
+                                pendingAiUploadTarget = PendingAiUploadTarget(
+                                    parentId = request.parentId,
+                                    targetName = request.targetName,
+                                    createFolderName = request.createFolderName,
+                                    onSelectionComplete = onSelectionComplete,
+                                )
+                                pendingAiComposerAttachComplete = null
+                                uploadSheetOpen = false
+                                uploadLauncher.launch(arrayOf("*/*"))
+                            }
+                        },
+                        onAttachFiles = { onSelectionComplete ->
+                            pendingAiUploadTarget = null
+                            pendingAiComposerAttachComplete = onSelectionComplete
+                            uploadSheetOpen = false
+                            uploadLauncher.launch(arrayOf("*/*"))
+                        },
+                        onClearAttachedFiles = {
+                            pendingAiComposerAttachments = emptyList()
+                        },
+                    )
+                }
+            }
+        }
+
+        if ((!aiChatOpen || aiChatProgress < 0.999f) && !selectionActive) {
+            AliciaBottomBar(
+                selectedTab = visibleTab,
+                onSelect = { tab ->
+                    if (!aiChatOpen) viewModel.selectTab(tab)
+                },
+                onOpenAi = {
+                    if (!aiChatOpen) aiChatOpen = true
+                },
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .graphicsLayer {
+                        alpha = 1f - aiChatProgress
+                        translationY = navigationExitDistance * aiChatProgress
+                    },
             )
         }
+    }
+
+    pendingAiFolderOpen?.let { folder ->
+        AlertDialog(
+            onDismissRequest = { pendingAiFolderOpen = null },
+            title = { Text("进入文件夹") },
+            text = { Text("是否收起对话窗并进入「${folder.name}」？") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        pendingAiFolderOpen = null
+                        aiChatOpen = false
+                        viewModel.openFolderFromAssistant(folder)
+                    },
+                ) {
+                    Text("进入")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingAiFolderOpen = null }) {
+                    Text("取消")
+                }
+            },
+        )
     }
 
     if (uploadSheetOpen) {
@@ -977,6 +1187,7 @@ private fun MainShell(
             onDismiss = { uploadSheetOpen = false },
             onUpload = { mimeTypes ->
                 uploadSheetOpen = false
+                pendingAiUploadTarget = null
                 uploadLauncher.launch(mimeTypes)
             },
             onCreateFolder = {
@@ -1106,39 +1317,154 @@ private fun MainShell(
 private fun AliciaBottomBar(
     selectedTab: AppTab,
     onSelect: (AppTab) -> Unit,
+    onOpenAi: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    val items = listOf(
+    val leftItems = listOf(
         AppTab.HOME to ("首页" to AliciaGlyph.Home),
         AppTab.FILES to ("文件" to AliciaGlyph.Folder),
+    )
+    val rightItems = listOf(
         AppTab.TRANSFERS to ("传输" to AliciaGlyph.Download),
         AppTab.ME to ("我的" to AliciaGlyph.Person),
     )
+    val shape = remember { AiCradleNavigationShape() }
     Surface(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .shadow(10.dp, RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp), ambientColor = Color.Black.copy(alpha = 0.025f), spotColor = Color.Black.copy(alpha = 0.04f)),
+            .shadow(
+                elevation = 12.dp,
+                shape = shape,
+                ambientColor = Color.Black.copy(alpha = 0.035f),
+                spotColor = Color.Black.copy(alpha = 0.055f),
+            )
+            .border(0.6.dp, Color(0xFFE1E6EF), shape),
         color = Color.White,
-        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        shape = shape,
     ) {
-        Row(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .navigationBarsPadding()
-                .height(76.dp)
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.SpaceAround,
-            verticalAlignment = Alignment.CenterVertically,
+                .height(106.dp),
         ) {
-            items.forEach { (tab, pair) ->
-                AliciaNavItem(
-                    label = pair.first,
-                    glyph = pair.second,
-                    selected = selectedTab == tab,
-                    onClick = { onSelect(tab) },
-                    modifier = Modifier.weight(1f),
-                )
+            Row(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .height(66.dp)
+                    .padding(horizontal = 4.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                leftItems.forEach { (tab, pair) ->
+                    AliciaNavItem(
+                        label = pair.first,
+                        glyph = pair.second,
+                        selected = selectedTab == tab,
+                        onClick = { onSelect(tab) },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                Spacer(modifier = Modifier.weight(1f))
+                rightItems.forEach { (tab, pair) ->
+                    AliciaNavItem(
+                        label = pair.first,
+                        glyph = pair.second,
+                        selected = selectedTab == tab,
+                        onClick = { onSelect(tab) },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
             }
+            AliciaAiNavItem(
+                onClick = onOpenAi,
+                modifier = Modifier.align(Alignment.TopCenter),
+            )
         }
+    }
+}
+
+private class AiCradleNavigationShape : Shape {
+    override fun createOutline(
+        size: Size,
+        layoutDirection: LayoutDirection,
+        density: Density,
+    ): Outline {
+        val baseTop = with(density) { 38.dp.toPx() }
+        val topCorner = with(density) { 24.dp.toPx() }
+        val shoulder = with(density) { 58.dp.toPx() }
+        val center = size.width / 2f
+        val path = Path().apply {
+            moveTo(0f, baseTop + topCorner)
+            quadraticBezierTo(0f, baseTop, topCorner, baseTop)
+            lineTo(center - shoulder, baseTop)
+            cubicTo(
+                center - shoulder * 0.72f,
+                baseTop,
+                center - shoulder * 0.64f,
+                0f,
+                center,
+                0f,
+            )
+            cubicTo(
+                center + shoulder * 0.64f,
+                0f,
+                center + shoulder * 0.72f,
+                baseTop,
+                center + shoulder,
+                baseTop,
+            )
+            lineTo(size.width - topCorner, baseTop)
+            quadraticBezierTo(size.width, baseTop, size.width, baseTop + topCorner)
+            lineTo(size.width, size.height)
+            lineTo(0f, size.height)
+            close()
+        }
+        return Outline.Generic(path)
+    }
+}
+
+@Composable
+private fun AliciaAiNavItem(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val pressScale by animateFloatAsState(
+        targetValue = if (pressed) 0.94f else 1f,
+        animationSpec = tween(durationMillis = if (pressed) 70 else 110),
+        label = "ai-nav-press",
+    )
+
+    Column(
+        modifier = modifier
+            .width(82.dp)
+            .padding(top = 8.dp)
+            .scale(pressScale)
+            .clip(RoundedCornerShape(22.dp))
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick,
+            ),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Image(
+            painter = painterResource(R.drawable.ic_ai_nav_entry),
+            contentDescription = "AI助手",
+            modifier = Modifier.size(62.dp),
+            contentScale = ContentScale.Fit,
+        )
+        Spacer(modifier = Modifier.height(5.dp))
+        Text(
+            text = "AI助手",
+            color = Color(0xFF121826),
+            fontSize = 11.sp,
+            lineHeight = 13.sp,
+            fontWeight = FontWeight.Medium,
+            textAlign = TextAlign.Center,
+        )
     }
 }
 
@@ -1179,6 +1505,69 @@ private fun AliciaNavItem(
 }
 
 @Composable
+private fun AiChatHostScreen(
+    paddingValues: PaddingValues,
+    transitionProgress: Float,
+    ragBaseUrl: String,
+    apiBaseUrl: String,
+    authToken: String,
+    onBack: () -> Unit,
+    onFileMutation: (AiChatFileMutationSignal) -> Unit,
+    onOpenFileResult: (AiChatFileResult) -> Unit,
+    onClientUpload: (AiChatClientUploadRequest, (Boolean) -> Unit) -> Unit,
+    onAttachFiles: ((List<AiChatPendingAttachment>) -> Unit) -> Unit,
+    onClearAttachedFiles: () -> Unit,
+) {
+    val density = LocalDensity.current
+    val conversationEnterDistance = with(density) { 28.dp.toPx() }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(paddingValues)
+            .background(ScreenBackground),
+    ) {
+        HomeAssistantBackground(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .offset(y = (-29).dp)
+                .fillMaxWidth()
+                .height(225.dp),
+        )
+        HomeAssistantPerson(
+            aiChatOpen = true,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .offset(y = (-29).dp)
+                .fillMaxWidth()
+                .height(225.dp),
+        )
+        Column(modifier = Modifier.fillMaxSize()) {
+            Box(modifier = Modifier.padding(horizontal = 18.dp)) {
+                HomeHeroHeader()
+            }
+            AiChatRoute(
+                onBack = onBack,
+                onFileMutation = onFileMutation,
+                onOpenFileResult = onOpenFileResult,
+                onClientUpload = onClientUpload,
+                onAttachFiles = onAttachFiles,
+                onClearAttachedFiles = onClearAttachedFiles,
+                ragBaseUrl = ragBaseUrl,
+                apiBaseUrl = apiBaseUrl,
+                authToken = authToken,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .graphicsLayer {
+                        translationY = conversationEnterDistance * (1f - transitionProgress)
+                    },
+            )
+        }
+    }
+}
+
+@Composable
 private fun HomeScreen(
     paddingValues: PaddingValues,
     user: User,
@@ -1195,39 +1584,18 @@ private fun HomeScreen(
     val overview = home.overview
     val usedBytes = overview?.usedBytes ?: user.usedBytes
     val totalBytes = overview?.totalSpaceBytes ?: user.storageQuotaBytes
-    val recent = home.recentNodes.take(4)
+    val recent = home.recentNodes.take(3)
 
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .padding(paddingValues)
             .background(ScreenBackground),
-        contentPadding = PaddingValues(start = 18.dp, top = 18.dp, end = 18.dp, bottom = 96.dp),
+        contentPadding = PaddingValues(top = 18.dp, bottom = 18.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Alicia 云盘", fontSize = 30.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
-                    Text("轻量文件工作台", color = Muted, fontSize = 14.sp)
-                }
-                Avatar(url = avatarUrl, fallback = user.nickname, size = 48.dp)
-            }
-        }
-
-        item {
-            HomeSearchPill(
-                placeholder = "搜索网盘文件",
-                onClick = onOpenFiles,
-            )
-        }
-
-        item {
-            HomeSpaceCard(
+            HomeTopSection(
                 user = user,
                 avatarUrl = avatarUrl,
                 usedBytes = usedBytes,
@@ -1237,35 +1605,132 @@ private fun HomeScreen(
         }
 
         item {
-            SectionHeader(title = "文件分类")
-            Spacer(modifier = Modifier.height(8.dp))
-            HomeCategoryPanel(
-                onOpenCategory = onOpenCategory,
-                onOpenTrash = onOpenTrash,
-            )
+            Column(modifier = Modifier.padding(horizontal = 18.dp)) {
+                SectionHeader(title = "文件分类")
+                Spacer(modifier = Modifier.height(8.dp))
+                HomeCategoryPanel(
+                    onOpenCategory = onOpenCategory,
+                    onOpenTrash = onOpenTrash,
+                )
+            }
         }
 
         item {
-            SectionHeader(
-                title = "最近文件",
-                actionAsset = ReferenceAsset.RefreshBlack,
-                actionDescription = "刷新",
-                onAction = onRefresh,
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            when {
-                home.error != null -> ErrorCard(home.error, onRefresh)
-                home.recentNodes.isNotEmpty() -> HomeRecentPanel(
-                    nodes = recent,
-                    baseUrl = baseUrl,
-                    authToken = authToken,
-                    onOpenNode = onOpenRecentNode,
+            Column(modifier = Modifier.padding(horizontal = 18.dp)) {
+                SectionHeader(
+                    title = "最近文件",
+                    actionAsset = ReferenceAsset.RefreshBlack,
+                    actionDescription = "刷新",
+                    onAction = onRefresh,
                 )
-                home.loading -> LoadingCard("正在加载最近文件")
-                else -> EmptyCard("暂无最近文件")
+                Spacer(modifier = Modifier.height(8.dp))
+                when {
+                    home.error != null -> ErrorCard(home.error, onRefresh)
+                    home.recentNodes.isNotEmpty() -> HomeRecentPanel(
+                        nodes = recent,
+                        baseUrl = baseUrl,
+                        authToken = authToken,
+                        onOpenNode = onOpenRecentNode,
+                    )
+                    home.loading -> LoadingCard("正在加载最近文件")
+                    else -> EmptyCard("暂无最近文件")
+                }
             }
         }
+
+        item {
+            Spacer(modifier = Modifier.height(96.dp))
+        }
     }
+}
+
+@Composable
+private fun HomeTopSection(
+    user: User,
+    avatarUrl: String?,
+    usedBytes: Long,
+    totalBytes: Long?,
+    onClick: () -> Unit,
+) {
+    Box(modifier = Modifier.fillMaxWidth()) {
+        HomeAssistantBackground(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .offset(y = (-29).dp)
+                .fillMaxWidth()
+                .height(225.dp),
+        )
+
+        HomeAssistantPerson(
+            aiChatOpen = false,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .offset(y = (-29).dp)
+                .fillMaxWidth()
+                .height(225.dp),
+        )
+
+        Column(
+            modifier = Modifier.padding(horizontal = 18.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            HomeHeroHeader()
+            HomeSpaceCard(
+                user = user,
+                avatarUrl = avatarUrl,
+                usedBytes = usedBytes,
+                totalBytes = totalBytes,
+                onClick = onClick,
+            )
+        }
+    }
+}
+
+@Composable
+private fun HomeHeroHeader() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(153.dp),
+    ) {
+        Column(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(top = 28.dp),
+        ) {
+            Text("Alicia 云盘", fontSize = 30.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
+            Text("轻量文件工作台", color = Muted, fontSize = 14.sp)
+        }
+    }
+}
+
+@Composable
+private fun HomeAssistantBackground(modifier: Modifier = Modifier) {
+    Image(
+        painter = painterResource(R.drawable.ai_assistant_home_background),
+        contentDescription = null,
+        modifier = modifier,
+        contentScale = ContentScale.FillBounds,
+    )
+}
+
+@Composable
+private fun HomeAssistantPerson(
+    aiChatOpen: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    Image(
+        painter = painterResource(
+            if (aiChatOpen) {
+                R.drawable.ai_assistant_home_person_wink_ok_static
+            } else {
+                R.drawable.ai_assistant_home_person_wave_static
+            },
+        ),
+        contentDescription = null,
+        modifier = modifier,
+        contentScale = ContentScale.FillBounds,
+    )
 }
 
 @Composable
@@ -1431,16 +1896,67 @@ private fun HomeRecentPanel(
         color = Color.White,
         shape = RoundedCornerShape(22.dp),
     ) {
-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Column(
+            modifier = Modifier.padding(horizontal = 4.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
             nodes.forEach { node ->
-                CompactNodeCard(
+                HomeRecentItem(
                     node = node,
                     baseUrl = baseUrl,
                     authToken = authToken,
                     onClick = { onOpenNode(node) },
-                    elevated = false,
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun HomeRecentItem(
+    node: StorageNode,
+    baseUrl: String,
+    authToken: String,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(64.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .noRippleClickable(onClick = onClick)
+            .padding(horizontal = 4.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        NodeThumbnailBox(
+            node = node,
+            baseUrl = baseUrl,
+            authToken = authToken,
+            modifier = Modifier.size(48.dp),
+            shape = RoundedCornerShape(8.dp),
+            backgroundColor = Color.Transparent,
+            fallbackIconScale = 1.25f,
+        )
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Text(
+                text = node.name,
+                color = Ink,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = formatHomeRecentMeta(node),
+                color = Muted,
+                fontSize = 12.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }
@@ -1618,6 +2134,7 @@ private fun FilesScreen(
                 onDeleteForever = onDeleteSelectedForever,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
                     .padding(horizontal = 18.dp),
             )
         }
@@ -5112,6 +5629,27 @@ private fun gridNodeMeta(node: StorageNode): String =
 private fun storageFileDownloadUrl(baseUrl: String, fileId: Long): String =
     "${baseUrl.trim().removeSuffix("/")}/api/storage/files/$fileId/download"
 
+private fun AiChatFileResult.toStorageNodeOrNull(): StorageNode? {
+    val resolvedNodeId = nodeId ?: id.toLongOrNull() ?: return null
+    val resolvedType = if (type.equals("FOLDER", ignoreCase = true)) {
+        StorageNodeType.FOLDER
+    } else {
+        StorageNodeType.FILE
+    }
+
+    return StorageNode(
+        id = resolvedNodeId,
+        parentId = parentId,
+        name = name.ifBlank { "未命名文件" },
+        type = resolvedType,
+        size = size ?: 0L,
+        extension = extension,
+        mimeType = mimeType,
+        updatedAt = updatedAt.orEmpty(),
+        deletedAt = null,
+    )
+}
+
 private fun TransferTask.isTransferActive(): Boolean =
     status == TransferStatus.QUEUED ||
         status == TransferStatus.PREPARING ||
@@ -5187,6 +5725,35 @@ private fun suggestedArchiveName(
         return "${name.removeSuffix(".zip").ifBlank { "AliciaCloud" }}.zip"
     }
     return "选中 ${selectedIds.size} 项.zip"
+}
+
+private fun persistReadPermissions(context: Context, uris: List<Uri>) {
+    uris.forEach { uri ->
+        runCatching {
+            context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+    }
+}
+
+private fun Context.resolveDisplayName(uri: Uri): String? {
+    contentResolver
+        .query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+        ?.use { cursor ->
+            if (cursor.moveToFirst()) {
+                val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                if (nameIndex >= 0 && !cursor.isNull(nameIndex)) {
+                    cursor.getString(nameIndex)
+                        ?.trim()
+                        ?.takeIf { it.isNotBlank() }
+                        ?.let { return it }
+                }
+            }
+        }
+
+    return uri.lastPathSegment
+        ?.substringAfterLast('/')
+        ?.trim()
+        ?.takeIf { it.isNotBlank() }
 }
 
 private class PdfPreviewDocument(filePath: String) {

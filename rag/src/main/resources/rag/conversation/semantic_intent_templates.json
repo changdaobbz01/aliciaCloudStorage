@@ -1,0 +1,302 @@
+{
+  "version": "semantic_intent_templates_v1",
+  "description": "Config-driven semantic coverage corpus. Templates describe user semantics; entity pools keep file names, folder names, extensions, and file categories separate from intent wording.",
+  "minimumExpandedCases": 1000,
+  "entityPools": {
+    "target_name": [
+      "项目文档",
+      "年度预算表",
+      "临时截图",
+      "合同终稿",
+      "发票清单",
+      "客户名单",
+      "会议纪要",
+      "设计稿",
+      "周报",
+      "需求说明",
+      "测试报告",
+      "产品路线图",
+      "旅行照片",
+      "备份压缩包",
+      "音频素材",
+      "发布说明"
+    ],
+    "new_name": [
+      "项目文档最终版.docx",
+      "年度预算表-归档.xlsx",
+      "临时截图-保留.png",
+      "合同终稿-v2.pdf",
+      "会议纪要-整理版.md",
+      "设计稿-确认版.fig",
+      "测试报告-复盘.docx",
+      "发布说明-正式版.txt"
+    ],
+    "target_folder": [
+      "项目资料",
+      "资料库",
+      "归档",
+      "客户资料",
+      "财务",
+      "图片备份",
+      "文档库",
+      "共享区",
+      "临时区",
+      "发布物"
+    ],
+    "new_folder_name": [
+      "本周资料",
+      "待上传",
+      "归档资料",
+      "客户附件",
+      "复盘材料",
+      "会议输出"
+    ],
+    "rename_prefix": [
+      "已归档-",
+      "2026-",
+      "草稿-",
+      "客户-",
+      "待审-"
+    ],
+    "extension": [
+      "pdf",
+      "docx",
+      "xlsx",
+      "pptx",
+      "png",
+      "jpg",
+      "mp4",
+      "zip"
+    ],
+    "file_type": [
+      "图片",
+      "视频",
+      "音频",
+      "文档",
+      "压缩包"
+    ]
+  },
+  "suites": [
+    {
+      "id": "file_search_by_name",
+      "intentId": "file_search",
+      "actionDraftType": "search",
+      "risk": "none",
+      "requiredEntities": ["target_name"],
+      "templates": [
+        "帮我找{target_name}",
+        "查一下{target_name}",
+        "搜索{target_name}",
+        "定位一下{target_name}",
+        "打开{target_name}",
+        "查看{target_name}",
+        "列出{target_name}",
+        "显示{target_name}",
+        "帮我把{target_name}列出来",
+        "把{target_name}找出来",
+        "我要找{target_name}",
+        "能不能搜索一下{target_name}",
+        "看下有没有{target_name}",
+        "帮我检索{target_name}",
+        "找一下名为{target_name}的文件",
+        "请把{target_name}展示出来"
+      ]
+    },
+    {
+      "id": "file_search_by_type",
+      "intentId": "file_search",
+      "actionDraftType": "search",
+      "risk": "none",
+      "requiredEntities": ["file_type"],
+      "templates": [
+        "列出所有{file_type}",
+        "把{file_type}找出来",
+        "查一下{file_type}文件",
+        "显示全部{file_type}",
+        "帮我看看{file_type}",
+        "搜索{file_type}资料"
+      ]
+    },
+    {
+      "id": "file_search_by_extension",
+      "intentId": "file_search",
+      "actionDraftType": "search",
+      "risk": "none",
+      "requiredEntities": ["extension"],
+      "templates": [
+        "查一下后缀是{extension}的文件",
+        "列出扩展名为{extension}的资料",
+        "搜索所有{extension}文件",
+        "帮我找.{extension}格式文档",
+        "显示后缀为{extension}的文件"
+      ]
+    },
+    {
+      "id": "file_rename",
+      "intentId": "file_rename",
+      "actionDraftType": "rename",
+      "risk": "medium",
+      "requiredEntities": ["target_name", "new_name"],
+      "templates": [
+        "把{target_name}重命名为{new_name}",
+        "将{target_name}改名为{new_name}",
+        "把{target_name}改成{new_name}",
+        "请把{target_name}命名成{new_name}",
+        "{target_name}重命名叫{new_name}",
+        "把文件{target_name}改名为{new_name}",
+        "把名为{target_name}的文件改成{new_name}",
+        "帮我把{target_name}改为{new_name}",
+        "给{target_name}换个名字叫{new_name}",
+        "将文件{target_name}重命名成{new_name}"
+      ]
+    },
+    {
+      "id": "file_share",
+      "intentId": "file_share",
+      "actionDraftType": "share",
+      "risk": "medium",
+      "requiredEntities": ["target_name"],
+      "templates": [
+        "分享{target_name}",
+        "把{target_name}分享给我",
+        "给{target_name}生成分享链接",
+        "生成{target_name}的分享链接",
+        "创建{target_name}的共享链接",
+        "把文件{target_name}发给我",
+        "请共享{target_name}",
+        "帮我创建{target_name}链接",
+        "给名为{target_name}的文件建个链接",
+        "把{target_name}做成可分享链接"
+      ]
+    },
+    {
+      "id": "file_delete",
+      "intentId": "file_delete",
+      "actionDraftType": "delete",
+      "risk": "high",
+      "requiredEntities": ["target_name"],
+      "templates": [
+        "删除{target_name}",
+        "把{target_name}删除",
+        "把{target_name}删了",
+        "将{target_name}删掉",
+        "请移除{target_name}",
+        "清理掉{target_name}",
+        "将{target_name}扔到回收站",
+        "把文件{target_name}移入回收站",
+        "删除名为{target_name}的文件",
+        "帮我删掉{target_name}"
+      ]
+    },
+    {
+      "id": "file_upload",
+      "intentId": "file_upload",
+      "actionDraftType": "upload_target",
+      "risk": "low",
+      "requiredEntities": ["target_folder"],
+      "templates": [
+        "上传到{target_folder}",
+        "把这个文件上传到{target_folder}",
+        "这个文件传到{target_folder}",
+        "上传这个文件到{target_folder}",
+        "把本地文件放到{target_folder}",
+        "选择文件后传到{target_folder}",
+        "将附件上传至{target_folder}",
+        "把刚选的文件上传到{target_folder}",
+        "上传本地资料到{target_folder}",
+        "把设备里的文件传进{target_folder}"
+      ]
+    },
+    {
+      "id": "folder_create_then_upload",
+      "intentId": "folder_create_then_upload",
+      "actionDraftType": "composite.create_folder_then_upload",
+      "risk": "medium",
+      "requiredEntities": ["target_folder", "new_folder_name"],
+      "templates": [
+        "在{target_folder}下新建{new_folder_name}文件夹并上传",
+        "帮我在{target_folder}里建立{new_folder_name}目录后上传",
+        "创建名为{new_folder_name}的文件夹在{target_folder}下，然后上传",
+        "先在{target_folder}中新建{new_folder_name}，再上传文件",
+        "到{target_folder}新建{new_folder_name}文件夹并传文件",
+        "请在{target_folder}目录创建{new_folder_name}后上传"
+      ]
+    },
+    {
+      "id": "collection_delete_by_category",
+      "intentId": "collection_delete_by_category",
+      "actionDraftType": "collection.trash_by_category",
+      "risk": "high",
+      "requiredEntities": ["file_type"],
+      "templates": [
+        "把{file_type}都删了",
+        "删除所有{file_type}",
+        "清理全部{file_type}",
+        "把{file_type}移入回收站",
+        "将全部{file_type}扔到回收站",
+        "帮我删掉所有{file_type}"
+      ]
+    },
+    {
+      "id": "collection_delete_by_name",
+      "intentId": "collection_delete_by_name",
+      "actionDraftType": "collection.trash_by_name_contains",
+      "risk": "high",
+      "requiredEntities": ["target_name"],
+      "templates": [
+        "删除文件名带有{target_name}的文件",
+        "我要删除名称包含{target_name}的文件",
+        "把名字含有{target_name}的文件删掉",
+        "清理文件名包含{target_name}的文件",
+        "名称带有{target_name}的都移入回收站",
+        "把文件名含有{target_name}的资料都删了"
+      ]
+    },
+    {
+      "id": "collection_move_by_extension",
+      "intentId": "collection_move_by_extension",
+      "actionDraftType": "collection.move_by_extension",
+      "risk": "medium",
+      "requiredEntities": ["extension", "target_folder"],
+      "templates": [
+        "把后缀是{extension}的都放到{target_folder}",
+        "将扩展名为{extension}的文件移动到{target_folder}",
+        "所有.{extension}文件移到{target_folder}",
+        "把{extension}格式文件移动到{target_folder}",
+        "后缀为{extension}的资料转移到{target_folder}",
+        "把全部{extension}文件归档到{target_folder}",
+        "请把{extension}文档放进{target_folder}",
+        "将所有扩展名是{extension}的文件放到{target_folder}"
+      ]
+    },
+    {
+      "id": "collection_move_by_name",
+      "intentId": "collection_move_by_name",
+      "actionDraftType": "collection.move_by_name_contains",
+      "risk": "medium",
+      "requiredEntities": ["target_name", "target_folder"],
+      "templates": [
+        "把名字包含{target_name}的文件移动到{target_folder}",
+        "名称带有{target_name}的文件放到{target_folder}",
+        "文件名含有{target_name}的都移到{target_folder}",
+        "将文件名包含{target_name}的资料归档到{target_folder}",
+        "把名称含有{target_name}的文件转移到{target_folder}",
+        "请把名字带有{target_name}的文件移动至{target_folder}"
+      ]
+    },
+    {
+      "id": "collection_rename_add_prefix",
+      "intentId": "collection_rename_add_prefix",
+      "actionDraftType": "collection.rename_add_prefix",
+      "risk": "high",
+      "requiredEntities": ["target_name", "rename_prefix"],
+      "templates": [
+        "把名字包含{target_name}的文件统一在头部加上{rename_prefix}",
+        "将名称带有{target_name}的文件重命名，统一在开头加{rename_prefix}",
+        "文件名含有{target_name}的都加前缀{rename_prefix}",
+        "给名称包含{target_name}的文件批量添加前缀{rename_prefix}",
+        "把文件名带有{target_name}的资料开头加上{rename_prefix}"
+      ]
+    }
+  ]
+}

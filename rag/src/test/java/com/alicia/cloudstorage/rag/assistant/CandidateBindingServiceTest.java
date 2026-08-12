@@ -37,6 +37,21 @@ class CandidateBindingServiceTest {
     }
 
     @Test
+    void skipsBindingForMessageOnlyFallbackEvenWhenClarificationIsRequested() {
+        CapturingCandidateSearchPort port = new CapturingCandidateSearchPort();
+        CandidateBindingService service = new CandidateBindingService(port, intentRouter, 5);
+
+        IntentRecognitionResponse response = intentRecognitionService.recognize("今天的风有点大");
+
+        CandidateBindingResult result = service.bind(response, "Bearer token");
+
+        assertThat(response.intentId()).isEqualTo("fallback");
+        assertThat(response.actionDraft().type()).isEqualTo("none");
+        assertThat(result.status()).isEqualTo("not_requested");
+        assertThat(port.lastRequest).isNull();
+    }
+
+    @Test
     void buildsFileCandidateSearchRequestFromTargetName() {
         CapturingCandidateSearchPort port = new CapturingCandidateSearchPort();
         CandidateBindingService service = new CandidateBindingService(port, intentRouter, 5);
@@ -48,6 +63,7 @@ class CandidateBindingServiceTest {
         assertThat(result.status()).isEqualTo("single_candidate");
         assertThat(port.lastRequest.intentId()).isEqualTo("file_delete");
         assertThat(port.lastRequest.candidateType()).isEqualTo("FILE");
+        assertThat(port.lastRequest.queryRole()).isEqualTo("target_name");
         assertThat(port.lastRequest.query()).isEqualTo("临时截图");
         assertThat(port.lastRequest.authorizationHeader()).isEqualTo("Bearer token");
     }
@@ -64,6 +80,7 @@ class CandidateBindingServiceTest {
         assertThat(result.status()).isEqualTo("single_candidate");
         assertThat(port.lastRequest.intentId()).isEqualTo("file_upload");
         assertThat(port.lastRequest.candidateType()).isEqualTo("FOLDER");
+        assertThat(port.lastRequest.queryRole()).isEqualTo("target_folder");
         assertThat(port.lastRequest.query()).isEqualTo("项目资料");
     }
 

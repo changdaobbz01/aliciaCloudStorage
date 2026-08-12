@@ -44,7 +44,16 @@ ALICIA_API_BASE_URL=https://windwindwind-alicia.cn
 
 ```properties
 ALICIA_API_BASE_URL=http://10.0.2.2:8090
+ALICIA_RAG_BASE_URL=http://10.0.2.2:8091
+ALICIA_RAG_ACTION_EXECUTION_ENABLED=false
+ALICIA_RAG_CONFIRMATION_MESSAGE=确认
 ```
+
+如果连接的是 USB 真机，可先执行 `adb reverse tcp:8081 tcp:8081`，再将 `ALICIA_RAG_BASE_URL` 配为 `http://127.0.0.1:8081`。
+
+`ALICIA_RAG_ACTION_EXECUTION_ENABLED` 默认必须保持 `false`。它只控制 AI 文件操作执行器是否真的提交到 CloudStorageApi；聊天、候选展示、候选选择和最终确认 UI 不依赖这个开关。正式打开前需要完成候选选择、最终确认、本地 allowlist 和后端鉴权验收。
+
+`ALICIA_RAG_CONFIRMATION_MESSAGE` 用于配置用户点击“确认计划”后，移动端发给 RAG 的确认短语；RAG 会根据该短语继续生成受控的 `backendActionDraft`。
 
 ## 后续建议
 

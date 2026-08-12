@@ -107,6 +107,10 @@ data class CreateFolderPayload(
     val folderName: String,
 )
 
+data class RenameNodePayload(
+    val name: String,
+)
+
 data class BatchNodePayload(
     val nodeIds: List<Long>,
 )

@@ -44,12 +44,18 @@ class AssistantConversationServiceTest {
             CollectionPreviewPort collectionPreviewPort
     ) {
         CandidateBindingService candidateBindingService = new CandidateBindingService(candidateSearchPort, intentRouter, 5);
+        ConversationContextResolver contextResolver = new ConversationContextResolver(
+                (message, conversation, baseResponse) -> Optional.empty(),
+                intentRecognitionService,
+                configLoader
+        );
         return new AssistantConversationService(
                 intentRecognitionService,
                 intentRouter,
                 new AssistantConversationStore(30, 100),
                 candidateBindingService,
                 new CandidateSelectionService(configLoader),
+                contextResolver,
                 new BackendActionDraftService(configLoader),
                 new ActionPlanService(configLoader),
                 new CollectionPreviewService(collectionPreviewPort, 20, 500),
@@ -108,6 +114,36 @@ class AssistantConversationServiceTest {
         assertThat(response.actionPlan().status()).isEqualTo("completed");
         assertThat(response.actionPlan().actionType()).isEqualTo("none");
         assertThat(response.actionPlan().steps()).isEmpty();
+    }
+
+    @Test
+    void fallbackClarificationKeepsMessageOnlyActionPlan() {
+        IntentRecognitionResponse response = conversationService.plan(new AssistantPlanRequest("今天的风有点大", ""));
+
+        assertThat(response.intentId()).isEqualTo("fallback");
+        assertThat(response.nextAction()).isEqualTo("ask_clarification");
+        assertThat(response.actionDraft().type()).isEqualTo("none");
+        assertThat(response.actionDraft().needsBackendBinding()).isFalse();
+        assertThat(response.candidateBinding().status()).isEqualTo("not_requested");
+        assertThat(response.backendActionDraft().status()).isEqualTo("not_requested");
+        assertThat(response.actionPlan().status()).isEqualTo("completed");
+        assertThat(response.actionPlan().actionType()).isEqualTo("none");
+        assertThat(response.actionPlan().steps()).isEmpty();
+        assertThat(response.conversation().status()).isEqualTo("waiting_for_clarification");
+    }
+
+    @Test
+    void capabilityExamplesRespondWithoutBackendBinding() {
+        IntentRecognitionResponse response = conversationService.plan(new AssistantPlanRequest("详细举例，看看你的能力项", ""));
+
+        assertThat(response.intentId()).isEqualTo("assistant_capability_examples");
+        assertThat(response.nextAction()).isEqualTo("respond_only");
+        assertThat(response.candidateBinding().status()).isEqualTo("not_requested");
+        assertThat(response.backendActionDraft().status()).isEqualTo("not_requested");
+        assertThat(response.actionPlan().status()).isEqualTo("completed");
+        assertThat(response.actionPlan().actionType()).isEqualTo("none");
+        assertThat(response.assistantText()).contains("比如");
+        assertThat(response.conversation().status()).isEqualTo("responded");
     }
 
     @Test
@@ -218,6 +254,122 @@ class AssistantConversationServiceTest {
         assertThat(response.conversation().status()).isEqualTo("search_results_ready");
         assertThat(port.calls).isEqualTo(1);
     }
+
+    @Test
+    void answersFollowUpQuestionFromPreviousSingleSearchCandidate() {
+        SingleSearchResultPort port = new SingleSearchResultPort(
+                new CandidateItem(701L, null, "codex_ui.xml", "FILE", 2048L, "xml", "application/xml", "2026-08-11T13:29:42")
+        );
+        AssistantConversationService service = conversationServiceWith(port);
+
+        IntentRecognitionResponse firstTurn = service.plan(new AssistantPlanRequest(
+                "帮我找一下名字中有codex的文件",
+                ""
+        ), "Bearer token");
+        IntentRecognitionResponse secondTurn = service.plan(new AssistantPlanRequest(
+                "它是什么格式的文件",
+                firstTurn.conversation().conversationId()
+        ), "Bearer token");
+
+        assertThat(firstTurn.candidateBinding().status()).isEqualTo("search_results_ready");
+        assertThat(secondTurn.intentId()).isEqualTo("assistant_file_context_question");
+        assertThat(secondTurn.nextAction()).isEqualTo("respond_only");
+        assertThat(secondTurn.assistantText()).contains("codex_ui.xml").contains("XML");
+        assertThat(secondTurn.candidateBinding().status()).isEqualTo("not_requested");
+        assertThat(secondTurn.conversation().status()).isEqualTo("responded");
+        assertThat(port.calls).isEqualTo(1);
+    }
+
+    @Test
+    void answersFollowUpQuestionFromOrdinalSearchCandidate() {
+        SearchResultsPort port = new SearchResultsPort();
+        AssistantConversationService service = conversationServiceWith(port);
+
+        IntentRecognitionResponse firstTurn = service.plan(new AssistantPlanRequest(
+                "帮我找一下合同",
+                ""
+        ), "Bearer token");
+        IntentRecognitionResponse secondTurn = service.plan(new AssistantPlanRequest(
+                "第二个是什么格式",
+                firstTurn.conversation().conversationId()
+        ), "Bearer token");
+
+        assertThat(firstTurn.candidateBinding().status()).isEqualTo("search_results_ready");
+        assertThat(secondTurn.intentId()).isEqualTo("assistant_file_context_question");
+        assertThat(secondTurn.nextAction()).isEqualTo("respond_only");
+        assertThat(secondTurn.assistantText()).contains("合同扫描件.pdf").contains("PDF");
+        assertThat(secondTurn.entities()).containsEntry("target_name", "合同扫描件.pdf");
+        assertThat(secondTurn.candidateBinding().status()).isEqualTo("not_requested");
+        assertThat(secondTurn.conversation().status()).isEqualTo("responded");
+        assertThat(port.calls).isEqualTo(1);
+    }
+
+    @Test
+    void rewritesMutationFollowUpAndReusesPreviousCandidateBinding() {
+        SingleSearchResultPort port = new SingleSearchResultPort(
+                new CandidateItem(702L, null, "codex_ui.xml", "FILE", 2048L, "xml", "application/xml", "")
+        );
+        AssistantConversationService service = conversationServiceWith(port);
+
+        IntentRecognitionResponse firstTurn = service.plan(new AssistantPlanRequest(
+                "查找 codex",
+                ""
+        ), "Bearer token");
+        IntentRecognitionResponse secondTurn = service.plan(new AssistantPlanRequest(
+                "把它删了",
+                firstTurn.conversation().conversationId()
+        ), "Bearer token");
+
+        assertThat(firstTurn.candidateBinding().status()).isEqualTo("search_results_ready");
+        assertThat(secondTurn.intentId()).isEqualTo("file_delete");
+        assertThat(secondTurn.entities()).containsEntry("target_name", "codex_ui.xml");
+        assertThat(secondTurn.candidateBinding().status()).isEqualTo("selected_candidate");
+        assertThat(secondTurn.candidateBinding().selectedCandidate().nodeId()).isEqualTo(702L);
+        assertThat(secondTurn.nextAction()).isEqualTo("wait_for_user_confirmation");
+        assertThat(secondTurn.conversation().status()).isEqualTo("waiting_for_user_confirmation");
+        assertThat(port.calls).isEqualTo(1);
+    }
+
+    @Test
+    void rewritesOrdinalMutationFollowUpAndReusesSelectedCandidateBinding() {
+        SearchResultsPort port = new SearchResultsPort();
+        AssistantConversationService service = conversationServiceWith(port);
+
+        IntentRecognitionResponse firstTurn = service.plan(new AssistantPlanRequest(
+                "查找合同",
+                ""
+        ), "Bearer token");
+        IntentRecognitionResponse secondTurn = service.plan(new AssistantPlanRequest(
+                "把第二个分享一下",
+                firstTurn.conversation().conversationId()
+        ), "Bearer token");
+
+        assertThat(firstTurn.candidateBinding().status()).isEqualTo("search_results_ready");
+        assertThat(secondTurn.intentId()).isEqualTo("file_share");
+        assertThat(secondTurn.entities()).containsEntry("target_name", "合同扫描件.pdf");
+        assertThat(secondTurn.candidateBinding().status()).isEqualTo("selected_candidate");
+        assertThat(secondTurn.candidateBinding().selectedIndex()).isEqualTo(2);
+        assertThat(secondTurn.candidateBinding().selectedCandidate().nodeId()).isEqualTo(202L);
+        assertThat(secondTurn.nextAction()).isEqualTo("wait_for_user_confirmation");
+        assertThat(secondTurn.conversation().status()).isEqualTo("waiting_for_user_confirmation");
+        assertThat(port.calls).isEqualTo(1);
+    }
+
+    @Test
+    void searchWithoutCandidatesKeepsNoCandidateState() {
+        NoCandidateSearchPort port = new NoCandidateSearchPort();
+        AssistantConversationService service = conversationServiceWith(port);
+
+        IntentRecognitionResponse response = service.plan(new AssistantPlanRequest("找项目文档”", ""), "Bearer token");
+
+        assertThat(response.intentId()).isEqualTo("file_search");
+        assertThat(port.lastRequest.query()).isEqualTo("项目文档");
+        assertThat(response.candidateBinding().status()).isEqualTo("no_candidates");
+        assertThat(response.candidateBinding().candidates()).isEmpty();
+        assertThat(response.actionPlan().status()).isEqualTo("binding_required");
+        assertThat(response.conversation().status()).isEqualTo("waiting_for_backend_binding");
+    }
+
 
     @Test
     void confirmSingleRenameCandidateBuildsBackendActionDraft() {
@@ -435,6 +587,35 @@ class AssistantConversationServiceTest {
     }
 
     @Test
+    void directExtensionMovePhraseBuildsCollectionMovePlan() {
+        SingleCandidateSearchPort port = new SingleCandidateSearchPort(903L, "资料");
+        PreviewPort previewPort = new PreviewPort(List.of(
+                new CandidateItem(812L, null, "合同.pdf", "FILE", 120L, "pdf", "application/pdf", "")
+        ), 1, true);
+        AssistantConversationService service = conversationServiceWith(port, previewPort);
+
+        IntentRecognitionResponse response = service.plan(new AssistantPlanRequest(
+                "把 pdf 文件移动到资料文件夹",
+                ""
+        ), "Bearer token");
+
+        ActionPlan plan = response.actionPlan();
+        ActionPlanBinding sourceCollection = plan.bindings().get("sourceCollection");
+        ActionPlanBinding targetParent = plan.bindings().get("targetParent");
+
+        assertThat(response.intentId()).isEqualTo("collection_move_by_extension");
+        assertThat(response.entities()).containsEntry("extension", "PDF");
+        assertThat(response.entities()).containsEntry("target_folder", "资料");
+        assertThat(port.lastRequest.candidateType()).isEqualTo("FOLDER");
+        assertThat(port.lastRequest.query()).isEqualTo("资料");
+        assertThat(plan.actionType()).isEqualTo("collection.move_by_extension");
+        assertThat(plan.status()).isEqualTo("collection_review_required");
+        assertThat(previewPort.lastRequest.filter()).containsEntry("extension", "PDF");
+        assertThat(sourceCollection.candidates()).hasSize(1);
+        assertThat(targetParent.selectedCandidate().nodeId()).isEqualTo(903L);
+    }
+
+    @Test
     void confirmCollectionMoveBuildsBatchMoveDraft() {
         SingleCandidateSearchPort port = new SingleCandidateSearchPort(902L, "归档");
         PreviewPort previewPort = new PreviewPort(List.of(
@@ -553,6 +734,45 @@ class AssistantConversationServiceTest {
                             new CandidateItem(202L, null, "合同扫描件.pdf", "FILE", 78L, "pdf", "application/pdf", "")
                     ),
                     "已匹配到 2 个候选，可展示给用户。"
+            );
+        }
+    }
+
+    private static class SingleSearchResultPort implements CandidateSearchPort {
+        private final CandidateItem candidate;
+        private int calls;
+
+        private SingleSearchResultPort(CandidateItem candidate) {
+            this.candidate = candidate;
+        }
+
+        @Override
+        public CandidateBindingResult search(CandidateSearchRequest request) {
+            calls++;
+            return new CandidateBindingResult(
+                    "search_results_ready",
+                    "test",
+                    request.query(),
+                    request.candidateType(),
+                    List.of(candidate),
+                    "已匹配到 1 个候选，可展示给用户。"
+            );
+        }
+    }
+
+    private static class NoCandidateSearchPort implements CandidateSearchPort {
+        private CandidateSearchRequest lastRequest;
+
+        @Override
+        public CandidateBindingResult search(CandidateSearchRequest request) {
+            lastRequest = request;
+            return new CandidateBindingResult(
+                    "no_candidates",
+                    "test",
+                    request.query(),
+                    request.candidateType(),
+                    List.of(),
+                    "未匹配到候选文件或目录，可调整线索后重新检索。"
             );
         }
     }

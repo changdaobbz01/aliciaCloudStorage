@@ -31,6 +31,9 @@ public class ActionPlanService {
         }
 
         String rawActionType = response.actionDraft() == null ? "none" : response.actionDraft().type();
+        if (rawActionType == null || rawActionType.isBlank() || "none".equals(rawActionType)) {
+            return ActionPlan.skipped("completed", response.assistantText());
+        }
         if (rawActionType.startsWith("composite.")) {
             return buildCompositePlan(response, rawActionType);
         }

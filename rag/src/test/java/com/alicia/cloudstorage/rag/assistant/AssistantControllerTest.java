@@ -14,7 +14,8 @@ class AssistantControllerTest {
     void exposesActionBridgeContractFromConfig() {
         AssistantController controller = new AssistantController(
                 null,
-                new RagConfigLoader(new ObjectMapper())
+                new RagConfigLoader(new ObjectMapper()),
+                new ObjectMapper().findAndRegisterModules()
         );
 
         Map<String, Object> contract = controller.actionBridgeContract();
@@ -29,7 +30,8 @@ class AssistantControllerTest {
     void exposesMobileContractAndAcceptanceScenariosFromConfig() {
         AssistantController controller = new AssistantController(
                 null,
-                new RagConfigLoader(new ObjectMapper())
+                new RagConfigLoader(new ObjectMapper()),
+                new ObjectMapper().findAndRegisterModules()
         );
 
         Map<String, Object> mobile = controller.mobileContract();
@@ -54,7 +56,8 @@ class AssistantControllerTest {
     void exposesActionPlanContractFromConfig() {
         AssistantController controller = new AssistantController(
                 null,
-                new RagConfigLoader(new ObjectMapper())
+                new RagConfigLoader(new ObjectMapper()),
+                new ObjectMapper().findAndRegisterModules()
         );
 
         Map<String, Object> contract = controller.actionPlanContract();
@@ -77,6 +80,18 @@ class AssistantControllerTest {
         assertThat(map(contract.get("persona"))).containsEntry("id", "anan");
         assertThat(map(contract.get("mobile"))).containsEntry("version", "mobile_contract_v1");
         assertThat(map(contract.get("acceptanceScenarios"))).containsEntry("version", "rag_mobile_acceptance_v1");
+    }
+
+    @Test
+    void deepSeekConfigUsesEnvironmentVariableNameOnly() {
+        Map<String, Object> config = new RagConfigLoader(new ObjectMapper())
+                .loadJsonMap("rag/llm/deepseek.json");
+
+        assertThat(config).containsEntry("enabled", true);
+        assertThat(config).containsEntry("api_key_env", "DEEPSEEK_API_KEY");
+        assertThat(config).doesNotContainKey("api_key");
+        assertThat(map(config.get("prompt")).get("system_message").toString())
+                .contains("semantic parser");
     }
 
     @SuppressWarnings("unchecked")

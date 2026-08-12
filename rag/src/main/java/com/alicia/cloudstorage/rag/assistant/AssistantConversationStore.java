@@ -54,6 +54,7 @@ public class AssistantConversationStore {
                 response.missingSlots(),
                 response.actionDraft(),
                 response.candidateBinding(),
+                AssistantConversationFocus.next(previous.focus(), response),
                 now.plus(ttl)
         );
         conversations.put(next.conversationId(), next);
@@ -73,6 +74,7 @@ public class AssistantConversationStore {
                 java.util.List.of(),
                 null,
                 null,
+                AssistantConversationFocus.empty(),
                 now.plus(ttl)
         );
     }

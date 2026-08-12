@@ -1,0 +1,75 @@
+{
+  "version": "0.1.0",
+  "enabled": true,
+  "min_confidence": 0.62,
+  "direct_answer_intent": {
+    "id": "assistant_file_context_question",
+    "name": "文件上下文追问",
+    "task_type": "file_context_query",
+    "template_id": "contextual_file_question",
+    "provider": "local_context",
+    "model": "conversation_focus"
+  },
+  "relations": [
+    "new_task",
+    "follow_up_question",
+    "modify_previous_action",
+    "continue_previous_action",
+    "slot_fill",
+    "candidate_reference",
+    "client_input_reference",
+    "clarification_required"
+  ],
+  "referents": [
+    "none",
+    "previous_candidate",
+    "previous_candidate_set",
+    "selected_candidate",
+    "previous_action_plan",
+    "selected_client_file"
+  ],
+  "question_fields": {
+    "file_format": {
+      "aliases": ["格式", "类型", "后缀", "扩展名", "是什么文件", "哪种文件"],
+      "answer_template": "{name} 是 {value} 格式的文件。",
+      "folder_template": "{name} 是文件夹，不是普通文件。",
+      "unknown_template": "我暂时看不到 {name} 的格式信息。"
+    },
+    "file_name": {
+      "aliases": ["名字", "名称", "文件名", "叫什么"],
+      "answer_template": "它的名称是 {name}。"
+    },
+    "file_path": {
+      "aliases": ["位置", "路径", "在哪里", "在哪"],
+      "answer_template": "{name} 当前显示路径是 {value}。"
+    },
+    "file_size": {
+      "aliases": ["大小", "多大", "占用空间"],
+      "answer_template": "{name} 的大小是 {value}。",
+      "unknown_template": "我暂时看不到 {name} 的大小信息。"
+    },
+    "updated_at": {
+      "aliases": ["更新时间", "修改时间", "什么时候更新", "什么时候改"],
+      "answer_template": "{name} 的更新时间是 {value}。",
+      "unknown_template": "我暂时看不到 {name} 的更新时间。"
+    }
+  },
+  "messages": {
+    "multiple_candidates": "我看到上一轮有多个候选，请先选择其中一个，再继续追问或操作。",
+    "missing_context": "我还没有可以承接的文件上下文，请先告诉我想处理哪个文件或文件夹。",
+    "clarification": "请说明你想继续处理上一轮哪个文件，或者重新描述一个完整的新任务。"
+  },
+  "local_fallback": {
+    "enabled": true,
+    "reference_terms": ["它", "他", "这个", "这个文件", "该文件", "刚才那个", "上一个", "刚才的", "那个文件", "这个候选"],
+    "set_reference_terms": ["这些", "那几个", "它们", "他们", "上面这些", "刚才那些"],
+    "follow_up_question_markers": ["什么", "多少", "多大", "在哪", "哪里", "什么时候", "是否", "是不是", "吗", "呢"],
+    "mutation_markers": {
+      "delete": ["删", "删除", "移入回收站", "扔到回收站"],
+      "share": ["分享", "共享", "链接"],
+      "rename": ["重命名", "改名", "改成", "命名为"],
+      "move": ["移动", "移到", "放到", "挪到"],
+      "upload": ["上传", "传到"]
+    }
+  }
+}

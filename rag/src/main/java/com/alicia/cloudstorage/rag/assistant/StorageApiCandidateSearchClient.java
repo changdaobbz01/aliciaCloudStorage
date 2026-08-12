@@ -1,18 +1,31 @@
 package com.alicia.cloudstorage.rag.assistant;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 
 @Service
 public class StorageApiCandidateSearchClient implements CandidateSearchPort {
 
     private final StorageApiNodeReadClient storageApi;
+    private final CandidateQueryPlanner queryPlanner;
 
-    public StorageApiCandidateSearchClient(StorageApiNodeReadClient storageApi) {
+    @Autowired
+    public StorageApiCandidateSearchClient(
+            StorageApiNodeReadClient storageApi,
+            CandidateQueryPlanner queryPlanner
+    ) {
         this.storageApi = storageApi;
+        this.queryPlanner = queryPlanner;
+    }
+
+    StorageApiCandidateSearchClient(StorageApiNodeReadClient storageApi) {
+        this(storageApi, CandidateQueryPlanner.defaults());
     }
 
     @Override
@@ -37,19 +50,31 @@ public class StorageApiCandidateSearchClient implements CandidateSearchPort {
     }
 
     private CandidateBindingResult searchNodes(CandidateSearchRequest request) {
-        StorageApiNodePage page = storageApi.searchNodes(new StorageApiNodeQuery(
-                null,
-                true,
-                request.query(),
-                null,
-                null,
-                1,
-                request.maxResults(),
-                "updatedAt",
-                "desc"
-        ), request.authorizationHeader());
+        List<String> queryVariants = queryPlanner.variants(request);
+        Map<String, CandidateItem> candidatesByKey = new LinkedHashMap<>();
         Map<Long, CandidateItem> folderById = storageApi.safeFolderMap(request.authorizationHeader());
-        List<CandidateItem> candidates = storageApi.enrichWithPaths(page.items(), folderById).stream()
+
+        for (String query : queryVariants) {
+            if (candidatesByKey.size() >= request.maxResults()) {
+                break;
+            }
+            StorageApiNodePage page = storageApi.searchNodes(new StorageApiNodeQuery(
+                    null,
+                    true,
+                    query,
+                    nodeTypeFilter(request),
+                    null,
+                    1,
+                    request.maxResults(),
+                    "updatedAt",
+                    "desc"
+            ), request.authorizationHeader());
+            storageApi.enrichWithPaths(page.items(), folderById).stream()
+                    .filter(candidate -> matchesCandidateType(candidate, request.candidateType()))
+                    .forEach(candidate -> candidatesByKey.putIfAbsent(candidateKey(candidate), candidate));
+        }
+
+        List<CandidateItem> candidates = rank(candidatesByKey.values().stream().toList(), queryVariants).stream()
                 .limit(Math.max(1, request.maxResults()))
                 .toList();
         return result(request, candidates, "cloud-storage-api:/api/storage/nodes");
@@ -58,12 +83,41 @@ public class StorageApiCandidateSearchClient implements CandidateSearchPort {
     private CandidateBindingResult searchFolders(CandidateSearchRequest request) {
         List<CandidateItem> allFolders = storageApi.fetchAllFolders(request.authorizationHeader());
         Map<Long, CandidateItem> folderById = storageApi.folderMap(allFolders);
-        String query = request.query().toLowerCase(Locale.ROOT);
+        List<String> queryVariants = queryPlanner.variants(request);
         List<CandidateItem> candidates = storageApi.enrichWithPaths(allFolders, folderById).stream()
-                .filter(candidate -> candidate.name() != null && candidate.name().toLowerCase(Locale.ROOT).contains(query))
+                .filter(candidate -> queryPlanner.matchScore(candidate, queryVariants) < Integer.MAX_VALUE)
+                .sorted(Comparator.comparingInt(candidate -> queryPlanner.matchScore(candidate, queryVariants)))
                 .limit(Math.max(1, request.maxResults()))
                 .toList();
         return result(request, candidates, "cloud-storage-api:/api/storage/folders");
+    }
+
+    private List<CandidateItem> rank(List<CandidateItem> candidates, List<String> queryVariants) {
+        List<CandidateItem> ranked = new ArrayList<>(candidates);
+        ranked.sort(Comparator.comparingInt(candidate -> queryPlanner.matchScore(candidate, queryVariants)));
+        return List.copyOf(ranked);
+    }
+
+    private String nodeTypeFilter(CandidateSearchRequest request) {
+        String candidateType = request.candidateType() == null ? "" : request.candidateType().trim();
+        return "FILE".equalsIgnoreCase(candidateType) ? "FILE" : "";
+    }
+
+    private boolean matchesCandidateType(CandidateItem candidate, String candidateType) {
+        if (candidate == null || candidateType == null || candidateType.isBlank()) {
+            return true;
+        }
+        if ("ANY".equalsIgnoreCase(candidateType) || "NODE".equalsIgnoreCase(candidateType)) {
+            return true;
+        }
+        return candidateType.equalsIgnoreCase(candidate.type());
+    }
+
+    private String candidateKey(CandidateItem candidate) {
+        if (candidate.nodeId() != null) {
+            return "id:" + candidate.nodeId();
+        }
+        return "natural:" + candidate.type() + ":" + candidate.path() + ":" + candidate.name();
     }
 
     private CandidateBindingResult result(
@@ -71,20 +125,48 @@ public class StorageApiCandidateSearchClient implements CandidateSearchPort {
             List<CandidateItem> candidates,
             String source
     ) {
-        if ("search".equalsIgnoreCase(request.actionType())) {
-            String message = candidates.isEmpty()
-                    ? "未匹配到候选文件或目录，可调整线索后重新检索。"
-                    : "已匹配到 " + candidates.size() + " 个候选，可展示给用户。";
+        if (isSearchAction(request)) {
+            return searchResult(request, candidates, source);
+        }
+
+        return operationBindingResult(request, candidates, source);
+    }
+
+    private boolean isSearchAction(CandidateSearchRequest request) {
+        return "search".equalsIgnoreCase(request.actionType());
+    }
+
+    private CandidateBindingResult searchResult(
+            CandidateSearchRequest request,
+            List<CandidateItem> candidates,
+            String source
+    ) {
+        if (candidates.isEmpty()) {
             return new CandidateBindingResult(
-                    "search_results_ready",
+                    "no_candidates",
                     source,
                     request.query(),
                     request.candidateType(),
                     candidates,
-                    message
+                    "未匹配到候选文件或目录，可调整线索后重新检索。"
             );
         }
 
+        return new CandidateBindingResult(
+                "search_results_ready",
+                source,
+                request.query(),
+                request.candidateType(),
+                candidates,
+                "已匹配到 " + candidates.size() + " 个候选，可展示给用户。"
+        );
+    }
+
+    private CandidateBindingResult operationBindingResult(
+            CandidateSearchRequest request,
+            List<CandidateItem> candidates,
+            String source
+    ) {
         String status = switch (candidates.size()) {
             case 0 -> "no_candidates";
             case 1 -> "single_candidate";

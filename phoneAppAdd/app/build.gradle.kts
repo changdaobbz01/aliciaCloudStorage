@@ -1,4 +1,5 @@
 import org.gradle.api.Project
+import java.util.Properties
 
 plugins {
     id("com.android.application")
@@ -6,15 +7,69 @@ plugins {
 }
 
 fun resolveApiBaseUrl(project: Project): String {
-    val configured = sequenceOf(
-        project.findProperty("ALICIA_API_BASE_URL") as String?,
-        project.findProperty("alicia.apiBaseUrl") as String?,
+    val configured = findConfiguredProperty(
+        project,
+        "ALICIA_API_BASE_URL",
+        "alicia.apiBaseUrl",
     )
-        .mapNotNull { it?.trim() }
-        .firstOrNull { it.isNotEmpty() }
 
     return (configured ?: "https://windwindwind-alicia.cn").removeSuffix("/")
 }
+
+fun resolveRagBaseUrl(project: Project, apiBaseUrl: String): String {
+    val configured = findConfiguredProperty(
+        project,
+        "ALICIA_RAG_BASE_URL",
+        "alicia.ragBaseUrl",
+    )
+
+    return (configured ?: inferDefaultRagBaseUrl(apiBaseUrl)).removeSuffix("/")
+}
+
+fun resolveBooleanProperty(project: Project, defaultValue: Boolean, vararg names: String): Boolean {
+    val configured = findConfiguredProperty(project, *names)?.trim()?.lowercase() ?: return defaultValue
+
+    return when (configured) {
+        "true", "1", "yes", "y", "on" -> true
+        "false", "0", "no", "n", "off" -> false
+        else -> defaultValue
+    }
+}
+
+fun findConfiguredProperty(project: Project, vararg names: String): String? {
+    names.asSequence()
+        .mapNotNull { name -> project.findProperty(name)?.toString()?.trim() }
+        .firstOrNull { it.isNotEmpty() }
+        ?.let { return it }
+
+    val localPropertiesFile = project.rootProject.file("local.properties")
+    if (!localPropertiesFile.isFile) {
+        return null
+    }
+
+    val localProperties = Properties().apply {
+        localPropertiesFile.reader(Charsets.UTF_8).use { reader -> load(reader) }
+    }
+
+    return names.asSequence()
+        .mapNotNull { name -> localProperties.getProperty(name)?.trim() }
+        .firstOrNull { it.isNotEmpty() }
+}
+
+fun inferDefaultRagBaseUrl(apiBaseUrl: String): String {
+    val normalized = apiBaseUrl.trim().removeSuffix("/")
+
+    return when {
+        normalized == "http://10.0.2.2:8090" -> "http://10.0.2.2:8091"
+        normalized == "http://127.0.0.1:8090" -> "http://10.0.2.2:8091"
+        normalized == "http://localhost:8090" -> "http://10.0.2.2:8091"
+        normalized.endsWith(":8090") -> normalized.removeSuffix(":8090") + ":8091"
+        else -> normalized
+    }
+}
+
+fun buildConfigStringLiteral(value: String): String =
+    "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
 
 android {
     namespace = "com.alicia.cloudstorage.phone"
@@ -27,7 +82,22 @@ android {
         versionCode = 8
         versionName = "0.1.7"
 
-        buildConfigField("String", "DEFAULT_API_BASE_URL", "\"${resolveApiBaseUrl(project)}\"")
+        val apiBaseUrl = resolveApiBaseUrl(project)
+        val ragActionExecutionEnabled = resolveBooleanProperty(
+            project,
+            false,
+            "ALICIA_RAG_ACTION_EXECUTION_ENABLED",
+            "alicia.ragActionExecutionEnabled",
+        )
+        val ragConfirmationMessage = findConfiguredProperty(
+            project,
+            "ALICIA_RAG_CONFIRMATION_MESSAGE",
+            "alicia.ragConfirmationMessage",
+        ) ?: "确认"
+        buildConfigField("String", "DEFAULT_API_BASE_URL", buildConfigStringLiteral(apiBaseUrl))
+        buildConfigField("String", "DEFAULT_RAG_BASE_URL", buildConfigStringLiteral(resolveRagBaseUrl(project, apiBaseUrl)))
+        buildConfigField("String", "RAG_CONFIRMATION_MESSAGE", buildConfigStringLiteral(ragConfirmationMessage))
+        buildConfigField("boolean", "RAG_ACTION_EXECUTION_ENABLED", ragActionExecutionEnabled.toString())
         buildConfigField("boolean", "APP_UPDATE_ENABLED", "true")
     }
 

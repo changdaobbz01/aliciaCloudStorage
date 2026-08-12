@@ -1,0 +1,231 @@
+package com.alicia.cloudstorage.rag.assistant;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.TimeUnit;
+
+@Component
+public class DeepSeekConversationContextClient implements ConversationContextModelClient {
+
+    private static final Logger log = LoggerFactory.getLogger(DeepSeekConversationContextClient.class);
+
+    private final RagConfigLoader configLoader;
+    private final ObjectMapper objectMapper;
+    private final HttpClient httpClient;
+    private final String apiKey;
+
+    public DeepSeekConversationContextClient(
+            RagConfigLoader configLoader,
+            ObjectMapper objectMapper,
+            @Value("${alicia.rag.deepseek.api-key:}") String apiKey
+    ) {
+        this.configLoader = configLoader;
+        this.objectMapper = objectMapper;
+        this.httpClient = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(5))
+                .build();
+        this.apiKey = apiKey == null ? "" : apiKey.trim();
+    }
+
+    @Override
+    public Optional<ConversationContextModelResult> resolve(
+            String message,
+            AssistantConversationState conversation,
+            IntentRecognitionResponse baseResponse
+    ) {
+        if (conversation == null || conversation.focus() == null || !conversation.focus().hasCandidateContext()) {
+            return Optional.empty();
+        }
+
+        DeepSeekContextSettings settings = loadSettings();
+        String resolvedApiKey = resolvedApiKey(settings);
+        if (!settings.enabled() || resolvedApiKey.isBlank()) {
+            log.debug("DeepSeek context resolution skipped. enabled={}, apiKeyConfigured={}", settings.enabled(), !resolvedApiKey.isBlank());
+            return Optional.empty();
+        }
+
+        try {
+            String body = objectMapper.writeValueAsString(buildRequestBody(settings, message, conversation, baseResponse));
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(settings.baseUrl().replaceAll("/+$", "") + "/chat/completions"))
+                    .timeout(Duration.ofSeconds(settings.timeoutSeconds()))
+                    .header("Content-Type", "application/json")
+                    .header("Authorization", "Bearer " + resolvedApiKey)
+                    .POST(HttpRequest.BodyPublishers.ofString(body))
+                    .build();
+            HttpResponse<String> response = httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                    .orTimeout(settings.timeoutSeconds(), TimeUnit.SECONDS)
+                    .join();
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                log.warn("DeepSeek context resolution returned HTTP status {}", response.statusCode());
+                return Optional.empty();
+            }
+            return parseResponse(settings, response.body());
+        } catch (JsonProcessingException exception) {
+            log.warn("DeepSeek context resolution returned invalid JSON: {}", exception.getOriginalMessage());
+            return Optional.empty();
+        } catch (RuntimeException exception) {
+            log.warn("DeepSeek context resolution failed: {}", exception.toString());
+            return Optional.empty();
+        }
+    }
+
+    private Map<String, Object> buildRequestBody(
+            DeepSeekContextSettings settings,
+            String message,
+            AssistantConversationState conversation,
+            IntentRecognitionResponse baseResponse
+    ) throws JsonProcessingException {
+        String contextJson = objectMapper.writeValueAsString(contextPayload(conversation, baseResponse));
+        String userContent = settings.userTemplate()
+                .replace("{message}", message == null ? "" : message)
+                .replace("{context_json}", contextJson);
+        return Map.of(
+                "model", settings.model(),
+                "messages", List.of(
+                        Map.of("role", "system", "content", settings.systemMessage()),
+                        Map.of("role", "user", "content", userContent)
+                ),
+                "temperature", settings.temperature(),
+                "max_tokens", settings.maxTokens(),
+                "stream", false,
+                "response_format", Map.of("type", settings.responseFormat())
+        );
+    }
+
+    private Map<String, Object> contextPayload(
+            AssistantConversationState conversation,
+            IntentRecognitionResponse baseResponse
+    ) {
+        AssistantConversationFocus focus = conversation.focus();
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("conversation_id", conversation.conversationId());
+        payload.put("turn_index", conversation.turnIndex());
+        payload.put("pending_intent_id", conversation.pendingIntentId());
+        payload.put("pending_slots", conversation.pendingSlots());
+        payload.put("focus_kind", focus.focusKind());
+        payload.put("focus_source_intent_id", focus.sourceIntentId());
+        payload.put("focus_action_type", focus.actionType());
+        payload.put("focus_entities", focus.entities());
+        payload.put("candidate_count", focus.candidateCount());
+        payload.put("selected_candidate", candidatePayload(focus.effectiveCandidate()));
+        payload.put("candidates", focus.candidateBinding() == null
+                ? List.of()
+                : focus.candidateBinding().candidates().stream()
+                .map(this::candidatePayload)
+                .toList());
+        payload.put("base_intent_id", baseResponse == null ? "" : baseResponse.intentId());
+        payload.put("base_entities", baseResponse == null ? Map.of() : baseResponse.entities());
+        return payload;
+    }
+
+    private Map<String, Object> candidatePayload(CandidateItem candidate) {
+        if (candidate == null) {
+            return Map.of();
+        }
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("name", candidate.name());
+        payload.put("type", candidate.type());
+        payload.put("extension", candidate.extension());
+        payload.put("mime_type", candidate.mimeType());
+        payload.put("size", candidate.size());
+        payload.put("updated_at", candidate.updatedAt());
+        payload.put("display_path", candidate.path());
+        return payload;
+    }
+
+    private Optional<ConversationContextModelResult> parseResponse(
+            DeepSeekContextSettings settings,
+            String body
+    ) throws JsonProcessingException {
+        JsonNode root = objectMapper.readTree(body);
+        JsonNode choice = root.path("choices").isArray() && !root.path("choices").isEmpty()
+                ? root.path("choices").get(0)
+                : null;
+        if (choice == null) {
+            return Optional.empty();
+        }
+        String content = choice.path("message").path("content").asText("");
+        if (content.isBlank()) {
+            return Optional.empty();
+        }
+        Map<String, Object> payload = objectMapper.readValue(stripJsonContent(content), new TypeReference<>() {
+        });
+        return Optional.of(new ConversationContextModelResult(
+                settings.provider(),
+                settings.model(),
+                settings.templateId(),
+                payload
+        ));
+    }
+
+    private DeepSeekContextSettings loadSettings() {
+        JsonNode root = configLoader.loadJson("rag/llm/deepseek_context.json");
+        JsonNode prompt = root.path("prompt");
+        return new DeepSeekContextSettings(
+                root.path("enabled").asBoolean(false),
+                root.path("provider").asText("deepseek"),
+                root.path("base_url").asText("https://api.deepseek.com"),
+                root.path("api_key_env").asText("DEEPSEEK_API_KEY"),
+                root.path("model").asText("deepseek-v4-flash"),
+                root.path("temperature").asDouble(0.05),
+                root.path("max_tokens").asInt(1200),
+                root.path("timeout_seconds").asInt(20),
+                root.path("response_format").asText("json_object"),
+                prompt.path("version").asText("context_resolution_v1"),
+                prompt.path("template_id").asText("deepseek_conversation_context_resolution"),
+                prompt.path("system_message").asText(),
+                prompt.path("user_template").asText()
+        );
+    }
+
+    private String resolvedApiKey(DeepSeekContextSettings settings) {
+        if (!apiKey.isBlank()) {
+            return apiKey;
+        }
+        String envName = settings.apiKeyEnv();
+        return envName == null || envName.isBlank() ? "" : System.getenv().getOrDefault(envName, "").trim();
+    }
+
+    private String stripJsonContent(String content) {
+        String trimmed = content.trim();
+        if (trimmed.startsWith("```")) {
+            trimmed = trimmed.replaceFirst("^```(?:json)?\\s*", "");
+            trimmed = trimmed.replaceFirst("\\s*```$", "");
+        }
+        return trimmed;
+    }
+
+    private record DeepSeekContextSettings(
+            boolean enabled,
+            String provider,
+            String baseUrl,
+            String apiKeyEnv,
+            String model,
+            double temperature,
+            int maxTokens,
+            int timeoutSeconds,
+            String responseFormat,
+            String promptVersion,
+            String templateId,
+            String systemMessage,
+            String userTemplate
+    ) {
+    }
+}

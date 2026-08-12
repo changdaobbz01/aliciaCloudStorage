@@ -350,6 +350,20 @@ class AliciaRepository(
         )
     }
 
+    suspend fun renameNode(
+        baseUrl: String,
+        token: String,
+        nodeId: Long,
+        name: String,
+    ): StorageNode =
+        serviceFactory.serviceFor(baseUrl)
+            .renameNode(
+                authorization = authorization(token),
+                nodeId = nodeId,
+                payload = RenameNodePayload(name = name),
+            )
+            .requireBody(fallback = "重命名失败。")
+
     suspend fun moveNodes(
         baseUrl: String,
         token: String,

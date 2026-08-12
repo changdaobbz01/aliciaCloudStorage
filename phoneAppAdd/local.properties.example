@@ -1,2 +1,9 @@
 # 复制为 local.properties 后可覆盖默认后端地址
 ALICIA_API_BASE_URL=http://43.132.237.15
+ALICIA_RAG_BASE_URL=http://10.0.2.2:8091
+
+# 默认保持 false。只有完成候选选择、最终确认、本地 allowlist 和后端鉴权验收后才可改为 true。
+ALICIA_RAG_ACTION_EXECUTION_ENABLED=false
+
+# 用户点击“确认计划”后，移动端发给 RAG 用于生成受控执行草稿的短语。
+ALICIA_RAG_CONFIRMATION_MESSAGE=确认

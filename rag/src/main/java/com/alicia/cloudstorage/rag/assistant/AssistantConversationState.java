@@ -13,11 +13,13 @@ public record AssistantConversationState(
         List<String> pendingSlots,
         ActionDraft pendingActionDraft,
         CandidateBindingResult candidateBinding,
+        AssistantConversationFocus focus,
         Instant expiresAt
 ) {
     public AssistantConversationState {
         entities = entities == null ? Map.of() : Map.copyOf(new LinkedHashMap<>(entities));
         pendingSlots = pendingSlots == null ? List.of() : List.copyOf(pendingSlots);
+        focus = focus == null ? AssistantConversationFocus.empty() : focus;
     }
 
     boolean isExpired(Instant now) {

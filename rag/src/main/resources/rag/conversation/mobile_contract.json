@@ -35,7 +35,8 @@
     "Require visible user confirmation for all mutating actions.",
     "Use the current app login Authorization when calling RAG and CloudStorageApi.",
     "Reject absolute URLs, unknown methods, unknown action types, and stale candidate bindings.",
-    "Treat RAG output as a plan, not as proof that an operation has completed."
+    "Treat RAG output as a plan, not as proof that an operation has completed.",
+    "Refresh file and trash views only after the local executor reports a completed mutating action."
   ],
   "nextActionRouting": {
     "respond_only": {
@@ -86,11 +87,11 @@
     },
     {
       "name": "RagActionExecutor",
-      "responsibility": "Dispatch to existing AliciaRepository methods after validation and user confirmation."
+      "responsibility": "Own the disabled-by-default execution boundary; dispatch validated and confirmed drafts to existing AliciaRepository methods only after app UI deliberately enables submission, then emit completed mutation signals for local refresh."
     },
     {
       "name": "RagReviewPresenter",
-      "responsibility": "Build confirmation text for single, composite, collection, and upload plans."
+      "responsibility": "Build read-only plan, candidate selection, client upload, and final confirmation presentation models for mobile UI."
     }
   ],
   "actionHandlers": {
@@ -117,7 +118,7 @@
     },
     "rename": {
       "phase": 1,
-      "implementationStatus": "mobile_api_wrapper_missing",
+      "implementationStatus": "mobile_supported",
       "executionMode": "backend_action_ready",
       "cloudStorageApi": {
         "method": "PUT",
@@ -126,9 +127,9 @@
           "name": "string"
         }
       },
-      "mobileRepositoryMethod": "TODO renameNode",
+      "mobileRepositoryMethod": "renameNode",
       "requiresFinalConfirmation": true,
-      "notes": "CloudStorageApi supports this endpoint; phoneAppAdd still needs RenameNodePayload, Retrofit method, and repository wrapper."
+      "notes": "phoneAppAdd has RenameNodePayload, Retrofit renameNode, Repository renameNode, candidate selection click-through, basic confirm/cancel review controls, and a disabled-by-default RagActionExecutor route; real execution still requires an explicit app submission switch."
     },
     "delete": {
       "phase": 1,
@@ -165,11 +166,11 @@
       },
       "mobileRepositoryMethod": "uploadFile",
       "requiresFinalConfirmation": true,
-      "notes": "RAG only resolves the target folder. Mobile must collect local file URI."
+      "notes": "RAG only resolves the target folder. Mobile displays a client upload action, collects local file URI through the system picker, and calls the existing uploadFile flow with the bound parentId; backendActionDraft is not submitted by RagActionExecutor."
     },
     "composite.create_folder_then_upload": {
       "phase": 1,
-      "implementationStatus": "mobile_orchestration_needed",
+      "implementationStatus": "mobile_supported",
       "executionMode": "client_orchestrated_steps",
       "cloudStorageApi": [
         {
@@ -184,7 +185,7 @@
       ],
       "mobileRepositoryMethod": ["createFolder", "uploadFile"],
       "requiresFinalConfirmation": true,
-      "notes": "After folder creation succeeds, upload selected client files into the created folder."
+      "notes": "Mobile displays a create-then-upload client action. After the user selects local files, MainViewModel creates the folder under the bound parentId and uploads selected files into the created folder through the existing upload flow."
     },
     "collection.trash_by_name_contains": {
       "phase": 2,
@@ -196,7 +197,7 @@
       },
       "mobileRepositoryMethod": "moveNodesToTrash",
       "requiresFinalConfirmation": true,
-      "notes": "Requires collection preview and exact count before submit."
+      "notes": "Mobile shows exact count, filter summary, preview rows, and incomplete-preview blocking text before any submit; RagActionExecutor remains disabled by default."
     },
     "collection.trash_by_category": {
       "phase": 2,
@@ -208,7 +209,7 @@
       },
       "mobileRepositoryMethod": "moveNodesToTrash",
       "requiresFinalConfirmation": true,
-      "notes": "Requires collection preview and exact count before submit."
+      "notes": "Mobile shows exact count, filter summary, preview rows, and incomplete-preview blocking text before any submit; RagActionExecutor remains disabled by default."
     },
     "collection.move_by_extension": {
       "phase": 2,
@@ -220,7 +221,7 @@
       },
       "mobileRepositoryMethod": "moveNodes",
       "requiresFinalConfirmation": true,
-      "notes": "Requires exact source collection and resolved target folder."
+      "notes": "Mobile shows exact source count, filter summary, preview rows, and resolved target folder before any submit; RagActionExecutor remains disabled by default."
     },
     "collection.move_by_name_contains": {
       "phase": 2,
@@ -232,7 +233,7 @@
       },
       "mobileRepositoryMethod": "moveNodes",
       "requiresFinalConfirmation": true,
-      "notes": "Requires exact source collection and resolved target folder."
+      "notes": "Mobile shows exact source count, filter summary, preview rows, and resolved target folder before any submit; RagActionExecutor remains disabled by default."
     },
     "collection.rename_add_prefix": {
       "phase": 2,
@@ -248,7 +249,7 @@
     "RAG unit tests pass.",
     "Debug web validates all automated acceptance scenarios.",
     "Action bridge paths match CloudStorageApi and mobile allowlist.",
-    "Rename mobile repository wrapper is added before enabling rename execution in app UI.",
+    "RagActionExecutor stays disabled by default through ALICIA_RAG_ACTION_EXECUTION_ENABLED=false until mobile review UI validates the draft, shows final confirmation, and explicitly enables app UI submission.",
     "RAG service base URL and Authorization forwarding are configurable per environment.",
     "DeepSeek API key is supplied through environment variables and not committed.",
     "Destructive actions show candidate path, count, and final confirmation."

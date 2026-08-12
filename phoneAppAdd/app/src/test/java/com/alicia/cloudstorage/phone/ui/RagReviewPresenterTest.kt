@@ -1,0 +1,440 @@
+package com.alicia.cloudstorage.phone.ui
+
+import com.alicia.cloudstorage.phone.data.RagActionDraft
+import com.alicia.cloudstorage.phone.data.RagActionPlan
+import com.alicia.cloudstorage.phone.data.RagActionPlanBinding
+import com.alicia.cloudstorage.phone.data.RagActionPlanMessage
+import com.alicia.cloudstorage.phone.data.RagAssistantPlanResponse
+import com.alicia.cloudstorage.phone.data.RagBackendActionDraft
+import com.alicia.cloudstorage.phone.data.RagCandidateBinding
+import com.alicia.cloudstorage.phone.data.RagCandidateItem
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class RagReviewPresenterTest {
+    private val presenter = RagReviewPresenter()
+
+    @Test
+    fun `does not present pure respond only replies`() {
+        assertNull(presenter.present(response(actionPlan = plan())))
+    }
+
+    @Test
+    fun `does not present non operational fallback clarification replies`() {
+        val review = presenter.present(
+            response(
+                nextAction = "ask_clarification",
+                actionPlan = plan(
+                    status = "clarification_required",
+                    actionType = "none",
+                    risk = "none",
+                ),
+            ),
+        )
+
+        assertNull(review)
+    }
+
+    @Test
+    fun `presents multiple candidates as candidate selection`() {
+        val review = presenter.present(
+            response(
+                nextAction = "wait_for_candidate_selection",
+                actionDraft = RagActionDraft(
+                    type = "rename",
+                    parameters = emptyMap(),
+                    needsBackendBinding = true,
+                ),
+                actionPlan = plan(
+                    status = "candidate_selection_required",
+                    actionType = "rename",
+                    risk = "medium",
+                    bindings = mapOf(
+                        "source" to RagActionPlanBinding(
+                            key = "source",
+                            kind = "candidate",
+                            status = "candidate_selection_required",
+                            query = "项目",
+                            selectedCandidate = null,
+                            candidates = listOf(candidate(1L, "项目.docx"), candidate(2L, "项目备份.docx")),
+                            count = 2,
+                            filter = null,
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        assertEquals(RagReviewKind.CANDIDATE_SELECTION, review!!.kind)
+        assertEquals(2, review.candidates.size)
+        assertEquals(RagReviewRisk.MEDIUM, review.risk)
+        assertTrue(review.requiresFinalConfirmation)
+        assertTrue(review.lines.contains("匹配到多个候选，请先选择一个。"))
+    }
+
+    @Test
+    fun `presents rename review as final confirmation`() {
+        val review = presenter.present(
+            response(
+                nextAction = "wait_for_user_confirmation",
+                actionDraft = RagActionDraft(
+                    type = "rename",
+                    parameters = mapOf("new_name" to "final.docx"),
+                    needsBackendBinding = false,
+                ),
+                actionPlan = plan(
+                    status = "review_required",
+                    actionType = "rename",
+                    risk = "medium",
+                ),
+                backendActionDraft = backendDraft(
+                    actionType = "rename",
+                    method = "PUT",
+                    pathTemplate = "/api/storage/nodes/{nodeId}/rename",
+                    confirmedByUser = false,
+                ),
+            ),
+        )
+
+        assertEquals(RagReviewKind.FINAL_CONFIRMATION, review!!.kind)
+        assertEquals("重命名计划", review.title)
+        assertTrue(review.requiresFinalConfirmation)
+        assertTrue(review.lines.contains("会影响文件状态，请确认后再继续。"))
+        assertTrue(review.lines.contains("已准备受控执行草稿，确认后仍会由云盘后端校验。"))
+    }
+
+    @Test
+    fun `presents upload target as client input`() {
+        val review = presenter.present(
+            response(
+                nextAction = "handoff_to_client_upload",
+                actionDraft = RagActionDraft(
+                    type = "upload_target",
+                    parameters = emptyMap(),
+                    needsBackendBinding = false,
+                ),
+                actionPlan = plan(
+                    status = "client_input_required",
+                    actionType = "upload_target",
+                    risk = "low",
+                    requiredClientFields = listOf("client_file"),
+                ),
+                backendActionDraft = backendDraft(
+                    actionType = "upload_target",
+                    method = "POST",
+                    pathTemplate = "/api/storage/files",
+                    executableByBackend = false,
+                    requiredClientFields = listOf("file"),
+                    status = "client_action_required",
+                ),
+            ),
+        )
+
+        assertEquals(RagReviewKind.CLIENT_INPUT, review!!.kind)
+        assertTrue(review.requiresFinalConfirmation)
+        assertTrue(review.lines.contains("还需要补充：要上传的本地文件"))
+    }
+
+    @Test
+    fun `presents collection review with count filter preview and target folder`() {
+        val review = presenter.present(
+            response(
+                nextAction = "wait_for_user_confirmation",
+                actionDraft = RagActionDraft(
+                    type = "collection.move_by_extension",
+                    parameters = emptyMap(),
+                    needsBackendBinding = false,
+                ),
+                actionPlan = plan(
+                    status = "collection_review_required",
+                    actionType = "collection.move_by_extension",
+                    risk = "medium",
+                    planKind = "collection",
+                    bindings = mapOf(
+                        "sourceCollection" to RagActionPlanBinding(
+                            key = "sourceCollection",
+                            kind = "source_collection",
+                            status = "resolved",
+                            query = "pdf",
+                            selectedCandidate = null,
+                            candidates = listOf(candidate(11L, "方案.pdf"), candidate(12L, "合同.pdf")),
+                            count = 2,
+                            filter = mapOf("extension" to "PDF"),
+                        ),
+                        "targetParent" to RagActionPlanBinding(
+                            key = "targetParent",
+                            kind = "target_folder",
+                            status = "resolved",
+                            query = "归档",
+                            selectedCandidate = candidate(99L, "归档", type = "FOLDER"),
+                            candidates = emptyList(),
+                            count = 1,
+                            filter = null,
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        assertEquals(RagReviewKind.COLLECTION_REVIEW, review!!.kind)
+        assertTrue(review.requiresFinalConfirmation)
+        assertTrue(review.lines.contains("影响范围：共 2 个项目。"))
+        assertTrue(review.lines.contains("筛选条件：后缀为 PDF。"))
+        assertTrue(review.lines.contains("目标目录：归档"))
+        assertTrue(review.lines.contains("确认后会批量移动到目标目录，后端仍会重新鉴权校验。"))
+    }
+
+    @Test
+    fun `candidate selection for collection target folder excludes source preview`() {
+        val review = presenter.present(
+            response(
+                nextAction = "wait_for_candidate_selection",
+                actionDraft = RagActionDraft(
+                    type = "collection.move_by_name_contains",
+                    parameters = emptyMap(),
+                    needsBackendBinding = true,
+                ),
+                candidateBinding = RagCandidateBinding(
+                    status = "multiple_candidates",
+                    source = "cloud-storage-api:/api/storage/nodes",
+                    query = "归档",
+                    candidateType = "FOLDER",
+                    candidates = listOf(
+                        candidate(301L, "归档", type = "FOLDER"),
+                        candidate(302L, "归档备份", type = "FOLDER"),
+                    ),
+                    message = "匹配到多个目标目录，需要用户选择。",
+                    selectedCandidate = null,
+                    selectedIndex = null,
+                ),
+                actionPlan = plan(
+                    status = "candidate_selection_required",
+                    actionType = "collection.move_by_name_contains",
+                    risk = "medium",
+                    planKind = "collection",
+                    bindings = mapOf(
+                        "sourceCollection" to RagActionPlanBinding(
+                            key = "sourceCollection",
+                            kind = "source_collection",
+                            status = "resolved",
+                            query = "方案",
+                            selectedCandidate = null,
+                            candidates = listOf(candidate(11L, "方案.pdf")),
+                            count = 1,
+                            filter = mapOf("nameContains" to "方案"),
+                        ),
+                        "targetParent" to RagActionPlanBinding(
+                            key = "targetParent",
+                            kind = "target_folder",
+                            status = "multiple_candidates",
+                            query = "归档",
+                            selectedCandidate = null,
+                            candidates = listOf(
+                                candidate(301L, "归档", type = "FOLDER"),
+                                candidate(302L, "归档备份", type = "FOLDER"),
+                            ),
+                            count = 2,
+                            filter = null,
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        assertEquals(RagReviewKind.CANDIDATE_SELECTION, review!!.kind)
+        assertEquals(listOf("归档", "归档备份"), review.candidates.map { it.name })
+        assertFalse(review.candidates.any { it.name == "方案.pdf" })
+    }
+
+    @Test
+    fun `presents incomplete collection preview as not submittable`() {
+        val review = presenter.present(
+            response(
+                nextAction = "wait_for_backend_binding",
+                actionDraft = RagActionDraft(
+                    type = "collection.trash_by_name_contains",
+                    parameters = emptyMap(),
+                    needsBackendBinding = false,
+                ),
+                actionPlan = plan(
+                    status = "binding_required",
+                    actionType = "collection.trash_by_name_contains",
+                    risk = "high",
+                    planKind = "collection",
+                    bindings = mapOf(
+                        "sourceCollection" to RagActionPlanBinding(
+                            key = "sourceCollection",
+                            kind = "source_collection",
+                            status = "unresolved",
+                            query = "测试",
+                            selectedCandidate = null,
+                            candidates = listOf(candidate(21L, "测试-扫描内.txt")),
+                            count = 50,
+                            filter = mapOf("nameContains" to "测试", "includeFolders" to false),
+                        ),
+                    ),
+                    messages = listOf(
+                        RagActionPlanMessage(
+                            level = "warning",
+                            code = "preview_incomplete",
+                            text = "预览不完整，需要缩小范围。",
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        assertEquals(RagReviewKind.COLLECTION_REVIEW, review!!.kind)
+        assertTrue(review.lines.contains("影响范围：共 50 个项目，当前预览 1 个。"))
+        assertTrue(review.lines.contains("筛选条件：名称包含“测试”。"))
+        assertTrue(review.lines.contains("预览不完整，暂不允许提交批量操作。"))
+    }
+
+    @Test
+    fun `presents storage lookup failures as blocked review`() {
+        val review = presenter.present(
+            response(
+                nextAction = "wait_for_backend_binding",
+                actionDraft = RagActionDraft(
+                    type = "search",
+                    parameters = emptyMap(),
+                    needsBackendBinding = true,
+                ),
+                actionPlan = plan(
+                    status = "binding_required",
+                    actionType = "search",
+                    risk = "none",
+                ),
+                candidateBinding = RagCandidateBinding(
+                    status = "no_candidates",
+                    source = "cloud-storage-api:/api/storage/nodes",
+                    query = "project",
+                    candidateType = "NODE",
+                    candidates = emptyList(),
+                    message = "未匹配到候选文件或目录。",
+                    selectedCandidate = null,
+                    selectedIndex = null,
+                ),
+            ),
+        )
+
+        assertEquals(RagReviewKind.BLOCKED, review!!.kind)
+        assertTrue(review.lines.contains("没有找到匹配的文件或目录。"))
+        assertFalse(review.requiresFinalConfirmation)
+    }
+
+    private fun response(
+        nextAction: String = "respond_only",
+        actionDraft: RagActionDraft? = RagActionDraft(
+            type = "none",
+            parameters = emptyMap(),
+            needsBackendBinding = false,
+        ),
+        actionPlan: RagActionPlan? = null,
+        backendActionDraft: RagBackendActionDraft? = backendDraft(
+            actionType = "none",
+            method = null,
+            pathTemplate = null,
+            status = "not_requested",
+            executableByBackend = false,
+            confirmedByUser = false,
+        ),
+        candidateBinding: RagCandidateBinding? = null,
+    ) = RagAssistantPlanResponse(
+        id = "response-1",
+        schemaVersion = "intent_recognition_v1",
+        templateId = "local",
+        provider = "local",
+        model = "rules",
+        message = "hello",
+        intentId = "assistant_social",
+        intentName = "assistant_social",
+        taskType = null,
+        confidence = 1.0,
+        userGoal = null,
+        normalizedQuery = null,
+        entities = emptyMap(),
+        requiredSlots = emptyList(),
+        missingSlots = emptyList(),
+        nextAction = nextAction,
+        safety = null,
+        actionDraft = actionDraft,
+        backendActionDraft = backendActionDraft,
+        actionPlan = actionPlan,
+        assistantText = "hello",
+        clarificationQuestion = null,
+        reason = null,
+        fallbackReason = null,
+        candidateBinding = candidateBinding,
+        conversation = null,
+    )
+
+    private fun plan(
+        status: String = "completed",
+        actionType: String = "none",
+        risk: String = "none",
+        planKind: String = "atomic",
+        bindings: Map<String, RagActionPlanBinding>? = emptyMap(),
+        requiredClientFields: List<String>? = emptyList(),
+        messages: List<RagActionPlanMessage>? = emptyList(),
+    ) = RagActionPlan(
+        version = "1",
+        planId = "plan-1",
+        status = status,
+        planKind = planKind,
+        actionType = actionType,
+        risk = risk,
+        confirmationLevel = "none",
+        locale = "zh-CN",
+        bindings = bindings,
+        steps = emptyList(),
+        requiredClientFields = requiredClientFields,
+        summary = "hello",
+        messages = messages,
+    )
+
+    private fun candidate(nodeId: Long, name: String, type: String = "FILE") =
+        RagCandidateItem(
+            nodeId = nodeId,
+            parentId = null,
+            name = name,
+            type = type,
+            size = 1L,
+            extension = "docx",
+            mimeType = "application/docx",
+            updatedAt = "2026-08-11T10:00:00",
+            path = "/文档/$name",
+            breadcrumbs = emptyList(),
+        )
+
+    private fun backendDraft(
+        actionType: String,
+        method: String?,
+        pathTemplate: String?,
+        status: String = "backend_action_ready",
+        executableByBackend: Boolean = true,
+        confirmedByUser: Boolean = true,
+        requiredClientFields: List<String>? = emptyList(),
+    ) = RagBackendActionDraft(
+        status = status,
+        bridgeVersion = "action_bridge_v1",
+        actionType = actionType,
+        nextAction = "handoff_to_backend",
+        confirmedByUser = confirmedByUser,
+        executableByBackend = executableByBackend,
+        authorizationRequired = true,
+        method = method,
+        pathTemplate = pathTemplate,
+        path = null,
+        contentType = "application/json",
+        pathVariables = mapOf("nodeId" to 1L),
+        queryParameters = emptyMap(),
+        body = emptyMap(),
+        requiredClientFields = requiredClientFields,
+        targetCandidate = null,
+        message = null,
+    )
+}

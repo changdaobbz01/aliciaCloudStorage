@@ -16,6 +16,7 @@ public class AssistantConversationService {
     private final AssistantConversationStore conversationStore;
     private final CandidateBindingService candidateBindingService;
     private final CandidateSelectionService candidateSelectionService;
+    private final ConversationContextResolver conversationContextResolver;
     private final BackendActionDraftService backendActionDraftService;
     private final ActionPlanService actionPlanService;
     private final CollectionPreviewService collectionPreviewService;
@@ -28,6 +29,7 @@ public class AssistantConversationService {
             AssistantConversationStore conversationStore,
             CandidateBindingService candidateBindingService,
             CandidateSelectionService candidateSelectionService,
+            ConversationContextResolver conversationContextResolver,
             BackendActionDraftService backendActionDraftService,
             ActionPlanService actionPlanService,
             CollectionPreviewService collectionPreviewService,
@@ -38,6 +40,7 @@ public class AssistantConversationService {
         this.conversationStore = conversationStore;
         this.candidateBindingService = candidateBindingService;
         this.candidateSelectionService = candidateSelectionService;
+        this.conversationContextResolver = conversationContextResolver;
         this.backendActionDraftService = backendActionDraftService;
         this.actionPlanService = actionPlanService;
         this.collectionPreviewService = collectionPreviewService;
@@ -73,6 +76,21 @@ public class AssistantConversationService {
             return selectedResponse.withConversation(savedConversation.snapshot(statusFor(selectedResponse)));
         }
 
+        ConversationContextResolver.ContextAttempt contextAttempt = conversationContextResolver.resolve(
+                message,
+                conversation,
+                baseResponse
+        );
+        ConversationContextResolution contextResolution = contextAttempt.resolution();
+        if (contextAttempt.applied() && contextAttempt.response() != null) {
+            if (contextResolution == null || !contextResolution.shouldRewrite()) {
+                IntentRecognitionResponse answeredResponse = contextAttempt.response();
+                AssistantConversationState savedConversation = conversationStore.save(conversation, answeredResponse);
+                return answeredResponse.withConversation(savedConversation.snapshot(statusFor(answeredResponse)));
+            }
+            baseResponse = contextAttempt.response();
+        }
+
         boolean preservePendingIntent = shouldPreservePendingIntent(conversation, message);
         IntentRecognitionResponse response = preservePendingIntent
                 ? rebuildFromStoredConversation(conversation, baseResponse, "用户确认或延续上一轮待处理意图。")
@@ -80,7 +98,10 @@ public class AssistantConversationService {
                 ? continuePendingIntent(conversation, baseResponse, message)
                 : baseResponse;
 
-        CandidateBindingResult candidateBinding = preservePendingIntent && shouldReuseCandidateBinding(conversation.candidateBinding())
+        CandidateBindingResult contextualBinding = contextualCandidateBinding(conversation, response, contextResolution);
+        CandidateBindingResult candidateBinding = contextualBinding != null
+                ? contextualBinding
+                : preservePendingIntent && shouldReuseCandidateBinding(conversation.candidateBinding())
                 ? conversation.candidateBinding()
                 : candidateBindingService.bind(response, authorizationHeader);
         response = applyCandidateBindingState(response, candidateBinding);
@@ -257,6 +278,36 @@ public class AssistantConversationService {
             case "multiple_candidates", "single_candidate", "selected_candidate", "candidate_selection_out_of_range" -> true;
             default -> false;
         };
+    }
+
+    private CandidateBindingResult contextualCandidateBinding(
+            AssistantConversationState conversation,
+            IntentRecognitionResponse response,
+            ConversationContextResolution contextResolution
+    ) {
+        if (conversation == null
+                || conversation.focus() == null
+                || contextResolution == null
+                || !List.of("previous_candidate", "selected_candidate").contains(contextResolution.referent())
+                || response == null
+                || response.actionDraft() == null
+                || !response.actionDraft().needsBackendBinding()) {
+            return null;
+        }
+
+        String actionType = response.actionDraft().type();
+        if (!List.of("delete", "share", "rename").contains(actionType)) {
+            return null;
+        }
+
+        if ("selected_candidate".equals(contextResolution.referent()) && contextResolution.selectedIndex() != null) {
+            return conversation.focus().selectedBinding(
+                    contextResolution.selectedIndex(),
+                    "已根据上一轮候选选择锁定目标，等待用户确认。"
+            );
+        }
+
+        return conversation.focus().selectedBinding("已根据上一轮上下文锁定候选，等待用户确认。");
     }
 
     private String guessSingleSlotValue(

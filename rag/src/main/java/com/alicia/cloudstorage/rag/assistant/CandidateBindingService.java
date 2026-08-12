@@ -24,6 +24,10 @@ public class CandidateBindingService {
         if (response == null) {
             return CandidateBindingResult.skipped("not_requested", "没有可绑定的识别结果。");
         }
+        String actionType = response.actionDraft() == null ? "none" : response.actionDraft().type();
+        if (actionType == null || actionType.isBlank() || "none".equals(actionType)) {
+            return CandidateBindingResult.skipped("not_requested", "当前回复不需要候选绑定。");
+        }
         if (!response.missingSlots().isEmpty() || "ask_clarification".equals(response.nextAction())) {
             return CandidateBindingResult.skipped("waiting_for_clarification", "仍有缺失信息，暂不查询真实候选。");
         }
@@ -38,27 +42,33 @@ public class CandidateBindingService {
                     "当前意图使用集合筛选条件生成 ActionPlan，暂不执行单对象候选绑定。"
             );
         }
-        String query = bindingQuery(intent, response);
+        QueryRoleAndValue query = bindingQuery(intent, response);
         return candidateSearchPort.search(new CandidateSearchRequest(
                 response.intentId(),
                 intent.actionType(),
                 intent.candidateType(),
-                query,
+                query.role(),
+                query.value(),
                 maxResults,
                 authorizationHeader == null ? "" : authorizationHeader.trim()
         ));
     }
 
-    private String bindingQuery(IntentRouter.IntentDefinition intent, IntentRecognitionResponse response) {
-        Object target = "FOLDER".equalsIgnoreCase(intent.candidateType())
-                ? response.entities().get("target_folder")
-                : response.entities().get("target_name");
+    private QueryRoleAndValue bindingQuery(IntentRouter.IntentDefinition intent, IntentRecognitionResponse response) {
+        String role = "FOLDER".equalsIgnoreCase(intent.candidateType()) ? "target_folder" : "target_name";
+        Object target = response.entities().get(role);
         if (target != null && !String.valueOf(target).isBlank()) {
-            return String.valueOf(target).trim();
+            return new QueryRoleAndValue(role, TextSupport.sanitizeNodeName(String.valueOf(target)));
         }
         if (response.normalizedQuery() != null && !response.normalizedQuery().isBlank()) {
-            return response.normalizedQuery().trim();
+            return new QueryRoleAndValue("search_query", TextSupport.sanitizeNodeName(response.normalizedQuery()));
         }
-        return response.message() == null ? "" : response.message().trim();
+        return new QueryRoleAndValue("message", TextSupport.sanitizeNodeName(response.message()));
+    }
+
+    private record QueryRoleAndValue(
+            String role,
+            String value
+    ) {
     }
 }

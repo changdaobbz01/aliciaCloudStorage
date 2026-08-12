@@ -135,6 +135,13 @@ interface AliciaCloudService {
         @Part file: MultipartBody.Part,
     ): Response<StorageNode>
 
+    @PUT("api/storage/nodes/{nodeId}/rename")
+    suspend fun renameNode(
+        @Header("Authorization") authorization: String,
+        @Path("nodeId") nodeId: Long,
+        @Body payload: RenameNodePayload,
+    ): Response<StorageNode>
+
     @PUT("api/storage/nodes/batch/move")
     suspend fun moveNodes(
         @Header("Authorization") authorization: String,

@@ -164,7 +164,9 @@ class ActionPlanContractConfigTest {
                 "handoff_to_client_upload"
         );
         assertThat(actionHandlers.keySet()).containsAll(bridgeActions.keySet());
-        assertThat(map(actionHandlers, "rename")).containsEntry("implementationStatus", "mobile_api_wrapper_missing");
+        assertThat(map(actionHandlers, "rename"))
+                .containsEntry("implementationStatus", "mobile_supported")
+                .containsEntry("mobileRepositoryMethod", "renameNode");
         assertThat(map(actionHandlers, "delete")).containsEntry("mobileRepositoryMethod", "moveNodeToTrash");
         assertThat(map(actionHandlers, "collection.rename_add_prefix")).containsEntry("implementationStatus", "planning_only");
     }

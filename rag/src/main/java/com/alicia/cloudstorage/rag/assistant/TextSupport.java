@@ -16,7 +16,7 @@ final class TextSupport {
     static String normalizeSearchText(String text) {
         return (text == null ? "" : text)
                 .toLowerCase()
-                .replaceAll("[，。,.!?！？:：;；\"'`()\\[\\]{}]", " ")
+                .replaceAll("[，。,.!?！？:：;；\"'“”‘’`()\\[\\]{}《》<>]", " ")
                 .replaceAll("\\s+", " ")
                 .trim();
     }
@@ -61,7 +61,9 @@ final class TextSupport {
     }
 
     static String sanitizeNodeName(String value) {
-        return value == null ? "" : value.trim().replaceAll("[，。,.!?！？]+$", "");
+        return value == null ? "" : value.trim()
+                .replaceAll("^[\\s，。,.!?！？:：;；\"'“”‘’`()\\[\\]{}《》<>]+", "")
+                .replaceAll("[\\s，。,.!?！？:：;；\"'“”‘’`()\\[\\]{}《》<>]+$", "");
     }
 
     static String extractExtension(String name) {

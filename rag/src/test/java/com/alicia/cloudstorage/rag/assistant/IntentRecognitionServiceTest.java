@@ -158,6 +158,90 @@ class IntentRecognitionServiceTest {
     }
 
     @Test
+    void modelRespondOnlyUsesConfiguredPersonaTemplateWhenPreferred() {
+        IntentModelClient modelClient = message -> Optional.of(new IntentModelClient.ModelIntentResult(
+                "deepseek",
+                "deepseek-chat",
+                "deepseek_file_intent_recognition",
+                "intent_recognition_v1",
+                Map.ofEntries(
+                        Map.entry("intent_id", "assistant_identity"),
+                        Map.entry("intent_name", "助手身份咨询"),
+                        Map.entry("task_type", "assistant_conversation"),
+                        Map.entry("confidence", 0.95),
+                        Map.entry("user_goal", "询问安安能力"),
+                        Map.entry("normalized_query", message),
+                        Map.entry("entities", Map.of()),
+                        Map.entry("required_slots", List.of()),
+                        Map.entry("missing_slots", List.of()),
+                        Map.entry("next_action", "respond_only"),
+                        Map.entry("risk", "none"),
+                        Map.entry("requires_confirmation", false),
+                        Map.entry("action_draft", Map.of(
+                                "type", "none",
+                                "parameters", Map.of(),
+                                "needs_backend_binding", false
+                        )),
+                        Map.entry("assistant_text", "识别为助手身份咨询，将介绍我的能力范围。"),
+                        Map.entry("clarification_question", ""),
+                        Map.entry("reason", "模型识别为助手身份咨询。")
+                )
+        ));
+
+        IntentRecognitionResponse response = new IntentRecognitionService(modelClient, intentRouter, configLoader)
+                .recognize("你的能力是什么呢？可以为我做什么呢？");
+
+        assertThat(response.provider()).isEqualTo("deepseek");
+        assertThat(response.intentId()).isEqualTo("assistant_identity");
+        assertThat(response.assistantText())
+                .contains("Alicia")
+                .contains("安安")
+                .doesNotContain("识别为助手身份咨询");
+    }
+
+    @Test
+    void modelCapabilityExamplesUsesConfiguredPersonaTemplateWhenPreferred() {
+        IntentModelClient modelClient = message -> Optional.of(new IntentModelClient.ModelIntentResult(
+                "deepseek",
+                "deepseek-chat",
+                "deepseek_file_intent_recognition",
+                "intent_recognition_v1",
+                Map.ofEntries(
+                        Map.entry("intent_id", "assistant_capability_examples"),
+                        Map.entry("intent_name", "安安能力举例"),
+                        Map.entry("task_type", "assistant_persona"),
+                        Map.entry("confidence", 0.95),
+                        Map.entry("user_goal", "要求举例说明安安能力"),
+                        Map.entry("normalized_query", message),
+                        Map.entry("entities", Map.of()),
+                        Map.entry("required_slots", List.of()),
+                        Map.entry("missing_slots", List.of()),
+                        Map.entry("next_action", "respond_only"),
+                        Map.entry("risk", "none"),
+                        Map.entry("requires_confirmation", false),
+                        Map.entry("action_draft", Map.of(
+                                "type", "none",
+                                "parameters", Map.of(),
+                                "needs_backend_binding", false
+                        )),
+                        Map.entry("assistant_text", "识别为能力举例咨询，将介绍能力范围。"),
+                        Map.entry("clarification_question", ""),
+                        Map.entry("reason", "模型识别为能力举例。")
+                )
+        ));
+
+        IntentRecognitionResponse response = new IntentRecognitionService(modelClient, intentRouter, configLoader)
+                .recognize("详细举例，看看你的能力项");
+
+        assertThat(response.provider()).isEqualTo("deepseek");
+        assertThat(response.intentId()).isEqualTo("assistant_capability_examples");
+        assertThat(response.assistantText())
+                .contains("比如")
+                .contains("确认")
+                .doesNotContain("识别为能力举例咨询");
+    }
+
+    @Test
     void normalizesUnsafeModelOutputToConfiguredContract() {
         IntentModelClient modelClient = message -> Optional.of(new IntentModelClient.ModelIntentResult(
                 "deepseek",
@@ -321,6 +405,19 @@ class IntentRecognitionServiceTest {
     }
 
     @Test
+    void localFallbackExtractsNameContainsObjectFromMiddlePredicatePhrase() {
+        IntentModelClient unavailableClient = message -> Optional.empty();
+
+        IntentRecognitionResponse response = new IntentRecognitionService(unavailableClient, intentRouter, configLoader)
+                .recognize("帮我找一下名字中有codex的文件或文件夹");
+
+        assertThat(response.intentId()).isEqualTo("file_search");
+        assertThat(response.actionDraft().type()).isEqualTo("search");
+        assertThat(response.entities()).containsEntry("target_name", "codex");
+        assertThat(response.normalizedQuery()).isEqualTo("帮我找一下名字中有codex的文件或文件夹");
+    }
+
+    @Test
     void localFallbackRecognizesNameContainsDeleteAsCollectionDelete() {
         IntentModelClient unavailableClient = message -> Optional.empty();
 
@@ -373,6 +470,66 @@ class IntentRecognitionServiceTest {
         assertThat(response.actionDraft().type()).isEqualTo("none");
         assertThat(response.actionDraft().needsBackendBinding()).isFalse();
         assertThat(response.assistantText()).contains("安安").contains("文件管家");
+        assertThat(response.missingSlots()).isEmpty();
+    }
+
+    @Test
+    void localFallbackRecognizesAssistantCapabilitiesQuestion() {
+        IntentModelClient unavailableClient = message -> Optional.empty();
+
+        IntentRecognitionResponse response = new IntentRecognitionService(unavailableClient, intentRouter, configLoader)
+                .recognize("你的能力是什么呢？可以为我做什么呢？");
+
+        assertThat(response.intentId()).isEqualTo("assistant_identity");
+        assertThat(response.nextAction()).isEqualTo("respond_only");
+        assertThat(response.assistantText())
+                .contains("Alicia")
+                .contains("安安")
+                .contains("找文件");
+        assertThat(response.missingSlots()).isEmpty();
+    }
+
+    @Test
+    void localFallbackRecognizesAssistantCapabilityExamples() {
+        IntentModelClient unavailableClient = message -> Optional.empty();
+
+        IntentRecognitionResponse response = new IntentRecognitionService(unavailableClient, intentRouter, configLoader)
+                .recognize("详细举例，看看你的能力项");
+
+        assertThat(response.intentId()).isEqualTo("assistant_capability_examples");
+        assertThat(response.nextAction()).isEqualTo("respond_only");
+        assertThat(response.actionDraft().type()).isEqualTo("none");
+        assertThat(response.assistantText())
+                .contains("比如")
+                .contains("确认");
+        assertThat(response.missingSlots()).isEmpty();
+    }
+
+    @Test
+    void localFallbackDoesNotTreatExampleNamedFileSearchAsCapabilityExamples() {
+        IntentModelClient unavailableClient = message -> Optional.empty();
+
+        IntentRecognitionResponse response = new IntentRecognitionService(unavailableClient, intentRouter, configLoader)
+                .recognize("帮我找例子文件");
+
+        assertThat(response.intentId()).isEqualTo("file_search");
+        assertThat(response.actionDraft().type()).isEqualTo("search");
+        assertThat(response.entities().get("target_name")).asString().contains("例子");
+    }
+
+    @Test
+    void localFallbackRecognizesAssistantHelpScopeQuestion() {
+        IntentModelClient unavailableClient = message -> Optional.empty();
+
+        IntentRecognitionResponse response = new IntentRecognitionService(unavailableClient, intentRouter, configLoader)
+                .recognize("你可以帮助做什么呢？");
+
+        assertThat(response.intentId()).isEqualTo("assistant_identity");
+        assertThat(response.nextAction()).isEqualTo("respond_only");
+        assertThat(response.actionDraft().type()).isEqualTo("none");
+        assertThat(response.assistantText())
+                .contains("安安")
+                .contains("文件管家");
         assertThat(response.missingSlots()).isEmpty();
     }
 

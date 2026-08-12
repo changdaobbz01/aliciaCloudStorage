@@ -17,6 +17,32 @@
       }
     },
     {
+      "id": "persona.capability_examples",
+      "group": "assistant_persona",
+      "phase": 1,
+      "message": "详细举例，看看你的能力项",
+      "expected": {
+        "intentId": "assistant_capability_examples",
+        "nextAction": "respond_only",
+        "actionDraftType": "none",
+        "risk": "none",
+        "requiresConfirmation": false
+      }
+    },
+    {
+      "id": "persona.capability_scope",
+      "group": "assistant_persona",
+      "phase": 1,
+      "message": "你可以帮助做什么呢？",
+      "expected": {
+        "intentId": "assistant_identity",
+        "nextAction": "respond_only",
+        "actionDraftType": "none",
+        "risk": "none",
+        "requiresConfirmation": false
+      }
+    },
+    {
       "id": "persona.user_identity",
       "group": "assistant_persona",
       "phase": 1,

@@ -4,6 +4,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -19,6 +21,8 @@ import java.util.concurrent.TimeUnit;
 
 @Component
 public class DeepSeekIntentClient implements IntentModelClient {
+
+    private static final Logger log = LoggerFactory.getLogger(DeepSeekIntentClient.class);
 
     private final RagConfigLoader configLoader;
     private final ObjectMapper objectMapper;
@@ -41,7 +45,9 @@ public class DeepSeekIntentClient implements IntentModelClient {
     @Override
     public Optional<ModelIntentResult> recognize(String message) {
         DeepSeekSettings settings = loadSettings();
-        if (!settings.enabled() || apiKey.isBlank()) {
+        String resolvedApiKey = resolvedApiKey(settings);
+        if (!settings.enabled() || resolvedApiKey.isBlank()) {
+            log.debug("DeepSeek intent recognition skipped. enabled={}, apiKeyConfigured={}", settings.enabled(), !resolvedApiKey.isBlank());
             return Optional.empty();
         }
 
@@ -51,17 +57,22 @@ public class DeepSeekIntentClient implements IntentModelClient {
                     .uri(URI.create(settings.baseUrl().replaceAll("/+$", "") + "/chat/completions"))
                     .timeout(Duration.ofSeconds(settings.timeoutSeconds()))
                     .header("Content-Type", "application/json")
-                    .header("Authorization", "Bearer " + apiKey)
+                    .header("Authorization", "Bearer " + resolvedApiKey)
                     .POST(HttpRequest.BodyPublishers.ofString(body))
                     .build();
             HttpResponse<String> response = httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
                     .orTimeout(settings.timeoutSeconds(), TimeUnit.SECONDS)
                     .join();
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                log.warn("DeepSeek intent recognition returned HTTP status {}", response.statusCode());
                 return Optional.empty();
             }
             return parseResponse(settings, response.body());
-        } catch (JsonProcessingException | RuntimeException exception) {
+        } catch (JsonProcessingException exception) {
+            log.warn("DeepSeek intent recognition returned an invalid JSON payload: {}", exception.getOriginalMessage());
+            return Optional.empty();
+        } catch (RuntimeException exception) {
+            log.warn("DeepSeek intent recognition failed: {}", exception.toString());
             return Optional.empty();
         }
     }
@@ -110,6 +121,7 @@ public class DeepSeekIntentClient implements IntentModelClient {
                 root.path("enabled").asBoolean(false),
                 root.path("provider").asText("deepseek"),
                 root.path("base_url").asText("https://api.deepseek.com"),
+                root.path("api_key_env").asText("DEEPSEEK_API_KEY"),
                 root.path("model").asText("deepseek-v4-flash"),
                 root.path("temperature").asDouble(0.1),
                 root.path("max_tokens").asInt(1200),
@@ -120,6 +132,14 @@ public class DeepSeekIntentClient implements IntentModelClient {
                 prompt.path("system_message").asText(),
                 prompt.path("user_template").asText()
         );
+    }
+
+    private String resolvedApiKey(DeepSeekSettings settings) {
+        if (!apiKey.isBlank()) {
+            return apiKey;
+        }
+        String envName = settings.apiKeyEnv();
+        return envName == null || envName.isBlank() ? "" : System.getenv().getOrDefault(envName, "").trim();
     }
 
     private String stripJsonContent(String content) {
@@ -135,6 +155,7 @@ public class DeepSeekIntentClient implements IntentModelClient {
             boolean enabled,
             String provider,
             String baseUrl,
+            String apiKeyEnv,
             String model,
             double temperature,
             int maxTokens,

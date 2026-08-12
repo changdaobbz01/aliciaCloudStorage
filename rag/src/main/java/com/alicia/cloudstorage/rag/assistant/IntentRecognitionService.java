@@ -129,7 +129,7 @@ public class IntentRecognitionService {
                 fallbackActionDraft(intent, entities),
                 BackendActionDraft.skipped("not_requested", "用户尚未确认，未生成后端请求草稿。"),
                 ActionPlan.skipped("understanding", "ActionPlan 尚未生成。"),
-                renderTemplate(intent.id(), intent.name(), nextAction, missingSlots),
+                renderTemplate(intent.id(), intent.name(), nextAction, missingSlots).message(),
                 clarificationQuestion(intent, missingSlots),
                 reason,
                 baseResponse.fallbackReason(),
@@ -169,7 +169,7 @@ public class IntentRecognitionService {
                 response.actionDraft(),
                 response.backendActionDraft(),
                 response.actionPlan(),
-                renderTemplate(response.intentId(), response.intentName(), safeNextAction, response.missingSlots()),
+                renderTemplate(response.intentId(), response.intentName(), safeNextAction, response.missingSlots()).message(),
                 response.clarificationQuestion(),
                 safeReason,
                 response.fallbackReason(),
@@ -184,7 +184,7 @@ public class IntentRecognitionService {
         Map<String, Object> entities = sanitizeSlotMap(new LinkedHashMap<>(route.entities()), intent.allowedSlots());
         List<String> missingSlots = missingSlots(intent.requiredSlots(), entities);
         String nextAction = normalizeNextAction(intent, route.nextAction(), missingSlots);
-        String assistantText = renderTemplate(intent.id(), intent.name(), nextAction, missingSlots);
+        String assistantText = renderTemplate(intent.id(), intent.name(), nextAction, missingSlots).message();
         String risk = normalizeRisk(intent.risk());
 
         return new IntentRecognitionResponse(
@@ -384,13 +384,16 @@ public class IntentRecognitionService {
             List<String> missingSlots,
             List<String> modelMissingSlots
     ) {
-        String rendered = renderTemplate(intent.id(), intent.name(), nextAction, missingSlots);
+        RenderedResponseTemplate rendered = renderTemplate(intent.id(), intent.name(), nextAction, missingSlots);
         if ("fallback".equals(intent.id())) {
-            return rendered;
+            return rendered.message();
+        }
+        if (rendered.preferTemplate()) {
+            return rendered.message();
         }
         String modelText = stringValue(payload, "assistant_text", "");
         if (modelText.isBlank() || !sameSlots(modelMissingSlots, missingSlots)) {
-            return rendered;
+            return rendered.message();
         }
         return modelText;
     }
@@ -416,7 +419,7 @@ public class IntentRecognitionService {
         return "请补充：" + missingSlotLabels(missingSlots);
     }
 
-    private String renderTemplate(String intentId, String intentName, String nextAction, List<String> missingSlots) {
+    private RenderedResponseTemplate renderTemplate(String intentId, String intentName, String nextAction, List<String> missingSlots) {
         String condition = nextAction == null || nextAction.isBlank() ? "*" : nextAction;
         ResponseTemplate template = responseTemplates.stream()
                 .filter(item -> item.matches(intentId, condition))
@@ -426,7 +429,10 @@ public class IntentRecognitionService {
         values.put("intent_name", intentName);
         values.put("next_action", nextAction);
         values.put("missing_slots_text", missingSlots.isEmpty() ? "无" : missingSlotLabels(missingSlots));
-        return TextSupport.safeFormat(template.messageTemplate(), values);
+        return new RenderedResponseTemplate(
+                TextSupport.safeFormat(template.messageTemplate(), values),
+                template.preferTemplate()
+        );
     }
 
     private String missingSlotLabels(List<String> missingSlots) {
@@ -452,6 +458,7 @@ public class IntentRecognitionService {
                     row.getOrDefault("intent_id", "*"),
                     row.getOrDefault("message_template", ""),
                     row.getOrDefault("next_action", "*"),
+                    parseBool(row.getOrDefault("prefer_template", "false")),
                     index + 2
             ));
         }
@@ -467,6 +474,7 @@ public class IntentRecognitionService {
         values.put("persona_role", persona.path("role").asText("Alicia 云盘的文件管家"));
         values.put("persona_tone", persona.path("tone").asText(""));
         values.put("persona_identity", persona.path("identitySummary").asText(""));
+        values.put("persona_capability_examples_reply", persona.path("capabilityExamplesReply").asText(""));
         values.put("persona_user_identity_reply", persona.path("userIdentityReply").asText(""));
         values.put("persona_social_reply", persona.path("socialReply").asText(""));
         values.put("persona_chat_reply", persona.path("chatReply").asText(""));
@@ -522,6 +530,7 @@ public class IntentRecognitionService {
             String intentId,
             String messageTemplate,
             String nextAction,
+            boolean preferTemplate,
             int rowNumber
     ) {
         boolean matches(String actualIntentId, String actualNextAction) {
@@ -529,5 +538,11 @@ public class IntentRecognitionService {
                     && ("*".equals(intentId) || intentId.equals(actualIntentId))
                     && ("*".equals(nextAction) || nextAction.equals(actualNextAction));
         }
+    }
+
+    private record RenderedResponseTemplate(
+            String message,
+            boolean preferTemplate
+    ) {
     }
 }

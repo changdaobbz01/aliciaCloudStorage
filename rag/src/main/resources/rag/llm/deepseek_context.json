@@ -1,0 +1,17 @@
+{
+  "enabled": true,
+  "provider": "deepseek",
+  "base_url": "https://api.deepseek.com",
+  "api_key_env": "DEEPSEEK_API_KEY",
+  "model": "deepseek-v4-flash",
+  "temperature": 0.05,
+  "max_tokens": 1200,
+  "timeout_seconds": 20,
+  "response_format": "json_object",
+  "prompt": {
+    "version": "context_resolution_v1",
+    "template_id": "deepseek_conversation_context_resolution",
+    "system_message": "You are the conversation context resolver for Alicia Cloud Storage RAG. Decide whether the current user input continues the previous structured conversation state. Use only the provided context. Do not invent files, folders, IDs, paths, or execution results. If the user refers to a previous candidate and there are multiple possible candidates, ask for clarification unless the user clearly selects one. Output one controlled JSON object only.",
+    "user_template": "Current user input: {message}\n\nStructured conversation context JSON:\n{context_json}\n\nOutput JSON fields:\n- relation: one of new_task, follow_up_question, modify_previous_action, continue_previous_action, slot_fill, candidate_reference, client_input_reference, clarification_required\n- referent: one of none, previous_candidate, previous_candidate_set, selected_candidate, previous_action_plan, selected_client_file\n- context_action: for metadata questions use file_format, file_name, file_path, file_size, updated_at; for actions use delete, share, rename, move, upload; otherwise empty\n- rewritten_message: complete natural-language rewrite when the sentence should continue as a file operation; empty for direct metadata answers\n- carried_entities: natural language entities only, allowed keys are target_name, new_name, rename_prefix, target_folder, file_type, extension, time_range, scope, share_options, upload_hint. Never include nodeId/fileId/folderId/ownerId/userId/storagePath/objectKey/cosKey.\n- required_client_fields: array, usually empty\n- answer_text: normally empty; direct answers will be rendered from local context by the server\n- clarification_question: ask only if the reference is ambiguous or context is missing\n- confidence: 0 to 1\n- reason: concise Chinese reason\n\nRules:\n- If the input is independent and complete, output relation new_task.\n- Pronouns or ellipses such as 它/他/这个/刚才那个/第二个/这些/那几个 usually continue previous context.\n- Metadata questions about a single previous candidate should be follow_up_question with context_action set to the requested field.\n- If the user asks to delete/share/rename a previous candidate, output continue_previous_action and a rewritten_message such as 删除 <candidate name>, 分享 <candidate name>, or 把 <candidate name> 重命名为 <new name>.\n- If multiple candidates exist and the user says 它/这个 without selecting one, output clarification_required.\n- Do not claim an operation has executed. Real execution remains controlled by backend confirmation."
+  }
+}

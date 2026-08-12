@@ -8,6 +8,9 @@ import com.alicia.cloudstorage.phone.data.UserRole
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.OffsetDateTime
+import java.time.Duration
+import java.time.Instant
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
 import java.util.Locale
@@ -86,6 +89,54 @@ fun formatMonthDay(value: String?): String {
 
     return date?.format(DateTimeFormatter.ofPattern("MM-dd")) ?: value
 }
+
+fun formatRelativeOrDateTime(
+    value: String?,
+    now: Instant = Instant.now(),
+): String {
+    if (value.isNullOrBlank()) {
+        return "暂无"
+    }
+
+    val updatedAt = runCatching {
+        OffsetDateTime.parse(value).toInstant()
+    }.recoverCatching {
+        LocalDateTime.parse(value).atZone(ZoneId.systemDefault()).toInstant()
+    }.getOrNull() ?: return formatDateTime(value)
+
+    val age = Duration.between(updatedAt, now)
+    if (age.isNegative || age >= Duration.ofDays(1)) {
+        return formatDateTime(value)
+    }
+
+    return when {
+        age < Duration.ofMinutes(1) -> "刚刚"
+        age < Duration.ofHours(1) -> "${age.toMinutes().coerceAtLeast(1)}分钟前"
+        else -> "${age.toHours().coerceAtLeast(1)}小时前"
+    }
+}
+
+fun formatNodeTypeLabel(node: StorageNode): String {
+    if (node.type == StorageNodeType.FOLDER) {
+        return "文件夹"
+    }
+
+    val mimeType = node.mimeType.orEmpty().lowercase()
+    val extension = node.extension.orEmpty().lowercase()
+    return when {
+        mimeType.startsWith("image/") -> "图片"
+        mimeType.startsWith("video/") -> "视频"
+        mimeType.startsWith("audio/") -> "音频"
+        extension == "pdf" || mimeType == "application/pdf" -> "PDF"
+        extension in setOf("zip", "rar", "7z", "tar", "gz") -> "压缩包"
+        extension in setOf("doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt", "md") -> "文档"
+        extension.isNotBlank() -> extension.uppercase(Locale.US)
+        else -> "文件"
+    }
+}
+
+fun formatHomeRecentMeta(node: StorageNode): String =
+    "${formatNodeTypeLabel(node)}   ${formatRelativeOrDateTime(node.updatedAt)}"
 
 fun formatRole(role: UserRole): String =
     when (role) {
