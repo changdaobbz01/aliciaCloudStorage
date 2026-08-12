@@ -86,7 +86,7 @@ class IntentRecognitionServiceTest {
 
         assertThat(response.provider()).isEqualTo("local_fallback");
         assertThat(response.intentId()).isEqualTo("fallback");
-        assertThat(response.assistantText()).contains("不在我的管理范围内").contains("其他的问题");
+        assertThat(response.assistantText()).contains("还没完全抓住你的意思").contains("换个说法");
     }
 
     @Test
@@ -143,7 +143,7 @@ class IntentRecognitionServiceTest {
                                 "parameters", Map.of(),
                                 "needs_backend_binding", false
                         )),
-                        Map.entry("assistant_text", "请补充要执行的操作。"),
+                        Map.entry("assistant_text", "识别为兜底澄清，请补充要执行的操作。"),
                         Map.entry("clarification_question", ""),
                         Map.entry("reason", "模型认为需要兜底。")
                 )
@@ -154,7 +154,110 @@ class IntentRecognitionServiceTest {
 
         assertThat(response.provider()).isEqualTo("deepseek");
         assertThat(response.intentId()).isEqualTo("fallback");
-        assertThat(response.assistantText()).contains("不在我的管理范围内").doesNotContain("请补充要执行的操作");
+        assertThat(response.assistantText())
+                .contains("还没完全抓住你的意思")
+                .doesNotContain("识别为")
+                .doesNotContain("请补充要执行的操作");
+    }
+
+    @Test
+    void modelFallbackUsesSafeGeneratedTextWhenAvailable() {
+        IntentModelClient modelClient = message -> Optional.of(new IntentModelClient.ModelIntentResult(
+                "deepseek",
+                "deepseek-v4-flash",
+                "deepseek_file_intent_recognition",
+                "intent_recognition_v1",
+                Map.ofEntries(
+                        Map.entry("intent_id", "fallback"),
+                        Map.entry("intent_name", "兜底澄清"),
+                        Map.entry("task_type", "fallback"),
+                        Map.entry("confidence", 0.4),
+                        Map.entry("user_goal", "普通闲聊"),
+                        Map.entry("normalized_query", message),
+                        Map.entry("entities", Map.of()),
+                        Map.entry("required_slots", List.of()),
+                        Map.entry("missing_slots", List.of()),
+                        Map.entry("next_action", "ask_clarification"),
+                        Map.entry("risk", "none"),
+                        Map.entry("requires_confirmation", false),
+                        Map.entry("action_draft", Map.of(
+                                "type", "none",
+                                "parameters", Map.of(),
+                                "needs_backend_binding", false
+                        )),
+                        Map.entry("assistant_text", "听起来你只是随口感叹一下。安安在这儿，需要继续聊或者整理云盘文件，都可以直接说。"),
+                        Map.entry("clarification_question", ""),
+                        Map.entry("reason", "模型未匹配受控文件意图。")
+                )
+        ));
+
+        IntentRecognitionResponse response = new IntentRecognitionService(modelClient, intentRouter, configLoader)
+                .recognize("今天的风有点大");
+
+        assertThat(response.provider()).isEqualTo("deepseek");
+        assertThat(response.intentId()).isEqualTo("fallback");
+        assertThat(response.assistantText())
+                .contains("随口感叹")
+                .doesNotContain("还没完全抓住你的意思")
+                .doesNotContain("识别为");
+    }
+
+    @Test
+    void modelFallbackCanUseSafePolishedTemplateText() {
+        IntentModelClient modelClient = message -> Optional.of(new IntentModelClient.ModelIntentResult(
+                "deepseek",
+                "deepseek-v4-flash",
+                "deepseek_file_intent_recognition",
+                "intent_recognition_v1",
+                Map.ofEntries(
+                        Map.entry("intent_id", "fallback"),
+                        Map.entry("intent_name", "兜底澄清"),
+                        Map.entry("task_type", "fallback"),
+                        Map.entry("confidence", 0.4),
+                        Map.entry("user_goal", "普通闲聊"),
+                        Map.entry("normalized_query", message),
+                        Map.entry("entities", Map.of()),
+                        Map.entry("required_slots", List.of()),
+                        Map.entry("missing_slots", List.of()),
+                        Map.entry("next_action", "ask_clarification"),
+                        Map.entry("risk", "none"),
+                        Map.entry("requires_confirmation", false),
+                        Map.entry("action_draft", Map.of(
+                                "type", "none",
+                                "parameters", Map.of(),
+                                "needs_backend_binding", false
+                        )),
+                        Map.entry("assistant_text", "识别为兜底澄清。"),
+                        Map.entry("clarification_question", ""),
+                        Map.entry("reason", "模型未匹配受控文件意图。")
+                )
+        ));
+        AssistantReplyPolisher polisher = request -> Optional.of("嗯，我听到啦。想继续聊也可以；要整理云盘文件时，直接告诉我目标就好。");
+
+        IntentRecognitionResponse response = new IntentRecognitionService(modelClient, intentRouter, configLoader, polisher)
+                .recognize("好吧，今天先这样");
+
+        assertThat(response.provider()).isEqualTo("deepseek");
+        assertThat(response.intentId()).isEqualTo("fallback");
+        assertThat(response.assistantText())
+                .contains("我听到啦")
+                .doesNotContain("还没完全抓住你的意思")
+                .doesNotContain("识别为");
+    }
+
+    @Test
+    void unsafePolishedTemplateFallsBackToConfiguredText() {
+        IntentModelClient unavailableClient = message -> Optional.empty();
+        AssistantReplyPolisher polisher = request -> Optional.of("已删除临时截图，处理好了。");
+
+        IntentRecognitionResponse response = new IntentRecognitionService(unavailableClient, intentRouter, configLoader, polisher)
+                .recognize("删除临时截图");
+
+        assertThat(response.intentId()).isEqualTo("file_delete");
+        assertThat(response.assistantText())
+                .doesNotContain("已删除")
+                .contains("移入回收站")
+                .contains("删除计划");
     }
 
     @Test
@@ -442,7 +545,9 @@ class IntentRecognitionServiceTest {
         assertThat(response.entities())
                 .containsEntry("target_name", "xx")
                 .containsEntry("rename_prefix", "yy");
-        assertThat(response.assistantText()).contains("暂不开放批量重命名执行");
+        assertThat(response.assistantText())
+                .contains("批量加前缀")
+                .contains("不直接执行");
     }
 
     @Test
@@ -506,6 +611,19 @@ class IntentRecognitionServiceTest {
     }
 
     @Test
+    void localFallbackRecognizesAssistantCapabilityDetails() {
+        IntentModelClient unavailableClient = message -> Optional.empty();
+
+        IntentRecognitionResponse response = new IntentRecognitionService(unavailableClient, intentRouter, configLoader)
+                .recognize("详细说说你的能力");
+
+        assertThat(response.intentId()).isEqualTo("assistant_capability_examples");
+        assertThat(response.nextAction()).isEqualTo("respond_only");
+        assertThat(response.actionDraft().type()).isEqualTo("none");
+        assertThat(response.assistantText()).contains("比如");
+    }
+
+    @Test
     void localFallbackDoesNotTreatExampleNamedFileSearchAsCapabilityExamples() {
         IntentModelClient unavailableClient = message -> Optional.empty();
 
@@ -515,6 +633,19 @@ class IntentRecognitionServiceTest {
         assertThat(response.intentId()).isEqualTo("file_search");
         assertThat(response.actionDraft().type()).isEqualTo("search");
         assertThat(response.entities().get("target_name")).asString().contains("例子");
+    }
+
+    @Test
+    void localFallbackRecognizesCasualAcknowledgement() {
+        IntentModelClient unavailableClient = message -> Optional.empty();
+
+        IntentRecognitionResponse response = new IntentRecognitionService(unavailableClient, intentRouter, configLoader)
+                .recognize("好吧，了解了");
+
+        assertThat(response.intentId()).isEqualTo("assistant_acknowledgement");
+        assertThat(response.nextAction()).isEqualTo("respond_only");
+        assertThat(response.actionDraft().type()).isEqualTo("none");
+        assertThat(response.assistantText()).contains("我在");
     }
 
     @Test

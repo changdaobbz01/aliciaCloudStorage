@@ -41,6 +41,25 @@ class ActionPlanContractConfigTest {
     }
 
     @Test
+    void enabledResponseTemplatesDoNotExposeDebugOrImplementationWording() {
+        List<Map<String, String>> templates = configLoader.loadCsv("rag/conversation/response_templates.csv");
+
+        for (Map<String, String> template : templates) {
+            if (!Boolean.parseBoolean(template.getOrDefault("enabled", "false"))) {
+                continue;
+            }
+            assertThat(template.get("message_template"))
+                    .as("template %s", template.get("template_id"))
+                    .doesNotContain("识别为")
+                    .doesNotContain("意图")
+                    .doesNotContain("ActionPlan")
+                    .doesNotContain("JSON")
+                    .doesNotContain("backend")
+                    .doesNotContain("后端");
+        }
+    }
+
+    @Test
     void atomicActionTemplatesCoverCurrentStorageAndShareCapabilities() {
         Map<String, Object> config = configLoader.loadJsonMap("rag/conversation/action_templates.json");
         Map<String, Object> actions = map(config, "actions");

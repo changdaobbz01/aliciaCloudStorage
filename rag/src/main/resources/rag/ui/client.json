@@ -5,6 +5,7 @@
   "examples": [
     "你是谁",
     "详细举例，看看你的能力项",
+    "好吧，了解了",
     "那么我是谁呢",
     "你的形象真漂亮",
     "可以和我聊聊天吗",
@@ -28,6 +29,7 @@
   "intentLabels": {
     "assistant_identity": "安安身份介绍",
     "assistant_capability_examples": "安安能力举例",
+    "assistant_acknowledgement": "安安轻量收尾回应",
     "assistant_user_identity": "用户身份反问",
     "assistant_social": "安安社交回应",
     "assistant_chat": "安安闲聊",

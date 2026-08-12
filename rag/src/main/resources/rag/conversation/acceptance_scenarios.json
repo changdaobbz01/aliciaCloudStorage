@@ -30,6 +30,32 @@
       }
     },
     {
+      "id": "persona.capability_details",
+      "group": "assistant_persona",
+      "phase": 1,
+      "message": "详细说说你的能力",
+      "expected": {
+        "intentId": "assistant_capability_examples",
+        "nextAction": "respond_only",
+        "actionDraftType": "none",
+        "risk": "none",
+        "requiresConfirmation": false
+      }
+    },
+    {
+      "id": "persona.acknowledgement",
+      "group": "assistant_persona",
+      "phase": 1,
+      "message": "好吧，了解了",
+      "expected": {
+        "intentId": "assistant_acknowledgement",
+        "nextAction": "respond_only",
+        "actionDraftType": "none",
+        "risk": "none",
+        "requiresConfirmation": false
+      }
+    },
+    {
       "id": "persona.capability_scope",
       "group": "assistant_persona",
       "phase": 1,

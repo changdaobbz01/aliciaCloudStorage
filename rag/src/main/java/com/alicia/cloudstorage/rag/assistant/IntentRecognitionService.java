@@ -1,6 +1,7 @@
 package com.alicia.cloudstorage.rag.assistant;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -18,18 +19,30 @@ public class IntentRecognitionService {
 
     private final IntentModelClient modelClient;
     private final IntentRouter intentRouter;
+    private final AssistantReplyPolisher replyPolisher;
     private final List<ResponseTemplate> responseTemplates;
     private final Map<String, String> personaPlaceholders;
+
+    @Autowired
+    public IntentRecognitionService(
+            IntentModelClient modelClient,
+            IntentRouter intentRouter,
+            RagConfigLoader configLoader,
+            AssistantReplyPolisher replyPolisher
+    ) {
+        this.modelClient = modelClient;
+        this.intentRouter = intentRouter;
+        this.replyPolisher = replyPolisher == null ? AssistantReplyPolisher.noop() : replyPolisher;
+        this.responseTemplates = loadResponseTemplates(configLoader);
+        this.personaPlaceholders = loadPersonaPlaceholders(configLoader);
+    }
 
     public IntentRecognitionService(
             IntentModelClient modelClient,
             IntentRouter intentRouter,
             RagConfigLoader configLoader
     ) {
-        this.modelClient = modelClient;
-        this.intentRouter = intentRouter;
-        this.responseTemplates = loadResponseTemplates(configLoader);
-        this.personaPlaceholders = loadPersonaPlaceholders(configLoader);
+        this(modelClient, intentRouter, configLoader, AssistantReplyPolisher.noop());
     }
 
     public IntentRecognitionResponse recognize(String message) {
@@ -50,7 +63,7 @@ public class IntentRecognitionService {
         String nextAction = normalizeNextAction(intent, rawNextAction, missingSlots);
         String risk = normalizeRisk(intent.risk());
         boolean requiresConfirmation = intent.requiresConfirmation();
-        String assistantText = assistantText(payload, intent, nextAction, missingSlots, modelMissingSlots);
+        String assistantText = assistantText(message, payload, intent, nextAction, missingSlots, modelMissingSlots);
         String clarificationQuestion = clarificationQuestion(intent, missingSlots);
 
         return new IntentRecognitionResponse(
@@ -129,7 +142,7 @@ public class IntentRecognitionService {
                 fallbackActionDraft(intent, entities),
                 BackendActionDraft.skipped("not_requested", "用户尚未确认，未生成后端请求草稿。"),
                 ActionPlan.skipped("understanding", "ActionPlan 尚未生成。"),
-                renderTemplate(intent.id(), intent.name(), nextAction, missingSlots).message(),
+                templateText(baseResponse.message(), intent, nextAction, missingSlots),
                 clarificationQuestion(intent, missingSlots),
                 reason,
                 baseResponse.fallbackReason(),
@@ -148,6 +161,7 @@ public class IntentRecognitionService {
         }
         String safeNextAction = intentRouter.isAllowedNextAction(nextAction) ? nextAction : response.nextAction();
         String safeReason = reason == null || reason.isBlank() ? response.reason() : reason;
+        IntentRouter.IntentDefinition intent = validIntent(response.intentId());
         return new IntentRecognitionResponse(
                 response.id(),
                 response.schemaVersion(),
@@ -169,7 +183,7 @@ public class IntentRecognitionService {
                 response.actionDraft(),
                 response.backendActionDraft(),
                 response.actionPlan(),
-                renderTemplate(response.intentId(), response.intentName(), safeNextAction, response.missingSlots()).message(),
+                templateText(response.message(), intent, safeNextAction, response.missingSlots()),
                 response.clarificationQuestion(),
                 safeReason,
                 response.fallbackReason(),
@@ -184,7 +198,7 @@ public class IntentRecognitionService {
         Map<String, Object> entities = sanitizeSlotMap(new LinkedHashMap<>(route.entities()), intent.allowedSlots());
         List<String> missingSlots = missingSlots(intent.requiredSlots(), entities);
         String nextAction = normalizeNextAction(intent, route.nextAction(), missingSlots);
-        String assistantText = renderTemplate(intent.id(), intent.name(), nextAction, missingSlots).message();
+        String assistantText = templateText(message, intent, nextAction, missingSlots);
         String risk = normalizeRisk(intent.risk());
 
         return new IntentRecognitionResponse(
@@ -378,6 +392,7 @@ public class IntentRecognitionService {
     }
 
     private String assistantText(
+            String message,
             Map<String, Object> payload,
             IntentRouter.IntentDefinition intent,
             String nextAction,
@@ -385,24 +400,140 @@ public class IntentRecognitionService {
             List<String> modelMissingSlots
     ) {
         RenderedResponseTemplate rendered = renderTemplate(intent.id(), intent.name(), nextAction, missingSlots);
+        String templateText = polishedTemplateText(message, intent, nextAction, missingSlots, rendered.message());
+        String modelText = stringValue(payload, "assistant_text", "");
+        boolean slotsCompatible = "fallback".equals(intent.id()) || sameSlots(modelMissingSlots, missingSlots);
+        boolean safeModelText = !modelText.isBlank()
+                && slotsCompatible
+                && isSafeAssistantText(modelText, intent);
         if ("fallback".equals(intent.id())) {
-            return rendered.message();
+            return safeModelText ? modelText : templateText;
         }
         if (rendered.preferTemplate()) {
-            return rendered.message();
+            return templateText;
         }
-        String modelText = stringValue(payload, "assistant_text", "");
-        if (modelText.isBlank() || !sameSlots(modelMissingSlots, missingSlots)) {
-            return rendered.message();
+        if (!safeModelText) {
+            return templateText;
         }
         return modelText;
+    }
+
+    private String templateText(
+            String message,
+            IntentRouter.IntentDefinition intent,
+            String nextAction,
+            List<String> missingSlots
+    ) {
+        RenderedResponseTemplate rendered = renderTemplate(intent.id(), intent.name(), nextAction, missingSlots);
+        return polishedTemplateText(message, intent, nextAction, missingSlots, rendered.message());
+    }
+
+    private String polishedTemplateText(
+            String message,
+            IntentRouter.IntentDefinition intent,
+            String nextAction,
+            List<String> missingSlots,
+            String templateText
+    ) {
+        if (templateText == null || templateText.isBlank()) {
+            return "";
+        }
+        AssistantReplyPolisher.PolishRequest request = new AssistantReplyPolisher.PolishRequest(
+                message,
+                intent.id(),
+                intent.name(),
+                intent.taskType(),
+                nextAction,
+                intent.actionType(),
+                normalizeRisk(intent.risk()),
+                intent.requiresConfirmation(),
+                missingSlots,
+                templateText
+        );
+        return replyPolisher.polish(request)
+                .map(String::trim)
+                .filter(text -> isSafeAssistantText(text, intent))
+                .orElse(templateText);
     }
 
     private boolean sameSlots(List<String> left, List<String> right) {
         return new LinkedHashSet<>(left).equals(new LinkedHashSet<>(right));
     }
 
+    private boolean isSafeAssistantText(String text, IntentRouter.IntentDefinition intent) {
+        if (text == null || text.isBlank()) {
+            return false;
+        }
+        String trimmed = text.trim();
+        if (trimmed.length() > 600) {
+            return false;
+        }
+        if (TextSupport.containsAny(trimmed, List.of(
+                "识别为",
+                "next_action",
+                "action_draft",
+                "backendActionDraft",
+                "ActionPlan",
+                "JSON",
+                "nodeId",
+                "fileId",
+                "folderId",
+                "ownerId",
+                "storagePath",
+                "objectKey",
+                "cosKey",
+                "/api/"
+        ))) {
+            return false;
+        }
+        return !containsExecutionClaim(trimmed, intent.actionType());
+    }
+
+    private boolean containsExecutionClaim(String text, String actionType) {
+        if (text == null || text.isBlank()) {
+            return false;
+        }
+        String normalized = TextSupport.normalizeText(text);
+        List<String> completedClaims = List.of(
+                "已删除",
+                "已经删除",
+                "删除完成",
+                "删掉了",
+                "删好了",
+                "已移入回收站",
+                "已经移入回收站",
+                "已移动",
+                "已经移动",
+                "移动完成",
+                "已重命名",
+                "已经重命名",
+                "重命名完成",
+                "已改名",
+                "已经改名",
+                "已分享",
+                "已经分享",
+                "分享完成",
+                "已生成分享链接",
+                "已经生成分享链接",
+                "已上传",
+                "已经上传",
+                "上传完成",
+                "已创建文件夹",
+                "已经创建文件夹",
+                "创建完成"
+        );
+        if (TextSupport.containsAny(normalized, completedClaims)) {
+            return true;
+        }
+        String safeActionType = actionType == null ? "" : actionType;
+        return !"none".equals(safeActionType)
+                && TextSupport.containsAny(normalized, List.of("已经帮你", "已帮你", "处理好了", "操作完成"));
+    }
+
     private String clarificationQuestion(IntentRouter.IntentDefinition intent, List<String> missingSlots) {
+        if ("fallback".equals(intent.id())) {
+            return "";
+        }
         if (missingSlots.isEmpty()) {
             return "";
         }
@@ -475,6 +606,7 @@ public class IntentRecognitionService {
         values.put("persona_tone", persona.path("tone").asText(""));
         values.put("persona_identity", persona.path("identitySummary").asText(""));
         values.put("persona_capability_examples_reply", persona.path("capabilityExamplesReply").asText(""));
+        values.put("persona_acknowledgement_reply", persona.path("acknowledgementReply").asText(""));
         values.put("persona_user_identity_reply", persona.path("userIdentityReply").asText(""));
         values.put("persona_social_reply", persona.path("socialReply").asText(""));
         values.put("persona_chat_reply", persona.path("chatReply").asText(""));

@@ -147,6 +147,35 @@ class AssistantConversationServiceTest {
     }
 
     @Test
+    void casualAcknowledgementRespondsWithoutBackendBinding() {
+        IntentRecognitionResponse response = conversationService.plan(new AssistantPlanRequest("好吧，了解了", ""));
+
+        assertThat(response.intentId()).isEqualTo("assistant_acknowledgement");
+        assertThat(response.nextAction()).isEqualTo("respond_only");
+        assertThat(response.actionDraft().type()).isEqualTo("none");
+        assertThat(response.candidateBinding().status()).isEqualTo("not_requested");
+        assertThat(response.backendActionDraft().status()).isEqualTo("not_requested");
+        assertThat(response.actionPlan().status()).isEqualTo("completed");
+        assertThat(response.conversation().status()).isEqualTo("responded");
+    }
+
+    @Test
+    void casualAcknowledgementDoesNotConfirmPendingMutation() {
+        IntentRecognitionResponse firstTurn = conversationService.plan(new AssistantPlanRequest("删除临时截图", ""));
+
+        IntentRecognitionResponse secondTurn = conversationService.plan(new AssistantPlanRequest(
+                "好的",
+                firstTurn.conversation().conversationId()
+        ));
+
+        assertThat(firstTurn.intentId()).isEqualTo("file_delete");
+        assertThat(secondTurn.intentId()).isEqualTo("assistant_acknowledgement");
+        assertThat(secondTurn.actionDraft().type()).isEqualTo("none");
+        assertThat(secondTurn.backendActionDraft().status()).isEqualTo("not_requested");
+        assertThat(secondTurn.safety().requiresConfirmation()).isFalse();
+    }
+
+    @Test
     void confirmMessagePreservesPendingActionContext() {
         IntentRecognitionResponse firstTurn = conversationService.plan(new AssistantPlanRequest("删除临时截图", ""));
 

@@ -94,8 +94,60 @@ class AssistantControllerTest {
                 .contains("semantic parser");
     }
 
+    @Test
+    void streamStatusTextDoesNotExposeDebugIntentWording() throws Exception {
+        AssistantController controller = new AssistantController(
+                null,
+                new RagConfigLoader(new ObjectMapper()),
+                new ObjectMapper().findAndRegisterModules()
+        );
+        var method = AssistantController.class.getDeclaredMethod("streamStatusText", IntentRecognitionResponse.class);
+        method.setAccessible(true);
+
+        String status = (String) method.invoke(
+                controller,
+                responseWithNextAction("安安身份介绍", "respond_only")
+        );
+
+        assertThat(status)
+                .doesNotContain("识别为")
+                .doesNotContain("意图")
+                .isEqualTo("安安正在整理回复...");
+    }
+
     @SuppressWarnings("unchecked")
     private static Map<String, Object> map(Object source) {
         return (Map<String, Object>) source;
+    }
+
+    private static IntentRecognitionResponse responseWithNextAction(String intentName, String nextAction) {
+        return new IntentRecognitionResponse(
+                "test",
+                "test",
+                "test",
+                "test",
+                "test",
+                "",
+                "assistant_identity",
+                intentName,
+                "assistant_persona",
+                1.0,
+                "",
+                "",
+                Map.of(),
+                List.of(),
+                List.of(),
+                nextAction,
+                null,
+                null,
+                null,
+                null,
+                "",
+                "",
+                "",
+                "",
+                null,
+                null
+        );
     }
 }

@@ -189,6 +189,22 @@
       "clarification_question": ""
     },
     {
+      "id": "assistant_acknowledgement",
+      "name": "安安轻量收尾回应",
+      "task_type": "assistant_persona",
+      "description": "回应用户普通的收到、了解、结束当前闲聊等轻量表达；不作为文件操作确认。",
+      "sample_utterances": ["好吧，了解了", "好的，知道了", "嗯嗯，明白了"],
+      "required_slots": [],
+      "optional_slots": [],
+      "allowed_slots": [],
+      "risk": "none",
+      "requires_confirmation": false,
+      "action_type": "none",
+      "candidate_type": "NONE",
+      "next_action": "respond_only",
+      "clarification_question": ""
+    },
+    {
       "id": "assistant_chat",
       "name": "安安闲聊",
       "task_type": "assistant_persona",

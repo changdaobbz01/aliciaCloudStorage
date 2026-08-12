@@ -139,7 +139,13 @@ public class AssistantController {
         if ("wait_for_user_confirmation".equals(response.nextAction())) {
             return "安安正在生成需要确认的计划...";
         }
-        return "安安已识别为「" + response.intentName() + "」。";
+        if ("wait_for_backend_binding".equals(response.nextAction())) {
+            return "安安正在匹配云盘里的候选...";
+        }
+        if ("respond_only".equals(response.nextAction())) {
+            return "安安正在整理回复...";
+        }
+        return "安安正在整理下一步...";
     }
 
     private java.util.List<AssistantStreamEvent> textChunks(String text) {
