@@ -6,6 +6,8 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+val officialApiBaseUrl = "https://windwindwind-alicia.cn"
+
 fun resolveApiBaseUrl(project: Project): String {
     val configured = findConfiguredProperty(
         project,
@@ -13,7 +15,7 @@ fun resolveApiBaseUrl(project: Project): String {
         "alicia.apiBaseUrl",
     )
 
-    return (configured ?: "https://windwindwind-alicia.cn").removeSuffix("/")
+    return (configured ?: officialApiBaseUrl).removeSuffix("/")
 }
 
 fun resolveRagBaseUrl(project: Project, apiBaseUrl: String): String {
@@ -64,9 +66,23 @@ fun inferDefaultRagBaseUrl(apiBaseUrl: String): String {
         normalized == "http://127.0.0.1:8090" -> "http://10.0.2.2:8091"
         normalized == "http://localhost:8090" -> "http://10.0.2.2:8091"
         normalized.endsWith(":8090") -> normalized.removeSuffix(":8090") + ":8091"
-        else -> normalized
+        else -> "$normalized/rag"
     }
 }
+
+fun resolveReleaseApiBaseUrl(project: Project): String =
+    (findConfiguredProperty(
+        project,
+        "ALICIA_RELEASE_API_BASE_URL",
+        "alicia.releaseApiBaseUrl",
+    ) ?: officialApiBaseUrl).removeSuffix("/")
+
+fun resolveReleaseRagBaseUrl(project: Project, apiBaseUrl: String): String =
+    (findConfiguredProperty(
+        project,
+        "ALICIA_RELEASE_RAG_BASE_URL",
+        "alicia.releaseRagBaseUrl",
+    ) ?: inferDefaultRagBaseUrl(apiBaseUrl)).removeSuffix("/")
 
 fun buildConfigStringLiteral(value: String): String =
     "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
@@ -79,8 +95,8 @@ android {
         applicationId = "com.alicia.cloudstorage.phone.add"
         minSdk = 26
         targetSdk = 34
-        versionCode = 8
-        versionName = "0.1.7"
+        versionCode = 9
+        versionName = "0.1.8"
 
         val apiBaseUrl = resolveApiBaseUrl(project)
         val ragActionExecutionEnabled = resolveBooleanProperty(
@@ -103,6 +119,30 @@ android {
 
     buildTypes {
         release {
+            val releaseApiBaseUrl = resolveReleaseApiBaseUrl(project)
+            val releaseActionExecutionEnabled = resolveBooleanProperty(
+                project,
+                false,
+                "ALICIA_RELEASE_RAG_ACTION_EXECUTION_ENABLED",
+                "alicia.releaseRagActionExecutionEnabled",
+            )
+            val releaseConfirmationMessage = findConfiguredProperty(
+                project,
+                "ALICIA_RELEASE_RAG_CONFIRMATION_MESSAGE",
+                "alicia.releaseRagConfirmationMessage",
+            ) ?: "确认"
+            buildConfigField("String", "DEFAULT_API_BASE_URL", buildConfigStringLiteral(releaseApiBaseUrl))
+            buildConfigField(
+                "String",
+                "DEFAULT_RAG_BASE_URL",
+                buildConfigStringLiteral(resolveReleaseRagBaseUrl(project, releaseApiBaseUrl)),
+            )
+            buildConfigField(
+                "String",
+                "RAG_CONFIRMATION_MESSAGE",
+                buildConfigStringLiteral(releaseConfirmationMessage),
+            )
+            buildConfigField("boolean", "RAG_ACTION_EXECUTION_ENABLED", releaseActionExecutionEnabled.toString())
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),

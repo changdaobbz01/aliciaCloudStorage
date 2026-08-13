@@ -95,6 +95,8 @@ docker compose up -d --build
 - 前端：`http://localhost`
 - 后端（仅本机回环）：`http://127.0.0.1:8090`
 - 健康检查（仅本机回环）：`http://127.0.0.1:8090/api/health`
+- RAG（仅本机回环）：`http://127.0.0.1:8091`
+- 同域 RAG 入口：`http://localhost/rag/api/health`
 - MySQL（仅本机回环）：`127.0.0.1:3310`
 
 查看运行状态：
@@ -117,7 +119,15 @@ docker compose logs -f api
 docker compose -f compose.yaml -f compose.https.yaml up -d --build frontend
 ```
 
-这样会额外开放 `443`，并将 `http://` 请求自动跳转到 `https://`。
+这样会额外开放 `443`，并将 `http://` 请求自动跳转到 `https://`。正式 RAG 入口为 `https://windwindwind-alicia.cn/rag`，SSE 请求由 Nginx 直通 `rag` 容器；`/rag/internal/` 不对公网开放。
+
+生产服务器更新 RAG 与 Nginx 时，在仓库内执行：
+
+```bash
+bash deploy/scripts/update-rag-production.sh
+```
+
+脚本会拒绝覆盖服务端已有的 tracked 改动，确认 `.env` 已配置 DeepSeek，快进拉取 `main`，重建 `rag` 与 `frontend`，最后同时检查 `127.0.0.1:8091/api/health` 和公网 `/rag/api/health`。密钥只保留在服务器 `.env`，不会输出到日志。
 
 ## 开发模式
 

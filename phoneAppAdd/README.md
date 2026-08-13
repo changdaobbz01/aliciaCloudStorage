@@ -22,9 +22,12 @@
 
 当前默认连线上服务：
 
-- `https://windwindwind-alicia.cn`
+- 云盘 API：`https://windwindwind-alicia.cn`
+- RAG：`https://windwindwind-alicia.cn/rag`
 
 如需覆盖默认地址，可通过 Gradle 属性或 `local.properties` 配置 `ALICIA_API_BASE_URL`。
+
+普通的 `ALICIA_API_BASE_URL`、`ALICIA_RAG_BASE_URL` 和执行开关只用于 Debug 构建。Release 包固定采用正式 API 与 `/rag`；确需构建其他正式环境时，必须显式使用 `ALICIA_RELEASE_API_BASE_URL`、`ALICIA_RELEASE_RAG_BASE_URL` 和 `ALICIA_RELEASE_RAG_ACTION_EXECUTION_ENABLED`，避免本地地址意外进入发布包。
 
 ## 本地运行
 
@@ -60,6 +63,14 @@ ALICIA_RAG_CONFIRMATION_MESSAGE=确认
 ```powershell
 .\scripts\install-debug-device.ps1 -SkipInstall
 ```
+
+需要在真机验证云端 RAG 时，不必修改或删除本地 `local.properties`。使用云端安装脚本即可让本次 Debug 构建显式采用正式地址，并移除设备上的 RAG 端口反向映射，避免本地服务掩盖云端问题：
+
+```powershell
+.\scripts\install-cloud-device.ps1
+```
+
+正式环境的 RAG 健康检查地址是 `https://windwindwind-alicia.cn/rag/api/health`。本地仍使用 `http://127.0.0.1:8081/api/health`，两者互不覆盖。
 
 独立启动 RAG 时，还必须给 RAG 进程配置可信的 CloudStorageApi 地址，否则文件查询和目标目录匹配会被安全地跳过。例如移动端连接线上 API 时：
 
