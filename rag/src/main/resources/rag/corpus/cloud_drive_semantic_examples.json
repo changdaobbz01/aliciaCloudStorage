@@ -1574,7 +1574,7 @@
       "intentId": "collection_delete_by_name",
       "operation": "DELETE",
       "entities": {
-        "target_name": "副本的图片"
+        "target_name": "副本"
       },
       "objectType": "文件",
       "sourceIntent": "file.delete"
@@ -1585,7 +1585,7 @@
       "intentId": "collection_delete_by_name",
       "operation": "DELETE",
       "entities": {
-        "target_name": "副本的图片的内容并删除"
+        "target_name": "副本"
       },
       "objectType": "文件",
       "sourceIntent": "file.delete"
@@ -1596,7 +1596,7 @@
       "intentId": "collection_delete_by_name",
       "operation": "DELETE",
       "entities": {
-        "target_name": "副本的图片"
+        "target_name": "副本"
       },
       "objectType": "文件",
       "sourceIntent": "file.delete"
@@ -1607,7 +1607,7 @@
       "intentId": "collection_delete_by_name",
       "operation": "DELETE",
       "entities": {
-        "target_name": "副本的图片"
+        "target_name": "副本"
       },
       "objectType": "文件",
       "sourceIntent": "file.delete"

@@ -185,6 +185,9 @@ public class CandidateBindingService {
             String queryMode = "LIST_CHILDREN".equals(frame.query().mode())
                     ? FileQueryPlanResolver.DIRECTORY_LIST
                     : FileQueryPlanResolver.NAME_SEARCH;
+            String queryRole = FileQueryPlanResolver.DIRECTORY_LIST.equals(queryMode)
+                    ? "directory_scope"
+                    : "FOLDER".equals(frame.query().resultType()) ? "target_folder" : "target_name";
             String scope = switch (frame.scope().type()) {
                 case "ROOT" -> FileQueryPlanResolver.SCOPE_ROOT;
                 case "CURRENT" -> FileQueryPlanResolver.SCOPE_CURRENT;
@@ -197,8 +200,20 @@ public class CandidateBindingService {
                     scope,
                     frame.query().resultType(),
                     frame.scope().folderSurface(),
-                    FileQueryPlanResolver.DIRECTORY_LIST.equals(queryMode) ? "directory_scope" : "target_name",
+                    queryRole,
                     FileQueryPlanResolver.DIRECTORY_LIST.equals(queryMode) ? "" : frame.query().nameSurface()
+            );
+        }
+        if (List.of("NAVIGATE", "OPEN_FILE").contains(frame.operation())
+                && !frame.query().nameSurface().isBlank()) {
+            boolean navigateToFolder = "NAVIGATE".equals(frame.operation());
+            return new FileQueryPlanResolver.FileQueryPlan(
+                    FileQueryPlanResolver.NAME_SEARCH,
+                    FileQueryPlanResolver.SCOPE_ALL,
+                    navigateToFolder ? "FOLDER" : "FILE",
+                    "",
+                    navigateToFolder ? "target_folder" : "target_name",
+                    frame.query().nameSurface()
             );
         }
         if (List.of("DELETE", "RENAME", "SHARE").contains(frame.operation())

@@ -76,6 +76,52 @@ class StorageApiCandidateSearchClientTest {
     }
 
     @Test
+    void fileLocationSearchFallsBackFromReferentialClassifierToActualName() {
+        FakeStorageApiNodeReadClient storageApi = FakeStorageApiNodeReadClient.withNodeResults(Map.of(
+                "测试图片", List.of(
+                        new CandidateItem(8L, null, "测试图片", "FILE", 1L, "", "image/png", ""),
+                        new CandidateItem(11L, null, "新名称：测试文件001", "FILE", 1L, "", "image/png", "")
+                )
+        ));
+        StorageApiCandidateSearchClient client = new StorageApiCandidateSearchClient(storageApi);
+
+        CandidateBindingResult result = client.search(new CandidateSearchRequest(
+                "file_search",
+                "search",
+                "FILE",
+                "target_name",
+                "测试图片这个文件",
+                5,
+                "Bearer token"
+        ));
+
+        assertThat(storageApi.nodeQueries()).extracting(StorageApiNodeQuery::keyword)
+                .contains("测试图片这个文件", "测试图片");
+        assertThat(result.candidates()).extracting(CandidateItem::name).containsExactly("测试图片");
+    }
+
+    @Test
+    void exactFileNameStillWinsWhenReferentialSurfaceIsLiteralName() {
+        FakeStorageApiNodeReadClient storageApi = FakeStorageApiNodeReadClient.withNodeResults(Map.of(
+                "测试图片这个文件", List.of(new CandidateItem(9L, null, "测试图片这个文件", "FILE", 1L, "", "image/png", "")),
+                "测试图片", List.of(new CandidateItem(10L, null, "测试图片", "FILE", 1L, "", "image/png", ""))
+        ));
+        StorageApiCandidateSearchClient client = new StorageApiCandidateSearchClient(storageApi);
+
+        CandidateBindingResult result = client.search(new CandidateSearchRequest(
+                "file_search",
+                "search",
+                "FILE",
+                "target_name",
+                "测试图片这个文件",
+                5,
+                "Bearer token"
+        ));
+
+        assertThat(result.candidates()).extracting(CandidateItem::name).containsExactly("测试图片这个文件");
+    }
+
+    @Test
     void nodeSearchSendsFileTypeFilterForFileMutations() {
         FakeStorageApiNodeReadClient storageApi = FakeStorageApiNodeReadClient.withNodeResults(Map.of(
                 "临时截图", List.of(
@@ -120,6 +166,51 @@ class StorageApiCandidateSearchClientTest {
 
         assertThat(result.status()).isEqualTo("single_candidate");
         assertThat(result.candidates().getFirst().name()).isEqualTo("资料");
+    }
+
+    @Test
+    void folderNavigationFallsBackFromClassifierSurfaceToActualFolderName() {
+        StorageApiCandidateSearchClient client = new StorageApiCandidateSearchClient(
+                FakeStorageApiNodeReadClient.withFolders(List.of(
+                        new CandidateItem(26L, null, "文件记录", "FOLDER", 0L, "", "", "")
+                ))
+        );
+
+        CandidateBindingResult result = client.search(new CandidateSearchRequest(
+                "file_search",
+                "search",
+                "FOLDER",
+                "target_folder",
+                "文件记录文件夹",
+                5,
+                "Bearer token"
+        ));
+
+        assertThat(result.status()).isEqualTo("search_results_ready");
+        assertThat(result.candidates()).extracting(CandidateItem::name).containsExactly("文件记录");
+    }
+
+    @Test
+    void exactFolderNameStillWinsWhenClassifierSurfaceIsLiteralName() {
+        StorageApiCandidateSearchClient client = new StorageApiCandidateSearchClient(
+                FakeStorageApiNodeReadClient.withFolders(List.of(
+                        new CandidateItem(27L, null, "文件记录文件夹", "FOLDER", 0L, "", "", ""),
+                        new CandidateItem(28L, null, "文件记录", "FOLDER", 0L, "", "", "")
+                ))
+        );
+
+        CandidateBindingResult result = client.search(new CandidateSearchRequest(
+                "file_search",
+                "search",
+                "FOLDER",
+                "target_folder",
+                "文件记录文件夹",
+                5,
+                "Bearer token"
+        ));
+
+        assertThat(result.status()).isEqualTo("search_results_ready");
+        assertThat(result.candidates()).extracting(CandidateItem::name).containsExactly("文件记录文件夹");
     }
 
     @Test

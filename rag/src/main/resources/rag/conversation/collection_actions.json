@@ -59,7 +59,8 @@
         "filter": {
           "scope": "$entities.scope_or_default",
           "nameContains": "$entities.target_name",
-          "includeFolders": true
+          "nodeType": "$entities.result_type",
+          "includeFolders": "$entities.include_folders_for_result_type"
         },
         "requiresExactCount": true,
         "requiresPreview": true
@@ -237,7 +238,8 @@
         "filter": {
           "scope": "$entities.scope_or_default",
           "nameContains": "$entities.target_name",
-          "includeFolders": true
+          "nodeType": "$entities.result_type",
+          "includeFolders": "$entities.include_folders_for_result_type"
         },
         "requiresExactCount": true,
         "requiresPreview": true
@@ -277,7 +279,8 @@
         "filter": {
           "scope": "$entities.scope_or_default",
           "nameContains": "$entities.target_name",
-          "includeFolders": true
+          "nodeType": "$entities.result_type",
+          "includeFolders": "$entities.include_folders_for_result_type"
         },
         "requiresExactCount": true,
         "requiresPreview": true

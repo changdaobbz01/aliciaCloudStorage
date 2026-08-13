@@ -538,6 +538,10 @@ public class ActionPlanService {
             Object scope = response.entities().get("scope");
             return scope == null || String.valueOf(scope).isBlank() ? "all_drive" : scope;
         }
+        if ("$entities.include_folders_for_result_type".equals(expression)) {
+            Object resultType = response.entities().get("result_type");
+            return resultType == null || !"FILE".equalsIgnoreCase(String.valueOf(resultType));
+        }
         if (expression.startsWith("$entities.")) {
             String key = expression.substring("$entities.".length());
             Object value = response.entities().get(key);

@@ -331,6 +331,40 @@ class AssistantConversationServiceTest {
     }
 
     @Test
+    void answersLocationFollowUpFromPreviousCandidateWithoutSearchingAgain() {
+        SingleSearchResultPort port = new SingleSearchResultPort(
+                new CandidateItem(
+                        703L,
+                        70L,
+                        "测试图片.png",
+                        "FILE",
+                        2048L,
+                        "png",
+                        "image/png",
+                        "2026-08-13T10:00:00",
+                        "/文件记录/测试图片.png",
+                        List.of()
+                )
+        );
+        AssistantConversationService service = conversationServiceWith(port);
+
+        IntentRecognitionResponse firstTurn = service.plan(
+                new AssistantPlanRequest("查找测试图片", ""),
+                "Bearer token"
+        );
+        IntentRecognitionResponse secondTurn = service.plan(
+                new AssistantPlanRequest("这个文件在哪", firstTurn.conversation().conversationId()),
+                "Bearer token"
+        );
+
+        assertThat(secondTurn.intentId()).isEqualTo("assistant_file_context_question");
+        assertThat(secondTurn.semanticFrame().relation()).isEqualTo("FOLLOW_UP");
+        assertThat(secondTurn.assistantText()).contains("测试图片.png").contains("/文件记录/测试图片.png");
+        assertThat(secondTurn.candidateBinding().status()).isEqualTo("not_requested");
+        assertThat(port.calls).isEqualTo(1);
+    }
+
+    @Test
     void answersFollowUpQuestionFromOrdinalSearchCandidate() {
         SearchResultsPort port = new SearchResultsPort();
         AssistantConversationService service = conversationServiceWith(port);
@@ -787,8 +821,10 @@ class AssistantConversationServiceTest {
         assertThat(requests).hasSize(4);
         assertThat(requests.get(0).queryMode()).isEqualTo("name_search");
         assertThat(requests.get(0).candidateType()).isEqualTo("FOLDER");
+        assertThat(requests.get(0).queryRole()).isEqualTo("target_folder");
         assertThat(requests.get(0).query()).isEqualTo("测试目录");
         assertThat(requests.get(1).candidateType()).isEqualTo("FILE");
+        assertThat(requests.get(1).queryRole()).isEqualTo("target_name");
         assertThat(requests.get(1).query()).isEqualTo("合同.pdf");
         assertThat(requests.get(2).queryMode()).isEqualTo("directory_list");
         assertThat(requests.get(2).scope()).isEqualTo("named_folder");
@@ -811,7 +847,67 @@ class AssistantConversationServiceTest {
         assertThat(searches).hasValue(0);
         assertThat(response.nextAction()).isEqualTo("ask_clarification");
         assertThat(response.semanticFrame().ambiguities()).contains("missing_navigation_target");
-        assertThat(response.assistantText()).contains("具体要打开哪个文件或文件夹");
+        assertThat(response.assistantText()).contains("具体是哪个文件或文件夹");
+    }
+
+    @Test
+    void namedLocationQuestionSearchesExplicitFileInsteadOfUsingContextIntent() {
+        CandidateSearchRequest[] captured = new CandidateSearchRequest[1];
+        AssistantConversationService service = conversationServiceWith(request -> {
+            captured[0] = request;
+            return new CandidateBindingResult(
+                    "search_results_ready",
+                    "test",
+                    request.query(),
+                    request.candidateType(),
+                    List.of(new CandidateItem(
+                            833L,
+                            70L,
+                            "测试图片",
+                            "FILE",
+                            1024L,
+                            "",
+                            "image/png",
+                            "",
+                            "/文件记录/测试图片",
+                            List.of()
+                    )),
+                    "已定位候选。"
+            );
+        });
+
+        IntentRecognitionResponse response = service.plan(
+                new AssistantPlanRequest("测试图片这个文件在哪", ""),
+                "Bearer token"
+        );
+
+        assertThat(response.intentId()).isEqualTo("file_search");
+        assertThat(response.semanticFrame().operation()).isEqualTo("SEARCH");
+        assertThat(response.semanticFrame().relation()).isEqualTo("NEW_TASK");
+        assertThat(response.semanticFrame().query().resultType()).isEqualTo("FILE");
+        assertThat(captured[0].queryRole()).isEqualTo("target_name");
+        assertThat(captured[0].query()).isEqualTo("测试图片这个文件");
+        assertThat(response.candidateBinding().candidates())
+                .extracting(CandidateItem::name)
+                .containsExactly("测试图片");
+    }
+
+    @Test
+    void genericLocationQuestionWithoutContextAsksForConcreteTarget() {
+        AtomicInteger searches = new AtomicInteger();
+        AssistantConversationService service = conversationServiceWith(request -> {
+            searches.incrementAndGet();
+            return CandidateBindingResult.skipped("unexpected", "unexpected");
+        });
+
+        IntentRecognitionResponse response = service.plan(
+                new AssistantPlanRequest("这个文件在哪", ""),
+                "Bearer token"
+        );
+
+        assertThat(searches).hasValue(0);
+        assertThat(response.nextAction()).isEqualTo("ask_clarification");
+        assertThat(response.assistantText()).contains("具体是哪个文件或文件夹");
     }
 
     @Test
@@ -947,6 +1043,55 @@ class AssistantConversationServiceTest {
     }
 
     @Test
+    void failedNewLookupInvalidatesPreviousOrdinalContext() {
+        AtomicInteger calls = new AtomicInteger();
+        CandidateSearchPort port = request -> {
+            if (calls.incrementAndGet() == 1) {
+                return new CandidateBindingResult(
+                        "search_results_ready",
+                        "test",
+                        request.query(),
+                        "FILE",
+                        List.of(
+                                new CandidateItem(811L, null, "旧列表一.txt", "FILE", 10L, "txt", "text/plain", ""),
+                                new CandidateItem(812L, null, "旧列表二.txt", "FILE", 20L, "txt", "text/plain", "")
+                        ),
+                        "已找到旧列表。"
+                );
+            }
+            return new CandidateBindingResult(
+                    "no_candidates",
+                    "test",
+                    request.query(),
+                    request.candidateType(),
+                    List.of(),
+                    "本轮没有匹配结果。"
+            );
+        };
+        AssistantConversationService service = conversationServiceWith(port);
+
+        IntentRecognitionResponse listed = service.plan(
+                new AssistantPlanRequest("查找旧列表文件", ""),
+                "Bearer token"
+        );
+        IntentRecognitionResponse failed = service.plan(
+                new AssistantPlanRequest("删除不存在的文件", listed.conversation().conversationId()),
+                "Bearer token"
+        );
+        IntentRecognitionResponse ordinal = service.plan(
+                new AssistantPlanRequest("删除第一个文件", failed.conversation().conversationId()),
+                "Bearer token"
+        );
+
+        assertThat(failed.candidateBinding().status()).isEqualTo("no_candidates");
+        assertThat(ordinal.nextAction()).isEqualTo("ask_clarification");
+        assertThat(ordinal.interaction().stage()).isEqualTo("NEED_CLARIFICATION");
+        assertThat(ordinal.candidateBinding().selectedCandidate()).isNull();
+        assertThat(ordinal.entities()).doesNotContainValue("旧列表一.txt");
+        assertThat(ordinal.assistantText()).contains("还没有可以承接的文件上下文");
+    }
+
+    @Test
     void rootUploadUsesNullParentWithoutStorageSearch() {
         CandidateSearchPort unexpectedSearch = request -> {
             throw new AssertionError("Root upload must not query a physical folder candidate.");
@@ -1054,7 +1199,7 @@ class AssistantConversationServiceTest {
         );
 
         IntentRecognitionResponse response = service.plan(new AssistantPlanRequest(
-                "把名字带有测试的文件全部删除",
+                "删除名称带测试的文件",
                 ""
         ), "Bearer token");
 
@@ -1067,16 +1212,46 @@ class AssistantConversationServiceTest {
         assertThat(plan.planKind()).isEqualTo("collection");
         assertThat(plan.actionType()).isEqualTo("collection.trash_by_name_contains");
         assertThat(plan.status()).isEqualTo("collection_review_required");
-        assertThat(previewPort.lastRequest.filter()).containsEntry("nameContains", "测试");
+        assertThat(response.semanticFrame().query().mode()).isEqualTo("NAME_CONTAINS");
+        assertThat(response.semanticFrame().query().resultType()).isEqualTo("FILE");
+        assertThat(previewPort.lastRequest.filter())
+                .containsEntry("nameContains", "测试")
+                .containsEntry("nodeType", "FILE")
+                .containsEntry("includeFolders", false);
         assertThat(sourceCollection.status()).isEqualTo("resolved");
         assertThat(sourceCollection.candidates()).hasSize(2);
         assertThat(sourceCollection.count()).isEqualTo(2);
         assertThat(sourceCollection.filter()).containsEntry("nameContains", "测试");
-        assertThat(sourceCollection.filter()).containsEntry("includeFolders", true);
+        assertThat(sourceCollection.filter()).containsEntry("nodeType", "FILE");
+        assertThat(sourceCollection.filter()).containsEntry("includeFolders", false);
         assertThat(plan.steps()).hasSize(1);
         assertThat(plan.steps().getFirst().action()).isEqualTo("node.batch_trash");
         assertThat(plan.steps().getFirst().params())
                 .containsEntry("nodeIds", "$bindings.sourceCollection.nodeIds");
+    }
+
+    @Test
+    void nameContainsDeleteKeepsFoldersOnlyWhenUserIncludesThem() {
+        PreviewPort previewPort = new PreviewPort(List.of(
+                new CandidateItem(801L, null, "测试目录", "FOLDER", 0L, "", "", ""),
+                new CandidateItem(802L, null, "测试文件.txt", "FILE", 34L, "txt", "text/plain", "")
+        ), 2, true);
+        AssistantConversationService service = conversationServiceWith(
+                request -> {
+                    throw new AssertionError("collection delete should not call single-candidate search");
+                },
+                previewPort
+        );
+
+        IntentRecognitionResponse response = service.plan(new AssistantPlanRequest(
+                "删除名称带测试的文件或文件夹",
+                ""
+        ), "Bearer token");
+
+        assertThat(response.semanticFrame().query().resultType()).isEqualTo("ANY");
+        assertThat(previewPort.lastRequest.filter())
+                .containsEntry("nodeType", "ANY")
+                .containsEntry("includeFolders", true);
     }
 
     @Test

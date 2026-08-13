@@ -12,6 +12,8 @@
   },
   "navigation_resolution": {
     "polite_prefixes": ["请帮我", "麻烦帮我", "能否帮我", "可以帮我", "请", "麻烦", "帮我"],
+    "location_question_prefixes": ["麻烦帮我查一下", "麻烦帮我看看", "帮我查一下", "帮我看看", "我想知道", "请问"],
+    "location_question_suffixes": ["存放在哪个文件夹里", "保存在哪个文件夹里", "放在哪个文件夹里", "在哪个文件夹里", "存放在哪个文件夹", "保存在哪个文件夹", "放在哪个文件夹", "在哪个文件夹", "所在文件夹是什么", "路径是什么", "具体位置在哪里", "具体位置在哪", "位置在哪里", "位置在哪", "存放在哪里", "保存在哪里", "放在哪里", "位于哪里", "是在哪里", "在哪里", "在哪儿", "是在哪", "在哪"],
     "verbs": ["跳转到", "打开", "进入", "进去", "前往"],
     "leading_particles": ["一下", "下", "到"],
     "trailing_particles": ["给我看看", "给我看", "看看", "看下", "一下", "吧"],
@@ -102,14 +104,14 @@
       "target_folder": {
         "phrase_role": "object",
         "candidate_head_nouns": ["文件夹", "目录", "文件目录", "文件夹目录"],
-        "removable_descriptors": ["文件夹", "目录", "文件目录", "云盘目录", "资料夹"],
+        "removable_descriptors": ["这个文件夹", "那个文件夹", "该文件夹", "这个目录", "那个目录", "该目录", "文件夹", "目录", "文件目录", "云盘目录", "资料夹"],
         "include_head_noun_alone": true,
         "include_modifier_alone": true
       },
       "target_name": {
         "phrase_role": "object",
         "candidate_head_nouns": ["文件", "文档", "照片", "图片", "视频", "音频", "压缩包"],
-        "removable_descriptors": ["文件"],
+        "removable_descriptors": ["这个文件", "那个文件", "该文件", "文件"],
         "include_head_noun_alone": false,
         "include_modifier_alone": true
       },

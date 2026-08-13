@@ -7,6 +7,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -32,10 +33,6 @@ public class SemanticFrameResolver {
     );
     private static final Set<String> FILTER_KEYS = Set.of("extension", "file_type", "time_range");
 
-    private static final Pattern NAME_FILTER = Pattern.compile(
-            "(?:名字|名称|文件名)(?:中|里|里面|内)?\\s*(?:带有|带|包含|含有|有)\\s*[\\\"'“”]*([^\\\"'“”，。,.!?！？的]+)[\\\"'“”]*(?:的)?\\s*(文件夹|目录|文件|文档)?",
-            Pattern.CASE_INSENSITIVE
-    );
     private static final Pattern NAMED_DIRECTORY_CONTENT = Pattern.compile(
             "(?:列出|列一下|展示|显示|查看|看看|看下|浏览)?\\s*(?:在\\s*)?(.+?(?:目录|文件夹))\\s*(?:下|中|里|内)(?:的)?\\s*(文件夹|目录|文件|内容|列表)",
             Pattern.CASE_INSENSITIVE
@@ -60,6 +57,11 @@ public class SemanticFrameResolver {
             "^(.+?)(?:这个|那个|该)(?:文件夹|目录|文件)$",
             Pattern.CASE_INSENSITIVE
     );
+    private static final Pattern CONTEXT_REFERENCE_QUESTION = Pattern.compile(
+            "^(?:请问|麻烦(?:帮我)?|帮我(?:看看|看下|查下|查一下)?)?"
+                    + "(?:它|这个|那个|刚才那个|刚才的|第一个|第二个|第三个|上一个|前一个)"
+                    + "(?:文件|文件夹|目录)?(?:的)?"
+    );
 
     public SemanticFrame resolve(
             String message,
@@ -72,6 +74,18 @@ public class SemanticFrameResolver {
         SemanticFrame rawFrame = modelFrame == null
                 ? localFrame(message, response, conversation)
                 : modelFrame;
+        if (isContextFollowUp(message, conversation)) {
+            rawFrame = copyFrame(
+                    rawFrame,
+                    "FOLLOW_UP",
+                    "RESPOND",
+                    rawFrame.query(),
+                    new SemanticFrame.Scope("PREVIOUS_RESULTS", "", ""),
+                    contextReference(conversation),
+                    List.of(),
+                    SemanticFrame.Clarification.empty()
+            );
+        }
         rawFrame = applyMessageSemantics(message, rawFrame, conversation);
         rawFrame = reconcileMutationTarget(rawFrame, response, message);
         return validate(rawFrame, response, clientContext);
@@ -84,6 +98,7 @@ public class SemanticFrameResolver {
     ) {
         if (frame == null
                 || response == null
+                || "NAME_CONTAINS".equals(frame.query().mode())
                 || !List.of("DELETE", "MOVE", "RENAME", "SHARE").contains(frame.operation())) {
             return frame;
         }
@@ -278,12 +293,17 @@ public class SemanticFrameResolver {
             SemanticFrame.Query fallbackQuery,
             SemanticFrame.Scope fallbackScope
     ) {
-        Matcher filterMatcher = NAME_FILTER.matcher(message);
-        if (filterMatcher.find()) {
-            String clue = cleanName(filterMatcher.group(1));
-            String resultType = resultType(filterMatcher.group(2), message, "ANY");
+        Optional<NamePredicateParser.NamePredicate> predicate = NamePredicateParser.parse(message);
+        if (predicate.isPresent()) {
+            String clue = cleanName(predicate.get().value());
             return new SearchSemantics(
-                    new SemanticFrame.Query("NAME_CONTAINS", resultType, clue, normalizeName(clue), fallbackQuery.filters()),
+                    new SemanticFrame.Query(
+                            "NAME_CONTAINS",
+                            predicate.get().resultType(),
+                            clue,
+                            normalizeName(clue),
+                            fallbackQuery.filters()
+                    ),
                     new SemanticFrame.Scope("ALL", "", "")
             );
         }
@@ -331,6 +351,28 @@ public class SemanticFrameResolver {
             AssistantConversationState conversation
     ) {
         String safeMessage = message == null ? "" : message.trim();
+        if (List.of("DELETE", "MOVE", "RENAME").contains(frame.operation())) {
+            Optional<NamePredicateParser.NamePredicate> predicate = NamePredicateParser.parse(safeMessage);
+            if (predicate.isPresent()) {
+                String clue = cleanName(predicate.get().value());
+                frame = copyFrame(
+                        frame,
+                        frame.relation(),
+                        frame.operation(),
+                        new SemanticFrame.Query(
+                                "NAME_CONTAINS",
+                                predicate.get().resultType(),
+                                clue,
+                                normalizeName(clue),
+                                frame.query().filters()
+                        ),
+                        frame.scope(),
+                        frame.reference(),
+                        frame.ambiguities(),
+                        frame.clarification()
+                );
+            }
+        }
         SearchSemantics directoryContents = List.of("UNKNOWN", "SEARCH").contains(frame.operation())
                 ? parseDirectoryContents(safeMessage, frame.query())
                 : null;
@@ -732,12 +774,10 @@ public class SemanticFrameResolver {
             return false;
         }
         String value = message == null ? "" : message.trim();
-        boolean hasReference = TextSupport.containsAny(value, List.of(
-                "它", "这个", "那个", "刚才", "上一个", "前一个", "第一个", "第二个", "第三个",
-                "另一个", "另外一个", "下一个", "剩下的", "剩余的", "其余的"
-        ));
+        boolean hasReference = CONTEXT_REFERENCE_QUESTION.matcher(value.replaceAll("\\s+", "")).find();
         boolean asksProperty = TextSupport.containsAny(value, List.of(
-                "什么格式", "什么类型", "多大", "大小", "后缀", "扩展名", "名称", "名字", "什么时候", "修改时间", "路径"
+                "什么格式", "什么类型", "多大", "大小", "后缀", "扩展名", "名称", "名字", "什么时候", "修改时间",
+                "路径", "在哪", "哪里", "哪儿", "位置"
         ));
         return hasReference && asksProperty;
     }

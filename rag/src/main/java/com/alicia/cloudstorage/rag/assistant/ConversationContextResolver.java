@@ -75,7 +75,7 @@ public class ConversationContextResolver {
         }
 
         if (resolution.shouldAnswerDirectly()) {
-            return ContextAttempt.answer(directAnswerResponse(message, conversation, resolution));
+            return ContextAttempt.answer(directAnswerResponse(message, conversation, resolution, semanticFrame));
         }
 
         if (resolution.shouldRewrite()) {
@@ -337,7 +337,8 @@ public class ConversationContextResolver {
     private IntentRecognitionResponse directAnswerResponse(
             String message,
             AssistantConversationState conversation,
-            ConversationContextResolution resolution
+            ConversationContextResolution resolution,
+            SemanticFrame semanticFrame
     ) {
         AssistantConversationFocus focus = conversation.focus();
         CandidateItem candidate = candidateForResolution(focus, resolution);
@@ -347,7 +348,7 @@ public class ConversationContextResolver {
                 "target_name", candidate.name()
         );
 
-        return new IntentRecognitionResponse(
+        IntentRecognitionResponse response = new IntentRecognitionResponse(
                 UUID.randomUUID().toString(),
                 SCHEMA_VERSION,
                 settings.directAnswer().templateId(),
@@ -375,6 +376,23 @@ public class ConversationContextResolver {
                 CandidateBindingResult.skipped("not_requested", "上下文追问不触发新的候选绑定。"),
                 null
         );
+        SemanticFrame.Reference reference = candidate == null
+                ? SemanticFrame.Reference.empty()
+                : new SemanticFrame.Reference("PREVIOUS_CANDIDATE", candidate.nodeId(), resolution.selectedIndex());
+        SemanticFrame answerFrame = new SemanticFrame(
+                SemanticFrame.VERSION,
+                "FOLLOW_UP",
+                "RESPOND",
+                SemanticFrame.Query.empty(),
+                new SemanticFrame.Scope("PREVIOUS_RESULTS", "", ""),
+                semanticFrame != null && !"NONE".equals(semanticFrame.reference().type())
+                        ? semanticFrame.reference()
+                        : reference,
+                resolution.confidence(),
+                List.of(),
+                SemanticFrame.Clarification.empty()
+        );
+        return response.withSemanticFrame(answerFrame, entities, new ActionDraft("none", Map.of(), false));
     }
 
     private IntentRecognitionResponse clarificationResponse(

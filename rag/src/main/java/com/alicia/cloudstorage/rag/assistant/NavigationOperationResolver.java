@@ -30,6 +30,8 @@ public class NavigationOperationResolver {
     );
 
     private final List<String> politePrefixes;
+    private final List<String> locationQuestionPrefixes;
+    private final List<String> locationQuestionSuffixes;
     private final List<String> verbs;
     private final List<String> leadingParticles;
     private final List<String> trailingParticles;
@@ -44,6 +46,8 @@ public class NavigationOperationResolver {
         JsonNode config = configLoader.loadJson("rag/conversation/query_rules.json")
                 .path("navigation_resolution");
         this.politePrefixes = sortedStrings(config.path("polite_prefixes"));
+        this.locationQuestionPrefixes = sortedStrings(config.path("location_question_prefixes"));
+        this.locationQuestionSuffixes = sortedStrings(config.path("location_question_suffixes"));
         this.verbs = sortedStrings(config.path("verbs"));
         this.leadingParticles = sortedStrings(config.path("leading_particles"));
         this.trailingParticles = sortedStrings(config.path("trailing_particles"));
@@ -72,7 +76,13 @@ public class NavigationOperationResolver {
     }
 
     private Optional<Resolution> resolve(String message, AssistantConversationState conversation) {
-        String text = stripPrefix(normalize(message), politePrefixes);
+        String normalized = cleanTarget(normalize(message));
+        Optional<Resolution> locationQuestion = parseLocationQuestion(normalized, conversation);
+        if (locationQuestion.isPresent()) {
+            return locationQuestion;
+        }
+
+        String text = stripPrefix(normalized, politePrefixes);
         String verb = matchingPrefix(text, verbs);
         if (verb.isBlank()) {
             return Optional.empty();
@@ -122,6 +132,31 @@ public class NavigationOperationResolver {
         return Optional.empty();
     }
 
+    private Optional<Resolution> parseLocationQuestion(
+            String message,
+            AssistantConversationState conversation
+    ) {
+        String text = stripPrefix(message, locationQuestionPrefixes);
+        String suffix = matchingSuffix(text, locationQuestionSuffixes);
+        if (suffix.isBlank() || text.length() <= suffix.length()) {
+            return Optional.empty();
+        }
+
+        String target = cleanTarget(text.substring(0, text.length() - suffix.length()));
+        if (genericReferences.contains(target)) {
+            return hasCandidateContext(conversation)
+                    ? Optional.empty()
+                    : Optional.of(Resolution.needsClarification());
+        }
+        target = stripExplicitNameWrapper(target);
+        if (target.isBlank() || genericReferences.contains(target)) {
+            return Optional.of(Resolution.needsClarification());
+        }
+
+        String resultType = explicitType(target);
+        return Optional.of(Resolution.locate(target, resultType));
+    }
+
     private Optional<Resolution> parseContents(String target) {
         Matcher matcher = LIST_CONTENT_SUFFIX.matcher(target);
         if (!matcher.matches()) {
@@ -147,7 +182,7 @@ public class NavigationOperationResolver {
 
     private IntentRecognitionResponse override(IntentRecognitionResponse response, Resolution resolution) {
         if (resolution.clarification()) {
-            String question = "请告诉我具体要打开哪个文件或文件夹，例如“打开测试目录”或“打开合同.pdf”。";
+            String question = "请告诉我具体是哪个文件或文件夹，例如“测试图片”或“合同.pdf”。";
             SemanticFrame frame = new SemanticFrame(
                     SemanticFrame.VERSION,
                     "NEW_TASK",
@@ -160,7 +195,7 @@ public class NavigationOperationResolver {
                     new SemanticFrame.Clarification(
                             "missing_navigation_target",
                             question,
-                            List.of("打开测试目录", "打开合同.pdf")
+                            List.of("测试图片在哪", "合同.pdf 在哪里")
                     )
             );
             return response.withCapabilityBoundary("missing_navigation_target", question, question)
@@ -203,6 +238,9 @@ public class NavigationOperationResolver {
         String assistantText = switch (resolution.operation()) {
             case "NAVIGATE" -> "我会先准确定位这个文件夹，找到后直接为你打开。";
             case "OPEN_FILE" -> "我会先准确定位这个文件，找到后直接为你打开。";
+            case "SEARCH" -> listChildren
+                    ? "我会先定位这个文件夹，再列出其中符合要求的内容。"
+                    : "我先按名称定位这个文件或文件夹，找到后把它的位置展示给你。";
             default -> "我会先定位这个文件夹，再列出其中符合要求的内容。";
         };
         return response.withPlanningOverride(
@@ -238,6 +276,13 @@ public class NavigationOperationResolver {
         return value.replaceFirst("的(?:文件夹|目录|文件)$", "").trim();
     }
 
+    private String stripExplicitNameWrapper(String target) {
+        return safe(target)
+                .replaceFirst("^(?:名为|叫做|名称为|名字为)", "")
+                .replaceFirst("的(?:文件夹|目录|文件)$", "")
+                .trim();
+    }
+
     private String cleanTarget(String target) {
         return safe(target).replaceAll("^[：:，,]+|[。！？!?]+$", "").trim();
     }
@@ -260,6 +305,10 @@ public class NavigationOperationResolver {
 
     private String matchingPrefix(String value, List<String> prefixes) {
         return prefixes.stream().filter(value::startsWith).findFirst().orElse("");
+    }
+
+    private String matchingSuffix(String value, List<String> suffixes) {
+        return suffixes.stream().filter(value::endsWith).findFirst().orElse("");
     }
 
     private boolean hasCandidateContext(AssistantConversationState conversation) {
@@ -312,6 +361,10 @@ public class NavigationOperationResolver {
 
         private static Resolution listChildren(String target, String resultType) {
             return new Resolution("SEARCH", "LIST_CHILDREN", resultType, target, false);
+        }
+
+        private static Resolution locate(String target, String resultType) {
+            return new Resolution("SEARCH", "NAME_EXACT", resultType, target, false);
         }
 
         private static Resolution needsClarification() {

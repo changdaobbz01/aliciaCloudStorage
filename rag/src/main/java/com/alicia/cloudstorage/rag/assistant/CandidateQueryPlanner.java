@@ -172,7 +172,11 @@ public class CandidateQueryPlanner {
                             "target_folder", new RoleRules(
                                     "object",
                                     List.of("文件夹", "目录", "文件目录", "文件夹目录"),
-                                    List.of("文件夹", "目录", "文件目录", "云盘目录", "资料夹"),
+                                    List.of(
+                                            "这个文件夹", "那个文件夹", "该文件夹",
+                                            "这个目录", "那个目录", "该目录",
+                                            "文件夹", "目录", "文件目录", "云盘目录", "资料夹"
+                                    ),
                                     true,
                                     true
                             ),
@@ -247,7 +251,7 @@ public class CandidateQueryPlanner {
             return new RoleRules(
                     "object",
                     List.of("文件", "文档", "照片", "图片", "视频", "音频", "压缩包"),
-                    List.of("文件"),
+                    List.of("这个文件", "那个文件", "该文件", "文件"),
                     false,
                     true
             );

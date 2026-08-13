@@ -201,6 +201,17 @@ internal class RagAssistantViewModel(
                                 displayTextOverride = streamedAssistantText.takeIf { it.isNotBlank() },
                             )
                         }
+                        "error" -> {
+                            finalResponseHandled = true
+                            updateAssistantStreamingText(
+                                assistantMessageId,
+                                event.text.orEmpty().ifBlank { "这次请求没有及时完成，请稍后再试。" },
+                                replace = true,
+                            )
+                            _uiState.update { state ->
+                                state.copy(sending = false, online = true)
+                            }
+                        }
                     }
                 }
                 if (!finalResponseHandled) {

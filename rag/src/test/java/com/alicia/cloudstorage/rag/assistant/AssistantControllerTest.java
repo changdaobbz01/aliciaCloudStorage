@@ -187,6 +187,26 @@ class AssistantControllerTest {
                 .contains("done");
     }
 
+    @Test
+    void streamCancelsSlowPlanAndReturnsControlledError() throws Exception {
+        AssistantConversationService service = mock(AssistantConversationService.class);
+        AssistantPlanRequest request = new AssistantPlanRequest("打开文件记录文件夹", "conversation-1");
+        when(service.plan(eq(request), eq("Bearer token"))).thenAnswer(invocation -> {
+            Thread.sleep(5_000L);
+            return responseWithNextAction("打开文件夹", "show_search_results");
+        });
+        AssistantPlanStreamService streamService = new AssistantPlanStreamService(service, 25L, 1_000L, 120L);
+        CapturingSseEmitter emitter = new CapturingSseEmitter();
+
+        streamService.stream(request, "Bearer token", emitter);
+
+        assertThat(emitter.awaitCompletion()).isTrue();
+        assertThat(emitter.payload())
+                .contains("error")
+                .contains("超过了安全等待时间")
+                .contains("done");
+    }
+
     @SuppressWarnings("unchecked")
     private static Map<String, Object> map(Object source) {
         return (Map<String, Object>) source;

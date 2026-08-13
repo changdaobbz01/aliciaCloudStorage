@@ -44,6 +44,17 @@ public record AssistantConversationFocus(
             );
         }
 
+        if (invalidatesCandidateContext(response, binding)) {
+            return new AssistantConversationFocus(
+                    "none",
+                    response.intentId(),
+                    response.actionDraft() == null ? "none" : response.actionDraft().type(),
+                    response.entities(),
+                    null,
+                    null
+            );
+        }
+
         if (previous != null && previous.hasCandidateContext()) {
             return previous;
         }
@@ -115,6 +126,27 @@ public record AssistantConversationFocus(
 
     public int candidateCount() {
         return candidateBinding == null ? 0 : candidateBinding.candidates().size();
+    }
+
+    private static boolean invalidatesCandidateContext(
+            IntentRecognitionResponse response,
+            CandidateBindingResult binding
+    ) {
+        if (response.actionPlan() != null && "collection".equals(response.actionPlan().planKind())) {
+            return true;
+        }
+        if (binding == null) {
+            return false;
+        }
+        return List.of(
+                "no_candidates",
+                "missing_query",
+                "storage_api_not_configured",
+                "missing_authorization",
+                "storage_api_error",
+                "collection_filter_only",
+                "collection_not_executable"
+        ).contains(binding.status());
     }
 
     private static CandidateItem selectedCandidate(CandidateBindingResult binding) {

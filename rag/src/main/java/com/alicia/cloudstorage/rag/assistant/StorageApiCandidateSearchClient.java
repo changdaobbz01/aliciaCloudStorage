@@ -248,15 +248,20 @@ public class StorageApiCandidateSearchClient implements CandidateSearchPort {
         if (candidates == null || candidates.isEmpty() || queryVariants == null || queryVariants.isEmpty()) {
             return candidates == null ? List.of() : candidates;
         }
-        String surface = normalizeMatchValue(queryVariants.getFirst());
-        if (surface.isBlank()) {
-            return candidates;
+        for (String variant : queryVariants) {
+            String surface = normalizeMatchValue(variant);
+            if (surface.isBlank()) {
+                continue;
+            }
+            List<CandidateItem> exactMatches = candidates.stream()
+                    .filter(candidate -> normalizeMatchValue(candidate.name()).equals(surface)
+                            || normalizeMatchValue(candidate.path()).equals(surface))
+                    .toList();
+            if (!exactMatches.isEmpty()) {
+                return exactMatches;
+            }
         }
-        List<CandidateItem> exactMatches = candidates.stream()
-                .filter(candidate -> normalizeMatchValue(candidate.name()).equals(surface)
-                        || normalizeMatchValue(candidate.path()).equals(surface))
-                .toList();
-        return exactMatches.isEmpty() ? candidates : exactMatches;
+        return candidates;
     }
 
     private String normalizeMatchValue(String value) {

@@ -538,6 +538,7 @@ public class IntentRecognitionService {
         if (configuredRoute == null) {
             return configuredRoute;
         }
+        configuredRoute = predicateCollectionRoute(message, configuredRoute);
         List<SemanticExampleRetriever.SemanticExample> matches = semanticExampleRetriever.retrieve(message, 5)
                 .stream()
                 .filter(example -> intentRouter.hasIntent(example.intentId()))
@@ -586,6 +587,32 @@ public class IntentRecognitionService {
                 winner.getKey(),
                 confidence,
                 "语料检索高置信命中，由当前输入重新抽取执行参数"
+        );
+    }
+
+    private IntentRouter.IntentRouteResult predicateCollectionRoute(
+            String message,
+            IntentRouter.IntentRouteResult configuredRoute
+    ) {
+        if (NamePredicateParser.parse(message).isEmpty()) {
+            return configuredRoute;
+        }
+        String intentId = switch (configuredRoute.intent()) {
+            case "file_delete" -> "collection_delete_by_name";
+            case "node_move" -> "collection_move_by_name";
+            case "file_rename" -> configuredRoute.entities().containsKey("rename_prefix")
+                    ? "collection_rename_add_prefix"
+                    : configuredRoute.intent();
+            default -> configuredRoute.intent();
+        };
+        if (intentId.equals(configuredRoute.intent())) {
+            return configuredRoute;
+        }
+        return intentRouter.routeAs(
+                message,
+                intentId,
+                Math.max(0.96, configuredRoute.confidence()),
+                "统一名称谓词解析命中，按集合操作结构处理"
         );
     }
 

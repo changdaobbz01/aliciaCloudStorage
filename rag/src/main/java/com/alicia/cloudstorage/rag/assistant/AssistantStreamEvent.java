@@ -17,6 +17,10 @@ public record AssistantStreamEvent(
         return new AssistantStreamEvent("final", "", response);
     }
 
+    public static AssistantStreamEvent error(String text) {
+        return new AssistantStreamEvent("error", text, null);
+    }
+
     public static AssistantStreamEvent done() {
         return new AssistantStreamEvent("done", "", null);
     }
