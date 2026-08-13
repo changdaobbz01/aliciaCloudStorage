@@ -733,7 +733,7 @@ class AssistantConversationServiceTest {
         ));
 
         assertThat(firstTurn.intentId()).isEqualTo("file_upload");
-        assertThat(firstTurn.entities()).containsEntry("target_folder", "根");
+        assertThat(firstTurn.entities()).containsEntry("target_folder", "根目录");
         assertThat(firstTurn.candidateBinding().source()).isEqualTo("virtual:cloud-drive-root");
         assertThat(firstTurn.actionPlan().status()).isEqualTo("review_required");
         assertThat(firstTurn.actionPlan().steps()).singleElement().satisfies(step ->

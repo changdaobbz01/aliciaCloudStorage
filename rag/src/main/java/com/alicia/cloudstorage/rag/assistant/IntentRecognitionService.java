@@ -22,6 +22,8 @@ public class IntentRecognitionService {
     private final SemanticFrameResolver semanticFrameResolver;
     private final SemanticExampleRetriever semanticExampleRetriever;
     private final SemanticCapabilityBoundaryGuard capabilityBoundaryGuard;
+    private final SemanticRecognitionArbiter recognitionArbiter;
+    private final AssistantResponsePolicy responsePolicy;
     private final List<ResponseTemplate> responseTemplates;
     private final Map<String, String> personaPlaceholders;
 
@@ -47,6 +49,8 @@ public class IntentRecognitionService {
         this.capabilityBoundaryGuard = capabilityBoundaryGuard == null
                 ? new SemanticCapabilityBoundaryGuard(configLoader)
                 : capabilityBoundaryGuard;
+        this.recognitionArbiter = new SemanticRecognitionArbiter(configLoader);
+        this.responsePolicy = new AssistantResponsePolicy(configLoader);
         this.responseTemplates = loadResponseTemplates(configLoader);
         this.personaPlaceholders = loadPersonaPlaceholders(configLoader);
     }
@@ -153,16 +157,42 @@ public class IntentRecognitionService {
         IntentRouter.IntentRouteResult localRoute = semanticFallbackRoute(message, intentRouter.route(message));
         boolean guardedByBoundary = configuredBoundary != null
                 || localRoute.reason().startsWith("语料能力边界命中");
-        boolean guardedByLocalRoute = shouldUseLocalRouteGuard(response, localRoute);
+        SemanticRecognitionArbiter.ArbitrationDecision arbitration = recognitionArbiter.decide(message, response, localRoute);
+        boolean guardedByLocalRoute = arbitration.useLocalRoute();
         if (guardedByBoundary || guardedByLocalRoute) {
+            IntentRecognitionResponse modelResponse = response;
             response = fromFallback(
                     message,
                     guardedByBoundary
                             ? "当前请求包含尚未开放的组合规则，需要用户进一步明确。"
-                            : "DeepSeek 未可靠命中，已由高置信配置规则复核。"
+                            : "语义仲裁切换为高置信配置规则：" + arbitration.reason()
             );
+            if (!guardedByBoundary
+                    && modelResult != null
+                    && !"fallback".equals(modelResponse.intentId())) {
+                response = preservePolicyCompliantModelText(message, response, modelResponse);
+            }
+        } else if (arbitration.useLocalStructure()) {
+            IntentRecognitionResponse modelResponse = response;
+            response = rebuildForConversation(
+                    response,
+                    localRoute.intent(),
+                    localRouteEntities(localRoute),
+                    "语义结构由高置信配置规则复核：" + arbitration.reason()
+            );
+            if (!hasCompatibleGrounding(response, modelResponse)) {
+                IntentRouter.IntentDefinition intent = validIntent(response.intentId());
+                response = response.withAssistantText(templateText(
+                        message,
+                        intent,
+                        response.nextAction(),
+                        response.missingSlots()
+                ));
+            }
         }
-        Map<String, Object> modelPayload = modelResult == null || guardedByBoundary || guardedByLocalRoute
+        Map<String, Object> modelPayload = modelResult == null
+                || guardedByBoundary
+                || arbitration.useLocalStructure()
                 ? Map.of()
                 : modelResult.payload();
         SemanticFrame semanticFrame = configuredBoundary == null
@@ -210,7 +240,7 @@ public class IntentRecognitionService {
                     configuredBoundary.guidance()
             );
         }
-        return response;
+        return enforceResponsePolicy(message, response);
     }
 
     private SemanticFrame capabilityBoundaryFrame(
@@ -231,17 +261,6 @@ public class IntentRecognitionService {
                         List.of()
                 )
         );
-    }
-
-    private boolean shouldUseLocalRouteGuard(
-            IntentRecognitionResponse modelResponse,
-            IntentRouter.IntentRouteResult localRoute
-    ) {
-        if (modelResponse == null || localRoute == null || "fallback".equals(localRoute.intent())) {
-            return false;
-        }
-        boolean modelUncertain = "fallback".equals(modelResponse.intentId()) || modelResponse.confidence() < 0.65;
-        return modelUncertain && localRoute.confidence() >= 0.9;
     }
 
     private Map<String, Object> semanticContext(
@@ -546,6 +565,14 @@ public class IntentRecognitionService {
         return result;
     }
 
+    private Map<String, Object> localRouteEntities(IntentRouter.IntentRouteResult localRoute) {
+        Map<String, Object> entities = new LinkedHashMap<>();
+        if (localRoute != null && localRoute.entities() != null) {
+            entities.putAll(localRoute.entities());
+        }
+        return entities;
+    }
+
     private List<String> stringList(Object value) {
         if (!(value instanceof List<?> source)) {
             return List.of();
@@ -706,7 +733,8 @@ public class IntentRecognitionService {
         boolean slotsCompatible = "fallback".equals(intent.id()) || sameSlots(modelMissingSlots, missingSlots);
         boolean safeModelText = !modelText.isBlank()
                 && slotsCompatible
-                && isSafeAssistantText(modelText, intent);
+                && isSafeAssistantText(modelText, intent)
+                && responsePolicy.evaluate(message, modelText, intent.id(), intent.actionType(), nextAction).allowed();
         if (safeModelText) {
             return modelText;
         }
@@ -785,6 +813,67 @@ public class IntentRecognitionService {
             return false;
         }
         return !containsExecutionClaim(trimmed, intent.actionType());
+    }
+
+    private IntentRecognitionResponse preservePolicyCompliantModelText(
+            String message,
+            IntentRecognitionResponse localResponse,
+            IntentRecognitionResponse modelResponse
+    ) {
+        String modelText = modelResponse == null ? "" : modelResponse.assistantText();
+        IntentRouter.IntentDefinition intent = validIntent(localResponse.intentId());
+        if (!isSafeAssistantText(modelText, intent) || !hasCompatibleGrounding(localResponse, modelResponse)) {
+            return localResponse;
+        }
+        AssistantResponsePolicy.PolicyDecision policy = responsePolicy.evaluate(
+                message,
+                modelText,
+                intent.id(),
+                intent.actionType(),
+                localResponse.nextAction()
+        );
+        return policy.allowed() ? localResponse.withAssistantText(modelText) : localResponse;
+    }
+
+    private boolean hasCompatibleGrounding(
+            IntentRecognitionResponse localResponse,
+            IntentRecognitionResponse modelResponse
+    ) {
+        for (String slot : localResponse.requiredSlots()) {
+            String localValue = normalizedGroundingValue(localResponse.entities().get(slot));
+            String modelValue = normalizedGroundingValue(modelResponse.entities().get(slot));
+            if (!localValue.isBlank() && !localValue.equals(modelValue)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private String normalizedGroundingValue(Object value) {
+        return value == null
+                ? ""
+                : String.valueOf(value).trim().toLowerCase(java.util.Locale.ROOT).replaceAll("\\s+", "");
+    }
+
+    private IntentRecognitionResponse enforceResponsePolicy(
+            String message,
+            IntentRecognitionResponse response
+    ) {
+        IntentRouter.IntentDefinition intent = validIntent(response.intentId());
+        AssistantResponsePolicy.PolicyDecision policy = responsePolicy.evaluate(
+                message,
+                response.assistantText(),
+                intent.id(),
+                intent.actionType(),
+                response.nextAction()
+        );
+        if (policy.allowed()) {
+            return response;
+        }
+        String fallback = policy.fallbackMessage().isBlank()
+                ? templateText(message, intent, response.nextAction(), response.missingSlots())
+                : policy.fallbackMessage();
+        return response.withAssistantText(fallback);
     }
 
     private boolean containsExecutionClaim(String text, String actionType) {

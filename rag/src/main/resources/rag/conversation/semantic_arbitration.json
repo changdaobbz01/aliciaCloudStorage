@@ -1,0 +1,36 @@
+{
+  "version": "semantic_arbitration_v1",
+  "modelUncertainThreshold": 0.65,
+  "uncertainLocalThreshold": 0.90,
+  "authoritativeLocalThreshold": 0.88,
+  "authoritativeLocalIntents": [
+    "assistant_user_identity",
+    "assistant_social",
+    "assistant_acknowledgement",
+    "assistant_chat",
+    "assistant_bored",
+    "assistant_external_resource",
+    "assistant_writing_help",
+    "assistant_errand_unsupported",
+    "assistant_product_info",
+    "assistant_product_reason",
+    "assistant_product_feedback",
+    "assistant_file_context_question",
+    "file_rename",
+    "file_share",
+    "file_delete",
+    "file_upload",
+    "node_move",
+    "folder_create_then_upload",
+    "collection_delete_by_name",
+    "collection_delete_by_category",
+    "collection_move_by_category",
+    "collection_move_by_extension",
+    "collection_move_by_name",
+    "collection_rename_add_prefix"
+  ],
+  "clarificationPatterns": [
+    "^(?:这个|这件)?事情.*看着办[吧。！!]*$",
+    "^(?:帮忙|帮我)?(?:处理|弄|搞)(?:一下|下)?[吧。！!]*$"
+  ]
+}

@@ -27,6 +27,7 @@ public class DeepSeekIntentClient implements IntentModelClient {
     private final RagConfigLoader configLoader;
     private final ObjectMapper objectMapper;
     private final SemanticExampleRetriever exampleRetriever;
+    private final AssistantResponsePolicy responsePolicy;
     private final HttpClient httpClient;
     private final String apiKey;
 
@@ -39,6 +40,7 @@ public class DeepSeekIntentClient implements IntentModelClient {
         this.configLoader = configLoader;
         this.objectMapper = objectMapper;
         this.exampleRetriever = exampleRetriever;
+        this.responsePolicy = new AssistantResponsePolicy(configLoader);
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(5))
                 .build();
@@ -111,10 +113,13 @@ public class DeepSeekIntentClient implements IntentModelClient {
                         .map(SemanticExampleRetriever.SemanticExample::promptPayload)
                         .toList()
         );
+        String responseFactsJson = objectMapper.writeValueAsString(responsePolicy.promptFacts());
         String userContent = settings.userTemplate()
                 .replace("{message}", request.message())
                 .replace("{context_json}", contextJson)
                 .replace("{retrieval_examples_json}", examplesJson)
+                + "\n\nAuthoritative backend and response facts JSON:\n"
+                + responseFactsJson
                 + "\n\n"
                 + settings.semanticQueryInstructions();
         return Map.of(

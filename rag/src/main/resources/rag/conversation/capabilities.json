@@ -2,6 +2,8 @@
   "protocolVersion": "assistant_protocol_v2",
   "semanticFrameVersion": "semantic_frame_v2",
   "capabilityBoundaryVersion": "capability_boundaries_v1",
+  "semanticArbitrationVersion": "semantic_arbitration_v1",
+  "assistantResponsePolicyVersion": "assistant_response_policy_v1",
   "actionPlanVersion": "action_plan_v2",
   "actionBridgeVersion": "action_bridge_v2",
   "operations": [

@@ -423,4 +423,38 @@ public record IntentRecognitionResponse(
                 interaction
         );
     }
+
+    public IntentRecognitionResponse withAssistantText(String text) {
+        String safeText = text == null ? "" : text.trim();
+        return new IntentRecognitionResponse(
+                id,
+                schemaVersion,
+                templateId,
+                provider,
+                model,
+                message,
+                intentId,
+                intentName,
+                taskType,
+                confidence,
+                userGoal,
+                normalizedQuery,
+                entities,
+                requiredSlots,
+                missingSlots,
+                nextAction,
+                safety,
+                actionDraft,
+                backendActionDraft,
+                actionPlan,
+                safeText,
+                clarificationQuestion,
+                reason,
+                fallbackReason,
+                candidateBinding,
+                conversation,
+                semanticFrame,
+                interaction
+        );
+    }
 }

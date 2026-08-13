@@ -12,14 +12,14 @@ new_folder_name,true,regex_capture,"(?:新建|创建|建立|mkdir|create)\s*([^/
 target_folder,true,regex_capture,"(?:在)\s*([^/\s，。,.!?！？]+?)(?:目录|文件夹|folder|directory)?(?:下|中|里|内)",false
 target_folder,true,regex_capture,"(?:在)\s*([^/\s，。,.!?！？]+?)(?:目录|文件夹|folder|directory)\s*(?:新建|创建|建立|mkdir|create)",false
 target_folder,true,regex_capture,"(?:到|至|进)\s*([^/\s，。,.!?！？]+?)(?:目录|文件夹|folder|directory)?\s*(?:新建|创建|建立|mkdir|create)",false
-target_folder,true,regex_capture,"(?:移动到|移到|放到|传到|上传到|上传至|归档到|转移到|移动至|放进|传进|到|至|进|move to|upload to)\s*([^/\s，。,.!?！？]+?)(?:目录|文件夹|folder|directory)?(?:下|中|里|内)?(?:$|\s|，|。|,|\.|!|\?)",false
+target_folder,true,regex_capture,"(?:移动到|移到|放到|传到|上传到|上传至|归档到|转移到|移动至|放进|传进|搬到|挪到|到|至|进|move to|upload to)\s*([^/\s，。,.!?！？]+?)(?:下|中|里|内)?(?:$|\s|，|。|,|\.|!|\?)",false
 new_name,true,regex_capture,"(?:重命名为|重命名成|改名为|改名成|命名为|命名成|改成|改为|换个名字叫)\s*([^\s，。,.!?！？]+(?:\.[A-Za-z0-9]+)?)",false
 new_name,true,regex_capture,"(?:重命名|改名|命名|改成|rename).*?(?:为|成|叫|to)\s*([^\s，。,.!?！？]+(?:\.[A-Za-z0-9]+)?)",false
 new_name,true,regex_capture,"(?:改为|换个名字叫)\s*([^\s，。,.!?！？]+(?:\.[A-Za-z0-9]+)?)",false
 new_name,true,regex_capture,"(?:为|成|叫|to)\s*([^\s，。,.!?！？]+(?:\.[A-Za-z0-9]+)?)",false
 target_name,true,regex_capture,"(?:名字|名称|文件名|name)(?:中|里|里面|内)?(?:有|带有|包含|含有|含|contains)\s*([^/\s，。,.!?！？的]+)",false
 target_name,true,regex_capture,"(?:名字|名称|文件名|name).*?(?:带有|包含|含有|contains)\s*([^/\s，。,.!?！？的]+)",false
-target_name,true,regex_capture,"(?:把|将|请把|帮我把)?\s*(?:名为|名称为|叫做|叫)?\s*(?:文件夹|目录|文件|文档|资料)?\s*([^/\s，。,.!?！？]+?)\s*(?:这个|该)?\s*(?:文件夹|目录|文件|文档|资料)?\s*(?:移动到|移到|放到|归档到|转移到|移动至|放进|挪到|move\s+to)",false
+target_name,true,regex_capture,"(?:把|将|请把|帮我把)?\s*(?:名为|名称为|叫做|叫)?\s*(?:文件夹|目录|文件|文档|资料)?\s*([^/\s，。,.!?！？]+?)\s*(?:这个|该)?\s*(?:文件夹|目录|文件)?\s*(?:移动到|移到|放到|归档到|转移到|移动至|放进|挪到|搬到|move\s+to)",false
 target_name,true,regex_capture,"(?:删除|删掉|删了|移除|扔到回收站|移入回收站|清理掉|清理|分享(?!给我|链接)|共享(?!链接)|发给我|查找|查看|搜索|检索|看看|看下|定位|打开|列出来|列出(?!来)|显示出来|显示(?!出来)|展示出来|展示(?!出来)|找一下|找(?!出来)|查|delete|remove|trash|share|search|find)\s*(?:(?:一下|下|看看)\s*)?(?:有没有|是否有|有无)?\s*(?:名为|名称为|叫)?\s*(?:文件|文档|资料)?\s*([^/\s，。,.!?！？的]+)",false
 target_name,true,regex_capture,"(?:给|把|将|请把|帮我把)?\s*(?:名为|名称为|叫做|叫)\s*([^/\s，。,.!?！？的]+)(?:的)?\s*(?:文件|文档|资料)?\s*(?:生成|创建|建立|建个|做成)\s*(?:可)?(?:分享链接|共享链接|链接)",false
 target_name,true,regex_capture,"(?:给|把|将|请把|帮我把)?\s*(?:文件|文档|资料)?\s*([^/\s，。,.!?！？]+?)\s*(?:生成|创建|建立|建个|做成)\s*(?:可)?(?:分享链接|共享链接|链接)",false

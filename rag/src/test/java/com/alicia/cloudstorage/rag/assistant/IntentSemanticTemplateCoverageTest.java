@@ -13,6 +13,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -54,6 +55,7 @@ class IntentSemanticTemplateCoverageTest {
         List<SemanticCase> cases = expandCases(config);
         int minimumExpandedCases = number(config.get("minimumExpandedCases")).intValue();
 
+        assertBalancedIntentCoverage(config);
         assertThat(cases).hasSizeGreaterThanOrEqualTo(minimumExpandedCases);
 
         for (SemanticCase semanticCase : cases) {
@@ -86,6 +88,44 @@ class IntentSemanticTemplateCoverageTest {
                     .as("%s forbidden parameters for [%s]", semanticCase.id(), semanticCase.message())
                     .doesNotContainAnyElementsOf(FORBIDDEN_ACTION_PARAMETER_KEYS);
         }
+    }
+
+    @Test
+    void unclearInputsRemainNonExecutableFallbackControls() {
+        Map<String, Object> config = configLoader.loadJsonMap("rag/conversation/semantic_intent_templates.json");
+
+        for (String message : stringList(config, "fallbackControlUtterances")) {
+            IntentRecognitionResponse response = service.recognize(message);
+
+            assertThat(response.intentId()).as("fallback control [%s]", message).isEqualTo("fallback");
+            assertThat(response.nextAction()).isEqualTo("ask_clarification");
+            assertThat(response.actionDraft().needsBackendBinding()).isFalse();
+        }
+    }
+
+    private void assertBalancedIntentCoverage(Map<String, Object> config) {
+        Set<String> requiredCoverage = new LinkedHashSet<>(stringList(config, "requiredIntentCoverage"));
+        Set<String> configuredIntents = list(configLoader.loadJsonMap("rag/conversation/intents.json"), "intents")
+                .stream()
+                .map(this::map)
+                .map(intent -> stringValue(intent, "id"))
+                .filter(intentId -> !"fallback".equals(intentId))
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        Map<String, Long> templateCounts = list(config, "suites").stream()
+                .map(this::map)
+                .collect(Collectors.groupingBy(
+                        suite -> stringValue(suite, "intentId"),
+                        LinkedHashMap::new,
+                        Collectors.summingLong(suite -> stringList(suite, "templates").size())
+                ));
+        int minimumTemplates = number(config.get("minimumTemplatesPerIntent")).intValue();
+
+        assertThat(requiredCoverage).containsExactlyInAnyOrderElementsOf(configuredIntents);
+        assertThat(templateCounts.keySet()).containsAll(requiredCoverage);
+        assertThat(templateCounts)
+                .allSatisfy((intentId, count) -> assertThat(count)
+                        .as("template count for %s", intentId)
+                        .isGreaterThanOrEqualTo(minimumTemplates));
     }
 
     private List<SemanticCase> expandCases(Map<String, Object> config) {

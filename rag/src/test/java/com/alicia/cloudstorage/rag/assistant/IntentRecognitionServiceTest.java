@@ -1018,6 +1018,204 @@ class IntentRecognitionServiceTest {
                 .containsEntry("target_folder", "测试目录");
     }
 
+    @Test
+    void authoritativeCollectionRuleOverridesConfidentAtomicModelGuess() {
+        IntentModelClient modelClient = message -> Optional.of(new IntentModelClient.ModelIntentResult(
+                "deepseek",
+                "deepseek-v4-flash",
+                "deepseek_semantic_frame_v2",
+                "semantic_frame_v2",
+                Map.ofEntries(
+                        Map.entry("intent_id", "node_move"),
+                        Map.entry("confidence", 0.99),
+                        Map.entry("entities", Map.of("target_name", "调测", "target_folder", "测试目录")),
+                        Map.entry("missing_slots", List.of()),
+                        Map.entry("assistant_text", "我会先批量匹配名称中带有调测的文件夹，再整理移动计划。")
+                )
+        ));
+
+        IntentRecognitionResponse response = new IntentRecognitionService(modelClient, intentRouter, configLoader)
+                .recognize("名称中有调测的文件夹都搬到测试目录");
+
+        assertThat(response.intentId()).isEqualTo("collection_move_by_name");
+        assertThat(response.actionDraft().type()).isEqualTo("collection.move_by_name_contains");
+        assertThat(response.entities())
+                .containsEntry("target_name", "调测")
+                .containsEntry("target_folder", "测试目录");
+        assertThat(response.assistantText()).contains("批量").contains("调测");
+    }
+
+    @Test
+    void authoritativeRouteRejectsModelReplyWithConflictingEntitySurface() {
+        IntentModelClient modelClient = message -> Optional.of(new IntentModelClient.ModelIntentResult(
+                "deepseek",
+                "deepseek-v4-flash",
+                "deepseek_semantic_frame_v2",
+                "semantic_frame_v2",
+                Map.ofEntries(
+                        Map.entry("intent_id", "node_move"),
+                        Map.entry("confidence", 0.99),
+                        Map.entry("entities", Map.of("target_name", "调测", "target_folder", "测试")),
+                        Map.entry("missing_slots", List.of()),
+                        Map.entry("assistant_text", "我会把名称中带调测的文件夹都移到测试。")
+                )
+        ));
+
+        IntentRecognitionResponse response = new IntentRecognitionService(modelClient, intentRouter, configLoader)
+                .recognize("名称中有调测的文件夹都搬到测试目录");
+
+        assertThat(response.intentId()).isEqualTo("collection_move_by_name");
+        assertThat(response.entities()).containsEntry("target_folder", "测试目录");
+        assertThat(response.assistantText())
+                .contains("目标文件夹")
+                .doesNotContain("移到测试");
+    }
+
+    @Test
+    void backendBindingStageRejectsPrematureExecutionConfirmationReply() {
+        IntentModelClient modelClient = message -> Optional.of(new IntentModelClient.ModelIntentResult(
+                "deepseek",
+                "deepseek-v4-flash",
+                "deepseek_semantic_frame_v2",
+                "semantic_frame_v2",
+                Map.ofEntries(
+                        Map.entry("intent_id", "collection_move_by_name"),
+                        Map.entry("confidence", 0.99),
+                        Map.entry("entities", Map.of("target_name", "调测", "target_folder", "测试目录")),
+                        Map.entry("missing_slots", List.of()),
+                        Map.entry("assistant_text", "我会把名称中带调测的文件夹都移到测试目录，请确认执行。")
+                )
+        ));
+
+        IntentRecognitionResponse response = new IntentRecognitionService(modelClient, intentRouter, configLoader)
+                .recognize("名称中有调测的文件夹都搬到测试目录");
+
+        assertThat(response.nextAction()).isEqualTo("wait_for_backend_binding");
+        assertThat(response.assistantText())
+                .contains("先")
+                .contains("匹配")
+                .doesNotContain("确认执行");
+    }
+
+    @Test
+    void underspecifiedImperativeOverridesConfidentModelGuessWithClarification() {
+        IntentModelClient modelClient = message -> Optional.of(new IntentModelClient.ModelIntentResult(
+                "deepseek",
+                "deepseek-v4-flash",
+                "deepseek_semantic_frame_v2",
+                "semantic_frame_v2",
+                Map.ofEntries(
+                        Map.entry("intent_id", "assistant_acknowledgement"),
+                        Map.entry("confidence", 0.99),
+                        Map.entry("entities", Map.of()),
+                        Map.entry("missing_slots", List.of()),
+                        Map.entry("assistant_text", "好的，交给我吧。")
+                )
+        ));
+
+        IntentRecognitionResponse response = new IntentRecognitionService(modelClient, intentRouter, configLoader)
+                .recognize("这个事情你看着办");
+
+        assertThat(response.intentId()).isEqualTo("fallback");
+        assertThat(response.nextAction()).isEqualTo("ask_clarification");
+        assertThat(response.assistantText()).contains("明确一点");
+        assertThat(response.actionDraft().needsBackendBinding()).isFalse();
+    }
+
+    @Test
+    void completeAuthoritativeRouteIgnoresModelInventedAmbiguity() {
+        IntentModelClient modelClient = message -> Optional.of(new IntentModelClient.ModelIntentResult(
+                "deepseek",
+                "deepseek-v4-flash",
+                "deepseek_semantic_frame_v2",
+                "semantic_frame_v2",
+                Map.ofEntries(
+                        Map.entry("intent_id", "collection_move_by_name"),
+                        Map.entry("confidence", 0.99),
+                        Map.entry("entities", Map.of("target_name", "草稿", "target_folder", "临时区")),
+                        Map.entry("missing_slots", List.of()),
+                        Map.entry("assistant_text", "我会先匹配名称中含草稿的文件，再整理移动到临时区的计划。"),
+                        Map.entry("semantic_frame", Map.ofEntries(
+                                Map.entry("schema_version", "semantic_frame_v2"),
+                                Map.entry("relation", "NEW_TASK"),
+                                Map.entry("operation", "MOVE"),
+                                Map.entry("query", Map.of("mode", "NAME_CONTAINS", "result_type", "FILE", "name_surface", "草稿")),
+                                Map.entry("scope", Map.of("type", "ALL", "folder_surface", "")),
+                                Map.entry("reference", Map.of("type", "NONE")),
+                                Map.entry("confidence", 0.69),
+                                Map.entry("ambiguities", List.of("目标文件夹位置不明确")),
+                                Map.entry("clarification", Map.of(
+                                        "reason", "目标文件夹位置不明确",
+                                        "question", "临时区具体指哪个文件夹？",
+                                        "suggestions", List.of()
+                                ))
+                        ))
+                )
+        ));
+
+        IntentRecognitionResponse response = new IntentRecognitionService(modelClient, intentRouter, configLoader)
+                .recognize("名称里含草稿的文件都搬到临时区");
+
+        assertThat(response.intentId()).isEqualTo("collection_move_by_name");
+        assertThat(response.entities()).containsEntry("target_folder", "临时区");
+        assertThat(response.missingSlots()).isEmpty();
+        assertThat(response.nextAction()).isEqualTo("wait_for_backend_binding");
+        assertThat(response.semanticFrame().needsClarification()).isFalse();
+        assertThat(response.assistantText()).doesNotContain("无");
+    }
+
+    @Test
+    void rejectsIrreversibleClaimForRecoverableTrashOperation() {
+        IntentModelClient modelClient = message -> Optional.of(new IntentModelClient.ModelIntentResult(
+                "deepseek",
+                "deepseek-v4-flash",
+                "deepseek_semantic_frame_v2",
+                "semantic_frame_v2",
+                Map.ofEntries(
+                        Map.entry("intent_id", "collection_delete_by_name"),
+                        Map.entry("confidence", 0.98),
+                        Map.entry("entities", Map.of("target_name", "日志")),
+                        Map.entry("missing_slots", List.of()),
+                        Map.entry("assistant_text", "名称里有日志的文件会被永久删除且不可恢复。")
+                )
+        ));
+
+        IntentRecognitionResponse response = new IntentRecognitionService(modelClient, intentRouter, configLoader)
+                .recognize("名称里有日志的文件全部删掉");
+
+        assertThat(response.intentId()).isEqualTo("collection_delete_by_name");
+        assertThat(response.assistantText())
+                .contains("回收站")
+                .doesNotContain("永久删除", "不可恢复", "无法恢复");
+    }
+
+    @Test
+    void rejectsUnsupportedBusinessClassificationCapabilityOverclaim() {
+        IntentModelClient modelClient = message -> Optional.of(new IntentModelClient.ModelIntentResult(
+                "deepseek",
+                "deepseek-v4-flash",
+                "deepseek_semantic_frame_v2",
+                "semantic_frame_v2",
+                Map.ofEntries(
+                        Map.entry("intent_id", "assistant_capability_examples"),
+                        Map.entry("confidence", 0.97),
+                        Map.entry("entities", Map.of()),
+                        Map.entry("missing_slots", List.of()),
+                        Map.entry("assistant_text", "可以，我能自动识别合同和发票的业务类型并归档。")
+                )
+        ));
+
+        IntentRecognitionResponse response = new IntentRecognitionService(modelClient, intentRouter, configLoader)
+                .recognize("能按合同、发票这种业务类型归档吗");
+
+        assertThat(response.intentId()).isEqualTo("assistant_capability_examples");
+        assertThat(response.assistantText())
+                .contains("不能")
+                .contains("名称关键字")
+                .doesNotContain("能自动识别");
+        assertThat(response.actionDraft().needsBackendBinding()).isFalse();
+    }
+
     @SuppressWarnings("unchecked")
     private static Map<String, Object> map(Object source) {
         return (Map<String, Object>) source;

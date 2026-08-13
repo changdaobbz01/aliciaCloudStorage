@@ -235,10 +235,18 @@ class ActionPlanContractConfigTest {
         Map<String, Object> boundaries = configLoader.loadJsonMap(
                 "rag/conversation/capability_boundaries.json"
         );
+        Map<String, Object> arbitration = configLoader.loadJsonMap(
+                "rag/conversation/semantic_arbitration.json"
+        );
+        Map<String, Object> responsePolicy = configLoader.loadJsonMap(
+                "rag/conversation/assistant_response_policy.json"
+        );
 
         assertThat(capabilities)
                 .containsEntry("semanticFrameVersion", "semantic_frame_v2")
-                .containsEntry("capabilityBoundaryVersion", boundaries.get("version"));
+                .containsEntry("capabilityBoundaryVersion", boundaries.get("version"))
+                .containsEntry("semanticArbitrationVersion", arbitration.get("version"))
+                .containsEntry("assistantResponsePolicyVersion", responsePolicy.get("version"));
         assertThat(list(boundaries, "boundaries")).hasSizeGreaterThanOrEqualTo(5);
     }
 

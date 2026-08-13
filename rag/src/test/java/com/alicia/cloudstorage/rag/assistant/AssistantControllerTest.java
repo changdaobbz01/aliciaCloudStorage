@@ -84,6 +84,8 @@ class AssistantControllerTest {
                 "composites",
                 "collections",
                 "policies",
+                "semanticArbitration",
+                "assistantResponsePolicy",
                 "dialogue",
                 "persona",
                 "mobile",
@@ -93,6 +95,8 @@ class AssistantControllerTest {
         assertThat(map(contract.get("actions"))).containsEntry("version", "action_templates_v1");
         assertThat(map(contract.get("composites"))).containsEntry("version", "composite_actions_v1");
         assertThat(map(contract.get("collections"))).containsEntry("version", "collection_actions_v1");
+        assertThat(map(contract.get("semanticArbitration"))).containsEntry("version", "semantic_arbitration_v1");
+        assertThat(map(contract.get("assistantResponsePolicy"))).containsEntry("version", "assistant_response_policy_v1");
         assertThat(map(contract.get("persona"))).containsEntry("id", "anan");
         assertThat(map(contract.get("mobile"))).containsEntry("version", "mobile_contract_v1");
         assertThat(map(contract.get("acceptanceScenarios"))).containsEntry("version", "rag_mobile_acceptance_v1");

@@ -92,6 +92,8 @@ public class AssistantController {
         contract.put("composites", configLoader.loadJsonMap("rag/conversation/composite_actions.json"));
         contract.put("collections", configLoader.loadJsonMap("rag/conversation/collection_actions.json"));
         contract.put("policies", configLoader.loadJsonMap("rag/conversation/policies.json"));
+        contract.put("semanticArbitration", configLoader.loadJsonMap("rag/conversation/semantic_arbitration.json"));
+        contract.put("assistantResponsePolicy", configLoader.loadJsonMap("rag/conversation/assistant_response_policy.json"));
         contract.put("dialogue", configLoader.loadJsonMap("rag/conversation/dialogue_templates.json"));
         contract.put("persona", configLoader.loadJsonMap("rag/conversation/persona.json"));
         contract.put("mobile", configLoader.loadJsonMap("rag/conversation/mobile_contract.json"));
