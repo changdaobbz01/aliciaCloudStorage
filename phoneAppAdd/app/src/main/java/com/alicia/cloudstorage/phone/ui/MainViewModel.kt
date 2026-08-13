@@ -4,7 +4,9 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Process
 import android.os.SystemClock
 import android.provider.OpenableColumns
 import androidx.lifecycle.ViewModel
@@ -29,6 +31,8 @@ import com.alicia.cloudstorage.phone.data.StorageFileCategory
 import com.alicia.cloudstorage.phone.data.StorageNode
 import com.alicia.cloudstorage.phone.data.StorageNodeFilter
 import com.alicia.cloudstorage.phone.data.StorageNodeType
+import com.alicia.cloudstorage.phone.data.TransferHistoryPersistence
+import com.alicia.cloudstorage.phone.data.TransferHistoryStore
 import com.alicia.cloudstorage.phone.data.TransferProgress
 import com.alicia.cloudstorage.phone.data.UsageHistoryPoint
 import com.alicia.cloudstorage.phone.data.User
@@ -53,6 +57,7 @@ import java.nio.ByteBuffer
 import java.nio.charset.Charset
 import java.nio.charset.CodingErrorAction
 import java.nio.charset.StandardCharsets
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.roundToLong
 
 private const val MAX_TEXT_PREVIEW_BYTES = 2L * 1024 * 1024
@@ -161,6 +166,7 @@ data class ExplorerUiState(
     val items: List<StorageNode> = emptyList(),
     val hasLoadedFolder: Boolean = false,
     val keyword: String = "",
+    val submittedKeyword: String = "",
     val searchScope: FileSearchScope = FileSearchScope.CURRENT_FOLDER,
     val filter: StorageNodeFilter = StorageNodeFilter.ALL,
     val category: StorageFileCategory? = null,
@@ -172,6 +178,9 @@ data class ExplorerUiState(
     val selectedNodeIds: Set<Long> = emptySet(),
     val highlightedNodeId: Long? = null,
     val isBatchActing: Boolean = false,
+    val renameTarget: StorageNode? = null,
+    val renameSubmitting: Boolean = false,
+    val renameError: String? = null,
     val moveTargetFolders: List<StorageNode> = emptyList(),
     val moveTargetLoading: Boolean = false,
 )
@@ -259,9 +268,10 @@ data class AppUiState(
     val transferPanelTab: TransferPanelTab = TransferPanelTab.DOWNLOADS,
 )
 
-class MainViewModel(
+class MainViewModel internal constructor(
     private val repository: AliciaRepository,
     private val sessionStore: SessionStore,
+    private val transferHistoryPersistence: TransferHistoryPersistence,
     private val defaultBaseUrl: String,
     private val appContext: Context,
 ) : ViewModel() {
@@ -288,8 +298,17 @@ class MainViewModel(
     private var manualRefreshGeneration = 0L
     private var currentUserSyncJob: Job? = null
     private var currentUserSyncGeneration = 0L
+    private var fileRefreshJob: Job? = null
+    private var fileRefreshGeneration = 0L
+    private var trashRefreshJob: Job? = null
+    private var trashRefreshGeneration = 0L
     private var nextTransferId = 1L
-    private val transferJobs = mutableMapOf<Long, Job>()
+    private val transferJobs = ConcurrentHashMap<Long, Job>()
+    private val transferHistoryCoordinator = TransferHistoryCoordinator(
+        persistence = transferHistoryPersistence,
+        scope = viewModelScope,
+        maxHistory = MAX_TRANSFER_HISTORY,
+    )
 
     init {
         restoreSession()
@@ -314,8 +333,11 @@ class MainViewModel(
         viewModelScope.launch {
             transferJobs.values.forEach { job -> job.cancel() }
             transferJobs.clear()
+            transferHistoryCoordinator.clearActive()
+            nextTransferId = 1L
             cancelManualRefreshLoading()
             cancelCurrentUserSync()
+            cancelExplorerRefreshes()
             sessionStore.clearToken(normalizedBaseUrl)
             fileDirectoryCache.clear()
             clearPreviewArtifacts()
@@ -332,16 +354,12 @@ class MainViewModel(
     fun selectTab(tab: AppTab) {
         _uiState.update { state -> state.copy(selectedTab = tab) }
 
-        when (tab) {
-            AppTab.HOME -> refreshHomeIfNeeded()
-            AppTab.FILES -> refreshFilesIfNeeded()
-            AppTab.TRASH -> refreshTrashIfNeeded()
-            AppTab.TRANSFERS -> Unit
-            AppTab.TEAM -> refreshTeamIfNeeded()
-            AppTab.ME -> {
-                syncCurrentUser()
-                refreshTeamIfNeeded()
-            }
+        when (tab.selectionLoad()) {
+            TabSelectionLoad.HOME -> refreshHomeIfNeeded()
+            TabSelectionLoad.FILES -> refreshFilesIfNeeded()
+            TabSelectionLoad.TRASH -> refreshTrashIfNeeded()
+            TabSelectionLoad.TEAM -> refreshTeamIfNeeded()
+            TabSelectionLoad.NONE -> Unit
         }
     }
 
@@ -379,6 +397,7 @@ class MainViewModel(
                 )
             }.onSuccess { response ->
                 sessionStore.saveSession(response.token, normalizedBaseUrl)
+                val restoredTransfers = activateTransferHistory(normalizedBaseUrl, response.user.id)
                 fileDirectoryCache.clear()
                 clearPreviewArtifacts()
                 _uiState.update { state ->
@@ -393,14 +412,13 @@ class MainViewModel(
                         trash = ExplorerUiState(breadcrumbs = emptyList()),
                         team = TeamUiState(),
                         preview = FilePreviewState(),
-                        transfers = emptyList(),
+                        transfers = restoredTransfers,
                         transferPanelOpen = false,
                         transferPanelTab = TransferPanelTab.DOWNLOADS,
                     )
                 }
-
                 emitMessage("欢迎回来，${response.user.nickname}")
-                refreshAll()
+                refreshAll(syncUser = false)
                 checkForAppUpdate(normalizedBaseUrl)
                 refreshIncomingShareDetailIfReady()
             }.onFailure { error ->
@@ -480,6 +498,7 @@ class MainViewModel(
                 },
             )
         }
+        transferHistoryCoordinator.replace(uiState.value.transfers)
     }
 
     fun cancelTransfer(taskId: Long) {
@@ -502,13 +521,27 @@ class MainViewModel(
         _uiState.update { state -> state.copy(trash = state.trash.copy(keyword = value)) }
     }
 
-    fun applyFileFilter(filter: StorageNodeFilter) {
+    internal fun applyFileFilterSelection(selection: FileFilterSelection) {
+        val normalized = selection.normalized(trashMode = false)
+        val current = uiState.value.files
+        if (current.category == normalized.category && current.filter == normalized.nodeFilter) {
+            return
+        }
+        val categoryChanged = current.category != normalized.category
+        val nextSearchScope = nextFileFilterSearchScope(
+            currentScope = current.searchScope,
+            currentCategory = current.category,
+            nextCategory = normalized.category,
+        )
         _uiState.update { state ->
             state.copy(
                 files = state.files.copy(
-                    filter = filter,
-                    category = null,
-                    searchScope = FileSearchScope.CURRENT_FOLDER,
+                    filter = normalized.nodeFilter,
+                    category = normalized.category,
+                    currentFolderId = if (categoryChanged) null else state.files.currentFolderId,
+                    breadcrumbs = if (categoryChanged) defaultBreadCrumbs else state.files.breadcrumbs,
+                    searchScope = nextSearchScope,
+                    selectedNodeIds = emptySet(),
                     highlightedNodeId = null,
                 ),
             )
@@ -537,6 +570,9 @@ class MainViewModel(
     }
 
     fun applyTrashFilter(filter: StorageNodeFilter) {
+        if (uiState.value.trash.filter == filter) {
+            return
+        }
         _uiState.update { state -> state.copy(trash = state.trash.copy(filter = filter)) }
         refreshTrash(forceLoading = true)
     }
@@ -546,6 +582,7 @@ class MainViewModel(
             state.copy(
                 files = state.files.copy(
                     highlightedNodeId = null,
+                    submittedKeyword = state.files.keyword.trim(),
                     searchScope = if (state.files.category == null) {
                         FileSearchScope.CURRENT_FOLDER
                     } else {
@@ -575,6 +612,7 @@ class MainViewModel(
                     selectedNodeIds = emptySet(),
                     highlightedNodeId = null,
                     category = null,
+                    submittedKeyword = normalizedKeyword,
                     searchScope = if (isGlobalSearch) {
                         FileSearchScope.GLOBAL
                     } else {
@@ -587,6 +625,9 @@ class MainViewModel(
     }
 
     fun submitTrashSearch() {
+        _uiState.update { state ->
+            state.copy(trash = state.trash.copy(submittedKeyword = state.trash.keyword.trim()))
+        }
         refreshTrash(forceLoading = true)
     }
 
@@ -619,6 +660,111 @@ class MainViewModel(
                 selectedNodeIds = explorer.items.mapTo(linkedSetOf()) { it.id },
                 highlightedNodeId = if (isTrashMode) explorer.highlightedNodeId else null,
             )
+        }
+    }
+
+    fun beginSelectedNodeRename() {
+        val files = uiState.value.files
+        val selectedId = files.selectedNodeIds.singleOrNull()
+        val target = selectedId?.let { id -> files.items.firstOrNull { node -> node.id == id } }
+        if (target == null) {
+            emitMessage("请只选择一个要重命名的文件或文件夹。")
+            return
+        }
+
+        _uiState.update { state ->
+            state.copy(
+                files = state.files.copy(
+                    renameTarget = target,
+                    renameSubmitting = false,
+                    renameError = null,
+                ),
+            )
+        }
+    }
+
+    fun dismissNodeRename() {
+        if (uiState.value.files.renameSubmitting) return
+        _uiState.update { state ->
+            state.copy(
+                files = state.files.copy(
+                    renameTarget = null,
+                    renameError = null,
+                ),
+            )
+        }
+    }
+
+    fun renameSelectedNode(rawName: String) {
+        val session = authenticatedSession() ?: return
+        val target = uiState.value.files.renameTarget ?: return
+        val validation = validateNodeName(rawName, target.name)
+        if (!validation.isValid) {
+            _uiState.update { state ->
+                state.copy(files = state.files.copy(renameError = validation.errorMessage))
+            }
+            return
+        }
+        if (uiState.value.files.renameSubmitting) return
+
+        viewModelScope.launch {
+            _uiState.update { state ->
+                state.copy(
+                    files = state.files.copy(
+                        renameSubmitting = true,
+                        renameError = null,
+                    ),
+                )
+            }
+
+            try {
+                val renamedNode = repository.renameNode(
+                    baseUrl = session.baseUrl,
+                    token = session.token,
+                    nodeId = target.id,
+                    name = validation.normalizedName,
+                )
+                if (!session.isCurrent()) return@launch
+
+                _uiState.update { state ->
+                    state.copy(
+                        home = state.home.copy(
+                            recentNodes = state.home.recentNodes.replaceNode(renamedNode),
+                        ),
+                        files = state.files.copy(
+                            items = state.files.items.replaceNode(renamedNode),
+                            breadcrumbs = state.files.breadcrumbs.map { crumb ->
+                                if (crumb.id == renamedNode.id) crumb.copy(label = renamedNode.name) else crumb
+                            },
+                            selectedNodeIds = emptySet(),
+                            renameTarget = null,
+                            renameSubmitting = false,
+                            renameError = null,
+                        ),
+                    )
+                }
+                fileDirectoryCache.clear()
+                emitMessage("已重命名为：${renamedNode.name}")
+                refreshHome(forceLoading = false)
+                refreshFiles(forceLoading = false)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Throwable) {
+                if (error is ApiException && error.status == 401) {
+                    handleError(error)
+                    return@launch
+                }
+                if (session.isCurrent()) {
+                    _uiState.update { state ->
+                        state.copy(
+                            files = state.files.copy(
+                                renameSubmitting = false,
+                                renameError = error.readableMessage(),
+                            ),
+                        )
+                    }
+                }
+            }
         }
     }
 
@@ -2052,6 +2198,7 @@ class MainViewModel(
                             currentFolderId = targetParentId,
                             breadcrumbs = resolveFolderBreadcrumbs(targetFolders, targetParentId),
                             keyword = "",
+                            submittedKeyword = "",
                             searchScope = FileSearchScope.CURRENT_FOLDER,
                             filter = StorageNodeFilter.ALL,
                             items = emptyList(),
@@ -2063,7 +2210,7 @@ class MainViewModel(
                     )
                 }
                 emitMessage(if (targetParentId == null) "已保存到你的网盘根目录。" else "已保存到选定文件夹。")
-                refreshAll()
+                refreshAll(syncUser = true)
             }.onFailure { error ->
                 _uiState.update { state ->
                     state.copy(incomingShare = state.incomingShare.copy(saving = false))
@@ -2416,6 +2563,16 @@ class MainViewModel(
             emitMessage("无法重新下载，请从文件列表重新选择保存位置。")
             return
         }
+        if (!appContext.canWriteTransferDestination(destinationUri)) {
+            updateTransfer(taskId) { current ->
+                current.copy(
+                    status = TransferStatus.FAILED,
+                    errorMessage = "原保存位置的写入权限已失效，请重新选择保存位置。",
+                )
+            }
+            emitMessage("原保存位置已不可用，请从文件列表重新选择保存位置。")
+            return
+        }
 
         if (task.itemKind == TransferItemKind.FILE && sourceNodeIds.size != 1) {
             emitMessage("无法重新下载，请从文件列表重新选择文件。")
@@ -2531,8 +2688,11 @@ class MainViewModel(
         viewModelScope.launch {
             transferJobs.values.forEach { job -> job.cancel() }
             transferJobs.clear()
+            transferHistoryCoordinator.clearActive()
+            nextTransferId = 1L
             cancelManualRefreshLoading()
             cancelCurrentUserSync()
+            cancelExplorerRefreshes()
             sessionStore.clearToken(baseUrl)
             fileDirectoryCache.clear()
             clearPreviewArtifacts()
@@ -2550,6 +2710,7 @@ class MainViewModel(
             _uiState.update { state -> state.copy(baseUrl = session.baseUrl) }
 
             if (session.token.isNullOrBlank()) {
+                nextTransferId = 1L
                 awaitMinimumBootSplashDuration()
                 _uiState.update { state -> state.copy(isBooting = false) }
                 checkForAppUpdate(session.baseUrl)
@@ -2560,6 +2721,7 @@ class MainViewModel(
                 val currentUser = repository.fetchCurrentUser(session.baseUrl, session.token)
                 session to currentUser
             }.onSuccess { (savedSession, currentUser) ->
+                val restoredTransfers = activateTransferHistory(savedSession.baseUrl, currentUser.id)
                 awaitMinimumBootSplashDuration()
                 fileDirectoryCache.clear()
                 clearPreviewArtifacts()
@@ -2569,14 +2731,16 @@ class MainViewModel(
                         authToken = savedSession.token,
                         currentUser = currentUser,
                         baseUrl = savedSession.baseUrl,
+                        transfers = restoredTransfers,
                     )
                 }
-                refreshAll()
+                refreshAll(syncUser = false)
                 checkForAppUpdate(savedSession.baseUrl)
                 refreshIncomingShareDetailIfReady()
             }.onFailure { error ->
                 awaitMinimumBootSplashDuration()
                 sessionStore.clearToken(session.baseUrl)
+                nextTransferId = 1L
                 clearPreviewArtifacts()
                 _uiState.update { state ->
                     state.copy(isBooting = false, authToken = null, currentUser = null)
@@ -2595,8 +2759,10 @@ class MainViewModel(
         }
     }
 
-    private fun refreshAll() {
-        syncCurrentUser()
+    private fun refreshAll(syncUser: Boolean) {
+        if (syncUser) {
+            syncCurrentUser()
+        }
         refreshHome(forceLoading = false)
         refreshFiles(forceLoading = false)
         refreshTrash(forceLoading = false)
@@ -2700,6 +2866,15 @@ class MainViewModel(
         currentUserSyncJob = null
     }
 
+    private fun cancelExplorerRefreshes() {
+        fileRefreshGeneration += 1L
+        fileRefreshJob?.cancel()
+        fileRefreshJob = null
+        trashRefreshGeneration += 1L
+        trashRefreshJob?.cancel()
+        trashRefreshJob = null
+    }
+
     private fun refreshHome(forceLoading: Boolean) {
         val session = authenticatedSession() ?: return
 
@@ -2749,16 +2924,17 @@ class MainViewModel(
     private fun refreshFiles(forceLoading: Boolean) {
         val session = authenticatedSession() ?: return
         val files = uiState.value.files
-
-        viewModelScope.launch {
+        val generation = ++fileRefreshGeneration
+        fileRefreshJob?.cancel()
+        fileRefreshJob = viewModelScope.launch {
             if (forceLoading) {
                 _uiState.update { state ->
                     state.copy(files = state.files.copy(loading = true, error = null))
                 }
             }
 
-            runCatching {
-                repository.fetchStorageNodes(
+            try {
+                val page = repository.fetchStorageNodes(
                     baseUrl = session.baseUrl,
                     token = session.token,
                     parentId = if (files.category != null || files.searchScope == FileSearchScope.GLOBAL) {
@@ -2766,12 +2942,14 @@ class MainViewModel(
                     } else {
                         files.currentFolderId
                     },
-                    keyword = files.keyword,
+                    keyword = files.submittedKeyword,
                     filter = if (files.category == null) files.filter else StorageNodeFilter.FILE,
-                    recursive = files.category != null || (files.searchScope == FileSearchScope.GLOBAL && files.keyword.isNotBlank()),
+                    recursive = files.category != null || (files.searchScope == FileSearchScope.GLOBAL && files.submittedKeyword.isNotBlank()),
                     category = files.category,
                 )
-            }.onSuccess { page ->
+                if (generation != fileRefreshGeneration || !session.isCurrent() || uiState.value.files.fileQueryIdentity() != files.fileQueryIdentity()) {
+                    return@launch
+                }
                 val visibleIds = page.items.mapTo(hashSetOf()) { it.id }
                 if (files.category == null && files.searchScope != FileSearchScope.GLOBAL) {
                     fileDirectoryCache[files.currentFolderId] = page.items
@@ -2788,11 +2966,15 @@ class MainViewModel(
                         ),
                     )
                 }
-            }.onFailure { error ->
-                _uiState.update { state ->
-                    state.copy(files = state.files.copy(loading = false, error = error.readableMessage()))
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Throwable) {
+                if (generation == fileRefreshGeneration && session.isCurrent() && uiState.value.files.fileQueryIdentity() == files.fileQueryIdentity()) {
+                    _uiState.update { state ->
+                        state.copy(files = state.files.copy(loading = false, error = error.readableMessage()))
+                    }
+                    handleError(error, emitUserMessage = false)
                 }
-                handleError(error, emitUserMessage = false)
             }
         }
     }
@@ -2800,22 +2982,25 @@ class MainViewModel(
     private fun refreshTrash(forceLoading: Boolean) {
         val session = authenticatedSession() ?: return
         val trash = uiState.value.trash
-
-        viewModelScope.launch {
+        val generation = ++trashRefreshGeneration
+        trashRefreshJob?.cancel()
+        trashRefreshJob = viewModelScope.launch {
             if (forceLoading) {
                 _uiState.update { state ->
                     state.copy(trash = state.trash.copy(loading = true, error = null))
                 }
             }
 
-            runCatching {
-                repository.fetchTrashNodes(
+            try {
+                val page = repository.fetchTrashNodes(
                     baseUrl = session.baseUrl,
                     token = session.token,
-                    keyword = trash.keyword,
+                    keyword = trash.submittedKeyword,
                     filter = trash.filter,
                 )
-            }.onSuccess { page ->
+                if (generation != trashRefreshGeneration || !session.isCurrent() || uiState.value.trash.trashQueryIdentity() != trash.trashQueryIdentity()) {
+                    return@launch
+                }
                 val visibleIds = page.items.mapTo(hashSetOf()) { it.id }
                 _uiState.update { state ->
                     state.copy(
@@ -2828,11 +3013,15 @@ class MainViewModel(
                         ),
                     )
                 }
-            }.onFailure { error ->
-                _uiState.update { state ->
-                    state.copy(trash = state.trash.copy(loading = false, error = error.readableMessage()))
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Throwable) {
+                if (generation == trashRefreshGeneration && session.isCurrent() && uiState.value.trash.trashQueryIdentity() == trash.trashQueryIdentity()) {
+                    _uiState.update { state ->
+                        state.copy(trash = state.trash.copy(loading = false, error = error.readableMessage()))
+                    }
+                    handleError(error, emitUserMessage = false)
                 }
-                handleError(error, emitUserMessage = false)
             }
         }
     }
@@ -3071,7 +3260,14 @@ class MainViewModel(
             else -> "分享链接暂不可用。"
         }
 
-    private fun allocateTransferId(): Long = nextTransferId++
+    private fun allocateTransferId(): Long {
+        val tasks = uiState.value.transfers
+        val allocatedId = nextTransferId.takeIf { candidate ->
+            candidate > 0L && tasks.none { task -> task.id == candidate }
+        } ?: tasks.nextTransferId()
+        nextTransferId = if (allocatedId == Long.MAX_VALUE) 1L else allocatedId + 1L
+        return allocatedId
+    }
 
     private fun appendTransfer(task: TransferTask): Long {
         _uiState.update { state ->
@@ -3079,6 +3275,7 @@ class MainViewModel(
                 transfers = (listOf(task) + state.transfers).take(MAX_TRANSFER_HISTORY),
             )
         }
+        transferHistoryCoordinator.persist(task, immediate = true)
         return task.id
     }
 
@@ -3091,6 +3288,13 @@ class MainViewModel(
                 transfers = state.transfers.map { task ->
                     if (task.id == taskId) transform(task) else task
                 },
+            )
+        }
+        val updatedTask = uiState.value.transfers.firstOrNull { task -> task.id == taskId }
+        if (updatedTask != null) {
+            transferHistoryCoordinator.persist(
+                task = updatedTask,
+                immediate = updatedTask.status.isTerminalTransferStatus(),
             )
         }
     }
@@ -3127,6 +3331,12 @@ class MainViewModel(
                 errorMessage = null,
             )
         }
+    }
+
+    private suspend fun activateTransferHistory(baseUrl: String, userId: Long): List<TransferTask> {
+        val restoredTasks = transferHistoryCoordinator.activate(baseUrl, userId)
+        nextTransferId = restoredTasks.nextTransferId()
+        return restoredTasks
     }
 
     private fun resolveDestinationLabel(uri: Uri, fallbackName: String): String {
@@ -3174,6 +3384,11 @@ class MainViewModel(
         val state = uiState.value
         val token = state.authToken ?: return null
         return AuthSession(token = token, baseUrl = state.baseUrl)
+    }
+
+    private fun AuthSession.isCurrent(): Boolean {
+        val state = uiState.value
+        return state.authToken == token && state.baseUrl == baseUrl
     }
 
     private fun normalizeBaseUrl(value: String): String {
@@ -3425,8 +3640,10 @@ class MainViewModel(
     }
 
     override fun onCleared() {
+        cancelExplorerRefreshes()
         transferJobs.values.forEach { job -> job.cancel() }
         transferJobs.clear()
+        transferHistoryCoordinator.close()
         clearPreviewArtifacts()
         super.onCleared()
     }
@@ -3439,12 +3656,50 @@ class MainViewModel(
                     return MainViewModel(
                         repository = AliciaRepository(),
                         sessionStore = SessionStore(context.applicationContext),
+                        transferHistoryPersistence = TransferHistoryStore.create(context.applicationContext),
                         defaultBaseUrl = BuildConfig.DEFAULT_API_BASE_URL,
                         appContext = context.applicationContext,
                     ) as T
                 }
             }
     }
+}
+
+private fun List<StorageNode>.replaceNode(updatedNode: StorageNode): List<StorageNode> =
+    map { node -> if (node.id == updatedNode.id) updatedNode else node }
+
+private fun TransferStatus.isTerminalTransferStatus(): Boolean =
+    this == TransferStatus.COMPLETED ||
+        this == TransferStatus.FAILED ||
+        this == TransferStatus.CANCELED
+
+private fun List<TransferTask>.nextTransferId(): Long {
+    val usedIds = asSequence().map(TransferTask::id).filter { it > 0L }.toHashSet()
+    var candidate = (usedIds.maxOrNull() ?: 0L).let { maximum ->
+        if (maximum == Long.MAX_VALUE) 1L else maximum + 1L
+    }
+    while (candidate in usedIds) {
+        candidate = if (candidate == Long.MAX_VALUE) 1L else candidate + 1L
+    }
+    return candidate
+}
+
+private fun Context.canWriteTransferDestination(uri: Uri): Boolean {
+    if (!uri.scheme.equals("content", ignoreCase = true)) {
+        return false
+    }
+    val hasPersistedPermission = contentResolver.persistedUriPermissions.any { permission ->
+        permission.uri == uri && permission.isWritePermission
+    }
+    if (hasPersistedPermission) {
+        return true
+    }
+    return checkUriPermission(
+        uri,
+        Process.myPid(),
+        Process.myUid(),
+        Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+    ) == PackageManager.PERMISSION_GRANTED
 }
 
 private fun Throwable.readableMessage(): String =

@@ -30,6 +30,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -89,49 +90,125 @@ internal fun AddTextField(
             keyboardActions = keyboardActions,
             interactionSource = interactionSource,
             decorationBox = { innerTextField ->
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(54.dp)
-                        .clip(RoundedCornerShape(15.dp))
-                        .background(if (enabled) Color.White else AddControlDisabled)
-                        .border(1.5.dp, borderColor, RoundedCornerShape(15.dp)),
-                    contentAlignment = Alignment.CenterStart,
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
-                            .alpha(if (enabled) 1f else 0.62f),
-                    ) {
-                        if (value.isEmpty()) {
-                            Text(
-                                text = placeholder,
-                                color = AddControlMuted,
-                                fontSize = 15.sp,
-                                modifier = Modifier.align(Alignment.CenterStart),
-                            )
-                        }
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(end = if (trailingContent == null) 0.dp else 40.dp)
-                                .align(Alignment.CenterStart),
-                        ) {
-                            innerTextField()
-                        }
-                        if (trailingContent != null) {
-                            Box(
-                                modifier = Modifier.align(Alignment.CenterEnd),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                trailingContent()
-                            }
-                        }
-                    }
-                }
+                AddTextFieldDecoration(
+                    empty = value.isEmpty(),
+                    placeholder = placeholder,
+                    enabled = enabled,
+                    borderColor = borderColor,
+                    trailingContent = trailingContent,
+                    innerTextField = innerTextField,
+                )
             },
         )
+    }
+}
+
+@Composable
+internal fun AddTextFieldValue(
+    value: TextFieldValue,
+    onValueChange: (TextFieldValue) -> Unit,
+    label: String,
+    placeholder: String,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+    keyboardActions: KeyboardActions = KeyboardActions.Default,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val focused by interactionSource.collectIsFocusedAsState()
+    val borderColor = when {
+        !enabled -> AddControlLine.copy(alpha = 0.7f)
+        focused -> AddControlBlue
+        else -> AddControlLine
+    }
+
+    Column(modifier = modifier) {
+        Text(
+            text = label,
+            color = AddControlInk,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold,
+        )
+        Box(modifier = Modifier.height(9.dp))
+        BasicTextField(
+            value = value,
+            onValueChange = onValueChange,
+            modifier = Modifier.fillMaxWidth(),
+            enabled = enabled,
+            singleLine = true,
+            textStyle = TextStyle(
+                color = AddControlInk,
+                fontSize = 15.sp,
+                lineHeight = 20.sp,
+                fontWeight = FontWeight.Medium,
+            ),
+            cursorBrush = SolidColor(AddControlBlue),
+            keyboardOptions = keyboardOptions,
+            keyboardActions = keyboardActions,
+            interactionSource = interactionSource,
+            decorationBox = { innerTextField ->
+                AddTextFieldDecoration(
+                    empty = value.text.isEmpty(),
+                    placeholder = placeholder,
+                    enabled = enabled,
+                    borderColor = borderColor,
+                    trailingContent = null,
+                    innerTextField = innerTextField,
+                )
+            },
+        )
+    }
+}
+
+@Composable
+private fun AddTextFieldDecoration(
+    empty: Boolean,
+    placeholder: String,
+    enabled: Boolean,
+    borderColor: Color,
+    trailingContent: (@Composable () -> Unit)?,
+    innerTextField: @Composable () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(54.dp)
+            .clip(RoundedCornerShape(15.dp))
+            .background(if (enabled) Color.White else AddControlDisabled)
+            .border(1.5.dp, borderColor, RoundedCornerShape(15.dp)),
+        contentAlignment = Alignment.CenterStart,
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .alpha(if (enabled) 1f else 0.62f),
+        ) {
+            if (empty) {
+                Text(
+                    text = placeholder,
+                    color = AddControlMuted,
+                    fontSize = 15.sp,
+                    modifier = Modifier.align(Alignment.CenterStart),
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(end = if (trailingContent == null) 0.dp else 40.dp)
+                    .align(Alignment.CenterStart),
+            ) {
+                innerTextField()
+            }
+            if (trailingContent != null) {
+                Box(
+                    modifier = Modifier.align(Alignment.CenterEnd),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    trailingContent()
+                }
+            }
+        }
     }
 }
 

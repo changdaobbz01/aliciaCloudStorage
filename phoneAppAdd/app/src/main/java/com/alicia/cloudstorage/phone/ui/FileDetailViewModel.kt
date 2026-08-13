@@ -31,6 +31,7 @@ private val detailTextExtensions = setOf(
 )
 
 data class FileDetailUiState(
+    val currentNode: StorageNode,
     val loading: Boolean = true,
     val kind: PreviewKind? = null,
     val textContent: String = "",
@@ -41,12 +42,15 @@ data class FileDetailUiState(
     val moveFolders: List<StorageNode> = emptyList(),
     val moveFoldersLoading: Boolean = false,
     val message: String? = null,
+    val renameDialogOpen: Boolean = false,
+    val renameError: String? = null,
     val deleted: Boolean = false,
     val contentChanged: Boolean = false,
 )
 
 enum class FileDetailOperation {
     DOWNLOAD,
+    RENAME,
     MOVE,
     DELETE,
 }
@@ -56,7 +60,7 @@ class FileDetailViewModel(
     private val args: FileDetailArgs,
     private val repository: AliciaRepository,
 ) : ViewModel() {
-    private val _uiState = MutableStateFlow(FileDetailUiState())
+    private val _uiState = MutableStateFlow(FileDetailUiState(currentNode = args.node))
     val uiState = _uiState.asStateFlow()
 
     init {
@@ -65,6 +69,64 @@ class FileDetailViewModel(
 
     fun retry() {
         loadPreview()
+    }
+
+    fun beginRename() {
+        val state = _uiState.value
+        if (state.activeOperation != null || state.deleted) return
+        _uiState.update { it.copy(renameDialogOpen = true, renameError = null) }
+    }
+
+    fun dismissRename() {
+        if (_uiState.value.activeOperation == FileDetailOperation.RENAME) return
+        _uiState.update { it.copy(renameDialogOpen = false, renameError = null) }
+    }
+
+    fun rename(rawName: String) {
+        val state = _uiState.value
+        if (state.activeOperation != null || state.deleted) return
+        val validation = validateNodeName(rawName, state.currentNode.name)
+        if (!validation.isValid) {
+            _uiState.update { it.copy(renameError = validation.errorMessage) }
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.update {
+                it.copy(
+                    activeOperation = FileDetailOperation.RENAME,
+                    renameError = null,
+                    message = null,
+                )
+            }
+            try {
+                val renamedNode = repository.renameNode(
+                    baseUrl = args.baseUrl,
+                    token = args.authToken,
+                    nodeId = state.currentNode.id,
+                    name = validation.normalizedName,
+                )
+                _uiState.update {
+                    it.copy(
+                        currentNode = renamedNode,
+                        activeOperation = null,
+                        renameDialogOpen = false,
+                        renameError = null,
+                        contentChanged = true,
+                        message = "已重命名为：${renamedNode.name}",
+                    )
+                }
+            } catch (error: kotlinx.coroutines.CancellationException) {
+                throw error
+            } catch (error: Throwable) {
+                _uiState.update {
+                    it.copy(
+                        activeOperation = null,
+                        renameError = error.message?.takeIf(String::isNotBlank) ?: "重命名失败，请稍后重试。",
+                    )
+                }
+            }
+        }
     }
 
     fun downloadToUri(destinationUri: Uri) {
@@ -141,9 +203,10 @@ class FileDetailViewModel(
                     nodeIds = listOf(args.node.id),
                     parentId = parentId,
                 )
-            }.onSuccess {
+            }.onSuccess { movedNodes ->
                 _uiState.update {
                     it.copy(
+                        currentNode = movedNodes.firstOrNull() ?: it.currentNode,
                         activeOperation = null,
                         contentChanged = true,
                         message = "移动成功。",

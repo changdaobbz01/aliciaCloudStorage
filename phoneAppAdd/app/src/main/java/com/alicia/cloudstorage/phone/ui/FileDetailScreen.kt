@@ -98,10 +98,11 @@ fun FileDetailScreen(
     onBack: () -> Unit,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val node = state.currentNode
     val context = LocalContext.current
     var overlay by rememberSaveable { mutableStateOf<DetailOverlay?>(null) }
     val downloadLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument(args.node.mimeType ?: "*/*"),
+        ActivityResultContracts.CreateDocument(node.mimeType ?: "*/*"),
     ) { uri ->
         uri?.let(viewModel::downloadToUri)
     }
@@ -109,7 +110,7 @@ fun FileDetailScreen(
         ActivityResultContracts.StartActivityForResult(),
     ) {}
 
-    BackHandler(enabled = overlay != null) {
+    BackHandler(enabled = overlay != null && !state.renameDialogOpen) {
         overlay = null
     }
 
@@ -134,12 +135,12 @@ fun FileDetailScreen(
                 .navigationBarsPadding(),
         ) {
             FileDetailHeader(
-                fileName = args.node.name,
+                fileName = node.name,
                 onBack = onBack,
                 onInfo = { overlay = DetailOverlay.INFO },
             )
             FileDetailPreview(
-                node = args.node,
+                node = node,
                 state = state,
                 onRetry = viewModel::retry,
                 modifier = Modifier
@@ -150,23 +151,24 @@ fun FileDetailScreen(
 
         when (overlay) {
             DetailOverlay.INFO -> FileInformationOverlay(
-                node = args.node,
+                node = node,
                 state = state,
                 onDismiss = { overlay = null },
                 onDownload = {
-                    downloadLauncher.launch(args.node.name.ifBlank { "download.bin" })
+                    downloadLauncher.launch(node.name.ifBlank { "download.bin" })
                 },
                 onShare = {
                     overlay = null
                     shareLauncher.launch(
                         ShareCreateActivity.createIntent(
                             context = context,
-                            nodes = listOf(args.node),
+                            nodes = listOf(node),
                             baseUrl = args.baseUrl,
                             authToken = args.authToken,
                         ),
                     )
                 },
+                onRename = viewModel::beginRename,
                 onMove = {
                     overlay = DetailOverlay.MOVE
                     viewModel.loadMoveFolders()
@@ -176,19 +178,29 @@ fun FileDetailScreen(
 
             DetailOverlay.MOVE -> FileMoveOverlay(
                 state = state,
-                currentParentId = args.node.parentId,
+                currentParentId = node.parentId,
                 onDismiss = { overlay = DetailOverlay.INFO },
                 onMove = viewModel::moveTo,
             )
 
             DetailOverlay.DELETE -> FileDeleteOverlay(
-                fileName = args.node.name,
+                fileName = node.name,
                 busy = state.activeOperation == FileDetailOperation.DELETE,
                 onDismiss = { overlay = DetailOverlay.INFO },
                 onConfirm = viewModel::deleteToTrash,
             )
 
             null -> Unit
+        }
+
+        if (state.renameDialogOpen) {
+            NodeNameDialog(
+                node = node,
+                submitting = state.activeOperation == FileDetailOperation.RENAME,
+                serverError = state.renameError,
+                onDismiss = viewModel::dismissRename,
+                onSubmit = viewModel::rename,
+            )
         }
 
         state.message?.let { message ->
@@ -700,6 +712,7 @@ private fun FileInformationOverlay(
     onDismiss: () -> Unit,
     onDownload: () -> Unit,
     onShare: () -> Unit,
+    onRename: () -> Unit,
     onMove: () -> Unit,
     onDelete: () -> Unit,
 ) {
@@ -737,18 +750,29 @@ private fun FileInformationOverlay(
                 label = "下载",
                 enabled = actionsEnabled,
                 onClick = onDownload,
+                modifier = Modifier.weight(1f),
             )
             FileDetailOperationButton(
                 drawableRes = R.drawable.ic_add_share_black,
                 label = "分享",
                 enabled = actionsEnabled,
                 onClick = onShare,
+                modifier = Modifier.weight(1f),
+            )
+            FileDetailOperationButton(
+                drawableRes = R.drawable.ic_add_edit_blue,
+                label = "重命名",
+                enabled = actionsEnabled,
+                tint = DetailBlue,
+                onClick = onRename,
+                modifier = Modifier.weight(1f),
             )
             FileDetailOperationButton(
                 drawableRes = R.drawable.ic_add_move_black,
                 label = "移动",
                 enabled = actionsEnabled,
                 onClick = onMove,
+                modifier = Modifier.weight(1f),
             )
             FileDetailOperationButton(
                 drawableRes = R.drawable.ic_add_delete_red,
@@ -756,6 +780,7 @@ private fun FileInformationOverlay(
                 enabled = actionsEnabled,
                 tint = DetailDanger,
                 onClick = onDelete,
+                modifier = Modifier.weight(1f),
             )
         }
     }
@@ -931,13 +956,13 @@ private fun FileDetailOperationButton(
     drawableRes: Int,
     label: String,
     enabled: Boolean,
-    tint: Color = DetailInk,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    tint: Color = DetailInk,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     Column(
-        modifier = Modifier
-            .width(68.dp)
+        modifier = modifier
             .noRippleClickable(
                 enabled = enabled,
                 interactionSource = interactionSource,
@@ -953,8 +978,8 @@ private fun FileDetailOperationButton(
             painter = painterResource(drawableRes),
             contentDescription = label,
             modifier = Modifier
-                .size(40.dp)
-                .scale(1.5f),
+                .size(34.dp)
+                .scale(1.35f),
         )
         Text(label, color = tint, fontSize = 14.sp, fontWeight = FontWeight.Bold)
     }
@@ -1005,11 +1030,12 @@ private fun MoveTargetRow(label: String, selected: Boolean, onClick: () -> Unit)
 private fun DetailPrimaryButton(
     label: String,
     busy: Boolean,
-    modifier: Modifier = Modifier.fillMaxWidth(),
+    modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
     Box(
         modifier = modifier
+            .fillMaxWidth()
             .height(50.dp)
             .clip(RoundedCornerShape(16.dp))
             .background(if (busy) DetailBlue.copy(alpha = 0.45f) else DetailBlue)

@@ -35,6 +35,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -141,6 +142,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
@@ -197,7 +199,7 @@ private val Danger = Color(0xFFE84D3D)
 private val Success = Color(0xFF16B56F)
 private val WarmOrange = Color(0xFFFF7A1A)
 
-private fun Modifier.addCardChrome(shape: RoundedCornerShape): Modifier =
+internal fun Modifier.addCardChrome(shape: RoundedCornerShape): Modifier =
     shadow(
         elevation = 3.dp,
         shape = shape,
@@ -254,6 +256,7 @@ private enum class AliciaGlyph {
     Share,
     Move,
     Restore,
+    Edit,
     Check,
     Home,
     Person,
@@ -330,12 +333,14 @@ private fun ReferenceIcon(
     contentDescription: String?,
     modifier: Modifier = Modifier,
     opacity: Float = 1f,
+    tint: Color? = null,
 ) {
     Image(
         painter = painterResource(asset.resId),
         contentDescription = contentDescription,
         modifier = modifier.size(24.dp).alpha(opacity),
         contentScale = ContentScale.Fit,
+        colorFilter = tint?.let(ColorFilter::tint),
     )
 }
 
@@ -355,6 +360,7 @@ private fun dockReferenceAsset(glyph: AliciaGlyph): ReferenceAsset? =
         AliciaGlyph.Move -> ReferenceAsset.MoveBlack
         AliciaGlyph.Trash -> ReferenceAsset.DeleteRed
         AliciaGlyph.Restore -> ReferenceAsset.RestoreGreen
+        AliciaGlyph.Edit -> ReferenceAsset.EditBlue
         else -> null
     }
 
@@ -788,8 +794,11 @@ private fun MainShell(
     }
 
     var uploadSheetOpen by rememberSaveable { mutableStateOf(false) }
-    var localUploadPickerOpen by rememberSaveable { mutableStateOf(false) }
+    var localUploadPickerOpen by remember { mutableStateOf(false) }
+    var localUploadPickerMode by remember { mutableStateOf(LocalPickerMode.FILES_AND_FOLDERS) }
     var localUploadRootUri by remember { mutableStateOf(context.findPersistedLocalUploadRoot()) }
+    var pendingSystemUploadCategory by rememberSaveable { mutableStateOf<SystemUploadCategory?>(null) }
+    var pendingSystemUploadParentId by rememberSaveable { mutableStateOf<Long?>(null) }
     var createFolderOpen by rememberSaveable { mutableStateOf(false) }
     var actionContext by remember { mutableStateOf<NodeActionContext?>(null) }
     var moveSheetOpen by rememberSaveable { mutableStateOf(false) }
@@ -840,6 +849,16 @@ private fun MainShell(
             localUploadRootUri = uri
         }
     }
+    val systemUploadLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+        val category = pendingSystemUploadCategory
+        val parentId = pendingSystemUploadParentId
+        pendingSystemUploadCategory = null
+        pendingSystemUploadParentId = null
+        if (category != null && uris.isNotEmpty()) {
+            persistReadPermissions(context, uris)
+            viewModel.uploadDocumentsToFolder(uris, parentId)
+        }
+    }
     val avatarLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             runCatching {
@@ -852,6 +871,7 @@ private fun MainShell(
         val node = pendingDownloadNode
         pendingDownloadNode = null
         if (uri != null && node != null) {
+            persistWritePermission(context, uri)
             viewModel.downloadFileToUri(node, uri)
         }
     }
@@ -859,6 +879,7 @@ private fun MainShell(
         val nodeIds = pendingArchiveNodeIds
         pendingArchiveNodeIds = emptyList()
         if (uri != null && nodeIds.isNotEmpty()) {
+            persistWritePermission(context, uri)
             viewModel.downloadArchiveToUri(nodeIds, uri)
         }
     }
@@ -1004,9 +1025,13 @@ private fun MainShell(
                 onSearch = {
                     if (isTrashMode) viewModel.submitTrashSearch() else viewModel.submitFileSearch()
                 },
-                onCategory = viewModel::applyFileCategory,
-                onFilter = viewModel::applyFileFilter,
-                onTrashFilter = viewModel::applyTrashFilter,
+                onApplyFilter = { selection ->
+                    if (isTrashMode) {
+                        viewModel.applyTrashFilter(selection.normalized(trashMode = true).nodeFilter)
+                    } else {
+                        viewModel.applyFileFilterSelection(selection)
+                    }
+                },
                 onCrumb = viewModel::jumpToCrumb,
                 onNodeClick = { node ->
                     if (explorer.selectedNodeIds.isNotEmpty()) {
@@ -1023,6 +1048,7 @@ private fun MainShell(
                 onToggleSelection = { node -> viewModel.toggleNodeSelection(isTrashMode, node.id) },
                 onClearSelection = { viewModel.clearNodeSelection(isTrashMode) },
                 onSelectAll = { viewModel.selectAllVisibleNodes(isTrashMode) },
+                onRenameSelected = viewModel::beginSelectedNodeRename,
                 onDownloadSelected = {
                     val ids = explorer.selectedNodeIds.toList()
                     pendingArchiveNodeIds = ids
@@ -1130,6 +1156,7 @@ private fun MainShell(
                                 )
                                 pendingAiComposerAttachComplete = null
                                 uploadSheetOpen = false
+                                localUploadPickerMode = LocalPickerMode.FILES_AND_FOLDERS
                                 localUploadPickerOpen = true
                             }
                         },
@@ -1137,6 +1164,7 @@ private fun MainShell(
                             pendingAiUploadTarget = null
                             pendingAiComposerAttachComplete = onSelectionComplete
                             uploadSheetOpen = false
+                            localUploadPickerMode = LocalPickerMode.FILES_AND_FOLDERS
                             localUploadPickerOpen = true
                         },
                         onClearAttachedFiles = {
@@ -1169,10 +1197,25 @@ private fun MainShell(
     if (uploadSheetOpen) {
         UploadSheet(
             onDismiss = { uploadSheetOpen = false },
-            onUploadLocal = {
+            onUploadSystem = { category ->
                 uploadSheetOpen = false
                 pendingAiUploadTarget = null
                 pendingAiComposerAttachComplete = null
+                pendingSystemUploadCategory = category
+                pendingSystemUploadParentId = uiState.files.currentFolderId
+                runCatching {
+                    systemUploadLauncher.launch(category.mimeTypes.toTypedArray())
+                }.onFailure {
+                    pendingSystemUploadCategory = null
+                    pendingSystemUploadParentId = null
+                    onMessage("无法打开系统文件选择器，请稍后重试。")
+                }
+            },
+            onUploadFolder = {
+                uploadSheetOpen = false
+                pendingAiUploadTarget = null
+                pendingAiComposerAttachComplete = null
+                localUploadPickerMode = LocalPickerMode.FOLDERS
                 localUploadPickerOpen = true
             },
             onCreateFolder = {
@@ -1185,6 +1228,7 @@ private fun MainShell(
     if (localUploadPickerOpen) {
         LocalUploadPicker(
             rootUri = localUploadRootUri,
+            mode = localUploadPickerMode,
             onRequestDirectoryAccess = {
                 localDirectoryAccessLauncher.launch(localUploadRootUri)
             },
@@ -1249,6 +1293,16 @@ private fun MainShell(
         )
     }
 
+    uiState.files.renameTarget?.let { node ->
+        NodeNameDialog(
+            node = node,
+            submitting = uiState.files.renameSubmitting,
+            serverError = uiState.files.renameError,
+            onDismiss = viewModel::dismissNodeRename,
+            onSubmit = viewModel::renameSelectedNode,
+        )
+    }
+
     actionContext?.let { target ->
         NodeActionSheet(
             target = target,
@@ -1269,6 +1323,12 @@ private fun MainShell(
             onShare = {
                 actionContext = null
                 openShareSelection(listOf(target.node))
+            },
+            onRename = {
+                actionContext = null
+                viewModel.clearNodeSelection(false)
+                viewModel.toggleNodeSelection(false, target.node.id)
+                viewModel.beginSelectedNodeRename()
             },
             onMove = {
                 actionContext = null
@@ -1496,14 +1556,14 @@ private fun AliciaAiNavItem(
             modifier = Modifier.size(62.dp),
             contentScale = ContentScale.Fit,
         )
-        Spacer(modifier = Modifier.height(5.dp))
-        Text(
-            text = "AI助手",
-            color = Color(0xFF121826),
-            fontSize = 11.sp,
-            lineHeight = 13.sp,
-            fontWeight = FontWeight.Medium,
-            textAlign = TextAlign.Center,
+        Spacer(modifier = Modifier.height(3.dp))
+        Image(
+            painter = painterResource(R.drawable.ai_assistant_wordmark),
+            contentDescription = null,
+            modifier = Modifier
+                .width(64.dp)
+                .height(23.dp),
+            contentScale = ContentScale.Fit,
         )
     }
 }
@@ -2018,15 +2078,14 @@ private fun FilesScreen(
     onSwitchTrash: (Boolean) -> Unit,
     onKeywordChange: (String) -> Unit,
     onSearch: () -> Unit,
-    onCategory: (StorageFileCategory?) -> Unit,
-    onFilter: (StorageNodeFilter) -> Unit,
-    onTrashFilter: (StorageNodeFilter) -> Unit,
+    onApplyFilter: (FileFilterSelection) -> Unit,
     onCrumb: (Int) -> Unit,
     onNodeClick: (StorageNode) -> Unit,
     onNodeLongPress: (StorageNode) -> Unit,
     onToggleSelection: (StorageNode) -> Unit,
     onClearSelection: () -> Unit,
     onSelectAll: () -> Unit,
+    onRenameSelected: () -> Unit,
     onDownloadSelected: () -> Unit,
     onShareSelected: () -> Unit,
     onMoveSelected: () -> Unit,
@@ -2050,8 +2109,6 @@ private fun FilesScreen(
     val displayedItems = remember(explorer.items, localSortMode) {
         sortStorageNodesLocally(explorer.items, localSortMode)
     }
-    val filterHandler = if (trashMode) onTrashFilter else onFilter
-
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -2094,6 +2151,7 @@ private fun FilesScreen(
             FileSortViewRow(
                 gridMode = gridMode,
                 sortMode = localSortMode,
+                filterActive = FileFilterSelection(explorer.category, explorer.filter).isActive(trashMode),
                 onGridMode = { gridMode = it },
                 onSort = { sortSheetOpen = true },
                 onFilter = { filterSheetOpen = true },
@@ -2172,6 +2230,8 @@ private fun FilesScreen(
                 onDownload = onDownloadSelected,
                 onShare = onShareSelected,
                 shareEnabled = !trashMode,
+                onRename = onRenameSelected,
+                renameEnabled = !trashMode && selectedCount == 1,
                 onMove = onMoveSelected,
                 onTrash = onTrashSelected,
                 onRestore = onRestoreSelected,
@@ -2197,21 +2257,11 @@ private fun FilesScreen(
 
     if (filterSheetOpen) {
         FileFilterSheet(
-            gridMode = gridMode,
             trashMode = trashMode,
             explorer = explorer,
             onDismiss = { filterSheetOpen = false },
-            onApply = { draftGridMode, draftCategory, draftFilter ->
-                gridMode = draftGridMode
-                if (trashMode) {
-                    filterHandler(draftFilter)
-                } else {
-                    if (draftCategory != explorer.category) {
-                        onCategory(draftCategory)
-                    } else if (draftCategory == null && draftFilter != explorer.filter) {
-                        filterHandler(draftFilter)
-                    }
-                }
+            onApply = { selection ->
+                onApplyFilter(selection)
                 filterSheetOpen = false
             },
         )
@@ -2403,6 +2453,7 @@ private fun FilesSearchField(
 private fun FileSortViewRow(
     gridMode: Boolean,
     sortMode: FileLocalSortMode,
+    filterActive: Boolean,
     onGridMode: (Boolean) -> Unit,
     onSort: () -> Unit,
     onFilter: () -> Unit,
@@ -2442,7 +2493,8 @@ private fun FileSortViewRow(
         Spacer(Modifier.width(6.dp))
         FileToolbarIconButton(
             asset = ReferenceAsset.FilterBlack,
-            contentDescription = "筛选设置",
+            contentDescription = if (filterActive) "筛选设置，已启用" else "筛选设置",
+            tint = if (filterActive) PrimaryBlueDeep else null,
             onClick = onFilter,
         )
     }
@@ -2540,6 +2592,7 @@ private fun FileSortSheet(
 private fun FileToolbarIconButton(
     asset: ReferenceAsset,
     contentDescription: String,
+    tint: Color? = null,
     onClick: () -> Unit,
 ) {
     Box(
@@ -2555,6 +2608,7 @@ private fun FileToolbarIconButton(
             modifier = Modifier
                 .size(30.dp)
                 .scale(1.6f),
+            tint = tint,
         )
     }
 }
@@ -2562,15 +2616,13 @@ private fun FileToolbarIconButton(
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun FileFilterSheet(
-    gridMode: Boolean,
     trashMode: Boolean,
     explorer: ExplorerUiState,
     onDismiss: () -> Unit,
-    onApply: (Boolean, StorageFileCategory?, StorageNodeFilter) -> Unit,
+    onApply: (FileFilterSelection) -> Unit,
 ) {
-    var draftGridMode by rememberSaveable { mutableStateOf(gridMode) }
-    var draftCategory by rememberSaveable { mutableStateOf(explorer.category) }
-    var draftFilter by rememberSaveable { mutableStateOf(explorer.filter) }
+    var draftCategory by rememberSaveable(explorer.category) { mutableStateOf(explorer.category) }
+    var draftFilter by rememberSaveable(explorer.filter) { mutableStateOf(explorer.filter) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -2592,23 +2644,6 @@ private fun FileFilterSheet(
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             Text("筛选设置", color = Ink, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
-
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-                FilterSheetModeButton(
-                    label = "列表视图",
-                    asset = if (draftGridMode) ReferenceAsset.ListBlack else ReferenceAsset.ListBlue,
-                    selected = !draftGridMode,
-                    onClick = { draftGridMode = false },
-                    modifier = Modifier.weight(1f),
-                )
-                FilterSheetModeButton(
-                    label = "宫格视图",
-                    asset = if (draftGridMode) ReferenceAsset.GridBlue else ReferenceAsset.GridBlack,
-                    selected = draftGridMode,
-                    onClick = { draftGridMode = true },
-                    modifier = Modifier.weight(1f),
-                )
-            }
 
             if (!trashMode) {
                 Text("文件类型", color = Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
@@ -2660,7 +2695,6 @@ private fun FileFilterSheet(
                 FilterFooterButton(
                     label = "重置",
                     onClick = {
-                        draftGridMode = false
                         draftCategory = null
                         draftFilter = StorageNodeFilter.ALL
                     },
@@ -2669,46 +2703,13 @@ private fun FileFilterSheet(
                 )
                 FilterFooterButton(
                     label = "确定",
-                    onClick = { onApply(draftGridMode, draftCategory, draftFilter) },
+                    onClick = {
+                        onApply(FileFilterSelection(draftCategory, draftFilter).normalized(trashMode))
+                    },
                     primary = true,
                     modifier = Modifier.weight(1f),
                 )
             }
-        }
-    }
-}
-
-@Composable
-private fun FilterSheetModeButton(
-    label: String,
-    asset: ReferenceAsset,
-    selected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Surface(
-        modifier = modifier
-            .height(50.dp)
-            .clip(RoundedCornerShape(14.dp))
-            .noRippleClickable(onClick = onClick)
-            .border(1.2.dp, if (selected) PrimaryBlueDeep.copy(alpha = 0.72f) else Color.Transparent, RoundedCornerShape(14.dp)),
-        color = if (selected) Color.White else Color(0xFFF0F2F6),
-        shape = RoundedCornerShape(14.dp),
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 14.dp),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            ReferenceIcon(
-                asset = asset,
-                contentDescription = null,
-                modifier = Modifier
-                    .size(26.dp)
-                    .scale(1.6f),
-            )
-            Spacer(Modifier.width(6.dp))
-            Text(label, color = if (selected) PrimaryBlueDeep else Ink, fontWeight = FontWeight.Bold, fontSize = 14.sp)
         }
     }
 }
@@ -3105,6 +3106,8 @@ private fun SelectionActionDock(
     onDownload: () -> Unit,
     onShare: () -> Unit,
     shareEnabled: Boolean,
+    onRename: () -> Unit,
+    renameEnabled: Boolean,
     onMove: () -> Unit,
     onTrash: () -> Unit,
     onRestore: () -> Unit,
@@ -3133,6 +3136,9 @@ private fun SelectionActionDock(
             } else {
                 DockAction(AliciaGlyph.Download, "下载", Ink, busy, onDownload)
                 DockAction(AliciaGlyph.Share, "分享", Ink, busy || !shareEnabled, onShare)
+                if (renameEnabled) {
+                    DockAction(AliciaGlyph.Edit, "重命名", PrimaryBlueDeep, busy, onRename)
+                }
                 DockAction(AliciaGlyph.Move, "移动", Ink, busy, onMove)
                 DockAction(AliciaGlyph.Trash, "删除", Danger, busy, onTrash)
             }
@@ -3141,7 +3147,7 @@ private fun SelectionActionDock(
 }
 
 @Composable
-private fun DockAction(
+private fun RowScope.DockAction(
     glyph: AliciaGlyph,
     label: String,
     tint: Color,
@@ -3152,7 +3158,7 @@ private fun DockAction(
     val referenceAsset = dockReferenceAsset(glyph) ?: ReferenceAsset.DownloadBlack
     Column(
         modifier = Modifier
-            .width(60.dp)
+            .weight(1f)
             .height(56.dp)
             .clip(RoundedCornerShape(16.dp))
             .noRippleClickable(enabled = !disabled, onClick = onClick)
@@ -3164,8 +3170,8 @@ private fun DockAction(
             asset = referenceAsset,
             contentDescription = label,
             modifier = Modifier
-                .size(32.dp)
-                .scale(1.75f),
+                .size(28.dp)
+                .scale(1.55f),
             opacity = if (disabled) 0.36f else 1f,
         )
         Text(label, color = contentColor, fontWeight = FontWeight.Bold, fontSize = 13.sp)
@@ -4045,7 +4051,8 @@ private fun TeamScreen(
 @Composable
 private fun UploadSheet(
     onDismiss: () -> Unit,
-    onUploadLocal: () -> Unit,
+    onUploadSystem: (SystemUploadCategory) -> Unit,
+    onUploadFolder: () -> Unit,
     onCreateFolder: () -> Unit,
 ) {
     ModalBottomSheet(
@@ -4069,10 +4076,36 @@ private fun UploadSheet(
                     .clip(RoundedCornerShape(999.dp))
                     .background(Color(0xFFD7DBE5)),
             )
-            Text("新增", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth()) {
-                UploadChoiceTile("上传文件或文件夹", ReferenceAsset.UploadFileBlue, Modifier.weight(1f), onUploadLocal)
-                UploadChoiceTile("新建云盘文件夹", ReferenceAsset.NewFolderBlue, Modifier.weight(1f), onCreateFolder)
+            Text("选择上传内容", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                    UploadChoiceTile("相册", ReferenceAsset.PhotoColor, Modifier.weight(1f)) {
+                        onUploadSystem(SystemUploadCategory.MEDIA)
+                    }
+                    UploadChoiceTile("文档", ReferenceAsset.DocumentColor, Modifier.weight(1f)) {
+                        onUploadSystem(SystemUploadCategory.DOCUMENTS)
+                    }
+                    UploadChoiceTile("压缩包", ReferenceAsset.ArchiveColor, Modifier.weight(1f)) {
+                        onUploadSystem(SystemUploadCategory.ARCHIVES)
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                    UploadChoiceTile("音频", ReferenceAsset.AudioColor, Modifier.weight(1f)) {
+                        onUploadSystem(SystemUploadCategory.AUDIO)
+                    }
+                    UploadChoiceTile("其他文件", ReferenceAsset.UploadFileBlue, Modifier.weight(1f)) {
+                        onUploadSystem(SystemUploadCategory.OTHER)
+                    }
+                    UploadChoiceTile("文件夹", ReferenceAsset.FolderSolidBlue, Modifier.weight(1f)) {
+                        onUploadFolder()
+                    }
+                }
+                UploadChoiceTile(
+                    label = "新建云盘文件夹",
+                    asset = ReferenceAsset.NewFolderBlue,
+                    modifier = Modifier.fillMaxWidth(),
+                    onClick = onCreateFolder,
+                )
             }
         }
     }
@@ -4161,66 +4194,11 @@ private fun CreateFolderDialog(
     onDismiss: () -> Unit,
     onCreate: (String) -> Unit,
 ) {
-    var name by rememberSaveable { mutableStateOf("") }
-    val canCreate = name.isNotBlank() && !creating
-    Dialog(
-        onDismissRequest = { if (!creating) onDismiss() },
-        properties = DialogProperties(
-            dismissOnBackPress = !creating,
-            dismissOnClickOutside = !creating,
-            usePlatformDefaultWidth = false,
-        ),
-    ) {
-        val shape = RoundedCornerShape(24.dp)
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 26.dp)
-                .addCardChrome(shape)
-                .clip(shape)
-                .background(Color.White)
-                .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp),
-        ) {
-            Text(
-                text = "新建文件夹",
-                color = Ink,
-                fontSize = 24.sp,
-                fontWeight = FontWeight.ExtraBold,
-            )
-            AddTextField(
-                value = name,
-                onValueChange = { name = it },
-                label = "文件夹名称",
-                placeholder = "请输入文件夹名称",
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !creating,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                keyboardActions = KeyboardActions(
-                    onDone = { if (canCreate) onCreate(name.trim()) },
-                ),
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                AddActionButton(
-                    label = "取消",
-                    onClick = onDismiss,
-                    modifier = Modifier.weight(1f),
-                    primary = false,
-                    enabled = !creating,
-                )
-                AddActionButton(
-                    label = if (creating) "创建中" else "创建",
-                    onClick = { onCreate(name.trim()) },
-                    modifier = Modifier.weight(1f),
-                    primary = true,
-                    enabled = canCreate,
-                )
-            }
-        }
-    }
+    CreateFolderNameDialog(
+        creating = creating,
+        onDismiss = onDismiss,
+        onCreate = onCreate,
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -4232,6 +4210,7 @@ private fun NodeActionSheet(
     onPreview: () -> Unit,
     onDownload: () -> Unit,
     onShare: () -> Unit,
+    onRename: () -> Unit,
     onMove: () -> Unit,
     onTrash: () -> Unit,
     onRestore: () -> Unit,
@@ -4270,6 +4249,7 @@ private fun NodeActionSheet(
                     SheetActionButton("下载文件夹", "打包为 ZIP 保存", onDownload)
                 }
                 SheetActionButton("分享", "生成访问链接", onShare)
+                SheetActionButton("重命名", "修改文件或文件夹名称", onRename)
                 SheetActionButton("移动", "移动到其他目录", onMove)
                 SheetActionButton("移入回收站", "稍后可以恢复", onTrash, danger = true)
             }
@@ -5761,11 +5741,20 @@ private fun persistReadPermissions(context: Context, uris: List<Uri>) {
     }
 }
 
+private fun persistWritePermission(context: Context, uri: Uri) {
+    runCatching {
+        context.contentResolver.takePersistableUriPermission(
+            uri,
+            Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+        )
+    }
+}
+
 private fun Context.findPersistedLocalUploadRoot(): Uri? =
     contentResolver.persistedUriPermissions
-        .firstOrNull { permission ->
-            permission.isReadPermission && DocumentsContract.isTreeUri(permission.uri)
-        }
+        .asSequence()
+        .filter { permission -> permission.isReadPermission && DocumentsContract.isTreeUri(permission.uri) }
+        .maxByOrNull { permission -> permission.persistedTime }
         ?.uri
 
 private class PdfPreviewDocument(filePath: String) {

@@ -1,0 +1,130 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 1,
+    "identityHash": "8426d847fa2e58f4a285eadc11924a05",
+    "entities": [
+      {
+        "tableName": "transfer_history",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`scope_key` TEXT NOT NULL, `task_id` INTEGER NOT NULL, `kind` TEXT NOT NULL, `item_kind` TEXT NOT NULL, `title` TEXT NOT NULL, `status` TEXT NOT NULL, `source_node_ids` TEXT NOT NULL, `source_uri` TEXT, `destination_uri` TEXT, `transferred_bytes` INTEGER NOT NULL, `total_bytes` INTEGER, `progress_percent` INTEGER, `location_label` TEXT, `error_message` TEXT, `created_at_millis` INTEGER NOT NULL, PRIMARY KEY(`scope_key`, `task_id`))",
+        "fields": [
+          {
+            "fieldPath": "scopeKey",
+            "columnName": "scope_key",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "taskId",
+            "columnName": "task_id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "kind",
+            "columnName": "kind",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "itemKind",
+            "columnName": "item_kind",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sourceNodeIds",
+            "columnName": "source_node_ids",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sourceUri",
+            "columnName": "source_uri",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "destinationUri",
+            "columnName": "destination_uri",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "transferredBytes",
+            "columnName": "transferred_bytes",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "totalBytes",
+            "columnName": "total_bytes",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "progressPercent",
+            "columnName": "progress_percent",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "locationLabel",
+            "columnName": "location_label",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "errorMessage",
+            "columnName": "error_message",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "createdAtMillis",
+            "columnName": "created_at_millis",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "scope_key",
+            "task_id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_transfer_history_scope_key_created_at_millis",
+            "unique": false,
+            "columnNames": [
+              "scope_key",
+              "created_at_millis"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_transfer_history_scope_key_created_at_millis` ON `${TABLE_NAME}` (`scope_key`, `created_at_millis`)"
+          }
+        ],
+        "foreignKeys": []
+      }
+    ],
+    "views": [],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '8426d847fa2e58f4a285eadc11924a05')"
+    ]
+  }
+}

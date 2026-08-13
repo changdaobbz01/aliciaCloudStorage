@@ -67,7 +67,7 @@ class FileDetailActivity : ComponentActivity() {
         ) {
             setResult(
                 Activity.RESULT_OK,
-                detailArgs.writeTo(Intent()).putExtra(EXTRA_CONTENT_CHANGED, true),
+                Intent().putExtra(EXTRA_CONTENT_CHANGED, true),
             )
         }
         super.finish()

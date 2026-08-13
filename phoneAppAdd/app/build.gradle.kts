@@ -4,6 +4,12 @@ import java.util.Properties
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("com.google.devtools.ksp")
+    id("androidx.room")
+}
+
+room {
+    schemaDirectory("$projectDir/schemas")
 }
 
 val officialApiBaseUrl = "https://windwindwind-alicia.cn"
@@ -97,6 +103,7 @@ android {
         targetSdk = 34
         versionCode = 9
         versionName = "0.1.8"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         val apiBaseUrl = resolveApiBaseUrl(project)
         val ragActionExecutionEnabled = resolveBooleanProperty(
@@ -118,7 +125,11 @@ android {
     }
 
     buildTypes {
+        debug {
+            manifestPlaceholders["usesCleartextTraffic"] = "true"
+        }
         release {
+            manifestPlaceholders["usesCleartextTraffic"] = "false"
             val releaseApiBaseUrl = resolveReleaseApiBaseUrl(project)
             val releaseActionExecutionEnabled = resolveBooleanProperty(
                 project,
@@ -187,6 +198,9 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.4")
     implementation("androidx.datastore:datastore-preferences:1.1.1")
     implementation("androidx.documentfile:documentfile:1.0.1")
+    implementation("androidx.room:room-runtime:2.6.1")
+    implementation("androidx.room:room-ktx:2.6.1")
+    ksp("androidx.room:room-compiler:2.6.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 
     implementation(composeBom)
@@ -199,6 +213,7 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended")
     implementation("com.google.android.material:material:1.12.0")
     implementation("io.coil-kt:coil-compose:2.7.0")
+    implementation("io.coil-kt:coil-video:2.7.0")
 
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
     implementation("com.squareup.retrofit2:converter-gson:2.11.0")
@@ -206,6 +221,10 @@ dependencies {
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
 
     testImplementation("junit:junit:4.13.2")
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test:core-ktx:1.6.1")
+    androidTestImplementation("androidx.test:runner:1.6.1")
+    androidTestImplementation("androidx.room:room-testing:2.6.1")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")

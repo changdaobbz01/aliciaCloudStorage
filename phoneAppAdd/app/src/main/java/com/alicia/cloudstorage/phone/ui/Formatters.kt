@@ -11,6 +11,7 @@ import java.time.OffsetDateTime
 import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
+import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
 import java.util.Locale
@@ -60,32 +61,40 @@ fun formatDateLabel(value: String): String {
     }
 }
 
-fun formatDateTime(value: String?): String {
+private fun parseApiInstant(value: String): Instant? =
+    runCatching {
+        OffsetDateTime.parse(value).toInstant()
+    }.recoverCatching {
+        // Production historically emitted UTC LocalDateTime values without an offset.
+        LocalDateTime.parse(value).toInstant(ZoneOffset.UTC)
+    }.getOrNull()
+
+fun formatDateTime(
+    value: String?,
+    zoneId: ZoneId = ZoneId.systemDefault(),
+): String {
     if (value.isNullOrBlank()) {
         return "暂无"
     }
 
-    return runCatching {
-        OffsetDateTime.parse(value)
-            .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
-    }.recoverCatching {
-        LocalDateTime.parse(value)
-            .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
-    }.getOrElse { value.replace('T', ' ') }
+    return parseApiInstant(value)
+        ?.atZone(zoneId)
+        ?.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
+        ?: value.replace('T', ' ')
 }
 
-fun formatMonthDay(value: String?): String {
+fun formatMonthDay(
+    value: String?,
+    zoneId: ZoneId = ZoneId.systemDefault(),
+): String {
     if (value.isNullOrBlank()) {
         return "暂无"
     }
 
-    val date = runCatching {
-        OffsetDateTime.parse(value).toLocalDate()
-    }.recoverCatching {
-        LocalDateTime.parse(value).toLocalDate()
-    }.recoverCatching {
-        LocalDate.parse(value.take(10))
-    }.getOrNull()
+    val date = parseApiInstant(value)
+        ?.atZone(zoneId)
+        ?.toLocalDate()
+        ?: runCatching { LocalDate.parse(value.take(10)) }.getOrNull()
 
     return date?.format(DateTimeFormatter.ofPattern("MM-dd")) ?: value
 }
@@ -93,20 +102,17 @@ fun formatMonthDay(value: String?): String {
 fun formatRelativeOrDateTime(
     value: String?,
     now: Instant = Instant.now(),
+    zoneId: ZoneId = ZoneId.systemDefault(),
 ): String {
     if (value.isNullOrBlank()) {
         return "暂无"
     }
 
-    val updatedAt = runCatching {
-        OffsetDateTime.parse(value).toInstant()
-    }.recoverCatching {
-        LocalDateTime.parse(value).atZone(ZoneId.systemDefault()).toInstant()
-    }.getOrNull() ?: return formatDateTime(value)
+    val updatedAt = parseApiInstant(value) ?: return formatDateTime(value, zoneId)
 
     val age = Duration.between(updatedAt, now)
     if (age.isNegative || age >= Duration.ofDays(1)) {
-        return formatDateTime(value)
+        return formatDateTime(value, zoneId)
     }
 
     return when {
