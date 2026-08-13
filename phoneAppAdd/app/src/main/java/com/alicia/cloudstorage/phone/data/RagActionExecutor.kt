@@ -30,11 +30,13 @@ internal class RagActionExecutor(
                 "share" -> executeShare(context, safeDraft, validation)
                 "collection.trash_by_name_contains",
                 "collection.trash_by_category",
+                "collection.trash",
                 -> executeBatchTrash(context, safeDraft, validation)
                 "collection.move_by_category",
                 "collection.move_by_extension",
                 "collection.move_exact",
                 "collection.move_by_name_contains",
+                "collection.move",
                 -> executeBatchMove(context, safeDraft, validation)
                 "collection.rename_add_prefix" -> executeBatchRename(context, safeDraft, validation)
                 else -> RagActionExecutionResult.invalidDraft("移动端暂不支持该执行动作。", validation)

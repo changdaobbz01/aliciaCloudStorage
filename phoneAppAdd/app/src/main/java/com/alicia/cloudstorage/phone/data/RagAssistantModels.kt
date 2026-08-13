@@ -11,12 +11,32 @@ data class RagAssistantClientEvent(
     val type: String,
     val candidateId: Long? = null,
     val candidateIndex: Int? = null,
+    val bindingKey: String? = null,
+    val planId: String? = null,
+    val outcome: String? = null,
 )
 
 data class RagAssistantClientContext(
     val currentFolderId: Long?,
     val currentFolderPath: String,
     val availableClientInputs: Map<String, Int> = emptyMap(),
+    val actionContractVersion: String = "action_bridge_v2",
+    val supportedActionTypes: List<String> = listOf(
+        "rename",
+        "delete",
+        "share",
+        "upload_target",
+        "composite.create_folder_then_upload",
+        "collection.trash_by_name_contains",
+        "collection.trash_by_category",
+        "collection.trash",
+        "collection.move_by_category",
+        "collection.move_by_extension",
+        "collection.move_exact",
+        "collection.move_by_name_contains",
+        "collection.move",
+        "collection.rename_add_prefix",
+    ),
 )
 
 data class RagAssistantPlanResponse(

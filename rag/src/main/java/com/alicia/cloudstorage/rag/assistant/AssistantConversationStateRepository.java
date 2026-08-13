@@ -9,6 +9,8 @@ public interface AssistantConversationStateRepository {
 
     void save(AssistantConversationState state);
 
+    void delete(String conversationId);
+
     void purgeExpired(Instant now);
 
     void trimToSize(int maxConversations);

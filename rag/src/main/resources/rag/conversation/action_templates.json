@@ -111,7 +111,7 @@
         "not_moving_folder_into_descendant"
       ],
       "conflicts": [
-        "same_name_sibling_auto_rename"
+        "same_name_sibling_rejected"
       ]
     },
     "node.batch_move": {
@@ -138,7 +138,7 @@
         "collection_revalidated"
       ],
       "conflicts": [
-        "same_name_sibling_auto_rename"
+        "same_name_sibling_rejected"
       ]
     },
     "node.trash": {

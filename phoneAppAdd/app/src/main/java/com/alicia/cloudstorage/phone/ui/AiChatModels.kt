@@ -44,6 +44,8 @@ internal data class AiChatCandidateSelectionAction(
     val displayText: String,
     val candidateId: Long? = null,
     val candidateIndex: Int? = null,
+    val bindingKey: String? = null,
+    val planId: String? = null,
 )
 
 internal data class AiChatPlanPreview(
@@ -51,6 +53,7 @@ internal data class AiChatPlanPreview(
     val lines: List<String>,
     val actionControls: AiChatPlanActionControls? = null,
     val clientActionControls: AiChatPlanClientActionControls? = null,
+    val planId: String? = null,
 )
 
 internal data class AiChatPlanActionControls(

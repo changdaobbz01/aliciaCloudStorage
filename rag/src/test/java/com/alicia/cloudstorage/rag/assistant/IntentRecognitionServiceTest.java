@@ -23,6 +23,52 @@ class IntentRecognitionServiceTest {
     }
 
     @Test
+    void generatedPlanningReplyCanBePolishedWithoutChangingStructuredResponse() {
+        AssistantReplyPolisher polisher = request -> Optional.of("我会先核对操作范围，等你确认预览后再继续删除。");
+        IntentRecognitionService service = new IntentRecognitionService(
+                message -> Optional.empty(),
+                intentRouter,
+                configLoader,
+                polisher
+        );
+        IntentRecognitionResponse response = service.recognizeLocal(
+                "删除测试目录里的全部文件",
+                "test"
+        );
+
+        IntentRecognitionResponse polished = service.polishGeneratedReply(
+                "删除测试目录里的全部文件",
+                response.withAssistantText("我已经核对操作范围，请确认后再继续。")
+        );
+
+        assertThat(polished.assistantText()).isEqualTo("我会先核对操作范围，等你确认预览后再继续删除。");
+        assertThat(polished.actionDraft()).isEqualTo(response.actionDraft());
+        assertThat(polished.entities()).isEqualTo(response.entities());
+    }
+
+    @Test
+    void generatedPlanningReplyRejectsUnsafeExecutionClaim() {
+        AssistantReplyPolisher polisher = request -> Optional.of("文件已经全部删除完成。");
+        IntentRecognitionService service = new IntentRecognitionService(
+                message -> Optional.empty(),
+                intentRouter,
+                configLoader,
+                polisher
+        );
+        IntentRecognitionResponse response = service.recognizeLocal(
+                "删除测试目录里的全部文件",
+                "test"
+        ).withAssistantText("请确认预览后再继续删除。");
+
+        IntentRecognitionResponse polished = service.polishGeneratedReply(
+                "删除测试目录里的全部文件",
+                response
+        );
+
+        assertThat(polished.assistantText()).isEqualTo("请确认预览后再继续删除。");
+    }
+
+    @Test
     void returnsDeepSeekIntentTemplateWithoutMockCandidates() {
         IntentModelClient modelClient = message -> Optional.of(new IntentModelClient.ModelIntentResult(
                 "deepseek",
@@ -705,6 +751,39 @@ class IntentRecognitionServiceTest {
         assertThat(response.entities())
                 .containsEntry("target_name", "项目计划")
                 .containsEntry("target_folder", "资料目录");
+    }
+
+    @Test
+    void localFallbackPreservesDirectorySuffixAndDoesNotInventNumericExtension() {
+        IntentModelClient unavailableClient = message -> Optional.empty();
+
+        IntentRecognitionResponse directory = new IntentRecognitionService(unavailableClient, intentRouter, configLoader)
+                .recognize("把测试目录移动到文件记录");
+        IntentRecognitionResponse numberedDirectory = new IntentRecognitionService(unavailableClient, intentRouter, configLoader)
+                .recognize("把测试目录2移动到文件记录");
+
+        assertThat(directory.entities())
+                .containsEntry("target_name", "测试目录")
+                .containsEntry("target_folder", "文件记录")
+                .containsEntry("result_type", "FOLDER");
+        assertThat(numberedDirectory.entities())
+                .containsEntry("target_name", "测试目录2")
+                .containsEntry("target_folder", "文件记录")
+                .doesNotContainKey("extension");
+    }
+
+    @Test
+    void localFallbackPreservesFileExtensionInExactMoveTarget() {
+        IntentModelClient unavailableClient = message -> Optional.empty();
+
+        IntentRecognitionResponse response = new IntentRecognitionService(unavailableClient, intentRouter, configLoader)
+                .recognize("把合同.pdf移动到资料目录");
+
+        assertThat(response.intentId()).isEqualTo("node_move");
+        assertThat(response.entities())
+                .containsEntry("target_name", "合同.pdf")
+                .containsEntry("target_folder", "资料目录")
+                .containsEntry("extension", "PDF");
     }
 
     @Test

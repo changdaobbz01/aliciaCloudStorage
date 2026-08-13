@@ -208,6 +208,47 @@
       },
       "message": "已生成按名称批量移动请求草稿，提交前仍需由调用方复核预览集合和目标目录。"
     },
+    "collection.move": {
+      "enabled": true,
+      "status": "backend_action_ready",
+      "next_action": "handoff_to_backend",
+      "executable_by_backend": true,
+      "authorization_required": true,
+      "method": "PUT",
+      "path_template": "/api/storage/nodes/batch/move",
+      "content_type": "application/json",
+      "required_candidate_fields": [],
+      "required_entity_slots": ["selector_version", "target_folder"],
+      "required_client_fields": [],
+      "required_bindings": ["sourceCollection", "targetParent"],
+      "path_variables": {},
+      "query_parameters": {},
+      "body": {
+        "nodeIds": "$bindings.sourceCollection.nodeIds",
+        "parentId": "$bindings.targetParent.nodeId"
+      },
+      "message": "已生成目录集合批量移动请求，提交前已校验完整集合快照和目标目录。"
+    },
+    "collection.trash": {
+      "enabled": true,
+      "status": "backend_action_ready",
+      "next_action": "handoff_to_backend",
+      "executable_by_backend": true,
+      "authorization_required": true,
+      "method": "POST",
+      "path_template": "/api/storage/nodes/batch/trash",
+      "content_type": "application/json",
+      "required_candidate_fields": [],
+      "required_entity_slots": ["selector_version"],
+      "required_client_fields": [],
+      "required_bindings": ["sourceCollection"],
+      "path_variables": {},
+      "query_parameters": {},
+      "body": {
+        "nodeIds": "$bindings.sourceCollection.nodeIds"
+      },
+      "message": "已生成目录集合批量移入回收站请求，提交前已校验完整集合快照。"
+    },
     "collection.rename_add_prefix": {
       "enabled": true,
       "status": "backend_action_ready",

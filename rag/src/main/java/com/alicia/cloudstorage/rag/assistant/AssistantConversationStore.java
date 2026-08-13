@@ -6,6 +6,9 @@ import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.util.HexFormat;
 import java.util.Map;
 import java.util.UUID;
 
@@ -32,17 +35,24 @@ public class AssistantConversationStore {
     }
 
     public AssistantConversationState resolve(String requestedConversationId) {
+        return resolve(requestedConversationId, "");
+    }
+
+    public AssistantConversationState resolve(String requestedConversationId, String authorizationHeader) {
         Instant now = Instant.now();
         purgeExpired(now);
+        String fingerprint = authorizationFingerprint(authorizationHeader);
         String conversationId = normalizeConversationId(requestedConversationId);
         if (!conversationId.isBlank()) {
             AssistantConversationState existing = repository.find(conversationId).orElse(null);
-            if (existing != null && !existing.isExpired(now)) {
+            if (existing != null
+                    && !existing.isExpired(now)
+                    && existing.authorizationFingerprint().equals(fingerprint)) {
                 return existing;
             }
         }
 
-        return newConversation(now);
+        return newConversation(now, fingerprint);
     }
 
     public AssistantConversationState save(
@@ -59,9 +69,11 @@ public class AssistantConversationStore {
                 response.entities(),
                 response.missingSlots(),
                 response.actionDraft(),
+                response.actionPlan(),
                 response.candidateBinding(),
                 AssistantConversationFocus.next(previous.focus(), response),
                 response.semanticFrame(),
+                previous.authorizationFingerprint(),
                 now.plus(ttl)
         );
         repository.save(next);
@@ -69,10 +81,29 @@ public class AssistantConversationStore {
     }
 
     public AssistantConversationState restart() {
-        return newConversation(Instant.now());
+        return restart("");
     }
 
-    private AssistantConversationState newConversation(Instant now) {
+    public AssistantConversationState restart(String authorizationHeader) {
+        return newConversation(Instant.now(), authorizationFingerprint(authorizationHeader));
+    }
+
+    public void complete(String conversationId) {
+        complete(conversationId, "");
+    }
+
+    public void complete(String conversationId, String authorizationHeader) {
+        String normalized = normalizeConversationId(conversationId);
+        AssistantConversationState existing = normalized.isBlank()
+                ? null
+                : repository.find(normalized).orElse(null);
+        if (existing != null
+                && existing.authorizationFingerprint().equals(authorizationFingerprint(authorizationHeader))) {
+            repository.delete(normalized);
+        }
+    }
+
+    private AssistantConversationState newConversation(Instant now, String authorizationFingerprint) {
         return new AssistantConversationState(
                 UUID.randomUUID().toString(),
                 0,
@@ -81,8 +112,10 @@ public class AssistantConversationStore {
                 java.util.List.of(),
                 null,
                 null,
+                null,
                 AssistantConversationFocus.empty(),
                 SemanticFrame.empty(),
+                authorizationFingerprint,
                 now.plus(ttl)
         );
     }
@@ -101,5 +134,16 @@ public class AssistantConversationStore {
 
     private void trimIfNeeded() {
         repository.trimToSize(maxConversations);
+    }
+
+    private String authorizationFingerprint(String authorizationHeader) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] bytes = digest.digest((authorizationHeader == null ? "" : authorizationHeader.trim())
+                    .getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(bytes);
+        } catch (Exception exception) {
+            throw new IllegalStateException("Unable to fingerprint authorization context.", exception);
+        }
     }
 }

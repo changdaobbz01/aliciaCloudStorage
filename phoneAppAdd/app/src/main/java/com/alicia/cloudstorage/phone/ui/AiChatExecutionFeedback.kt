@@ -8,7 +8,7 @@ internal object AiChatExecutionFeedback {
             mutationScope = AiChatFileMutationScope.FILES_ONLY,
         )
         register(
-            actionTypes = listOf("delete", "collection.trash_by_name_contains", "collection.trash_by_category"),
+            actionTypes = listOf("delete", "collection.trash_by_name_contains", "collection.trash_by_category", "collection.trash"),
             progressMessage = "正在将文件移入回收站，请稍等...",
             mutationScope = AiChatFileMutationScope.FILES_AND_TRASH,
         )
@@ -18,6 +18,7 @@ internal object AiChatExecutionFeedback {
                 "collection.move_by_category",
                 "collection.move_by_extension",
                 "collection.move_by_name_contains",
+                "collection.move",
             ),
             progressMessage = "正在为你移动文件或文件夹，请稍等...",
             mutationScope = AiChatFileMutationScope.FILES_ONLY,

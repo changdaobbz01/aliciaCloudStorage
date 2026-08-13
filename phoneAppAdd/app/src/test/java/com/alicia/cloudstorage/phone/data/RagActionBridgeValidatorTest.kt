@@ -98,6 +98,21 @@ class RagActionBridgeValidatorTest {
     }
 
     @Test
+    fun `allows scoped collection move draft`() {
+        val validation = validator.validate(
+            draft(
+                actionType = "collection.move",
+                method = "PUT",
+                pathTemplate = "/api/storage/nodes/batch/move",
+                body = mapOf("nodeIds" to listOf(1L, 2L), "parentId" to 9L),
+            ),
+        )
+
+        assertTrue(validation.allowed)
+        assertEquals(RagActionBridgeValidationCode.ALLOWED, validation.code)
+    }
+
+    @Test
     fun `rejects sensitive backend fields`() {
         val validation = validator.validate(
             draft(

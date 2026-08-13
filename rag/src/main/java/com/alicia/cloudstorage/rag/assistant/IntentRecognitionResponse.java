@@ -457,4 +457,87 @@ public record IntentRecognitionResponse(
                 interaction
         );
     }
+
+    public IntentRecognitionResponse withPlanningOverride(
+            String intentId,
+            String intentName,
+            String taskType,
+            Map<String, Object> entities,
+            String nextAction,
+            SafetyDecision safety,
+            ActionDraft actionDraft,
+            String assistantText,
+            String reason,
+            SemanticFrame semanticFrame
+    ) {
+        return new IntentRecognitionResponse(
+                id,
+                schemaVersion,
+                templateId,
+                provider,
+                model,
+                message,
+                intentId,
+                intentName,
+                taskType,
+                semanticFrame == null ? confidence : semanticFrame.confidence(),
+                userGoal,
+                normalizedQuery,
+                entities,
+                List.of(),
+                List.of(),
+                nextAction,
+                safety,
+                actionDraft,
+                BackendActionDraft.skipped("not_confirmed", "用户尚未确认，未生成执行请求。"),
+                ActionPlan.skipped("understanding", "操作计划正在生成。"),
+                assistantText,
+                "",
+                reason,
+                fallbackReason,
+                CandidateBindingResult.skipped("not_requested", "候选绑定尚未执行。"),
+                conversation,
+                semanticFrame,
+                interaction
+        );
+    }
+
+    public IntentRecognitionResponse withPlanningState(
+            Map<String, Object> entities,
+            CandidateBindingResult candidateBinding,
+            ActionPlan actionPlan,
+            String nextAction,
+            String assistantText
+    ) {
+        return new IntentRecognitionResponse(
+                id,
+                schemaVersion,
+                templateId,
+                provider,
+                model,
+                message,
+                intentId,
+                intentName,
+                taskType,
+                confidence,
+                userGoal,
+                normalizedQuery,
+                entities,
+                requiredSlots,
+                missingSlots,
+                nextAction,
+                safety,
+                actionDraft,
+                backendActionDraft,
+                actionPlan,
+                assistantText,
+                clarificationQuestion,
+                reason,
+                fallbackReason,
+                candidateBinding,
+                conversation,
+                semanticFrame,
+                interaction
+        );
+    }
 }

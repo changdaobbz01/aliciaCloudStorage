@@ -73,7 +73,45 @@ public class SemanticFrameResolver {
                 ? localFrame(message, response, conversation)
                 : modelFrame;
         rawFrame = applyMessageSemantics(message, rawFrame, conversation);
+        rawFrame = reconcileMutationTarget(rawFrame, response, message);
         return validate(rawFrame, response, clientContext);
+    }
+
+    private SemanticFrame reconcileMutationTarget(
+            SemanticFrame frame,
+            IntentRecognitionResponse response,
+            String message
+    ) {
+        if (frame == null
+                || response == null
+                || !List.of("DELETE", "MOVE", "RENAME", "SHARE").contains(frame.operation())) {
+            return frame;
+        }
+        String localTarget = cleanReferentialObjectSuffix(text(response.entities().get("target_name")));
+        if (localTarget.isBlank() || message == null || !message.contains(localTarget)) {
+            return frame;
+        }
+        String resultType = frame.query().resultType();
+        if ("ANY".equalsIgnoreCase(resultType)
+                && (localTarget.endsWith("目录") || localTarget.endsWith("文件夹"))) {
+            resultType = "FOLDER";
+        }
+        return copyFrame(
+                frame,
+                frame.relation(),
+                frame.operation(),
+                new SemanticFrame.Query(
+                        frame.query().mode(),
+                        resultType,
+                        localTarget,
+                        normalizeName(localTarget),
+                        frame.query().filters()
+                ),
+                frame.scope(),
+                frame.reference(),
+                frame.ambiguities(),
+                frame.clarification()
+        );
     }
 
     public boolean shouldReusePreviousIntent(
@@ -96,6 +134,12 @@ public class SemanticFrameResolver {
         Map<String, Object> entities = new LinkedHashMap<>();
         if (response != null && response.entities() != null && !"CORRECTION".equals(frame.relation())) {
             entities.putAll(response.entities());
+        }
+
+        if (List.of("DELETE", "MOVE", "RENAME", "SHARE").contains(frame.operation())
+                && !frame.query().nameSurface().isBlank()) {
+            entities.put("target_name", frame.query().nameSurface());
+            entities.put("result_type", frame.query().resultType());
         }
 
         if ("SEARCH".equals(frame.operation())) {

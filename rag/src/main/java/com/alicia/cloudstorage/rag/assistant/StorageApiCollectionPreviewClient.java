@@ -37,9 +37,7 @@ public class StorageApiCollectionPreviewClient implements CollectionPreviewPort 
         }
 
         try {
-            return queryPlan.needsClientFiltering()
-                    ? previewWithClientFiltering(request, queryPlan)
-                    : previewWithApiCount(request, queryPlan);
+            return previewWithClientFiltering(request, queryPlan);
         } catch (RuntimeException exception) {
             return CollectionPreviewResult.skipped("storage_api_error", "集合预览查询暂时不可用。");
         }
@@ -85,9 +83,7 @@ public class StorageApiCollectionPreviewClient implements CollectionPreviewPort 
 
         boolean exact = scanned >= totalItems;
         Map<Long, CandidateItem> folderById = storageApi.safeFolderMap(request.authorizationHeader());
-        List<CandidateItem> candidates = storageApi.enrichWithPaths(matched.stream()
-                .limit(request.maxPreviewItems())
-                .toList(), folderById);
+        List<CandidateItem> candidates = storageApi.enrichWithPaths(matched, folderById);
         int totalCount = safeInt(matched.size());
         String status = totalCount == 0 ? "no_candidates" : exact ? "preview_ready" : "preview_incomplete";
         String message = switch (status) {
@@ -112,6 +108,8 @@ public class StorageApiCollectionPreviewClient implements CollectionPreviewPort 
 
     private record QueryPlan(
             Long parentId,
+            boolean rootSelector,
+            boolean recursive,
             String keyword,
             String exactName,
             String type,
@@ -127,23 +125,39 @@ public class StorageApiCollectionPreviewClient implements CollectionPreviewPort 
             String extension = normalizeExtension(stringValue(filter.get("extension")));
             String mimeType = normalizeLower(stringValue(filter.get("mimeType")));
             Long parentId = longValue(filter.get("parentId"));
+            boolean rootSelector = booleanValue(filter.get("root"));
+            boolean directChildren = booleanValue(filter.get("directChildren"));
             boolean includeFolders = booleanValue(filter.get("includeFolders"));
             boolean unsupportedCategory = hasValue(filter.get("category")) && category.isBlank();
-            String type = includeFolders ? "" : "FILE";
+            String requestedNodeType = stringValue(filter.get("nodeType")).toUpperCase(Locale.ROOT);
+            String type = List.of("FILE", "FOLDER").contains(requestedNodeType)
+                    ? requestedNodeType
+                    : includeFolders ? "" : "FILE";
+            String scope = stringValue(filter.get("scope"));
+            boolean allDrive = scope.isBlank()
+                    || "all_drive".equalsIgnoreCase(scope)
+                    || "all".equalsIgnoreCase(scope);
+            boolean unsupportedScope = !scope.isBlank()
+                    && !allDrive
+                    && !"root".equalsIgnoreCase(scope)
+                    && parentId == null;
             return new QueryPlan(
                     parentId,
+                    rootSelector || "root".equalsIgnoreCase(scope),
+                    parentId == null && allDrive && !directChildren,
                     exactName.isBlank() ? nameContains : exactName,
                     exactName,
                     type,
                     category,
                     extension,
                     mimeType,
-                    unsupportedCategory
+                    unsupportedCategory || unsupportedScope
             );
         }
 
         private boolean hasMeaningfulSelector() {
             return parentId != null
+                    || rootSelector
                     || !keyword.isBlank()
                     || !category.isBlank()
                     || !extension.isBlank()
@@ -157,7 +171,7 @@ public class StorageApiCollectionPreviewClient implements CollectionPreviewPort 
         private StorageApiNodeQuery toStorageQuery(int page, int size) {
             return new StorageApiNodeQuery(
                     parentId,
-                    true,
+                    recursive,
                     keyword,
                     type,
                     category,

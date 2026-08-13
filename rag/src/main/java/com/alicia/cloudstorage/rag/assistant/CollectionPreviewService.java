@@ -1,6 +1,7 @@
 package com.alicia.cloudstorage.rag.assistant;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -14,15 +15,27 @@ public class CollectionPreviewService {
     private final CollectionPreviewPort collectionPreviewPort;
     private final int maxPreviewItems;
     private final int maxScanItems;
+    private final CollectionActionSnapshotStore snapshotStore;
 
+    @Autowired
     public CollectionPreviewService(
             CollectionPreviewPort collectionPreviewPort,
+            CollectionActionSnapshotStore snapshotStore,
             @Value("${alicia.rag.collection-preview.max-items:20}") int maxPreviewItems,
             @Value("${alicia.rag.collection-preview.max-scan-items:500}") int maxScanItems
     ) {
         this.collectionPreviewPort = collectionPreviewPort;
+        this.snapshotStore = snapshotStore;
         this.maxPreviewItems = Math.max(1, Math.min(500, maxPreviewItems));
         this.maxScanItems = Math.max(this.maxPreviewItems, maxScanItems);
+    }
+
+    public CollectionPreviewService(
+            CollectionPreviewPort collectionPreviewPort,
+            int maxPreviewItems,
+            int maxScanItems
+    ) {
+        this(collectionPreviewPort, null, maxPreviewItems, maxScanItems);
     }
 
     public IntentRecognitionResponse apply(IntentRecognitionResponse response, String authorizationHeader) {
@@ -49,7 +62,12 @@ public class CollectionPreviewService {
         if ("not_requested".equals(preview.status())) {
             return response;
         }
-        return response.withActionPlan(enrichPlan(plan, sourceEntry.getKey(), preview));
+        return response.withActionPlan(enrichPlan(
+                plan,
+                sourceEntry.getKey(),
+                preview,
+                authorizationHeader
+        ));
     }
 
     private Map.Entry<String, ActionPlanBinding> sourceCollectionBinding(ActionPlan plan) {
@@ -61,21 +79,34 @@ public class CollectionPreviewService {
         return null;
     }
 
-    private ActionPlan enrichPlan(ActionPlan plan, String sourceKey, CollectionPreviewResult preview) {
+    private ActionPlan enrichPlan(
+            ActionPlan plan,
+            String sourceKey,
+            CollectionPreviewResult preview,
+            String authorizationHeader
+    ) {
         Map<String, ActionPlanBinding> bindings = new LinkedHashMap<>(plan.bindings());
         ActionPlanBinding source = bindings.get(sourceKey);
+        Map<String, Object> filter = new LinkedHashMap<>(source.filter());
+        List<CandidateItem> displayCandidates = preview.candidates();
+        if (snapshotStore != null && "preview_ready".equals(preview.status()) && preview.exactCount()) {
+            String snapshotId = snapshotStore.save(plan.planId(), authorizationHeader, preview.candidates());
+            filter.put("snapshotId", snapshotId);
+            filter.put("snapshotCount", preview.totalCount());
+            displayCandidates = preview.candidates().stream().limit(maxPreviewItems).toList();
+        }
         bindings.put(sourceKey, new ActionPlanBinding(
                 source.key(),
                 source.kind(),
                 bindingStatus(preview.status()),
                 source.query(),
                 null,
-                preview.candidates(),
+                displayCandidates,
                 preview.totalCount(),
-                source.filter()
+                Map.copyOf(filter)
         ));
 
-        String status = planStatus(plan.status(), preview);
+        String status = planStatus(plan.status(), preview, filter);
         List<ActionPlanMessage> messages = new ArrayList<>(plan.messages());
         if (!preview.message().isBlank()) {
             messages.add(new ActionPlanMessage(messageLevel(preview.status()), preview.status(), preview.message()));
@@ -98,8 +129,14 @@ public class CollectionPreviewService {
         );
     }
 
-    private String planStatus(String currentStatus, CollectionPreviewResult preview) {
-        if ("preview_ready".equals(preview.status()) && preview.totalCount() > preview.candidates().size()) {
+    private String planStatus(
+            String currentStatus,
+            CollectionPreviewResult preview,
+            Map<String, Object> filter
+    ) {
+        if ("preview_ready".equals(preview.status())
+                && preview.totalCount() > preview.candidates().size()
+                && !filter.containsKey("snapshotId")) {
             return "binding_required";
         }
         return switch (preview.status()) {

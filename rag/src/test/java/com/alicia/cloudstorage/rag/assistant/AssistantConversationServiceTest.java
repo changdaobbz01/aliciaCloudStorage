@@ -59,6 +59,7 @@ class AssistantConversationServiceTest {
                 recognitionService,
                 configLoader
         );
+        CollectionActionSnapshotStore snapshotStore = new CollectionActionSnapshotStore(30, 1000);
         return new AssistantConversationService(
                 recognitionService,
                 intentRouter,
@@ -66,9 +67,19 @@ class AssistantConversationServiceTest {
                 candidateBindingService,
                 new CandidateSelectionService(configLoader),
                 contextResolver,
-                new BackendActionDraftService(configLoader),
+                new BackendActionDraftService(configLoader, snapshotStore),
                 new ActionPlanService(configLoader),
-                new CollectionPreviewService(collectionPreviewPort, 20, 500),
+                new CollectionPreviewService(collectionPreviewPort, snapshotStore, 20, 500),
+                new CollectionOperationSelectorResolver(),
+                new NavigationOperationResolver(configLoader),
+                new ScopedCollectionPlanningService(
+                        candidateSearchPort,
+                        collectionPreviewPort,
+                        snapshotStore,
+                        20,
+                        500
+                ),
+                new ExecutableConstraintGuard(),
                 configLoader
         );
     }
@@ -212,7 +223,7 @@ class AssistantConversationServiceTest {
         IntentRecognitionResponse secondTurn = service.plan(new AssistantPlanRequest(
                 "第二个",
                 firstTurn.conversation().conversationId()
-        ));
+        ), "Bearer token");
 
         assertThat(firstTurn.candidateBinding().status()).isEqualTo("multiple_candidates");
         assertThat(secondTurn.intentId()).isEqualTo("file_delete");
@@ -235,7 +246,7 @@ class AssistantConversationServiceTest {
         IntentRecognitionResponse secondTurn = service.plan(new AssistantPlanRequest(
                 "第九个",
                 firstTurn.conversation().conversationId()
-        ));
+        ), "Bearer token");
 
         assertThat(secondTurn.intentId()).isEqualTo("file_delete");
         assertThat(secondTurn.candidateBinding().status()).isEqualTo("candidate_selection_out_of_range");
@@ -255,11 +266,11 @@ class AssistantConversationServiceTest {
         IntentRecognitionResponse secondTurn = service.plan(new AssistantPlanRequest(
                 "选第2个",
                 firstTurn.conversation().conversationId()
-        ));
+        ), "Bearer token");
         IntentRecognitionResponse thirdTurn = service.plan(new AssistantPlanRequest(
                 "确认",
                 secondTurn.conversation().conversationId()
-        ));
+        ), "Bearer token");
 
         assertThat(thirdTurn.intentId()).isEqualTo("file_delete");
         assertThat(thirdTurn.candidateBinding().status()).isEqualTo("selected_candidate");
@@ -454,7 +465,7 @@ class AssistantConversationServiceTest {
         IntentRecognitionResponse secondTurn = service.plan(new AssistantPlanRequest(
                 "确认",
                 firstTurn.conversation().conversationId()
-        ));
+        ), "Bearer token");
 
         assertThat(firstTurn.candidateBinding().status()).isEqualTo("single_candidate");
         assertThat(secondTurn.nextAction()).isEqualTo("handoff_to_backend");
@@ -475,7 +486,7 @@ class AssistantConversationServiceTest {
         IntentRecognitionResponse secondTurn = service.plan(new AssistantPlanRequest(
                 "确认",
                 firstTurn.conversation().conversationId()
-        ));
+        ), "Bearer token");
 
         assertThat(secondTurn.nextAction()).isEqualTo("handoff_to_backend");
         assertThat(secondTurn.backendActionDraft().status()).isEqualTo("backend_action_ready");
@@ -496,7 +507,7 @@ class AssistantConversationServiceTest {
         IntentRecognitionResponse secondTurn = service.plan(new AssistantPlanRequest(
                 "确认",
                 firstTurn.conversation().conversationId()
-        ));
+        ), "Bearer token");
 
         assertThat(firstTurn.intentId()).isEqualTo("file_upload");
         assertThat(secondTurn.nextAction()).isEqualTo("handoff_to_client_upload");
@@ -705,6 +716,225 @@ class AssistantConversationServiceTest {
     }
 
     @Test
+    void namedNavigationUsesDeterministicStructureAndKeepsListingSeparate() {
+        AtomicInteger modelCalls = new AtomicInteger();
+        IntentRecognitionService countingRecognitionService = new IntentRecognitionService(
+                request -> {
+                    modelCalls.incrementAndGet();
+                    return Optional.empty();
+                },
+                intentRouter,
+                configLoader
+        );
+        List<CandidateSearchRequest> requests = new java.util.ArrayList<>();
+        CandidateSearchPort port = request -> {
+            requests.add(request);
+            CandidateItem candidate = "FILE".equals(request.candidateType())
+                    ? new CandidateItem(832L, 1L, "合同.pdf", "FILE", 1024L, "pdf", "application/pdf", "")
+                    : new CandidateItem(831L, null, "测试目录", "FOLDER", 0L, "", "", "");
+            return new CandidateBindingResult(
+                    "single_candidate",
+                    "test",
+                    request.query(),
+                    request.candidateType(),
+                    List.of(candidate),
+                    "已定位候选。"
+            );
+        };
+        AssistantConversationService service = conversationServiceWith(
+                port,
+                request -> CollectionPreviewResult.skipped("not_requested", "not requested"),
+                countingRecognitionService
+        );
+
+        IntentRecognitionResponse folder = service.plan(
+                new AssistantPlanRequest("打开测试目录", ""),
+                "Bearer token"
+        );
+        IntentRecognitionResponse file = service.plan(
+                new AssistantPlanRequest("请帮我打开合同.pdf", ""),
+                "Bearer token"
+        );
+        IntentRecognitionResponse contents = service.plan(
+                new AssistantPlanRequest("打开测试目录，里面的文件列出来", ""),
+                "Bearer token"
+        );
+        IntentRecognitionResponse entered = service.plan(
+                new AssistantPlanRequest("进入到测试目录里面", ""),
+                "Bearer token"
+        );
+
+        assertThat(modelCalls).hasValue(0);
+        assertThat(folder.semanticFrame().operation()).isEqualTo("NAVIGATE");
+        assertThat(folder.semanticFrame().query().mode()).isEqualTo("NAME_EXACT");
+        assertThat(folder.semanticFrame().query().resultType()).isEqualTo("FOLDER");
+        assertThat(folder.entities()).containsEntry("target_name", "测试目录");
+
+        assertThat(file.semanticFrame().operation()).isEqualTo("OPEN_FILE");
+        assertThat(file.semanticFrame().query().resultType()).isEqualTo("FILE");
+        assertThat(file.entities()).containsEntry("target_name", "合同.pdf");
+
+        assertThat(contents.semanticFrame().operation()).isEqualTo("SEARCH");
+        assertThat(contents.semanticFrame().query().mode()).isEqualTo("LIST_CHILDREN");
+        assertThat(contents.semanticFrame().query().resultType()).isEqualTo("FILE");
+        assertThat(contents.semanticFrame().scope().type()).isEqualTo("NAMED_FOLDER");
+        assertThat(contents.entities()).containsEntry("target_folder", "测试目录");
+
+        assertThat(entered.semanticFrame().operation()).isEqualTo("NAVIGATE");
+        assertThat(entered.semanticFrame().query().mode()).isEqualTo("NAME_EXACT");
+        assertThat(entered.entities()).containsEntry("target_name", "测试目录");
+
+        assertThat(requests).hasSize(4);
+        assertThat(requests.get(0).queryMode()).isEqualTo("name_search");
+        assertThat(requests.get(0).candidateType()).isEqualTo("FOLDER");
+        assertThat(requests.get(0).query()).isEqualTo("测试目录");
+        assertThat(requests.get(1).candidateType()).isEqualTo("FILE");
+        assertThat(requests.get(1).query()).isEqualTo("合同.pdf");
+        assertThat(requests.get(2).queryMode()).isEqualTo("directory_list");
+        assertThat(requests.get(2).scope()).isEqualTo("named_folder");
+        assertThat(requests.get(2).targetFolder()).isEqualTo("测试目录");
+    }
+
+    @Test
+    void genericNavigationWithoutContextAsksForConcreteTarget() {
+        AtomicInteger searches = new AtomicInteger();
+        AssistantConversationService service = conversationServiceWith(request -> {
+            searches.incrementAndGet();
+            return CandidateBindingResult.skipped("unexpected", "unexpected");
+        });
+
+        IntentRecognitionResponse response = service.plan(
+                new AssistantPlanRequest("打开文件夹", ""),
+                "Bearer token"
+        );
+
+        assertThat(searches).hasValue(0);
+        assertThat(response.nextAction()).isEqualTo("ask_clarification");
+        assertThat(response.semanticFrame().ambiguities()).contains("missing_navigation_target");
+        assertThat(response.assistantText()).contains("具体要打开哪个文件或文件夹");
+    }
+
+    @Test
+    void folderMutationUsesCanonicalSemanticTargetForCandidateBinding() {
+        CandidateSearchRequest[] captured = new CandidateSearchRequest[1];
+        CandidateSearchPort port = request -> {
+            captured[0] = request;
+            return new CandidateBindingResult(
+                    "single_candidate",
+                    "test",
+                    request.query(),
+                    request.candidateType(),
+                    List.of(new CandidateItem(841L, null, "测试目录", "FOLDER", 0L, "", "", "")),
+                    "已定位候选。"
+            );
+        };
+        AssistantConversationService service = conversationServiceWith(port);
+
+        IntentRecognitionResponse response = service.plan(
+                new AssistantPlanRequest("删除测试目录这个文件夹", ""),
+                "Bearer token"
+        );
+
+        assertThat(response.intentId()).isEqualTo("file_delete");
+        assertThat(response.entities())
+                .containsEntry("target_name", "测试目录")
+                .containsEntry("result_type", "FOLDER");
+        assertThat(captured[0].query()).isEqualTo("测试目录");
+        assertThat(captured[0].candidateType()).isEqualTo("FOLDER");
+        assertThat(response.candidateBinding().candidates()).singleElement().satisfies(candidate ->
+                assertThat(candidate.nodeId()).isEqualTo(841L)
+        );
+        assertThat(response.interaction().stage()).isEqualTo("NEED_CONFIRMATION");
+    }
+
+    @Test
+    void naturalConfirmationAliasBuildsBackendDraft() {
+        CandidateSearchPort port = request -> new CandidateBindingResult(
+                "single_candidate",
+                "test",
+                request.query(),
+                "FOLDER",
+                List.of(new CandidateItem(842L, null, "测试目录", "FOLDER", 0L, "", "", "")),
+                "已定位候选。"
+        );
+        AssistantConversationService service = conversationServiceWith(port);
+
+        IntentRecognitionResponse planned = service.plan(
+                new AssistantPlanRequest("删除测试目录这个文件夹", ""),
+                "Bearer token"
+        );
+        IntentRecognitionResponse confirmed = service.plan(
+                new AssistantPlanRequest("确认计划。", planned.conversation().conversationId()),
+                "Bearer token"
+        );
+
+        assertThat(confirmed.nextAction()).isEqualTo("handoff_to_backend");
+        assertThat(confirmed.backendActionDraft().status()).isEqualTo("backend_action_ready");
+        assertThat(confirmed.backendActionDraft().actionType()).isEqualTo("delete");
+        assertThat(confirmed.backendActionDraft().path()).isEqualTo("/api/storage/nodes/842");
+    }
+
+    @Test
+    void deleteAllFilesInThisFolderUsesCommonParentFromPreviousListing() {
+        List<CandidateItem> listedFiles = List.of(
+                new CandidateItem(851L, 850L, "报告一.pdf", "FILE", 100L, "pdf", "application/pdf", "", "/测试目录/报告一.pdf", List.of()),
+                new CandidateItem(852L, 850L, "报告二.docx", "FILE", 200L, "docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "", "/测试目录/报告二.docx", List.of())
+        );
+        AtomicInteger searches = new AtomicInteger();
+        CandidateSearchPort port = request -> {
+            searches.incrementAndGet();
+            return new CandidateBindingResult(
+                    "search_results_ready",
+                    "test",
+                    request.query(),
+                    "FILE",
+                    listedFiles,
+                    "已列出测试目录文件。"
+            );
+        };
+        CollectionPreviewPort previewPort = request -> new CollectionPreviewResult(
+                "preview_ready",
+                "test",
+                request.filter(),
+                listedFiles,
+                listedFiles.size(),
+                true,
+                "已生成完整预览。"
+        );
+        AssistantConversationService service = conversationServiceWith(port, previewPort);
+        AssistantClientContext clientContext = new AssistantClientContext(
+                null,
+                "/",
+                Map.of(),
+                "mobile_contract_v1",
+                List.of("collection.trash")
+        );
+
+        IntentRecognitionResponse listed = service.plan(
+                new AssistantPlanRequest("列出测试目录中的文件", "", clientContext),
+                "Bearer token"
+        );
+        IntentRecognitionResponse deletion = service.plan(
+                new AssistantPlanRequest(
+                        "删除这个文件夹中的所有文件",
+                        listed.conversation().conversationId(),
+                        clientContext
+                ),
+                "Bearer token"
+        );
+
+        assertThat(searches).hasValue(1);
+        assertThat(deletion.actionDraft().type()).isEqualTo("collection.trash");
+        assertThat(deletion.entities())
+                .containsEntry("source_kind", CollectionOperationSelectorResolver.SOURCE_CONTEXT_FOLDER)
+                .containsEntry("source_parent_id", 850L);
+        assertThat(deletion.actionPlan().status()).isEqualTo("collection_review_required");
+        assertThat(deletion.candidateBinding().candidates()).extracting(CandidateItem::nodeId)
+                .containsExactly(851L, 852L);
+        assertThat(deletion.interaction().stage()).isEqualTo("NEED_CONFIRMATION");
+    }
+
+    @Test
     void ordinalMutationWithoutCandidateContextAsksForAReferent() {
         IntentRecognitionResponse response = conversationService.plan(
                 new AssistantPlanRequest("删除第一个文件", ""),
@@ -730,7 +960,7 @@ class AssistantConversationServiceTest {
         IntentRecognitionResponse secondTurn = service.plan(new AssistantPlanRequest(
                 "确认",
                 firstTurn.conversation().conversationId()
-        ));
+        ), "Bearer token");
 
         assertThat(firstTurn.intentId()).isEqualTo("file_upload");
         assertThat(firstTurn.entities()).containsEntry("target_folder", "根目录");
@@ -764,7 +994,7 @@ class AssistantConversationServiceTest {
                 "确认",
                 firstTurn.conversation().conversationId(),
                 clientContext
-        ));
+        ), "Bearer token");
 
         assertThat(firstTurn.actionPlan().status()).isEqualTo("review_required");
         assertThat(firstTurn.actionPlan().requiredClientFields()).isEmpty();
@@ -789,7 +1019,7 @@ class AssistantConversationServiceTest {
         IntentRecognitionResponse secondTurn = service.plan(new AssistantPlanRequest(
                 "确认",
                 firstTurn.conversation().conversationId()
-        ));
+        ), "Bearer token");
 
         assertThat(firstTurn.intentId()).isEqualTo("folder_create_then_upload");
         assertThat(firstTurn.entities()).containsEntry("target_folder", "项目资料");
@@ -881,7 +1111,46 @@ class AssistantConversationServiceTest {
         assertThat(secondTurn.backendActionDraft().targetCandidate()).isNull();
         assertThat(secondTurn.actionPlan().status()).isEqualTo("ready_to_execute");
         assertThat(secondTurn.actionPlan().steps().getFirst().status()).isEqualTo("ready");
-        assertThat(previewPort.calls).isEqualTo(2);
+        assertThat(previewPort.calls).isEqualTo(1);
+    }
+
+    @Test
+    void legacyCollectionConfirmationUsesFullReviewedSnapshotWithoutRescanning() {
+        List<CandidateItem> candidates = java.util.stream.LongStream.rangeClosed(1, 25)
+                .mapToObj(id -> new CandidateItem(
+                        800L + id,
+                        null,
+                        "测试-" + id + ".txt",
+                        "FILE",
+                        10L,
+                        "txt",
+                        "text/plain",
+                        ""
+                ))
+                .toList();
+        PreviewPort previewPort = new PreviewPort(candidates, candidates.size(), true);
+        AssistantConversationService service = conversationServiceWith(
+                request -> {
+                    throw new AssertionError("collection delete should not call single-candidate search");
+                },
+                previewPort
+        );
+
+        IntentRecognitionResponse firstTurn = service.plan(new AssistantPlanRequest(
+                "把名字带有测试的文件全部删除",
+                ""
+        ), "Bearer token");
+        IntentRecognitionResponse secondTurn = service.plan(new AssistantPlanRequest(
+                "确认",
+                firstTurn.conversation().conversationId()
+        ), "Bearer token");
+
+        assertThat(firstTurn.actionPlan().bindings().get("sourceCollection").candidates()).hasSize(20);
+        assertThat(firstTurn.actionPlan().bindings().get("sourceCollection").count()).isEqualTo(25);
+        assertThat(secondTurn.backendActionDraft().body().get("nodeIds"))
+                .asList()
+                .hasSize(25);
+        assertThat(previewPort.calls).isEqualTo(1);
     }
 
     @Test
@@ -978,7 +1247,7 @@ class AssistantConversationServiceTest {
         assertThat(secondTurn.backendActionDraft().targetCandidate().nodeId()).isEqualTo(902L);
         assertThat(secondTurn.actionPlan().status()).isEqualTo("ready_to_execute");
         assertThat(secondTurn.actionPlan().steps().getFirst().status()).isEqualTo("ready");
-        assertThat(previewPort.calls).isEqualTo(2);
+        assertThat(previewPort.calls).isEqualTo(1);
     }
 
     @Test
@@ -1084,12 +1353,319 @@ class AssistantConversationServiceTest {
         IntentRecognitionResponse secondTurn = service.plan(new AssistantPlanRequest(
                 "确认",
                 firstTurn.conversation().conversationId()
-        ));
+        ), "Bearer token");
 
         assertThat(secondTurn.nextAction()).isEqualTo("wait_for_user_confirmation");
         assertThat(secondTurn.conversation().status()).isEqualTo("waiting_for_user_confirmation");
         assertThat(secondTurn.backendActionDraft().status()).isEqualTo("missing_candidate_fields");
         assertThat(secondTurn.backendActionDraft().path()).isBlank();
+    }
+
+    @Test
+    void scopedFolderChildrenMoveBindsSourceCollectionAndDestinationIndependently() {
+        CandidateSearchPort folderPort = request -> {
+            long id = "sourceFolder".equals(request.queryRole()) ? 801L : 902L;
+            String name = "sourceFolder".equals(request.queryRole()) ? "测试目录" : "文件记录";
+            String path = "/" + name;
+            CandidateItem folder = new CandidateItem(id, null, name, "FOLDER", 0L, "", "", "")
+                    .withPath(path, List.of());
+            return new CandidateBindingResult(
+                    "single_candidate",
+                    "test",
+                    request.query(),
+                    "FOLDER",
+                    List.of(folder),
+                    "已唯一定位目录。"
+            );
+        };
+        PreviewPort previewPort = new PreviewPort(List.of(
+                new CandidateItem(811L, 801L, "报告一.pdf", "FILE", 10L, "pdf", "application/pdf", ""),
+                new CandidateItem(812L, 801L, "报告二.docx", "FILE", 20L, "docx", "application/docx", "")
+        ), 2, true);
+        AssistantConversationService service = conversationServiceWith(folderPort, previewPort);
+
+        IntentRecognitionResponse firstTurn = service.plan(new AssistantPlanRequest(
+                "将测试目录中的所有文件移动到文件记录",
+                "",
+                scopedClientContext()
+        ), "Bearer scoped-user");
+        IntentRecognitionResponse confirmed = service.plan(new AssistantPlanRequest(
+                "确认",
+                firstTurn.conversation().conversationId()
+        ), "Bearer scoped-user");
+
+        assertThat(firstTurn.actionDraft().type()).isEqualTo("collection.move");
+        assertThat(firstTurn.entities())
+                .containsEntry("selector_version", "source_selector_v1")
+                .containsEntry("source_folder", "测试目录")
+                .containsEntry("source_node_type", "FILE")
+                .containsEntry("target_folder", "文件记录");
+        assertThat(previewPort.lastRequest.filter())
+                .containsEntry("parentId", 801L)
+                .containsEntry("nodeType", "FILE")
+                .containsEntry("directChildren", true);
+        assertThat(firstTurn.actionPlan().bindings()).containsKeys(
+                "sourceFolder",
+                "sourceCollection",
+                "targetParent"
+        );
+        assertThat(firstTurn.actionPlan().bindings().get("sourceCollection").candidates()).hasSize(2);
+        assertThat(firstTurn.actionPlan().bindings().get("sourceCollection").filter())
+                .containsKeys("snapshotId", "snapshotCount");
+        assertThat(confirmed.backendActionDraft().status()).isEqualTo("backend_action_ready");
+        assertThat(confirmed.backendActionDraft().body())
+                .containsEntry("nodeIds", List.of(811L, 812L))
+                .containsEntry("parentId", 902L);
+        assertThat(previewPort.calls).isEqualTo(1);
+    }
+
+    @Test
+    void confirmationExecutesReviewedSnapshotWithoutRescanningOrExpandingPayload() {
+        CandidateSearchPort folderPort = request -> {
+            long id = "sourceFolder".equals(request.queryRole()) ? 801L : 902L;
+            String name = "sourceFolder".equals(request.queryRole()) ? "测试目录" : "文件记录";
+            return new CandidateBindingResult(
+                    "single_candidate",
+                    "test",
+                    request.query(),
+                    "FOLDER",
+                    List.of(new CandidateItem(id, null, name, "FOLDER", 0L, "", "", "")
+                            .withPath("/" + name, List.of())),
+                    "已唯一定位目录。"
+            );
+        };
+        List<CandidateItem> candidates = java.util.stream.LongStream.rangeClosed(1, 25)
+                .mapToObj(id -> new CandidateItem(
+                        800L + id,
+                        801L,
+                        "文件" + id + ".txt",
+                        "FILE",
+                        10L,
+                        "txt",
+                        "text/plain",
+                        ""
+                ))
+                .toList();
+        PreviewPort previewPort = new PreviewPort(candidates, candidates.size(), true);
+        AssistantConversationService service = conversationServiceWith(folderPort, previewPort);
+
+        IntentRecognitionResponse firstTurn = service.plan(new AssistantPlanRequest(
+                "将测试目录中的所有文件移动到文件记录",
+                "",
+                scopedClientContext()
+        ), "Bearer scoped-user");
+        IntentRecognitionResponse confirmed = service.plan(new AssistantPlanRequest(
+                "确认",
+                firstTurn.conversation().conversationId()
+        ), "Bearer scoped-user");
+
+        assertThat(firstTurn.candidateBinding().candidates()).hasSize(20);
+        assertThat(firstTurn.actionPlan().bindings().get("sourceCollection").candidates()).hasSize(20);
+        assertThat(firstTurn.actionPlan().bindings().get("sourceCollection").count()).isEqualTo(25);
+        assertThat(confirmed.backendActionDraft().body().get("nodeIds"))
+                .asList()
+                .hasSize(25);
+        assertThat(previewPort.calls).isEqualTo(1);
+    }
+
+    @Test
+    void folderChildrenDeleteUsesAllDirectFilesInsteadOfForcingSingleSelection() {
+        CandidateSearchPort folderPort = request -> new CandidateBindingResult(
+                "single_candidate",
+                "test",
+                request.query(),
+                "FOLDER",
+                List.of(new CandidateItem(801L, null, "测试目录", "FOLDER", 0L, "", "", "")
+                        .withPath("/测试目录", List.of())),
+                "已唯一定位目录。"
+        );
+        PreviewPort previewPort = new PreviewPort(List.of(
+                new CandidateItem(811L, 801L, "文件一.txt", "FILE", 10L, "txt", "text/plain", ""),
+                new CandidateItem(812L, 801L, "文件二.txt", "FILE", 20L, "txt", "text/plain", "")
+        ), 2, true);
+        AssistantConversationService service = conversationServiceWith(folderPort, previewPort);
+
+        IntentRecognitionResponse response = service.plan(new AssistantPlanRequest(
+                "删除测试目录里的全部文件",
+                "",
+                scopedClientContext()
+        ), "Bearer scoped-user");
+
+        assertThat(response.actionDraft().type()).isEqualTo("collection.trash");
+        assertThat(response.actionPlan().status()).isEqualTo("collection_review_required");
+        assertThat(response.candidateBinding().status()).isEqualTo("search_results_ready");
+        assertThat(response.actionPlan().bindings().get("sourceCollection").count()).isEqualTo(2);
+        assertThat(response.actionPlan().bindings().get("sourceCollection").filter())
+                .containsEntry("parentId", 801L)
+                .containsEntry("nodeType", "FILE");
+    }
+
+    @Test
+    void scopedCollectionParserAcceptsOmittedConnectorAndColloquialQuantifier() {
+        CandidateSearchPort folderPort = request -> {
+            long id = "sourceFolder".equals(request.queryRole()) ? 801L : 902L;
+            String name = "sourceFolder".equals(request.queryRole()) ? "测试目录" : "文件记录";
+            return new CandidateBindingResult(
+                    "single_candidate",
+                    "test",
+                    request.query(),
+                    "FOLDER",
+                    List.of(new CandidateItem(id, null, name, "FOLDER", 0L, "", "", "")
+                            .withPath("/" + name, List.of())),
+                    "已唯一定位目录。"
+            );
+        };
+        PreviewPort previewPort = new PreviewPort(List.of(
+                new CandidateItem(811L, 801L, "文件一.txt", "FILE", 10L, "txt", "text/plain", ""),
+                new CandidateItem(812L, 801L, "文件二.txt", "FILE", 20L, "txt", "text/plain", "")
+        ), 2, true);
+        AssistantConversationService service = conversationServiceWith(folderPort, previewPort);
+
+        IntentRecognitionResponse response = service.plan(new AssistantPlanRequest(
+                "把测试目录所有文件全移动到文件记录吧",
+                "",
+                scopedClientContext()
+        ), "Bearer scoped-user");
+
+        assertThat(response.actionDraft().type()).isEqualTo("collection.move");
+        assertThat(response.entities())
+                .containsEntry("source_folder", "测试目录")
+                .containsEntry("source_node_type", "FILE")
+                .containsEntry("target_folder", "文件记录");
+        assertThat(response.actionPlan().bindings().get("sourceCollection").count()).isEqualTo(2);
+    }
+
+    @Test
+    void previousResultSetCanBeDeletedAsACollection() {
+        CandidateSearchPort searchPort = request -> new CandidateBindingResult(
+                "search_results_ready",
+                "test",
+                request.query(),
+                "FILE",
+                List.of(
+                        new CandidateItem(811L, 801L, "文件一.txt", "FILE", 10L, "txt", "text/plain", ""),
+                        new CandidateItem(812L, 801L, "文件二.txt", "FILE", 20L, "txt", "text/plain", "")
+                ),
+                "已找到两个文件。"
+        );
+        AssistantConversationService service = conversationServiceWith(searchPort);
+        IntentRecognitionResponse search = service.plan(
+                new AssistantPlanRequest("查找测试文件", ""),
+                "Bearer scoped-user"
+        );
+
+        IntentRecognitionResponse response = service.plan(new AssistantPlanRequest(
+                "删除刚才列出的全部文件",
+                search.conversation().conversationId(),
+                scopedClientContext()
+        ), "Bearer scoped-user");
+
+        assertThat(response.actionDraft().type()).isEqualTo("collection.trash");
+        assertThat(response.entities()).containsEntry("source_kind", "PREVIOUS_RESULTS");
+        assertThat(response.actionPlan().bindings().get("sourceCollection").count()).isEqualTo(2);
+        assertThat(response.nextAction()).isEqualTo("wait_for_user_confirmation");
+    }
+
+    @Test
+    void previousResultPronounCanBeDeletedAsACompleteCollection() {
+        CandidateSearchPort searchPort = request -> new CandidateBindingResult(
+                "search_results_ready",
+                "test",
+                request.query(),
+                "FILE",
+                List.of(
+                        new CandidateItem(811L, 801L, "文件一.txt", "FILE", 10L, "txt", "text/plain", ""),
+                        new CandidateItem(812L, 801L, "文件二.txt", "FILE", 20L, "txt", "text/plain", "")
+                ),
+                "已找到两个文件。"
+        );
+        AssistantConversationService service = conversationServiceWith(searchPort);
+        IntentRecognitionResponse search = service.plan(
+                new AssistantPlanRequest("查找测试文件", ""),
+                "Bearer scoped-user"
+        );
+
+        IntentRecognitionResponse response = service.plan(new AssistantPlanRequest(
+                "把它们全删了",
+                search.conversation().conversationId(),
+                scopedClientContext()
+        ), "Bearer scoped-user");
+
+        assertThat(response.actionDraft().type()).isEqualTo("collection.trash");
+        assertThat(response.entities()).containsEntry("source_kind", "PREVIOUS_RESULTS");
+        assertThat(response.actionPlan().bindings().get("sourceCollection").count()).isEqualTo(2);
+    }
+
+    @Test
+    void previousResultPronounWithoutContextFailsClosed() {
+        IntentRecognitionResponse response = conversationService.plan(new AssistantPlanRequest(
+                "把它们全删了",
+                "",
+                scopedClientContext()
+        ), "Bearer scoped-user");
+
+        assertThat(response.nextAction()).isEqualTo("ask_clarification");
+        assertThat(response.backendActionDraft().status()).isNotEqualTo("backend_action_ready");
+        assertThat(response.actionPlan().status()).isEqualTo("binding_required");
+        assertThat(response.assistantText()).contains("没有可处理").contains("不会执行");
+    }
+
+    @Test
+    void ambiguousClearAndRecursiveScopesFailClosedWithGuidance() {
+        IntentRecognitionResponse clear = conversationService.plan(new AssistantPlanRequest("清空测试目录", ""));
+        IntentRecognitionResponse recursive = conversationService.plan(new AssistantPlanRequest(
+                "删除测试目录中包含子文件夹的所有文件",
+                ""
+        ));
+
+        assertThat(clear.nextAction()).isEqualTo("ask_clarification");
+        assertThat(clear.actionDraft().type()).isEqualTo("none");
+        assertThat(clear.assistantText()).contains("文件").contains("子文件夹");
+        assertThat(recursive.nextAction()).isEqualTo("ask_clarification");
+        assertThat(recursive.actionDraft().type()).isEqualTo("none");
+        assertThat(recursive.assistantText()).contains("当前层").contains("所有子目录");
+    }
+
+    @Test
+    void unsupportedExclusionConstraintGetsTargetedGuidance() {
+        IntentRecognitionResponse response = conversationService.plan(new AssistantPlanRequest(
+                "删除测试目录中的所有文件，除了 PDF",
+                "",
+                scopedClientContext()
+        ));
+
+        assertThat(response.nextAction()).isEqualTo("ask_clarification");
+        assertThat(response.actionDraft().type()).isEqualTo("none");
+        assertThat(response.assistantText()).contains("排除条件").contains("除了/排除");
+    }
+
+    @Test
+    void conversationContextCannotBeReusedAcrossAuthorizationIdentities() {
+        SingleCandidateSearchPort port = new SingleCandidateSearchPort(701L, "临时截图.png");
+        AssistantConversationService service = conversationServiceWith(port);
+
+        IntentRecognitionResponse firstTurn = service.plan(
+                new AssistantPlanRequest("删除临时截图", ""),
+                "Bearer user-a"
+        );
+        IntentRecognitionResponse otherUserTurn = service.plan(
+                new AssistantPlanRequest("确认", firstTurn.conversation().conversationId()),
+                "Bearer user-b"
+        );
+
+        assertThat(otherUserTurn.conversation().conversationId())
+                .isNotEqualTo(firstTurn.conversation().conversationId());
+        assertThat(otherUserTurn.backendActionDraft().status()).isNotEqualTo("backend_action_ready");
+    }
+
+    private static AssistantClientContext scopedClientContext() {
+        return new AssistantClientContext(
+                null,
+                "/",
+                Map.of(),
+                "action_bridge_v2",
+                List.of("collection.move", "collection.trash")
+        );
     }
 
     private static class MultipleCandidateSearchPort implements CandidateSearchPort {

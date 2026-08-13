@@ -2,6 +2,49 @@
   "version": "collection_actions_v1",
   "description": "Batch plans that bind a source collection before execution.",
   "collections": {
+    "collection.move": {
+      "enabled": true,
+      "phase": 2,
+      "risk": "medium",
+      "confirmationLevel": "collection_then_final_review",
+      "selectorVersion": "source_selector_v1",
+      "sourceCollection": {
+        "key": "sourceCollection",
+        "kind": "source_collection",
+        "candidateType": "ANY",
+        "requiresExactCount": true,
+        "requiresPreview": true,
+        "requiresServerSnapshot": true
+      },
+      "bindings": [
+        {"key": "sourceFolder", "kind": "source_folder", "required": false, "requiresUniqueSelection": true},
+        {"key": "targetParent", "kind": "target_folder", "required": true, "requiresUniqueSelection": true}
+      ],
+      "steps": [
+        {"stepId": "move_collection", "action": "node.batch_move", "params": {"nodeIds": "$bindings.sourceCollection.nodeIds", "parentId": "$bindings.targetParent.nodeId"}}
+      ]
+    },
+    "collection.trash": {
+      "enabled": true,
+      "phase": 2,
+      "risk": "high",
+      "confirmationLevel": "collection_then_final_review",
+      "selectorVersion": "source_selector_v1",
+      "sourceCollection": {
+        "key": "sourceCollection",
+        "kind": "source_collection",
+        "candidateType": "ANY",
+        "requiresExactCount": true,
+        "requiresPreview": true,
+        "requiresServerSnapshot": true
+      },
+      "bindings": [
+        {"key": "sourceFolder", "kind": "source_folder", "required": false, "requiresUniqueSelection": true}
+      ],
+      "steps": [
+        {"stepId": "trash_collection", "action": "node.batch_trash", "params": {"nodeIds": "$bindings.sourceCollection.nodeIds"}}
+      ]
+    },
     "collection.trash_by_name_contains": {
       "enabled": true,
       "phase": 2,

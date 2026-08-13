@@ -201,6 +201,17 @@ public class CandidateBindingService {
                     FileQueryPlanResolver.DIRECTORY_LIST.equals(queryMode) ? "" : frame.query().nameSurface()
             );
         }
+        if (List.of("DELETE", "RENAME", "SHARE").contains(frame.operation())
+                && !frame.query().nameSurface().isBlank()) {
+            return new FileQueryPlanResolver.FileQueryPlan(
+                    FileQueryPlanResolver.NAME_SEARCH,
+                    FileQueryPlanResolver.SCOPE_ALL,
+                    frame.query().resultType(),
+                    "",
+                    "target_name",
+                    frame.query().nameSurface()
+            );
+        }
         if (List.of("UPLOAD", "MOVE", "CREATE_FOLDER").contains(frame.operation())
                 && !frame.scope().folderSurface().isBlank()) {
             return new FileQueryPlanResolver.FileQueryPlan(

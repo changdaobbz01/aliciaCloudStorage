@@ -7,8 +7,20 @@
     "file_rename": ["为", "成", "叫", "to"]
   },
   "conversation_controls": {
-    "confirm": ["确认", "确定", "可以", "执行", "是的", "对"],
+    "confirm": ["确认", "确认计划", "确认执行", "确定", "可以", "可以执行", "执行", "继续执行", "开始执行", "同意执行", "是的", "对"],
     "reset": ["取消", "算了", "重置", "重新开始", "清空上下文"]
+  },
+  "navigation_resolution": {
+    "polite_prefixes": ["请帮我", "麻烦帮我", "能否帮我", "可以帮我", "请", "麻烦", "帮我"],
+    "verbs": ["跳转到", "打开", "进入", "进去", "前往"],
+    "leading_particles": ["一下", "下", "到"],
+    "trailing_particles": ["给我看看", "给我看", "看看", "看下", "一下", "吧"],
+    "generic_references": ["文件", "这个文件", "那个文件", "该文件", "文件夹", "这个文件夹", "那个文件夹", "该文件夹", "目录", "这个目录", "那个目录", "该目录", "它", "这个", "那个"],
+    "root_references": ["根目录", "云盘首页"],
+    "parent_references": ["上一级", "上一层", "父目录"],
+    "file_descriptors": ["这个文件", "那个文件", "该文件"],
+    "folder_descriptors": ["这个文件夹", "那个文件夹", "该文件夹", "这个目录", "那个目录", "该目录"],
+    "file_extension_pattern": "(?i).+\\.[a-z0-9]{1,12}$"
   },
   "candidate_selection": {
     "ordinal_aliases": {

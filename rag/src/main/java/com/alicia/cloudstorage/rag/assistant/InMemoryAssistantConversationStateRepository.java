@@ -24,6 +24,11 @@ public class InMemoryAssistantConversationStateRepository implements AssistantCo
     }
 
     @Override
+    public void delete(String conversationId) {
+        conversations.remove(conversationId);
+    }
+
+    @Override
     public void purgeExpired(Instant now) {
         conversations.entrySet().removeIf(entry -> entry.getValue().isExpired(now));
     }

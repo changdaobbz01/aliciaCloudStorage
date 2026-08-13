@@ -114,6 +114,8 @@ internal class RagAssistantViewModel(
                 type = "SELECT_CANDIDATE",
                 candidateId = selection.candidateId,
                 candidateIndex = selection.candidateIndex,
+                bindingKey = selection.bindingKey,
+                planId = selection.planId,
             ),
         )
     }
@@ -326,6 +328,7 @@ internal class RagAssistantViewModel(
             return
         }
 
+        val planId = uiState.value.messages.firstOrNull { it.id == messageId }?.plan?.planId
         val draft = pendingBackendDrafts.remove(messageId)
         markReviewHandled(messageId)
         if (draft == null) {
@@ -356,6 +359,11 @@ internal class RagAssistantViewModel(
                     messageId = executionMessageId,
                     message = result.toAssistantMessage(executionMessageId),
                 )
+                syncExecutionOutcome(
+                    planId = planId,
+                    type = if (result.succeeded) "ACTION_COMPLETED" else "ACTION_FAILED",
+                    outcome = result.status.name,
+                )
             }.onFailure { error ->
                 if (error is CancellationException) {
                     throw error
@@ -369,18 +377,45 @@ internal class RagAssistantViewModel(
                         text = error.readableRagMessage(),
                     ),
                 )
+                syncExecutionOutcome(
+                    planId = planId,
+                    type = "ACTION_FAILED",
+                    outcome = error::class.java.simpleName,
+                )
             }
         }
     }
 
     fun cancelReview(messageId: Long) {
+        val planId = uiState.value.messages.firstOrNull { it.id == messageId }?.plan?.planId
         pendingBackendDrafts.remove(messageId)
         markReviewHandled(messageId)
-        conversationId = null
-        viewModelScope.launch {
-            conversationStore.clearConversation()
-        }
         appendAssistantMessage("已取消这次计划，我不会提交任何文件变更。")
+        syncExecutionOutcome(planId, "ACTION_CANCELLED", "user_cancelled")
+    }
+
+    private fun syncExecutionOutcome(planId: String?, type: String, outcome: String) {
+        val activeConversationId = conversationId ?: return
+        viewModelScope.launch {
+            runCatching {
+                client.plan(
+                    baseUrl = ragBaseUrl,
+                    token = authToken,
+                    message = "操作结果同步",
+                    conversationId = activeConversationId,
+                    clientContext = currentClientContext(),
+                    clientEvent = RagAssistantClientEvent(
+                        type = type,
+                        planId = planId,
+                        outcome = outcome,
+                    ),
+                )
+            }
+            if (conversationId == activeConversationId) {
+                conversationId = null
+                conversationStore.clearConversation()
+            }
+        }
     }
 
     fun prepareComposerAttachment(): Boolean {

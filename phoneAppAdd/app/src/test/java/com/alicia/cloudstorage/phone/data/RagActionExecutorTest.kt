@@ -132,6 +132,25 @@ class RagActionExecutorTest {
     }
 
     @Test
+    fun `executes scoped collection trash with snapshot node ids`() = runBlocking {
+        val repository = FakeRagActionRepositoryPort()
+        val executor = RagActionExecutor(repositoryPort = repository, executionEnabled = true)
+
+        val result = executor.execute(
+            context = context,
+            draft = draft(
+                actionType = "collection.trash",
+                method = "POST",
+                pathTemplate = "/api/storage/nodes/batch/trash",
+                body = mapOf("nodeIds" to listOf(7L, 8L)),
+            ),
+        )
+
+        assertEquals(RagActionExecutionStatus.COMPLETED, result.status)
+        assertEquals(listOf("batch-trash:[7, 8]"), repository.calls)
+    }
+
+    @Test
     fun `executes batch move with node ids and target parent`() = runBlocking {
         val repository = FakeRagActionRepositoryPort()
         val executor = RagActionExecutor(repositoryPort = repository, executionEnabled = true)
@@ -152,6 +171,25 @@ class RagActionExecutorTest {
         assertEquals(RagActionExecutionStatus.COMPLETED, result.status)
         assertEquals(listOf("move:[1, 2, 3]:9"), repository.calls)
         assertEquals(listOf(1L, 2L, 3L), result.affectedNodeIds)
+    }
+
+    @Test
+    fun `executes scoped collection move with snapshot node ids`() = runBlocking {
+        val repository = FakeRagActionRepositoryPort()
+        val executor = RagActionExecutor(repositoryPort = repository, executionEnabled = true)
+
+        val result = executor.execute(
+            context = context,
+            draft = draft(
+                actionType = "collection.move",
+                method = "PUT",
+                pathTemplate = "/api/storage/nodes/batch/move",
+                body = mapOf("nodeIds" to listOf(1L, 2L), "parentId" to 9L),
+            ),
+        )
+
+        assertEquals(RagActionExecutionStatus.COMPLETED, result.status)
+        assertEquals(listOf("move:[1, 2]:9"), repository.calls)
     }
 
     @Test

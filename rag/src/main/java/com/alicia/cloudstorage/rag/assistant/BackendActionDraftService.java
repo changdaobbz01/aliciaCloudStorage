@@ -1,6 +1,7 @@
 package com.alicia.cloudstorage.rag.assistant;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -14,11 +15,21 @@ public class BackendActionDraftService {
 
     private final String bridgeVersion;
     private final Map<String, ActionBridgeDefinition> actionsByType;
+    private final CollectionActionSnapshotStore snapshotStore;
 
-    public BackendActionDraftService(RagConfigLoader configLoader) {
+    @Autowired
+    public BackendActionDraftService(
+            RagConfigLoader configLoader,
+            CollectionActionSnapshotStore snapshotStore
+    ) {
         JsonNode config = configLoader.loadJson("rag/conversation/action_bridge.json");
         this.bridgeVersion = config.path("version").asText("action_bridge_v2");
         this.actionsByType = loadActions(config.path("actions"));
+        this.snapshotStore = snapshotStore;
+    }
+
+    public BackendActionDraftService(RagConfigLoader configLoader) {
+        this(configLoader, new CollectionActionSnapshotStore(30, 1000));
     }
 
     public BackendActionDraft build(
@@ -34,6 +45,16 @@ public class BackendActionDraftService {
             CandidateBindingResult candidateBinding,
             boolean confirmedByUser,
             AssistantClientContext clientContext
+    ) {
+        return build(response, candidateBinding, confirmedByUser, clientContext, "");
+    }
+
+    public BackendActionDraft build(
+            IntentRecognitionResponse response,
+            CandidateBindingResult candidateBinding,
+            boolean confirmedByUser,
+            AssistantClientContext clientContext,
+            String authorizationHeader
     ) {
         if (!confirmedByUser) {
             return BackendActionDraft.skipped("not_confirmed", "用户尚未确认，暂不生成后端请求草稿。");
@@ -51,7 +72,7 @@ public class BackendActionDraftService {
             return BackendActionDraft.skipped("unsupported_action", "当前动作未配置后端执行桥接契约。");
         }
         if (actionType.startsWith("collection.")) {
-            return buildCollectionDraft(response, definition);
+            return buildCollectionDraft(response, definition, authorizationHeader);
         }
 
         CandidateItem candidate = selectedCandidate(candidateBinding);
@@ -104,7 +125,8 @@ public class BackendActionDraftService {
 
     private BackendActionDraft buildCollectionDraft(
             IntentRecognitionResponse response,
-            ActionBridgeDefinition definition
+            ActionBridgeDefinition definition,
+            String authorizationHeader
     ) {
         ActionPlan plan = response.actionPlan();
         if (plan == null || !"collection".equals(plan.planKind())) {
@@ -134,24 +156,34 @@ public class BackendActionDraftService {
         if (sourceCollection == null || !"resolved".equals(sourceCollection.status())) {
             return BackendActionDraft.skipped("collection_preview_not_ready", "源集合预览未完成，不能生成批量请求草稿。");
         }
-        if (sourceCollection.candidates().isEmpty()) {
+        List<CandidateItem> executableCandidates = executableCandidates(plan, sourceCollection, authorizationHeader);
+        if (executableCandidates == null) {
+            return BackendActionDraft.skipped(
+                    "collection_snapshot_invalid",
+                    "操作集合快照已失效或不属于当前登录用户，请重新生成计划。"
+            );
+        }
+        if (executableCandidates.isEmpty()) {
             return BackendActionDraft.skipped("collection_preview_empty", "源集合为空，不能生成批量请求草稿。");
         }
-        if (sourceCollection.count() == null || sourceCollection.count() != sourceCollection.candidates().size()) {
+        if (sourceCollection.count() == null || sourceCollection.count() != executableCandidates.size()) {
             return BackendActionDraft.skipped(
                     "collection_preview_not_executable",
                     "集合预览未包含全部候选，暂不生成批量请求草稿。"
             );
         }
-        if (nodeIds(sourceCollection).size() != sourceCollection.candidates().size()) {
+        if (executableCandidates.stream().map(CandidateItem::nodeId).filter(java.util.Objects::nonNull).count()
+                != executableCandidates.size()) {
             return BackendActionDraft.skipped("missing_candidate_fields", "集合候选缺少 nodeId，不能生成批量请求草稿。");
         }
 
+        plan = withExecutableCandidates(plan, sourceCollection, executableCandidates);
         ActionPlanBinding targetParent = plan.bindings().get("targetParent");
         if (definition.requiredBindings().contains("targetParent")
                 && (targetParent == null
                 || targetParent.selectedCandidate() == null
-                || targetParent.selectedCandidate().nodeId() == null)) {
+                || (targetParent.selectedCandidate().nodeId() == null
+                && !booleanValue(targetParent.filter().get("root"))))) {
             return BackendActionDraft.skipped("missing_target_candidate", "尚未锁定目标目录，不能生成批量请求草稿。");
         }
 
@@ -434,6 +466,58 @@ public class BackendActionDraftService {
             }
         }
         return null;
+    }
+
+    private List<CandidateItem> executableCandidates(
+            ActionPlan plan,
+            ActionPlanBinding sourceCollection,
+            String authorizationHeader
+    ) {
+        Object snapshotValue = sourceCollection.filter().get("snapshotId");
+        String snapshotId = snapshotValue == null ? "" : String.valueOf(snapshotValue).trim();
+        if (snapshotId.isBlank()) {
+            return sourceCollection.candidates();
+        }
+        return snapshotStore.load(snapshotId, plan.planId(), authorizationHeader).orElse(null);
+    }
+
+    private ActionPlan withExecutableCandidates(
+            ActionPlan plan,
+            ActionPlanBinding sourceCollection,
+            List<CandidateItem> candidates
+    ) {
+        Map<String, ActionPlanBinding> bindings = new LinkedHashMap<>(plan.bindings());
+        bindings.put(sourceCollection.key(), new ActionPlanBinding(
+                sourceCollection.key(),
+                sourceCollection.kind(),
+                sourceCollection.status(),
+                sourceCollection.query(),
+                sourceCollection.selectedCandidate(),
+                candidates,
+                candidates.size(),
+                sourceCollection.filter()
+        ));
+        return new ActionPlan(
+                plan.version(),
+                plan.planId(),
+                plan.status(),
+                plan.planKind(),
+                plan.actionType(),
+                plan.risk(),
+                plan.confirmationLevel(),
+                plan.locale(),
+                bindings,
+                plan.steps(),
+                plan.requiredClientFields(),
+                plan.summary(),
+                plan.messages()
+        );
+    }
+
+    private boolean booleanValue(Object value) {
+        return value instanceof Boolean bool
+                ? bool
+                : value != null && Boolean.parseBoolean(String.valueOf(value));
     }
 
     private List<Long> nodeIds(ActionPlanBinding binding) {

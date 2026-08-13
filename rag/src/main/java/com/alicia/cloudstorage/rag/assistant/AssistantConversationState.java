@@ -12,9 +12,11 @@ public record AssistantConversationState(
         Map<String, Object> entities,
         List<String> pendingSlots,
         ActionDraft pendingActionDraft,
+        ActionPlan pendingActionPlan,
         CandidateBindingResult candidateBinding,
         AssistantConversationFocus focus,
         SemanticFrame semanticFrame,
+        String authorizationFingerprint,
         Instant expiresAt
 ) {
     public AssistantConversationState {
@@ -22,6 +24,7 @@ public record AssistantConversationState(
         pendingSlots = pendingSlots == null ? List.of() : List.copyOf(pendingSlots);
         focus = focus == null ? AssistantConversationFocus.empty() : focus;
         semanticFrame = semanticFrame == null ? SemanticFrame.empty() : semanticFrame;
+        authorizationFingerprint = authorizationFingerprint == null ? "" : authorizationFingerprint;
     }
 
     boolean isExpired(Instant now) {

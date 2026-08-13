@@ -28,6 +28,10 @@ internal class RagReviewPresenter {
             risk = plan?.risk.toReviewRisk(),
             requiresFinalConfirmation = response.requiresFinalConfirmation(kind),
             actionType = actionType.ifBlank { null },
+            selectionBindingKey = plan?.bindings.orEmpty().entries
+                .firstOrNull { (_, binding) -> binding.isSelectableCandidateBinding() }
+                ?.key,
+            planId = plan?.planId,
         )
     }
 }
@@ -40,6 +44,8 @@ internal data class RagReviewPresentation(
     val risk: RagReviewRisk = RagReviewRisk.NONE,
     val requiresFinalConfirmation: Boolean = false,
     val actionType: String? = null,
+    val selectionBindingKey: String? = null,
+    val planId: String? = null,
 )
 
 internal enum class RagReviewKind {
@@ -81,6 +87,7 @@ internal fun RagAssistantPlanResponse.actionPlanPreview(): AiChatPlanPreview? =
             AiChatPlanPreview(
                 title = review.title,
                 lines = review.lines,
+                planId = review.planId,
             )
         }
 
@@ -185,8 +192,12 @@ private fun RagAssistantPlanResponse.reviewLines(
         ?.takeIf { it.isNotBlank() }
         ?.let { lines += "线索：$it" }
 
-    val bindingCount = plan.bindings.orEmpty().values.sumOf { binding ->
-        binding.count ?: binding.candidates.orEmpty().size
+    val bindingCount = if (plan.planKind.equalsNormalized("collection")) {
+        0
+    } else {
+        plan.bindings.orEmpty().values.sumOf { binding ->
+            binding.count ?: binding.candidates.orEmpty().size
+        }
     }
     if (bindingCount > 0) {
         lines += "已找到 $bindingCount 个候选，先核对再继续。"
@@ -372,9 +383,10 @@ private fun RagActionPlan.collectionReviewLines(): List<String> {
 
         binding.filter.toFilterLine()?.let { lines += it }
 
+        val hasServerSnapshot = binding.filter?.readableValue("snapshotId") != null
         val previewIncomplete = binding.status.equalsNormalized("unresolved") ||
             messages.orEmpty().any { message -> message.code.equalsNormalized("preview_incomplete") } ||
-            (binding.count ?: 0) > binding.candidates.orEmpty().size &&
+            !hasServerSnapshot && (binding.count ?: 0) > binding.candidates.orEmpty().size &&
             binding.candidates.orEmpty().isNotEmpty()
         if (previewIncomplete) {
             lines += "预览不完整，暂不允许提交批量操作。"

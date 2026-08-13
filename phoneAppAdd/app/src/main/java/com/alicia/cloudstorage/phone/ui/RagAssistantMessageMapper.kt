@@ -148,6 +148,8 @@ private fun RagReviewPresentation.toCandidateSelectionAction(
         displayText = "选择第 $oneBasedIndex 个：${candidate.name}",
         candidateId = candidate.nodeId,
         candidateIndex = oneBasedIndex,
+        bindingKey = selectionBindingKey,
+        planId = planId,
     )
 }
 
@@ -158,6 +160,7 @@ private fun RagReviewPresentation.toAiChatPlanPreview(
     AiChatPlanPreview(
         title = title,
         lines = lines,
+        planId = planId,
         actionControls = toAiChatPlanActionControls(plan, backendDraft),
         clientActionControls = toAiChatPlanClientActionControls(plan, backendDraft),
     )

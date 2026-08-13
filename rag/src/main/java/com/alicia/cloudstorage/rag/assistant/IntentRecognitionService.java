@@ -24,6 +24,7 @@ public class IntentRecognitionService {
     private final SemanticCapabilityBoundaryGuard capabilityBoundaryGuard;
     private final SemanticRecognitionArbiter recognitionArbiter;
     private final AssistantResponsePolicy responsePolicy;
+    private final AssistantReplyPolisher replyPolisher;
     private final List<ResponseTemplate> responseTemplates;
     private final Map<String, String> personaPlaceholders;
 
@@ -51,6 +52,7 @@ public class IntentRecognitionService {
                 : capabilityBoundaryGuard;
         this.recognitionArbiter = new SemanticRecognitionArbiter(configLoader);
         this.responsePolicy = new AssistantResponsePolicy(configLoader);
+        this.replyPolisher = replyPolisher == null ? AssistantReplyPolisher.noop() : replyPolisher;
         this.responseTemplates = loadResponseTemplates(configLoader);
         this.personaPlaceholders = loadPersonaPlaceholders(configLoader);
     }
@@ -124,6 +126,41 @@ public class IntentRecognitionService {
 
     public IntentRecognitionResponse recognize(String message) {
         return recognize(message, null, AssistantClientContext.empty());
+    }
+
+    IntentRecognitionResponse recognizeLocal(String message, String reason) {
+        return fromFallback(message, reason);
+    }
+
+    IntentRecognitionResponse polishGeneratedReply(String message, IntentRecognitionResponse response) {
+        if (response == null || response.assistantText() == null || response.assistantText().isBlank()) {
+            return response;
+        }
+        IntentRouter.IntentDefinition intent = validIntent(response.intentId());
+        String actionType = response.actionDraft() == null ? "none" : response.actionDraft().type();
+        String polished = replyPolisher.polish(new AssistantReplyPolisher.PolishRequest(
+                        message,
+                        response.intentId(),
+                        response.intentName(),
+                        response.taskType(),
+                        response.nextAction(),
+                        actionType,
+                        response.safety() == null ? "none" : response.safety().risk(),
+                        response.safety() != null && response.safety().requiresConfirmation(),
+                        response.missingSlots(),
+                        response.assistantText()
+                ))
+                .map(String::trim)
+                .filter(text -> isSafeAssistantText(text, intent))
+                .filter(text -> responsePolicy.evaluate(
+                        message,
+                        text,
+                        response.intentId(),
+                        actionType,
+                        response.nextAction()
+                ).allowed())
+                .orElse("");
+        return polished.isBlank() ? response : response.withAssistantText(polished);
     }
 
     public IntentRecognitionResponse recognize(

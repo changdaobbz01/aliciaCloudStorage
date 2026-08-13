@@ -30,6 +30,8 @@
     "collection.move_by_category",
     "collection.move_by_extension",
     "collection.move_by_name_contains",
+    "collection.move",
+    "collection.trash",
     "collection.rename_add_prefix"
   ],
   "clientOrchestratedActions": [
