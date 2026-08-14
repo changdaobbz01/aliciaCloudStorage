@@ -260,9 +260,28 @@ public class IntentRecognitionService {
             );
         }
 
+        String reconciledIntentId = semanticFrameResolver.reconciledIntentId(message, response, semanticFrame);
+        if (!reconciledIntentId.equals(response.intentId())) {
+            response = rebuildForConversation(
+                    response,
+                    reconciledIntentId,
+                    semanticFrameResolver.entitiesForFrame(response, semanticFrame),
+                    "统一参数解析确认目标是字面节点名称，已从集合操作纠正为单节点操作。"
+            );
+        }
+
         Map<String, Object> entities = configuredBoundary == null
                 ? semanticFrameResolver.entitiesForFrame(response, semanticFrame)
                 : Map.of();
+        if (!guardedByBoundary) {
+            response = rebuildForConversation(
+                    response,
+                    response.intentId(),
+                    entities,
+                    "最终语义帧已完成参数校验并同步规划状态。"
+            );
+            entities = response.entities();
+        }
         ActionDraft actionDraft = guardedByBoundary
                 ? new ActionDraft("none", Map.of(), false)
                 : semanticFrameResolver.actionDraftFor(response, semanticFrame, entities);

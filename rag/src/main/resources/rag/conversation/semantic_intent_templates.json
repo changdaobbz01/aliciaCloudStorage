@@ -479,7 +479,7 @@
         "把{file_type}都删了",
         "删除所有{file_type}",
         "清理全部{file_type}",
-        "把{file_type}移入回收站",
+        "把所有{file_type}移入回收站",
         "将全部{file_type}扔到回收站",
         "帮我删掉所有{file_type}"
       ]

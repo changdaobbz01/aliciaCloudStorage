@@ -69,6 +69,53 @@ class CandidateBindingServiceTest {
     }
 
     @Test
+    void genericShareNeverReachesStorageSearch() {
+        CapturingCandidateSearchPort port = new CapturingCandidateSearchPort();
+        CandidateBindingService service = new CandidateBindingService(port, intentRouter, 5);
+
+        IntentRecognitionResponse response = intentRecognitionService.recognize("将根目录的文件进行分享");
+        CandidateBindingResult result = service.bind(response, "Bearer token");
+
+        assertThat(response.nextAction()).isEqualTo("ask_clarification");
+        assertThat(response.actionDraft().type()).isEqualTo("none");
+        assertThat(result.status()).isEqualTo("not_requested");
+        assertThat(port.lastRequest).isNull();
+    }
+
+    @Test
+    void exactShareUsesValidatedRootSourceScope() {
+        CapturingCandidateSearchPort port = new CapturingCandidateSearchPort();
+        CandidateBindingService service = new CandidateBindingService(port, intentRouter, 5);
+
+        IntentRecognitionResponse response = intentRecognitionService.recognize("分享根目录下的合同.pdf");
+        service.bind(response, "Bearer token");
+
+        assertThat(port.lastRequest.query()).isEqualTo("合同.pdf");
+        assertThat(port.lastRequest.scope()).isEqualTo("root");
+        assertThat(port.lastRequest.candidateType()).isEqualTo("FILE");
+    }
+
+    @Test
+    void exactMoveKeepsSourceScopeButBindsDestinationFolder() {
+        CapturingCandidateSearchPort port = new CapturingCandidateSearchPort();
+        CandidateBindingService service = new CandidateBindingService(port, intentRouter, 5);
+
+        IntentRecognitionResponse response = intentRecognitionService.recognize(
+                "把根目录下的合同.pdf移动到资料目录"
+        );
+        service.bind(response, "Bearer token");
+
+        assertThat(response.semanticFrame().scope().type()).isEqualTo("ROOT");
+        assertThat(response.entities())
+                .containsEntry("scope", "root")
+                .containsEntry("target_name", "合同.pdf")
+                .containsEntry("target_folder", "资料目录");
+        assertThat(port.lastRequest.queryRole()).isEqualTo("target_folder");
+        assertThat(port.lastRequest.query()).isEqualTo("资料目录");
+        assertThat(port.lastRequest.candidateType()).isEqualTo("FOLDER");
+    }
+
+    @Test
     void buildsFolderCandidateSearchRequestFromTargetFolder() {
         CapturingCandidateSearchPort port = new CapturingCandidateSearchPort();
         CandidateBindingService service = new CandidateBindingService(port, intentRouter, 5);

@@ -76,4 +76,22 @@ class CollectionSourceExpressionParserTest {
 
         assertThat(selection.kind()).isEqualTo(CollectionSourceExpressionParser.SOURCE_CURRENT_FOLDER);
     }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "根目录的文件",
+            "测试目录中的文件",
+            "当前文件夹里的文件和文件夹"
+    })
+    void preservesImplicitCollectionQuantifierInsteadOfPromotingToAll(String message) {
+        CollectionSourceExpressionParser.SourceSelection selection = parser.parse(message, null).orElseThrow();
+
+        assertThat(selection.quantifier()).isEqualTo("IMPLICIT_SET");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"文件", "项目", "结果"})
+    void genericNounsDoNotPretendToReferencePreviousResults(String message) {
+        assertThat(parser.parse(message, null)).isEmpty();
+    }
 }

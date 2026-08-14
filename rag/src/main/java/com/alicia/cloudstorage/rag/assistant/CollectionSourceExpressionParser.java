@@ -23,7 +23,8 @@ final class CollectionSourceExpressionParser {
             "这个目录", "这个文件夹", "该目录", "该文件夹"
     );
     private static final Pattern PREVIOUS_RESULTS = Pattern.compile(
-            "^(?:请)?(?:把|将)?(?:(?:刚才|上面|之前|上一轮)(?:列出|找到|搜索到|查到|展示)(?:的)?(?:全部|所有)?(?:结果|文件|项目)?|这些|那些|它们|结果|文件|项目)(?:都|全部|全都|全)?$"
+            "^(?:请)?(?:把|将)?(?:(?:刚才|上面|之前|上一轮)(?:列出|找到|搜索到|查到|展示)(?:的)?(?:全部|所有)?(?:结果|文件|项目)?|"
+                    + "这些(?:结果|文件|项目)?|那些(?:结果|文件|项目)?|它们|上述结果|前述结果)(?:都|全部|全都|全)?$"
     );
     private static final Pattern LEADING_QUANTIFIER = Pattern.compile("^(?:所有|全部)(?:的)?");
     private static final Pattern TRAILING_QUANTIFIER = Pattern.compile("(?:都|全部|全都|全)$");
@@ -101,29 +102,32 @@ final class CollectionSourceExpressionParser {
             AssistantConversationState conversation
     ) {
         String folder = cleanFolder(rawFolder);
-        Optional<EnumSet<NodeKind>> nodeKinds = parseNodeKinds(rawObjectExpression);
-        if (folder.isBlank() || nodeKinds.isEmpty()) {
+        Optional<ParsedNodeKinds> parsedNodeKinds = parseNodeKinds(rawObjectExpression);
+        if (folder.isBlank() || parsedNodeKinds.isEmpty()) {
             return Optional.empty();
         }
+        ParsedNodeKinds parsed = parsedNodeKinds.get();
 
         if (ROOT_ALIASES.contains(folder.toLowerCase(Locale.ROOT))) {
-            return Optional.of(new SourceSelection(SOURCE_ROOT, folder, nodeKinds.get(), "ALL", false));
+            return Optional.of(new SourceSelection(SOURCE_ROOT, folder, parsed.nodeKinds(), parsed.quantifier(), false));
         }
         if (CURRENT_ALIASES.contains(folder)) {
-            return Optional.of(new SourceSelection(SOURCE_CURRENT_FOLDER, folder, nodeKinds.get(), "ALL", false));
+            return Optional.of(new SourceSelection(SOURCE_CURRENT_FOLDER, folder, parsed.nodeKinds(), parsed.quantifier(), false));
         }
         if (CONTEXT_ALIASES.contains(folder)) {
             if (!hasPreviousCandidates(conversation)) {
                 return Optional.empty();
             }
-            return Optional.of(new SourceSelection(SOURCE_CONTEXT_FOLDER, folder, nodeKinds.get(), "ALL", false));
+            return Optional.of(new SourceSelection(SOURCE_CONTEXT_FOLDER, folder, parsed.nodeKinds(), parsed.quantifier(), false));
         }
-        return Optional.of(new SourceSelection(SOURCE_NAMED_FOLDER, folder, nodeKinds.get(), "ALL", false));
+        return Optional.of(new SourceSelection(SOURCE_NAMED_FOLDER, folder, parsed.nodeKinds(), parsed.quantifier(), false));
     }
 
-    private Optional<EnumSet<NodeKind>> parseNodeKinds(String rawExpression) {
+    private Optional<ParsedNodeKinds> parseNodeKinds(String rawExpression) {
         String expression = normalize(rawExpression);
         expression = expression.replaceFirst("^的", "");
+        boolean explicitAll = LEADING_QUANTIFIER.matcher(expression).find()
+                || TRAILING_QUANTIFIER.matcher(expression).find();
         expression = LEADING_QUANTIFIER.matcher(expression).replaceFirst("");
         expression = TRAILING_QUANTIFIER.matcher(expression).replaceFirst("");
         if (expression.isBlank()) {
@@ -143,7 +147,9 @@ final class CollectionSourceExpressionParser {
                 }
             }
         }
-        return kinds.isEmpty() ? Optional.empty() : Optional.of(kinds);
+        return kinds.isEmpty()
+                ? Optional.empty()
+                : Optional.of(new ParsedNodeKinds(kinds, explicitAll ? "ALL" : "IMPLICIT_SET"));
     }
 
     private EnumSet<NodeKind> inferPreviousNodeKinds(AssistantConversationState conversation) {
@@ -192,6 +198,12 @@ final class CollectionSourceExpressionParser {
     enum NodeKind {
         FILE,
         FOLDER
+    }
+
+    private record ParsedNodeKinds(
+            Set<NodeKind> nodeKinds,
+            String quantifier
+    ) {
     }
 
     record SourceSelection(

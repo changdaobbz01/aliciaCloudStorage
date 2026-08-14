@@ -231,18 +231,33 @@ public class CandidateBindingService {
                     frame.query().nameSurface()
             );
         }
+        if ("MOVE".equals(frame.operation())) {
+            String targetFolder = TextSupport.sanitizeNodeName(String.valueOf(
+                    response.entities().getOrDefault("target_folder", "")
+            ));
+            if (!targetFolder.isBlank()) {
+                return new FileQueryPlanResolver.FileQueryPlan(
+                        FileQueryPlanResolver.NAME_SEARCH,
+                        FileQueryPlanResolver.SCOPE_ALL,
+                        "FOLDER",
+                        "",
+                        "target_folder",
+                        targetFolder
+                );
+            }
+        }
         if (List.of("DELETE", "RENAME", "SHARE").contains(frame.operation())
                 && !frame.query().nameSurface().isBlank()) {
             return new FileQueryPlanResolver.FileQueryPlan(
                     FileQueryPlanResolver.NAME_SEARCH,
-                    FileQueryPlanResolver.SCOPE_ALL,
+                    semanticScope(frame),
                     frame.query().resultType(),
-                    "",
+                    "NAMED_FOLDER".equals(frame.scope().type()) ? frame.scope().folderSurface() : "",
                     "target_name",
                     frame.query().nameSurface()
             );
         }
-        if (List.of("UPLOAD", "MOVE", "CREATE_FOLDER").contains(frame.operation())
+        if (List.of("UPLOAD", "CREATE_FOLDER").contains(frame.operation())
                 && !frame.scope().folderSurface().isBlank()) {
             return new FileQueryPlanResolver.FileQueryPlan(
                     FileQueryPlanResolver.NAME_SEARCH,
@@ -254,6 +269,15 @@ public class CandidateBindingService {
             );
         }
         return null;
+    }
+
+    private String semanticScope(SemanticFrame frame) {
+        return switch (frame.scope().type()) {
+            case "ROOT" -> FileQueryPlanResolver.SCOPE_ROOT;
+            case "CURRENT", "PREVIOUS_RESULTS" -> FileQueryPlanResolver.SCOPE_CURRENT;
+            case "NAMED_FOLDER" -> FileQueryPlanResolver.SCOPE_NAMED_FOLDER;
+            default -> FileQueryPlanResolver.SCOPE_ALL;
+        };
     }
 
     private String fileCategory(IntentRecognitionResponse response, String resultType) {

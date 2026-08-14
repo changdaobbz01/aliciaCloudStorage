@@ -87,6 +87,7 @@ private val AiLine = Color(0xFFE9EDF5)
 private val AiBlue = Color(0xFF087CFF)
 private val AiFieldFocusBlue = Color(0xFF005CFF)
 private val AiOnline = Color(0xFF13C77A)
+private val AiMessageAvatarGap = 7.dp
 
 @Composable
 internal fun AiChatRoute(
@@ -433,7 +434,7 @@ private fun AiMessageItem(
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 15.dp),
                 )
             }
-            Spacer(modifier = Modifier.width(7.dp))
+            Spacer(modifier = Modifier.width(AiMessageAvatarGap))
             UserAvatar(
                 url = userAvatarUrl,
                 fallback = userDisplayName,
@@ -446,6 +447,7 @@ private fun AiMessageItem(
             verticalAlignment = Alignment.Top,
         ) {
             AiAssistantAvatar()
+            Spacer(modifier = Modifier.width(AiMessageAvatarGap))
             Column(
                 modifier = Modifier.widthIn(max = 334.dp),
                 verticalArrangement = Arrangement.spacedBy(7.dp),
@@ -498,7 +500,7 @@ private fun AiAssistantMessageBubble(text: String) {
     Box(
         modifier = Modifier
             .widthIn(max = 294.dp)
-            .shadow(elevation = 2.dp, shape = shape, clip = false)
+            .shadow(elevation = 1.dp, shape = shape, clip = false)
             .clip(shape)
             .background(Color.White)
             .border(1.dp, AiLine, shape),

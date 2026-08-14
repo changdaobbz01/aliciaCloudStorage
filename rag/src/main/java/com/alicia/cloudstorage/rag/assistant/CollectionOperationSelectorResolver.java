@@ -95,7 +95,13 @@ public class CollectionOperationSelectorResolver {
 
         Optional<CollectionSelector> selector = parseMove(text, conversation)
                 .or(() -> parseTrash(text, conversation));
-        return selector.map(value -> override(baseResponse, value)).orElse(baseResponse);
+        if (selector.isEmpty()) {
+            return baseResponse;
+        }
+        if (!"ALL".equals(selector.get().source().quantifier())) {
+            return implicitCollectionClarification(baseResponse, selector.get());
+        }
+        return override(baseResponse, selector.get());
     }
 
     public boolean isScopedCollection(IntentRecognitionResponse response) {
@@ -121,7 +127,12 @@ public class CollectionOperationSelectorResolver {
         String targetFolder = stringValue(stored.get("target_folder"));
         CollectionSelector selector = new CollectionSelector(
                 "collection.move".equals(conversation.pendingActionDraft().type()) ? "MOVE" : "DELETE",
-                new SourceSelector(sourceKind, sourceFolder, sourceNodeKinds),
+                new SourceSelector(
+                        sourceKind,
+                        sourceFolder,
+                        sourceNodeKinds,
+                        stringValue(stored.getOrDefault("source_quantifier", "ALL"))
+                ),
                 targetFolder
         );
         IntentRecognitionResponse restored = override(response, selector);
@@ -167,7 +178,12 @@ public class CollectionOperationSelectorResolver {
 
     private Optional<SourceSelector> parseSource(String surface, AssistantConversationState conversation) {
         return sourceExpressionParser.parse(surface, conversation)
-                .map(source -> new SourceSelector(source.kind(), source.folder(), source.nodeKinds()));
+                .map(source -> new SourceSelector(
+                        source.kind(),
+                        source.folder(),
+                        source.nodeKinds(),
+                        source.quantifier()
+                ));
     }
 
     private IntentRecognitionResponse override(IntentRecognitionResponse response, CollectionSelector selector) {
@@ -177,7 +193,7 @@ public class CollectionOperationSelectorResolver {
         entities.put("source_node_type", selector.source().legacyNodeType());
         entities.put("source_node_types", selector.source().nodeTypeNames());
         entities.put("source_recursive", false);
-        entities.put("source_quantifier", "ALL");
+        entities.put("source_quantifier", selector.source().quantifier());
         if (!selector.source().folder().isBlank()) {
             entities.put("source_folder", selector.source().folder());
         }
@@ -201,7 +217,7 @@ public class CollectionOperationSelectorResolver {
                 SOURCE_PREVIOUS_RESULTS.equals(selector.source().kind()) ? "FOLLOW_UP" : "NEW_TASK",
                 selector.operation(),
                 new SemanticFrame.Query("COLLECTION", selector.source().legacyNodeType(), "", "", Map.of(
-                        "quantifier", "ALL",
+                        "quantifier", selector.source().quantifier(),
                         "recursive", false,
                         "nodeTypes", selector.source().nodeTypeNames()
                 )),
@@ -227,6 +243,25 @@ public class CollectionOperationSelectorResolver {
                 "已生成可执行的目录集合选择器。",
                 frame
         );
+    }
+
+    private IntentRecognitionResponse implicitCollectionClarification(
+            IntentRecognitionResponse response,
+            CollectionSelector selector
+    ) {
+        String scope = selector.source().folder().isBlank() ? "该范围" : selector.source().folder();
+        String objects = switch (selector.source().legacyNodeType()) {
+            case "FILE" -> "文件";
+            case "FOLDER" -> "文件夹";
+            default -> "文件和文件夹";
+        };
+        String question = "MOVE".equals(selector.operation())
+                ? "你是要把" + scope + "下的全部" + objects + "移动到“" + selector.destination()
+                + "”吗？如需批量操作，请明确说“把" + scope + "下的所有" + objects + "移动到"
+                + selector.destination() + "”。"
+                : "你是要删除" + scope + "下的全部" + objects
+                + "吗？如需批量操作，请明确说“删除" + scope + "下的所有" + objects + "”。";
+        return clarification(response, question, "collection_quantifier_required");
     }
 
     private IntentRecognitionResponse clarification(
@@ -320,7 +355,8 @@ public class CollectionOperationSelectorResolver {
     private record SourceSelector(
             String kind,
             String folder,
-            Set<CollectionSourceExpressionParser.NodeKind> nodeKinds
+            Set<CollectionSourceExpressionParser.NodeKind> nodeKinds,
+            String quantifier
     ) {
         private List<String> nodeTypeNames() {
             return nodeKinds.stream().map(Enum::name).sorted().toList();

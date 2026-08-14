@@ -15,6 +15,8 @@ import java.util.regex.Pattern;
 @Service
 public class SemanticFrameResolver {
 
+    private final OperationArgumentResolver operationArgumentResolver = new OperationArgumentResolver();
+
     private static final Set<String> OPERATIONS = Set.of(
             "UNKNOWN", "RESPOND", "SEARCH", "LIST_CHILDREN", "OPEN_FILE", "NAVIGATE",
             "UPLOAD", "DELETE", "MOVE", "RENAME", "SHARE", "CREATE_FOLDER"
@@ -88,7 +90,166 @@ public class SemanticFrameResolver {
         }
         rawFrame = applyMessageSemantics(message, rawFrame, conversation);
         rawFrame = reconcileMutationTarget(rawFrame, response, message);
+        rawFrame = applyOperationArguments(message, rawFrame, response);
         return validate(rawFrame, response, clientContext);
+    }
+
+    private SemanticFrame applyOperationArguments(
+            String message,
+            SemanticFrame frame,
+            IntentRecognitionResponse response
+    ) {
+        Optional<OperationArgumentResolver.Resolution> parsed = operationArgumentResolver.resolve(
+                message,
+                frame.operation()
+        );
+        if (response != null && response.actionDraft() != null) {
+            String actionType = response.actionDraft().type();
+            boolean atomicCollectionTarget = parsed
+                    .map(arguments -> isAtomicSelector(response.intentId(), arguments.source()))
+                    .orElse(false);
+            if ("composite.create_folder_then_upload".equals(actionType)
+                    || (actionType.startsWith("collection.")
+                    && !"collection.move_exact".equals(actionType)
+                    && !atomicCollectionTarget)) {
+                return frame;
+            }
+        }
+        if (parsed.isEmpty()) {
+            return frame;
+        }
+
+        OperationArgumentResolver.Resolution arguments = preferValidatedLocalTarget(parsed.get(), response);
+        SemanticFrame.Query query = frame.query();
+        SemanticFrame.Scope scope = frame.scope();
+        SemanticFrame.Reference reference = frame.reference();
+        if ("UPLOAD".equals(frame.operation())) {
+            query = new SemanticFrame.Query("NONE", "ANY", "", "", frame.query().filters());
+            scope = destinationScope(arguments.destination());
+        } else {
+            OperationArgumentResolver.NodeSelector source = arguments.source();
+            query = new SemanticFrame.Query(
+                    source.name().isBlank() ? "NONE" : "NAME_EXACT",
+                    source.resultType(),
+                    source.name(),
+                    normalizeName(source.name()),
+                    frame.query().filters()
+            );
+            scope = sourceScope(source);
+            if (source.nameKind() == OperationArgumentResolver.NameKind.REFERENCE) {
+                reference = "NONE".equals(frame.reference().type())
+                        ? new SemanticFrame.Reference("PREVIOUS_CANDIDATE", null, null)
+                        : frame.reference();
+                scope = new SemanticFrame.Scope("PREVIOUS_RESULTS", "", "");
+            }
+        }
+
+        List<String> ambiguities = new ArrayList<>(frame.ambiguities());
+        SemanticFrame.Clarification clarification = frame.clarification();
+        if (arguments.needsClarification()) {
+            addAmbiguity(ambiguities, arguments.clarificationReason());
+            clarification = new SemanticFrame.Clarification(
+                    arguments.clarificationReason(),
+                    arguments.clarificationQuestion(),
+                    arguments.clarificationSuggestions()
+            );
+        }
+        return copyFrame(
+                frame,
+                frame.relation(),
+                frame.operation(),
+                query,
+                scope,
+                reference,
+                ambiguities,
+                clarification
+        );
+    }
+
+    public String reconciledIntentId(
+            String message,
+            IntentRecognitionResponse response,
+            SemanticFrame frame
+    ) {
+        if (response == null || frame == null) {
+            return response == null ? "fallback" : response.intentId();
+        }
+        String atomicIntent = switch (response.intentId()) {
+            case "collection_delete_by_category" -> "file_delete";
+            case "collection_move_by_category", "collection_move_by_extension" -> "node_move";
+            default -> "";
+        };
+        if (atomicIntent.isBlank()) {
+            return response.intentId();
+        }
+        return operationArgumentResolver.resolve(message, frame.operation())
+                .filter(arguments -> isAtomicSelector(response.intentId(), arguments.source()))
+                .map(arguments -> atomicIntent)
+                .orElse(response.intentId());
+    }
+
+    private boolean isAtomicSelector(
+            String intentId,
+            OperationArgumentResolver.NodeSelector source
+    ) {
+        if (source.quantifier() == OperationArgumentResolver.Quantifier.EXPLICIT_ALL) {
+            return false;
+        }
+        if (source.nameKind() == OperationArgumentResolver.NameKind.EXPLICIT) {
+            return true;
+        }
+        if (source.nameKind() != OperationArgumentResolver.NameKind.LEXICAL) {
+            return false;
+        }
+        return !"collection_move_by_extension".equals(intentId)
+                || source.name().matches("(?i).*\\.[a-z0-9]{1,16}$");
+    }
+
+    private OperationArgumentResolver.Resolution preferValidatedLocalTarget(
+            OperationArgumentResolver.Resolution arguments,
+            IntentRecognitionResponse response
+    ) {
+        if (arguments.source().nameKind() != OperationArgumentResolver.NameKind.LEXICAL
+                || response == null
+                || response.entities() == null) {
+            return arguments;
+        }
+        String localTarget = cleanReferentialObjectSuffix(text(response.entities().get("target_name")));
+        String parsedTarget = arguments.source().name();
+        if (localTarget.isBlank()
+                || localTarget.equals(parsedTarget)
+                || !parsedTarget.endsWith(localTarget)) {
+            return arguments;
+        }
+        String wrapper = parsedTarget.substring(0, parsedTarget.length() - localTarget.length());
+        if (!List.of("文件", "文件夹", "目录").contains(wrapper)) {
+            return arguments;
+        }
+        OperationArgumentResolver.NodeSelector source = arguments.source();
+        return arguments.withSource(new OperationArgumentResolver.NodeSelector(
+                localTarget,
+                source.nameKind(),
+                source.resultType(),
+                source.scopeType(),
+                source.folderSurface(),
+                source.quantifier()
+        ));
+    }
+
+    private SemanticFrame.Scope sourceScope(OperationArgumentResolver.NodeSelector source) {
+        return new SemanticFrame.Scope(
+                source.scopeType(),
+                source.folderSurface(),
+                normalizeName(source.folderSurface())
+        );
+    }
+
+    private SemanticFrame.Scope destinationScope(OperationArgumentResolver.Destination destination) {
+        return new SemanticFrame.Scope(
+                destination.scopeType(),
+                destination.surface(),
+                normalizeName(destination.surface())
+        );
     }
 
     private SemanticFrame reconcileMutationTarget(
@@ -151,10 +312,21 @@ public class SemanticFrameResolver {
             entities.putAll(response.entities());
         }
 
-        if (List.of("DELETE", "MOVE", "RENAME", "SHARE").contains(frame.operation())
-                && !frame.query().nameSurface().isBlank()) {
-            entities.put("target_name", frame.query().nameSurface());
+        if (List.of("DELETE", "MOVE", "RENAME", "SHARE").contains(frame.operation())) {
+            entities.keySet().removeAll(List.of("target_name", "result_type", "scope", "source_folder"));
+            if (isReclassifiedCollectionTarget(response, frame)) {
+                entities.keySet().removeAll(List.of("file_type", "extension", "time_range", "name_contains"));
+            }
+            if (!frame.query().nameSurface().isBlank()) {
+                entities.put("target_name", frame.query().nameSurface());
+            }
             entities.put("result_type", frame.query().resultType());
+            if (!"ALL".equals(frame.scope().type())) {
+                entities.put("scope", frame.scope().type().toLowerCase(Locale.ROOT));
+            }
+            if ("NAMED_FOLDER".equals(frame.scope().type()) && !frame.scope().folderSurface().isBlank()) {
+                entities.put("source_folder", frame.scope().folderSurface());
+            }
         }
 
         if ("SEARCH".equals(frame.operation())) {
@@ -172,7 +344,15 @@ public class SemanticFrameResolver {
                 entities.put("target_folder", frame.scope().folderSurface());
             }
             entities.putAll(frame.query().filters());
-        } else if (List.of("UPLOAD", "MOVE", "CREATE_FOLDER").contains(frame.operation())) {
+        } else if ("UPLOAD".equals(frame.operation())) {
+            entities.keySet().removeAll(List.of("target_name", "result_type", "scope", "source_folder"));
+            if (!frame.scope().folderSurface().isBlank()) {
+                entities.put("target_folder", frame.scope().folderSurface());
+            } else if ("ROOT".equals(frame.scope().type())) {
+                entities.put("target_folder", "根目录");
+            }
+            entities.putAll(frame.query().filters());
+        } else if ("CREATE_FOLDER".equals(frame.operation())) {
             if (!frame.scope().folderSurface().isBlank()) {
                 entities.put("target_folder", frame.scope().folderSurface());
             }
@@ -181,7 +361,24 @@ public class SemanticFrameResolver {
         return Map.copyOf(entities);
     }
 
+    private boolean isReclassifiedCollectionTarget(
+            IntentRecognitionResponse response,
+            SemanticFrame frame
+    ) {
+        return response != null
+                && List.of(
+                        "collection_delete_by_category",
+                        "collection_move_by_category",
+                        "collection_move_by_extension"
+                ).contains(response.intentId())
+                && "NAME_EXACT".equals(frame.query().mode())
+                && !frame.query().nameSurface().isBlank();
+    }
+
     public ActionDraft actionDraftFor(IntentRecognitionResponse response, SemanticFrame frame, Map<String, Object> entities) {
+        if (frame == null || frame.needsClarification()) {
+            return new ActionDraft("none", Map.of(), false);
+        }
         String type = switch (frame.operation()) {
             case "SEARCH" -> "search";
             case "UPLOAD" -> response != null

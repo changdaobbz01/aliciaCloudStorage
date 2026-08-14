@@ -110,6 +110,25 @@ class AssistantConversationServiceTest {
     }
 
     @Test
+    void genericMutationNounsDoNotBecomePreviousResultCollections() {
+        IntentRecognitionResponse delete = conversationService.plan(new AssistantPlanRequest("删除文件", ""));
+        IntentRecognitionResponse move = conversationService.plan(new AssistantPlanRequest("把文件移动到资料", ""));
+
+        assertThat(delete.intentId()).isEqualTo("file_delete");
+        assertThat(delete.semanticFrame().query().mode()).isEqualTo("NONE");
+        assertThat(delete.semanticFrame().reference().type()).isEqualTo("NONE");
+        assertThat(delete.missingSlots()).contains("target_name");
+        assertThat(delete.actionDraft().type()).isEqualTo("none");
+
+        assertThat(move.intentId()).isEqualTo("node_move");
+        assertThat(move.semanticFrame().query().mode()).isEqualTo("NONE");
+        assertThat(move.semanticFrame().reference().type()).isEqualTo("NONE");
+        assertThat(move.entities()).containsEntry("target_folder", "资料");
+        assertThat(move.missingSlots()).contains("target_name").doesNotContain("target_folder");
+        assertThat(move.actionDraft().type()).isEqualTo("none");
+    }
+
+    @Test
     void explicitNewIntentDoesNotUsePendingPreviousIntent() {
         IntentRecognitionResponse firstTurn = conversationService.plan(new AssistantPlanRequest("删除", ""));
 
