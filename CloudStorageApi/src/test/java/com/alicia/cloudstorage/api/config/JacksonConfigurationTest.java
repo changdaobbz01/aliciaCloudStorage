@@ -4,8 +4,8 @@ import com.alicia.cloudstorage.api.storage.StorageNodeChangeType;
 import com.alicia.cloudstorage.api.storage.StorageNodeChangeWebhookForwarder;
 import com.alicia.cloudstorage.api.storage.StorageNodeReference;
 import com.alicia.cloudstorage.api.dto.StorageNodeSummaryResponse;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -19,7 +19,7 @@ class JacksonConfigurationTest {
 
     @Test
     void objectMapperSerializesStorageEventInstants() throws Exception {
-        ObjectMapper objectMapper = new JacksonConfiguration().objectMapper();
+        JsonMapper objectMapper = configuredJsonMapper();
         StorageNodeChangeWebhookForwarder.StorageNodeChangeWebhookPayload payload =
                 new StorageNodeChangeWebhookForwarder.StorageNodeChangeWebhookPayload(
                         "event-1",
@@ -36,7 +36,7 @@ class JacksonConfigurationTest {
 
     @Test
     void storageNodeTimestampsIncludeTheServerOffset() throws Exception {
-        ObjectMapper objectMapper = new JacksonConfiguration().objectMapper();
+        JsonMapper objectMapper = configuredJsonMapper();
         LocalDateTime updatedAt = LocalDateTime.of(2026, 8, 13, 15, 31, 19);
         StorageNodeSummaryResponse response = new StorageNodeSummaryResponse(
                 1L,
@@ -56,5 +56,11 @@ class JacksonConfigurationTest {
 
         assertThat(json).contains("\"updatedAt\":\"" + expected + "\"");
         assertThat(json).contains("\"deletedAt\":null");
+    }
+
+    private JsonMapper configuredJsonMapper() {
+        JsonMapper.Builder builder = JsonMapper.builder().findAndAddModules();
+        new JacksonConfiguration().localDateTimeWithSystemOffsetCustomizer().customize(builder);
+        return builder.build();
     }
 }

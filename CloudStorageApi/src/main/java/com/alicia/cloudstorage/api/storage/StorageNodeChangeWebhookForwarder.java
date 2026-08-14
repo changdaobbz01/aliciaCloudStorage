@@ -1,12 +1,12 @@
 package com.alicia.cloudstorage.api.storage;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.json.JsonMapper;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -29,15 +29,15 @@ public class StorageNodeChangeWebhookForwarder {
     private static final String EVENT_ID_HEADER = "X-Alicia-Event-Id";
 
     private final StorageEventWebhookProperties properties;
-    private final ObjectMapper objectMapper;
+    private final JsonMapper jsonMapper;
     private final HttpClient httpClient;
 
     public StorageNodeChangeWebhookForwarder(
             StorageEventWebhookProperties properties,
-            ObjectMapper objectMapper
+            JsonMapper jsonMapper
     ) {
         this.properties = properties;
-        this.objectMapper = objectMapper;
+        this.jsonMapper = jsonMapper;
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofMillis(Math.max(1L, properties.getConnectTimeoutMs())))
                 .build();
@@ -81,8 +81,8 @@ public class StorageNodeChangeWebhookForwarder {
 
     private String serialize(StorageNodeChangeWebhookPayload payload) {
         try {
-            return objectMapper.writeValueAsString(payload);
-        } catch (JsonProcessingException exception) {
+            return jsonMapper.writeValueAsString(payload);
+        } catch (JacksonException exception) {
             throw new IllegalStateException("Failed to serialize storage event payload.", exception);
         }
     }

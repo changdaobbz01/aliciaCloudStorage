@@ -1,11 +1,11 @@
 package com.alicia.cloudstorage.api.config;
 
 import com.alicia.cloudstorage.api.serialization.LocalDateTimeWithSystemOffsetSerializer;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.databind.module.SimpleModule;
+import org.springframework.boot.jackson.autoconfigure.JsonMapperBuilderCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import tools.jackson.databind.cfg.DateTimeFeature;
+import tools.jackson.databind.module.SimpleModule;
 
 import java.time.LocalDateTime;
 
@@ -13,16 +13,15 @@ import java.time.LocalDateTime;
 public class JacksonConfiguration {
 
     @Bean
-    public ObjectMapper objectMapper() {
-        SimpleModule localDateTimeModule = new SimpleModule("local-date-time-with-system-offset");
-        localDateTimeModule.addSerializer(
-                LocalDateTime.class,
-                new LocalDateTimeWithSystemOffsetSerializer()
-        );
-
-        return new ObjectMapper()
-                .findAndRegisterModules()
-                .registerModule(localDateTimeModule)
-                .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+    public JsonMapperBuilderCustomizer localDateTimeWithSystemOffsetCustomizer() {
+        return builder -> {
+            SimpleModule localDateTimeModule = new SimpleModule("local-date-time-with-system-offset");
+            localDateTimeModule.addSerializer(
+                    LocalDateTime.class,
+                    new LocalDateTimeWithSystemOffsetSerializer()
+            );
+            builder.addModule(localDateTimeModule)
+                    .disable(DateTimeFeature.WRITE_DATES_AS_TIMESTAMPS);
+        };
     }
 }
