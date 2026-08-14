@@ -151,6 +151,60 @@ class RagActionExecutorTest {
     }
 
     @Test
+    fun `executes revalidated scoped trash only with complete fingerprints`() = runBlocking {
+        val repository = FakeRagActionRepositoryPort()
+        val executor = RagActionExecutor(repositoryPort = repository, executionEnabled = true)
+
+        val result = executor.execute(
+            context = context,
+            draft = draft(
+                actionType = "collection.trash_scoped",
+                method = "POST",
+                pathTemplate = "/api/storage/nodes/batch/trash/scoped",
+                body = mapOf(
+                    "selectorVersion" to "source_selector_v2",
+                    "sourceParentId" to "",
+                    "root" to true,
+                    "nodeTypes" to listOf("FILE", "FOLDER"),
+                    "nodeIds" to listOf(7L, 8L),
+                    "scopeFingerprint" to "scope-hash",
+                    "impactFingerprint" to "impact-hash",
+                    "expectedImpactCount" to 5,
+                ),
+            ),
+        )
+
+        assertEquals(RagActionExecutionStatus.COMPLETED, result.status)
+        assertEquals(listOf("scoped-trash:[7, 8]:true:5"), repository.calls)
+    }
+
+    @Test
+    fun `rejects scoped trash draft with missing impact fingerprint`() = runBlocking {
+        val repository = FakeRagActionRepositoryPort()
+        val executor = RagActionExecutor(repositoryPort = repository, executionEnabled = true)
+
+        val result = executor.execute(
+            context = context,
+            draft = draft(
+                actionType = "collection.trash_scoped",
+                method = "POST",
+                pathTemplate = "/api/storage/nodes/batch/trash/scoped",
+                body = mapOf(
+                    "selectorVersion" to "source_selector_v2",
+                    "root" to true,
+                    "nodeTypes" to listOf("FILE", "FOLDER"),
+                    "nodeIds" to listOf(7L, 8L),
+                    "scopeFingerprint" to "scope-hash",
+                    "expectedImpactCount" to 5,
+                ),
+            ),
+        )
+
+        assertEquals(RagActionExecutionStatus.INVALID_DRAFT, result.status)
+        assertTrue(repository.calls.isEmpty())
+    }
+
+    @Test
     fun `executes batch move with node ids and target parent`() = runBlocking {
         val repository = FakeRagActionRepositoryPort()
         val executor = RagActionExecutor(repositoryPort = repository, executionEnabled = true)
@@ -311,6 +365,15 @@ private class FakeRagActionRepositoryPort : RagActionRepositoryPort {
         nodeIds: List<Long>,
     ): ApiMessageResponse {
         calls += "batch-trash:$nodeIds"
+        return ApiMessageResponse("ok")
+    }
+
+    override suspend fun moveScopedNodesToTrash(
+        baseUrl: String,
+        token: String,
+        payload: ScopedTrashPayload,
+    ): ApiMessageResponse {
+        calls += "scoped-trash:${payload.nodeIds}:${payload.root}:${payload.expectedImpactCount}"
         return ApiMessageResponse("ok")
     }
 

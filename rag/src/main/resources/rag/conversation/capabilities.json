@@ -32,6 +32,7 @@
     "collection.move_by_name_contains",
     "collection.move",
     "collection.trash",
+    "collection.trash_scoped",
     "collection.rename_add_prefix"
   ],
   "clientOrchestratedActions": [

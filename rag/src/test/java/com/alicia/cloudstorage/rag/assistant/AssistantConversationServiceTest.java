@@ -5,6 +5,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -1003,7 +1004,7 @@ class AssistantConversationServiceTest {
                 "/",
                 Map.of(),
                 "mobile_contract_v1",
-                List.of("collection.trash")
+                List.of("collection.trash", "collection.trash_scoped")
         );
 
         IntentRecognitionResponse listed = service.plan(
@@ -1020,7 +1021,7 @@ class AssistantConversationServiceTest {
         );
 
         assertThat(searches).hasValue(1);
-        assertThat(deletion.actionDraft().type()).isEqualTo("collection.trash");
+        assertThat(deletion.actionDraft().type()).isEqualTo("collection.trash_scoped");
         assertThat(deletion.entities())
                 .containsEntry("source_kind", CollectionOperationSelectorResolver.SOURCE_CONTEXT_FOLDER)
                 .containsEntry("source_parent_id", 850L);
@@ -1571,7 +1572,7 @@ class AssistantConversationServiceTest {
 
         assertThat(firstTurn.actionDraft().type()).isEqualTo("collection.move");
         assertThat(firstTurn.entities())
-                .containsEntry("selector_version", "source_selector_v1")
+                .containsEntry("selector_version", "source_selector_v2")
                 .containsEntry("source_folder", "测试目录")
                 .containsEntry("source_node_type", "FILE")
                 .containsEntry("target_folder", "文件记录");
@@ -1666,13 +1667,132 @@ class AssistantConversationServiceTest {
                 scopedClientContext()
         ), "Bearer scoped-user");
 
-        assertThat(response.actionDraft().type()).isEqualTo("collection.trash");
+        assertThat(response.actionDraft().type()).isEqualTo("collection.trash_scoped");
         assertThat(response.actionPlan().status()).isEqualTo("collection_review_required");
         assertThat(response.candidateBinding().status()).isEqualTo("search_results_ready");
         assertThat(response.actionPlan().bindings().get("sourceCollection").count()).isEqualTo(2);
         assertThat(response.actionPlan().bindings().get("sourceCollection").filter())
                 .containsEntry("parentId", 801L)
                 .containsEntry("nodeType", "FILE");
+    }
+
+    @Test
+    void currentFolderCollectionUsesAuthenticatedClientLocationWithoutCandidateSearch() {
+        PreviewPort previewPort = new PreviewPort(List.of(
+                new CandidateItem(811L, 850L, "文件一.txt", "FILE", 10L, "txt", "text/plain", "")
+        ), 1, true);
+        CandidateSearchPort searchPort = request -> {
+            throw new AssertionError("当前目录不应退化为名称搜索");
+        };
+        AssistantConversationService service = conversationServiceWith(searchPort, previewPort);
+        AssistantClientContext clientContext = new AssistantClientContext(
+                850L,
+                "/测试目录",
+                Map.of(),
+                "action_bridge_v2",
+                List.of("collection.trash_scoped")
+        );
+
+        IntentRecognitionResponse response = service.plan(new AssistantPlanRequest(
+                "删除当前目录下所有文件",
+                "",
+                clientContext
+        ), "Bearer scoped-user");
+
+        assertThat(response.actionDraft().type()).isEqualTo("collection.trash_scoped");
+        assertThat(response.entities())
+                .containsEntry("source_kind", CollectionOperationSelectorResolver.SOURCE_CURRENT_FOLDER)
+                .containsEntry("source_parent_id", 850L);
+        assertThat(previewPort.lastRequest.filter()).containsEntry("parentId", 850L);
+    }
+
+    @Test
+    void rootFileAndFolderUnionUsesScopedSnapshotAndRevalidatedBackendDraft() {
+        List<CandidateItem> candidates = List.of(
+                new CandidateItem(811L, null, "根文件.txt", "FILE", 10L, "txt", "text/plain", "2026-08-14T08:00:00+08:00"),
+                new CandidateItem(812L, null, "资料", "FOLDER", 0L, "", "", "2026-08-14T08:00:00+08:00")
+        );
+        CollectionPreviewPort previewPort = request -> {
+            Map<String, Object> filter = new LinkedHashMap<>(request.filter());
+            filter.put("scopeFingerprint", "scope-hash");
+            filter.put("impactFingerprint", "impact-hash");
+            filter.put("selectedFileCount", 1);
+            filter.put("selectedFolderCount", 1);
+            filter.put("descendantCount", 3);
+            filter.put("impactCount", 5);
+            filter.put("expectedImpactCount", 5);
+            filter.put("sourceParentId", "");
+            filter.put("sourceRoot", true);
+            return new CollectionPreviewResult(
+                    "preview_ready",
+                    "scoped-trash-test",
+                    filter,
+                    candidates,
+                    candidates.size(),
+                    true,
+                    "已生成完整影响预览。"
+            );
+        };
+        AssistantConversationService service = conversationServiceWith(request -> CandidateBindingResult.skipped("unused", ""), previewPort);
+
+        IntentRecognitionResponse firstTurn = service.plan(new AssistantPlanRequest(
+                "删除根目录下所有文件和文件夹",
+                "",
+                scopedClientContext()
+        ), "Bearer scoped-user");
+        IntentRecognitionResponse confirmed = service.plan(new AssistantPlanRequest(
+                "确认",
+                firstTurn.conversation().conversationId(),
+                scopedClientContext()
+        ), "Bearer scoped-user");
+
+        assertThat(firstTurn.actionDraft().type()).isEqualTo("collection.trash_scoped");
+        assertThat(firstTurn.semanticFrame().operation()).isEqualTo("DELETE");
+        assertThat(firstTurn.semanticFrame().query().mode()).isEqualTo("COLLECTION");
+        assertThat(firstTurn.semanticFrame().scope().type()).isEqualTo("ROOT");
+        assertThat(firstTurn.entities())
+                .containsEntry("selector_version", "source_selector_v2")
+                .containsEntry("source_kind", CollectionOperationSelectorResolver.SOURCE_ROOT)
+                .containsEntry("source_node_type", "ANY");
+        assertThat(firstTurn.entities().get("source_node_types")).asList().containsExactly("FILE", "FOLDER");
+        assertThat(firstTurn.actionPlan().summary()).contains("1 个文件").contains("1 个文件夹");
+        assertThat(firstTurn.actionPlan().messages()).extracting(ActionPlanMessage::code)
+                .contains("folder_subtree_will_be_trashed");
+        assertThat(confirmed.backendActionDraft().status()).isEqualTo("backend_action_ready");
+        assertThat(confirmed.backendActionDraft().path()).isEqualTo("/api/storage/nodes/batch/trash/scoped");
+        assertThat(confirmed.backendActionDraft().body())
+                .containsEntry("nodeIds", List.of(811L, 812L))
+                .containsEntry("scopeFingerprint", "scope-hash")
+                .containsEntry("impactFingerprint", "impact-hash")
+                .containsEntry("expectedImpactCount", 5)
+                .containsEntry("root", true);
+    }
+
+    @Test
+    void scopedRootDeletionFailsClosedForClientWithoutNewActionContract() {
+        IntentRecognitionResponse response = conversationService.plan(new AssistantPlanRequest(
+                "删除根目录下所有文件和文件夹",
+                ""
+        ));
+
+        assertThat(response.intentId()).isEqualTo("fallback");
+        assertThat(response.nextAction()).isEqualTo("ask_clarification");
+        assertThat(response.actionDraft().type()).isEqualTo("none");
+        assertThat(response.reason()).isEqualTo("capability_boundary:client_action_contract_outdated");
+        assertThat(response.backendActionDraft().status()).isEqualTo("clarification_required");
+    }
+
+    @Test
+    void rootNodeAndUnscopedCollectionDeletionFailClosed() {
+        IntentRecognitionResponse rootNode = conversationService.plan(new AssistantPlanRequest("删除根目录", ""));
+        IntentRecognitionResponse unscoped = conversationService.plan(new AssistantPlanRequest("删除所有文件和文件夹", ""));
+
+        assertThat(rootNode.nextAction()).isEqualTo("ask_clarification");
+        assertThat(rootNode.actionDraft().type()).isEqualTo("none");
+        assertThat(rootNode.assistantText()).contains("根目录本身不能删除");
+        assertThat(unscoped.nextAction()).isEqualTo("ask_clarification");
+        assertThat(unscoped.actionDraft().type()).isEqualTo("none");
+        assertThat(unscoped.assistantText()).contains("目录范围");
     }
 
     @Test
@@ -1839,7 +1959,7 @@ class AssistantConversationServiceTest {
                 "/",
                 Map.of(),
                 "action_bridge_v2",
-                List.of("collection.move", "collection.trash")
+                List.of("collection.move", "collection.trash", "collection.trash_scoped")
         );
     }
 

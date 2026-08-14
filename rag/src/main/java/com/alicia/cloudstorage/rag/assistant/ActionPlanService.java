@@ -266,8 +266,8 @@ public class ActionPlanService {
         if (binding != null) {
             return switch (binding.status()) {
                 case "multiple_candidates", "candidate_selection_out_of_range" -> "candidate_selection_required";
-                case "no_candidates", "missing_query", "storage_api_not_configured", "missing_authorization",
-                     "storage_api_error" -> "binding_required";
+                case "no_candidates", "missing_query", "unsupported_filter", "storage_api_not_configured",
+                     "missing_authorization", "storage_api_error" -> "binding_required";
                 default -> statusFromBackendDraftOrNextAction(response);
             };
         }
@@ -624,6 +624,7 @@ public class ActionPlanService {
         return List.of(
                 "no_candidates",
                 "missing_query",
+                "unsupported_filter",
                 "storage_api_not_configured",
                 "missing_authorization",
                 "storage_api_error"

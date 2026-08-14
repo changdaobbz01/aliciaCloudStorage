@@ -31,6 +31,8 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AddComment
+import androidx.compose.material.icons.rounded.AttachFile
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material3.Icon
@@ -93,6 +95,8 @@ internal fun AiChatRoute(
     actionExecutionEnabled: Boolean = BuildConfig.RAG_ACTION_EXECUTION_ENABLED,
     confirmationMessage: String = BuildConfig.RAG_CONFIRMATION_MESSAGE,
     authToken: String = "",
+    userAvatarUrl: String? = null,
+    userDisplayName: String = "用户",
     currentFolderId: Long? = null,
     currentFolderPath: String = "根目录",
 ) {
@@ -112,6 +116,7 @@ internal fun AiChatRoute(
         ),
     )
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    var confirmNewConversation by remember { mutableStateOf(false) }
     val currentOnFileMutation by rememberUpdatedState(onFileMutation)
     val currentOnClientUpload by rememberUpdatedState(onClientUpload)
     val currentOnClearAttachedFiles by rememberUpdatedState(onClearAttachedFiles)
@@ -161,8 +166,9 @@ internal fun AiChatRoute(
             when (action) {
                 AiChatAction.Back -> onBack()
                 AiChatAction.NewConversation -> {
-                    viewModel.startNewConversation()
-                    onClearAttachedFiles()
+                    if (!state.sending && state.hasConversationContent()) {
+                        confirmNewConversation = true
+                    }
                 }
                 AiChatAction.Attach -> {
                     if (viewModel.prepareComposerAttachment()) {
@@ -184,31 +190,51 @@ internal fun AiChatRoute(
                 is AiChatAction.CancelReview -> viewModel.cancelReview(action.messageId)
             }
         },
+        userAvatarUrl = userAvatarUrl,
+        userDisplayName = userDisplayName,
         modifier = modifier,
     )
+
+    if (confirmNewConversation) {
+        AliciaConfirmDialog(
+            title = "新建对话",
+            message = "新建后将清空当前对话、未发送文字和已选附件。",
+            confirmLabel = "新建",
+            onDismiss = { confirmNewConversation = false },
+            onConfirm = {
+                confirmNewConversation = false
+                viewModel.startNewConversation()
+                onClearAttachedFiles()
+            },
+        )
+    }
 }
 
 @Composable
 internal fun AiConversationViewport(
     state: AiChatUiState,
     onAction: (AiChatAction) -> Unit,
+    userAvatarUrl: String? = null,
+    userDisplayName: String = "用户",
     modifier: Modifier = Modifier,
 ) {
     val viewportShape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp)
     val listState = rememberLazyListState()
     val showSendingPlaceholder = state.sending &&
         state.messages.lastOrNull()?.author != AiChatAuthor.ASSISTANT
+    val bottomAnchorIndex = state.messages.size + if (showSendingPlaceholder) 1 else 0
 
     LaunchedEffect(
         state.messages.size,
-        state.messages.lastOrNull()?.id,
-        state.messages.lastOrNull()?.text,
+        state.messages.lastOrNull(),
         showSendingPlaceholder,
         state.pendingAttachments.size,
     ) {
-        val lastIndex = state.messages.size + if (showSendingPlaceholder) 1 else 0
-        if (lastIndex > 0) {
-            listState.animateScrollToItem(lastIndex - 1)
+        androidx.compose.runtime.withFrameNanos { }
+        if (state.sending) {
+            listState.scrollToItem(bottomAnchorIndex)
+        } else {
+            listState.animateScrollToItem(bottomAnchorIndex)
         }
     }
 
@@ -229,6 +255,7 @@ internal fun AiConversationViewport(
         Column(modifier = Modifier.fillMaxSize()) {
             AiConversationHeader(
                 online = state.online,
+                newConversationEnabled = !state.sending && state.hasConversationContent(),
                 onBack = { onAction(AiChatAction.Back) },
                 onNewConversation = { onAction(AiChatAction.NewConversation) },
             )
@@ -249,6 +276,8 @@ internal fun AiConversationViewport(
                 items(state.messages, key = AiChatMessage::id) { message ->
                     AiMessageItem(
                         message = message,
+                        userAvatarUrl = userAvatarUrl,
+                        userDisplayName = userDisplayName,
                         actionsEnabled = !state.sending,
                         onOpenFile = { file -> onAction(AiChatAction.OpenFile(file)) },
                         onSelectCandidate = { messageId, file ->
@@ -269,6 +298,8 @@ internal fun AiConversationViewport(
                                 author = AiChatAuthor.ASSISTANT,
                                 text = "安安正在思考...",
                             ),
+                            userAvatarUrl = userAvatarUrl,
+                            userDisplayName = userDisplayName,
                             actionsEnabled = false,
                             onOpenFile = {},
                             onSelectCandidate = { _, _ -> },
@@ -277,6 +308,9 @@ internal fun AiConversationViewport(
                             onCancelReview = {},
                         )
                     }
+                }
+                item(key = "ai-bottom-anchor") {
+                    Spacer(modifier = Modifier.height(1.dp))
                 }
             }
             HorizontalDivider(color = AiLine, thickness = 1.dp)
@@ -296,6 +330,7 @@ internal fun AiConversationViewport(
 @Composable
 private fun AiConversationHeader(
     online: Boolean,
+    newConversationEnabled: Boolean,
     onBack: () -> Unit,
     onNewConversation: () -> Unit,
 ) {
@@ -345,16 +380,17 @@ private fun AiConversationHeader(
         }
         Box(
             modifier = Modifier
-                .size(36.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .clickable(onClick = onNewConversation),
+                .size(44.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(AiBlue.copy(alpha = 0.08f))
+                .clickable(enabled = newConversationEnabled, onClick = onNewConversation),
             contentAlignment = Alignment.Center,
         ) {
-            Image(
-                painter = painterResource(R.drawable.ic_ai_new_chat),
+            Icon(
+                imageVector = Icons.Rounded.AddComment,
                 contentDescription = "新建对话",
-                modifier = Modifier.size(27.dp),
-                contentScale = ContentScale.Fit,
+                tint = AiBlue.copy(alpha = if (newConversationEnabled) 1f else 0.42f),
+                modifier = Modifier.size(23.dp),
             )
         }
     }
@@ -363,6 +399,8 @@ private fun AiConversationHeader(
 @Composable
 private fun AiMessageItem(
     message: AiChatMessage,
+    userAvatarUrl: String?,
+    userDisplayName: String,
     actionsEnabled: Boolean,
     onOpenFile: (AiChatFileResult) -> Unit,
     onSelectCandidate: (Long, AiChatFileResult) -> Unit,
@@ -389,11 +427,10 @@ private fun AiMessageItem(
                 )
             }
             Spacer(modifier = Modifier.width(7.dp))
-            Image(
-                painter = painterResource(R.drawable.ic_ai_user_avatar),
-                contentDescription = null,
-                modifier = Modifier.size(34.dp),
-                contentScale = ContentScale.Fit,
+            UserAvatar(
+                url = userAvatarUrl,
+                fallback = userDisplayName,
+                size = 34.dp,
             )
         }
     } else {
@@ -694,6 +731,7 @@ private fun AiMessageComposer(
 ) {
     val focusManager = LocalFocusManager.current
     val canSend = value.isNotBlank() && !sending
+    val hasAttachments = pendingAttachments.isNotEmpty()
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -711,21 +749,44 @@ private fun AiMessageComposer(
             modifier = Modifier
                 .fillMaxWidth(),
             verticalAlignment = Alignment.Bottom,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Box(
                 modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .clickable(enabled = !sending, onClick = onAttach),
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(if (hasAttachments) AiBlue.copy(alpha = 0.08f) else Color.Transparent)
+                    .clickable(enabled = !sending, onClick = onAttach)
+                    .alpha(if (sending) 0.35f else 1f),
                 contentAlignment = Alignment.Center,
             ) {
-                Image(
-                    painter = painterResource(R.drawable.ic_ai_attachment),
+                Icon(
+                    imageVector = Icons.Rounded.AttachFile,
                     contentDescription = "添加附件",
-                    modifier = Modifier.size(40.dp),
-                    contentScale = ContentScale.Fit,
+                    tint = if (hasAttachments) AiBlue else AiInk,
+                    modifier = Modifier.size(24.dp),
                 )
+                if (hasAttachments) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .size(18.dp)
+                            .clip(CircleShape)
+                            .background(AiBlue),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = if (pendingAttachments.size <= 9) {
+                                pendingAttachments.size.toString()
+                            } else {
+                                "9+"
+                            },
+                            color = Color.White,
+                            fontSize = 8.sp,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                }
             }
             AiDraftField(
                 value = value,
@@ -941,3 +1002,8 @@ private fun submitAiMessage(
     onSend()
     focusManager.clearFocus()
 }
+
+private fun AiChatUiState.hasConversationContent(): Boolean =
+    draft.isNotBlank() ||
+        pendingAttachments.isNotEmpty() ||
+        messages.any { message -> message.author == AiChatAuthor.USER }

@@ -173,6 +173,12 @@ interface AliciaCloudService {
         @Body payload: BatchNodePayload,
     ): Response<ApiMessageResponse>
 
+    @POST("api/storage/nodes/batch/trash/scoped")
+    suspend fun moveScopedNodesToTrash(
+        @Header("Authorization") authorization: String,
+        @Body payload: ScopedTrashPayload,
+    ): Response<ApiMessageResponse>
+
     @POST("api/storage/trash/{nodeId}/restore")
     suspend fun restoreNode(
         @Header("Authorization") authorization: String,

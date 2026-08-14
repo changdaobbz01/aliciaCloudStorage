@@ -4,19 +4,23 @@ import org.springframework.stereotype.Service;
 
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 @Service
 public class CollectionOperationSelectorResolver {
 
-    static final String SELECTOR_VERSION = "source_selector_v1";
-    static final String SOURCE_NAMED_FOLDER = "NAMED_FOLDER_CHILDREN";
-    static final String SOURCE_PREVIOUS_RESULTS = "PREVIOUS_RESULTS";
-    static final String SOURCE_CONTEXT_FOLDER = "CONTEXT_FOLDER_CHILDREN";
+    static final String SELECTOR_VERSION = "source_selector_v2";
+    static final String SOURCE_NAMED_FOLDER = CollectionSourceExpressionParser.SOURCE_NAMED_FOLDER;
+    static final String SOURCE_PREVIOUS_RESULTS = CollectionSourceExpressionParser.SOURCE_PREVIOUS_RESULTS;
+    static final String SOURCE_CURRENT_FOLDER = CollectionSourceExpressionParser.SOURCE_CURRENT_FOLDER;
+    static final String SOURCE_CONTEXT_FOLDER = CollectionSourceExpressionParser.SOURCE_CONTEXT_FOLDER;
+    static final String SOURCE_ROOT = CollectionSourceExpressionParser.SOURCE_ROOT;
+
+    private final CollectionSourceExpressionParser sourceExpressionParser = new CollectionSourceExpressionParser();
 
     private static final Pattern MOVE_SPLIT = Pattern.compile(
             "^(.*?)(?:移动到|移到|挪到|转移到|搬到|放到|放进|移动至|挪至|转移至|搬至)(.+)$"
@@ -27,20 +31,14 @@ public class CollectionOperationSelectorResolver {
     private static final Pattern DELETE_SUFFIX = Pattern.compile(
             "^(.+?)(?:删除|删掉|删了|删除掉|移入回收站|放进回收站)$"
     );
-    private static final Pattern FOLDER_CONTENT = Pattern.compile(
-            "^(?:请)?(?:把|将)?(.+?)(?:中|里|下|内)(?:的)?(?:(?:所有|全部)(?:的)?)?(文件夹|文件|内容|东西)(?:都|全部|全都|全)?$"
-    );
-    private static final Pattern NAMED_FOLDER_CONTENT = Pattern.compile(
-            "^(?:请)?(?:把|将)?(.+?(?:目录|文件夹))(?:(?:所有|全部)(?:的)?)?(文件夹|文件|内容|东西)(?:都|全部|全都|全)?$"
-    );
-    private static final Pattern CONTEXT_FOLDER_CONTENT = Pattern.compile(
-            "^(?:请)?(?:把|将)?(当前目录|当前文件夹|这个目录|这个文件夹|该目录|该文件夹)(?:(?:所有|全部)(?:的)?)?(文件夹|文件|内容|东西)(?:都|全部|全都|全)?$"
-    );
-    private static final Pattern PREVIOUS_RESULTS = Pattern.compile(
-            "^(?:请)?(?:把|将)?(?:(?:刚才|上面|之前|上一轮)(?:列出|找到|搜索到|查到|展示)(?:的)?(?:全部|所有)?(?:结果|文件|项目)?|这些|那些|它们|结果|文件|项目)(?:都|全部|全都|全)?$"
-    );
     private static final Pattern CLEAR_FOLDER = Pattern.compile("^(?:请)?清空(.+)$");
     private static final Pattern RECURSIVE_WORDS = Pattern.compile("(?:递归|所有层级|全部层级|包含子文件夹|连同子文件夹|子目录也)");
+    private static final Pattern ROOT_NODE_DELETE = Pattern.compile(
+            "^(?:请)?(?:删除|删掉|删了|删除掉)(?:云盘)?(?:根目录|根文件夹)$"
+    );
+    private static final Pattern UNSCOPED_COLLECTION_DELETE = Pattern.compile(
+            "^(?:请)?(?:(?:删除|删掉|删除掉|移入回收站|放进回收站))?(?:把|将)?(?:所有|全部)(?:的)?(?:文件(?:夹)?(?:以及|和|与|及|、)文件(?:夹)?|文件|文件夹|内容|东西)(?:都|全部|全都|全)?(?:删除|删掉|删了|删除掉|移入回收站|放进回收站)?$"
+    );
 
     public boolean handles(String message, AssistantConversationState conversation) {
         String text = normalize(message);
@@ -48,6 +46,8 @@ public class CollectionOperationSelectorResolver {
             return false;
         }
         return CLEAR_FOLDER.matcher(text).matches()
+                || ROOT_NODE_DELETE.matcher(text).matches()
+                || UNSCOPED_COLLECTION_DELETE.matcher(text).matches()
                 || RECURSIVE_WORDS.matcher(text).find()
                 || parseMove(text, conversation).isPresent()
                 || parseTrash(text, conversation).isPresent();
@@ -71,6 +71,20 @@ public class CollectionOperationSelectorResolver {
                     "ambiguous_clear_folder"
             );
         }
+        if (ROOT_NODE_DELETE.matcher(text).matches()) {
+            return clarification(
+                    baseResponse,
+                    "根目录本身不能删除。你可以明确说“删除根目录下所有文件”或“删除根目录下所有文件和文件夹”。",
+                    "root_node_cannot_be_deleted"
+            );
+        }
+        if (UNSCOPED_COLLECTION_DELETE.matcher(text).matches()) {
+            return clarification(
+                    baseResponse,
+                    "请补充要处理的目录范围，例如“删除根目录下所有文件和文件夹”或“删除测试目录中的所有文件”。",
+                    "collection_scope_required"
+            );
+        }
         if (RECURSIVE_WORDS.matcher(text).find()) {
             return clarification(
                     baseResponse,
@@ -88,7 +102,7 @@ public class CollectionOperationSelectorResolver {
         if (response == null || response.actionDraft() == null) {
             return false;
         }
-        return List.of("collection.move", "collection.trash").contains(response.actionDraft().type());
+        return List.of("collection.move", "collection.trash", "collection.trash_scoped").contains(response.actionDraft().type());
     }
 
     public IntentRecognitionResponse restoreStored(
@@ -97,17 +111,17 @@ public class CollectionOperationSelectorResolver {
     ) {
         if (conversation == null
                 || conversation.pendingActionDraft() == null
-                || !List.of("collection.move", "collection.trash").contains(conversation.pendingActionDraft().type())) {
+                || !List.of("collection.move", "collection.trash", "collection.trash_scoped").contains(conversation.pendingActionDraft().type())) {
             return response;
         }
         Map<String, Object> stored = conversation.entities();
         String sourceKind = stringValue(stored.get("source_kind"));
-        String sourceNodeType = stringValue(stored.get("source_node_type"));
+        Set<CollectionSourceExpressionParser.NodeKind> sourceNodeKinds = storedNodeKinds(stored);
         String sourceFolder = stringValue(stored.get("source_folder"));
         String targetFolder = stringValue(stored.get("target_folder"));
         CollectionSelector selector = new CollectionSelector(
-                "collection.move".equals(conversation.pendingActionDraft().type()) ? "MOVE" : "TRASH",
-                new SourceSelector(sourceKind, sourceFolder, sourceNodeType),
+                "collection.move".equals(conversation.pendingActionDraft().type()) ? "MOVE" : "DELETE",
+                new SourceSelector(sourceKind, sourceFolder, sourceNodeKinds),
                 targetFolder
         );
         IntentRecognitionResponse restored = override(response, selector);
@@ -148,41 +162,20 @@ public class CollectionOperationSelectorResolver {
             return Optional.empty();
         }
         return parseSource(sourceSurface, conversation)
-                .map(source -> new CollectionSelector("TRASH", source, ""));
+                .map(source -> new CollectionSelector("DELETE", source, ""));
     }
 
     private Optional<SourceSelector> parseSource(String surface, AssistantConversationState conversation) {
-        if (PREVIOUS_RESULTS.matcher(surface).matches()) {
-            return Optional.of(new SourceSelector(SOURCE_PREVIOUS_RESULTS, "", inferPreviousNodeType(conversation)));
-        }
-        Matcher folderContent = FOLDER_CONTENT.matcher(surface);
-        if (!folderContent.matches()) {
-            folderContent = NAMED_FOLDER_CONTENT.matcher(surface);
-        }
-        if (!folderContent.matches()) {
-            folderContent = CONTEXT_FOLDER_CONTENT.matcher(surface);
-        }
-        if (folderContent.matches()) {
-            String folder = cleanFolder(folderContent.group(1));
-            String nodeType = nodeType(folderContent.group(2));
-            if (isContextFolder(folder) && hasPreviousCandidates(conversation)) {
-                return Optional.of(new SourceSelector(SOURCE_CONTEXT_FOLDER, folder, nodeType));
-            }
-            if (isContextFolder(folder)) {
-                return Optional.empty();
-            }
-            if (!folder.isBlank()) {
-                return Optional.of(new SourceSelector(SOURCE_NAMED_FOLDER, folder, nodeType));
-            }
-        }
-        return Optional.empty();
+        return sourceExpressionParser.parse(surface, conversation)
+                .map(source -> new SourceSelector(source.kind(), source.folder(), source.nodeKinds()));
     }
 
     private IntentRecognitionResponse override(IntentRecognitionResponse response, CollectionSelector selector) {
         Map<String, Object> entities = new LinkedHashMap<>();
         entities.put("selector_version", SELECTOR_VERSION);
         entities.put("source_kind", selector.source().kind());
-        entities.put("source_node_type", selector.source().nodeType());
+        entities.put("source_node_type", selector.source().legacyNodeType());
+        entities.put("source_node_types", selector.source().nodeTypeNames());
         entities.put("source_recursive", false);
         entities.put("source_quantifier", "ALL");
         if (!selector.source().folder().isBlank()) {
@@ -193,7 +186,11 @@ public class CollectionOperationSelectorResolver {
         }
 
         boolean move = "MOVE".equals(selector.operation());
-        String actionType = move ? "collection.move" : "collection.trash";
+        String actionType = move
+                ? "collection.move"
+                : SOURCE_PREVIOUS_RESULTS.equals(selector.source().kind())
+                ? "collection.trash"
+                : "collection.trash_scoped";
         String intentId = move ? "node_move" : "file_delete";
         String intentName = move ? "批量移动目录内容" : "批量删除目录内容";
         String assistantText = move
@@ -203,15 +200,12 @@ public class CollectionOperationSelectorResolver {
                 SemanticFrame.VERSION,
                 SOURCE_PREVIOUS_RESULTS.equals(selector.source().kind()) ? "FOLLOW_UP" : "NEW_TASK",
                 selector.operation(),
-                new SemanticFrame.Query("COLLECTION", selector.source().nodeType(), "", "", Map.of(
+                new SemanticFrame.Query("COLLECTION", selector.source().legacyNodeType(), "", "", Map.of(
                         "quantifier", "ALL",
-                        "recursive", false
+                        "recursive", false,
+                        "nodeTypes", selector.source().nodeTypeNames()
                 )),
-                new SemanticFrame.Scope(
-                        move ? "NAMED_FOLDER" : "ALL",
-                        selector.destination(),
-                        selector.destination().toLowerCase(Locale.ROOT)
-                ),
+                semanticScope(selector.source()),
                 new SemanticFrame.Reference(
                         SOURCE_PREVIOUS_RESULTS.equals(selector.source().kind()) ? "PREVIOUS_CANDIDATE_SET" : "NONE",
                         null,
@@ -256,25 +250,43 @@ public class CollectionOperationSelectorResolver {
                 .withAssistantText(question);
     }
 
-    private boolean hasPreviousCandidates(AssistantConversationState conversation) {
-        return conversation != null
-                && conversation.focus() != null
-                && conversation.focus().candidateBinding() != null
-                && !conversation.focus().candidateBinding().candidates().isEmpty();
+    private SemanticFrame.Scope semanticScope(SourceSelector source) {
+        String type = switch (source.kind()) {
+            case SOURCE_ROOT -> "ROOT";
+            case SOURCE_CURRENT_FOLDER, SOURCE_CONTEXT_FOLDER -> "CURRENT";
+            case SOURCE_PREVIOUS_RESULTS -> "PREVIOUS_RESULTS";
+            default -> "NAMED_FOLDER";
+        };
+        String surface = SOURCE_PREVIOUS_RESULTS.equals(source.kind()) ? "" : source.folder();
+        return new SemanticFrame.Scope(type, surface, surface.toLowerCase(java.util.Locale.ROOT));
     }
 
-    private String inferPreviousNodeType(AssistantConversationState conversation) {
-        if (!hasPreviousCandidates(conversation)) {
-            return "ANY";
+    private Set<CollectionSourceExpressionParser.NodeKind> storedNodeKinds(Map<String, Object> stored) {
+        Object value = stored.get("source_node_types");
+        java.util.EnumSet<CollectionSourceExpressionParser.NodeKind> kinds =
+                java.util.EnumSet.noneOf(CollectionSourceExpressionParser.NodeKind.class);
+        if (value instanceof Iterable<?> iterable) {
+            iterable.forEach(item -> addNodeKind(kinds, item));
         }
-        List<String> types = conversation.focus().candidateBinding().candidates().stream()
-                .map(CandidateItem::type)
-                .map(type -> type == null ? "" : type.toUpperCase(Locale.ROOT))
-                .distinct()
-                .toList();
-        return types.size() == 1 && List.of("FILE", "FOLDER").contains(types.getFirst())
-                ? types.getFirst()
-                : "ANY";
+        if (kinds.isEmpty()) {
+            String legacy = stringValue(stored.get("source_node_type"));
+            if ("ANY".equalsIgnoreCase(legacy)) {
+                kinds.addAll(java.util.EnumSet.allOf(CollectionSourceExpressionParser.NodeKind.class));
+            } else {
+                addNodeKind(kinds, legacy);
+            }
+        }
+        return kinds.isEmpty()
+                ? Set.copyOf(java.util.EnumSet.allOf(CollectionSourceExpressionParser.NodeKind.class))
+                : Set.copyOf(kinds);
+    }
+
+    private void addNodeKind(Set<CollectionSourceExpressionParser.NodeKind> kinds, Object value) {
+        try {
+            kinds.add(CollectionSourceExpressionParser.NodeKind.valueOf(stringValue(value).toUpperCase(java.util.Locale.ROOT)));
+        } catch (IllegalArgumentException ignored) {
+            // Stored v1 values outside FILE/FOLDER are treated as an unspecified node set.
+        }
     }
 
     private boolean isConfirmationOrSelection(String text) {
@@ -292,24 +304,6 @@ public class CollectionOperationSelectorResolver {
                 .replaceFirst("(?:吧|中|里|下|内)$", "");
     }
 
-    private String cleanFolder(String value) {
-        return normalize(value)
-                .replaceFirst("^(?:这个|该)(?:文件夹|目录)$", "这个文件夹")
-                .replaceFirst("(?:这个|该)$", "这个文件夹");
-    }
-
-    private boolean isContextFolder(String value) {
-        return List.of("这个文件夹", "当前文件夹", "当前目录", "这个目录", "该文件夹", "该目录").contains(value);
-    }
-
-    private String nodeType(String value) {
-        return switch (value) {
-            case "文件" -> "FILE";
-            case "文件夹" -> "FOLDER";
-            default -> "ANY";
-        };
-    }
-
     private String normalize(String value) {
         return value == null
                 ? ""
@@ -323,6 +317,17 @@ public class CollectionOperationSelectorResolver {
     private record CollectionSelector(String operation, SourceSelector source, String destination) {
     }
 
-    private record SourceSelector(String kind, String folder, String nodeType) {
+    private record SourceSelector(
+            String kind,
+            String folder,
+            Set<CollectionSourceExpressionParser.NodeKind> nodeKinds
+    ) {
+        private List<String> nodeTypeNames() {
+            return nodeKinds.stream().map(Enum::name).sorted().toList();
+        }
+
+        private String legacyNodeType() {
+            return nodeKinds.size() == 1 ? nodeKinds.iterator().next().name() : "ANY";
+        }
     }
 }

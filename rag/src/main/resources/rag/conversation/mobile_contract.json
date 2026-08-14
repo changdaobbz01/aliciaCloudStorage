@@ -266,7 +266,7 @@
       "cloudStorageApi": {"method": "PUT", "path": "/api/storage/nodes/batch/move"},
       "mobileRepositoryMethod": "moveNodes",
       "requiresFinalConfirmation": true,
-      "notes": "Executes a server-bound source_selector_v1 snapshot after role-specific source and destination binding."
+      "notes": "Executes a server-bound source_selector_v2 snapshot after role-specific source and destination binding."
     },
     "collection.trash": {
       "phase": 2,
@@ -275,7 +275,16 @@
       "cloudStorageApi": {"method": "POST", "path": "/api/storage/nodes/batch/trash"},
       "mobileRepositoryMethod": "moveNodesToTrash",
       "requiresFinalConfirmation": true,
-      "notes": "Executes a server-bound source_selector_v1 snapshot after exact collection review."
+      "notes": "Executes a server-bound source_selector_v2 snapshot after exact collection review."
+    },
+    "collection.trash_scoped": {
+      "phase": 2,
+      "implementationStatus": "mobile_supported",
+      "executionMode": "backend_action_ready",
+      "cloudStorageApi": {"method": "POST", "path": "/api/storage/nodes/batch/trash/scoped"},
+      "mobileRepositoryMethod": "moveScopedNodesToTrash",
+      "requiresFinalConfirmation": true,
+      "notes": "Executes a source_selector_v2 snapshot only after the backend revalidates the exact source scope and folder-subtree impact fingerprints."
     },
     "collection.rename_add_prefix": {
       "phase": 2,

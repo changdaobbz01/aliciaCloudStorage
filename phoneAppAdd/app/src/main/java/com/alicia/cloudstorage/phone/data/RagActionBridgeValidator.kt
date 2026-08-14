@@ -192,6 +192,20 @@ internal class RagActionBridgeValidator(
                 pathTemplate = "/api/storage/nodes/batch/trash",
                 bodyKeys = setOf("nodeIds"),
             ),
+            "collection.trash_scoped" to RagAllowedBridgeRoute(
+                method = "POST",
+                pathTemplate = "/api/storage/nodes/batch/trash/scoped",
+                bodyKeys = setOf(
+                    "selectorVersion",
+                    "sourceParentId",
+                    "root",
+                    "nodeTypes",
+                    "nodeIds",
+                    "scopeFingerprint",
+                    "impactFingerprint",
+                    "expectedImpactCount",
+                ),
+            ),
             "collection.rename_add_prefix" to RagAllowedBridgeRoute(
                 method = "PUT",
                 pathTemplate = "/api/storage/nodes/batch/rename",

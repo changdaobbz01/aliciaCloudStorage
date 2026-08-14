@@ -3,6 +3,7 @@ package com.alicia.cloudstorage.api.config;
 import com.alicia.cloudstorage.api.auth.AuthException;
 import com.alicia.cloudstorage.api.dto.ApiErrorResponse;
 import com.alicia.cloudstorage.api.service.CosStorageException;
+import com.alicia.cloudstorage.api.service.ScopedTrashSnapshotStaleException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -36,6 +37,12 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ApiErrorResponse handleIllegalArgumentException(IllegalArgumentException ex) {
         return new ApiErrorResponse(400, ex.getMessage(), LocalDateTime.now());
+    }
+
+    @ExceptionHandler(ScopedTrashSnapshotStaleException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ApiErrorResponse handleScopedTrashSnapshotStale(ScopedTrashSnapshotStaleException ex) {
+        return new ApiErrorResponse(409, ex.getMessage(), LocalDateTime.now());
     }
 
     /**

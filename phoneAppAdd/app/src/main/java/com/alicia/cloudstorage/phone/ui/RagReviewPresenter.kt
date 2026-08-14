@@ -18,7 +18,7 @@ internal class RagReviewPresenter {
         val actionType = plan?.actionType ?: backendDraft?.actionType.orEmpty()
         val candidates = response.reviewCandidates().withOperationPreview(response)
         val kind = response.reviewKind(plan, backendDraft, actionType, candidates)
-        val lines = response.reviewLines(plan, backendDraft, actionType)
+        val lines = response.reviewLines(plan, backendDraft, actionType, candidates)
 
         return RagReviewPresentation(
             kind = kind,
@@ -176,6 +176,7 @@ private fun RagAssistantPlanResponse.reviewLines(
     plan: RagActionPlan?,
     backendDraft: RagBackendActionDraft?,
     actionType: String,
+    displayedCandidates: List<RagReviewCandidate>,
 ): List<String> {
     if (plan == null) {
         return backendDraft.toBackendOnlyLines(actionType)
@@ -194,6 +195,8 @@ private fun RagAssistantPlanResponse.reviewLines(
 
     val bindingCount = if (plan.planKind.equalsNormalized("collection")) {
         0
+    } else if (actionType.equalsNormalized("search") && displayedCandidates.isNotEmpty()) {
+        displayedCandidates.size
     } else {
         plan.bindings.orEmpty().values.sumOf { binding ->
             binding.count ?: binding.candidates.orEmpty().size
@@ -382,6 +385,16 @@ private fun RagActionPlan.collectionReviewLines(): List<String> {
         }
 
         binding.filter.toFilterLine()?.let { lines += it }
+        val selectedFiles = binding.filter.readableInt("selectedFileCount")
+        val selectedFolders = binding.filter.readableInt("selectedFolderCount")
+        val descendants = binding.filter.readableInt("descendantCount")
+        val impactCount = binding.filter.readableInt("impactCount")
+        if (selectedFiles != null || selectedFolders != null) {
+            lines += "直属范围：${selectedFiles ?: 0} 个文件、${selectedFolders ?: 0} 个文件夹。"
+        }
+        if ((selectedFolders ?: 0) > 0 && impactCount != null) {
+            lines += "实际影响：共 $impactCount 个节点，其中包含 ${descendants ?: 0} 个文件夹内部节点。"
+        }
 
         val hasServerSnapshot = binding.filter?.readableValue("snapshotId") != null
         val previewIncomplete = binding.status.equalsNormalized("unresolved") ||
@@ -427,6 +440,13 @@ private fun Map<String, Any>.readableValue(key: String): String? =
         ?.trim()
         ?.takeIf { it.isNotBlank() && it != "null" && !it.startsWith("$") }
 
+private fun Map<String, Any>?.readableInt(key: String): Int? =
+    when (val value = this?.get(key)) {
+        is Number -> value.toInt()
+        is String -> value.trim().toIntOrNull()
+        else -> null
+    }
+
 private fun RagCandidateItem.detailLabel(): String {
     val pathText = path?.takeIf { it.isNotBlank() }
     val typeText = type?.takeIf { it.isNotBlank() }
@@ -460,6 +480,7 @@ private fun String?.toCandidateStatusLine(): String? =
         "missing_authorization" -> "登录状态不可用，请重新登录后再试。"
         "storage_api_not_configured" -> "文件索引服务还没有配置完成。"
         "storage_api_error" -> "候选查询暂时不可用，请稍后再试。"
+        "unsupported_filter" -> "暂不支持该文件类型筛选，请换一种类型再试。"
         "multiple_candidates" -> "匹配到多个候选，请先选择一个。"
         "single_candidate" -> "已匹配到候选，确认后再继续。"
         "search_results_ready" -> "已完成文件检索，可展示候选结果。"
@@ -558,6 +579,7 @@ private val blockedCandidateStatuses = setOf(
     "missing_authorization",
     "storage_api_not_configured",
     "storage_api_error",
+    "unsupported_filter",
 )
 
 private val selectableCandidateStatuses = setOf(

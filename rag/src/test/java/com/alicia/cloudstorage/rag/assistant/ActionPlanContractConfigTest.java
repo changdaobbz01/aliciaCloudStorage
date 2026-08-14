@@ -73,6 +73,7 @@ class ActionPlanContractConfigTest {
                 "node.batch_move",
                 "node.trash",
                 "node.batch_trash",
+                "node.batch_scoped_trash",
                 "share.create",
                 "trash.restore"
         );
@@ -115,6 +116,7 @@ class ActionPlanContractConfigTest {
 
         assertThat(config).containsEntry("version", "collection_actions_v1");
         assertThat(collections.keySet()).contains(
+                "collection.trash_scoped",
                 "collection.trash_by_name_contains",
                 "collection.trash_by_category",
                 "collection.move_by_category",
@@ -191,6 +193,10 @@ class ActionPlanContractConfigTest {
         assertThat(map(actionHandlers, "collection.rename_add_prefix"))
                 .containsEntry("implementationStatus", "mobile_supported")
                 .containsEntry("mobileRepositoryMethod", "renameNodes");
+        assertThat(bridgeActions).containsKey("collection.trash_scoped");
+        assertThat(map(actionHandlers, "collection.trash_scoped"))
+                .containsEntry("implementationStatus", "mobile_supported")
+                .containsEntry("mobileRepositoryMethod", "moveScopedNodesToTrash");
     }
 
     @Test
@@ -210,6 +216,7 @@ class ActionPlanContractConfigTest {
         assertThat(scenarios).containsEntry("version", "rag_mobile_acceptance_v1");
         assertThat(list(scenarios, "automatedScenarios")).hasSizeGreaterThan(20);
         assertThat(list(scenarios, "manualScenarios")).hasSizeGreaterThanOrEqualTo(5);
+        assertThat(actionTypes).contains("collection.trash_scoped");
 
         for (Object item : list(scenarios, "automatedScenarios")) {
             Map<String, Object> scenario = map(item);
@@ -247,6 +254,7 @@ class ActionPlanContractConfigTest {
                 .containsEntry("capabilityBoundaryVersion", boundaries.get("version"))
                 .containsEntry("semanticArbitrationVersion", arbitration.get("version"))
                 .containsEntry("assistantResponsePolicyVersion", responsePolicy.get("version"));
+        assertThat(list(capabilities, "executableActions")).contains("collection.trash_scoped");
         assertThat(list(boundaries, "boundaries")).hasSizeGreaterThanOrEqualTo(5);
     }
 

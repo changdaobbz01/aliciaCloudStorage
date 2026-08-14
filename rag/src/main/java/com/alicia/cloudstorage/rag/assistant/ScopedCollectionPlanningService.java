@@ -4,6 +4,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -17,6 +18,7 @@ public class ScopedCollectionPlanningService {
     private static final String PLAN_ID = "_plan_id";
     private static final String SNAPSHOT_ID = "_snapshot_id";
     private static final String SNAPSHOT_COUNT = "_snapshot_count";
+    private static final String SNAPSHOT_METADATA = "_source_snapshot_metadata";
     private static final String SOURCE_FOLDER_ROLE = "sourceFolder";
     private static final String TARGET_PARENT_ROLE = "targetParent";
     private static final Set<String> ROOT_ALIASES = Set.of(
@@ -186,7 +188,7 @@ public class ScopedCollectionPlanningService {
         Map<String, Object> sourceFilter = sourceFilter(entities);
 
         if (CollectionOperationSelectorResolver.SOURCE_PREVIOUS_RESULTS.equals(sourceKind)) {
-            sourceCandidates = previousCandidates(conversation, stringValue(entities.get("source_node_type")));
+            sourceCandidates = previousCandidates(conversation, sourceNodeTypes(entities));
             sourceFilter.put("sourceReference", "previousResults");
         } else {
             Long sourceParentId = longValue(entities.get("source_parent_id"));
@@ -203,7 +205,8 @@ public class ScopedCollectionPlanningService {
             }
             sourceFilter.put("parentId", sourceParentId == null ? "" : sourceParentId);
             sourceFilter.put("root", sourceRoot);
-            sourceFilter.put("includeFolders", !"FILE".equals(stringValue(entities.get("source_node_type"))));
+            sourceFilter.put("sourcePath", stringValue(entities.get("source_folder_path")));
+            sourceFilter.put("includeFolders", sourceNodeTypes(entities).contains("FOLDER"));
             CollectionPreviewResult preview = collectionPreviewPort.preview(new CollectionPreviewRequest(
                     actionType,
                     Map.copyOf(sourceFilter),
@@ -214,6 +217,8 @@ public class ScopedCollectionPlanningService {
             if (!"preview_ready".equals(preview.status()) || !preview.exactCount()) {
                 return collectionUnavailable(response, entities, planId, actionType, preview.message());
             }
+            sourceFilter.putAll(preview.filter());
+            entities.put(SNAPSHOT_METADATA, snapshotMetadata(preview.filter()));
             sourceCandidates = preview.candidates();
         }
 
@@ -278,7 +283,7 @@ public class ScopedCollectionPlanningService {
                 "search_results_ready",
                 "collection-snapshot",
                 sourceDescription(entities),
-                stringValue(entities.get("source_node_type")),
+                collectionResultType(entities),
                 sourceCandidates.stream().limit(previewItems).toList(),
                 "已锁定 " + sourceCandidates.size() + " 个待处理项目。"
         );
@@ -326,6 +331,9 @@ public class ScopedCollectionPlanningService {
         if (CollectionOperationSelectorResolver.SOURCE_PREVIOUS_RESULTS.equals(sourceKind)) {
             return BindingResolution.notRequired();
         }
+        if (CollectionOperationSelectorResolver.SOURCE_ROOT.equals(sourceKind)) {
+            return BindingResolution.resolved(rootCandidate());
+        }
         if (booleanValue(entities.get("source_is_root"))) {
             return BindingResolution.resolved(rootCandidate());
         }
@@ -341,6 +349,12 @@ public class ScopedCollectionPlanningService {
             return contextFolder == null
                     ? BindingResolution.failed("无法从上一轮结果确定“这个文件夹”，请直接说出目录名称或完整路径。")
                     : BindingResolution.resolved(contextFolder);
+        }
+        if (CollectionOperationSelectorResolver.SOURCE_CURRENT_FOLDER.equals(sourceKind)) {
+            CandidateItem currentFolder = currentFolder(clientContext);
+            return currentFolder == null
+                    ? BindingResolution.failed("移动端没有提供当前目录信息，请直接说出目录名称或完整路径。")
+                    : BindingResolution.resolved(currentFolder);
         }
         String sourceFolder = stringValue(entities.get("source_folder"));
         if (isRootAlias(sourceFolder)) {
@@ -481,7 +495,11 @@ public class ScopedCollectionPlanningService {
         if ("collection.move".equals(actionType)) {
             bindings.put(TARGET_PARENT_ROLE, resolvedFolderBinding(TARGET_PARENT_ROLE, "target_folder", targetParent));
         }
-        String stepAction = "collection.move".equals(actionType) ? "node.batch_move" : "node.batch_trash";
+        String stepAction = "collection.move".equals(actionType)
+                ? "node.batch_move"
+                : "collection.trash_scoped".equals(actionType)
+                ? "node.batch_scoped_trash"
+                : "node.batch_trash";
         Map<String, Object> params = new LinkedHashMap<>();
         params.put("snapshotCount", sourceCandidates.size());
         if ("collection.move".equals(actionType)) {
@@ -496,9 +514,21 @@ public class ScopedCollectionPlanningService {
                 List.of(),
                 "collectionResult"
         );
+        long fileCount = sourceCandidates.stream().filter(candidate -> "FILE".equalsIgnoreCase(candidate.type())).count();
+        long folderCount = sourceCandidates.stream().filter(candidate -> "FOLDER".equalsIgnoreCase(candidate.type())).count();
+        String selectionSummary = selectionSummary(fileCount, folderCount, sourceCandidates.size());
         String summary = "collection.move".equals(actionType)
-                ? "将 " + sourceCandidates.size() + " 个项目移动到 " + displayPath(targetParent) + "。"
-                : "将 " + sourceCandidates.size() + " 个项目移入回收站。";
+                ? "将 " + selectionSummary + "移动到 " + displayPath(targetParent) + "。"
+                : "将 " + selectionSummary + "移入回收站。";
+        List<ActionPlanMessage> messages = new ArrayList<>();
+        messages.add(new ActionPlanMessage("info", "collection_snapshot_ready", "完整集合已在服务端形成安全快照。"));
+        if (folderCount > 0 && actionType.startsWith("collection.trash")) {
+            messages.add(new ActionPlanMessage(
+                    "warning",
+                    "folder_subtree_will_be_trashed",
+                    "选中的文件夹及其内部内容会一并移入回收站，请核对影响范围。"
+            ));
+        }
         return new ActionPlan(
                 "action_plan_v2",
                 planId,
@@ -512,7 +542,7 @@ public class ScopedCollectionPlanningService {
                 List.of(step),
                 List.of(),
                 summary,
-                List.of(new ActionPlanMessage("info", "collection_snapshot_ready", "完整集合已在服务端形成安全快照。"))
+                List.copyOf(messages)
         );
     }
 
@@ -529,7 +559,7 @@ public class ScopedCollectionPlanningService {
                 status,
                 "collection",
                 actionType,
-                "collection.trash".equals(actionType) ? "high" : "medium",
+                actionType.startsWith("collection.trash") ? "high" : "medium",
                 "collection_then_final_review",
                 "zh-CN",
                 bindings,
@@ -560,7 +590,7 @@ public class ScopedCollectionPlanningService {
                 return focused;
             }
         }
-        List<CandidateItem> previous = previousCandidates(conversation, "ANY");
+        List<CandidateItem> previous = previousCandidates(conversation, Set.of("FILE", "FOLDER"));
         if (previous.isEmpty()) {
             return null;
         }
@@ -579,12 +609,12 @@ public class ScopedCollectionPlanningService {
         return new CandidateItem(parentId, null, parentName, "FOLDER", 0L, "", "", "", parentPath, List.of());
     }
 
-    private List<CandidateItem> previousCandidates(AssistantConversationState conversation, String nodeType) {
+    private List<CandidateItem> previousCandidates(AssistantConversationState conversation, Set<String> nodeTypes) {
         if (conversation == null || conversation.focus() == null || conversation.focus().candidateBinding() == null) {
             return List.of();
         }
         return conversation.focus().candidateBinding().candidates().stream()
-                .filter(candidate -> "ANY".equals(nodeType) || nodeType.equalsIgnoreCase(candidate.type()))
+                .filter(candidate -> nodeTypes.isEmpty() || nodeTypes.contains(candidate.type().toUpperCase(Locale.ROOT)))
                 .toList();
     }
 
@@ -624,7 +654,9 @@ public class ScopedCollectionPlanningService {
         filter.put("selectorVersion", CollectionOperationSelectorResolver.SELECTOR_VERSION);
         filter.put("directChildren", true);
         filter.put("recursive", false);
-        filter.put("nodeType", stringValue(entities.get("source_node_type")));
+        Set<String> nodeTypes = sourceNodeTypes(entities);
+        filter.put("nodeTypes", nodeTypes.stream().sorted().toList());
+        filter.put("nodeType", nodeTypes.size() == 1 ? nodeTypes.iterator().next() : "");
         String sourceKind = stringValue(entities.get("source_kind"));
         if (CollectionOperationSelectorResolver.SOURCE_PREVIOUS_RESULTS.equals(sourceKind)) {
             filter.put("sourceReference", "previousResults");
@@ -632,9 +664,72 @@ public class ScopedCollectionPlanningService {
             Long sourceParentId = longValue(entities.get("source_parent_id"));
             filter.put("parentId", sourceParentId == null ? "" : sourceParentId);
             filter.put("root", booleanValue(entities.get("source_is_root")));
-            filter.put("includeFolders", !"FILE".equals(stringValue(entities.get("source_node_type"))));
+            filter.put("sourcePath", stringValue(entities.get("source_folder_path")));
+            filter.put("includeFolders", nodeTypes.contains("FOLDER"));
+        }
+        Object storedMetadata = entities.get(SNAPSHOT_METADATA);
+        if (storedMetadata instanceof Map<?, ?> metadata) {
+            metadata.forEach((key, value) -> filter.put(String.valueOf(key), value));
         }
         return filter;
+    }
+
+    private Map<String, Object> snapshotMetadata(Map<String, Object> previewFilter) {
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        List.of(
+                "scopeFingerprint",
+                "impactFingerprint",
+                "selectedFileCount",
+                "selectedFolderCount",
+                "descendantCount",
+                "impactCount",
+                "expectedImpactCount",
+                "sourceParentId",
+                "sourceRoot"
+        ).forEach(key -> {
+            if (previewFilter.containsKey(key)) {
+                metadata.put(key, previewFilter.get(key));
+            }
+        });
+        return Map.copyOf(metadata);
+    }
+
+    private Set<String> sourceNodeTypes(Map<String, Object> entities) {
+        java.util.LinkedHashSet<String> nodeTypes = new java.util.LinkedHashSet<>();
+        Object rawTypes = entities.get("source_node_types");
+        if (rawTypes instanceof Collection<?> values) {
+            values.stream()
+                    .map(this::stringValue)
+                    .map(value -> value.toUpperCase(Locale.ROOT))
+                    .filter(value -> List.of("FILE", "FOLDER").contains(value))
+                    .forEach(nodeTypes::add);
+        }
+        if (nodeTypes.isEmpty()) {
+            String legacyType = stringValue(entities.get("source_node_type")).toUpperCase(Locale.ROOT);
+            if ("ANY".equals(legacyType)) {
+                nodeTypes.add("FILE");
+                nodeTypes.add("FOLDER");
+            } else if (List.of("FILE", "FOLDER").contains(legacyType)) {
+                nodeTypes.add(legacyType);
+            }
+        }
+        return Set.copyOf(nodeTypes);
+    }
+
+    private String collectionResultType(Map<String, Object> entities) {
+        Set<String> nodeTypes = sourceNodeTypes(entities);
+        return nodeTypes.size() == 1 ? nodeTypes.iterator().next() : "ANY";
+    }
+
+    private String selectionSummary(long fileCount, long folderCount, int totalCount) {
+        List<String> parts = new ArrayList<>();
+        if (fileCount > 0) {
+            parts.add(fileCount + " 个文件");
+        }
+        if (folderCount > 0) {
+            parts.add(folderCount + " 个文件夹");
+        }
+        return parts.isEmpty() ? totalCount + " 个项目" : String.join("、", parts);
     }
 
     private void putId(Map<String, Object> entities, String key, Long value) {
@@ -653,11 +748,30 @@ public class ScopedCollectionPlanningService {
     private boolean isScopedCollection(IntentRecognitionResponse response) {
         return response != null
                 && response.actionDraft() != null
-                && List.of("collection.move", "collection.trash").contains(response.actionDraft().type());
+                && List.of("collection.move", "collection.trash", "collection.trash_scoped").contains(response.actionDraft().type());
     }
 
     private boolean isRootAlias(String value) {
         return ROOT_ALIASES.contains(value == null ? "" : value.trim().toLowerCase(Locale.ROOT));
+    }
+
+    private CandidateItem currentFolder(AssistantClientContext clientContext) {
+        AssistantClientContext context = clientContext == null ? AssistantClientContext.empty() : clientContext;
+        if (context.currentFolderId() == null) {
+            return isRootAlias(context.currentFolderPath()) ? rootCandidate() : null;
+        }
+        String path = stringValue(context.currentFolderPath());
+        String name = path;
+        int separator = path.lastIndexOf('/');
+        if (separator >= 0 && separator < path.length() - 1) {
+            name = path.substring(separator + 1);
+        }
+        if (name.isBlank()) {
+            name = "当前目录";
+        }
+        return new CandidateItem(
+                context.currentFolderId(), null, name, "FOLDER", 0L, "", "", "", path, List.of()
+        );
     }
 
     private CandidateItem rootCandidate() {

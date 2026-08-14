@@ -84,6 +84,33 @@ public class StorageApiNodeReadClient {
         return parseNodeItems(send(uri, authorizationHeader));
     }
 
+    public StorageApiScopedTrashPreview previewScopedTrash(
+            Long sourceParentId,
+            boolean root,
+            List<String> nodeTypes,
+            String authorizationHeader
+    ) {
+        UriComponentsBuilder builder = UriComponentsBuilder
+                .fromUriString(baseUrl + "/api/storage/nodes/batch/trash/scoped/preview")
+                .queryParam("root", root);
+        if (sourceParentId != null) {
+            builder.queryParam("sourceParentId", sourceParentId);
+        }
+        nodeTypes.forEach(type -> builder.queryParam("nodeTypes", type));
+        JsonNode response = send(builder.build().encode().toUri(), authorizationHeader);
+        return new StorageApiScopedTrashPreview(
+                parseNodeItems(response.path("items")),
+                response.path("selectedFileCount").asInt(0),
+                response.path("selectedFolderCount").asInt(0),
+                response.path("descendantCount").asInt(0),
+                response.path("impactCount").asInt(0),
+                response.path("scopeFingerprint").asText(""),
+                response.path("impactFingerprint").asText(""),
+                response.path("executable").asBoolean(false),
+                response.path("message").asText("")
+        );
+    }
+
     public Map<Long, CandidateItem> safeFolderMap(String authorizationHeader) {
         try {
             return folderMap(fetchAllFolders(authorizationHeader));

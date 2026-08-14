@@ -39,7 +39,8 @@ public class AssistantInteractionService {
                 "missing_authorization",
                 "storage_api_not_configured",
                 "storage_api_error",
-                "missing_query"
+                "missing_query",
+                "unsupported_filter"
         ).contains(binding.status())) {
             return new AssistantInteraction("BLOCKED", List.of(), SemanticFrame.Clarification.empty());
         }

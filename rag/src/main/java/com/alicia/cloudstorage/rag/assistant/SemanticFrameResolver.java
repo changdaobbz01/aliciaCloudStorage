@@ -23,7 +23,7 @@ public class SemanticFrameResolver {
             "NEW_TASK", "FOLLOW_UP", "CORRECTION", "SLOT_FILL", "CANDIDATE_SELECTION", "CONFIRMATION", "CANCELLATION"
     );
     private static final Set<String> QUERY_MODES = Set.of(
-            "NONE", "NAME_SEARCH", "NAME_EXACT", "NAME_CONTAINS", "LIST_CHILDREN", "FILTER"
+            "NONE", "NAME_SEARCH", "NAME_EXACT", "NAME_CONTAINS", "LIST_CHILDREN", "FILTER", "COLLECTION"
     );
     private static final Set<String> RESULT_TYPES = Set.of("ANY", "FILE", "FOLDER");
     private static final Set<String> SCOPE_TYPES = Set.of("ALL", "ROOT", "CURRENT", "PARENT", "NAMED_FOLDER", "PREVIOUS_RESULTS");
@@ -159,7 +159,10 @@ public class SemanticFrameResolver {
 
         if ("SEARCH".equals(frame.operation())) {
             entities.keySet().removeAll(List.of("target_name", "target_folder", "query_mode", "scope", "result_type"));
-            entities.put("query_mode", "LIST_CHILDREN".equals(frame.query().mode()) ? "directory_list" : "name_search");
+            boolean filterOnly = "FILTER".equals(frame.query().mode()) && frame.query().nameSurface().isBlank();
+            entities.put("query_mode", "LIST_CHILDREN".equals(frame.query().mode()) || filterOnly
+                    ? "directory_list"
+                    : "name_search");
             entities.put("scope", frame.scope().type().toLowerCase(Locale.ROOT));
             entities.put("result_type", frame.query().resultType());
             if (!"LIST_CHILDREN".equals(frame.query().mode()) && !frame.query().nameSurface().isBlank()) {
@@ -333,6 +336,17 @@ public class SemanticFrameResolver {
             );
         }
 
+        if (!fallbackQuery.filters().isEmpty() && isFilterOnlySearch(message, fallbackQuery)) {
+            String resultType = fallbackQuery.filters().containsKey("file_type")
+                    || fallbackQuery.filters().containsKey("extension")
+                    ? "FILE"
+                    : resultType("", message, fallbackQuery.resultType());
+            return new SearchSemantics(
+                    new SemanticFrame.Query("FILTER", resultType, "", "", fallbackQuery.filters()),
+                    fallbackScope
+            );
+        }
+
         String clue = cleanSearchClue(message);
         if (!clue.isBlank()) {
             String resultType = resultType("", message, fallbackQuery.resultType());
@@ -343,6 +357,22 @@ public class SemanticFrameResolver {
         }
 
         return new SearchSemantics(fallbackQuery, fallbackScope);
+    }
+
+    private boolean isFilterOnlySearch(String message, SemanticFrame.Query query) {
+        if (query.nameSurface().isBlank()) {
+            return true;
+        }
+        Object rawFileType = query.filters().get("file_type");
+        if (rawFileType == null || String.valueOf(rawFileType).isBlank()) {
+            return false;
+        }
+        String clue = cleanSearchClue(message).replaceAll("\\s+", "");
+        clue = clue.replaceFirst("^(?:一下|所有|全部|全都|都|各种|各类|所有的|全部的)+", "");
+        clue = clue.replace(String.valueOf(rawFileType).trim().replaceAll("\\s+", ""), "");
+        clue = clue.replaceFirst("^(?:类型|类别)", "");
+        clue = clue.replaceFirst("(?:类型|类别)?(?:的)?(?:文件|文档|资料)?$", "");
+        return clue.replaceAll("[，。,.!?！？]", "").isBlank();
     }
 
     private SemanticFrame applyMessageSemantics(
@@ -910,8 +940,8 @@ public class SemanticFrameResolver {
         return switch (action == null ? "" : action) {
             case "search" -> "SEARCH";
             case "upload_target", "composite.create_folder_then_upload" -> "UPLOAD";
-            case "delete", "collection.trash_by_name_contains", "collection.trash_by_category" -> "DELETE";
-            case "collection.move_exact", "collection.move_by_category", "collection.move_by_extension", "collection.move_by_name_contains", "move" -> "MOVE";
+            case "delete", "collection.trash", "collection.trash_scoped", "collection.trash_by_name_contains", "collection.trash_by_category" -> "DELETE";
+            case "collection.move", "collection.move_exact", "collection.move_by_category", "collection.move_by_extension", "collection.move_by_name_contains", "move" -> "MOVE";
             case "rename", "collection.rename_add_prefix" -> "RENAME";
             case "share" -> "SHARE";
             case "folder.create" -> "CREATE_FOLDER";

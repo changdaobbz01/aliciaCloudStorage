@@ -249,6 +249,33 @@
       },
       "message": "已生成目录集合批量移入回收站请求，提交前已校验完整集合快照。"
     },
+    "collection.trash_scoped": {
+      "enabled": true,
+      "status": "backend_action_ready",
+      "next_action": "handoff_to_backend",
+      "executable_by_backend": true,
+      "authorization_required": true,
+      "method": "POST",
+      "path_template": "/api/storage/nodes/batch/trash/scoped",
+      "content_type": "application/json",
+      "required_candidate_fields": [],
+      "required_entity_slots": ["selector_version"],
+      "required_client_fields": [],
+      "required_bindings": ["sourceCollection"],
+      "path_variables": {},
+      "query_parameters": {},
+      "body": {
+        "selectorVersion": "$bindings.sourceCollection.filter.selectorVersion",
+        "sourceParentId": "$bindings.sourceCollection.filter.sourceParentId",
+        "root": "$bindings.sourceCollection.filter.sourceRoot",
+        "nodeTypes": "$bindings.sourceCollection.filter.nodeTypes",
+        "nodeIds": "$bindings.sourceCollection.nodeIds",
+        "scopeFingerprint": "$bindings.sourceCollection.filter.scopeFingerprint",
+        "impactFingerprint": "$bindings.sourceCollection.filter.impactFingerprint",
+        "expectedImpactCount": "$bindings.sourceCollection.filter.expectedImpactCount"
+      },
+      "message": "已生成受控目录集合删除请求；后端会在执行前重新校验范围和文件夹子树影响。"
+    },
     "collection.rename_add_prefix": {
       "enabled": true,
       "status": "backend_action_ready",

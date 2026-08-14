@@ -44,7 +44,7 @@ public class ExecutableConstraintGuard {
             return clarify(response, "我识别到了时间或大小条件，但当前执行接口还不能完整校验它。请先改用目录、名称、类型或后缀来限定范围。", "unsupported_time_or_size_constraint");
         }
         if (folderCollection
-                && !List.of("collection.move", "collection.trash").contains(actionType)) {
+                && !List.of("collection.move", "collection.trash", "collection.trash_scoped").contains(actionType)) {
             return clarify(
                     response,
                     "我还没有完整确定“目录范围、处理对象和数量范围”。请明确说，例如“删除测试目录中的所有文件”或“把测试目录中的所有文件移动到资料目录”。",

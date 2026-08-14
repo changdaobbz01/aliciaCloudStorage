@@ -39,6 +39,9 @@ public class StorageApiCandidateSearchClient implements CandidateSearchPort {
         if (!isDirectoryList(request) && (request.query() == null || request.query().isBlank())) {
             return CandidateBindingResult.skipped("missing_query", "缺少可用于候选绑定的自然语言线索。");
         }
+        if (!request.category().isBlank() && StorageFileCategory.normalize(request.category()).isBlank()) {
+            return CandidateBindingResult.skipped("unsupported_filter", "暂不支持该文件类型筛选。");
+        }
 
         try {
             if (isDirectoryList(request)) {
@@ -83,6 +86,7 @@ public class StorageApiCandidateSearchClient implements CandidateSearchPort {
                 request.targetFolder(),
                 FileQueryPlanResolver.NAME_SEARCH,
                 FileQueryPlanResolver.SCOPE_ALL,
+                "",
                 "",
                 request.currentFolderId(),
                 request.currentFolderPath(),
@@ -145,7 +149,7 @@ public class StorageApiCandidateSearchClient implements CandidateSearchPort {
                 recursive,
                 "",
                 nodeTypeFilter(request),
-                null,
+                categoryFilter(request),
                 1,
                 request.maxResults(),
                 "updatedAt",
@@ -153,6 +157,7 @@ public class StorageApiCandidateSearchClient implements CandidateSearchPort {
         ), request.authorizationHeader());
         return storageApi.enrichWithPaths(page.items(), folderById).stream()
                 .filter(candidate -> matchesCandidateType(candidate, request.candidateType()))
+                .filter(candidate -> StorageFileCategory.matches(request.category(), candidate))
                 .toList();
     }
 
@@ -163,7 +168,7 @@ public class StorageApiCandidateSearchClient implements CandidateSearchPort {
             String scopeLabel
     ) {
         String typeLabel = switch (request.candidateType().toUpperCase()) {
-            case "FILE" -> "文件";
+            case "FILE" -> request.category().isBlank() ? "文件" : StorageFileCategory.label(request.category());
             case "FOLDER" -> "文件夹";
             default -> "内容";
         };
@@ -201,7 +206,7 @@ public class StorageApiCandidateSearchClient implements CandidateSearchPort {
                     true,
                     query,
                     nodeTypeFilter(request),
-                    null,
+                    categoryFilter(request),
                     1,
                     request.maxResults(),
                     "updatedAt",
@@ -209,6 +214,7 @@ public class StorageApiCandidateSearchClient implements CandidateSearchPort {
             ), request.authorizationHeader());
             storageApi.enrichWithPaths(page.items(), folderById).stream()
                     .filter(candidate -> matchesCandidateType(candidate, request.candidateType()))
+                    .filter(candidate -> StorageFileCategory.matches(request.category(), candidate))
                     .forEach(candidate -> candidatesByKey.putIfAbsent(candidateKey(candidate), candidate));
         }
 
@@ -274,6 +280,10 @@ public class StorageApiCandidateSearchClient implements CandidateSearchPort {
                 .filter(type -> type.equalsIgnoreCase(candidateType))
                 .findFirst()
                 .orElse("");
+    }
+
+    private String categoryFilter(CandidateSearchRequest request) {
+        return StorageFileCategory.normalize(request.category());
     }
 
     private boolean matchesCandidateType(CandidateItem candidate, String candidateType) {

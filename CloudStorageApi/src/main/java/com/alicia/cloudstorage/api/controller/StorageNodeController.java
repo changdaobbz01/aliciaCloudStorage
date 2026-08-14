@@ -14,12 +14,15 @@ import com.alicia.cloudstorage.api.dto.MultipartUploadStatusResponse;
 import com.alicia.cloudstorage.api.dto.PageResponse;
 import com.alicia.cloudstorage.api.dto.RenameNodeRequest;
 import com.alicia.cloudstorage.api.dto.SignedUrlResponse;
+import com.alicia.cloudstorage.api.dto.ScopedTrashPreviewResponse;
+import com.alicia.cloudstorage.api.dto.ScopedTrashRequest;
 import com.alicia.cloudstorage.api.dto.StorageNodeSummaryResponse;
 import com.alicia.cloudstorage.api.dto.UsageHistoryPointResponse;
 import com.alicia.cloudstorage.api.service.StorageCommandService;
 import com.alicia.cloudstorage.api.service.StorageArchiveService;
 import com.alicia.cloudstorage.api.service.StorageMultipartUploadService;
 import com.alicia.cloudstorage.api.service.StorageQueryService;
+import com.alicia.cloudstorage.api.service.ScopedCollectionTrashService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.core.io.InputStreamResource;
@@ -55,17 +58,20 @@ public class StorageNodeController {
     private final StorageCommandService storageCommandService;
     private final StorageArchiveService storageArchiveService;
     private final StorageMultipartUploadService storageMultipartUploadService;
+    private final ScopedCollectionTrashService scopedCollectionTrashService;
 
     public StorageNodeController(
             StorageQueryService storageQueryService,
             StorageCommandService storageCommandService,
             StorageArchiveService storageArchiveService,
-            StorageMultipartUploadService storageMultipartUploadService
+            StorageMultipartUploadService storageMultipartUploadService,
+            ScopedCollectionTrashService scopedCollectionTrashService
     ) {
         this.storageQueryService = storageQueryService;
         this.storageCommandService = storageCommandService;
         this.storageArchiveService = storageArchiveService;
         this.storageMultipartUploadService = storageMultipartUploadService;
+        this.scopedCollectionTrashService = scopedCollectionTrashService;
     }
 
     /**
@@ -280,6 +286,24 @@ public class StorageNodeController {
             @Valid @RequestBody BatchNodeRequest request
     ) {
         return storageCommandService.moveNodesToTrash(userId, request);
+    }
+
+    @GetMapping("/nodes/batch/trash/scoped/preview")
+    public ScopedTrashPreviewResponse previewScopedTrash(
+            @RequestAttribute(AuthRequestAttributes.CURRENT_USER_ID) Long userId,
+            @RequestParam(required = false) Long sourceParentId,
+            @RequestParam(defaultValue = "false") boolean root,
+            @RequestParam List<String> nodeTypes
+    ) {
+        return scopedCollectionTrashService.preview(userId, sourceParentId, root, nodeTypes);
+    }
+
+    @PostMapping("/nodes/batch/trash/scoped")
+    public ApiMessageResponse moveScopedNodesToTrash(
+            @RequestAttribute(AuthRequestAttributes.CURRENT_USER_ID) Long userId,
+            @Valid @RequestBody ScopedTrashRequest request
+    ) {
+        return scopedCollectionTrashService.execute(userId, request);
     }
 
     /**

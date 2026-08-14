@@ -9,6 +9,7 @@ public record CandidateSearchRequest(
         String queryMode,
         String scope,
         String targetFolder,
+        String category,
         Long currentFolderId,
         String currentFolderPath,
         int maxResults,
@@ -30,6 +31,7 @@ public record CandidateSearchRequest(
                 query,
                 "name_search",
                 "all",
+                "",
                 "",
                 null,
                 "",
@@ -56,8 +58,40 @@ public record CandidateSearchRequest(
                 "name_search",
                 "all",
                 "",
+                "",
                 null,
                 "",
+                maxResults,
+                authorizationHeader
+        );
+    }
+
+    public CandidateSearchRequest(
+            String intentId,
+            String actionType,
+            String candidateType,
+            String queryRole,
+            String query,
+            String queryMode,
+            String scope,
+            String targetFolder,
+            Long currentFolderId,
+            String currentFolderPath,
+            int maxResults,
+            String authorizationHeader
+    ) {
+        this(
+                intentId,
+                actionType,
+                candidateType,
+                queryRole,
+                query,
+                queryMode,
+                scope,
+                targetFolder,
+                "",
+                currentFolderId,
+                currentFolderPath,
                 maxResults,
                 authorizationHeader
         );
@@ -72,6 +106,7 @@ public record CandidateSearchRequest(
         queryMode = queryMode == null || queryMode.isBlank() ? "name_search" : queryMode.trim();
         scope = scope == null || scope.isBlank() ? "all" : scope.trim();
         targetFolder = targetFolder == null ? "" : targetFolder.trim();
+        category = category == null ? "" : category.trim();
         currentFolderPath = currentFolderPath == null ? "" : currentFolderPath.trim();
         maxResults = Math.max(1, maxResults);
         authorizationHeader = authorizationHeader == null ? "" : authorizationHeader.trim();

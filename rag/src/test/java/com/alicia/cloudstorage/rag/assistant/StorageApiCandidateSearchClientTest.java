@@ -325,6 +325,42 @@ class StorageApiCandidateSearchClientTest {
         });
     }
 
+    @Test
+    void categoryListSendsCanonicalFilterAndRejectsMismatchedNodes() {
+        FakeStorageApiNodeReadClient storageApi = FakeStorageApiNodeReadClient.withNodeResults(Map.of(
+                "", List.of(
+                        new CandidateItem(51L, null, "封面.png", "FILE", 10L, "png", "image/png", ""),
+                        new CandidateItem(52L, null, "演示.mp4", "FILE", 10L, "mp4", "video/mp4", ""),
+                        new CandidateItem(53L, null, "说明.txt", "FILE", 10L, "txt", "text/plain", "")
+                )
+        ));
+        StorageApiCandidateSearchClient client = new StorageApiCandidateSearchClient(storageApi);
+
+        CandidateBindingResult result = client.search(new CandidateSearchRequest(
+                "file_search",
+                "search",
+                "FILE",
+                "directory_scope",
+                "",
+                "directory_list",
+                "all",
+                "",
+                "图片",
+                null,
+                "",
+                50,
+                "Bearer token"
+        ));
+
+        assertThat(result.status()).isEqualTo("search_results_ready");
+        assertThat(result.candidates()).extracting(CandidateItem::name).containsExactly("封面.png");
+        assertThat(storageApi.nodeQueries()).singleElement().satisfies(query -> {
+            assertThat(query.recursive()).isTrue();
+            assertThat(query.type()).isEqualTo("FILE");
+            assertThat(query.category()).isEqualTo("IMAGE");
+        });
+    }
+
     private static class FakeStorageApiNodeReadClient extends StorageApiNodeReadClient {
         private final Map<String, List<CandidateItem>> candidatesByQuery;
         private final List<CandidateItem> folders;

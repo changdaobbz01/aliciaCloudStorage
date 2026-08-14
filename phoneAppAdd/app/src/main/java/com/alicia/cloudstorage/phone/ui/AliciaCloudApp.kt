@@ -554,7 +554,7 @@ private fun AppUpdateDialog(
 }
 
 @Composable
-private fun AliciaConfirmDialog(
+internal fun AliciaConfirmDialog(
     title: String,
     message: String,
     confirmLabel: String,
@@ -784,6 +784,9 @@ private fun MainShell(
 ) {
     val currentUser = uiState.currentUser ?: return
     val context = LocalContext.current
+    val currentUserAvatarUrl = remember(uiState.baseUrl, currentUser.id, currentUser.avatarUrl) {
+        resolveUserAvatarUrl(uiState.baseUrl, currentUser)
+    }
     val isTrashMode = uiState.selectedTab == AppTab.TRASH
     val explorer = if (isTrashMode) uiState.trash else uiState.files
     val visibleTab = when (uiState.selectedTab) {
@@ -1090,9 +1093,7 @@ private fun MainShell(
                 paddingValues = paddingValues,
                 user = currentUser,
                 baseUrl = uiState.baseUrl,
-                avatarUrl = remember(uiState.baseUrl, currentUser.id, currentUser.avatarUrl) {
-                    resolveUserAvatarUrl(uiState.baseUrl, currentUser)
-                },
+                avatarUrl = currentUserAvatarUrl,
                 updatingAvatar = uiState.isUpdatingAvatar,
                 updatingProfile = uiState.isUpdatingProfile,
                 changingPassword = uiState.isChangingPassword,
@@ -1130,6 +1131,8 @@ private fun MainShell(
                         ragBaseUrl = BuildConfig.DEFAULT_RAG_BASE_URL,
                         apiBaseUrl = uiState.baseUrl,
                         authToken = uiState.authToken.orEmpty(),
+                        userAvatarUrl = currentUserAvatarUrl,
+                        userDisplayName = currentUser.nickname,
                         currentFolderId = uiState.files.currentFolderId,
                         currentFolderPath = uiState.files.breadcrumbs.joinToString("/") { crumb -> crumb.label },
                         onBack = { aiChatOpen = false },
@@ -1611,6 +1614,8 @@ private fun AiChatHostScreen(
     ragBaseUrl: String,
     apiBaseUrl: String,
     authToken: String,
+    userAvatarUrl: String?,
+    userDisplayName: String,
     currentFolderId: Long?,
     currentFolderPath: String,
     onBack: () -> Unit,
@@ -1658,6 +1663,8 @@ private fun AiChatHostScreen(
                 ragBaseUrl = ragBaseUrl,
                 apiBaseUrl = apiBaseUrl,
                 authToken = authToken,
+                userAvatarUrl = userAvatarUrl,
+                userDisplayName = userDisplayName,
                 currentFolderId = currentFolderId,
                 currentFolderPath = currentFolderPath,
                 modifier = Modifier
@@ -5430,37 +5437,12 @@ private fun Avatar(
     size: androidx.compose.ui.unit.Dp,
     onClick: (() -> Unit)? = null,
 ) {
-    Surface(
-        modifier = Modifier
-            .size(size)
-            .clip(CircleShape)
-            .then(if (onClick != null) Modifier.noRippleClickable(onClick = onClick) else Modifier),
-        shape = CircleShape,
-        color = Color(0xFFEAF1FF),
-    ) {
-        if (!url.isNullOrBlank()) {
-            SubcomposeAsyncImage(
-                model = url,
-                contentDescription = "头像",
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop,
-                error = { AvatarFallback(fallback) },
-            )
-        } else {
-            AvatarFallback(fallback)
-        }
-    }
-}
-
-@Composable
-private fun AvatarFallback(fallback: String) {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(
-            text = fallback.trim().take(1).ifBlank { "A" },
-            color = PrimaryBlue,
-            fontWeight = FontWeight.Bold,
-        )
-    }
+    UserAvatar(
+        url = url,
+        fallback = fallback,
+        size = size,
+        onClick = onClick,
+    )
 }
 
 @Composable

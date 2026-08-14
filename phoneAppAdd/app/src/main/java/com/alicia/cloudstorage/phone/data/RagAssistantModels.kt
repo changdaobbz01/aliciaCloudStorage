@@ -30,6 +30,7 @@ data class RagAssistantClientContext(
         "collection.trash_by_name_contains",
         "collection.trash_by_category",
         "collection.trash",
+        "collection.trash_scoped",
         "collection.move_by_category",
         "collection.move_by_extension",
         "collection.move_exact",

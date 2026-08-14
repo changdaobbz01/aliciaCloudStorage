@@ -7,7 +7,7 @@
       "phase": 2,
       "risk": "medium",
       "confirmationLevel": "collection_then_final_review",
-      "selectorVersion": "source_selector_v1",
+      "selectorVersion": "source_selector_v2",
       "sourceCollection": {
         "key": "sourceCollection",
         "kind": "source_collection",
@@ -29,7 +29,7 @@
       "phase": 2,
       "risk": "high",
       "confirmationLevel": "collection_then_final_review",
-      "selectorVersion": "source_selector_v1",
+      "selectorVersion": "source_selector_v2",
       "sourceCollection": {
         "key": "sourceCollection",
         "kind": "source_collection",
@@ -43,6 +43,29 @@
       ],
       "steps": [
         {"stepId": "trash_collection", "action": "node.batch_trash", "params": {"nodeIds": "$bindings.sourceCollection.nodeIds"}}
+      ]
+    },
+    "collection.trash_scoped": {
+      "enabled": true,
+      "phase": 2,
+      "risk": "high",
+      "confirmationLevel": "collection_then_final_review",
+      "selectorVersion": "source_selector_v2",
+      "sourceCollection": {
+        "key": "sourceCollection",
+        "kind": "source_collection",
+        "candidateType": "ANY",
+        "requiresExactCount": true,
+        "requiresPreview": true,
+        "requiresServerSnapshot": true,
+        "requiresScopeFingerprint": true,
+        "requiresImpactFingerprint": true
+      },
+      "bindings": [
+        {"key": "sourceFolder", "kind": "source_folder", "required": false, "requiresUniqueSelection": true}
+      ],
+      "steps": [
+        {"stepId": "trash_collection", "action": "node.batch_scoped_trash", "params": {"nodeIds": "$bindings.sourceCollection.nodeIds"}}
       ]
     },
     "collection.trash_by_name_contains": {

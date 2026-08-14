@@ -335,6 +335,13 @@ public class BackendActionDraftService {
             ActionPlanBinding sourceCollection = sourceCollectionBinding(plan);
             return sourceCollection == null ? List.of() : nodeIds(sourceCollection);
         }
+        String sourceFilterPrefix = "$bindings.sourceCollection.filter.";
+        if (expression.startsWith(sourceFilterPrefix)) {
+            ActionPlanBinding sourceCollection = sourceCollectionBinding(plan);
+            return sourceCollection == null
+                    ? null
+                    : sourceCollection.filter().get(expression.substring(sourceFilterPrefix.length()));
+        }
         if ("$bindings.sourceCollection.renamePrefixItems".equals(expression)) {
             ActionPlanBinding sourceCollection = sourceCollectionBinding(plan);
             if (sourceCollection == null) {

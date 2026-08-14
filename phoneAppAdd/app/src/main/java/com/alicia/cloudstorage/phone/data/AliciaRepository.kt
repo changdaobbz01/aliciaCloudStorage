@@ -430,6 +430,18 @@ class AliciaRepository(
             )
             .requireBody(fallback = "批量移入回收站失败。")
 
+    suspend fun moveScopedNodesToTrash(
+        baseUrl: String,
+        token: String,
+        payload: ScopedTrashPayload,
+    ): ApiMessageResponse =
+        serviceFactory.serviceFor(baseUrl)
+            .moveScopedNodesToTrash(
+                authorization = authorization(token),
+                payload = payload,
+            )
+            .requireBody(fallback = "目录内容已发生变化，请重新预览后再确认删除。")
+
     suspend fun restoreNode(
         baseUrl: String,
         token: String,

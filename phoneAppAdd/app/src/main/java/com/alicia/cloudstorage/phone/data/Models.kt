@@ -128,6 +128,17 @@ data class BatchNodePayload(
     val nodeIds: List<Long>,
 )
 
+data class ScopedTrashPayload(
+    val selectorVersion: String,
+    val sourceParentId: Long?,
+    val root: Boolean,
+    val nodeTypes: List<String>,
+    val nodeIds: List<Long>,
+    val scopeFingerprint: String,
+    val impactFingerprint: String,
+    val expectedImpactCount: Int,
+)
+
 data class BatchMoveNodePayload(
     val nodeIds: List<Long>,
     val parentId: Long?,

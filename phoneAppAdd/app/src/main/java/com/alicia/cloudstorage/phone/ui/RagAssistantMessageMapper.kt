@@ -264,7 +264,8 @@ private fun RagAssistantPlanResponse.assistantDisplayText(): String {
             status.equals("no_candidates", ignoreCase = true) ||
                 status.equals("missing_authorization", ignoreCase = true) ||
                 status.equals("storage_api_not_configured", ignoreCase = true) ||
-                status.equals("storage_api_error", ignoreCase = true)
+                status.equals("storage_api_error", ignoreCase = true) ||
+                status.equals("unsupported_filter", ignoreCase = true)
         }
         ?: false
     val pieces = listOfNotNull(

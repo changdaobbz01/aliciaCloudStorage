@@ -228,6 +228,51 @@ class RagReviewPresenterTest {
     }
 
     @Test
+    fun `presents direct and subtree impact for scoped folder deletion`() {
+        val review = presenter.present(
+            response(
+                nextAction = "wait_for_user_confirmation",
+                actionDraft = RagActionDraft(
+                    type = "collection.trash_scoped",
+                    parameters = emptyMap(),
+                    needsBackendBinding = false,
+                ),
+                actionPlan = plan(
+                    status = "collection_review_required",
+                    actionType = "collection.trash_scoped",
+                    risk = "high",
+                    planKind = "collection",
+                    bindings = mapOf(
+                        "sourceCollection" to RagActionPlanBinding(
+                            key = "sourceCollection",
+                            kind = "source_collection",
+                            status = "resolved",
+                            query = "/",
+                            selectedCandidate = null,
+                            candidates = listOf(
+                                candidate(11L, "说明.txt"),
+                                candidate(12L, "资料", type = "FOLDER"),
+                            ),
+                            count = 2,
+                            filter = mapOf(
+                                "snapshotId" to "cs-1",
+                                "selectedFileCount" to 1,
+                                "selectedFolderCount" to 1,
+                                "descendantCount" to 3,
+                                "impactCount" to 5,
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        assertTrue(review!!.lines.contains("直属范围：1 个文件、1 个文件夹。"))
+        assertTrue(review.lines.contains("实际影响：共 5 个节点，其中包含 3 个文件夹内部节点。"))
+        assertTrue(review.lines.contains("确认后会批量移入回收站，后端仍会重新鉴权校验。"))
+    }
+
+    @Test
     fun `candidate selection for collection target folder excludes source preview`() {
         val review = presenter.present(
             response(
@@ -364,6 +409,56 @@ class RagReviewPresenterTest {
         assertEquals(RagReviewKind.BLOCKED, review!!.kind)
         assertTrue(review.lines.contains("没有找到匹配的文件或目录。"))
         assertFalse(review.requiresFinalConfirmation)
+    }
+
+    @Test
+    fun `search count follows the deduplicated candidates shown to the user`() {
+        val candidates = listOf(
+            candidate(31L, "封面.png"),
+            candidate(32L, "海报.jpg"),
+            candidate(33L, "头像.webp"),
+        )
+        val review = presenter.present(
+            response(
+                nextAction = "show_search_results",
+                actionDraft = RagActionDraft(
+                    type = "search",
+                    parameters = emptyMap(),
+                    needsBackendBinding = true,
+                ),
+                actionPlan = plan(
+                    status = "completed",
+                    actionType = "search",
+                    bindings = mapOf(
+                        "searchResults" to RagActionPlanBinding(
+                            key = "searchResults",
+                            kind = "candidate",
+                            status = "resolved",
+                            query = "全部云盘",
+                            selectedCandidate = null,
+                            candidates = candidates.take(1),
+                            count = 1,
+                            filter = null,
+                        ),
+                    ),
+                ),
+                candidateBinding = RagCandidateBinding(
+                    status = "search_results_ready",
+                    source = "cloud-storage-api:/api/storage/nodes",
+                    query = "全部云盘",
+                    candidateType = "FILE",
+                    candidates = candidates,
+                    message = "已列出 3 个图片文件。",
+                    selectedCandidate = null,
+                    selectedIndex = null,
+                ),
+            ),
+        )
+
+        assertEquals(RagReviewKind.SEARCH_RESULTS, review!!.kind)
+        assertEquals(3, review.candidates.size)
+        assertTrue(review.lines.contains("已找到 3 个候选，先核对再继续。"))
+        assertFalse(review.lines.contains("已找到 1 个候选，先核对再继续。"))
     }
 
     @Test

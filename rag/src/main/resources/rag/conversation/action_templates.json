@@ -190,6 +190,31 @@
       ],
       "conflicts": []
     },
+    "node.batch_scoped_trash": {
+      "enabled": true,
+      "phase": 2,
+      "planKind": "collection",
+      "capability": "storage.node.batch_scoped_trash",
+      "executor": "client",
+      "method": "POST",
+      "pathTemplate": "/api/storage/nodes/batch/trash/scoped",
+      "contentType": "application/json",
+      "authorizationRequired": true,
+      "risk": "high",
+      "confirmationLevel": "collection_then_final_review",
+      "requiredParams": ["nodeIds", "scopeFingerprint", "impactFingerprint"],
+      "optionalParams": [],
+      "requiredClientFields": [],
+      "outputs": {
+        "trashedNodeIds": "$params.nodeIds"
+      },
+      "preconditions": [
+        "source_collection_resolved",
+        "scope_fingerprint_revalidated",
+        "impact_fingerprint_revalidated"
+      ],
+      "conflicts": []
+    },
     "share.create": {
       "enabled": true,
       "phase": 1,

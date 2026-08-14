@@ -142,6 +142,25 @@ class CandidateBindingServiceTest {
         assertThat(port.lastRequest.query()).isBlank();
     }
 
+    @Test
+    void preservesFileCategoryForFilterOnlySearch() {
+        CapturingCandidateSearchPort port = new CapturingCandidateSearchPort();
+        CandidateBindingService service = new CandidateBindingService(port, intentRouter, 5);
+
+        IntentRecognitionResponse response = intentRecognitionService.recognize("列出所有图片文件");
+        service.bind(response, "Bearer token");
+
+        assertThat(response.intentId()).isEqualTo("file_search");
+        assertThat(response.entities()).containsEntry("file_type", "图片");
+        assertThat(response.semanticFrame().query().mode()).isEqualTo("FILTER");
+        assertThat(response.semanticFrame().query().filters()).containsEntry("file_type", "图片");
+        assertThat(port.lastRequest.queryMode()).isEqualTo("directory_list");
+        assertThat(port.lastRequest.scope()).isEqualTo("all");
+        assertThat(port.lastRequest.candidateType()).isEqualTo("FILE");
+        assertThat(port.lastRequest.category()).isEqualTo("IMAGE");
+        assertThat(port.lastRequest.query()).isBlank();
+    }
+
     private static class CapturingCandidateSearchPort implements CandidateSearchPort {
         private CandidateSearchRequest lastRequest;
 

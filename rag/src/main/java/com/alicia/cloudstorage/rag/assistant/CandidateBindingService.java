@@ -127,10 +127,16 @@ public class CandidateBindingService {
         }
         FileQueryPlanResolver.FileQueryPlan semanticPlan = semanticQueryPlan(response, intent, query);
         if (semanticPlan != null) {
+            String rawCategory = fileCategory(response, semanticPlan.resultType());
+            String category = StorageFileCategory.normalize(rawCategory);
+            if (!rawCategory.isBlank() && category.isBlank()) {
+                return CandidateBindingResult.skipped("unsupported_filter", "暂不支持该文件类型筛选，请改用图片、视频、音频、文档或压缩包。");
+            }
             return search(
                     response,
                     intent,
                     semanticPlan,
+                    category,
                     authorizationHeader,
                     clientContext
             );
@@ -141,13 +147,19 @@ public class CandidateBindingService {
                 query.role(),
                 query.value()
         );
-        return search(response, intent, queryPlan, authorizationHeader, clientContext);
+        String rawCategory = fileCategory(response, queryPlan.resultType());
+        String category = StorageFileCategory.normalize(rawCategory);
+        if (!rawCategory.isBlank() && category.isBlank()) {
+            return CandidateBindingResult.skipped("unsupported_filter", "暂不支持该文件类型筛选，请改用图片、视频、音频、文档或压缩包。");
+        }
+        return search(response, intent, queryPlan, category, authorizationHeader, clientContext);
     }
 
     private CandidateBindingResult search(
             IntentRecognitionResponse response,
             IntentRouter.IntentDefinition intent,
             FileQueryPlanResolver.FileQueryPlan queryPlan,
+            String category,
             String authorizationHeader,
             AssistantClientContext clientContext
     ) {
@@ -163,6 +175,7 @@ public class CandidateBindingService {
                 queryPlan.queryMode(),
                 queryPlan.scope(),
                 queryPlan.targetFolder(),
+                category,
                 safeClientContext.currentFolderId(),
                 safeClientContext.currentFolderPath(),
                 FileQueryPlanResolver.DIRECTORY_LIST.equals(queryPlan.queryMode())
@@ -182,7 +195,9 @@ public class CandidateBindingService {
             return null;
         }
         if ("SEARCH".equals(frame.operation())) {
-            String queryMode = "LIST_CHILDREN".equals(frame.query().mode())
+            boolean filterOnly = "FILTER".equals(frame.query().mode())
+                    && frame.query().nameSurface().isBlank();
+            String queryMode = "LIST_CHILDREN".equals(frame.query().mode()) || filterOnly
                     ? FileQueryPlanResolver.DIRECTORY_LIST
                     : FileQueryPlanResolver.NAME_SEARCH;
             String queryRole = FileQueryPlanResolver.DIRECTORY_LIST.equals(queryMode)
@@ -239,6 +254,22 @@ public class CandidateBindingService {
             );
         }
         return null;
+    }
+
+    private String fileCategory(IntentRecognitionResponse response, String resultType) {
+        if ("FOLDER".equalsIgnoreCase(resultType) || response == null) {
+            return "";
+        }
+        Object entityValue = response.entities() == null ? null : response.entities().get("file_type");
+        if (entityValue != null && !String.valueOf(entityValue).isBlank()) {
+            return String.valueOf(entityValue).trim();
+        }
+        SemanticFrame frame = response.semanticFrame();
+        if (frame == null || frame.query() == null || frame.query().filters() == null) {
+            return "";
+        }
+        Object filterValue = frame.query().filters().get("file_type");
+        return filterValue == null ? "" : String.valueOf(filterValue).trim();
     }
 
     private boolean isVirtualRootTarget(String actionType, QueryRoleAndValue query) {

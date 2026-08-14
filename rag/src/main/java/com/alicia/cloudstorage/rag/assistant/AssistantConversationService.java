@@ -121,7 +121,7 @@ public class AssistantConversationService {
             );
             CandidateBindingResult selectedBinding = selectionAttempt.candidateBinding();
             if (conversation.pendingActionDraft() != null
-                    && List.of("collection.move", "collection.trash").contains(conversation.pendingActionDraft().type())) {
+                    && List.of("collection.move", "collection.trash", "collection.trash_scoped").contains(conversation.pendingActionDraft().type())) {
                 selectedResponse = collectionOperationSelectorResolver.restoreStored(selectedResponse, conversation);
                 if (!scopedCollectionPlanningService.acceptsSelection(conversation, clientEvent)) {
                     selectedResponse = scopedCollectionPlanningService.plan(

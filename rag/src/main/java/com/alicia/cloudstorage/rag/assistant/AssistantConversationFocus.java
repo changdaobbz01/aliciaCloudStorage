@@ -141,6 +141,7 @@ public record AssistantConversationFocus(
         return List.of(
                 "no_candidates",
                 "missing_query",
+                "unsupported_filter",
                 "storage_api_not_configured",
                 "missing_authorization",
                 "storage_api_error",

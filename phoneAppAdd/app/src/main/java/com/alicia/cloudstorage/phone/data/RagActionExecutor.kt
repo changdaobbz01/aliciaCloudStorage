@@ -32,6 +32,7 @@ internal class RagActionExecutor(
                 "collection.trash_by_category",
                 "collection.trash",
                 -> executeBatchTrash(context, safeDraft, validation)
+                "collection.trash_scoped" -> executeScopedTrash(context, safeDraft, validation)
                 "collection.move_by_category",
                 "collection.move_by_extension",
                 "collection.move_exact",
@@ -152,6 +153,51 @@ internal class RagActionExecutor(
         )
     }
 
+    private suspend fun executeScopedTrash(
+        context: RagActionExecutionContext,
+        draft: RagBackendActionDraft,
+        validation: RagActionBridgeValidation,
+    ): RagActionExecutionResult {
+        val nodeIds = draft.body.longListValue("nodeIds")
+        val selectorVersion = draft.body.stringValue("selectorVersion")
+        val nodeTypes = draft.body.stringListValue("nodeTypes")
+        val scopeFingerprint = draft.body.stringValue("scopeFingerprint")
+        val impactFingerprint = draft.body.stringValue("impactFingerprint")
+        val expectedImpactCount = draft.body.intValue("expectedImpactCount")
+        val root = draft.body.booleanValue("root")
+        if (nodeIds.isEmpty() ||
+            selectorVersion != "source_selector_v2" ||
+            nodeTypes.isEmpty() ||
+            scopeFingerprint == null ||
+            impactFingerprint == null ||
+            expectedImpactCount == null ||
+            root == null
+        ) {
+            return RagActionExecutionResult.invalidDraft("受控批量删除草稿缺少范围校验信息。", validation)
+        }
+
+        repositoryPort.moveScopedNodesToTrash(
+            baseUrl = context.baseUrl,
+            token = context.token,
+            payload = ScopedTrashPayload(
+                selectorVersion = selectorVersion,
+                sourceParentId = draft.body.nullableLongValue("sourceParentId"),
+                root = root,
+                nodeTypes = nodeTypes,
+                nodeIds = nodeIds,
+                scopeFingerprint = scopeFingerprint,
+                impactFingerprint = impactFingerprint,
+                expectedImpactCount = expectedImpactCount,
+            ),
+        )
+        return RagActionExecutionResult.completed(
+            actionType = draft.actionType,
+            message = "已提交受控批量移入回收站操作。",
+            validation = validation,
+            affectedNodeIds = nodeIds,
+        )
+    }
+
     private suspend fun executeBatchRename(
         context: RagActionExecutionContext,
         draft: RagBackendActionDraft,
@@ -184,6 +230,12 @@ internal interface RagActionRepositoryPort {
 
     suspend fun moveNodesToTrash(baseUrl: String, token: String, nodeIds: List<Long>): ApiMessageResponse
 
+    suspend fun moveScopedNodesToTrash(
+        baseUrl: String,
+        token: String,
+        payload: ScopedTrashPayload,
+    ): ApiMessageResponse
+
     suspend fun moveNodes(baseUrl: String, token: String, nodeIds: List<Long>, parentId: Long?): List<StorageNode>
 
     suspend fun createShareLink(
@@ -215,6 +267,12 @@ internal class AliciaRagActionRepositoryPort(
 
     override suspend fun moveNodesToTrash(baseUrl: String, token: String, nodeIds: List<Long>): ApiMessageResponse =
         repository.moveNodesToTrash(baseUrl, token, nodeIds)
+
+    override suspend fun moveScopedNodesToTrash(
+        baseUrl: String,
+        token: String,
+        payload: ScopedTrashPayload,
+    ): ApiMessageResponse = repository.moveScopedNodesToTrash(baseUrl, token, payload)
 
     override suspend fun moveNodes(
         baseUrl: String,
@@ -347,6 +405,13 @@ private fun Map<String, Any>?.longListValue(key: String): List<Long> =
         is Iterable<*> -> value.mapNotNull { it.toLongOrNullValue() }
         is Array<*> -> value.mapNotNull { it.toLongOrNullValue() }
         else -> value?.toLongOrNullValue()?.let(::listOf).orEmpty()
+    }
+
+private fun Map<String, Any>?.stringListValue(key: String): List<String> =
+    when (val value = this?.get(key)) {
+        is Iterable<*> -> value.mapNotNull { item -> item?.toString()?.trim()?.takeIf(String::isNotBlank) }
+        is Array<*> -> value.mapNotNull { item -> item?.toString()?.trim()?.takeIf(String::isNotBlank) }
+        else -> value?.toString()?.trim()?.takeIf(String::isNotBlank)?.let(::listOf).orEmpty()
     }
 
 private fun Map<String, Any>?.renameItemsValue(key: String): List<BatchRenameNodeItemPayload> =

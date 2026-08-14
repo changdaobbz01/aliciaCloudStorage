@@ -7,6 +7,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 @Service
 public class StorageApiCollectionPreviewClient implements CollectionPreviewPort {
@@ -37,10 +38,89 @@ public class StorageApiCollectionPreviewClient implements CollectionPreviewPort 
         }
 
         try {
+            if (queryPlan.scopedTrashV2(request)) {
+                return previewScopedTrash(request, queryPlan);
+            }
             return previewWithClientFiltering(request, queryPlan);
         } catch (RuntimeException exception) {
             return CollectionPreviewResult.skipped("storage_api_error", "集合预览查询暂时不可用。");
         }
+    }
+
+    private CollectionPreviewResult previewScopedTrash(CollectionPreviewRequest request, QueryPlan queryPlan) {
+        StorageApiScopedTrashPreview preview = storageApi.previewScopedTrash(
+                queryPlan.parentId(),
+                queryPlan.rootSelector(),
+                queryPlan.requestedNodeTypes(),
+                request.authorizationHeader()
+        );
+        List<CandidateItem> candidates = scopedPaths(
+                preview.items(),
+                queryPlan.parentId(),
+                queryPlan.rootSelector(),
+                stringValue(request.filter().get("sourcePath")),
+                request.authorizationHeader()
+        );
+        Map<String, Object> filter = new LinkedHashMap<>(request.filter());
+        filter.put("scopeFingerprint", preview.scopeFingerprint());
+        filter.put("impactFingerprint", preview.impactFingerprint());
+        filter.put("selectedFileCount", preview.selectedFileCount());
+        filter.put("selectedFolderCount", preview.selectedFolderCount());
+        filter.put("descendantCount", preview.descendantCount());
+        filter.put("impactCount", preview.impactCount());
+        filter.put("expectedImpactCount", preview.impactCount());
+        filter.put("sourceParentId", queryPlan.parentId() == null ? "" : queryPlan.parentId());
+        filter.put("sourceRoot", queryPlan.rootSelector());
+        return new CollectionPreviewResult(
+                preview.executable() ? "preview_ready" : candidates.isEmpty() ? "no_candidates" : "preview_blocked",
+                "cloud-storage-api:/api/storage/nodes/batch/trash/scoped/preview",
+                Map.copyOf(filter),
+                candidates,
+                preview.selectedFileCount() + preview.selectedFolderCount(),
+                preview.executable(),
+                preview.message()
+        );
+    }
+
+    private List<CandidateItem> scopedPaths(
+            List<CandidateItem> candidates,
+            Long sourceParentId,
+            boolean root,
+            String sourcePath,
+            String authorizationHeader
+    ) {
+        String parentPath = root ? "/" : normalizePath(sourcePath);
+        if (parentPath.isBlank()) {
+            return storageApi.enrichWithPaths(candidates, storageApi.safeFolderMap(authorizationHeader));
+        }
+        String parentName = parentPath.equals("/")
+                ? ""
+                : parentPath.substring(parentPath.lastIndexOf('/') + 1);
+        return candidates.stream().map(candidate -> {
+            String path = parentPath.equals("/")
+                    ? "/" + candidate.name()
+                    : parentPath + "/" + candidate.name();
+            List<CandidateBreadcrumb> breadcrumbs = sourceParentId == null || parentName.isBlank()
+                    ? List.of(new CandidateBreadcrumb(candidate.nodeId(), candidate.name()))
+                    : List.of(
+                    new CandidateBreadcrumb(sourceParentId, parentName),
+                    new CandidateBreadcrumb(candidate.nodeId(), candidate.name())
+            );
+            return candidate.withPath(path, breadcrumbs);
+        }).toList();
+    }
+
+    private String normalizePath(String value) {
+        String path = value == null ? "" : value.trim();
+        if (path.isBlank() || "/".equals(path)) {
+            return path;
+        }
+        String rooted = path.startsWith("/") ? path : "/" + path;
+        return rooted.replaceAll("/+$", "");
+    }
+
+    private String stringValue(Object value) {
+        return value == null ? "" : String.valueOf(value).trim();
     }
 
     private CollectionPreviewResult previewWithApiCount(CollectionPreviewRequest request, QueryPlan queryPlan) {
@@ -129,8 +209,12 @@ public class StorageApiCollectionPreviewClient implements CollectionPreviewPort 
             boolean directChildren = booleanValue(filter.get("directChildren"));
             boolean includeFolders = booleanValue(filter.get("includeFolders"));
             boolean unsupportedCategory = hasValue(filter.get("category")) && category.isBlank();
+            Set<String> nodeTypes = nodeTypes(filter);
+            boolean invalidNodeTypes = hasValue(filter.get("nodeTypes")) && nodeTypes.isEmpty();
             String requestedNodeType = stringValue(filter.get("nodeType")).toUpperCase(Locale.ROOT);
-            String type = List.of("FILE", "FOLDER").contains(requestedNodeType)
+            String type = nodeTypes.size() == 1
+                    ? nodeTypes.iterator().next()
+                    : List.of("FILE", "FOLDER").contains(requestedNodeType)
                     ? requestedNodeType
                     : includeFolders ? "" : "FILE";
             String scope = stringValue(filter.get("scope"));
@@ -151,8 +235,22 @@ public class StorageApiCollectionPreviewClient implements CollectionPreviewPort 
                     category,
                     extension,
                     mimeType,
-                    unsupportedCategory || unsupportedScope
+                    unsupportedCategory || unsupportedScope || invalidNodeTypes
             );
+        }
+
+        private static Set<String> nodeTypes(Map<String, Object> filter) {
+            java.util.LinkedHashSet<String> values = new java.util.LinkedHashSet<>();
+            Object rawTypes = filter.get("nodeTypes");
+            if (rawTypes instanceof Iterable<?> iterable) {
+                iterable.forEach(item -> {
+                    String type = stringValue(item).toUpperCase(Locale.ROOT);
+                    if (List.of("FILE", "FOLDER").contains(type)) {
+                        values.add(type);
+                    }
+                });
+            }
+            return Set.copyOf(values);
         }
 
         private boolean hasMeaningfulSelector() {
@@ -166,6 +264,16 @@ public class StorageApiCollectionPreviewClient implements CollectionPreviewPort 
 
         private boolean needsClientFiltering() {
             return !exactName.isBlank() || !extension.isBlank() || !mimeType.isBlank();
+        }
+
+        private boolean scopedTrashV2(CollectionPreviewRequest request) {
+            return "collection.trash_scoped".equals(request.actionType())
+                    && "source_selector_v2".equals(stringValue(request.filter().get("selectorVersion")))
+                    && !booleanValue(request.filter().get("recursive"));
+        }
+
+        private List<String> requestedNodeTypes() {
+            return type.isBlank() ? List.of("FILE", "FOLDER") : List.of(type);
         }
 
         private StorageApiNodeQuery toStorageQuery(int page, int size) {
