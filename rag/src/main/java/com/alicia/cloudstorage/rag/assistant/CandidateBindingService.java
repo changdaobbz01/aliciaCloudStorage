@@ -88,8 +88,8 @@ public class CandidateBindingService {
         if (actionType == null || actionType.isBlank() || "none".equals(actionType)) {
             return CandidateBindingResult.skipped("not_requested", "当前回复不需要候选绑定。");
         }
-        if (!response.missingSlots().isEmpty() || "ask_clarification".equals(response.nextAction())) {
-            return CandidateBindingResult.skipped("waiting_for_clarification", "仍有缺失信息，暂不查询真实候选。");
+        if (AssistantFlowPolicy.requiresClarification(response)) {
+            return CandidateBindingResult.skipped("waiting_for_clarification", "当前语义仍需澄清，暂不查询真实候选。");
         }
         if (!"wait_for_backend_binding".equals(response.nextAction())) {
             return CandidateBindingResult.skipped("not_requested", "当前步骤不需要候选绑定。");

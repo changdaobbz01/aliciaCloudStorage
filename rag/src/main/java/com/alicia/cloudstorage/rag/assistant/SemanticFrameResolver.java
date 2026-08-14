@@ -91,7 +91,31 @@ public class SemanticFrameResolver {
         rawFrame = applyMessageSemantics(message, rawFrame, conversation);
         rawFrame = reconcileMutationTarget(rawFrame, response, message);
         rawFrame = applyOperationArguments(message, rawFrame, response);
-        return validate(rawFrame, response, clientContext);
+        return normalizeResolvableSlotClarification(validate(rawFrame, response, clientContext));
+    }
+
+    private SemanticFrame normalizeResolvableSlotClarification(SemanticFrame frame) {
+        if (!List.of("SLOT_FILL", "CORRECTION").contains(frame.relation())
+                || !"NAME_EXACT".equals(frame.query().mode())
+                || frame.query().nameSurface().isBlank()
+                || frame.clarification().reason().isBlank()) {
+            return frame;
+        }
+        String reason = frame.clarification().reason().toLowerCase(Locale.ROOT);
+        if (!reason.contains("类型") && !reason.contains("type")) {
+            return frame;
+        }
+        return new SemanticFrame(
+                frame.schemaVersion(),
+                frame.relation(),
+                frame.operation(),
+                frame.query(),
+                frame.scope(),
+                frame.reference(),
+                frame.confidence(),
+                frame.ambiguities(),
+                SemanticFrame.Clarification.empty()
+        );
     }
 
     private SemanticFrame applyOperationArguments(

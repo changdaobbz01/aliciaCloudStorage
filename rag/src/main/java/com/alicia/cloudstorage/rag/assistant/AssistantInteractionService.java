@@ -16,9 +16,7 @@ public class AssistantInteractionService {
         }
 
         SemanticFrame frame = response.semanticFrame() == null ? SemanticFrame.empty() : response.semanticFrame();
-        if (frame.needsClarification()
-                || !response.missingSlots().isEmpty()
-                || "ask_clarification".equals(response.nextAction())) {
+        if (AssistantFlowPolicy.requiresClarification(response)) {
             return new AssistantInteraction(
                     "NEED_CLARIFICATION",
                     suggestionActions(frame.clarification()),

@@ -9,7 +9,7 @@ import com.alicia.cloudstorage.phone.data.RagCandidateItem
 
 internal class RagReviewPresenter {
     fun present(response: RagAssistantPlanResponse): RagReviewPresentation? {
-        if (response.isNonOperationalReply()) {
+        if (response.requiresClarification() || response.isNonOperationalReply()) {
             return null
         }
 
@@ -37,6 +37,13 @@ internal class RagReviewPresenter {
         )
     }
 }
+
+private fun RagAssistantPlanResponse.requiresClarification(): Boolean =
+    nextAction.equals("ask_clarification", ignoreCase = true) ||
+        missingSlots.orEmpty().isNotEmpty() ||
+        !semanticFrame?.clarification?.reason.isNullOrBlank() ||
+        !semanticFrame?.clarification?.question.isNullOrBlank() ||
+        interaction?.stage.equals("NEED_CLARIFICATION", ignoreCase = true)
 
 internal data class RagReviewPresentation(
     val kind: RagReviewKind,

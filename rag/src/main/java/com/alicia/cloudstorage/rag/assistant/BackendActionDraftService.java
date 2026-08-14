@@ -62,7 +62,7 @@ public class BackendActionDraftService {
         if (response == null || response.actionDraft() == null) {
             return BackendActionDraft.skipped("not_requested", "没有可生成执行草稿的动作。");
         }
-        if (!response.missingSlots().isEmpty()) {
+        if (AssistantFlowPolicy.blocksExecution(response)) {
             return BackendActionDraft.skipped("waiting_for_clarification", "仍有缺失信息，暂不生成后端请求草稿。");
         }
 

@@ -25,6 +25,7 @@ public class AssistantConversationService {
     private final ScopedCollectionPlanningService scopedCollectionPlanningService;
     private final ExecutableConstraintGuard executableConstraintGuard;
     private final AssistantInteractionService interactionService = new AssistantInteractionService();
+    private final PendingSlotResolutionService pendingSlotResolutionService = new PendingSlotResolutionService();
     private final List<String> confirmMessages;
     private final List<String> resetMessages;
 
@@ -189,11 +190,21 @@ public class AssistantConversationService {
         }
 
         boolean preservePendingIntent = shouldPreservePendingIntent(conversation, message);
-        boolean continuePendingIntent = shouldContinuePendingIntent(conversation, baseResponse, message);
+        PendingSlotResolutionService.Resolution pendingSlotResolution = pendingSlotResolutionService.resolve(
+                message,
+                conversation,
+                baseResponse
+        );
+        boolean continuePendingIntent = shouldContinuePendingIntent(
+                conversation,
+                baseResponse,
+                message,
+                pendingSlotResolution
+        );
         IntentRecognitionResponse response = preservePendingIntent
                 ? rebuildFromStoredConversation(conversation, baseResponse, "用户确认或延续上一轮待处理意图。")
                 : continuePendingIntent
-                ? continuePendingIntent(conversation, baseResponse, message)
+                ? continuePendingIntent(conversation, baseResponse, pendingSlotResolution)
                 : baseResponse;
         if (preservePendingIntent || continuePendingIntent) {
             response = collectionOperationSelectorResolver.restoreStored(response, conversation);
@@ -228,18 +239,39 @@ public class AssistantConversationService {
             return response.withConversation(savedConversation.snapshot(statusFor(response)));
         }
 
-        CandidateBindingResult contextualBinding = contextualCandidateBinding(conversation, response, contextResolution);
-        AssistantClientContext bindingClientContext = contextualClientContext(conversation, response, clientContext);
-        CandidateBindingResult candidateBinding = contextualBinding != null
-                ? contextualBinding
-                : (preservePendingIntent || continuePendingIntent)
-                && shouldReuseCandidateBinding(conversation.candidateBinding())
-                ? conversation.candidateBinding()
-                : candidateBindingService.bind(
-                        response,
-                        authorizationHeader,
-                        bindingClientContext
-                );
+        CandidateBindingResult candidateBinding;
+        if (AssistantFlowPolicy.blocksExecution(response)) {
+            candidateBinding = response.candidateBinding() == null
+                    ? CandidateBindingResult.skipped(
+                    "waiting_for_clarification",
+                    "当前语义仍需澄清，暂不查询真实候选。"
+            )
+                    : response.candidateBinding();
+        } else {
+            CandidateBindingResult contextualBinding = contextualCandidateBinding(
+                    conversation,
+                    response,
+                    contextResolution
+            );
+            if (contextualBinding == null) {
+                contextualBinding = pendingTargetBinding(conversation, response, continuePendingIntent);
+            }
+            AssistantClientContext bindingClientContext = contextualClientContext(
+                    conversation,
+                    response,
+                    clientContext
+            );
+            candidateBinding = contextualBinding != null
+                    ? contextualBinding
+                    : (preservePendingIntent || continuePendingIntent)
+                    && shouldReuseCandidateBinding(conversation.candidateBinding())
+                    ? conversation.candidateBinding()
+                    : candidateBindingService.bind(
+                            response,
+                            authorizationHeader,
+                            bindingClientContext
+                    );
+        }
         response = applyCandidateBindingState(response, candidateBinding);
         if (preservePendingIntent && hasReviewedCollectionPlan(conversation)) {
             response = response.withActionPlan(conversation.pendingActionPlan());
@@ -277,24 +309,27 @@ public class AssistantConversationService {
     private IntentRecognitionResponse continuePendingIntent(
             AssistantConversationState conversation,
             IntentRecognitionResponse baseResponse,
-            String message
+            PendingSlotResolutionService.Resolution resolution
     ) {
         Map<String, Object> mergedEntities = new LinkedHashMap<>(conversation.entities());
-        mergedEntities.putAll(baseResponse.entities());
-
-        List<String> missingSlots = conversation.pendingSlots();
-        if (missingSlots.size() == 1 && !hasValue(mergedEntities.get(missingSlots.getFirst()))) {
-            String guessedSlotValue = guessSingleSlotValue(message, missingSlots.getFirst(), baseResponse);
-            if (!guessedSlotValue.isBlank()) {
-                mergedEntities.put(missingSlots.getFirst(), guessedSlotValue);
+        for (String missingSlot : conversation.pendingSlots()) {
+            Object resolvedValue = resolution.values().get(missingSlot);
+            if (hasValue(resolvedValue)) {
+                mergedEntities.put(missingSlot, resolvedValue);
+                copySelectorMetadata(missingSlot, baseResponse.entities(), mergedEntities);
             }
         }
 
-        return intentRecognitionService.rebuildForConversation(
+        IntentRecognitionResponse rebuilt = intentRecognitionService.rebuildForConversation(
                 baseResponse,
                 conversation.pendingIntentId(),
                 mergedEntities,
                 "根据上一轮待补充槽位合并当前输入。"
+        );
+        return rebuilt.withSemanticFrame(
+                resolution.semanticFrame(),
+                rebuilt.entities(),
+                rebuilt.actionDraft()
         );
     }
 
@@ -303,24 +338,31 @@ public class AssistantConversationService {
             IntentRecognitionResponse baseResponse,
             String reason
     ) {
-        return intentRecognitionService.rebuildForConversation(
+        IntentRecognitionResponse rebuilt = intentRecognitionService.rebuildForConversation(
                 baseResponse,
                 conversation.pendingIntentId(),
                 conversation.entities(),
                 reason
+        );
+        return rebuilt.withSemanticFrame(
+                conversation.semanticFrame(),
+                rebuilt.entities(),
+                rebuilt.actionDraft()
         );
     }
 
     private boolean shouldContinuePendingIntent(
             AssistantConversationState conversation,
             IntentRecognitionResponse baseResponse,
-            String message
+            String message,
+            PendingSlotResolutionService.Resolution resolution
     ) {
         if (conversation == null
                 || !conversation.hasPendingSlots()
                 || conversation.pendingIntentId() == null
                 || conversation.pendingIntentId().isBlank()
-                || isCapabilityBoundary(baseResponse)
+                || resolution == null
+                || !resolution.resolved()
                 || isResetMessage(message)
                 || isConfirmMessage(message)) {
             return false;
@@ -338,10 +380,20 @@ public class AssistantConversationService {
                 || localRoute.intent().equals("fallback");
     }
 
-    private boolean isCapabilityBoundary(IntentRecognitionResponse response) {
-        return response != null
-                && response.fallbackReason() != null
-                && response.fallbackReason().startsWith("capability_boundary:");
+    private void copySelectorMetadata(
+            String slot,
+            Map<String, Object> source,
+            Map<String, Object> target
+    ) {
+        if (!"target_name".equals(slot)) {
+            return;
+        }
+        for (String key : List.of("result_type", "scope", "source_folder", "file_type", "extension")) {
+            Object value = source.get(key);
+            if (hasValue(value)) {
+                target.put(key, value);
+            }
+        }
     }
 
     private boolean shouldPreservePendingIntent(AssistantConversationState conversation, String message) {
@@ -361,7 +413,7 @@ public class AssistantConversationService {
         if (candidateBinding == null) {
             return boundResponse;
         }
-        if (!response.missingSlots().isEmpty() || "ask_clarification".equals(response.nextAction())) {
+        if (AssistantFlowPolicy.requiresClarification(response)) {
             return boundResponse;
         }
         return switch (candidateBinding.status()) {
@@ -536,6 +588,39 @@ public class AssistantConversationService {
         );
     }
 
+    private CandidateBindingResult pendingTargetBinding(
+            AssistantConversationState conversation,
+            IntentRecognitionResponse response,
+            boolean continuePendingIntent
+    ) {
+        if (!continuePendingIntent
+                || conversation == null
+                || conversation.pendingSlots().contains("target_name")
+                || conversation.focus() == null
+                || !conversation.focus().hasCandidateContext()
+                || response == null
+                || response.actionDraft() == null
+                || !List.of("delete", "move", "rename", "share").contains(response.actionDraft().type())) {
+            return null;
+        }
+        CandidateItem candidate = candidateForReference(
+                conversation.focus(),
+                conversation.semanticFrame().reference()
+        );
+        Object targetName = response.entities().get("target_name");
+        if (candidate == null || targetName == null || !candidate.name().equals(String.valueOf(targetName))) {
+            return null;
+        }
+        int candidateIndex = conversation.focus().candidateBinding().candidates().indexOf(candidate);
+        if (candidateIndex < 0) {
+            return null;
+        }
+        return conversation.focus().selectedBinding(
+                candidateIndex + 1,
+                "已保留上一轮锁定的真实目标，等待继续确认。"
+        );
+    }
+
     private CandidateItem candidateForReference(
             AssistantConversationFocus focus,
             SemanticFrame.Reference reference
@@ -556,21 +641,6 @@ public class AssistantConversationService {
                     .orElse(focus.effectiveCandidate());
         }
         return focus.effectiveCandidate();
-    }
-
-    private String guessSingleSlotValue(
-            String message,
-            String slotId,
-            IntentRecognitionResponse baseResponse
-    ) {
-        Object value = baseResponse.entities().get(slotId);
-        if (hasValue(value)) {
-            return String.valueOf(value).trim();
-        }
-        if ("operation".equals(slotId) || message == null || message.isBlank()) {
-            return "";
-        }
-        return TextSupport.sanitizeNodeName(message);
     }
 
     private boolean hasValue(Object value) {
@@ -601,7 +671,7 @@ public class AssistantConversationService {
     }
 
     private String statusFor(IntentRecognitionResponse response) {
-        if (!response.missingSlots().isEmpty() || "ask_clarification".equals(response.nextAction())) {
+        if (AssistantFlowPolicy.requiresClarification(response)) {
             return "waiting_for_clarification";
         }
         if (response.backendActionDraft() != null && "backend_action_ready".equals(response.backendActionDraft().status())) {

@@ -83,6 +83,39 @@ class CandidateBindingServiceTest {
     }
 
     @Test
+    void semanticAmbiguityBlocksBindingEvenWhenLegacyFieldsRequestIt() {
+        CapturingCandidateSearchPort port = new CapturingCandidateSearchPort();
+        CandidateBindingService service = new CandidateBindingService(port, intentRouter, 5);
+        IntentRecognitionResponse ready = intentRecognitionService.recognize("分享合同.pdf");
+        SemanticFrame blockedFrame = new SemanticFrame(
+                SemanticFrame.VERSION,
+                "NEW_TASK",
+                "SHARE",
+                ready.semanticFrame().query(),
+                ready.semanticFrame().scope(),
+                ready.semanticFrame().reference(),
+                1.0,
+                List.of("batch_share_unsupported"),
+                new SemanticFrame.Clarification(
+                        "batch_share_unsupported",
+                        "目前一次只能分享一个文件。",
+                        List.of("分享合同.pdf")
+                )
+        );
+        IntentRecognitionResponse contradictory = ready.withSemanticFrame(
+                blockedFrame,
+                ready.entities(),
+                ready.actionDraft()
+        );
+
+        CandidateBindingResult result = service.bind(contradictory, "Bearer token");
+
+        assertThat(contradictory.nextAction()).isEqualTo("wait_for_backend_binding");
+        assertThat(result.status()).isEqualTo("waiting_for_clarification");
+        assertThat(port.lastRequest).isNull();
+    }
+
+    @Test
     void exactShareUsesValidatedRootSourceScope() {
         CapturingCandidateSearchPort port = new CapturingCandidateSearchPort();
         CandidateBindingService service = new CandidateBindingService(port, intentRouter, 5);

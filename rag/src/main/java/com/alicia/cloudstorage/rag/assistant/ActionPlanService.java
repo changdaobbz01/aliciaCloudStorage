@@ -33,6 +33,9 @@ public class ActionPlanService {
         if (response == null) {
             return ActionPlan.skipped("understanding", "ActionPlan 尚未生成。");
         }
+        if (AssistantFlowPolicy.blocksExecution(response)) {
+            return ActionPlan.skipped("clarification_required", response.assistantText());
+        }
 
         AssistantClientContext safeClientContext = clientContext == null
                 ? AssistantClientContext.empty()

@@ -304,12 +304,21 @@ public record IntentRecognitionResponse(
     }
 
     public IntentRecognitionResponse withSemanticClarification(SemanticFrame semanticFrame) {
-        String question = semanticFrame == null || semanticFrame.clarification() == null
+        if (semanticFrame == null
+                || semanticFrame.clarification() == null
+                || semanticFrame.clarification().reason().isBlank()
+                && semanticFrame.clarification().question().isBlank()) {
+            return this;
+        }
+        String question = semanticFrame.clarification() == null
                 ? ""
                 : semanticFrame.clarification().question();
         if (question.isBlank()) {
-            return this;
+            question = clarificationQuestion == null ? "" : clarificationQuestion.trim();
         }
+        question = question.isBlank()
+                ? "我还不能安全确定这次操作的对象或范围，请补充一个更明确的名称或范围。"
+                : question;
         List<String> suggestions = semanticFrame.clarification().suggestions();
         String suggestionLead = question.contains("例如") || question.contains("比如")
                 ? " 也可以直接说："
@@ -319,6 +328,7 @@ public record IntentRecognitionResponse(
                 : question + suggestionLead + suggestions.stream()
                 .map(suggestion -> "“" + suggestion + "”")
                 .collect(java.util.stream.Collectors.joining("、")) + "。";
+        boolean blocksExecution = AssistantFlowPolicy.isOperational(semanticFrame, actionDraft);
         return new IntentRecognitionResponse(
                 id,
                 schemaVersion,
@@ -337,18 +347,30 @@ public record IntentRecognitionResponse(
                 missingSlots,
                 "ask_clarification",
                 safety,
-                actionDraft,
-                backendActionDraft,
-                actionPlan,
+                blocksExecution ? new ActionDraft("none", Map.of(), false) : actionDraft,
+                blocksExecution
+                        ? BackendActionDraft.skipped("clarification_required", guidance)
+                        : backendActionDraft,
+                blocksExecution ? ActionPlan.skipped("clarification_required", guidance) : actionPlan,
                 guidance,
                 question,
-                semanticFrame.clarification().reason(),
+                clarificationReason(semanticFrame),
                 fallbackReason,
-                candidateBinding,
+                blocksExecution
+                        ? CandidateBindingResult.skipped("waiting_for_clarification", guidance)
+                        : candidateBinding,
                 conversation,
                 semanticFrame,
                 interaction
         );
+    }
+
+    private String clarificationReason(SemanticFrame frame) {
+        String reason = frame.clarification() == null ? "" : frame.clarification().reason();
+        if (!reason.isBlank()) {
+            return reason;
+        }
+        return frame.ambiguities().isEmpty() ? "clarification_required" : frame.ambiguities().getFirst();
     }
 
     public IntentRecognitionResponse withCapabilityBoundary(

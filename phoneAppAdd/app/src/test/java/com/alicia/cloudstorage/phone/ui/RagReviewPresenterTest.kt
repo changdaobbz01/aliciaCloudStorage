@@ -9,6 +9,8 @@ import com.alicia.cloudstorage.phone.data.RagAssistantInteraction
 import com.alicia.cloudstorage.phone.data.RagBackendActionDraft
 import com.alicia.cloudstorage.phone.data.RagCandidateBinding
 import com.alicia.cloudstorage.phone.data.RagCandidateItem
+import com.alicia.cloudstorage.phone.data.RagSemanticClarification
+import com.alicia.cloudstorage.phone.data.RagSemanticFrame
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -32,6 +34,42 @@ class RagReviewPresenterTest {
                     status = "clarification_required",
                     actionType = "none",
                     risk = "none",
+                ),
+            ),
+        )
+
+        assertNull(review)
+    }
+
+    @Test
+    fun `semantic ambiguity suppresses stale operational plan`() {
+        val review = presenter.present(
+            response(
+                nextAction = "wait_for_backend_binding",
+                actionDraft = RagActionDraft(
+                    type = "share",
+                    parameters = mapOf("target_name" to "分享根目录下所有文件"),
+                    needsBackendBinding = true,
+                ),
+                actionPlan = plan(
+                    status = "binding_required",
+                    actionType = "node.share",
+                    risk = "medium",
+                ),
+                semanticFrame = RagSemanticFrame(
+                    schemaVersion = "semantic_frame_v2",
+                    relation = "NEW_TASK",
+                    operation = "SHARE",
+                    query = null,
+                    scope = null,
+                    reference = null,
+                    confidence = 1.0,
+                    ambiguities = listOf("batch_share_unsupported"),
+                    clarification = RagSemanticClarification(
+                        reason = "batch_share_unsupported",
+                        question = "目前一次只能分享一个文件。",
+                        suggestions = emptyList(),
+                    ),
                 ),
             ),
         )
@@ -515,6 +553,7 @@ class RagReviewPresenterTest {
         candidateBinding: RagCandidateBinding? = null,
         interaction: RagAssistantInteraction? = null,
         entities: Map<String, Any>? = emptyMap(),
+        semanticFrame: RagSemanticFrame? = null,
     ) = RagAssistantPlanResponse(
         id = "response-1",
         schemaVersion = "intent_recognition_v1",
@@ -542,6 +581,7 @@ class RagReviewPresenterTest {
         fallbackReason = null,
         candidateBinding = candidateBinding,
         conversation = null,
+        semanticFrame = semanticFrame,
         interaction = interaction,
     )
 

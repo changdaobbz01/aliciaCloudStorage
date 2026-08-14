@@ -48,9 +48,11 @@ final class OperationArgumentResolver {
     private static final Pattern RENAME_SPLIT = Pattern.compile(
             "^(.*?)(?:重命名为|重命名成|改名为|改名成|改成|改为)(.+)$"
     );
+    private static final Pattern RENAME_TARGET_ONLY = Pattern.compile("^(?:重命名|改名)(.+)$");
     private static final Pattern UPLOAD_SPLIT = Pattern.compile(
             "^(.*?)(?:上传到|上传至|传到|传进|放到)(.+)$"
     );
+    private static final Pattern UPLOAD_LEADING_SPLIT = Pattern.compile("^(?:上传|导入)(.+?)(?:到|至|进)(.+)$");
 
     Optional<Resolution> resolve(String message, String operation) {
         String normalizedOperation = operation == null ? "" : operation.trim().toUpperCase(Locale.ROOT);
@@ -105,31 +107,55 @@ final class OperationArgumentResolver {
     }
 
     private Optional<Resolution> parseRename(String text) {
-        Matcher matcher = RENAME_SPLIT.matcher(stripCourtesy(text));
-        if (!matcher.matches()) {
+        String value = stripCourtesy(text);
+        Matcher matcher = RENAME_SPLIT.matcher(value);
+        if (matcher.matches()) {
+            String sourceSurface = normalizeBatchRenameSource(stripObjectPrefix(matcher.group(1)));
+            String newName = cleanName(matcher.group(2));
+            if (sourceSurface.isBlank() || newName.isBlank()) {
+                return Optional.empty();
+            }
+            return Optional.of(resolution(
+                    "RENAME",
+                    parseNodeSelector(sourceSurface),
+                    Destination.empty(),
+                    newName,
+                    false
+            ));
+        }
+        Matcher targetOnly = RENAME_TARGET_ONLY.matcher(value);
+        if (!targetOnly.matches()) {
             return Optional.empty();
         }
-        String sourceSurface = stripObjectPrefix(matcher.group(1));
-        String newName = cleanName(matcher.group(2));
-        if (sourceSurface.isBlank() || newName.isBlank()) {
+        String sourceSurface = stripObjectPrefix(targetOnly.group(1));
+        if (sourceSurface.isBlank()) {
             return Optional.empty();
         }
         return Optional.of(resolution(
                 "RENAME",
                 parseNodeSelector(sourceSurface),
                 Destination.empty(),
-                newName,
+                "",
                 false
         ));
     }
 
     private Optional<Resolution> parseUpload(String text) {
-        Matcher matcher = UPLOAD_SPLIT.matcher(stripCourtesy(text));
-        if (!matcher.matches()) {
-            return Optional.empty();
+        String value = stripCourtesy(text);
+        Matcher matcher = UPLOAD_SPLIT.matcher(value);
+        String sourceSurface;
+        String destinationSurface;
+        if (matcher.matches()) {
+            sourceSurface = stripObjectPrefix(matcher.group(1));
+            destinationSurface = cleanDestination(matcher.group(2));
+        } else {
+            Matcher leading = UPLOAD_LEADING_SPLIT.matcher(value);
+            if (!leading.matches()) {
+                return Optional.empty();
+            }
+            sourceSurface = stripObjectPrefix(leading.group(1));
+            destinationSurface = cleanDestination(leading.group(2));
         }
-        String sourceSurface = stripObjectPrefix(matcher.group(1));
-        String destinationSurface = cleanDestination(matcher.group(2));
         if (destinationSurface.isBlank()) {
             return Optional.empty();
         }
@@ -178,9 +204,31 @@ final class OperationArgumentResolver {
                     List.of("分享合同.pdf", "分享第一个文件")
             );
         }
+        if (source.quantifier() == Quantifier.EXPLICIT_ALL && "RENAME".equals(operation)) {
+            return new Resolution(
+                    operation,
+                    source,
+                    destination,
+                    newName,
+                    "batch_rename_strategy_unsupported",
+                    "当前批量重命名只支持按名称条件统一添加前缀，不能把一组文件自由改成同一个名称。",
+                    List.of("给名称带测试的文件统一添加前缀“归档-”", "把合同.pdf重命名为归档合同.pdf")
+            );
+        }
         if (List.of("SHARE", "DELETE", "MOVE", "RENAME").contains(operation)
                 && source.nameKind() == NameKind.GENERIC) {
             return missingSource(operation, source, destination, newName);
+        }
+        if ("RENAME".equals(operation) && newName.isBlank()) {
+            return new Resolution(
+                    operation,
+                    source,
+                    destination,
+                    "",
+                    "new_name_required",
+                    "已经确定要重命名的对象，请再告诉我新名称。",
+                    List.of("改成最终报告.pdf", "重命名为归档合同.pdf")
+            );
         }
         return new Resolution(
                 operation,
@@ -274,6 +322,13 @@ final class OperationArgumentResolver {
                 scoped.folderSurface(),
                 Quantifier.SINGLE
         );
+    }
+
+    private String normalizeBatchRenameSource(String sourceSurface) {
+        if (sourceSurface.matches("^(?:所有|全部|全都|批量).+统一$")) {
+            return sourceSurface.substring(0, sourceSurface.length() - "统一".length());
+        }
+        return sourceSurface;
     }
 
     private ExplicitName explicitName(String surface) {

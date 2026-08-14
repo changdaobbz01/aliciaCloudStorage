@@ -337,12 +337,36 @@ class SemanticFrameV2Test {
                 null,
                 new AssistantClientContext(null, "/", Map.of("files", 1))
         );
+        IntentRecognitionResponse leadingUpload = service.recognize(
+                "上传云盘中的合同.pdf到资料目录",
+                null,
+                new AssistantClientContext(null, "/", Map.of("files", 1))
+        );
 
         assertThat(response.intentId()).isEqualTo("file_upload");
         assertThat(response.semanticFrame().ambiguities()).contains("upload_source_must_be_client_input");
         assertThat(response.entities()).containsEntry("target_folder", "资料目录");
         assertThat(response.nextAction()).isEqualTo("ask_clarification");
         assertThat(response.actionDraft().type()).isEqualTo("none");
+        assertThat(leadingUpload.semanticFrame().ambiguities()).contains("upload_source_must_be_client_input");
+        assertThat(leadingUpload.entities()).containsEntry("target_folder", "资料目录");
+        assertThat(leadingUpload.nextAction()).isEqualTo("ask_clarification");
+        assertThat(leadingUpload.actionDraft().type()).isEqualTo("none");
+    }
+
+    @Test
+    void renameRequiresControlledSingleOrPrefixStrategy() {
+        IntentRecognitionResponse missingName = service.recognize("重命名合同.pdf");
+        IntentRecognitionResponse unsupportedBatch = service.recognize("把所有图片统一重命名为归档");
+
+        assertThat(missingName.entities()).containsEntry("target_name", "合同.pdf");
+        assertThat(missingName.semanticFrame().ambiguities()).contains("new_name_required");
+        assertThat(missingName.nextAction()).isEqualTo("ask_clarification");
+        assertThat(missingName.actionDraft().type()).isEqualTo("none");
+        assertThat(unsupportedBatch.semanticFrame().ambiguities())
+                .contains("batch_rename_strategy_unsupported");
+        assertThat(unsupportedBatch.nextAction()).isEqualTo("ask_clarification");
+        assertThat(unsupportedBatch.actionDraft().type()).isEqualTo("none");
     }
 
     @Test

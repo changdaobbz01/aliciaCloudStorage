@@ -144,6 +144,160 @@ class AssistantConversationServiceTest {
     }
 
     @Test
+    void unsupportedBatchShareCannotFillPendingAtomicShareTarget() {
+        AtomicInteger searchCalls = new AtomicInteger();
+        AssistantConversationService service = conversationServiceWith(request -> {
+            searchCalls.incrementAndGet();
+            return CandidateBindingResult.skipped("test_skipped", "不应执行候选查询。");
+        });
+        IntentRecognitionResponse firstTurn = service.plan(new AssistantPlanRequest("分享文件", ""));
+
+        IntentRecognitionResponse secondTurn = service.plan(new AssistantPlanRequest(
+                "分享根目录下所有文件",
+                firstTurn.conversation().conversationId()
+        ));
+
+        assertThat(secondTurn.semanticFrame().ambiguities()).contains("batch_share_unsupported");
+        assertThat(secondTurn.entities()).doesNotContainKey("target_name");
+        assertThat(secondTurn.nextAction()).isEqualTo("ask_clarification");
+        assertThat(secondTurn.actionDraft().type()).isEqualTo("none");
+        assertThat(secondTurn.candidateBinding().status()).isEqualTo("waiting_for_clarification");
+        assertThat(secondTurn.actionPlan().status()).isEqualTo("clarification_required");
+        assertThat(secondTurn.interaction().stage()).isEqualTo("NEED_CLARIFICATION");
+        assertThat(searchCalls).hasValue(0);
+    }
+
+    @Test
+    void ambiguousDeleteCannotFillPendingDeleteTarget() {
+        AtomicInteger searchCalls = new AtomicInteger();
+        AssistantConversationService service = conversationServiceWith(request -> {
+            searchCalls.incrementAndGet();
+            return CandidateBindingResult.skipped("test_skipped", "不应执行候选查询。");
+        });
+        IntentRecognitionResponse firstTurn = service.plan(new AssistantPlanRequest("删除文件", ""));
+
+        IntentRecognitionResponse secondTurn = service.plan(new AssistantPlanRequest(
+                "删除图片",
+                firstTurn.conversation().conversationId()
+        ));
+
+        assertThat(secondTurn.semanticFrame().ambiguities()).contains("source_target_required");
+        assertThat(secondTurn.entities()).doesNotContainKey("target_name");
+        assertThat(secondTurn.nextAction()).isEqualTo("ask_clarification");
+        assertThat(secondTurn.actionDraft().type()).isEqualTo("none");
+        assertThat(secondTurn.actionPlan().status()).isEqualTo("clarification_required");
+        assertThat(searchCalls).hasValue(0);
+    }
+
+    @Test
+    void unsupportedBatchRenameCannotFillPendingAtomicRenameNewName() {
+        IntentRecognitionResponse firstTurn = conversationService.plan(new AssistantPlanRequest(
+                "重命名合同.pdf",
+                ""
+        ));
+        IntentRecognitionResponse secondTurn = conversationService.plan(new AssistantPlanRequest(
+                "把所有图片统一重命名为归档",
+                firstTurn.conversation().conversationId()
+        ));
+
+        assertThat(firstTurn.intentId()).isEqualTo("file_rename");
+        assertThat(firstTurn.missingSlots()).containsExactly("new_name");
+        assertThat(secondTurn.semanticFrame().relation()).isEqualTo("NEW_TASK");
+        assertThat(secondTurn.semanticFrame().ambiguities())
+                .contains("batch_rename_strategy_unsupported");
+        assertThat(secondTurn.entities()).doesNotContainKey("target_name");
+        assertThat(secondTurn.actionDraft().type()).isEqualTo("none");
+        assertThat(secondTurn.candidateBinding().status()).isEqualTo("waiting_for_clarification");
+        assertThat(secondTurn.actionPlan().status()).isEqualTo("clarification_required");
+        assertThat(secondTurn.backendActionDraft().status()).isEqualTo("clarification_required");
+    }
+
+    @Test
+    void slotFillOnlyUpdatesMissingSlotAndPreservesKnownArguments() {
+        IntentRecognitionResponse move = conversationService.plan(new AssistantPlanRequest("把文件移动到资料", ""));
+        IntentRecognitionResponse moved = conversationService.plan(new AssistantPlanRequest(
+                "合同.pdf",
+                move.conversation().conversationId()
+        ));
+        IntentRecognitionResponse rename = conversationService.plan(new AssistantPlanRequest(
+                "把文件重命名为报告.pdf",
+                ""
+        ));
+        IntentRecognitionResponse renamed = conversationService.plan(new AssistantPlanRequest(
+                "合同.pdf",
+                rename.conversation().conversationId()
+        ));
+        IntentRecognitionResponse moveDestination = conversationService.plan(new AssistantPlanRequest(
+                "把合同.pdf移动到",
+                ""
+        ));
+        IntentRecognitionResponse destinationFilled = conversationService.plan(new AssistantPlanRequest(
+                "移动到资料",
+                moveDestination.conversation().conversationId()
+        ));
+
+        assertThat(moved.semanticFrame().relation()).isEqualTo("SLOT_FILL");
+        assertThat(moved.entities())
+                .containsEntry("target_name", "合同.pdf")
+                .containsEntry("target_folder", "资料");
+        assertThat(renamed.semanticFrame().relation()).isEqualTo("SLOT_FILL");
+        assertThat(renamed.entities())
+                .containsEntry("target_name", "合同.pdf")
+                .containsEntry("new_name", "报告.pdf");
+        assertThat(destinationFilled.semanticFrame().relation()).isEqualTo("SLOT_FILL");
+        assertThat(destinationFilled.entities())
+                .containsEntry("target_name", "合同.pdf")
+                .containsEntry("target_folder", "资料");
+    }
+
+    @Test
+    void fullSameIntentCommandCannotFillPendingDestination() {
+        IntentRecognitionResponse firstTurn = conversationService.plan(new AssistantPlanRequest(
+                "把合同.pdf移动到",
+                ""
+        ));
+        IntentRecognitionResponse secondTurn = conversationService.plan(new AssistantPlanRequest(
+                "移动文件夹到资料",
+                firstTurn.conversation().conversationId()
+        ));
+
+        assertThat(firstTurn.missingSlots()).containsExactly("target_folder");
+        assertThat(secondTurn.semanticFrame().relation()).isEqualTo("NEW_TASK");
+        assertThat(secondTurn.entities()).doesNotContainEntry("target_name", "合同.pdf");
+        assertThat(secondTurn.actionDraft().type()).isEqualTo("none");
+    }
+
+    @Test
+    void uploadDestinationFragmentContinuesButCloudSourceCommandDoesNot() {
+        IntentRecognitionResponse pendingDestination = conversationService.plan(new AssistantPlanRequest(
+                "上传文件",
+                ""
+        ));
+        IntentRecognitionResponse destinationFilled = conversationService.plan(new AssistantPlanRequest(
+                "上传到资料",
+                pendingDestination.conversation().conversationId()
+        ));
+        IntentRecognitionResponse anotherPendingDestination = conversationService.plan(new AssistantPlanRequest(
+                "上传文件",
+                ""
+        ));
+        IntentRecognitionResponse cloudSource = conversationService.plan(new AssistantPlanRequest(
+                "把云盘里的合同.pdf上传到资料",
+                anotherPendingDestination.conversation().conversationId()
+        ));
+
+        assertThat(pendingDestination.missingSlots()).containsExactly("target_folder");
+        assertThat(destinationFilled.semanticFrame().relation()).isEqualTo("SLOT_FILL");
+        assertThat(destinationFilled.entities()).containsEntry("target_folder", "资料");
+        assertThat(cloudSource.semanticFrame().relation()).isEqualTo("NEW_TASK");
+        assertThat(cloudSource.semanticFrame().ambiguities())
+                .contains("upload_source_must_be_client_input");
+        assertThat(cloudSource.actionDraft().type()).isEqualTo("none");
+        assertThat(cloudSource.actionPlan().status()).isEqualTo("clarification_required");
+        assertThat(cloudSource.backendActionDraft().status()).isEqualTo("clarification_required");
+    }
+
+    @Test
     void personaChatRespondsWithoutBackendBinding() {
         IntentRecognitionResponse response = conversationService.plan(new AssistantPlanRequest("你是谁", ""));
 
