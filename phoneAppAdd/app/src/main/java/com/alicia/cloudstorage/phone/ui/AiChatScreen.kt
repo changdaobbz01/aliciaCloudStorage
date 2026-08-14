@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -35,6 +36,8 @@ import androidx.compose.material.icons.rounded.AddComment
 import androidx.compose.material.icons.rounded.AttachFile
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Folder
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
@@ -44,6 +47,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -60,6 +64,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -443,18 +450,7 @@ private fun AiMessageItem(
                 modifier = Modifier.widthIn(max = 334.dp),
                 verticalArrangement = Arrangement.spacedBy(7.dp),
             ) {
-                RasterPanel(
-                    resourceId = R.drawable.bg_ai_message_assistant,
-                    modifier = Modifier.widthIn(max = 294.dp),
-                ) {
-                    Text(
-                        text = message.text,
-                        color = AiInk,
-                        fontSize = 14.sp,
-                        lineHeight = 21.sp,
-                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 15.dp),
-                    )
-                }
+                AiAssistantMessageBubble(message.text)
                 message.plan?.let { plan ->
                     AiPlanPreviewCard(
                         plan = plan,
@@ -464,7 +460,21 @@ private fun AiMessageItem(
                         onCancel = { onCancelReview(message.id) },
                     )
                 }
-                message.files.forEach { file ->
+                message.resultSection?.let { section ->
+                    AiResultSection(
+                        messageId = message.id,
+                        section = section,
+                        files = message.files,
+                        actionsEnabled = actionsEnabled,
+                        onFileClick = { file ->
+                            if (file.selectionAction != null) {
+                                onSelectCandidate(message.id, file)
+                            } else {
+                                onOpenFile(file)
+                            }
+                        },
+                    )
+                } ?: message.files.forEach { file ->
                     AiFileResultRow(
                         file = file,
                         actionsEnabled = actionsEnabled,
@@ -478,6 +488,171 @@ private fun AiMessageItem(
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun AiAssistantMessageBubble(text: String) {
+    val shape = RoundedCornerShape(15.dp)
+    Box(
+        modifier = Modifier
+            .widthIn(max = 294.dp)
+            .shadow(elevation = 2.dp, shape = shape, clip = false)
+            .clip(shape)
+            .background(Color.White)
+            .border(1.dp, AiLine, shape),
+    ) {
+        AiMarkdownText(
+            markdown = text,
+            color = AiInk,
+            fontSize = 14.sp,
+            lineHeight = 21.sp,
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 15.dp),
+        )
+    }
+}
+
+@Composable
+private fun AiResultSection(
+    messageId: Long,
+    section: AiChatResultSection,
+    files: List<AiChatFileResult>,
+    actionsEnabled: Boolean,
+    onFileClick: (AiChatFileResult) -> Unit,
+) {
+    if (files.isEmpty()) {
+        return
+    }
+
+    val fileIds = remember(files) { files.map(AiChatFileResult::id) }
+    var expanded by rememberSaveable(messageId, fileIds) { mutableStateOf(false) }
+    val canCollapse = files.none { it.selectionAction != null } &&
+        AiChatResultDisplayPolicy.canCollapse(section, files.size)
+    val visibleCount = AiChatResultDisplayPolicy.visibleItemCount(
+        section = section,
+        itemCount = files.size,
+        expanded = expanded,
+    )
+    val groupShape = RoundedCornerShape(8.dp)
+    val headerIcon = if (files.all { it.type.equals("FOLDER", ignoreCase = true) }) {
+        R.drawable.ic_add_folder_solid_blue
+    } else {
+        R.drawable.ic_ai_document
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(groupShape)
+                .background(Color.White)
+                .border(1.dp, AiLine, groupShape),
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 13.dp, vertical = 11.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Image(
+                    painter = painterResource(headerIcon),
+                    contentDescription = null,
+                    modifier = Modifier.size(28.dp),
+                    contentScale = ContentScale.Fit,
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = section.title,
+                        color = AiInk,
+                        fontSize = 12.5.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        text = AiChatResultDisplayPolicy.countLabel(section, files.size),
+                        color = AiMuted,
+                        fontSize = 10.5.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+
+            HorizontalDivider(color = AiLine, thickness = 1.dp)
+            files.take(visibleCount).forEachIndexed { index, file ->
+                AiFileResultRow(
+                    file = file,
+                    actionsEnabled = actionsEnabled,
+                    grouped = true,
+                    onClick = { onFileClick(file) },
+                )
+                if (index < visibleCount - 1) {
+                    HorizontalDivider(
+                        modifier = Modifier.padding(start = 50.dp),
+                        color = AiLine,
+                        thickness = 1.dp,
+                    )
+                }
+            }
+
+            if (canCollapse) {
+                HorizontalDivider(color = AiLine, thickness = 1.dp)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(44.dp)
+                        .semantics {
+                            stateDescription = if (expanded) "已展开" else "已收起"
+                        }
+                        .clickable(role = Role.Button) {
+                            expanded = !expanded
+                        },
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = AiChatResultDisplayPolicy.toggleLabel(
+                            section = section,
+                            itemCount = files.size,
+                            expanded = expanded,
+                        ),
+                        color = AiBlue,
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Spacer(modifier = Modifier.width(5.dp))
+                    Icon(
+                        imageVector = if (expanded) {
+                            Icons.Rounded.KeyboardArrowUp
+                        } else {
+                            Icons.Rounded.KeyboardArrowDown
+                        },
+                        contentDescription = null,
+                        tint = AiBlue,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+            }
+        }
+
+        if (expanded) {
+            AiChatResultDisplayPolicy.partialResultLabel(section, files.size)?.let { label ->
+                Text(
+                    text = label,
+                    color = AiMuted,
+                    fontSize = 10.5.sp,
+                    modifier = Modifier.padding(start = 4.dp),
+                )
+            }
+        }
+        if (section.mode == AiChatResultMode.SEARCH_RESULTS) {
+            Text(
+                text = "仅完成查找，不会修改文件",
+                color = AiMuted,
+                fontSize = 10.5.sp,
+                modifier = Modifier.padding(start = 4.dp),
+            )
         }
     }
 }
@@ -591,11 +766,12 @@ private fun AiPlanActionButton(
 
     Box(
         modifier = Modifier
-            .height(34.dp)
-            .width(if (primary) 88.dp else 64.dp)
+            .heightIn(min = 36.dp)
+            .widthIn(min = 64.dp, max = 190.dp)
             .clip(shape)
             .background(background)
-            .clickable(enabled = enabled, onClick = onClick),
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 8.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
@@ -613,6 +789,7 @@ private fun AiPlanActionButton(
 private fun AiFileResultRow(
     file: AiChatFileResult,
     actionsEnabled: Boolean,
+    grouped: Boolean = false,
     onClick: () -> Unit,
 ) {
     val iconResource = if (file.type.equals("FOLDER", ignoreCase = true)) {
@@ -621,59 +798,83 @@ private fun AiFileResultRow(
         R.drawable.ic_ai_document
     }
 
-    RasterPanel(
-        resourceId = R.drawable.bg_ai_file_card,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(70.dp)
-            .clickable(
-                enabled = file.selectionAction == null || actionsEnabled,
-                onClick = onClick,
-            ),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
+    val rowModifier = Modifier
+        .fillMaxWidth()
+        .height(if (grouped) 64.dp else 70.dp)
+        .clickable(
+            enabled = file.selectionAction == null || actionsEnabled,
+            onClick = onClick,
+        )
+
+    if (grouped) {
+        AiFileResultContent(
+            file = file,
+            actionsEnabled = actionsEnabled,
+            iconResource = iconResource,
+            modifier = rowModifier,
+        )
+    } else {
+        RasterPanel(
+            resourceId = R.drawable.bg_ai_file_card,
+            modifier = rowModifier,
         ) {
-            Image(
-                painter = painterResource(iconResource),
-                contentDescription = null,
-                modifier = Modifier.size(29.dp),
-                contentScale = ContentScale.Fit,
+            AiFileResultContent(
+                file = file,
+                actionsEnabled = actionsEnabled,
+                iconResource = iconResource,
+                modifier = Modifier.fillMaxSize(),
             )
-            Spacer(modifier = Modifier.width(9.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = file.name,
-                    color = AiInk,
-                    fontSize = 12.5.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    text = file.detail,
-                    color = AiMuted,
-                    fontSize = 10.5.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            Image(
-                painter = painterResource(R.drawable.ic_ai_chevron_right),
-                contentDescription = null,
-                modifier = Modifier.size(17.dp),
-                contentScale = ContentScale.Fit,
+        }
+    }
+}
+
+@Composable
+private fun AiFileResultContent(
+    file: AiChatFileResult,
+    actionsEnabled: Boolean,
+    @DrawableRes iconResource: Int,
+    modifier: Modifier,
+) {
+    Row(
+        modifier = modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Image(
+            painter = painterResource(iconResource),
+            contentDescription = null,
+            modifier = Modifier.size(29.dp),
+            contentScale = ContentScale.Fit,
+        )
+        Spacer(modifier = Modifier.width(9.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = file.name,
+                color = AiInk,
+                fontSize = 12.5.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
-            file.selectionAction?.let { action ->
-                Spacer(modifier = Modifier.width(7.dp))
-                AiCandidateSelectBadge(
-                    label = action.label,
-                    enabled = actionsEnabled,
-                )
-            }
+            Text(
+                text = file.detail,
+                color = AiMuted,
+                fontSize = 10.5.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Image(
+            painter = painterResource(R.drawable.ic_ai_chevron_right),
+            contentDescription = null,
+            modifier = Modifier.size(17.dp),
+            contentScale = ContentScale.Fit,
+        )
+        file.selectionAction?.let { action ->
+            Spacer(modifier = Modifier.width(7.dp))
+            AiCandidateSelectBadge(
+                label = action.label,
+                enabled = actionsEnabled,
+            )
         }
     }
 }

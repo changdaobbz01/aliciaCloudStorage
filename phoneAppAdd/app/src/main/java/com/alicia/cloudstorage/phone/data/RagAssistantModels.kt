@@ -149,6 +149,15 @@ data class RagCandidateBinding(
     val message: String?,
     val selectedCandidate: RagCandidateItem?,
     val selectedIndex: Int?,
+    val pageInfo: RagCandidateResultPage? = null,
+)
+
+data class RagCandidateResultPage(
+    val totalCount: Long?,
+    val returnedCount: Int?,
+    val hasMore: Boolean?,
+    val sortBy: String?,
+    val sortDirection: String?,
 )
 
 data class RagCandidateItem(

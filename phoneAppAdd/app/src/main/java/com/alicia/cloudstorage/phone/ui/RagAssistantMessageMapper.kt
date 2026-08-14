@@ -24,7 +24,10 @@ internal fun RagAssistantPlanResponse.toAssistantMessage(id: Long): AiChatMessag
         author = AiChatAuthor.ASSISTANT,
         text = assistantDisplayText(),
         files = review.toAiChatFileResults(),
-        plan = review?.toAiChatPlanPreview(actionPlan, backendActionDraft),
+        plan = review
+            ?.takeUnless { it.kind == RagReviewKind.SEARCH_RESULTS }
+            ?.toAiChatPlanPreview(actionPlan, backendActionDraft),
+        resultSection = review?.resultSection,
     )
 }
 
@@ -114,7 +117,6 @@ internal fun RagActionExecutionResult.toFileMutationSignal(): AiChatFileMutation
 private fun RagReviewPresentation?.toAiChatFileResults(): List<AiChatFileResult> =
     this?.let { review ->
         review.candidates
-            .take(6)
             .mapIndexed { index, candidate ->
                 AiChatFileResult(
                     id = candidate.id,

@@ -43,7 +43,10 @@ public class CandidateSelectionService {
                         binding.query(),
                         binding.candidateType(),
                         binding.candidates(),
-                        "选择的候选已经失效，请重新选择。"
+                        "选择的候选已经失效，请重新选择。",
+                        null,
+                        null,
+                        binding.pageInfo()
                 ));
             }
             return new SelectionAttempt(true, binding.select(eventIndex));

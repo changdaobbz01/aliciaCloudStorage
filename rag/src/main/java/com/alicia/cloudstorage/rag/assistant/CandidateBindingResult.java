@@ -10,8 +10,32 @@ public record CandidateBindingResult(
         List<CandidateItem> candidates,
         String message,
         CandidateItem selectedCandidate,
-        Integer selectedIndex
+        Integer selectedIndex,
+        CandidateResultPage pageInfo
 ) {
+    public CandidateBindingResult(
+            String status,
+            String source,
+            String query,
+            String candidateType,
+            List<CandidateItem> candidates,
+            String message,
+            CandidateItem selectedCandidate,
+            Integer selectedIndex
+    ) {
+        this(
+                status,
+                source,
+                query,
+                candidateType,
+                candidates,
+                message,
+                selectedCandidate,
+                selectedIndex,
+                null
+        );
+    }
+
     public CandidateBindingResult(
             String status,
             String source,
@@ -20,11 +44,14 @@ public record CandidateBindingResult(
             List<CandidateItem> candidates,
             String message
     ) {
-        this(status, source, query, candidateType, candidates, message, null, null);
+        this(status, source, query, candidateType, candidates, message, null, null, null);
     }
 
     public CandidateBindingResult {
         candidates = candidates == null ? List.of() : List.copyOf(candidates);
+        pageInfo = pageInfo == null
+                ? CandidateResultPage.unknown(candidates.size(), null, "", "")
+                : pageInfo.withReturnedCount(candidates.size());
     }
 
     public static CandidateBindingResult skipped(String status, String message) {
@@ -39,7 +66,10 @@ public record CandidateBindingResult(
                     query,
                     candidateType,
                     candidates,
-                    "选择序号超出候选范围，请在 1-" + candidates.size() + " 之间选择。"
+                    "选择序号超出候选范围，请在 1-" + candidates.size() + " 之间选择。",
+                    null,
+                    null,
+                    pageInfo
             );
         }
 
@@ -53,7 +83,8 @@ public record CandidateBindingResult(
                 candidates,
                 "已选择第 " + oneBasedIndex + " 个候选：" + selected.name() + "。等待用户确认。",
                 selected,
-                oneBasedIndex
+                oneBasedIndex,
+                pageInfo
         );
     }
 }

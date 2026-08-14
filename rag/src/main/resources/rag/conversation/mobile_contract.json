@@ -1,6 +1,6 @@
 {
   "version": "mobile_contract_v1",
-  "updated_at": "2026-08-11",
+  "updated_at": "2026-08-14",
   "description": "Stable client-facing contract for Alicia mobile RAG integration. Mobile consumes plans and executes only local allowlisted handlers.",
   "encoding": {
     "intentIds": "string_enum",
@@ -36,8 +36,21 @@
     "Use the current app login Authorization when calling RAG and CloudStorageApi.",
     "Reject absolute URLs, unknown methods, unknown action types, and stale candidate bindings.",
     "Treat RAG output as a plan, not as proof that an operation has completed.",
+    "Use candidateBinding.pageInfo.totalCount only when present; otherwise label the list by its displayed count.",
+    "Do not present local expansion as loading all server results when candidateBinding.pageInfo.hasMore is true.",
     "Refresh file and trash views only after the local executor reports a completed mutating action."
   ],
+  "candidateResultPage": {
+    "path": "candidateBinding.pageInfo",
+    "compatibility": "optional_additive",
+    "fields": {
+      "totalCount": "Exact server-side total when known; null means unknown.",
+      "returnedCount": "Number of candidates included in this response.",
+      "hasMore": "True when the server has additional results; null means unknown.",
+      "sortBy": "Deterministic server sort field when known.",
+      "sortDirection": "asc or desc when sortBy is present."
+    }
+  },
   "nextActionRouting": {
     "respond_only": {
       "screenAction": "show_assistant_message",

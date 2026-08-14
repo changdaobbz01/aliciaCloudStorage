@@ -67,6 +67,75 @@ internal data class AiChatPlanClientActionControls(
     val uploadRequest: AiChatClientUploadRequest,
 )
 
+internal enum class AiChatResultMode {
+    SEARCH_RESULTS,
+    CANDIDATE_SELECTION,
+    ACTION_PREVIEW,
+}
+
+internal data class AiChatResultSection(
+    val mode: AiChatResultMode,
+    val title: String,
+    val contextLabel: String? = null,
+    val totalCount: Long? = null,
+    val hasMore: Boolean? = null,
+    val sortBy: String? = null,
+    val sortDirection: String? = null,
+)
+
+internal object AiChatResultDisplayPolicy {
+    const val COLLAPSE_THRESHOLD = 5
+    const val COLLAPSED_ITEM_COUNT = 3
+
+    fun canCollapse(section: AiChatResultSection, itemCount: Int): Boolean =
+        section.mode != AiChatResultMode.CANDIDATE_SELECTION && itemCount >= COLLAPSE_THRESHOLD
+
+    fun visibleItemCount(
+        section: AiChatResultSection,
+        itemCount: Int,
+        expanded: Boolean,
+    ): Int = if (canCollapse(section, itemCount) && !expanded) {
+        minOf(COLLAPSED_ITEM_COUNT, itemCount)
+    } else {
+        itemCount
+    }
+
+    fun countLabel(section: AiChatResultSection, itemCount: Int): String {
+        val count = section.totalCount
+            ?.let { "共 $it 项" }
+            ?: "已展示 $itemCount 项"
+        return listOfNotNull(section.contextLabel?.takeIf(String::isNotBlank), count)
+            .joinToString(" · ")
+    }
+
+    fun toggleLabel(
+        section: AiChatResultSection,
+        itemCount: Int,
+        expanded: Boolean,
+    ): String {
+        if (expanded) {
+            return "收起"
+        }
+        val hiddenCount = (itemCount - COLLAPSED_ITEM_COUNT).coerceAtLeast(0)
+        val hasCompleteLocalResult = section.totalCount != null &&
+            section.hasMore != true &&
+            section.totalCount <= itemCount.toLong()
+        return if (hasCompleteLocalResult) {
+            "展开其余 $hiddenCount 项"
+        } else {
+            "展开另外 $hiddenCount 项"
+        }
+    }
+
+    fun partialResultLabel(section: AiChatResultSection, itemCount: Int): String? {
+        val totalCount = section.totalCount ?: return null
+        if (section.hasMore != true && totalCount <= itemCount.toLong()) {
+            return null
+        }
+        return "当前展示前 $itemCount 项，共 $totalCount 项"
+    }
+}
+
 internal data class AiChatPendingAttachment(
     val id: String,
     val name: String,
@@ -90,6 +159,7 @@ internal data class AiChatMessage(
     val text: String,
     val files: List<AiChatFileResult> = emptyList(),
     val plan: AiChatPlanPreview? = null,
+    val resultSection: AiChatResultSection? = null,
 )
 
 internal data class AiChatUiState(

@@ -19,6 +19,7 @@ internal class RagReviewPresenter {
         val candidates = response.reviewCandidates().withOperationPreview(response)
         val kind = response.reviewKind(plan, backendDraft, actionType, candidates)
         val lines = response.reviewLines(plan, backendDraft, actionType, candidates)
+        val resultSection = response.resultSection(kind, candidates)
 
         return RagReviewPresentation(
             kind = kind,
@@ -32,6 +33,7 @@ internal class RagReviewPresenter {
                 .firstOrNull { (_, binding) -> binding.isSelectableCandidateBinding() }
                 ?.key,
             planId = plan?.planId,
+            resultSection = resultSection,
         )
     }
 }
@@ -46,6 +48,7 @@ internal data class RagReviewPresentation(
     val actionType: String? = null,
     val selectionBindingKey: String? = null,
     val planId: String? = null,
+    val resultSection: AiChatResultSection? = null,
 )
 
 internal enum class RagReviewKind {
@@ -258,6 +261,76 @@ private fun RagAssistantPlanResponse.reviewCandidates(): List<RagReviewCandidate
     return (directCandidates + planCandidates).toReviewCandidates()
 }
 
+private fun RagAssistantPlanResponse.resultSection(
+    kind: RagReviewKind,
+    candidates: List<RagReviewCandidate>,
+): AiChatResultSection? {
+    if (candidates.isEmpty()) {
+        return null
+    }
+
+    val mode = when (kind) {
+        RagReviewKind.SEARCH_RESULTS -> AiChatResultMode.SEARCH_RESULTS
+        RagReviewKind.CANDIDATE_SELECTION -> AiChatResultMode.CANDIDATE_SELECTION
+        else -> AiChatResultMode.ACTION_PREVIEW
+    }
+    val pageInfo = candidateBinding?.pageInfo
+    val totalCount = pageInfo
+        ?.totalCount
+        ?.takeIf { it >= candidates.size.toLong() }
+    val hasMore = pageInfo?.hasMore
+        ?: totalCount?.let { it > candidates.size.toLong() }
+
+    return AiChatResultSection(
+        mode = mode,
+        title = resultTitle(kind),
+        contextLabel = candidateBinding
+            ?.query
+            ?.trim()
+            ?.takeIf { it.isNotBlank() && kind == RagReviewKind.SEARCH_RESULTS },
+        totalCount = totalCount.takeIf { kind == RagReviewKind.SEARCH_RESULTS },
+        hasMore = hasMore.takeIf { kind == RagReviewKind.SEARCH_RESULTS },
+        sortBy = pageInfo?.sortBy.takeIf { kind == RagReviewKind.SEARCH_RESULTS },
+        sortDirection = pageInfo?.sortDirection.takeIf { kind == RagReviewKind.SEARCH_RESULTS },
+    )
+}
+
+private fun RagAssistantPlanResponse.resultTitle(kind: RagReviewKind): String {
+    if (kind == RagReviewKind.CANDIDATE_SELECTION) {
+        return if (candidateBinding?.candidateType.equalsNormalized("folder")) {
+            "请选择文件夹"
+        } else {
+            "请选择文件"
+        }
+    }
+    if (kind != RagReviewKind.SEARCH_RESULTS) {
+        return if (actionPlan?.planKind.equalsNormalized("collection")) {
+            "影响范围预览"
+        } else {
+            "操作对象"
+        }
+    }
+
+    val category = semanticFrame
+        ?.query
+        ?.filters
+        ?.get("category")
+        ?.toString()
+        ?.trim()
+        ?.lowercase()
+        .orEmpty()
+    return when {
+        category == "image" || category.contains("图片") -> "图片结果"
+        category == "video" || category.contains("视频") -> "视频结果"
+        category == "audio" || category.contains("音频") -> "音频结果"
+        category == "document" || category.contains("文档") -> "文档结果"
+        category == "archive" || category.contains("压缩") -> "压缩包结果"
+        candidateBinding?.candidateType.equalsNormalized("folder") -> "文件夹结果"
+        candidateBinding?.candidateType.equalsNormalized("file") -> "文件结果"
+        else -> "搜索结果"
+    }
+}
+
 private fun List<RagCandidateItem>.toReviewCandidates(): List<RagReviewCandidate> =
     distinctBy { candidate ->
         candidate.nodeId?.toString()
@@ -265,7 +338,7 @@ private fun List<RagCandidateItem>.toReviewCandidates(): List<RagReviewCandidate
             ?: candidate.name
             ?: ""
     }
-        .take(20)
+        .take(MAX_CHAT_RESULT_ITEMS)
         .map { candidate ->
             RagReviewCandidate(
                 id = candidate.nodeId?.toString() ?: candidate.name.orEmpty(),
@@ -587,3 +660,5 @@ private val selectableCandidateStatuses = setOf(
     "candidate_selection_required",
     "candidate_selection_out_of_range",
 )
+
+private const val MAX_CHAT_RESULT_ITEMS = 50

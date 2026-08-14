@@ -120,7 +120,8 @@ public record AssistantConversationFocus(
                         ? "已根据上一轮上下文锁定候选，等待用户确认。"
                         : message,
                 candidate,
-                oneBasedIndex
+                oneBasedIndex,
+                candidateBinding.pageInfo()
         );
     }
 

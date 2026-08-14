@@ -359,28 +359,99 @@ class StorageApiCandidateSearchClientTest {
             assertThat(query.type()).isEqualTo("FILE");
             assertThat(query.category()).isEqualTo("IMAGE");
         });
+        assertThat(result.pageInfo().totalCount()).isNull();
+        assertThat(result.pageInfo().returnedCount()).isEqualTo(1);
+    }
+
+    @Test
+    void directoryListCarriesExactCountAndPartialPageMetadata() {
+        FakeStorageApiNodeReadClient storageApi = FakeStorageApiNodeReadClient.withPagedNodeResults(
+                Map.of(
+                        "", List.of(
+                                new CandidateItem(61L, null, "合同-1.pdf", "FILE", 10L, "pdf", "application/pdf", ""),
+                                new CandidateItem(62L, null, "合同-2.pdf", "FILE", 10L, "pdf", "application/pdf", "")
+                        )
+                ),
+                Map.of("", 12L)
+        );
+        StorageApiCandidateSearchClient client = new StorageApiCandidateSearchClient(storageApi);
+
+        CandidateBindingResult result = client.search(new CandidateSearchRequest(
+                "file_search",
+                "search",
+                "FILE",
+                "directory_scope",
+                "",
+                "directory_list",
+                "all",
+                "",
+                null,
+                "",
+                2,
+                "Bearer token"
+        ));
+
+        assertThat(result.pageInfo().totalCount()).isEqualTo(12L);
+        assertThat(result.pageInfo().returnedCount()).isEqualTo(2);
+        assertThat(result.pageInfo().hasMore()).isTrue();
+        assertThat(result.pageInfo().sortBy()).isEqualTo("updatedAt");
+        assertThat(result.pageInfo().sortDirection()).isEqualTo("desc");
+    }
+
+    @Test
+    void candidateSelectionKeepsResultPageMetadata() {
+        CandidateResultPage pageInfo = CandidateResultPage.exact(2, 2, "relevance", "");
+        CandidateBindingResult binding = new CandidateBindingResult(
+                "multiple_candidates",
+                "test",
+                "合同",
+                "FILE",
+                List.of(
+                        new CandidateItem(71L, null, "合同-1.pdf", "FILE", 10L, "pdf", "application/pdf", ""),
+                        new CandidateItem(72L, null, "合同-2.pdf", "FILE", 10L, "pdf", "application/pdf", "")
+                ),
+                "请选择",
+                null,
+                null,
+                pageInfo
+        );
+
+        CandidateBindingResult selected = binding.select(1);
+
+        assertThat(selected.selectedCandidate().nodeId()).isEqualTo(72L);
+        assertThat(selected.pageInfo()).isEqualTo(pageInfo);
     }
 
     private static class FakeStorageApiNodeReadClient extends StorageApiNodeReadClient {
         private final Map<String, List<CandidateItem>> candidatesByQuery;
+        private final Map<String, Long> totalByQuery;
         private final List<CandidateItem> folders;
         private final List<StorageApiNodeQuery> nodeQueries = new ArrayList<>();
 
         private FakeStorageApiNodeReadClient(
                 Map<String, List<CandidateItem>> candidatesByQuery,
+                Map<String, Long> totalByQuery,
                 List<CandidateItem> folders
         ) {
             super(new ObjectMapper(), "https://storage.example", 1);
             this.candidatesByQuery = new LinkedHashMap<>(candidatesByQuery);
+            this.totalByQuery = new LinkedHashMap<>(totalByQuery);
             this.folders = List.copyOf(folders);
         }
 
         private static FakeStorageApiNodeReadClient withNodeResults(Map<String, List<CandidateItem>> candidatesByQuery) {
-            return new FakeStorageApiNodeReadClient(candidatesByQuery, List.of());
+            return new FakeStorageApiNodeReadClient(candidatesByQuery, Map.of(), List.of());
+        }
+
+        private static FakeStorageApiNodeReadClient withPagedNodeResults(
+                Map<String, List<CandidateItem>> candidatesByQuery,
+                Map<String, Long> totalByQuery
+        ) {
+            return new FakeStorageApiNodeReadClient(candidatesByQuery, totalByQuery, List.of());
         }
 
         private static FakeStorageApiNodeReadClient withFolders(List<CandidateItem> folders) {
-            return new FakeStorageApiNodeReadClient(Map.of(), folders);
+            return new FakeStorageApiNodeReadClient(Map.of(), Map.of(), folders);
         }
 
         @Override
@@ -394,7 +465,9 @@ class StorageApiCandidateSearchClientTest {
             List<CandidateItem> candidates = candidatesByQuery.getOrDefault(query.keyword(), List.of()).stream()
                     .filter(candidate -> query.type().isBlank() || query.type().equalsIgnoreCase(candidate.type()))
                     .toList();
-            return new StorageApiNodePage(candidates, candidates.size(), 1, 5, candidates.isEmpty() ? 0 : 1);
+            long totalItems = totalByQuery.getOrDefault(query.keyword(), (long) candidates.size());
+            int totalPages = totalItems == 0 ? 0 : (int) Math.ceil((double) totalItems / query.size());
+            return new StorageApiNodePage(candidates, totalItems, 1, query.size(), totalPages);
         }
 
         @Override

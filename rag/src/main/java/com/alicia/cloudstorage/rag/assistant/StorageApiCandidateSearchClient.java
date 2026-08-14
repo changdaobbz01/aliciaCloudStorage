@@ -94,29 +94,71 @@ public class StorageApiCandidateSearchClient implements CandidateSearchPort {
                 request.authorizationHeader()
         );
         List<String> variants = queryPlanner.variants(folderQuery);
-        List<CandidateItem> matchingFolders = storageApi.enrichWithPaths(allFolders, folderById).stream()
+        List<CandidateItem> rankedMatchingFolders = storageApi.enrichWithPaths(allFolders, folderById).stream()
                 .filter(candidate -> queryPlanner.matchScore(candidate, variants) < Integer.MAX_VALUE)
                 .sorted(Comparator.comparingInt(candidate -> queryPlanner.matchScore(candidate, variants)))
+                .toList();
+        List<CandidateItem> matchingFolders = rankedMatchingFolders.stream()
                 .limit(request.maxResults())
                 .toList();
+        boolean matchingFoldersTruncated = rankedMatchingFolders.size() > matchingFolders.size();
         if (matchingFolders.isEmpty()) {
-            return directoryListResult(request, List.of(), "cloud-storage-api:/api/storage/folders", request.targetFolder());
+            return directoryListResult(
+                    request,
+                    List.of(),
+                    "cloud-storage-api:/api/storage/folders",
+                    request.targetFolder(),
+                    CandidateResultPage.exact(0, 0, "updatedAt", "desc")
+            );
+        }
+
+        if (matchingFolders.size() == 1 && matchingFolders.getFirst().nodeId() != null) {
+            DirectoryNodeResult directory = fetchDirectoryNodes(
+                    request,
+                    matchingFolders.getFirst().nodeId(),
+                    false,
+                    folderById
+            );
+            return directoryListResult(
+                    request,
+                    directory.candidates(),
+                    "cloud-storage-api:/api/storage/nodes",
+                    request.targetFolder(),
+                    directory.pageInfo()
+            );
         }
 
         Map<String, CandidateItem> candidatesByKey = new LinkedHashMap<>();
+        boolean hasMore = false;
+        int processedFolders = 0;
         for (CandidateItem folder : matchingFolders) {
-            if (folder.nodeId() == null || candidatesByKey.size() >= request.maxResults()) {
+            if (candidatesByKey.size() >= request.maxResults()) {
+                hasMore = true;
+                break;
+            }
+            if (folder.nodeId() == null) {
                 continue;
             }
-            fetchDirectoryNodes(request, folder.nodeId(), false, folderById).forEach(candidate ->
+            DirectoryNodeResult directory = fetchDirectoryNodes(request, folder.nodeId(), false, folderById);
+            processedFolders++;
+            hasMore = hasMore || Boolean.TRUE.equals(directory.pageInfo().hasMore());
+            directory.candidates().forEach(candidate ->
                     candidatesByKey.putIfAbsent(candidateKey(candidate), candidate)
             );
         }
+        hasMore = hasMore ||
+                matchingFoldersTruncated ||
+                processedFolders < matchingFolders.size() ||
+                candidatesByKey.size() > request.maxResults();
+        List<CandidateItem> candidates = candidatesByKey.values().stream()
+                .limit(request.maxResults())
+                .toList();
         return directoryListResult(
                 request,
-                candidatesByKey.values().stream().limit(request.maxResults()).toList(),
+                candidates,
                 "cloud-storage-api:/api/storage/nodes",
-                request.targetFolder()
+                request.targetFolder(),
+                CandidateResultPage.unknown(candidates.size(), hasMore, "", "")
         );
     }
 
@@ -127,18 +169,17 @@ public class StorageApiCandidateSearchClient implements CandidateSearchPort {
             String scopeLabel
     ) {
         Map<Long, CandidateItem> folderById = storageApi.safeFolderMap(request.authorizationHeader());
-        List<CandidateItem> candidates = fetchDirectoryNodes(request, parentId, recursive, folderById).stream()
-                .limit(request.maxResults())
-                .toList();
+        DirectoryNodeResult directory = fetchDirectoryNodes(request, parentId, recursive, folderById);
         return directoryListResult(
                 request,
-                candidates,
+                directory.candidates(),
                 "cloud-storage-api:/api/storage/nodes",
-                scopeLabel
+                scopeLabel,
+                directory.pageInfo()
         );
     }
 
-    private List<CandidateItem> fetchDirectoryNodes(
+    private DirectoryNodeResult fetchDirectoryNodes(
             CandidateSearchRequest request,
             Long parentId,
             boolean recursive,
@@ -155,17 +196,33 @@ public class StorageApiCandidateSearchClient implements CandidateSearchPort {
                 "updatedAt",
                 "desc"
         ), request.authorizationHeader());
-        return storageApi.enrichWithPaths(page.items(), folderById).stream()
+        List<CandidateItem> candidates = storageApi.enrichWithPaths(page.items(), folderById).stream()
                 .filter(candidate -> matchesCandidateType(candidate, request.candidateType()))
                 .filter(candidate -> StorageFileCategory.matches(request.category(), candidate))
                 .toList();
+        boolean defensiveFilterChangedResult = candidates.size() != page.items().size();
+        CandidateResultPage pageInfo = defensiveFilterChangedResult
+                ? CandidateResultPage.unknown(
+                        candidates.size(),
+                        page.totalItems() > page.items().size() || page.totalPages() > page.page(),
+                        "updatedAt",
+                        "desc"
+                )
+                : CandidateResultPage.exact(
+                        page.totalItems(),
+                        candidates.size(),
+                        "updatedAt",
+                        "desc"
+                );
+        return new DirectoryNodeResult(candidates, pageInfo);
     }
 
     private CandidateBindingResult directoryListResult(
             CandidateSearchRequest request,
             List<CandidateItem> candidates,
             String source,
-            String scopeLabel
+            String scopeLabel,
+            CandidateResultPage pageInfo
     ) {
         String typeLabel = switch (request.candidateType().toUpperCase()) {
             case "FILE" -> request.category().isBlank() ? "文件" : StorageFileCategory.label(request.category());
@@ -179,7 +236,10 @@ public class StorageApiCandidateSearchClient implements CandidateSearchPort {
                     scopeLabel,
                     request.candidateType(),
                     candidates,
-                    scopeLabel + "下没有可展示的" + typeLabel + "。"
+                    scopeLabel + "下没有可展示的" + typeLabel + "。",
+                    null,
+                    null,
+                    pageInfo
             );
         }
         return new CandidateBindingResult(
@@ -188,7 +248,10 @@ public class StorageApiCandidateSearchClient implements CandidateSearchPort {
                 scopeLabel,
                 request.candidateType(),
                 candidates,
-                "已列出" + scopeLabel + "下的 " + candidates.size() + " 个" + typeLabel + "。"
+                "已列出" + scopeLabel + "下的 " + candidates.size() + " 个" + typeLabel + "。",
+                null,
+                null,
+                pageInfo
         );
     }
 
@@ -196,11 +259,14 @@ public class StorageApiCandidateSearchClient implements CandidateSearchPort {
         List<String> queryVariants = queryPlanner.variants(request);
         Map<String, CandidateItem> candidatesByKey = new LinkedHashMap<>();
         Map<Long, CandidateItem> folderById = storageApi.safeFolderMap(request.authorizationHeader());
+        boolean hasMore = false;
+        int processedVariants = 0;
 
         for (String query : queryVariants) {
             if (candidatesByKey.size() >= request.maxResults()) {
                 break;
             }
+            processedVariants++;
             StorageApiNodePage page = storageApi.searchNodes(new StorageApiNodeQuery(
                     null,
                     true,
@@ -212,6 +278,7 @@ public class StorageApiCandidateSearchClient implements CandidateSearchPort {
                     "updatedAt",
                     "desc"
             ), request.authorizationHeader());
+            hasMore = hasMore || page.totalItems() > page.items().size() || page.totalPages() > page.page();
             storageApi.enrichWithPaths(page.items(), folderById).stream()
                     .filter(candidate -> matchesCandidateType(candidate, request.candidateType()))
                     .filter(candidate -> StorageFileCategory.matches(request.category(), candidate))
@@ -224,7 +291,15 @@ public class StorageApiCandidateSearchClient implements CandidateSearchPort {
         ).stream()
                 .limit(Math.max(1, request.maxResults()))
                 .toList();
-        return result(request, candidates, "cloud-storage-api:/api/storage/nodes");
+        Boolean resultHasMore = hasMore || processedVariants < queryVariants.size()
+                ? Boolean.TRUE
+                : null;
+        return result(
+                request,
+                candidates,
+                "cloud-storage-api:/api/storage/nodes",
+                CandidateResultPage.unknown(candidates.size(), resultHasMore, "relevance", "")
+        );
     }
 
     private CandidateBindingResult searchFolders(CandidateSearchRequest request) {
@@ -235,10 +310,16 @@ public class StorageApiCandidateSearchClient implements CandidateSearchPort {
                 .filter(candidate -> queryPlanner.matchScore(candidate, queryVariants) < Integer.MAX_VALUE)
                 .sorted(Comparator.comparingInt(candidate -> queryPlanner.matchScore(candidate, queryVariants)))
                 .toList();
-        List<CandidateItem> candidates = narrowToExactMatches(rankedCandidates, queryVariants).stream()
+        List<CandidateItem> narrowedCandidates = narrowToExactMatches(rankedCandidates, queryVariants);
+        List<CandidateItem> candidates = narrowedCandidates.stream()
                 .limit(Math.max(1, request.maxResults()))
                 .toList();
-        return result(request, candidates, "cloud-storage-api:/api/storage/folders");
+        return result(
+                request,
+                candidates,
+                "cloud-storage-api:/api/storage/folders",
+                CandidateResultPage.exact(narrowedCandidates.size(), candidates.size(), "relevance", "")
+        );
     }
 
     private List<CandidateItem> rank(List<CandidateItem> candidates, List<String> queryVariants) {
@@ -306,13 +387,14 @@ public class StorageApiCandidateSearchClient implements CandidateSearchPort {
     private CandidateBindingResult result(
             CandidateSearchRequest request,
             List<CandidateItem> candidates,
-            String source
+            String source,
+            CandidateResultPage pageInfo
     ) {
         if (isSearchAction(request)) {
-            return searchResult(request, candidates, source);
+            return searchResult(request, candidates, source, pageInfo);
         }
 
-        return operationBindingResult(request, candidates, source);
+        return operationBindingResult(request, candidates, source, pageInfo);
     }
 
     private boolean isSearchAction(CandidateSearchRequest request) {
@@ -326,7 +408,8 @@ public class StorageApiCandidateSearchClient implements CandidateSearchPort {
     private CandidateBindingResult searchResult(
             CandidateSearchRequest request,
             List<CandidateItem> candidates,
-            String source
+            String source,
+            CandidateResultPage pageInfo
     ) {
         if (candidates.isEmpty()) {
             return new CandidateBindingResult(
@@ -335,7 +418,10 @@ public class StorageApiCandidateSearchClient implements CandidateSearchPort {
                     request.query(),
                     request.candidateType(),
                     candidates,
-                    "未匹配到候选文件或目录，可调整线索后重新检索。"
+                    "未匹配到候选文件或目录，可调整线索后重新检索。",
+                    null,
+                    null,
+                    pageInfo
             );
         }
 
@@ -345,14 +431,18 @@ public class StorageApiCandidateSearchClient implements CandidateSearchPort {
                 request.query(),
                 request.candidateType(),
                 candidates,
-                "已匹配到 " + candidates.size() + " 个候选，可展示给用户。"
+                "已匹配到 " + candidates.size() + " 个候选，可展示给用户。",
+                null,
+                null,
+                pageInfo
         );
     }
 
     private CandidateBindingResult operationBindingResult(
             CandidateSearchRequest request,
             List<CandidateItem> candidates,
-            String source
+            String source,
+            CandidateResultPage pageInfo
     ) {
         String status = switch (candidates.size()) {
             case 0 -> "no_candidates";
@@ -364,6 +454,22 @@ public class StorageApiCandidateSearchClient implements CandidateSearchPort {
             case "single_candidate" -> "已匹配到 1 个候选，等待用户确认。";
             default -> "匹配到多个候选，需要用户选择。";
         };
-        return new CandidateBindingResult(status, source, request.query(), request.candidateType(), candidates, message);
+        return new CandidateBindingResult(
+                status,
+                source,
+                request.query(),
+                request.candidateType(),
+                candidates,
+                message,
+                null,
+                null,
+                pageInfo
+        );
+    }
+
+    private record DirectoryNodeResult(
+            List<CandidateItem> candidates,
+            CandidateResultPage pageInfo
+    ) {
     }
 }

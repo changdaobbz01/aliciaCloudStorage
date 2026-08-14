@@ -12,7 +12,9 @@ import com.alicia.cloudstorage.phone.data.RagAssistantPlanResponse
 import com.alicia.cloudstorage.phone.data.RagBackendActionDraft
 import com.alicia.cloudstorage.phone.data.RagCandidateBinding
 import com.alicia.cloudstorage.phone.data.RagCandidateItem
+import com.alicia.cloudstorage.phone.data.RagCandidateResultPage
 import com.alicia.cloudstorage.phone.data.RagSemanticFrame
+import com.alicia.cloudstorage.phone.data.RagSemanticQuery
 import com.alicia.cloudstorage.phone.data.RagSemanticScope
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -329,6 +331,13 @@ class RagAssistantMessageMapperTest {
         assertEquals(2, message.files.size)
         assertEquals("选第1个", message.files[0].selectionAction!!.requestMessage)
         assertEquals("选择第 2 个：临时截图-new.png", message.files[1].selectionAction!!.displayText)
+        assertEquals(AiChatResultMode.CANDIDATE_SELECTION, message.resultSection?.mode)
+        assertFalse(
+            AiChatResultDisplayPolicy.canCollapse(
+                message.resultSection ?: error("Expected candidate result section."),
+                message.files.size,
+            ),
+        )
     }
 
     @Test
@@ -414,11 +423,81 @@ class RagAssistantMessageMapperTest {
                 message = "已匹配到 1 个候选，可展示给用户。",
                 selectedCandidate = null,
                 selectedIndex = null,
+                pageInfo = RagCandidateResultPage(
+                    totalCount = 12,
+                    returnedCount = 1,
+                    hasMore = true,
+                    sortBy = "updatedAt",
+                    sortDirection = "desc",
+                ),
             ),
         ).toAssistantMessage(id = 26L)
 
         assertEquals(1, message.files.size)
         assertNull(message.files[0].selectionAction)
+        assertNull(message.plan)
+        assertEquals(AiChatResultMode.SEARCH_RESULTS, message.resultSection?.mode)
+        assertEquals(12L, message.resultSection?.totalCount)
+        assertTrue(message.resultSection?.hasMore == true)
+    }
+
+    @Test
+    fun `search results keep every returned candidate for local expansion`() {
+        val candidates = (1L..13L).map { index ->
+            candidate(index, "文档-$index.pdf")
+        }
+        val message = response(
+            nextAction = "show_search_results",
+            actionDraft = RagActionDraft(
+                type = "search",
+                parameters = emptyMap(),
+                needsBackendBinding = true,
+            ),
+            actionPlan = plan(
+                status = "completed",
+                actionType = "search",
+                risk = "none",
+            ),
+            candidateBinding = RagCandidateBinding(
+                status = "search_results_ready",
+                source = "cloud-storage-api:/api/storage/nodes",
+                query = "全部云盘",
+                candidateType = "FILE",
+                candidates = candidates,
+                message = "已列出 13 个文件。",
+                selectedCandidate = null,
+                selectedIndex = null,
+                pageInfo = RagCandidateResultPage(
+                    totalCount = 13,
+                    returnedCount = 13,
+                    hasMore = false,
+                    sortBy = "updatedAt",
+                    sortDirection = "desc",
+                ),
+            ),
+            semanticFrame = RagSemanticFrame(
+                schemaVersion = "semantic_frame_v2",
+                relation = "NEW_TASK",
+                operation = "SEARCH",
+                query = RagSemanticQuery(
+                    mode = "DIRECTORY_LIST",
+                    resultType = "FILE",
+                    nameSurface = null,
+                    nameNormalized = null,
+                    filters = mapOf("category" to "DOCUMENT"),
+                ),
+                scope = null,
+                reference = null,
+                confidence = 1.0,
+                ambiguities = emptyList(),
+                clarification = null,
+            ),
+        ).toAssistantMessage(id = 32L)
+
+        assertEquals(13, message.files.size)
+        assertEquals(13L, message.resultSection?.totalCount)
+        assertEquals("全部云盘", message.resultSection?.contextLabel)
+        assertEquals("文档结果", message.resultSection?.title)
     }
 
     @Test
