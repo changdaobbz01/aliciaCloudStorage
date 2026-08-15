@@ -21,6 +21,7 @@
     "file_delete",
     "file_upload",
     "node_move",
+    "folder_create",
     "folder_create_then_upload",
     "collection_delete_by_name",
     "collection_delete_by_category",
