@@ -1,5 +1,7 @@
 package com.alicia.cloudstorage.phone.data
 
+import com.alicia.cloudstorage.phone.AliciaShareLinks
+
 internal class RagActionExecutor(
     private val repositoryPort: RagActionRepositoryPort = AliciaRagActionRepositoryPort(),
     private val validator: RagActionBridgeValidator = RagActionBridgeValidator(),
@@ -105,12 +107,18 @@ internal class RagActionExecutor(
             allowDownload = draft.body.booleanValue("allowDownload") ?: true,
             allowSave = draft.body.booleanValue("allowSave") ?: true,
         )
+        val shareUrl = AliciaShareLinks.build(context.baseUrl, share.shareCode)
         return RagActionExecutionResult.completed(
             actionType = draft.actionType,
-            message = "已提交分享创建操作。",
+            message = if (shareUrl == null) {
+                "分享已创建，但服务器返回的链接信息异常，暂时无法复制链接。"
+            } else {
+                "分享链接已创建。"
+            },
             validation = validation,
             affectedNodeIds = nodeIds,
-            shareCode = share.shareCode,
+            shareCode = share.shareCode.takeIf { shareUrl != null },
+            shareUrl = shareUrl,
         )
     }
 
@@ -316,6 +324,7 @@ internal data class RagActionExecutionResult(
     val validation: RagActionBridgeValidation?,
     val affectedNodeIds: List<Long> = emptyList(),
     val shareCode: String? = null,
+    val shareUrl: String? = null,
 ) {
     val succeeded: Boolean
         get() = status == RagActionExecutionStatus.COMPLETED
@@ -346,6 +355,7 @@ internal data class RagActionExecutionResult(
             validation: RagActionBridgeValidation,
             affectedNodeIds: List<Long>,
             shareCode: String? = null,
+            shareUrl: String? = null,
         ): RagActionExecutionResult =
             RagActionExecutionResult(
                 status = RagActionExecutionStatus.COMPLETED,
@@ -354,6 +364,7 @@ internal data class RagActionExecutionResult(
                 validation = validation,
                 affectedNodeIds = affectedNodeIds,
                 shareCode = shareCode,
+                shareUrl = shareUrl,
             )
     }
 }

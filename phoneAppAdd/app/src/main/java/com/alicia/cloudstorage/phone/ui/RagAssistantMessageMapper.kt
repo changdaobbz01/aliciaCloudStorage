@@ -92,12 +92,28 @@ internal fun RagAssistantPlanResponse.toNavigationTargetOrNull(): AiChatFileResu
     )
 }
 
-internal fun RagActionExecutionResult.toAssistantMessage(id: Long): AiChatMessage =
-    AiChatMessage(
+internal fun RagActionExecutionResult.toAssistantMessage(id: Long): AiChatMessage {
+    val shareResult = toAiChatShareResult()
+    return AiChatMessage(
         id = id,
         author = AiChatAuthor.ASSISTANT,
-        text = executionDisplayText(),
+        text = if (shareResult == null) executionDisplayText() else message,
+        shareResult = shareResult,
     )
+}
+
+private fun RagActionExecutionResult.toAiChatShareResult(): AiChatShareResult? {
+    if (
+        status != RagActionExecutionStatus.COMPLETED ||
+        !actionType.equals("share", ignoreCase = true)
+    ) {
+        return null
+    }
+
+    val code = shareCode?.trim()?.takeIf(String::isNotBlank) ?: return null
+    val url = shareUrl?.trim()?.takeIf(String::isNotBlank) ?: return null
+    return AiChatShareResult(shareCode = code, shareUrl = url)
+}
 
 internal fun RagActionExecutionResult.toFileMutationSignal(): AiChatFileMutationSignal? {
     if (!succeeded) {

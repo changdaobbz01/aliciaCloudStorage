@@ -30,3 +30,9 @@ internal fun ExplorerUiState.trashQueryIdentity(): TrashQueryIdentity =
         keyword = submittedKeyword,
         filter = filter,
     )
+
+internal fun ExplorerUiState.canPopulateDirectoryCache(): Boolean =
+    category == null &&
+        searchScope == FileSearchScope.CURRENT_FOLDER &&
+        submittedKeyword.isBlank() &&
+        filter == StorageNodeFilter.ALL

@@ -598,6 +598,46 @@ class RagAssistantMessageMapperTest {
     }
 
     @Test
+    fun `completed share result exposes structured copy values`() {
+        val message = completedResult(
+            actionType = "share",
+            affectedNodeIds = listOf(42L),
+        ).copy(
+            shareCode = "SHARE123",
+            shareUrl = "https://storage.example/share/SHARE123",
+        ).toAssistantMessage(id = 25L)
+
+        assertEquals(
+            AiChatShareResult(
+                shareCode = "SHARE123",
+                shareUrl = "https://storage.example/share/SHARE123",
+            ),
+            message.shareResult,
+        )
+        assertEquals("ok", message.text)
+    }
+
+    @Test
+    fun `failed or incomplete share result does not expose copy values`() {
+        val missingUrl = completedResult(
+            actionType = "share",
+            affectedNodeIds = listOf(42L),
+        ).copy(shareCode = "SHARE123")
+            .toAssistantMessage(id = 26L)
+        val failed = RagActionExecutionResult(
+            status = RagActionExecutionStatus.FAILED,
+            actionType = "share",
+            message = "创建失败",
+            validation = null,
+            shareCode = "SHARE123",
+            shareUrl = "https://storage.example/share/SHARE123",
+        ).toAssistantMessage(id = 27L)
+
+        assertNull(missingUrl.shareResult)
+        assertNull(failed.shareResult)
+    }
+
+    @Test
     fun `navigation semantic frame opens selected folder and virtual root`() {
         val selectedFolder = candidate(700L, "测试目录", type = "FOLDER")
         val folderTarget = response(

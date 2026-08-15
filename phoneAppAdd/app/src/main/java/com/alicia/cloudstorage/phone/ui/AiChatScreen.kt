@@ -1,5 +1,8 @@
 package com.alicia.cloudstorage.phone.ui
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -34,7 +37,9 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AddComment
 import androidx.compose.material.icons.rounded.AttachFile
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
@@ -78,6 +83,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel as composeViewModel
 import com.alicia.cloudstorage.phone.BuildConfig
+import com.alicia.cloudstorage.phone.ALICIA_SHARE_CLIP_LABEL
 import com.alicia.cloudstorage.phone.R
 import kotlin.math.roundToInt
 
@@ -422,9 +428,13 @@ private fun AiMessageItem(
             horizontalArrangement = Arrangement.End,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            RasterPanel(
-                resourceId = R.drawable.bg_ai_message_user,
-                modifier = Modifier.widthIn(max = 248.dp),
+            val shape = RoundedCornerShape(15.dp)
+            Box(
+                modifier = Modifier
+                    .widthIn(max = 248.dp)
+                    .clip(shape)
+                    .background(Color(0xFFF4F7FF))
+                    .border(1.dp, AiLine, shape),
             ) {
                 Text(
                     text = message.text,
@@ -452,7 +462,11 @@ private fun AiMessageItem(
                 modifier = Modifier.widthIn(max = 334.dp),
                 verticalArrangement = Arrangement.spacedBy(7.dp),
             ) {
-                AiAssistantMessageBubble(message.text)
+                if (message.shareResult == null) {
+                    AiAssistantMessageBubble(message.text)
+                } else {
+                    AiShareResultBubble(message.shareResult)
+                }
                 message.plan?.let { plan ->
                     AiPlanPreviewCard(
                         plan = plan,
@@ -495,12 +509,102 @@ private fun AiMessageItem(
 }
 
 @Composable
+private fun AiShareResultBubble(result: AiChatShareResult) {
+    val context = LocalContext.current
+    var linkCopied by remember(result) { mutableStateOf(false) }
+    val shape = RoundedCornerShape(12.dp)
+
+    Column(
+        modifier = Modifier
+            .widthIn(max = 294.dp)
+            .clip(shape)
+            .background(Color.White)
+            .border(1.dp, AiLine, shape),
+    ) {
+        Text(
+            text = "分享链接已创建",
+            color = AiInk,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(start = 14.dp, top = 13.dp, end = 14.dp),
+        )
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 53.dp)
+                .padding(horizontal = 14.dp, vertical = 9.dp),
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Text(
+                text = "分享码",
+                color = AiMuted,
+                fontSize = 10.5.sp,
+            )
+            Text(
+                text = result.shareCode,
+                color = AiInk,
+                fontSize = 13.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        HorizontalDivider(
+            modifier = Modifier.padding(horizontal = 14.dp),
+            color = AiLine,
+            thickness = 1.dp,
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 44.dp)
+                .clickable(role = Role.Button) {
+                    if (copyShareValue(context, result.shareUrl)) {
+                        linkCopied = true
+                    }
+                }
+                .padding(horizontal = 14.dp, vertical = 10.dp)
+                .semantics {
+                    stateDescription = if (linkCopied) {
+                        "分享链接已复制"
+                    } else {
+                        "分享链接尚未复制"
+                    }
+                },
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = if (linkCopied) {
+                    Icons.Rounded.Check
+                } else {
+                    Icons.Rounded.ContentCopy
+                },
+                contentDescription = null,
+                tint = AiBlue,
+                modifier = Modifier.size(18.dp),
+            )
+            Spacer(modifier = Modifier.width(7.dp))
+            Text(
+                text = if (linkCopied) "链接已复制" else "复制分享链接",
+                color = AiBlue,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+            )
+        }
+    }
+}
+
+private fun copyShareValue(context: Context, value: String): Boolean =
+    runCatching {
+        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        clipboard.setPrimaryClip(ClipData.newPlainText(ALICIA_SHARE_CLIP_LABEL, value))
+    }.isSuccess
+
+@Composable
 private fun AiAssistantMessageBubble(text: String) {
     val shape = RoundedCornerShape(15.dp)
     Box(
         modifier = Modifier
             .widthIn(max = 294.dp)
-            .shadow(elevation = 1.dp, shape = shape, clip = false)
             .clip(shape)
             .background(Color.White)
             .border(1.dp, AiLine, shape),

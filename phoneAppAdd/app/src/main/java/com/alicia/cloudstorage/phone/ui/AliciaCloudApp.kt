@@ -113,6 +113,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
@@ -1027,6 +1028,9 @@ private fun MainShell(
                 },
                 onSearch = {
                     if (isTrashMode) viewModel.submitTrashSearch() else viewModel.submitFileSearch()
+                },
+                onClearSearch = {
+                    if (isTrashMode) viewModel.clearTrashSearch() else viewModel.clearFileSearch()
                 },
                 onApplyFilter = { selection ->
                     if (isTrashMode) {
@@ -2085,6 +2089,7 @@ private fun FilesScreen(
     onSwitchTrash: (Boolean) -> Unit,
     onKeywordChange: (String) -> Unit,
     onSearch: () -> Unit,
+    onClearSearch: () -> Unit,
     onApplyFilter: (FileFilterSelection) -> Unit,
     onCrumb: (Int) -> Unit,
     onNodeClick: (StorageNode) -> Unit,
@@ -2149,9 +2154,11 @@ private fun FilesScreen(
                 )
                 FilesSearchField(
                     value = explorer.keyword,
+                    searchActive = explorer.submittedKeyword.isNotBlank(),
                     placeholder = if (trashMode) "搜索回收站" else if (explorer.category != null) "搜索全盘${categoryLabel(explorer.category)}" else "搜索网盘文件",
                     onValueChange = onKeywordChange,
                     onSearch = onSearch,
+                    onClear = onClearSearch,
                 )
             }
 
@@ -2175,7 +2182,13 @@ private fun FilesScreen(
                 when {
                     explorer.loading && explorer.items.isEmpty() -> LoadingCard("正在加载文件")
                     explorer.error != null -> ErrorCard(explorer.error, onRefresh)
-                    explorer.items.isEmpty() -> EmptyCard(if (trashMode) "回收站为空" else "这里还没有文件")
+                    explorer.items.isEmpty() -> EmptyCard(
+                        when {
+                            explorer.submittedKeyword.isNotBlank() -> "未找到与“${explorer.submittedKeyword.take(24)}”匹配的内容"
+                            trashMode -> "回收站为空"
+                            else -> "这里还没有文件"
+                        },
+                    )
                     gridMode -> LazyVerticalGrid(
                         columns = GridCells.Fixed(3),
                         state = rememberLazyGridState(),
@@ -2407,9 +2420,11 @@ private fun FileSelectionHeader(
 @Composable
 private fun FilesSearchField(
     value: String,
+    searchActive: Boolean,
     placeholder: String,
     onValueChange: (String) -> Unit,
     onSearch: () -> Unit,
+    onClear: () -> Unit,
 ) {
     OutlinedTextField(
         value = value,
@@ -2440,17 +2455,38 @@ private fun FilesSearchField(
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
         keyboardActions = KeyboardActions(onSearch = { onSearch() }),
         trailingIcon = {
-            Box(
-                modifier = Modifier
-                    .padding(end = 8.dp)
-                    .height(38.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(PrimaryBlueDeep.copy(alpha = 0.10f))
-                    .noRippleClickable(onClick = onSearch)
-                    .padding(horizontal = 14.dp),
-                contentAlignment = Alignment.Center,
+            Row(
+                modifier = Modifier.padding(end = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(3.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("搜索", color = PrimaryBlueDeep, fontWeight = FontWeight.ExtraBold, fontSize = 14.sp)
+                if (value.isNotBlank() || searchActive) {
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .noRippleClickable(onClick = onClear),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Close,
+                            contentDescription = "清除搜索",
+                            tint = Muted,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+                }
+                Box(
+                    modifier = Modifier
+                        .height(38.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(PrimaryBlueDeep.copy(alpha = 0.10f))
+                        .noRippleClickable(onClick = onSearch)
+                        .padding(horizontal = 14.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text("搜索", color = PrimaryBlueDeep, fontWeight = FontWeight.ExtraBold, fontSize = 14.sp)
+                }
             }
         },
     )

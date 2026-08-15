@@ -3,7 +3,9 @@ package com.alicia.cloudstorage.phone.ui
 import com.alicia.cloudstorage.phone.data.StorageFileCategory
 import com.alicia.cloudstorage.phone.data.StorageNodeFilter
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ExplorerRequestPolicyTest {
@@ -48,5 +50,22 @@ class ExplorerRequestPolicyTest {
         ).trashQueryIdentity()
 
         assertEquals(initial, changedFolder)
+    }
+
+    @Test
+    fun `only an unfiltered browse response can populate directory cache`() {
+        assertTrue(ExplorerUiState(currentFolderId = 7L).canPopulateDirectoryCache())
+        assertFalse(
+            ExplorerUiState(currentFolderId = 7L, submittedKeyword = "报告").canPopulateDirectoryCache(),
+        )
+        assertFalse(
+            ExplorerUiState(currentFolderId = 7L, filter = StorageNodeFilter.FOLDER).canPopulateDirectoryCache(),
+        )
+        assertFalse(
+            ExplorerUiState(currentFolderId = 7L, searchScope = FileSearchScope.GLOBAL).canPopulateDirectoryCache(),
+        )
+        assertFalse(
+            ExplorerUiState(currentFolderId = 7L, category = StorageFileCategory.IMAGE).canPopulateDirectoryCache(),
+        )
     }
 }

@@ -213,6 +213,7 @@ data class VersionUpdateUiState(
 enum class IncomingShareSource {
     CLIPBOARD,
     DEEP_LINK,
+    SEARCH_INPUT,
 }
 
 data class IncomingSharePromptState(
@@ -298,6 +299,7 @@ class MainViewModel internal constructor(
     private var manualRefreshGeneration = 0L
     private var currentUserSyncJob: Job? = null
     private var currentUserSyncGeneration = 0L
+    private var incomingShareRequestGeneration = 0L
     private var fileRefreshJob: Job? = null
     private var fileRefreshGeneration = 0L
     private var trashRefreshJob: Job? = null
@@ -338,6 +340,7 @@ class MainViewModel internal constructor(
             cancelManualRefreshLoading()
             cancelCurrentUserSync()
             cancelExplorerRefreshes()
+            incomingShareRequestGeneration += 1L
             sessionStore.clearToken(normalizedBaseUrl)
             fileDirectoryCache.clear()
             clearPreviewArtifacts()
@@ -512,13 +515,82 @@ class MainViewModel internal constructor(
     }
 
     fun updateFileKeyword(value: String) {
+        val shouldExitSearch = value.isBlank() && uiState.value.files.submittedKeyword.isNotBlank()
         _uiState.update { state ->
             state.copy(files = state.files.copy(keyword = value, highlightedNodeId = null))
+        }
+        if (shouldExitSearch) {
+            clearFileSearch()
         }
     }
 
     fun updateTrashKeyword(value: String) {
+        val shouldExitSearch = value.isBlank() && uiState.value.trash.submittedKeyword.isNotBlank()
         _uiState.update { state -> state.copy(trash = state.trash.copy(keyword = value)) }
+        if (shouldExitSearch) {
+            clearTrashSearch()
+        }
+    }
+
+    fun clearFileSearch() {
+        val files = uiState.value.files
+        val hadSubmittedSearch = files.submittedKeyword.isNotBlank()
+        if (!hadSubmittedSearch && files.keyword.isBlank()) {
+            return
+        }
+
+        val cachedItems = if (files.category == null && files.filter == StorageNodeFilter.ALL) {
+            fileDirectoryCache[files.currentFolderId]
+        } else {
+            null
+        }
+        _uiState.update { state ->
+            state.copy(
+                files = state.files.copy(
+                    keyword = "",
+                    submittedKeyword = "",
+                    searchScope = if (state.files.category == null) {
+                        FileSearchScope.CURRENT_FOLDER
+                    } else {
+                        FileSearchScope.GLOBAL
+                    },
+                    items = if (hadSubmittedSearch) cachedItems.orEmpty() else state.files.items,
+                    hasLoadedFolder = if (hadSubmittedSearch) cachedItems != null else state.files.hasLoadedFolder,
+                    loading = hadSubmittedSearch && cachedItems == null,
+                    error = null,
+                    selectedNodeIds = emptySet(),
+                    highlightedNodeId = null,
+                ),
+            )
+        }
+        if (hadSubmittedSearch) {
+            refreshFiles(forceLoading = false)
+        }
+    }
+
+    fun clearTrashSearch() {
+        val trash = uiState.value.trash
+        val hadSubmittedSearch = trash.submittedKeyword.isNotBlank()
+        if (!hadSubmittedSearch && trash.keyword.isBlank()) {
+            return
+        }
+
+        _uiState.update { state ->
+            state.copy(
+                trash = state.trash.copy(
+                    keyword = "",
+                    submittedKeyword = "",
+                    items = if (hadSubmittedSearch) emptyList() else state.trash.items,
+                    hasLoadedFolder = if (hadSubmittedSearch) false else state.trash.hasLoadedFolder,
+                    loading = hadSubmittedSearch,
+                    error = null,
+                    selectedNodeIds = emptySet(),
+                ),
+            )
+        }
+        if (hadSubmittedSearch) {
+            refreshTrash(forceLoading = false)
+        }
     }
 
     internal fun applyFileFilterSelection(selection: FileFilterSelection) {
@@ -559,6 +631,8 @@ class MainViewModel internal constructor(
                     filter = if (category == null) StorageNodeFilter.ALL else StorageNodeFilter.FILE,
                     currentFolderId = null,
                     breadcrumbs = defaultBreadCrumbs,
+                    keyword = "",
+                    submittedKeyword = "",
                     searchScope = if (category == null) FileSearchScope.CURRENT_FOLDER else FileSearchScope.GLOBAL,
                     selectedNodeIds = emptySet(),
                     highlightedNodeId = null,
@@ -578,11 +652,20 @@ class MainViewModel internal constructor(
     }
 
     fun submitFileSearch() {
+        val normalizedKeyword = uiState.value.files.keyword.trim()
+        if (openShareFromSearchInput(normalizedKeyword)) {
+            clearFileSearch()
+            return
+        }
+        if (normalizedKeyword.isBlank()) {
+            clearFileSearch()
+            return
+        }
         _uiState.update { state ->
             state.copy(
                 files = state.files.copy(
                     highlightedNodeId = null,
-                    submittedKeyword = state.files.keyword.trim(),
+                    submittedKeyword = normalizedKeyword,
                     searchScope = if (state.files.category == null) {
                         FileSearchScope.CURRENT_FOLDER
                     } else {
@@ -591,13 +674,16 @@ class MainViewModel internal constructor(
                 ),
             )
         }
-        fileDirectoryCache.clear()
         refreshFiles(forceLoading = true)
     }
 
     fun submitHomeFileSearch() {
         val rootItems = fileDirectoryCache[null]
         val normalizedKeyword = uiState.value.files.keyword.trim()
+        if (openShareFromSearchInput(normalizedKeyword)) {
+            clearFileSearch()
+            return
+        }
         val isGlobalSearch = normalizedKeyword.isNotEmpty()
         _uiState.update { state ->
             state.copy(
@@ -625,8 +711,17 @@ class MainViewModel internal constructor(
     }
 
     fun submitTrashSearch() {
+        val normalizedKeyword = uiState.value.trash.keyword.trim()
+        if (openShareFromSearchInput(normalizedKeyword)) {
+            clearTrashSearch()
+            return
+        }
+        if (normalizedKeyword.isBlank()) {
+            clearTrashSearch()
+            return
+        }
         _uiState.update { state ->
-            state.copy(trash = state.trash.copy(submittedKeyword = state.trash.keyword.trim()))
+            state.copy(trash = state.trash.copy(submittedKeyword = normalizedKeyword))
         }
         refreshTrash(forceLoading = true)
     }
@@ -776,7 +871,11 @@ class MainViewModel internal constructor(
             rememberCurrentDirectorySnapshot()
         }
 
-        val cachedItems = if (sameFolder) currentFiles.items else fileDirectoryCache[targetFolderId]
+        val cachedItems = if (sameFolder && currentFiles.canPopulateDirectoryCache()) {
+            currentFiles.items
+        } else {
+            fileDirectoryCache[targetFolderId]
+        }
         _uiState.update { state ->
             val nextBreadcrumbs = resolveRevealBreadcrumbs(
                 current = state.files.breadcrumbs,
@@ -787,6 +886,8 @@ class MainViewModel internal constructor(
                 files = state.files.copy(
                     currentFolderId = targetFolderId,
                     breadcrumbs = nextBreadcrumbs,
+                    keyword = "",
+                    submittedKeyword = "",
                     items = cachedItems ?: emptyList(),
                     hasLoadedFolder = cachedItems != null,
                     loading = cachedItems == null,
@@ -799,7 +900,7 @@ class MainViewModel internal constructor(
             )
         }
 
-        if (!sameFolder) {
+        if (!sameFolder || cachedItems == null) {
             refreshFiles(forceLoading = false)
         }
     }
@@ -822,6 +923,8 @@ class MainViewModel internal constructor(
                     } else {
                         defaultBreadCrumbs + FolderCrumb(id = folderId, label = folderName)
                     },
+                    keyword = "",
+                    submittedKeyword = "",
                     items = cachedItems ?: emptyList(),
                     hasLoadedFolder = cachedItems != null,
                     loading = cachedItems == null,
@@ -1185,6 +1288,8 @@ class MainViewModel internal constructor(
                 files = state.files.copy(
                     currentFolderId = node.id,
                     breadcrumbs = state.files.breadcrumbs + FolderCrumb(id = node.id, label = node.name),
+                    keyword = "",
+                    submittedKeyword = "",
                     items = emptyList(),
                     hasLoadedFolder = false,
                     loading = true,
@@ -1216,6 +1321,8 @@ class MainViewModel internal constructor(
                 files = state.files.copy(
                     currentFolderId = target.id,
                     breadcrumbs = current.take(index + 1),
+                    keyword = "",
+                    submittedKeyword = "",
                     items = cachedItems ?: emptyList(),
                     hasLoadedFolder = cachedItems != null,
                     loading = cachedItems == null,
@@ -1955,6 +2062,7 @@ class MainViewModel internal constructor(
     }
 
     fun closeIncomingShare() {
+        incomingShareRequestGeneration += 1L
         val incomingShare = uiState.value.incomingShare
         if (incomingShare.source == IncomingShareSource.CLIPBOARD && !incomingShare.activeShareCode.isNullOrBlank()) {
             incomingShare.clipboardFingerprint?.let { fingerprint ->
@@ -2084,69 +2192,102 @@ class MainViewModel internal constructor(
     }
 
     fun verifyIncomingSharePassword(password: String) {
+        val baseUrl = uiState.value.baseUrl
         val shareCode = uiState.value.incomingShare.activeShareCode ?: return
+        val generation = ++incomingShareRequestGeneration
         val trimmedPassword = password.trim()
         if (trimmedPassword.isBlank()) {
             _uiState.update { state ->
-                state.copy(
-                    incomingShare = state.incomingShare.copy(
-                        passwordError = "请输入提取码。",
-                    ),
-                )
+                if (state.incomingShare.activeShareCode == shareCode) {
+                    state.copy(
+                        incomingShare = state.incomingShare.copy(
+                            passwordError = "请输入提取码。",
+                        ),
+                    )
+                } else {
+                    state
+                }
             }
             return
         }
 
         viewModelScope.launch {
+            if (generation != incomingShareRequestGeneration) {
+                return@launch
+            }
             _uiState.update { state ->
-                state.copy(
-                    incomingShare = state.incomingShare.copy(
-                        passwordChecking = true,
-                        passwordError = null,
-                        error = null,
-                    ),
-                )
+                if (state.incomingShare.activeShareCode == shareCode) {
+                    state.copy(
+                        incomingShare = state.incomingShare.copy(
+                            passwordChecking = true,
+                            passwordError = null,
+                            error = null,
+                        ),
+                    )
+                } else {
+                    state
+                }
             }
 
             runCatching {
                 repository.verifySharePassword(
-                    baseUrl = uiState.value.baseUrl,
+                    baseUrl = baseUrl,
                     shareCode = shareCode,
                     password = trimmedPassword,
                 )
             }.onSuccess { response ->
+                if (generation != incomingShareRequestGeneration) {
+                    return@onSuccess
+                }
                 val accessToken = response.accessToken?.takeIf { it.isNotBlank() }
                 if (accessToken == null) {
                     _uiState.update { state ->
-                        state.copy(
-                            incomingShare = state.incomingShare.copy(
-                                passwordChecking = false,
-                                passwordError = "提取码校验未返回访问凭证，请重试。",
-                            ),
-                        )
+                        if (state.incomingShare.activeShareCode == shareCode) {
+                            state.copy(
+                                incomingShare = state.incomingShare.copy(
+                                    passwordChecking = false,
+                                    passwordError = "提取码校验未返回访问凭证，请重试。",
+                                ),
+                            )
+                        } else {
+                            state
+                        }
                     }
                     return@onSuccess
                 }
 
                 _uiState.update { state ->
-                    state.copy(
-                        incomingShare = state.incomingShare.copy(
-                            passwordChecking = false,
-                            shareAccessToken = accessToken,
-                            passwordError = null,
-                        ),
-                    )
+                    if (state.incomingShare.activeShareCode == shareCode) {
+                        state.copy(
+                            incomingShare = state.incomingShare.copy(
+                                passwordChecking = false,
+                                shareAccessToken = accessToken,
+                                passwordError = null,
+                            ),
+                        )
+                    } else {
+                        state
+                    }
                 }
-                emitMessage("提取码校验通过。")
-                refreshIncomingShareDetailIfReady()
+                if (uiState.value.incomingShare.activeShareCode == shareCode) {
+                    emitMessage("提取码校验通过。")
+                    refreshIncomingShareDetailIfReady()
+                }
             }.onFailure { error ->
+                if (generation != incomingShareRequestGeneration) {
+                    return@onFailure
+                }
                 _uiState.update { state ->
-                    state.copy(
-                        incomingShare = state.incomingShare.copy(
-                            passwordChecking = false,
-                            passwordError = error.readableMessage(),
-                        ),
-                    )
+                    if (state.incomingShare.activeShareCode == shareCode) {
+                        state.copy(
+                            incomingShare = state.incomingShare.copy(
+                                passwordChecking = false,
+                                passwordError = error.readableMessage(),
+                            ),
+                        )
+                    } else {
+                        state
+                    }
                 }
             }
         }
@@ -2693,6 +2834,7 @@ class MainViewModel internal constructor(
             cancelManualRefreshLoading()
             cancelCurrentUserSync()
             cancelExplorerRefreshes()
+            incomingShareRequestGeneration += 1L
             sessionStore.clearToken(baseUrl)
             fileDirectoryCache.clear()
             clearPreviewArtifacts()
@@ -2951,7 +3093,7 @@ class MainViewModel internal constructor(
                     return@launch
                 }
                 val visibleIds = page.items.mapTo(hashSetOf()) { it.id }
-                if (files.category == null && files.searchScope != FileSearchScope.GLOBAL) {
+                if (files.canPopulateDirectoryCache()) {
                     fileDirectoryCache[files.currentFolderId] = page.items
                 }
                 _uiState.update { state ->
@@ -3130,14 +3272,27 @@ class MainViewModel internal constructor(
             .decode(ByteBuffer.wrap(bytes))
             .toString()
 
+    private fun openShareFromSearchInput(input: String): Boolean {
+        val shareCode = ShareLinkParser.findShareCodeInText(input, uiState.value.baseUrl) ?: return false
+        openIncomingShare(
+            shareCode = shareCode,
+            source = IncomingShareSource.SEARCH_INPUT,
+        )
+        return true
+    }
+
     private fun openIncomingShare(
         shareCode: String,
         source: IncomingShareSource,
         clipboardFingerprint: String? = null,
     ) {
         val baseUrl = uiState.value.baseUrl
+        val generation = ++incomingShareRequestGeneration
 
         viewModelScope.launch {
+            if (generation != incomingShareRequestGeneration) {
+                return@launch
+            }
             _uiState.update { state ->
                 state.copy(
                     incomingShare = IncomingShareUiState(
@@ -3155,24 +3310,40 @@ class MainViewModel internal constructor(
                     shareCode = shareCode,
                 )
             }.onSuccess { status ->
-                _uiState.update { state ->
-                    state.copy(
-                        incomingShare = state.incomingShare.copy(
-                            statusLoading = false,
-                            status = status,
-                            error = if (status.available) null else shareUnavailableMessage(status),
-                        ),
-                    )
+                if (generation != incomingShareRequestGeneration) {
+                    return@onSuccess
                 }
-                refreshIncomingShareDetailIfReady()
-            }.onFailure { error ->
                 _uiState.update { state ->
-                    state.copy(
-                        incomingShare = state.incomingShare.copy(
-                            statusLoading = false,
-                            error = error.readableMessage(),
-                        ),
-                    )
+                    if (state.incomingShare.activeShareCode == shareCode) {
+                        state.copy(
+                            incomingShare = state.incomingShare.copy(
+                                statusLoading = false,
+                                status = status,
+                                error = if (status.available) null else shareUnavailableMessage(status),
+                            ),
+                        )
+                    } else {
+                        state
+                    }
+                }
+                if (uiState.value.incomingShare.activeShareCode == shareCode) {
+                    refreshIncomingShareDetailIfReady()
+                }
+            }.onFailure { error ->
+                if (generation != incomingShareRequestGeneration) {
+                    return@onFailure
+                }
+                _uiState.update { state ->
+                    if (state.incomingShare.activeShareCode == shareCode) {
+                        state.copy(
+                            incomingShare = state.incomingShare.copy(
+                                statusLoading = false,
+                                error = error.readableMessage(),
+                            ),
+                        )
+                    } else {
+                        state
+                    }
                 }
             }
         }
@@ -3182,6 +3353,7 @@ class MainViewModel internal constructor(
         val incomingShare = uiState.value.incomingShare
         val shareCode = incomingShare.activeShareCode ?: return
         val status = incomingShare.status ?: return
+        val generation = incomingShareRequestGeneration
 
         if (!status.available || incomingShare.detailLoading) {
             return
@@ -3194,13 +3366,20 @@ class MainViewModel internal constructor(
         val session = authenticatedSession() ?: return
 
         viewModelScope.launch {
+            if (generation != incomingShareRequestGeneration) {
+                return@launch
+            }
             _uiState.update { state ->
-                state.copy(
-                    incomingShare = state.incomingShare.copy(
-                        detailLoading = true,
-                        error = null,
-                    ),
-                )
+                if (state.incomingShare.activeShareCode == shareCode) {
+                    state.copy(
+                        incomingShare = state.incomingShare.copy(
+                            detailLoading = true,
+                            error = null,
+                        ),
+                    )
+                } else {
+                    state
+                }
             }
 
             runCatching {
@@ -3211,6 +3390,9 @@ class MainViewModel internal constructor(
                     shareAccessToken = incomingShare.shareAccessToken,
                 )
             }.onSuccess { detail ->
+                if (generation != incomingShareRequestGeneration) {
+                    return@onSuccess
+                }
                 _uiState.update { state ->
                     if (state.incomingShare.activeShareCode != shareCode) {
                         state
@@ -3231,6 +3413,9 @@ class MainViewModel internal constructor(
                     }
                 }
             }.onFailure { error ->
+                if (generation != incomingShareRequestGeneration) {
+                    return@onFailure
+                }
                 _uiState.update { state ->
                     if (state.incomingShare.activeShareCode != shareCode) {
                         state
@@ -3406,7 +3591,7 @@ class MainViewModel internal constructor(
 
     private fun rememberCurrentDirectorySnapshot() {
         val files = uiState.value.files
-        if (files.searchScope == FileSearchScope.GLOBAL) {
+        if (!files.canPopulateDirectoryCache()) {
             return
         }
         fileDirectoryCache[files.currentFolderId] = files.items

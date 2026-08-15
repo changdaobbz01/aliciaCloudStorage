@@ -153,6 +153,11 @@ internal enum class AiChatFileMutationScope {
     FILES_AND_TRASH,
 }
 
+internal data class AiChatShareResult(
+    val shareCode: String,
+    val shareUrl: String,
+)
+
 internal data class AiChatMessage(
     val id: Long,
     val author: AiChatAuthor,
@@ -160,6 +165,7 @@ internal data class AiChatMessage(
     val files: List<AiChatFileResult> = emptyList(),
     val plan: AiChatPlanPreview? = null,
     val resultSection: AiChatResultSection? = null,
+    val shareResult: AiChatShareResult? = null,
 )
 
 internal data class AiChatUiState(

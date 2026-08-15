@@ -293,7 +293,30 @@ class RagActionExecutorTest {
 
         assertEquals(RagActionExecutionStatus.COMPLETED, result.status)
         assertEquals("SHARE123", result.shareCode)
+        assertEquals("https://storage.example/share/SHARE123", result.shareUrl)
         assertEquals(listOf("share:[42]:项目资料:true:false"), repository.calls)
+    }
+
+    @Test
+    fun `completed share with invalid response does not expose unsafe link`() = runBlocking {
+        val repository = FakeRagActionRepositoryPort(shareCode = "bad/code")
+        val executor = RagActionExecutor(repositoryPort = repository, executionEnabled = true)
+
+        val result = executor.execute(
+            context = context,
+            draft = draft(
+                actionType = "share",
+                method = "POST",
+                pathTemplate = "/api/share-links",
+                body = mapOf("nodeIds" to listOf(42L)),
+            ),
+        )
+
+        assertEquals(RagActionExecutionStatus.COMPLETED, result.status)
+        assertEquals(null, result.shareCode)
+        assertEquals(null, result.shareUrl)
+        assertTrue(result.message.contains("暂时无法复制链接"))
+        assertEquals(listOf("share:[42]:null:true:true"), repository.calls)
     }
 
     private fun draft(
@@ -337,7 +360,9 @@ class RagActionExecutorTest {
     }
 }
 
-private class FakeRagActionRepositoryPort : RagActionRepositoryPort {
+private class FakeRagActionRepositoryPort(
+    private val shareCode: String = "SHARE123",
+) : RagActionRepositoryPort {
     val calls = mutableListOf<String>()
 
     override suspend fun renameNode(baseUrl: String, token: String, nodeId: Long, name: String): StorageNode {
@@ -400,7 +425,7 @@ private class FakeRagActionRepositoryPort : RagActionRepositoryPort {
         calls += "share:$nodeIds:$title:$allowDownload:$allowSave"
         return ShareLinkSummaryResponse(
             id = 1L,
-            shareCode = "SHARE123",
+            shareCode = shareCode,
             title = title ?: "分享",
             hasPassword = password != null,
             expiresAt = null,
