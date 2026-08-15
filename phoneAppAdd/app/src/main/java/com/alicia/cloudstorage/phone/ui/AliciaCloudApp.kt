@@ -1328,7 +1328,14 @@ private fun MainShell(
                 if (target.isTrashMode) {
                     viewModel.previewFile(target.node)
                 } else {
-                    openFileDetail(target.node)
+                    openFileDetail(
+                        node = target.node,
+                        galleryNodes = if (target.node.type == StorageNodeType.FILE) {
+                            uiState.files.items.filter { it.type == StorageNodeType.FILE }
+                        } else {
+                            listOf(target.node)
+                        },
+                    )
                 }
             },
             onDownload = {

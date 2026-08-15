@@ -102,7 +102,7 @@ data class FileDetailArgs(
 ) {
     fun writeTo(intent: Intent): Intent = intent.apply {
         writeStorageNode(intent = this, prefix = "", node = node)
-        val safeGalleryNodes = normalizeGalleryNodes(node, galleryNodes)
+        val safeGalleryNodes = normalizeFileDetailGalleryNodes(node, galleryNodes)
         putExtra(EXTRA_GALLERY_COUNT, safeGalleryNodes.size)
         safeGalleryNodes.forEachIndexed { index, galleryNode ->
             writeStorageNode(intent = this, prefix = "$EXTRA_GALLERY_NODE_PREFIX$index.", node = galleryNode)
@@ -112,7 +112,6 @@ data class FileDetailArgs(
     }
 
     companion object {
-        private const val MAX_DETAIL_GALLERY_NODES = 80
         private const val EXTRA_NODE_ID = "file_detail_node_id"
         private const val EXTRA_PARENT_ID = "file_detail_parent_id"
         private const val EXTRA_HAS_PARENT_ID = "file_detail_has_parent_id"
@@ -145,11 +144,11 @@ data class FileDetailArgs(
 
         private fun galleryNodesFromIntent(intent: Intent, currentNode: StorageNode): List<StorageNode> {
             val count = intent.getIntExtra(EXTRA_GALLERY_COUNT, 0)
-                .coerceIn(0, MAX_DETAIL_GALLERY_NODES)
+                .coerceIn(0, MAX_FILE_DETAIL_GALLERY_NODES)
             val nodes = (0 until count).mapNotNull { index ->
                 nodeFromIntent(intent, prefix = "$EXTRA_GALLERY_NODE_PREFIX$index.")
             }
-            return normalizeGalleryNodes(currentNode, nodes)
+            return normalizeFileDetailGalleryNodes(currentNode, nodes)
         }
 
         private fun nodeFromIntent(intent: Intent, prefix: String): StorageNode? {
@@ -190,28 +189,5 @@ data class FileDetailArgs(
             intent.putExtra(prefix + EXTRA_NODE_DELETED_AT, node.deletedAt)
         }
 
-        private fun normalizeGalleryNodes(
-            currentNode: StorageNode,
-            nodes: List<StorageNode>,
-        ): List<StorageNode> {
-            val byId = linkedMapOf<Long, StorageNode>()
-            nodes
-                .asSequence()
-                .filter { it.type == StorageNodeType.FILE }
-                .forEach { node ->
-                    if (byId.size < MAX_DETAIL_GALLERY_NODES || byId.containsKey(node.id)) {
-                        byId[node.id] = if (node.id == currentNode.id) currentNode else node
-                    }
-                }
-
-            if (currentNode.type == StorageNodeType.FILE && !byId.containsKey(currentNode.id)) {
-                val retained = byId.values.take(MAX_DETAIL_GALLERY_NODES - 1)
-                return listOf(currentNode) + retained
-            }
-
-            return byId.values
-                .take(MAX_DETAIL_GALLERY_NODES)
-                .ifEmpty { listOf(currentNode) }
-        }
     }
 }

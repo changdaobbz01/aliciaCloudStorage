@@ -6,8 +6,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.alicia.cloudstorage.phone.FileDetailArgs
+import com.alicia.cloudstorage.phone.MAX_FILE_DETAIL_GALLERY_NODES
+import com.alicia.cloudstorage.phone.normalizeFileDetailGalleryNodes
 import com.alicia.cloudstorage.phone.data.AliciaRepository
 import com.alicia.cloudstorage.phone.data.StorageNode
+import com.alicia.cloudstorage.phone.data.StorageNodeFilter
 import com.alicia.cloudstorage.phone.data.StorageNodeType
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -79,9 +82,11 @@ class FileDetailViewModel(
     )
     val uiState = _uiState.asStateFlow()
     private var previewGeneration = 0L
+    private var galleryGeneration = 0L
 
     init {
         loadPreview()
+        loadSiblingGalleryIfNeeded()
     }
 
     fun retry() {
@@ -119,6 +124,54 @@ class FileDetailViewModel(
             )
         }
         loadPreview()
+    }
+
+    private fun loadSiblingGalleryIfNeeded() {
+        val state = _uiState.value
+        val node = state.currentNode
+        if (node.type != StorageNodeType.FILE || state.galleryNodes.size > 1) {
+            return
+        }
+
+        val generation = ++galleryGeneration
+        viewModelScope.launch {
+            runCatching {
+                repository.fetchStorageNodes(
+                    baseUrl = args.baseUrl,
+                    token = args.authToken,
+                    parentId = node.parentId,
+                    keyword = "",
+                    filter = StorageNodeFilter.FILE,
+                    page = 1,
+                    size = MAX_FILE_DETAIL_GALLERY_NODES,
+                    sortBy = "name",
+                    sortDirection = "asc",
+                    recursive = false,
+                ).items
+            }.onSuccess { siblings ->
+                _uiState.update { currentState ->
+                    if (
+                        generation != galleryGeneration ||
+                        currentState.currentNode.id != node.id ||
+                        currentState.galleryNodes.size > 1
+                    ) {
+                        currentState
+                    } else {
+                        val normalizedGallery = normalizeFileDetailGalleryNodes(
+                            currentNode = currentState.currentNode,
+                            nodes = siblings,
+                        )
+                        currentState.copy(
+                            galleryNodes = normalizedGallery,
+                            galleryIndex = normalizedGallery
+                                .indexOfFirst { it.id == currentState.currentNode.id }
+                                .takeIf { it >= 0 }
+                                ?: 0,
+                        )
+                    }
+                }
+            }
+        }
     }
 
     fun beginRename() {

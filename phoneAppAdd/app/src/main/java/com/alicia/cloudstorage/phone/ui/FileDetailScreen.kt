@@ -262,24 +262,41 @@ private fun FileDetailGalleryPager(
             }
     }
 
-    HorizontalPager(
-        state = pagerState,
-        modifier = modifier,
-        userScrollEnabled = scrollEnabled && pageCount > 1,
-    ) { page ->
-        val pageNode = galleryNodes[page]
-        if (page == state.galleryIndex && pageNode.id == state.currentNode.id) {
-            FileDetailPreview(
-                node = pageNode,
-                state = state,
-                onRetry = onRetry,
-                onImageZoomedChange = onImageZoomedChange,
-            )
-        } else {
-            DetailPreviewMessage(
-                node = pageNode,
-                title = pageNode.name,
-                supporting = "正在加载预览",
+    Box(modifier = modifier) {
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.fillMaxSize(),
+            userScrollEnabled = scrollEnabled && pageCount > 1,
+        ) { page ->
+            val pageNode = galleryNodes[page]
+            if (page == state.galleryIndex && pageNode.id == state.currentNode.id) {
+                FileDetailPreview(
+                    node = pageNode,
+                    state = state,
+                    onRetry = onRetry,
+                    onImageZoomedChange = onImageZoomedChange,
+                )
+            } else {
+                DetailPreviewMessage(
+                    node = pageNode,
+                    title = pageNode.name,
+                    supporting = "正在加载预览",
+                )
+            }
+        }
+
+        if (pageCount > 1) {
+            Text(
+                text = "${state.galleryIndex + 1}/$pageCount",
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 10.dp)
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(Color.Black.copy(alpha = 0.36f))
+                    .padding(horizontal = 10.dp, vertical = 4.dp),
+                color = Color.White,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
             )
         }
     }
