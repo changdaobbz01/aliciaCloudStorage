@@ -11,8 +11,6 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.rememberTransformableState
-import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -450,7 +448,7 @@ private fun ZoomableDetailImage(
     var offset by remember(url) { mutableStateOf(Offset.Zero) }
     var containerWidth by remember(url) { mutableIntStateOf(0) }
     var containerHeight by remember(url) { mutableIntStateOf(0) }
-    val transformState = rememberTransformableState { zoomChange, panChange, _ ->
+    fun applyImageTransform(zoomChange: Float, panChange: Offset) {
         val nextScale = (scale * zoomChange).coerceIn(1f, 5f)
         val maxX = containerWidth * (nextScale - 1f) / 2f
         val maxY = containerHeight * (nextScale - 1f) / 2f
@@ -492,7 +490,43 @@ private fun ZoomableDetailImage(
                     },
                 )
             }
-            .transformable(transformState),
+            .pointerInput(url) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val pressedChanges = event.changes.filter { it.pressed }
+                        when {
+                            pressedChanges.size > 1 -> {
+                                val currentPositions = pressedChanges.map { it.position }
+                                val previousPositions = pressedChanges.map { it.previousPosition }
+                                val centroid = currentPositions.averageOffset()
+                                val previousCentroid = previousPositions.averageOffset()
+                                val currentDistance = currentPositions.averageDistanceTo(centroid)
+                                val previousDistance = previousPositions.averageDistanceTo(previousCentroid)
+                                val zoomChange = if (previousDistance > 0f) {
+                                    currentDistance / previousDistance
+                                } else {
+                                    1f
+                                }
+                                applyImageTransform(
+                                    zoomChange = zoomChange,
+                                    panChange = centroid - previousCentroid,
+                                )
+                                pressedChanges.forEach { it.consume() }
+                            }
+
+                            pressedChanges.size == 1 && scale > 1.05f -> {
+                                val change = pressedChanges.first()
+                                val panChange = change.position - change.previousPosition
+                                if (panChange != Offset.Zero) {
+                                    applyImageTransform(zoomChange = 1f, panChange = panChange)
+                                    change.consume()
+                                }
+                            }
+                        }
+                    }
+                }
+            },
         contentAlignment = Alignment.Center,
     ) {
         SubcomposeAsyncImage(
@@ -1205,6 +1239,26 @@ private fun detailDocumentTitle(node: StorageNode): String = when {
     node.extension.equals("doc", true) || node.extension.equals("docx", true) -> "Word 文档"
     node.extension.equals("zip", true) || node.extension.equals("rar", true) || node.extension.equals("7z", true) -> "压缩文件"
     else -> "${node.extension?.uppercase()?.takeIf(String::isNotBlank) ?: "文件"} 文件"
+}
+
+private fun List<Offset>.averageOffset(): Offset {
+    if (isEmpty()) return Offset.Zero
+    var x = 0f
+    var y = 0f
+    forEach { offset ->
+        x += offset.x
+        y += offset.y
+    }
+    return Offset(x / size, y / size)
+}
+
+private fun List<Offset>.averageDistanceTo(center: Offset): Float {
+    if (isEmpty()) return 0f
+    var total = 0f
+    forEach { offset ->
+        total += (offset - center).getDistance()
+    }
+    return total / size
 }
 
 private fun detailFileTypeLabel(node: StorageNode): String {
