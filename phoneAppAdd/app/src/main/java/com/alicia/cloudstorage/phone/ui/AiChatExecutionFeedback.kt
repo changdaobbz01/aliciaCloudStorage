@@ -29,6 +29,7 @@ internal object AiChatExecutionFeedback {
             progressMessage = "正在为你移动文件或文件夹，请稍等...",
             mutationScope = AiChatFileMutationScope.FILES_ONLY,
         )
+        register(listOf("folder.create"), "正在创建文件夹，请稍等...", AiChatFileMutationScope.FILES_ONLY)
         register(listOf("share"), "正在为你创建分享，请稍等...")
         register(listOf("file.upload", "upload_target"), "正在上传文件，请稍等...")
         register(listOf("composite.create_folder_then_upload"), "正在创建文件夹并上传，请稍等...")

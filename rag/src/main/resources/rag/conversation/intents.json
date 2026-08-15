@@ -21,6 +21,7 @@
       "share",
       "delete",
       "upload_target",
+      "folder.create",
       "composite.create_folder_then_upload",
       "collection.trash_by_name_contains",
       "collection.trash_by_category",
@@ -466,6 +467,23 @@
       "target_missing_slot": "target_name",
       "next_action": "wait_for_backend_binding",
       "clarification_question": "请补充要移动的文件或文件夹名称，以及目标目录。"
+    },
+    {
+      "id": "folder_create",
+      "name": "新建文件夹",
+      "task_type": "file_mutation",
+      "description": "在当前目录或用户指定目录下新建一个文件夹。",
+      "sample_utterances": ["新建一个名为视频目录的文件夹", "在当前目录创建归档文件夹", "在根目录下新建照片目录"],
+      "required_slots": ["new_folder_name"],
+      "optional_slots": ["target_folder"],
+      "allowed_slots": ["new_folder_name", "target_folder", "scope", "time_range"],
+      "risk": "low",
+      "requires_confirmation": true,
+      "action_type": "folder.create",
+      "candidate_type": "FOLDER",
+      "target_missing_slot": "new_folder_name",
+      "next_action": "wait_for_backend_binding",
+      "clarification_question": "请补充要新建的文件夹名称。"
     },
     {
       "id": "folder_create_then_upload",

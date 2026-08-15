@@ -81,10 +81,12 @@ class FileDetailActivity : ComponentActivity() {
             node: StorageNode,
             baseUrl: String,
             authToken: String,
+            galleryNodes: List<StorageNode> = listOf(node),
         ): Intent = FileDetailArgs(
             node = node,
             baseUrl = baseUrl,
             authToken = authToken,
+            galleryNodes = galleryNodes,
         ).writeTo(Intent(context, FileDetailActivity::class.java))
 
         fun contentChanged(data: Intent?): Boolean =
@@ -96,23 +98,21 @@ data class FileDetailArgs(
     val node: StorageNode,
     val baseUrl: String,
     val authToken: String,
+    val galleryNodes: List<StorageNode> = listOf(node),
 ) {
     fun writeTo(intent: Intent): Intent = intent.apply {
-        putExtra(EXTRA_NODE_ID, node.id)
-        node.parentId?.let { putExtra(EXTRA_PARENT_ID, it) }
-        putExtra(EXTRA_HAS_PARENT_ID, node.parentId != null)
-        putExtra(EXTRA_NODE_NAME, node.name)
-        putExtra(EXTRA_NODE_TYPE, node.type.name)
-        putExtra(EXTRA_NODE_SIZE, node.size)
-        putExtra(EXTRA_NODE_EXTENSION, node.extension)
-        putExtra(EXTRA_NODE_MIME_TYPE, node.mimeType)
-        putExtra(EXTRA_NODE_UPDATED_AT, node.updatedAt)
-        putExtra(EXTRA_NODE_DELETED_AT, node.deletedAt)
+        writeStorageNode(intent = this, prefix = "", node = node)
+        val safeGalleryNodes = normalizeGalleryNodes(node, galleryNodes)
+        putExtra(EXTRA_GALLERY_COUNT, safeGalleryNodes.size)
+        safeGalleryNodes.forEachIndexed { index, galleryNode ->
+            writeStorageNode(intent = this, prefix = "$EXTRA_GALLERY_NODE_PREFIX$index.", node = galleryNode)
+        }
         putExtra(EXTRA_BASE_URL, baseUrl)
         putExtra(EXTRA_AUTH_TOKEN, authToken)
     }
 
     companion object {
+        private const val MAX_DETAIL_GALLERY_NODES = 80
         private const val EXTRA_NODE_ID = "file_detail_node_id"
         private const val EXTRA_PARENT_ID = "file_detail_parent_id"
         private const val EXTRA_HAS_PARENT_ID = "file_detail_has_parent_id"
@@ -125,37 +125,93 @@ data class FileDetailArgs(
         private const val EXTRA_NODE_DELETED_AT = "file_detail_node_deleted_at"
         private const val EXTRA_BASE_URL = "file_detail_base_url"
         private const val EXTRA_AUTH_TOKEN = "file_detail_auth_token"
+        private const val EXTRA_GALLERY_COUNT = "file_detail_gallery_count"
+        private const val EXTRA_GALLERY_NODE_PREFIX = "file_detail_gallery_node_"
 
         fun fromIntent(intent: Intent): FileDetailArgs? {
             val node = nodeFromIntent(intent) ?: return null
             val baseUrl = intent.getStringExtra(EXTRA_BASE_URL)?.takeIf(String::isNotBlank) ?: return null
             val authToken = intent.getStringExtra(EXTRA_AUTH_TOKEN)?.takeIf(String::isNotBlank) ?: return null
-            return FileDetailArgs(node = node, baseUrl = baseUrl, authToken = authToken)
+            return FileDetailArgs(
+                node = node,
+                baseUrl = baseUrl,
+                authToken = authToken,
+                galleryNodes = galleryNodesFromIntent(intent, node),
+            )
         }
 
-        fun nodeFromIntent(intent: Intent): StorageNode? {
-            val id = intent.getLongExtra(EXTRA_NODE_ID, Long.MIN_VALUE)
+        fun nodeFromIntent(intent: Intent): StorageNode? =
+            nodeFromIntent(intent, prefix = "")
+
+        private fun galleryNodesFromIntent(intent: Intent, currentNode: StorageNode): List<StorageNode> {
+            val count = intent.getIntExtra(EXTRA_GALLERY_COUNT, 0)
+                .coerceIn(0, MAX_DETAIL_GALLERY_NODES)
+            val nodes = (0 until count).mapNotNull { index ->
+                nodeFromIntent(intent, prefix = "$EXTRA_GALLERY_NODE_PREFIX$index.")
+            }
+            return normalizeGalleryNodes(currentNode, nodes)
+        }
+
+        private fun nodeFromIntent(intent: Intent, prefix: String): StorageNode? {
+            val id = intent.getLongExtra(prefix + EXTRA_NODE_ID, Long.MIN_VALUE)
             if (id == Long.MIN_VALUE) return null
 
-            val name = intent.getStringExtra(EXTRA_NODE_NAME) ?: return null
-            val type = intent.getStringExtra(EXTRA_NODE_TYPE)
+            val name = intent.getStringExtra(prefix + EXTRA_NODE_NAME) ?: return null
+            val type = intent.getStringExtra(prefix + EXTRA_NODE_TYPE)
                 ?.let { runCatching { StorageNodeType.valueOf(it) }.getOrNull() }
                 ?: return null
             return StorageNode(
                 id = id,
-                parentId = if (intent.getBooleanExtra(EXTRA_HAS_PARENT_ID, false)) {
-                    intent.getLongExtra(EXTRA_PARENT_ID, 0L)
+                parentId = if (intent.getBooleanExtra(prefix + EXTRA_HAS_PARENT_ID, false)) {
+                    intent.getLongExtra(prefix + EXTRA_PARENT_ID, 0L)
                 } else {
                     null
                 },
                 name = name,
                 type = type,
-                size = intent.getLongExtra(EXTRA_NODE_SIZE, 0L),
-                extension = intent.getStringExtra(EXTRA_NODE_EXTENSION),
-                mimeType = intent.getStringExtra(EXTRA_NODE_MIME_TYPE),
-                updatedAt = intent.getStringExtra(EXTRA_NODE_UPDATED_AT).orEmpty(),
-                deletedAt = intent.getStringExtra(EXTRA_NODE_DELETED_AT),
+                size = intent.getLongExtra(prefix + EXTRA_NODE_SIZE, 0L),
+                extension = intent.getStringExtra(prefix + EXTRA_NODE_EXTENSION),
+                mimeType = intent.getStringExtra(prefix + EXTRA_NODE_MIME_TYPE),
+                updatedAt = intent.getStringExtra(prefix + EXTRA_NODE_UPDATED_AT).orEmpty(),
+                deletedAt = intent.getStringExtra(prefix + EXTRA_NODE_DELETED_AT),
             )
+        }
+
+        private fun writeStorageNode(intent: Intent, prefix: String, node: StorageNode) {
+            intent.putExtra(prefix + EXTRA_NODE_ID, node.id)
+            node.parentId?.let { intent.putExtra(prefix + EXTRA_PARENT_ID, it) }
+            intent.putExtra(prefix + EXTRA_HAS_PARENT_ID, node.parentId != null)
+            intent.putExtra(prefix + EXTRA_NODE_NAME, node.name)
+            intent.putExtra(prefix + EXTRA_NODE_TYPE, node.type.name)
+            intent.putExtra(prefix + EXTRA_NODE_SIZE, node.size)
+            intent.putExtra(prefix + EXTRA_NODE_EXTENSION, node.extension)
+            intent.putExtra(prefix + EXTRA_NODE_MIME_TYPE, node.mimeType)
+            intent.putExtra(prefix + EXTRA_NODE_UPDATED_AT, node.updatedAt)
+            intent.putExtra(prefix + EXTRA_NODE_DELETED_AT, node.deletedAt)
+        }
+
+        private fun normalizeGalleryNodes(
+            currentNode: StorageNode,
+            nodes: List<StorageNode>,
+        ): List<StorageNode> {
+            val byId = linkedMapOf<Long, StorageNode>()
+            nodes
+                .asSequence()
+                .filter { it.type == StorageNodeType.FILE }
+                .forEach { node ->
+                    if (byId.size < MAX_DETAIL_GALLERY_NODES || byId.containsKey(node.id)) {
+                        byId[node.id] = if (node.id == currentNode.id) currentNode else node
+                    }
+                }
+
+            if (currentNode.type == StorageNodeType.FILE && !byId.containsKey(currentNode.id)) {
+                val retained = byId.values.take(MAX_DETAIL_GALLERY_NODES - 1)
+                return listOf(currentNode) + retained
+            }
+
+            return byId.values
+                .take(MAX_DETAIL_GALLERY_NODES)
+                .ifEmpty { listOf(currentNode) }
         }
     }
 }

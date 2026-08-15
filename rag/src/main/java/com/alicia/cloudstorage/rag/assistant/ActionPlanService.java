@@ -340,7 +340,8 @@ public class ActionPlanService {
         if (selectedCandidate == null) {
             return List.of();
         }
-        if (selectedCandidate.nodeId() == null && !"upload_target".equals(rawActionType)) {
+        if (selectedCandidate.nodeId() == null
+                && !List.of("upload_target", "folder.create").contains(rawActionType)) {
             return List.of();
         }
 
@@ -348,6 +349,7 @@ public class ActionPlanService {
             case "rename" -> renameParams(response, selectedCandidate);
             case "delete" -> Map.of("nodeId", selectedCandidate.nodeId());
             case "share" -> shareParams(response, selectedCandidate);
+            case "folder.create" -> folderCreateParams(response, selectedCandidate);
             case "upload_target" -> {
                 Map<String, Object> uploadParams = new LinkedHashMap<>();
                 uploadParams.put("parentId", selectedCandidate.nodeId());
@@ -373,6 +375,17 @@ public class ActionPlanService {
                 requiredClientFields,
                 outputKey(canonicalAction)
         ));
+    }
+
+    private Map<String, Object> folderCreateParams(IntentRecognitionResponse response, CandidateItem selectedCandidate) {
+        Object folderName = response.entities().get("new_folder_name");
+        if (folderName == null || String.valueOf(folderName).isBlank()) {
+            return Map.of();
+        }
+        Map<String, Object> params = new LinkedHashMap<>();
+        params.put("parentId", selectedCandidate.nodeId());
+        params.put("folderName", String.valueOf(folderName).trim());
+        return Collections.unmodifiableMap(params);
     }
 
     private Map<String, Object> renameParams(IntentRecognitionResponse response, CandidateItem selectedCandidate) {
@@ -727,6 +740,7 @@ public class ActionPlanService {
             case "delete" -> "node.trash";
             case "share" -> "share.create";
             case "upload_target" -> "file.upload";
+            case "folder.create" -> "folder.create";
             case "search" -> "search";
             default -> "none";
         };
@@ -734,7 +748,7 @@ public class ActionPlanService {
 
     private String bindingKey(String actionType) {
         return switch (actionType == null ? "" : actionType) {
-            case "upload_target" -> "targetParent";
+            case "upload_target", "folder.create" -> "targetParent";
             case "search" -> "searchResults";
             default -> "targetNode";
         };
@@ -742,7 +756,7 @@ public class ActionPlanService {
 
     private String bindingKind(String actionType) {
         return switch (actionType == null ? "" : actionType) {
-            case "upload_target" -> "target_folder";
+            case "upload_target", "folder.create" -> "target_folder";
             case "search" -> "source_collection";
             default -> "node";
         };
@@ -767,7 +781,7 @@ public class ActionPlanService {
         if ("high".equals(risk) || "critical".equals(risk)) {
             return "candidate_then_final_review";
         }
-        if ("upload_target".equals(actionType)) {
+        if (List.of("upload_target", "folder.create").contains(actionType)) {
             return "final_review";
         }
         return "candidate_then_final_review";
@@ -791,6 +805,7 @@ public class ActionPlanService {
             case "node.trash" -> "trashedNode";
             case "share.create" -> "share";
             case "file.upload" -> "uploadedFiles";
+            case "folder.create" -> "createdFolder";
             default -> "";
         };
     }
@@ -856,6 +871,8 @@ public class ActionPlanService {
             case "node.trash" -> "将 " + selectedCandidate.path() + " 移入回收站";
             case "share.create" -> "为 " + selectedCandidate.path() + " 创建分享链接";
             case "file.upload" -> "上传文件到 " + selectedCandidate.path();
+            case "folder.create" -> "将在 " + selectedCandidate.path() + " 下新建文件夹 "
+                    + response.entities().get("new_folder_name");
             case "search" -> "展示匹配到的搜索结果";
             default -> response.assistantText();
         };

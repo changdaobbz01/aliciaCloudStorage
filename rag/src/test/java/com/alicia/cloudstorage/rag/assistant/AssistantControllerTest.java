@@ -36,6 +36,7 @@ class AssistantControllerTest {
                 "rename",
                 "delete",
                 "share",
+                "folder.create",
                 "upload_target",
                 "collection.move_by_category",
                 "collection.rename_add_prefix"
@@ -60,6 +61,7 @@ class AssistantControllerTest {
                 "rename",
                 "delete",
                 "share",
+                "folder.create",
                 "upload_target",
                 "composite.create_folder_then_upload"
         );

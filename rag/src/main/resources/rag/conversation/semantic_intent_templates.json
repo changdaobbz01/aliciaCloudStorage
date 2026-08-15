@@ -24,6 +24,7 @@
     "file_delete",
     "file_upload",
     "node_move",
+    "folder_create",
     "folder_create_then_upload",
     "collection_delete_by_name",
     "collection_delete_by_category",
@@ -452,6 +453,21 @@
         "把{target_name}挪到{target_folder}",
         "把{target_name}搬到{target_folder}",
         "将{target_name}转移到{target_folder}"
+      ]
+    },
+    {
+      "id": "folder_create",
+      "intentId": "folder_create",
+      "actionDraftType": "folder.create",
+      "risk": "low",
+      "requiredEntities": ["new_folder_name"],
+      "templates": [
+        "新建{new_folder_name}文件夹",
+        "创建{new_folder_name}目录",
+        "新建一个名为{new_folder_name}的文件夹",
+        "帮我建一个{new_folder_name}文件夹",
+        "在当前目录创建{new_folder_name}文件夹",
+        "当前文件夹下新建{new_folder_name}目录"
       ]
     },
     {

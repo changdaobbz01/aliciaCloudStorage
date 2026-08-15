@@ -112,6 +112,30 @@ class RagActionExecutorTest {
     }
 
     @Test
+    fun `executes confirmed create folder through repository port when enabled`() = runBlocking {
+        val repository = FakeRagActionRepositoryPort()
+        val executor = RagActionExecutor(repositoryPort = repository, executionEnabled = true)
+
+        val result = executor.execute(
+            context = context,
+            draft = draft(
+                actionType = "folder.create",
+                method = "POST",
+                pathTemplate = "/api/storage/folders",
+                body = mapOf(
+                    "parentId" to "",
+                    "folderName" to "视频目录",
+                ),
+            ),
+        )
+
+        assertEquals(RagActionExecutionStatus.COMPLETED, result.status)
+        assertEquals(listOf("create-folder:null:视频目录"), repository.calls)
+        assertEquals(listOf(77L), result.affectedNodeIds)
+        assertTrue(result.message.contains("视频目录"))
+    }
+
+    @Test
     fun `executes batch trash with node ids`() = runBlocking {
         val repository = FakeRagActionRepositoryPort()
         val executor = RagActionExecutor(repositoryPort = repository, executionEnabled = true)
@@ -412,6 +436,16 @@ private class FakeRagActionRepositoryPort(
         return nodeIds.map { storageNode(it, "node-$it") }
     }
 
+    override suspend fun createFolder(
+        baseUrl: String,
+        token: String,
+        parentId: Long?,
+        folderName: String,
+    ): StorageNode {
+        calls += "create-folder:$parentId:$folderName"
+        return storageNode(77L, folderName, StorageNodeType.FOLDER)
+    }
+
     override suspend fun createShareLink(
         baseUrl: String,
         token: String,
@@ -440,12 +474,16 @@ private class FakeRagActionRepositoryPort(
         )
     }
 
-    private fun storageNode(id: Long, name: String): StorageNode =
+    private fun storageNode(
+        id: Long,
+        name: String,
+        type: StorageNodeType = StorageNodeType.FILE,
+    ): StorageNode =
         StorageNode(
             id = id,
             parentId = null,
             name = name,
-            type = StorageNodeType.FILE,
+            type = type,
             size = 1L,
             extension = "docx",
             mimeType = "application/docx",

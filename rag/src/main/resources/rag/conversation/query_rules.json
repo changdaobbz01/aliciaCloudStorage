@@ -75,7 +75,7 @@
     "match_path": true,
     "virtual_roots": {
       "aliases": ["根", "根目录", "根文件夹", "云盘根目录", "我的云盘", "顶层目录", "最外层", "/"],
-      "supported_actions": ["upload_target", "composite.create_folder_then_upload"]
+      "supported_actions": ["upload_target", "folder.create", "composite.create_folder_then_upload"]
     },
     "semantic_query": {
       "query_mode_aliases": {

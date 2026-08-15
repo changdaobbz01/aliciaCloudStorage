@@ -102,28 +102,18 @@ public class CandidateBindingService {
                     "当前意图使用集合筛选条件生成 ActionPlan，暂不执行单对象候选绑定。"
             );
         }
+        CandidateBindingResult currentFolderBinding = createFolderCurrentTarget(
+                intent.actionType(),
+                response,
+                clientContext,
+                intent.candidateType()
+        );
+        if (currentFolderBinding != null) {
+            return currentFolderBinding;
+        }
         QueryRoleAndValue query = bindingQuery(intent, response);
         if (isVirtualRootTarget(intent.actionType(), query)) {
-            CandidateItem root = new CandidateItem(
-                    null,
-                    null,
-                    "根目录",
-                    "FOLDER",
-                    0L,
-                    "",
-                    "",
-                    "",
-                    "/",
-                    List.of()
-            );
-            return new CandidateBindingResult(
-                    "single_candidate",
-                    "virtual:cloud-drive-root",
-                    query.value(),
-                    intent.candidateType(),
-                    List.of(root),
-                    "已定位到云盘根目录。"
-            );
+            return rootBinding(query.value(), intent.candidateType());
         }
         FileQueryPlanResolver.FileQueryPlan semanticPlan = semanticQueryPlan(response, intent, query);
         if (semanticPlan != null) {
@@ -302,6 +292,123 @@ public class CandidateBindingService {
                 && virtualRootAliases.contains(normalizeRootAlias(query.value()));
     }
 
+    private CandidateBindingResult createFolderCurrentTarget(
+            String actionType,
+            IntentRecognitionResponse response,
+            AssistantClientContext clientContext,
+            String candidateType
+    ) {
+        if (!"folder.create".equals(actionType) || response == null || response.entities() == null) {
+            return null;
+        }
+        String targetFolder = TextSupport.sanitizeNodeName(String.valueOf(
+                response.entities().getOrDefault("target_folder", "")
+        ));
+        SemanticFrame frame = response.semanticFrame();
+        if (isRootFolderTarget(targetFolder, frame)) {
+            return rootBinding(targetFolder.isBlank() ? "根目录" : targetFolder, candidateType);
+        }
+        if (!targetFolder.isBlank() && !isCurrentFolderAlias(targetFolder, frame)) {
+            return null;
+        }
+
+        AssistantClientContext safeContext = clientContext == null
+                ? AssistantClientContext.empty()
+                : clientContext;
+        CandidateItem currentFolder = currentFolderCandidate(safeContext);
+        return new CandidateBindingResult(
+                "single_candidate",
+                "virtual:client-current-folder",
+                targetFolder.isBlank() ? "当前目录" : targetFolder,
+                candidateType,
+                List.of(currentFolder),
+                "已定位到当前目录。"
+        );
+    }
+
+    private CandidateBindingResult rootBinding(String query, String candidateType) {
+        CandidateItem root = new CandidateItem(
+                null,
+                null,
+                "根目录",
+                "FOLDER",
+                0L,
+                "",
+                "",
+                "",
+                "/",
+                List.of()
+        );
+        return new CandidateBindingResult(
+                "single_candidate",
+                "virtual:cloud-drive-root",
+                query,
+                candidateType,
+                List.of(root),
+                "已定位到云盘根目录。"
+        );
+    }
+
+    private CandidateItem currentFolderCandidate(AssistantClientContext clientContext) {
+        Long folderId = clientContext.currentFolderId();
+        String rawPath = clientContext.currentFolderPath();
+        String path = rawPath == null || rawPath.isBlank() ? "/" : rawPath.trim().replace('\\', '/');
+        if (folderId == null || "/".equals(path)) {
+            return new CandidateItem(
+                    null,
+                    null,
+                    "根目录",
+                    "FOLDER",
+                    0L,
+                    "",
+                    "",
+                    "",
+                    "/",
+                    List.of()
+            );
+        }
+        String normalizedPath = path.replaceAll("/+$", "");
+        String name = currentFolderName(normalizedPath);
+        return new CandidateItem(
+                folderId,
+                null,
+                name,
+                "FOLDER",
+                0L,
+                "",
+                "",
+                "",
+                normalizedPath.isBlank() ? "/" : normalizedPath,
+                List.of()
+        );
+    }
+
+    private String currentFolderName(String path) {
+        String value = path == null ? "" : path.trim();
+        if (value.isBlank() || "/".equals(value)) {
+            return "根目录";
+        }
+        String[] segments = value.split("/");
+        for (int index = segments.length - 1; index >= 0; index--) {
+            String segment = segments[index].trim();
+            if (!segment.isBlank()) {
+                return segment;
+            }
+        }
+        return "当前目录";
+    }
+
+    private boolean isRootFolderTarget(String targetFolder, SemanticFrame frame) {
+        return virtualRootAliases.contains(normalizeRootAlias(targetFolder))
+                || frame != null && frame.scope() != null && "ROOT".equals(frame.scope().type());
+    }
+
+    private boolean isCurrentFolderAlias(String targetFolder, SemanticFrame frame) {
+        String normalized = normalizeRootAlias(targetFolder);
+        return List.of("当前", "当前目录", "当前文件夹", "current", "currentfolder").contains(normalized)
+                || frame != null && frame.scope() != null && "CURRENT".equals(frame.scope().type());
+    }
+
     private static VirtualRootConfig loadVirtualRootConfig(RagConfigLoader configLoader) {
         JsonNode config = configLoader.loadJson("rag/conversation/query_rules.json")
                 .path("candidate_binding")
@@ -357,7 +464,7 @@ public class CandidateBindingService {
         private static VirtualRootConfig defaults() {
             return new VirtualRootConfig(
                     Set.of("根", "根目录", "根文件夹", "云盘根目录", "我的云盘", "顶层目录", "最外层", "/"),
-                    Set.of("upload_target", "composite.create_folder_then_upload")
+                    Set.of("upload_target", "folder.create", "composite.create_folder_then_upload")
             );
         }
     }

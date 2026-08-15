@@ -98,6 +98,40 @@ class RagActionBridgeValidatorTest {
     }
 
     @Test
+    fun `allows confirmed create folder draft on known route`() {
+        val validation = validator.validate(
+            draft(
+                actionType = "folder.create",
+                method = "POST",
+                pathTemplate = "/api/storage/folders",
+                body = mapOf("parentId" to "", "folderName" to "视频目录"),
+            ),
+        )
+
+        assertTrue(validation.allowed)
+        assertEquals(RagActionBridgeValidationCode.ALLOWED, validation.code)
+    }
+
+    @Test
+    fun `rejects unexpected create folder body fields`() {
+        val validation = validator.validate(
+            draft(
+                actionType = "folder.create",
+                method = "POST",
+                pathTemplate = "/api/storage/folders",
+                body = mapOf(
+                    "parentId" to 9L,
+                    "folderName" to "视频目录",
+                    "conflictPolicy" to "auto_rename",
+                ),
+            ),
+        )
+
+        assertFalse(validation.allowed)
+        assertEquals(RagActionBridgeValidationCode.PARAMETER_NOT_ALLOWED, validation.code)
+    }
+
+    @Test
     fun `allows scoped collection move draft`() {
         val validation = validator.validate(
             draft(

@@ -110,6 +110,67 @@ class AssistantConversationServiceTest {
     }
 
     @Test
+    void createFolderUsesCurrentDirectoryAndExportsConfirmedBackendDraft() {
+        AtomicInteger searchCalls = new AtomicInteger();
+        AssistantConversationService service = conversationServiceWith(request -> {
+            searchCalls.incrementAndGet();
+            return CandidateBindingResult.skipped("unexpected_search", "不应搜索新文件夹名称。");
+        });
+        AssistantClientContext clientContext = new AssistantClientContext(
+                501L,
+                "根目录/项目资料",
+                Map.of(),
+                "action_bridge_v2",
+                List.of("folder.create")
+        );
+
+        IntentRecognitionResponse firstTurn = service.plan(new AssistantPlanRequest(
+                "新建一个名为视频文件的文件夹",
+                "",
+                clientContext
+        ));
+
+        assertThat(firstTurn.intentId()).isEqualTo("folder_create");
+        assertThat(firstTurn.nextAction()).isEqualTo("wait_for_user_confirmation");
+        assertThat(firstTurn.entities()).containsEntry("new_folder_name", "视频文件");
+        assertThat(firstTurn.candidateBinding().source()).isEqualTo("virtual:client-current-folder");
+        assertThat(firstTurn.candidateBinding().candidates()).singleElement().satisfies(candidate -> {
+            assertThat(candidate.nodeId()).isEqualTo(501L);
+            assertThat(candidate.path()).isEqualTo("根目录/项目资料");
+        });
+        assertThat(firstTurn.backendActionDraft().status()).isEqualTo("not_requested");
+        assertThat(firstTurn.actionPlan().status()).isEqualTo("review_required");
+        assertThat(firstTurn.actionPlan().actionType()).isEqualTo("folder.create");
+        assertThat(firstTurn.actionPlan().confirmationLevel()).isEqualTo("final_review");
+        ActionPlanStep step = firstTurn.actionPlan().steps().getFirst();
+        assertThat(step.action()).isEqualTo("folder.create");
+        assertThat(step.params())
+                .containsEntry("parentId", 501L)
+                .containsEntry("folderName", "视频文件");
+        assertThat(step.outputKey()).isEqualTo("createdFolder");
+        assertThat(searchCalls).hasValue(0);
+
+        IntentRecognitionResponse confirmed = service.plan(new AssistantPlanRequest(
+                "确认",
+                firstTurn.conversation().conversationId(),
+                clientContext
+        ));
+
+        assertThat(confirmed.intentId()).isEqualTo("folder_create");
+        assertThat(confirmed.nextAction()).isEqualTo("handoff_to_backend");
+        assertThat(confirmed.backendActionDraft().status()).isEqualTo("backend_action_ready");
+        assertThat(confirmed.backendActionDraft().actionType()).isEqualTo("folder.create");
+        assertThat(confirmed.backendActionDraft().method()).isEqualTo("POST");
+        assertThat(confirmed.backendActionDraft().path()).isEqualTo("/api/storage/folders");
+        assertThat(confirmed.backendActionDraft().body())
+                .containsEntry("parentId", 501L)
+                .containsEntry("folderName", "视频文件");
+        assertThat(confirmed.actionPlan().status()).isEqualTo("ready_to_execute");
+        assertThat(confirmed.actionPlan().steps().getFirst().status()).isEqualTo("ready");
+        assertThat(searchCalls).hasValue(0);
+    }
+
+    @Test
     void genericMutationNounsDoNotBecomePreviousResultCollections() {
         IntentRecognitionResponse delete = conversationService.plan(new AssistantPlanRequest("删除文件", ""));
         IntentRecognitionResponse move = conversationService.plan(new AssistantPlanRequest("把文件移动到资料", ""));

@@ -30,7 +30,7 @@ final class PendingSlotResolutionService {
     private static final Set<String> GENERIC_NODE_NAMES = Set.of(
             "文件", "文件夹", "目录", "图片", "照片", "视频", "音频", "文档", "压缩包", "它", "这个", "那个"
     );
-    private static final Set<String> TEXT_SLOTS = Set.of("target_name", "new_name", "target_folder");
+    private static final Set<String> TEXT_SLOTS = Set.of("target_name", "new_name", "new_folder_name", "target_folder");
 
     Resolution resolve(
             String message,
@@ -94,6 +94,7 @@ final class PendingSlotResolutionService {
         return switch (slot) {
             case "target_name" -> safeStandaloneNodeName(value, response) ? unquote(value) : "";
             case "new_name" -> renameValue(value, response);
+            case "new_folder_name" -> safeStandaloneNodeName(value, response) ? cleanSlotValue(value) : "";
             case "target_folder" -> destinationValue(value, response);
             default -> "";
         };
@@ -109,6 +110,7 @@ final class PendingSlotResolutionService {
             case "target_name" -> isStandaloneSlotValue(value, response);
             case "new_name" -> RENAME_VALUE.matcher(value).matches()
                     || isStandaloneSlotValue(value, response);
+            case "new_folder_name" -> isStandaloneSlotValue(value, response);
             case "target_folder" -> DESTINATION_VALUE.matcher(value).matches()
                     || isStandaloneSlotValue(value, response);
             default -> false;

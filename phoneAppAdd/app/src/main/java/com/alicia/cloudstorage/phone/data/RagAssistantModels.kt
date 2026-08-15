@@ -25,6 +25,7 @@ data class RagAssistantClientContext(
         "rename",
         "delete",
         "share",
+        "folder.create",
         "upload_target",
         "composite.create_folder_then_upload",
         "collection.trash_by_name_contains",

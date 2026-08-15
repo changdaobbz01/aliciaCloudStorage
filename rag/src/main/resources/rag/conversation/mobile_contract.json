@@ -1,6 +1,6 @@
 {
   "version": "mobile_contract_v1",
-  "updated_at": "2026-08-14",
+  "updated_at": "2026-08-15",
   "description": "Stable client-facing contract for Alicia mobile RAG integration. Mobile consumes plans and executes only local allowlisted handlers.",
   "encoding": {
     "intentIds": "string_enum",
@@ -167,6 +167,18 @@
       "mobileRepositoryMethod": "createShareLink",
       "requiresFinalConfirmation": true,
       "notes": "Share options may be adjusted by review UI before submit."
+    },
+    "folder.create": {
+      "phase": 1,
+      "implementationStatus": "mobile_supported",
+      "executionMode": "backend_action_ready",
+      "cloudStorageApi": {
+        "method": "POST",
+        "path": "/api/storage/folders"
+      },
+      "mobileRepositoryMethod": "createFolder",
+      "requiresFinalConfirmation": true,
+      "notes": "RAG resolves the target parent directory, mobile validates the action bridge draft against its allowlist, and then calls the existing createFolder repository method only after final confirmation."
     },
     "upload_target": {
       "phase": 1,

@@ -199,6 +199,7 @@ private val SoftBlue = Color(0xFFEAF2FF)
 private val Danger = Color(0xFFE84D3D)
 private val Success = Color(0xFF16B56F)
 private val WarmOrange = Color(0xFFFF7A1A)
+private const val HOME_ASSISTANT_ART_ASPECT_RATIO = 1.8666667f
 
 internal fun Modifier.addCardChrome(shape: RoundedCornerShape): Modifier =
     shadow(
@@ -925,13 +926,17 @@ private fun MainShell(
         }
     }
 
-    fun openFileDetail(node: StorageNode) {
+    fun openFileDetail(
+        node: StorageNode,
+        galleryNodes: List<StorageNode> = listOf(node),
+    ) {
         fileDetailLauncher.launch(
             FileDetailActivity.createIntent(
                 context = context,
                 node = node,
                 baseUrl = uiState.baseUrl,
                 authToken = uiState.authToken.orEmpty(),
+                galleryNodes = galleryNodes,
             ),
         )
     }
@@ -1048,7 +1053,10 @@ private fun MainShell(
                     } else if (node.type == StorageNodeType.FOLDER) {
                         viewModel.openNode(node)
                     } else {
-                        openFileDetail(node)
+                        openFileDetail(
+                            node = node,
+                            galleryNodes = explorer.items.filter { it.type == StorageNodeType.FILE },
+                        )
                     }
                 },
                 onNodeLongPress = { node -> viewModel.toggleNodeSelection(isTrashMode, node.id) },
@@ -1638,20 +1646,12 @@ private fun AiChatHostScreen(
             .padding(paddingValues)
             .background(ScreenBackground),
     ) {
-        HomeAssistantBackground(
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .offset(y = (-29).dp)
-                .fillMaxWidth()
-                .height(225.dp),
-        )
-        HomeAssistantPerson(
+        HomeAssistantArtwork(
             aiChatOpen = true,
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .offset(y = (-29).dp)
-                .fillMaxWidth()
-                .height(225.dp),
+                .fillMaxWidth(),
         )
         Column(modifier = Modifier.fillMaxSize()) {
             Box(modifier = Modifier.padding(horizontal = 18.dp)) {
@@ -1768,21 +1768,12 @@ private fun HomeTopSection(
     onClick: () -> Unit,
 ) {
     Box(modifier = Modifier.fillMaxWidth()) {
-        HomeAssistantBackground(
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .offset(y = (-29).dp)
-                .fillMaxWidth()
-                .height(225.dp),
-        )
-
-        HomeAssistantPerson(
+        HomeAssistantArtwork(
             aiChatOpen = false,
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .offset(y = (-29).dp)
-                .fillMaxWidth()
-                .height(225.dp),
+                .fillMaxWidth(),
         )
 
         Column(
@@ -1820,12 +1811,26 @@ private fun HomeHeroHeader() {
 }
 
 @Composable
+private fun HomeAssistantArtwork(
+    aiChatOpen: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    Box(modifier = modifier.aspectRatio(HOME_ASSISTANT_ART_ASPECT_RATIO)) {
+        HomeAssistantBackground(modifier = Modifier.matchParentSize())
+        HomeAssistantPerson(
+            aiChatOpen = aiChatOpen,
+            modifier = Modifier.matchParentSize(),
+        )
+    }
+}
+
+@Composable
 private fun HomeAssistantBackground(modifier: Modifier = Modifier) {
     Image(
         painter = painterResource(R.drawable.ai_assistant_home_background),
         contentDescription = null,
         modifier = modifier,
-        contentScale = ContentScale.FillBounds,
+        contentScale = ContentScale.Fit,
     )
 }
 
@@ -1844,7 +1849,7 @@ private fun HomeAssistantPerson(
         ),
         contentDescription = null,
         modifier = modifier,
-        contentScale = ContentScale.FillBounds,
+        contentScale = ContentScale.Fit,
     )
 }
 

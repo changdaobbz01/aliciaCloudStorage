@@ -6,6 +6,7 @@ import android.widget.VideoView
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -30,6 +31,8 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -47,6 +50,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -75,6 +79,7 @@ import com.alicia.cloudstorage.phone.ShareCreateActivity
 import com.alicia.cloudstorage.phone.data.StorageNode
 import com.alicia.cloudstorage.phone.data.StorageNodeType
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.distinctUntilChanged
 import java.util.Locale
 
 private val DetailBackground = Color(0xFFF7F8FD)
@@ -101,6 +106,7 @@ fun FileDetailScreen(
     val node = state.currentNode
     val context = LocalContext.current
     var overlay by rememberSaveable { mutableStateOf<DetailOverlay?>(null) }
+    var imageZoomed by remember(node.id) { mutableStateOf(false) }
     val downloadLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument(node.mimeType ?: "*/*"),
     ) { uri ->
@@ -139,10 +145,12 @@ fun FileDetailScreen(
                 onBack = onBack,
                 onInfo = { overlay = DetailOverlay.INFO },
             )
-            FileDetailPreview(
-                node = node,
+            FileDetailGalleryPager(
                 state = state,
+                scrollEnabled = !imageZoomed && state.activeOperation == null && !state.deleted,
+                onPageSelected = viewModel::openGalleryIndex,
                 onRetry = viewModel::retry,
+                onImageZoomedChange = { imageZoomed = it },
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f),
@@ -220,6 +228,63 @@ fun FileDetailScreen(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun FileDetailGalleryPager(
+    state: FileDetailUiState,
+    scrollEnabled: Boolean,
+    onPageSelected: (Int) -> Unit,
+    onRetry: () -> Unit,
+    onImageZoomedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val galleryNodes = state.galleryNodes.ifEmpty { listOf(state.currentNode) }
+    val pageCount = galleryNodes.size
+    val targetPage = state.galleryIndex.coerceIn(0, pageCount - 1)
+    val pagerState = rememberPagerState(
+        initialPage = targetPage,
+        pageCount = { pageCount },
+    )
+
+    LaunchedEffect(targetPage, pageCount) {
+        if (pagerState.currentPage != targetPage) {
+            pagerState.scrollToPage(targetPage)
+        }
+    }
+
+    LaunchedEffect(pagerState, pageCount) {
+        snapshotFlow { pagerState.currentPage }
+            .distinctUntilChanged()
+            .collect { page ->
+                if (page in galleryNodes.indices) {
+                    onPageSelected(page)
+                }
+            }
+    }
+
+    HorizontalPager(
+        state = pagerState,
+        modifier = modifier,
+        userScrollEnabled = scrollEnabled && pageCount > 1,
+    ) { page ->
+        val pageNode = galleryNodes[page]
+        if (page == state.galleryIndex && pageNode.id == state.currentNode.id) {
+            FileDetailPreview(
+                node = pageNode,
+                state = state,
+                onRetry = onRetry,
+                onImageZoomedChange = onImageZoomedChange,
+            )
+        } else {
+            DetailPreviewMessage(
+                node = pageNode,
+                title = pageNode.name,
+                supporting = "正在加载预览",
+            )
+        }
+    }
+}
+
 @Composable
 private fun FileDetailHeader(
     fileName: String,
@@ -294,6 +359,7 @@ private fun FileDetailPreview(
     node: StorageNode,
     state: FileDetailUiState,
     onRetry: () -> Unit,
+    onImageZoomedChange: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     Box(
@@ -319,6 +385,7 @@ private fun FileDetailPreview(
                 url = state.previewUrl,
                 fileName = node.name,
                 onRetry = onRetry,
+                onZoomedChange = onImageZoomedChange,
             )
 
             state.kind == PreviewKind.TEXT -> SelectionContainer {
@@ -360,6 +427,7 @@ private fun ZoomableDetailImage(
     url: String,
     fileName: String,
     onRetry: () -> Unit,
+    onZoomedChange: (Boolean) -> Unit = {},
 ) {
     var scale by remember(url) { mutableFloatStateOf(1f) }
     var offset by remember(url) { mutableStateOf(Offset.Zero) }
@@ -378,6 +446,11 @@ private fun ZoomableDetailImage(
             )
         }
         scale = nextScale
+        onZoomedChange(nextScale > 1.05f)
+    }
+
+    LaunchedEffect(url) {
+        onZoomedChange(false)
     }
 
     Box(
@@ -394,8 +467,10 @@ private fun ZoomableDetailImage(
                         if (scale > 1.05f) {
                             scale = 1f
                             offset = Offset.Zero
+                            onZoomedChange(false)
                         } else {
                             scale = 2.5f
+                            onZoomedChange(true)
                         }
                     },
                 )

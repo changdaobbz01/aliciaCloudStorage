@@ -84,6 +84,26 @@
       "body": {},
       "message": "已确认上传目标目录，调用方需要让用户选择本地文件后再提交上传。"
     },
+    "folder.create": {
+      "enabled": true,
+      "status": "backend_action_ready",
+      "next_action": "handoff_to_backend",
+      "executable_by_backend": true,
+      "authorization_required": true,
+      "method": "POST",
+      "path_template": "/api/storage/folders",
+      "content_type": "application/json",
+      "required_candidate_fields": [],
+      "required_entity_slots": ["new_folder_name"],
+      "required_client_fields": [],
+      "path_variables": {},
+      "query_parameters": {},
+      "body": {
+        "parentId": "$candidate.nodeId",
+        "folderName": "$entities.new_folder_name"
+      },
+      "message": "已生成新建文件夹后端请求草稿，等待调用方提交给 CloudStorageApi。"
+    },
     "collection.trash_by_name_contains": {
       "enabled": true,
       "status": "backend_action_ready",

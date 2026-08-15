@@ -18,6 +18,7 @@ intent_template_file_rename_lookup,true,108,file_rename,"我先帮你匹配原�
 intent_template_file_share_lookup,true,108,file_share,"我先帮你匹配要分享的文件，确认目标后再准备分享计划。",wait_for_backend_binding,false
 intent_template_file_delete_lookup,true,108,file_delete,"我先帮你匹配要移入回收站的文件，确认目标后再整理删除计划。",wait_for_backend_binding,false
 intent_template_file_upload_lookup,true,108,file_upload,"我先帮你匹配上传目标文件夹，确认位置后再继续上传。",wait_for_backend_binding,false
+intent_template_folder_create_lookup,true,108,folder_create,"我先定位创建位置，并整理新建文件夹计划，确认后再继续。",wait_for_backend_binding,false
 intent_template_folder_create_upload_lookup,true,108,folder_create_then_upload,"我先匹配目标目录，并整理新建文件夹后上传的计划，确认后再继续。",wait_for_backend_binding,false
 intent_template_collection_delete_name_lookup,true,108,collection_delete_by_name,"我会先按名称关键字整理要移入回收站的文件集合，等你确认范围后再继续。",wait_for_backend_binding,false
 intent_template_collection_delete_category_lookup,true,108,collection_delete_by_category,"我会先按文件类型整理要移入回收站的文件集合，等你确认范围后再继续。",wait_for_backend_binding,false

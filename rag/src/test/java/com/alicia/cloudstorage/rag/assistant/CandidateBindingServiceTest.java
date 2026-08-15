@@ -5,6 +5,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -178,6 +179,59 @@ class CandidateBindingServiceTest {
         assertThat(result.candidates()).singleElement().satisfies(candidate -> {
             assertThat(candidate.nodeId()).isNull();
             assertThat(candidate.name()).isEqualTo("根目录");
+            assertThat(candidate.path()).isEqualTo("/");
+        });
+        assertThat(port.lastRequest).isNull();
+    }
+
+    @Test
+    void createFolderWithoutTargetUsesCurrentFolderInsteadOfSearchingNewFolderName() {
+        CapturingCandidateSearchPort port = new CapturingCandidateSearchPort();
+        CandidateBindingService service = new CandidateBindingService(port, intentRouter, 5);
+
+        IntentRecognitionResponse response = intentRecognitionService.recognize("新建一个名为视频目录的文件夹");
+        CandidateBindingResult result = service.bind(
+                response,
+                "Bearer token",
+                new AssistantClientContext(
+                        501L,
+                        "根目录/项目资料",
+                        Map.of(),
+                        "action_bridge_v2",
+                        List.of("folder.create")
+                )
+        );
+
+        assertThat(response.intentId()).isEqualTo("folder_create");
+        assertThat(response.entities()).containsEntry("new_folder_name", "视频目录");
+        assertThat(result.status()).isEqualTo("single_candidate");
+        assertThat(result.source()).isEqualTo("virtual:client-current-folder");
+        assertThat(result.candidates()).singleElement().satisfies(candidate -> {
+            assertThat(candidate.nodeId()).isEqualTo(501L);
+            assertThat(candidate.name()).isEqualTo("项目资料");
+            assertThat(candidate.path()).isEqualTo("根目录/项目资料");
+        });
+        assertThat(port.lastRequest).isNull();
+    }
+
+    @Test
+    void createFolderExplicitRootUsesVirtualRootParent() {
+        CapturingCandidateSearchPort port = new CapturingCandidateSearchPort();
+        CandidateBindingService service = new CandidateBindingService(port, intentRouter, 5);
+
+        IntentRecognitionResponse response = intentRecognitionService.recognize("在根目录下新建一个名为照片目录的文件夹");
+        CandidateBindingResult result = service.bind(
+                response,
+                "Bearer token",
+                new AssistantClientContext(501L, "根目录/项目资料")
+        );
+
+        assertThat(response.intentId()).isEqualTo("folder_create");
+        assertThat(response.entities()).containsEntry("new_folder_name", "照片目录");
+        assertThat(result.status()).isEqualTo("single_candidate");
+        assertThat(result.source()).isEqualTo("virtual:cloud-drive-root");
+        assertThat(result.candidates()).singleElement().satisfies(candidate -> {
+            assertThat(candidate.nodeId()).isNull();
             assertThat(candidate.path()).isEqualTo("/");
         });
         assertThat(port.lastRequest).isNull();

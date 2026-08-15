@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.alicia.cloudstorage.phone.FileDetailArgs
 import com.alicia.cloudstorage.phone.data.AliciaRepository
 import com.alicia.cloudstorage.phone.data.StorageNode
+import com.alicia.cloudstorage.phone.data.StorageNodeType
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -32,6 +33,8 @@ private val detailTextExtensions = setOf(
 
 data class FileDetailUiState(
     val currentNode: StorageNode,
+    val galleryNodes: List<StorageNode> = listOf(currentNode),
+    val galleryIndex: Int = 0,
     val loading: Boolean = true,
     val kind: PreviewKind? = null,
     val textContent: String = "",
@@ -60,14 +63,61 @@ class FileDetailViewModel(
     private val args: FileDetailArgs,
     private val repository: AliciaRepository,
 ) : ViewModel() {
-    private val _uiState = MutableStateFlow(FileDetailUiState(currentNode = args.node))
+    private val initialGalleryNodes = args.galleryNodes
+        .filter { it.type == StorageNodeType.FILE }
+        .ifEmpty { listOf(args.node) }
+    private val initialGalleryIndex = initialGalleryNodes
+        .indexOfFirst { it.id == args.node.id }
+        .takeIf { it >= 0 }
+        ?: 0
+    private val _uiState = MutableStateFlow(
+        FileDetailUiState(
+            currentNode = initialGalleryNodes[initialGalleryIndex],
+            galleryNodes = initialGalleryNodes,
+            galleryIndex = initialGalleryIndex,
+        ),
+    )
     val uiState = _uiState.asStateFlow()
+    private var previewGeneration = 0L
 
     init {
         loadPreview()
     }
 
     fun retry() {
+        loadPreview()
+    }
+
+    fun openGalleryIndex(index: Int) {
+        val state = _uiState.value
+        if (
+            state.activeOperation != null ||
+            state.renameDialogOpen ||
+            index !in state.galleryNodes.indices ||
+            index == state.galleryIndex
+        ) {
+            return
+        }
+
+        val nextNode = state.galleryNodes[index]
+        _uiState.update {
+            it.copy(
+                currentNode = nextNode,
+                galleryIndex = index,
+                loading = true,
+                kind = null,
+                textContent = "",
+                previewUrl = null,
+                error = null,
+                downloadPercent = null,
+                moveFolders = emptyList(),
+                moveFoldersLoading = false,
+                message = null,
+                renameDialogOpen = false,
+                renameError = null,
+                deleted = false,
+            )
+        }
         loadPreview()
     }
 
@@ -109,6 +159,9 @@ class FileDetailViewModel(
                 _uiState.update {
                     it.copy(
                         currentNode = renamedNode,
+                        galleryNodes = it.galleryNodes.map { galleryNode ->
+                            if (galleryNode.id == renamedNode.id) renamedNode else galleryNode
+                        },
                         activeOperation = null,
                         renameDialogOpen = false,
                         renameError = null,
@@ -130,6 +183,7 @@ class FileDetailViewModel(
     }
 
     fun downloadToUri(destinationUri: Uri) {
+        val node = _uiState.value.currentNode
         if (_uiState.value.activeOperation != null) return
         viewModelScope.launch {
             _uiState.update {
@@ -144,7 +198,7 @@ class FileDetailViewModel(
                     context = appContext,
                     baseUrl = args.baseUrl,
                     token = args.authToken,
-                    fileId = args.node.id,
+                    fileId = node.id,
                     destinationUri = destinationUri,
                     onProgress = { progress ->
                         val percent = progress.totalBytes
@@ -173,11 +227,12 @@ class FileDetailViewModel(
 
     fun loadMoveFolders() {
         if (_uiState.value.moveFoldersLoading || _uiState.value.moveFolders.isNotEmpty()) return
+        val node = _uiState.value.currentNode
         viewModelScope.launch {
             _uiState.update { it.copy(moveFoldersLoading = true, message = null) }
             runCatching {
                 repository.fetchFolders(args.baseUrl, args.authToken)
-                    .filterNot { it.id == args.node.id }
+                    .filterNot { it.id == node.id }
                     .sortedBy { it.name.lowercase() }
             }.onSuccess { folders ->
                 _uiState.update { it.copy(moveFoldersLoading = false, moveFolders = folders) }
@@ -193,6 +248,7 @@ class FileDetailViewModel(
     }
 
     fun moveTo(parentId: Long?) {
+        val node = _uiState.value.currentNode
         if (_uiState.value.activeOperation != null) return
         viewModelScope.launch {
             _uiState.update { it.copy(activeOperation = FileDetailOperation.MOVE, message = null) }
@@ -200,13 +256,21 @@ class FileDetailViewModel(
                 repository.moveNodes(
                     baseUrl = args.baseUrl,
                     token = args.authToken,
-                    nodeIds = listOf(args.node.id),
+                    nodeIds = listOf(node.id),
                     parentId = parentId,
                 )
             }.onSuccess { movedNodes ->
+                val movedNode = movedNodes.firstOrNull()
                 _uiState.update {
                     it.copy(
-                        currentNode = movedNodes.firstOrNull() ?: it.currentNode,
+                        currentNode = movedNode ?: it.currentNode,
+                        galleryNodes = if (movedNode == null) {
+                            it.galleryNodes
+                        } else {
+                            it.galleryNodes.map { galleryNode ->
+                                if (galleryNode.id == movedNode.id) movedNode else galleryNode
+                            }
+                        },
                         activeOperation = null,
                         contentChanged = true,
                         message = "移动成功。",
@@ -219,6 +283,7 @@ class FileDetailViewModel(
     }
 
     fun deleteToTrash() {
+        val node = _uiState.value.currentNode
         if (_uiState.value.activeOperation != null || _uiState.value.deleted) return
         viewModelScope.launch {
             _uiState.update { it.copy(activeOperation = FileDetailOperation.DELETE, message = null) }
@@ -226,7 +291,7 @@ class FileDetailViewModel(
                 repository.moveNodeToTrash(
                     baseUrl = args.baseUrl,
                     token = args.authToken,
-                    nodeId = args.node.id,
+                    nodeId = node.id,
                 )
             }.onSuccess {
                 _uiState.update {
@@ -252,40 +317,56 @@ class FileDetailViewModel(
     }
 
     private fun loadPreview() {
-        val previewKind = resolveDetailPreviewKind(args)
+        val node = _uiState.value.currentNode
+        val generation = ++previewGeneration
+        val previewKind = resolveDetailPreviewKind(node)
 
         if (previewKind == null) {
             _uiState.update {
-                it.copy(
-                    loading = false,
-                    kind = null,
-                    textContent = "",
-                    previewUrl = null,
-                    error = null,
-                )
+                if (it.currentNode.id == node.id) {
+                    it.copy(
+                        loading = false,
+                        kind = null,
+                        textContent = "",
+                        previewUrl = null,
+                        error = null,
+                    )
+                } else {
+                    it
+                }
             }
             return
         }
-        if (previewKind == PreviewKind.TEXT && args.node.size > MAX_DETAIL_TEXT_PREVIEW_BYTES) {
+        if (previewKind == PreviewKind.TEXT && node.size > MAX_DETAIL_TEXT_PREVIEW_BYTES) {
             _uiState.update {
-                it.copy(
-                    loading = false,
-                    kind = previewKind,
-                    error = "文本文件超过 2 MB，请下载后查看完整内容。",
-                )
+                if (it.currentNode.id == node.id) {
+                    it.copy(
+                        loading = false,
+                        kind = previewKind,
+                        textContent = "",
+                        previewUrl = null,
+                        error = "文本文件超过 2 MB，请下载后查看完整内容。",
+                    )
+                } else {
+                    it
+                }
             }
             return
         }
 
         if (previewKind == PreviewKind.PDF) {
             _uiState.update {
-                it.copy(
-                    loading = false,
-                    kind = previewKind,
-                    textContent = "",
-                    previewUrl = null,
-                    error = null,
-                )
+                if (it.currentNode.id == node.id) {
+                    it.copy(
+                        loading = false,
+                        kind = previewKind,
+                        textContent = "",
+                        previewUrl = null,
+                        error = null,
+                    )
+                } else {
+                    it
+                }
             }
             return
         }
@@ -306,7 +387,7 @@ class FileDetailViewModel(
                         val file = repository.downloadFileViaSignedUrl(
                             baseUrl = args.baseUrl,
                             token = args.authToken,
-                            fileId = args.node.id,
+                            fileId = node.id,
                         )
                         decodeDetailText(file.bytes, file.contentType) to null
                     }
@@ -318,7 +399,7 @@ class FileDetailViewModel(
                         val access = repository.fetchInlineFileAccessUrl(
                             baseUrl = args.baseUrl,
                             token = args.authToken,
-                            fileId = args.node.id,
+                            fileId = node.id,
                         )
                         "" to access.url
                     }
@@ -327,20 +408,28 @@ class FileDetailViewModel(
                 }
             }.onSuccess { (textContent, previewUrl) ->
                 _uiState.update {
-                    it.copy(
-                        loading = false,
-                        kind = previewKind,
-                        textContent = textContent,
-                        previewUrl = previewUrl,
-                        error = null,
-                    )
+                    if (generation == previewGeneration && it.currentNode.id == node.id) {
+                        it.copy(
+                            loading = false,
+                            kind = previewKind,
+                            textContent = textContent,
+                            previewUrl = previewUrl,
+                            error = null,
+                        )
+                    } else {
+                        it
+                    }
                 }
             }.onFailure { error ->
                 _uiState.update { state ->
-                    state.copy(
-                        loading = false,
-                        error = error.message?.takeIf(String::isNotBlank) ?: "文件预览加载失败。",
-                    )
+                    if (generation == previewGeneration && state.currentNode.id == node.id) {
+                        state.copy(
+                            loading = false,
+                            error = error.message?.takeIf(String::isNotBlank) ?: "文件预览加载失败。",
+                        )
+                    } else {
+                        state
+                    }
                 }
             }
         }
@@ -372,9 +461,9 @@ class FileDetailViewModel(
     }
 }
 
-private fun resolveDetailPreviewKind(args: FileDetailArgs): PreviewKind? {
-    val mimeType = args.node.mimeType?.lowercase().orEmpty()
-    val extension = args.node.extension?.lowercase().orEmpty()
+private fun resolveDetailPreviewKind(node: StorageNode): PreviewKind? {
+    val mimeType = node.mimeType?.lowercase().orEmpty()
+    val extension = node.extension?.lowercase().orEmpty()
     return when {
         mimeType.startsWith("image/") -> PreviewKind.IMAGE
         mimeType == "application/pdf" || extension == "pdf" -> PreviewKind.PDF

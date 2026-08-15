@@ -30,6 +30,7 @@ internal class RagActionExecutor(
                 "rename" -> executeRename(context, safeDraft, validation)
                 "delete" -> executeDelete(context, safeDraft, validation)
                 "share" -> executeShare(context, safeDraft, validation)
+                "folder.create" -> executeCreateFolder(context, safeDraft, validation)
                 "collection.trash_by_name_contains",
                 "collection.trash_by_category",
                 "collection.trash",
@@ -119,6 +120,28 @@ internal class RagActionExecutor(
             affectedNodeIds = nodeIds,
             shareCode = share.shareCode.takeIf { shareUrl != null },
             shareUrl = shareUrl,
+        )
+    }
+
+    private suspend fun executeCreateFolder(
+        context: RagActionExecutionContext,
+        draft: RagBackendActionDraft,
+        validation: RagActionBridgeValidation,
+    ): RagActionExecutionResult {
+        val folderName = draft.body.stringValue("folderName")
+            ?: return RagActionExecutionResult.invalidDraft("缺少新文件夹名称。", validation)
+        val parentId = draft.body.nullableLongValue("parentId")
+        val folder = repositoryPort.createFolder(
+            baseUrl = context.baseUrl,
+            token = context.token,
+            parentId = parentId,
+            folderName = folderName,
+        )
+        return RagActionExecutionResult.completed(
+            actionType = draft.actionType,
+            message = "文件夹已创建：${folder.name}",
+            validation = validation,
+            affectedNodeIds = listOf(folder.id),
         )
     }
 
@@ -246,6 +269,8 @@ internal interface RagActionRepositoryPort {
 
     suspend fun moveNodes(baseUrl: String, token: String, nodeIds: List<Long>, parentId: Long?): List<StorageNode>
 
+    suspend fun createFolder(baseUrl: String, token: String, parentId: Long?, folderName: String): StorageNode
+
     suspend fun createShareLink(
         baseUrl: String,
         token: String,
@@ -289,6 +314,14 @@ internal class AliciaRagActionRepositoryPort(
         parentId: Long?,
     ): List<StorageNode> =
         repository.moveNodes(baseUrl, token, nodeIds, parentId)
+
+    override suspend fun createFolder(
+        baseUrl: String,
+        token: String,
+        parentId: Long?,
+        folderName: String,
+    ): StorageNode =
+        repository.createFolder(baseUrl, token, parentId, folderName)
 
     override suspend fun createShareLink(
         baseUrl: String,

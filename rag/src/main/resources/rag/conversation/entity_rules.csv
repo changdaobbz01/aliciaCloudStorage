@@ -7,9 +7,9 @@ file_type,true,regex_capture,"(图片|照片|视频|音频|音乐|文档|压缩�
 rename_prefix,true,regex_capture,"(?:头部|开头|前缀|prefix).*?(?:加上|添加|追加|加|为|是|=|:)\s*([^/\s，。,.!?！？]+)",false
 rename_prefix,true,regex_capture,"(?:统一|全部).*?(?:加上|添加|追加)\s*([^/\s，。,.!?！？]+).*?(?:前缀|到头部|到开头)",false
 rename_prefix,true,regex_capture,"(?:加前缀|添加前缀|批量添加前缀)\s*([^/\s，。,.!?！？]+)",false
-new_folder_name,true,regex_capture,"(?:新建|创建|建立|mkdir|create).*?(?:名为|叫|名称为|named)\s*([^/\s，。,.!?！？]+?)(?:的)?\s*(?:文件夹|目录|folder|directory)",false
-new_folder_name,true,regex_capture,"(?:新建|创建|建立|mkdir|create)\s*([^/\s，。,.!?！？]+?)(?:的)?\s*(?:文件夹|目录|folder|directory)",false
-new_folder_name,true,regex_capture,"(?:新建|创建|建立|mkdir|create)\s*([^/\s，。,.!?！？]+?)(?:，|。|,|\.|并|再|然后|后)",false
+new_folder_name,true,regex_capture,"(?:新建|创建|建立|建一个|建个|mkdir|create).*?(?:名为|叫|名称为|named)\s*([^/\s，。,.!?！？]+?)(?:的)?\s*(?:文件夹|folder|directory)",false
+new_folder_name,true,regex_capture,"(?:新建|创建|建立|建一个|建个|mkdir|create)\s*([^/\s，。,.!?！？]+?)(?:的)?\s*(?:文件夹|目录|folder|directory)",false
+new_folder_name,true,regex_capture,"(?:新建|创建|建立|建一个|建个|mkdir|create)\s*([^/\s，。,.!?！？]+?)(?:，|。|,|\.|并|再|然后|后)",false
 target_folder,true,regex_capture,"(?:在)\s*([^/\s，。,.!?！？]+?)(?:目录|文件夹|folder|directory)?(?:下|中|里|内)",false
 target_folder,true,regex_capture,"(?:在)\s*([^/\s，。,.!?！？]+?)(?:目录|文件夹|folder|directory)\s*(?:新建|创建|建立|mkdir|create)",false
 target_folder,true,regex_capture,"(?:到|至|进)\s*([^/\s，。,.!?！？]+?)(?:目录|文件夹|folder|directory)?\s*(?:新建|创建|建立|mkdir|create)",false

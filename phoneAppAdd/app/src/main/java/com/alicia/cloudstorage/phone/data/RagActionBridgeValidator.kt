@@ -152,6 +152,11 @@ internal class RagActionBridgeValidator(
                     "allowSave",
                 ),
             ),
+            "folder.create" to RagAllowedBridgeRoute(
+                method = "POST",
+                pathTemplate = "/api/storage/folders",
+                bodyKeys = setOf("parentId", "folderName"),
+            ),
             "collection.trash_by_name_contains" to RagAllowedBridgeRoute(
                 method = "POST",
                 pathTemplate = "/api/storage/nodes/batch/trash",

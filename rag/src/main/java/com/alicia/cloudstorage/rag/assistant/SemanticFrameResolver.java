@@ -123,6 +123,9 @@ public class SemanticFrameResolver {
             SemanticFrame frame,
             IntentRecognitionResponse response
     ) {
+        if ("CREATE_FOLDER".equals(frame.operation())) {
+            return frame;
+        }
         Optional<OperationArgumentResolver.Resolution> parsed = operationArgumentResolver.resolve(
                 message,
                 frame.operation()

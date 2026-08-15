@@ -14,7 +14,8 @@ assistant_bored,true,142,0.93,无聊|没意思|不知道干嘛|空虚,,识别为
 assistant_chat,true,141,0.94,聊天|聊聊天|聊一聊|聊一会儿|聊会儿|陪我聊|说说话|talk|chat,,识别为安安闲聊
 assistant_acknowledgement,true,140,0.93,好的|好吧|了解了|明白了|知道了|收到|行吧|好嘞|嗯嗯|OK|ok,文件|文档|目录|文件夹|删除|移动|上传|分享|重命名|改名|执行|确认|确定|回收站,识别为安安轻量收尾回应
 assistant_social,true,146,0.93,你好|您好|漂亮|好看|可爱|温柔|喜欢你|谢谢|辛苦|真棒|厉害,文件|文档|目录|文件夹|删除|移动|上传|分享|重命名|改名|执行|确认|搜索|查找,识别为安安社交回应
-folder_create_then_upload,true,130,0.95,新建|创建|建立|mkdir|create;上传|传到|放到|传文件|upload,,识别为新建文件夹后上传组合需求
+folder_create_then_upload,true,130,0.95,新建|创建|建立|建一个|建个|mkdir|create;上传|传到|放到|传文件|upload,,识别为新建文件夹后上传组合需求,"(?=.*(?:新建|创建|建立|建一个|建个|mkdir|create))(?=.*(?:(?:并|再|然后|后|接着|完).*?(?:上传|传到|放到|传文件|upload)|(?:上传|传到|放到|传文件|upload).*?(?:新建|创建|建立|建一个|建个|mkdir|create))).*",
+folder_create,true,129,0.94,新建|创建|建立|建一个|建个|mkdir|create;文件夹|目录|folder|directory,重命名|改名|改成|改为|换个名字|rename,识别为新建文件夹需求,"^[^/]*(?:新建|创建|建立|建一个|建个|mkdir|create)",
 collection_move_by_extension,true,125,0.93,后缀|扩展名|extension|ext|pdf|docx|doc|xlsx|xls|pptx|ppt|txt|md|png|jpg|jpeg|webp|gif|mp4|mp3|zip|rar|7z;移动|移到|放到|归档到|转移到|放进|移动至|move;文件夹|目录|folder|到|至|进,回收站|上传|导入|本地,识别为按后缀批量移动需求,"(?:后缀|扩展名|extension|ext|所有|全部|批量|都|格式|[A-Za-z0-9]{1,8}\s*(?:文件|文档|资料))",
 collection_move_by_category,true,122,0.92,图片|照片|视频|音频|音乐|文档|表格|压缩包|压缩文件;所有|全部|都|全都|统一|批量|散着的|同类型;移动|移到|放到|归档到|转移到|放进|移动至|move|集中|收纳;文件夹|目录|folder|到|至|进,回收站|删除|删掉|删了|移除|清理,识别为按类型批量移动需求
 collection_move_by_name,true,123,0.92,名字|名称|文件名|name;带有|包含|含有|含|中有|里有|里面有|内有|contains;移动|移到|放到|归档到|转移到|移动至|搬到|挪到|move,回收站|删除|删掉|删了|移除|清理,识别为按名称批量移动需求

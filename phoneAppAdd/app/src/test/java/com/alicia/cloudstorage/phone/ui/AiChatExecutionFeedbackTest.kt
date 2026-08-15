@@ -17,6 +17,7 @@ class AiChatExecutionFeedbackTest {
             AiChatExecutionFeedback.progressMessage("collection.move_by_extension"),
         )
         assertEquals("正在为你创建分享，请稍等...", AiChatExecutionFeedback.progressMessage("share"))
+        assertEquals("正在创建文件夹，请稍等...", AiChatExecutionFeedback.progressMessage("folder.create"))
         assertEquals("正在上传文件，请稍等...", AiChatExecutionFeedback.progressMessage("file.upload"))
         assertEquals(
             "正在创建文件夹并上传，请稍等...",
@@ -36,6 +37,7 @@ class AiChatExecutionFeedbackTest {
             AiChatFileMutationScope.FILES_AND_TRASH,
             AiChatExecutionFeedback.mutationScope("collection.trash_by_category"),
         )
+        assertEquals(AiChatFileMutationScope.FILES_ONLY, AiChatExecutionFeedback.mutationScope("folder.create"))
         assertEquals(null, AiChatExecutionFeedback.mutationScope("share"))
     }
 
