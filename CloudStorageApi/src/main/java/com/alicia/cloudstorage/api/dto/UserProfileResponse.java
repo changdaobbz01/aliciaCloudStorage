@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 public record UserProfileResponse(
         Long id,
         String phoneNumber,
+        String email,
         String nickname,
         String avatarUrl,
         String homeBackgroundUrl,

@@ -11,7 +11,11 @@ public interface SysUserRepository extends JpaRepository<SysUser, Long> {
 
     Optional<SysUser> findByPhoneNumber(String phoneNumber);
 
+    Optional<SysUser> findByEmail(String email);
+
     boolean existsByPhoneNumber(String phoneNumber);
+
+    boolean existsByEmail(String email);
 
     boolean existsByPhoneNumberAndIdNot(String phoneNumber, Long id);
 

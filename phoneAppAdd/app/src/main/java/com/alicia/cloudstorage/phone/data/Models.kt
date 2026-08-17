@@ -41,6 +41,7 @@ enum class AppTab {
 data class User(
     val id: Long,
     val phoneNumber: String,
+    val email: String?,
     val nickname: String,
     val avatarUrl: String?,
     val homeBackgroundUrl: String?,
@@ -53,7 +54,18 @@ data class User(
 )
 
 data class LoginPayload(
-    val phoneNumber: String,
+    val identifier: String,
+    val password: String,
+)
+
+data class RequestEmailRegistrationCodePayload(
+    val email: String,
+)
+
+data class VerifyEmailRegistrationPayload(
+    val email: String,
+    val code: String,
+    val nickname: String,
     val password: String,
 )
 
@@ -80,7 +92,7 @@ data class ChangePasswordPayload(
 )
 
 data class UpdateProfilePayload(
-    val phoneNumber: String,
+    val phoneNumber: String?,
     val nickname: String,
     val avatarUrl: String?,
 )

@@ -5,9 +5,13 @@ import com.alicia.cloudstorage.api.dto.ApiMessageResponse;
 import com.alicia.cloudstorage.api.dto.ChangePasswordRequest;
 import com.alicia.cloudstorage.api.dto.LoginRequest;
 import com.alicia.cloudstorage.api.dto.LoginResponse;
+import com.alicia.cloudstorage.api.dto.RequestEmailRegistrationCodeRequest;
 import com.alicia.cloudstorage.api.dto.UpdateProfileRequest;
 import com.alicia.cloudstorage.api.dto.UserProfileResponse;
+import com.alicia.cloudstorage.api.dto.VerifyEmailRegistrationRequest;
+import com.alicia.cloudstorage.api.service.EmailRegistrationService;
 import com.alicia.cloudstorage.api.service.UserAccountService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -34,12 +38,14 @@ public class AuthController {
     private static final String SIGNED_MEDIA_REDIRECT_CACHE_CONTROL = "private, max-age=240";
 
     private final UserAccountService userAccountService;
+    private final EmailRegistrationService emailRegistrationService;
 
     /**
      * 注入账号业务服务，供登录和个人资料接口复用。
      */
-    public AuthController(UserAccountService userAccountService) {
+    public AuthController(UserAccountService userAccountService, EmailRegistrationService emailRegistrationService) {
         this.userAccountService = userAccountService;
+        this.emailRegistrationService = emailRegistrationService;
     }
 
     /**
@@ -48,6 +54,24 @@ public class AuthController {
     @PostMapping("/login")
     public LoginResponse login(@Valid @RequestBody LoginRequest request) {
         return userAccountService.login(request);
+    }
+
+    @PostMapping("/register/email-code")
+    public ApiMessageResponse requestEmailRegistrationCode(
+            @Valid @RequestBody RequestEmailRegistrationCodeRequest request,
+            HttpServletRequest servletRequest
+    ) {
+        emailRegistrationService.requestRegistrationCode(
+                request.email(),
+                servletRequest.getRemoteAddr(),
+                servletRequest.getHeader(HttpHeaders.USER_AGENT)
+        );
+        return new ApiMessageResponse("如果邮箱可用，验证码会发送到该邮箱。");
+    }
+
+    @PostMapping("/register/verify")
+    public LoginResponse verifyEmailRegistration(@Valid @RequestBody VerifyEmailRegistrationRequest request) {
+        return emailRegistrationService.verifyRegistration(request);
     }
 
     /**

@@ -150,6 +150,9 @@ fun formatRole(role: UserRole): String =
         UserRole.USER -> "普通用户"
     }
 
+fun userAccountLabel(user: User): String =
+    user.email?.takeIf { it.isNotBlank() } ?: user.phoneNumber
+
 fun formatNodeMeta(node: StorageNode): String =
     when (node.type) {
         StorageNodeType.FOLDER -> "文件夹 · ${formatDateTime(node.updatedAt)}"

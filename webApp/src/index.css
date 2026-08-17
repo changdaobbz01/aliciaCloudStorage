@@ -144,6 +144,20 @@ select {
   padding: 0 32px 32px;
 }
 
+.login-mode-switch {
+  padding: 0 32px 20px;
+}
+
+.login-mode-switch .ant-segmented {
+  border-radius: 12px;
+  background: rgba(226, 232, 240, 0.62);
+}
+
+.login-mode-switch .ant-segmented-item {
+  border-radius: 10px;
+  font-weight: 600;
+}
+
 .login-download-card {
   position: absolute;
   right: 32px;

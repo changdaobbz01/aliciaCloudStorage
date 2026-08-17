@@ -511,7 +511,7 @@ export function DrivePage() {
               </Typography.Title>
               <div className="sider-profile-meta">
                 <span className="sider-role-pill">{isAdmin ? '管理员账号' : '个人空间'}</span>
-                <span>{currentUser?.phoneNumber}</span>
+                <span>{currentUser?.email ?? currentUser?.phoneNumber}</span>
               </div>
             </div>
           </div>

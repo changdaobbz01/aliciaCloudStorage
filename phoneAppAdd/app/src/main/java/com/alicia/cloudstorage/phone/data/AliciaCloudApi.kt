@@ -28,6 +28,16 @@ interface AliciaCloudService {
         @Body payload: LoginPayload,
     ): Response<LoginResponse>
 
+    @POST("api/auth/register/email-code")
+    suspend fun requestEmailRegistrationCode(
+        @Body payload: RequestEmailRegistrationCodePayload,
+    ): Response<ApiMessageResponse>
+
+    @POST("api/auth/register/verify")
+    suspend fun verifyEmailRegistration(
+        @Body payload: VerifyEmailRegistrationPayload,
+    ): Response<LoginResponse>
+
     @GET("api/auth/me")
     suspend fun fetchCurrentUser(
         @Header("Authorization") authorization: String,

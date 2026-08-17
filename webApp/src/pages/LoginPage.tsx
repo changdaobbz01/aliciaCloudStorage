@@ -1,10 +1,16 @@
-import { App as AntApp, Button, Card, Form, Input, QRCode, Typography } from 'antd';
+import { App as AntApp, Button, Card, Form, Input, QRCode, Segmented, Space, Typography } from 'antd';
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { RegulatoryFooter } from '../components/RegulatoryFooter';
 import { useSession } from '../context/session-context';
-import { fetchPublicAppPackage, login } from '../lib/api';
-import type { AppPackageInfo, LoginPayload } from '../types';
+import { fetchPublicAppPackage, login, requestEmailRegistrationCode, verifyEmailRegistration } from '../lib/api';
+import type { AppPackageInfo, LoginPayload, VerifyEmailRegistrationPayload } from '../types';
+
+type AuthMode = 'login' | 'register';
+
+type RegisterFormValues = VerifyEmailRegistrationPayload & {
+  confirmPassword: string;
+};
 
 function resolveDownloadUrl(downloadPath: string) {
   if (/^https?:\/\//i.test(downloadPath)) {
@@ -23,8 +29,13 @@ export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { authToken, setCurrentSession } = useSession();
-  const [form] = Form.useForm<LoginPayload>();
+  const [loginForm] = Form.useForm<LoginPayload>();
+  const [registerForm] = Form.useForm<RegisterFormValues>();
+  const [authMode, setAuthMode] = useState<AuthMode>('login');
   const [appPackageInfo, setAppPackageInfo] = useState<AppPackageInfo | null>(null);
+  const [sendingCode, setSendingCode] = useState(false);
+  const [registering, setRegistering] = useState(false);
+  const [codeCooldown, setCodeCooldown] = useState(0);
 
   function resolveLoginDestination() {
     const destination = typeof location.state === 'object' &&
@@ -70,15 +81,65 @@ export function LoginPage() {
     }
   }, [authToken, navigate]);
 
+  useEffect(() => {
+    if (codeCooldown <= 0) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setCodeCooldown((current) => Math.max(0, current - 1));
+    }, 1000);
+
+    return () => window.clearTimeout(timer);
+  }, [codeCooldown]);
+
   async function handleFinish(values: LoginPayload) {
     try {
-      const session = await login(values);
+      const session = await login({
+        identifier: values.identifier.trim(),
+        password: values.password,
+      });
       setCurrentSession(session);
       message.success('登录成功。');
 
       void navigate(resolveLoginDestination(), { replace: true });
     } catch (error) {
       message.error(error instanceof Error ? error.message : '登录失败。');
+    }
+  }
+
+  async function handleSendRegistrationCode() {
+    try {
+      const { email } = await registerForm.validateFields(['email']);
+      setSendingCode(true);
+      await requestEmailRegistrationCode({ email: email.trim() });
+      setCodeCooldown(60);
+      message.success('如果邮箱可用，验证码会发送到该邮箱。');
+    } catch (error) {
+      if (error instanceof Error) {
+        message.error(error.message);
+      }
+    } finally {
+      setSendingCode(false);
+    }
+  }
+
+  async function handleRegister(values: RegisterFormValues) {
+    try {
+      setRegistering(true);
+      const session = await verifyEmailRegistration({
+        email: values.email.trim(),
+        code: values.code.trim(),
+        nickname: values.nickname.trim(),
+        password: values.password,
+      });
+      setCurrentSession(session);
+      message.success('注册成功，欢迎使用 Alicia 云盘。');
+      void navigate(resolveLoginDestination(), { replace: true });
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : '注册失败。');
+    } finally {
+      setRegistering(false);
     }
   }
 
@@ -92,36 +153,135 @@ export function LoginPage() {
       <Card className="login-card" bordered={false}>
         <div className="login-brand">
           <span className="login-badge">Alicia Cloud</span>
-          <Typography.Title level={2}>欢迎登录云盘</Typography.Title>
+          <Typography.Title level={2}>{authMode === 'login' ? '欢迎登录云盘' : '创建 Alicia 账号'}</Typography.Title>
           <Typography.Paragraph type="secondary" className="login-subtitle">
-            使用管理员分配的手机号和密码进入你的个人空间。
+            {authMode === 'login'
+              ? '使用手机号或已验证邮箱进入你的个人空间。'
+              : '通过邮箱验证码创建你的个人云盘空间。'}
           </Typography.Paragraph>
         </div>
 
-        <Form<LoginPayload> form={form} layout="vertical" onFinish={handleFinish}>
-          <Form.Item
-            name="phoneNumber"
-            label="手机号"
-            rules={[
-              { required: true, message: '请输入手机号。' },
-              { pattern: /^1\d{10}$/, message: '请输入 11 位手机号。' },
+        <div className="login-mode-switch">
+          <Segmented<AuthMode>
+            block
+            value={authMode}
+            onChange={setAuthMode}
+            options={[
+              { label: '登录', value: 'login' },
+              { label: '注册', value: 'register' },
             ]}
-          >
-            <Input placeholder="请输入手机号" autoComplete="username" />
-          </Form.Item>
+          />
+        </div>
 
-          <Form.Item
-            name="password"
-            label="密码"
-            rules={[{ required: true, message: '请输入密码。' }]}
-          >
-            <Input.Password placeholder="请输入密码" autoComplete="current-password" />
-          </Form.Item>
+        {authMode === 'login' ? (
+          <Form<LoginPayload> form={loginForm} layout="vertical" onFinish={handleFinish}>
+            <Form.Item
+              name="identifier"
+              label="手机号或邮箱"
+              rules={[{ required: true, message: '请输入手机号或邮箱。' }]}
+            >
+              <Input placeholder="请输入手机号或邮箱" autoComplete="username" />
+            </Form.Item>
 
-          <Button type="primary" htmlType="button" block className="login-submit" onClick={() => void form.submit()}>
-            登录
-          </Button>
-        </Form>
+            <Form.Item
+              name="password"
+              label="密码"
+              rules={[{ required: true, message: '请输入密码。' }]}
+            >
+              <Input.Password placeholder="请输入密码" autoComplete="current-password" />
+            </Form.Item>
+
+            <Button type="primary" htmlType="button" block className="login-submit" onClick={() => void loginForm.submit()}>
+              登录
+            </Button>
+          </Form>
+        ) : (
+          <Form<RegisterFormValues> form={registerForm} layout="vertical" onFinish={handleRegister}>
+            <Form.Item
+              name="email"
+              label="邮箱"
+              rules={[
+                { required: true, message: '请输入邮箱。' },
+                { type: 'email', message: '请输入有效邮箱地址。' },
+              ]}
+            >
+              <Input placeholder="请输入邮箱" autoComplete="email" />
+            </Form.Item>
+
+            <Form.Item label="验证码" required>
+              <Space.Compact block>
+                <Form.Item
+                  name="code"
+                  noStyle
+                  rules={[
+                    { required: true, message: '请输入验证码。' },
+                    { pattern: /^\d{6}$/, message: '验证码应为 6 位数字。' },
+                  ]}
+                >
+                  <Input placeholder="6 位验证码" inputMode="numeric" maxLength={6} />
+                </Form.Item>
+                <Button
+                  type="default"
+                  loading={sendingCode}
+                  disabled={codeCooldown > 0}
+                  onClick={() => void handleSendRegistrationCode()}
+                >
+                  {codeCooldown > 0 ? `${codeCooldown}s` : '发送验证码'}
+                </Button>
+              </Space.Compact>
+            </Form.Item>
+
+            <Form.Item
+              name="nickname"
+              label="昵称"
+              rules={[{ required: true, message: '请输入昵称。' }]}
+            >
+              <Input placeholder="请输入昵称" autoComplete="nickname" />
+            </Form.Item>
+
+            <Form.Item
+              name="password"
+              label="密码"
+              rules={[
+                { required: true, message: '请输入密码。' },
+                { min: 6, message: '密码长度至少为 6 位。' },
+              ]}
+            >
+              <Input.Password placeholder="至少 6 位" autoComplete="new-password" />
+            </Form.Item>
+
+            <Form.Item
+              name="confirmPassword"
+              label="确认密码"
+              dependencies={['password']}
+              rules={[
+                { required: true, message: '请再次输入密码。' },
+                ({ getFieldValue }) => ({
+                  validator(_, value) {
+                    if (!value || getFieldValue('password') === value) {
+                      return Promise.resolve();
+                    }
+
+                    return Promise.reject(new Error('两次输入的密码不一致。'));
+                  },
+                }),
+              ]}
+            >
+              <Input.Password placeholder="再次输入密码" autoComplete="new-password" />
+            </Form.Item>
+
+            <Button
+              type="primary"
+              htmlType="button"
+              block
+              loading={registering}
+              className="login-submit"
+              onClick={() => void registerForm.submit()}
+            >
+              注册并登录
+            </Button>
+          </Form>
+        )}
       </Card>
 
       {appDownloadAvailable && appDownloadUrl ? (

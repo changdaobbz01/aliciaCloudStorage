@@ -72,11 +72,10 @@ export function DriveProfileModals({
             name="phoneNumber"
             label="手机号"
             rules={[
-              { required: true, message: '请输入手机号。' },
               { pattern: /^1\d{10}$/, message: '请输入 11 位手机号。' },
             ]}
           >
-            <Input />
+            <Input placeholder="可选，绑定后也可用于登录" />
           </Form.Item>
           <Form.Item
             name="nickname"

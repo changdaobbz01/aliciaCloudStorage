@@ -24,6 +24,7 @@ import com.alicia.cloudstorage.phone.data.AppTab
 import com.alicia.cloudstorage.phone.data.DriveOverview
 import com.alicia.cloudstorage.phone.data.FolderCrumb
 import com.alicia.cloudstorage.phone.data.ClipboardShareReceipt
+import com.alicia.cloudstorage.phone.data.LoginResponse
 import com.alicia.cloudstorage.phone.data.SessionStore
 import com.alicia.cloudstorage.phone.data.ShareLinkDetailResponse
 import com.alicia.cloudstorage.phone.data.ShareLinkStatusResponse
@@ -247,6 +248,8 @@ data class IncomingShareUiState(
 data class AppUiState(
     val isBooting: Boolean = true,
     val isSubmittingLogin: Boolean = false,
+    val isSendingRegistrationCode: Boolean = false,
+    val isSubmittingRegistration: Boolean = false,
     val isManualRefreshing: Boolean = false,
     val isRefreshingUser: Boolean = false,
     val isUpdatingProfile: Boolean = false,
@@ -366,15 +369,16 @@ class MainViewModel internal constructor(
         }
     }
 
-    fun login(phoneNumber: String, password: String) {
+    fun login(identifier: String, password: String) {
         val normalizedBaseUrl = runCatching { normalizeBaseUrl(uiState.value.baseUrl) }
             .getOrElse { error ->
                 emitMessage(error.message ?: "请输入正确的后端地址。")
                 return
             }
+        val trimmedIdentifier = identifier.trim()
 
-        if (!phoneNumber.matches(Regex("^1\\d{10}$"))) {
-            emitMessage("请输入 11 位手机号。")
+        if (!isValidLoginIdentifier(trimmedIdentifier)) {
+            emitMessage("请输入手机号或邮箱。")
             return
         }
 
@@ -395,30 +399,12 @@ class MainViewModel internal constructor(
                 sessionStore.saveBaseUrl(normalizedBaseUrl)
                 repository.login(
                     baseUrl = normalizedBaseUrl,
-                    phoneNumber = phoneNumber,
+                    identifier = trimmedIdentifier,
                     password = password,
                 )
             }.onSuccess { response ->
-                sessionStore.saveSession(response.token, normalizedBaseUrl)
-                val restoredTransfers = activateTransferHistory(normalizedBaseUrl, response.user.id)
-                fileDirectoryCache.clear()
-                clearPreviewArtifacts()
-                _uiState.update { state ->
-                    state.copy(
-                        isBooting = false,
-                        isSubmittingLogin = false,
-                        authToken = response.token,
-                        currentUser = response.user,
-                        selectedTab = AppTab.HOME,
-                        home = HomeUiState(),
-                        files = ExplorerUiState(),
-                        trash = ExplorerUiState(breadcrumbs = emptyList()),
-                        team = TeamUiState(),
-                        preview = FilePreviewState(),
-                        transfers = restoredTransfers,
-                        transferPanelOpen = false,
-                        transferPanelTab = TransferPanelTab.DOWNLOADS,
-                    )
+                applyAuthenticatedSession(response, normalizedBaseUrl) { state ->
+                    state.copy(isSubmittingLogin = false)
                 }
                 emitMessage("欢迎回来，${response.user.nickname}")
                 refreshAll(syncUser = false)
@@ -432,6 +418,154 @@ class MainViewModel internal constructor(
             }
         }
     }
+
+    fun requestEmailRegistrationCode(email: String) {
+        val normalizedBaseUrl = runCatching { normalizeBaseUrl(uiState.value.baseUrl) }
+            .getOrElse { error ->
+                emitMessage(error.message ?: "请输入正确的后端地址。")
+                return
+            }
+        val trimmedEmail = email.trim()
+
+        if (!isValidEmail(trimmedEmail)) {
+            emitMessage("请输入有效邮箱地址。")
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.update { state ->
+                state.copy(
+                    isSendingRegistrationCode = true,
+                    baseUrl = normalizedBaseUrl,
+                )
+            }
+
+            runCatching {
+                sessionStore.saveBaseUrl(normalizedBaseUrl)
+                repository.requestEmailRegistrationCode(normalizedBaseUrl, trimmedEmail)
+            }.onSuccess {
+                emitMessage("如果邮箱可用，验证码会发送到该邮箱。")
+            }.onFailure { error ->
+                handleError(error)
+            }
+
+            _uiState.update { state -> state.copy(isSendingRegistrationCode = false) }
+        }
+    }
+
+    fun registerWithEmail(email: String, code: String, nickname: String, password: String) {
+        val normalizedBaseUrl = runCatching { normalizeBaseUrl(uiState.value.baseUrl) }
+            .getOrElse { error ->
+                emitMessage(error.message ?: "请输入正确的后端地址。")
+                return
+            }
+        val trimmedEmail = email.trim()
+        val trimmedCode = code.trim()
+        val trimmedNickname = nickname.trim()
+
+        if (!isValidEmail(trimmedEmail)) {
+            emitMessage("请输入有效邮箱地址。")
+            return
+        }
+
+        if (!trimmedCode.matches(Regex("^\\d{6}$"))) {
+            emitMessage("请输入 6 位验证码。")
+            return
+        }
+
+        if (trimmedNickname.isBlank()) {
+            emitMessage("请输入昵称。")
+            return
+        }
+
+        if (password.length < 6) {
+            emitMessage("密码长度至少为 6 位。")
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.update { state ->
+                state.copy(
+                    isSubmittingRegistration = true,
+                    baseUrl = normalizedBaseUrl,
+                )
+            }
+
+            runCatching {
+                sessionStore.saveBaseUrl(normalizedBaseUrl)
+                repository.verifyEmailRegistration(
+                    baseUrl = normalizedBaseUrl,
+                    email = trimmedEmail,
+                    code = trimmedCode,
+                    nickname = trimmedNickname,
+                    password = password,
+                )
+            }.onSuccess { response ->
+                applyAuthenticatedSession(response, normalizedBaseUrl) { state ->
+                    state.copy(isSubmittingRegistration = false)
+                }
+                emitMessage("注册成功，欢迎使用 Alicia 云盘。")
+                refreshAll(syncUser = false)
+                checkForAppUpdate(normalizedBaseUrl)
+                refreshIncomingShareDetailIfReady()
+            }.onFailure { error ->
+                _uiState.update { state ->
+                    state.copy(
+                        isBooting = false,
+                        isSubmittingRegistration = false,
+                    )
+                }
+                handleError(error)
+            }
+        }
+    }
+
+    private suspend fun applyAuthenticatedSession(
+        response: LoginResponse,
+        normalizedBaseUrl: String,
+        statePatch: (AppUiState) -> AppUiState = { it },
+    ) {
+        sessionStore.saveSession(response.token, normalizedBaseUrl)
+        val restoredTransfers = activateTransferHistory(normalizedBaseUrl, response.user.id)
+        fileDirectoryCache.clear()
+        clearPreviewArtifacts()
+        _uiState.update { state ->
+            statePatch(
+                state.copy(
+                    isBooting = false,
+                    isSubmittingLogin = false,
+                    isSendingRegistrationCode = false,
+                    isSubmittingRegistration = false,
+                    authToken = response.token,
+                    currentUser = response.user,
+                    selectedTab = AppTab.HOME,
+                    home = HomeUiState(),
+                    files = ExplorerUiState(),
+                    trash = ExplorerUiState(breadcrumbs = emptyList()),
+                    team = TeamUiState(),
+                    preview = FilePreviewState(),
+                    transfers = restoredTransfers,
+                    transferPanelOpen = false,
+                    transferPanelTab = TransferPanelTab.DOWNLOADS,
+                ),
+            )
+        }
+    }
+
+    private fun isValidLoginIdentifier(identifier: String): Boolean {
+        if (identifier.isBlank()) {
+            return false
+        }
+
+        return if (identifier.contains("@")) {
+            isValidEmail(identifier)
+        } else {
+            identifier.matches(Regex("^1\\d{10}$"))
+        }
+    }
+
+    private fun isValidEmail(email: String): Boolean =
+        email.matches(Regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$"))
 
     fun refreshCurrentTab() {
         val selectedTab = uiState.value.selectedTab

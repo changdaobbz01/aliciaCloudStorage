@@ -5,6 +5,7 @@ import com.alicia.cloudstorage.api.dto.AdminCreateUserRequest;
 import com.alicia.cloudstorage.api.dto.AdminResetUserPasswordRequest;
 import com.alicia.cloudstorage.api.dto.AdminUpdateUserQuotaRequest;
 import com.alicia.cloudstorage.api.dto.ChangePasswordRequest;
+import com.alicia.cloudstorage.api.dto.LoginRequest;
 import com.alicia.cloudstorage.api.entity.SysUser;
 import com.alicia.cloudstorage.api.entity.UserRole;
 import com.alicia.cloudstorage.api.entity.UserStatus;
@@ -50,6 +51,62 @@ class UserAccountServiceTest {
 
     @InjectMocks
     private UserAccountService userAccountService;
+
+    @Test
+    void loginAcceptsEmailIdentifier() {
+        SysUser user = new SysUser();
+        ReflectionTestUtils.setField(user, "id", 18L);
+        ReflectionTestUtils.setField(user, "createdAt", LocalDateTime.of(2026, 8, 17, 10, 0));
+        user.setPhoneNumber(null);
+        user.setEmail("email-user@example.com");
+        user.setNickname("Email User");
+        user.setPasswordHash("hash");
+        user.setTokenVersion(0L);
+        user.setRole(UserRole.USER);
+        user.setStatus(UserStatus.ACTIVE);
+        user.setStorageQuotaBytes(4096L);
+
+        when(sysUserRepository.findByEmail("email-user@example.com")).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("Passw0rd", "hash")).thenReturn(true);
+        when(tokenService.createToken(user)).thenReturn("token");
+        when(storageQuotaService.getUsedBytes(18L)).thenReturn(1024L);
+
+        var response = userAccountService.login(new LoginRequest("Email-User@Example.COM", null, null, "Passw0rd"));
+
+        assertThat(response.token()).isEqualTo("token");
+        assertThat(response.user().phoneNumber()).isEmpty();
+        assertThat(response.user().email()).isEqualTo("email-user@example.com");
+    }
+
+    @Test
+    void createVerifiedEmailUserPersistsActiveUserAndReturnsLoginSession() {
+        long defaultQuotaBytes = 2048L;
+
+        when(storageQuotaService.getDefaultUserQuotaBytes()).thenReturn(defaultQuotaBytes);
+        when(sysUserRepository.existsByEmail("new@example.com")).thenReturn(false);
+        when(passwordEncoder.encode("Passw0rd")).thenReturn("hash");
+        when(sysUserRepository.save(any(SysUser.class))).thenAnswer(invocation -> {
+            SysUser user = invocation.getArgument(0);
+            ReflectionTestUtils.setField(user, "id", 72L);
+            ReflectionTestUtils.setField(user, "createdAt", LocalDateTime.of(2026, 8, 17, 10, 30));
+            return user;
+        });
+        when(tokenService.createToken(any(SysUser.class))).thenReturn("new-token");
+        when(storageQuotaService.getUsedBytes(72L)).thenReturn(0L);
+
+        var response = userAccountService.createVerifiedEmailUser("New@Example.COM", "New User", "Passw0rd");
+
+        ArgumentCaptor<SysUser> userCaptor = ArgumentCaptor.forClass(SysUser.class);
+        verify(sysUserRepository).save(userCaptor.capture());
+        SysUser savedUser = userCaptor.getValue();
+        assertThat(savedUser.getPhoneNumber()).isNull();
+        assertThat(savedUser.getEmail()).isEqualTo("new@example.com");
+        assertThat(savedUser.getEmailVerifiedAt()).isNotNull();
+        assertThat(savedUser.getStatus()).isEqualTo(UserStatus.ACTIVE);
+        assertThat(savedUser.getStorageQuotaBytes()).isEqualTo(defaultQuotaBytes);
+        assertThat(response.token()).isEqualTo("new-token");
+        assertThat(response.user().email()).isEqualTo("new@example.com");
+    }
 
     @Test
     void createAdminUserUsesDefaultQuotaAndReturnsUnlimitedProfile() {

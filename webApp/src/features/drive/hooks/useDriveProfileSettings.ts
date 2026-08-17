@@ -47,7 +47,7 @@ export function useDriveProfileSettings({
     }
 
     profileForm.setFieldsValue({
-      phoneNumber: currentUser.phoneNumber,
+      phoneNumber: currentUser.phoneNumber || '',
       nickname: currentUser.nickname,
     });
     setProfileOpen(true);

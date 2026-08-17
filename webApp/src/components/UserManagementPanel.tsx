@@ -77,7 +77,7 @@ export function UserManagementPanel({
             <Typography.Text strong className="table-primary-text">
               {user.nickname}
             </Typography.Text>
-            <Typography.Text className="table-secondary-text">{user.phoneNumber}</Typography.Text>
+            <Typography.Text className="table-secondary-text">{user.email ?? user.phoneNumber}</Typography.Text>
           </div>
         </div>
       ),

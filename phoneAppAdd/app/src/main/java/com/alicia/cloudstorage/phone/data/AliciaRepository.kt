@@ -59,10 +59,33 @@ class AliciaRepository(
         .writeTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
         .build()
 
-    suspend fun login(baseUrl: String, phoneNumber: String, password: String): LoginResponse =
+    suspend fun login(baseUrl: String, identifier: String, password: String): LoginResponse =
         serviceFactory.serviceFor(baseUrl)
-            .login(LoginPayload(phoneNumber = phoneNumber, password = password))
-            .requireBody(fallback = "登录失败，请检查手机号和密码。")
+            .login(LoginPayload(identifier = identifier, password = password))
+            .requireBody(fallback = "登录失败，请检查账号和密码。")
+
+    suspend fun requestEmailRegistrationCode(baseUrl: String, email: String): ApiMessageResponse =
+        serviceFactory.serviceFor(baseUrl)
+            .requestEmailRegistrationCode(RequestEmailRegistrationCodePayload(email = email))
+            .requireBody(fallback = "验证码发送失败，请稍后再试。")
+
+    suspend fun verifyEmailRegistration(
+        baseUrl: String,
+        email: String,
+        code: String,
+        nickname: String,
+        password: String,
+    ): LoginResponse =
+        serviceFactory.serviceFor(baseUrl)
+            .verifyEmailRegistration(
+                VerifyEmailRegistrationPayload(
+                    email = email,
+                    code = code,
+                    nickname = nickname,
+                    password = password,
+                ),
+            )
+            .requireBody(fallback = "注册失败，请检查验证码后再试。")
 
     suspend fun fetchCurrentUser(baseUrl: String, token: String): User =
         serviceFactory.serviceFor(baseUrl)

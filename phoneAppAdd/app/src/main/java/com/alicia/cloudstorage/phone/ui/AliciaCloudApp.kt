@@ -439,7 +439,11 @@ fun AliciaCloudApp(viewModel: MainViewModel) {
             uiState.authToken.isNullOrBlank() -> LoginScreen(
                 baseUrl = uiState.baseUrl,
                 submitting = uiState.isSubmittingLogin,
+                sendingCode = uiState.isSendingRegistrationCode,
+                registering = uiState.isSubmittingRegistration,
                 onLogin = viewModel::login,
+                onRequestRegistrationCode = viewModel::requestEmailRegistrationCode,
+                onRegister = viewModel::registerWithEmail,
             )
 
             else -> MainShell(
@@ -615,12 +619,28 @@ internal fun AliciaConfirmDialog(
 private fun LoginScreen(
     baseUrl: String,
     submitting: Boolean,
+    sendingCode: Boolean,
+    registering: Boolean,
     onLogin: (String, String) -> Unit,
+    onRequestRegistrationCode: (String) -> Unit,
+    onRegister: (String, String, String, String) -> Unit,
 ) {
-    var phoneNumber by rememberSaveable { mutableStateOf("") }
+    var authMode by rememberSaveable { mutableStateOf("login") }
+    var identifier by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
     var passwordVisible by rememberSaveable { mutableStateOf(false) }
-    val loginEnabled = !submitting && phoneNumber.isNotBlank() && password.isNotBlank()
+    var registerEmail by rememberSaveable { mutableStateOf("") }
+    var registerCode by rememberSaveable { mutableStateOf("") }
+    var registerNickname by rememberSaveable { mutableStateOf("") }
+    var registerPassword by rememberSaveable { mutableStateOf("") }
+    var registerPasswordVisible by rememberSaveable { mutableStateOf(false) }
+    val busy = submitting || sendingCode || registering
+    val loginEnabled = !busy && identifier.isNotBlank() && password.isNotBlank()
+    val registerEnabled = !busy &&
+        registerEmail.isNotBlank() &&
+        registerCode.isNotBlank() &&
+        registerNickname.isNotBlank() &&
+        registerPassword.isNotBlank()
     val loginShape = RoundedCornerShape(26.dp)
 
     Box(
@@ -670,7 +690,7 @@ private fun LoginScreen(
                     .padding(horizontal = 20.dp, vertical = 22.dp),
             ) {
                 Text(
-                    text = "欢迎回来",
+                    text = if (authMode == "login") "欢迎回来" else "创建账号",
                     color = Ink,
                     fontSize = 23.sp,
                     lineHeight = 29.sp,
@@ -678,71 +698,160 @@ private fun LoginScreen(
                 )
                 Spacer(modifier = Modifier.height(5.dp))
                 Text(
-                    text = "登录后继续管理你的云端文件",
+                    text = if (authMode == "login") "登录后继续管理你的云端文件" else "使用邮箱验证码开通个人空间",
                     color = Muted,
                     fontSize = 13.sp,
                 )
                 Spacer(modifier = Modifier.height(22.dp))
-                AddTextField(
-                    value = phoneNumber,
-                    onValueChange = { phoneNumber = it },
-                    label = "手机号",
-                    placeholder = "请输入 11 位手机号",
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !submitting,
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Phone,
-                        imeAction = ImeAction.Next,
-                    ),
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                AddTextField(
-                    value = password,
-                    onValueChange = { password = it },
-                    label = "密码",
-                    placeholder = "请输入登录密码",
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !submitting,
-                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Password,
-                        imeAction = ImeAction.Done,
-                    ),
-                    keyboardActions = KeyboardActions(
-                        onDone = {
-                            if (loginEnabled) onLogin(phoneNumber.trim(), password)
-                        },
-                    ),
-                    trailingContent = {
-                        Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .noRippleClickable(
-                                    role = androidx.compose.ui.semantics.Role.Button,
-                                    onClickLabel = if (passwordVisible) "隐藏密码" else "显示密码",
-                                ) { passwordVisible = !passwordVisible },
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            ReferenceIcon(
-                                asset = ReferenceAsset.EyeGray,
-                                contentDescription = if (passwordVisible) "隐藏密码" else "显示密码",
-                                modifier = Modifier
-                                    .size(24.dp)
-                                    .alpha(if (passwordVisible) 1f else 0.68f),
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    AliciaChip(
+                        label = "登录",
+                        selected = authMode == "login",
+                        onClick = { authMode = "login" },
+                        modifier = Modifier.weight(1f),
+                    )
+                    AliciaChip(
+                        label = "注册",
+                        selected = authMode == "register",
+                        onClick = { authMode = "register" },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                Spacer(modifier = Modifier.height(18.dp))
+
+                if (authMode == "login") {
+                    AddTextField(
+                        value = identifier,
+                        onValueChange = { identifier = it },
+                        label = "手机号或邮箱",
+                        placeholder = "请输入手机号或邮箱",
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !busy,
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Email,
+                            imeAction = ImeAction.Next,
+                        ),
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    AddTextField(
+                        value = password,
+                        onValueChange = { password = it },
+                        label = "密码",
+                        placeholder = "请输入登录密码",
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !busy,
+                        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Password,
+                            imeAction = ImeAction.Done,
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onDone = {
+                                if (loginEnabled) onLogin(identifier.trim(), password)
+                            },
+                        ),
+                        trailingContent = {
+                            PasswordVisibilityButton(
+                                visible = passwordVisible,
+                                onToggle = { passwordVisible = !passwordVisible },
                             )
-                        }
-                    },
-                )
-                Spacer(modifier = Modifier.height(22.dp))
-                AddActionButton(
-                    label = if (submitting) "正在登录..." else "登录",
-                    onClick = { onLogin(phoneNumber.trim(), password) },
-                    primary = true,
-                    enabled = loginEnabled,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(54.dp),
-                )
+                        },
+                    )
+                    Spacer(modifier = Modifier.height(22.dp))
+                    AddActionButton(
+                        label = if (submitting) "正在登录..." else "登录",
+                        onClick = { onLogin(identifier.trim(), password) },
+                        primary = true,
+                        enabled = loginEnabled,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(54.dp),
+                    )
+                } else {
+                    AddTextField(
+                        value = registerEmail,
+                        onValueChange = { registerEmail = it },
+                        label = "邮箱",
+                        placeholder = "请输入邮箱",
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !busy,
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Email,
+                            imeAction = ImeAction.Next,
+                        ),
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.Bottom) {
+                        AddTextField(
+                            value = registerCode,
+                            onValueChange = { value -> registerCode = value.filter(Char::isDigit).take(6) },
+                            label = "验证码",
+                            placeholder = "6 位数字",
+                            modifier = Modifier.weight(1f),
+                            enabled = !busy,
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Number,
+                                imeAction = ImeAction.Next,
+                            ),
+                        )
+                        AddActionButton(
+                            label = if (sendingCode) "发送中" else "发送",
+                            onClick = { onRequestRegistrationCode(registerEmail.trim()) },
+                            primary = false,
+                            enabled = !busy && registerEmail.isNotBlank(),
+                            modifier = Modifier
+                                .width(92.dp)
+                                .height(54.dp),
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    AddTextField(
+                        value = registerNickname,
+                        onValueChange = { registerNickname = it },
+                        label = "昵称",
+                        placeholder = "请输入昵称",
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !busy,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    AddTextField(
+                        value = registerPassword,
+                        onValueChange = { registerPassword = it },
+                        label = "密码",
+                        placeholder = "至少 6 位",
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !busy,
+                        visualTransformation = if (registerPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Password,
+                            imeAction = ImeAction.Done,
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onDone = {
+                                if (registerEnabled) {
+                                    onRegister(registerEmail.trim(), registerCode.trim(), registerNickname.trim(), registerPassword)
+                                }
+                            },
+                        ),
+                        trailingContent = {
+                            PasswordVisibilityButton(
+                                visible = registerPasswordVisible,
+                                onToggle = { registerPasswordVisible = !registerPasswordVisible },
+                            )
+                        },
+                    )
+                    Spacer(modifier = Modifier.height(22.dp))
+                    AddActionButton(
+                        label = if (registering) "正在注册..." else "注册并登录",
+                        onClick = { onRegister(registerEmail.trim(), registerCode.trim(), registerNickname.trim(), registerPassword) },
+                        primary = true,
+                        enabled = registerEnabled,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(54.dp),
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(18.dp))
@@ -773,6 +882,30 @@ private fun LoginScreen(
             }
             Spacer(modifier = Modifier.height(18.dp))
         }
+    }
+}
+
+@Composable
+private fun PasswordVisibilityButton(
+    visible: Boolean,
+    onToggle: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .size(36.dp)
+            .noRippleClickable(
+                role = androidx.compose.ui.semantics.Role.Button,
+                onClickLabel = if (visible) "隐藏密码" else "显示密码",
+            ) { onToggle() },
+        contentAlignment = Alignment.Center,
+    ) {
+        ReferenceIcon(
+            asset = ReferenceAsset.EyeGray,
+            contentDescription = if (visible) "隐藏密码" else "显示密码",
+            modifier = Modifier
+                .size(24.dp)
+                .alpha(if (visible) 1f else 0.68f),
+        )
     }
 }
 
@@ -3622,7 +3755,7 @@ private fun MeAccountCard(
                 Avatar(url = avatarUrl, fallback = user.nickname, size = 64.dp, onClick = onAvatar)
                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(user.nickname, color = Ink, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(user.phoneNumber, color = Muted, fontSize = 13.sp)
+                    Text(userAccountLabel(user), color = Muted, fontSize = 13.sp)
                 }
                 Surface(shape = RoundedCornerShape(999.dp), color = Color(0xFFF6F8FC)) {
                     Text(
@@ -4218,7 +4351,7 @@ private fun UserCard(
                 Avatar(url = null, fallback = user.nickname, size = 48.dp)
                 Column(modifier = Modifier.weight(1f)) {
                     Text(user.nickname, color = Ink, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                    Text("${user.phoneNumber} · ${formatRole(user.role)}", color = Muted, fontSize = 12.sp)
+                    Text("${userAccountLabel(user)} · ${formatRole(user.role)}", color = Muted, fontSize = 12.sp)
                 }
                 if (busy) {
                     CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)

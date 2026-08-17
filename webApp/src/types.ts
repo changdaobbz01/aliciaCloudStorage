@@ -18,6 +18,7 @@ export type StorageNodeSortField = DriveSortField | TrashSortField;
 export type User = {
   id: number;
   phoneNumber: string;
+  email: string | null;
   nickname: string;
   avatarUrl: string | null;
   homeBackgroundUrl: string | null;
@@ -30,7 +31,18 @@ export type User = {
 };
 
 export type LoginPayload = {
-  phoneNumber: string;
+  identifier: string;
+  password: string;
+};
+
+export type RequestEmailRegistrationCodePayload = {
+  email: string;
+};
+
+export type VerifyEmailRegistrationPayload = {
+  email: string;
+  code: string;
+  nickname: string;
   password: string;
 };
 
@@ -57,7 +69,7 @@ export type SignedUrlResponse = {
 };
 
 export type UpdateProfilePayload = {
-  phoneNumber: string;
+  phoneNumber?: string | null;
   nickname: string;
   avatarUrl: string | null;
 };

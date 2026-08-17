@@ -2,6 +2,7 @@ package com.alicia.cloudstorage.api.config;
 
 import com.alicia.cloudstorage.api.auth.AuthException;
 import com.alicia.cloudstorage.api.dto.ApiErrorResponse;
+import com.alicia.cloudstorage.api.mail.EmailDeliveryException;
 import com.alicia.cloudstorage.api.service.CosStorageException;
 import com.alicia.cloudstorage.api.service.ScopedTrashSnapshotStaleException;
 import org.slf4j.Logger;
@@ -51,6 +52,12 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public ApiErrorResponse handleIllegalStateException(IllegalStateException ex) {
         return new ApiErrorResponse(500, ex.getMessage(), LocalDateTime.now());
+    }
+
+    @ExceptionHandler(EmailDeliveryException.class)
+    @ResponseStatus(HttpStatus.SERVICE_UNAVAILABLE)
+    public ApiErrorResponse handleEmailDeliveryException(EmailDeliveryException ex) {
+        return new ApiErrorResponse(503, ex.getMessage(), LocalDateTime.now());
     }
 
     /**
