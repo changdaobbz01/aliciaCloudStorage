@@ -327,6 +327,29 @@ select {
   min-height: 44px;
 }
 
+.login-code-form-item {
+  margin-bottom: 24px;
+}
+
+.login-code-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 128px;
+  gap: 10px;
+  align-items: start;
+  width: 100%;
+}
+
+.login-code-row .ant-input {
+  width: 100%;
+}
+
+.login-code-button {
+  height: 44px;
+  border-radius: 12px;
+  padding-inline: 14px;
+  white-space: nowrap;
+}
+
 .login-submit {
   height: 46px;
   margin-top: 8px;
@@ -2232,6 +2255,10 @@ select {
 
   .login-card .ant-form {
     padding: 0 24px 24px;
+  }
+
+  .login-code-row {
+    grid-template-columns: minmax(0, 1fr) 116px;
   }
 
   .app-shell {

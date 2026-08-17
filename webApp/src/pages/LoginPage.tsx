@@ -1,4 +1,4 @@
-import { App as AntApp, Button, Card, Form, Input, QRCode, Segmented, Space, Typography } from 'antd';
+import { App as AntApp, Button, Card, Form, Input, QRCode, Segmented, Typography } from 'antd';
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { RegulatoryFooter } from '../components/RegulatoryFooter';
@@ -40,6 +40,7 @@ export function LoginPage() {
   const [sendingCode, setSendingCode] = useState(false);
   const [registering, setRegistering] = useState(false);
   const [codeCooldown, setCodeCooldown] = useState(0);
+  const [registrationEmail, setRegistrationEmail] = useState('');
 
   function resolveLoginDestination() {
     const destination = typeof location.state === 'object' &&
@@ -114,8 +115,16 @@ export function LoginPage() {
 
   async function handleSendRegistrationCode() {
     try {
-      await registerForm.validateFields(['email']);
-      const email = trimFormString(registerForm.getFieldValue('email'));
+      const email = resolveRegistrationEmail();
+      registerForm.setFieldValue('email', email);
+
+      if (!email) {
+        registerForm.setFields([{ name: 'email', errors: ['请输入邮箱。'] }]);
+        message.error('请输入邮箱。');
+        return;
+      }
+
+      await registerForm.validateFields([['email']]);
       setSendingCode(true);
       await requestEmailRegistrationCode({ email });
       setCodeCooldown(60);
@@ -132,8 +141,15 @@ export function LoginPage() {
   async function handleRegister(values: RegisterFormValues) {
     try {
       setRegistering(true);
+      const email = trimFormString(values.email) || resolveRegistrationEmail();
+      if (!email) {
+        registerForm.setFields([{ name: 'email', errors: ['请输入邮箱。'] }]);
+        message.error('请输入邮箱。');
+        return;
+      }
+
       const session = await verifyEmailRegistration({
-        email: trimFormString(values.email),
+        email,
         code: trimFormString(values.code),
         nickname: trimFormString(values.nickname),
         password: values.password,
@@ -146,6 +162,25 @@ export function LoginPage() {
     } finally {
       setRegistering(false);
     }
+  }
+
+  function resolveRegistrationEmail() {
+    const formEmail = trimFormString(registerForm.getFieldValue('email'));
+    if (formEmail) {
+      return formEmail;
+    }
+
+    const stateEmail = trimFormString(registrationEmail);
+    if (stateEmail) {
+      return stateEmail;
+    }
+
+    if (typeof document === 'undefined') {
+      return '';
+    }
+
+    const input = document.getElementById('registration-email-input');
+    return input instanceof HTMLInputElement ? trimFormString(input.value) : '';
   }
 
   const appDownloadAvailable = appPackageInfo?.available ?? false;
@@ -210,11 +245,16 @@ export function LoginPage() {
                 { type: 'email', message: '请输入有效邮箱地址。' },
               ]}
             >
-              <Input placeholder="请输入邮箱" autoComplete="email" />
+              <Input
+                id="registration-email-input"
+                placeholder="请输入邮箱"
+                autoComplete="email"
+                onChange={(event) => setRegistrationEmail(event.target.value)}
+              />
             </Form.Item>
 
-            <Form.Item label="验证码" required>
-              <Space.Compact block>
+            <Form.Item label="验证码" required className="login-code-form-item">
+              <div className="login-code-row">
                 <Form.Item
                   name="code"
                   noStyle
@@ -227,13 +267,15 @@ export function LoginPage() {
                 </Form.Item>
                 <Button
                   type="default"
+                  htmlType="button"
+                  className="login-code-button"
                   loading={sendingCode}
                   disabled={codeCooldown > 0}
                   onClick={() => void handleSendRegistrationCode()}
                 >
                   {codeCooldown > 0 ? `${codeCooldown}s` : '发送验证码'}
                 </Button>
-              </Space.Compact>
+              </div>
             </Form.Item>
 
             <Form.Item
