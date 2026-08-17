@@ -5,6 +5,7 @@ import com.alicia.cloudstorage.api.dto.AdminResetUserPasswordRequest;
 import com.alicia.cloudstorage.api.dto.AdminUpdateUserQuotaRequest;
 import com.alicia.cloudstorage.api.dto.ApiMessageResponse;
 import com.alicia.cloudstorage.api.dto.UserProfileResponse;
+import com.alicia.cloudstorage.api.service.CloudUserProfileService;
 import com.alicia.cloudstorage.api.service.UserAccountService;
 import com.alicia.cloudstorage.api.auth.AuthRequestAttributes;
 import jakarta.validation.Valid;
@@ -24,12 +25,17 @@ import java.util.List;
 public class AdminUserController {
 
     private final UserAccountService userAccountService;
+    private final CloudUserProfileService cloudUserProfileService;
 
     /**
      * 注入账号业务服务，供管理员账号管理接口使用。
      */
-    public AdminUserController(UserAccountService userAccountService) {
+    public AdminUserController(
+            UserAccountService userAccountService,
+            CloudUserProfileService cloudUserProfileService
+    ) {
         this.userAccountService = userAccountService;
+        this.cloudUserProfileService = cloudUserProfileService;
     }
 
     /**
@@ -56,7 +62,7 @@ public class AdminUserController {
             @PathVariable Long userId,
             @Valid @RequestBody AdminUpdateUserQuotaRequest request
     ) {
-        return userAccountService.updateUserStorageQuota(userId, request);
+        return cloudUserProfileService.updateUserStorageQuota(userId, request);
     }
 
     @PutMapping("/{userId}/password")

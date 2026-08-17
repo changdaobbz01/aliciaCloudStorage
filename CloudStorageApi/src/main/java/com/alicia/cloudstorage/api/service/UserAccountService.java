@@ -32,20 +32,20 @@ public class UserAccountService {
     private final PasswordEncoder passwordEncoder;
     private final TokenService tokenService;
     private final CosFileStorageService cosFileStorageService;
-    private final StorageQuotaService storageQuotaService;
+    private final CloudUserProfileService cloudUserProfileService;
 
     public UserAccountService(
             SysUserRepository sysUserRepository,
             PasswordEncoder passwordEncoder,
             TokenService tokenService,
             CosFileStorageService cosFileStorageService,
-            StorageQuotaService storageQuotaService
+            CloudUserProfileService cloudUserProfileService
     ) {
         this.sysUserRepository = sysUserRepository;
         this.passwordEncoder = passwordEncoder;
         this.tokenService = tokenService;
         this.cosFileStorageService = cosFileStorageService;
-        this.storageQuotaService = storageQuotaService;
+        this.cloudUserProfileService = cloudUserProfileService;
     }
 
     @Transactional(readOnly = true)
@@ -66,12 +66,12 @@ public class UserAccountService {
             throw new AuthException("当前账号已停用。");
         }
 
-        return new LoginResponse(tokenService.createToken(user), toUserProfile(user));
+        return new LoginResponse(tokenService.createToken(user), cloudUserProfileService.toUserProfile(user));
     }
 
     @Transactional(readOnly = true)
     public UserProfileResponse getCurrentUser(Long userId) {
-        return toUserProfile(requireActiveUser(userId));
+        return cloudUserProfileService.getCurrentUser(userId);
     }
 
     public UserProfileResponse updateCurrentUser(Long userId, UpdateProfileRequest request) {
@@ -92,7 +92,7 @@ public class UserAccountService {
         user.setNickname(nickname);
         user.setAvatarUrl(avatarUrl);
 
-        return toUserProfile(sysUserRepository.save(user));
+        return cloudUserProfileService.toUserProfile(sysUserRepository.save(user));
     }
 
     public UserProfileResponse uploadCurrentUserAvatar(Long userId, MultipartFile file) {
@@ -101,22 +101,14 @@ public class UserAccountService {
         CosFileStorageService.StoredCosFile avatarFile = cosFileStorageService.uploadUserAvatar(userId, file);
 
         user.setAvatarUrl(toLocalAvatarReference(avatarFile.objectKey()));
-        UserProfileResponse response = toUserProfile(sysUserRepository.save(user));
+        UserProfileResponse response = cloudUserProfileService.toUserProfile(sysUserRepository.save(user));
         deleteLocalAvatarQuietly(oldAvatarUrl);
 
         return response;
     }
 
     public UserProfileResponse uploadCurrentUserHomeBackground(Long userId, MultipartFile file) {
-        SysUser user = requireActiveUser(userId);
-        String oldHomeBackgroundUrl = user.getHomeBackgroundUrl();
-        CosFileStorageService.StoredCosFile backgroundFile = cosFileStorageService.uploadUserHomeBackground(userId, file);
-
-        user.setHomeBackgroundUrl(toLocalHomeBackgroundReference(backgroundFile.objectKey()));
-        UserProfileResponse response = toUserProfile(sysUserRepository.save(user));
-        deleteLocalHomeBackgroundQuietly(oldHomeBackgroundUrl);
-
-        return response;
+        return cloudUserProfileService.uploadCurrentUserHomeBackground(userId, file);
     }
 
     @Transactional(readOnly = true)
@@ -139,15 +131,8 @@ public class UserAccountService {
 
     @Transactional(readOnly = true)
     public HomeBackgroundDownloadPayload openUserHomeBackground(Long userId) {
-        SysUser user = sysUserRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("用户不存在。"));
-        String objectKey = extractLocalHomeBackgroundObjectKey(user.getHomeBackgroundUrl());
-
-        if (objectKey == null) {
-            throw new IllegalArgumentException("主页背景图不存在。");
-        }
-
-        CosFileStorageService.DownloadedCosFile downloadedCosFile = cosFileStorageService.openFileStream(objectKey);
+        CloudUserProfileService.HomeBackgroundDownloadPayload downloadedCosFile =
+                cloudUserProfileService.openUserHomeBackground(userId);
         return new HomeBackgroundDownloadPayload(
                 downloadedCosFile.contentType(),
                 downloadedCosFile.contentLength(),
@@ -170,26 +155,11 @@ public class UserAccountService {
 
     @Transactional(readOnly = true)
     public CosFileStorageService.PresignedCosUrl resolveUserHomeBackgroundAccessUrl(Long userId) {
-        SysUser user = sysUserRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("User not found."));
-        String objectKey = extractLocalHomeBackgroundObjectKey(user.getHomeBackgroundUrl());
-
-        if (objectKey == null) {
-            throw new IllegalArgumentException("Home background not found.");
-        }
-
-        return cosFileStorageService.createInlineDownloadUrl(objectKey, null, null);
+        return cloudUserProfileService.resolveUserHomeBackgroundAccessUrl(userId);
     }
 
     public UserProfileResponse clearCurrentUserHomeBackground(Long userId) {
-        SysUser user = requireActiveUser(userId);
-        String oldHomeBackgroundUrl = user.getHomeBackgroundUrl();
-
-        user.setHomeBackgroundUrl(null);
-        UserProfileResponse response = toUserProfile(sysUserRepository.save(user));
-        deleteLocalHomeBackgroundQuietly(oldHomeBackgroundUrl);
-
-        return response;
+        return cloudUserProfileService.clearCurrentUserHomeBackground(userId);
     }
 
     public void changePassword(Long userId, ChangePasswordRequest request) {
@@ -217,7 +187,7 @@ public class UserAccountService {
     @Transactional(readOnly = true)
     public List<UserProfileResponse> listUsers() {
         return sysUserRepository.findAllByOrderByIdAsc().stream()
-                .map(this::toUserProfile)
+                .map(cloudUserProfileService::toUserProfile)
                 .toList();
     }
 
@@ -227,9 +197,6 @@ public class UserAccountService {
         String password = normalizePassword(request.password(), "密码不能为空。");
         String avatarUrl = normalizeAvatarUrl(request.avatarUrl());
         UserRole role = normalizeRole(request.role());
-        long storageQuotaBytes = role == UserRole.ADMIN
-                ? storageQuotaService.getDefaultUserQuotaBytes()
-                : storageQuotaService.normalizeQuotaBytes(request.storageQuotaBytes(), "用户最大存储额度");
 
         if (password.length() < 6) {
             throw new IllegalArgumentException("密码长度至少为 6 位。");
@@ -249,21 +216,16 @@ public class UserAccountService {
         user.setTokenVersion(0L);
         user.setRole(role);
         user.setStatus(UserStatus.ACTIVE);
-        user.setStorageQuotaBytes(storageQuotaBytes);
+        cloudUserProfileService.assignInitialStorageQuota(user, role, request.storageQuotaBytes());
 
         SysUser savedUser = sysUserRepository.save(user);
-
-        String inheritedHomeBackgroundUrl = resolveInheritedHomeBackgroundUrl(
+        savedUser = cloudUserProfileService.inheritAdminHomeBackground(
                 adminUserId,
                 request.inheritAdminBackground(),
-                savedUser.getId()
+                savedUser
         );
-        if (inheritedHomeBackgroundUrl != null) {
-            savedUser.setHomeBackgroundUrl(inheritedHomeBackgroundUrl);
-            savedUser = sysUserRepository.save(savedUser);
-        }
 
-        return toUserProfile(savedUser);
+        return cloudUserProfileService.toUserProfile(savedUser);
     }
 
     public LoginResponse createVerifiedEmailUser(String email, String nickname, String password) {
@@ -289,24 +251,14 @@ public class UserAccountService {
         user.setTokenVersion(0L);
         user.setRole(UserRole.USER);
         user.setStatus(UserStatus.ACTIVE);
-        user.setStorageQuotaBytes(storageQuotaService.getDefaultUserQuotaBytes());
+        cloudUserProfileService.assignDefaultStorageQuota(user);
 
         SysUser savedUser = sysUserRepository.save(user);
-        return new LoginResponse(tokenService.createToken(savedUser), toUserProfile(savedUser));
+        return new LoginResponse(tokenService.createToken(savedUser), cloudUserProfileService.toUserProfile(savedUser));
     }
 
     public UserProfileResponse updateUserStorageQuota(Long userId, AdminUpdateUserQuotaRequest request) {
-        SysUser user = requireUser(userId);
-
-        if (user.getRole() == UserRole.ADMIN) {
-            throw new IllegalArgumentException("管理员账号不限制存储额度，无需修改。");
-        }
-
-        long storageQuotaBytes = storageQuotaService.normalizeQuotaBytes(request.storageQuotaBytes(), "用户最大存储额度");
-        storageQuotaService.validateQuotaAssignment(userId, storageQuotaBytes);
-
-        user.setStorageQuotaBytes(storageQuotaBytes);
-        return toUserProfile(sysUserRepository.save(user));
+        return cloudUserProfileService.updateUserStorageQuota(userId, request);
     }
 
     public void resetUserPassword(Long adminUserId, Long targetUserId, AdminResetUserPasswordRequest request) {
@@ -343,31 +295,6 @@ public class UserAccountService {
     private SysUser requireUser(Long userId) {
         return sysUserRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("用户不存在。"));
-    }
-
-    private UserProfileResponse toUserProfile(SysUser user) {
-        long usedBytes = user.getId() == null ? 0L : storageQuotaService.getUsedBytes(user.getId());
-        long quotaBytes = user.getStorageQuotaBytes() == null
-                ? storageQuotaService.getDefaultUserQuotaBytes()
-                : user.getStorageQuotaBytes();
-        boolean admin = user.getRole() == UserRole.ADMIN;
-        Long storageQuotaBytes = admin ? null : quotaBytes;
-        Long remainingBytes = admin ? null : Math.max(0L, quotaBytes - usedBytes);
-
-        return new UserProfileResponse(
-                user.getId(),
-                user.getPhoneNumber() == null ? "" : user.getPhoneNumber(),
-                user.getEmail(),
-                user.getNickname(),
-                user.getAvatarUrl(),
-                user.getHomeBackgroundUrl(),
-                user.getRole().name(),
-                user.getStatus().name(),
-                user.getCreatedAt(),
-                storageQuotaBytes,
-                usedBytes,
-                remainingBytes
-        );
     }
 
     private String normalizePhoneNumber(String value) {
@@ -444,33 +371,8 @@ public class UserAccountService {
         return value.trim();
     }
 
-    private String resolveInheritedHomeBackgroundUrl(Long adminUserId, boolean inheritAdminBackground, Long targetUserId) {
-        if (!inheritAdminBackground) {
-            return null;
-        }
-
-        SysUser adminUser = requireActiveUser(adminUserId);
-        String sourceHomeBackgroundUrl = adminUser.getHomeBackgroundUrl();
-        if (sourceHomeBackgroundUrl == null || sourceHomeBackgroundUrl.isBlank()) {
-            return null;
-        }
-
-        String sourceObjectKey = extractLocalHomeBackgroundObjectKey(sourceHomeBackgroundUrl);
-        if (sourceObjectKey == null) {
-            return sourceHomeBackgroundUrl;
-        }
-
-        CosFileStorageService.StoredCosFile duplicatedBackground =
-                cosFileStorageService.duplicateUserHomeBackground(targetUserId, sourceObjectKey);
-        return toLocalHomeBackgroundReference(duplicatedBackground.objectKey());
-    }
-
     private String toLocalAvatarReference(String objectKey) {
         return "cos:" + objectKey;
-    }
-
-    private String toLocalHomeBackgroundReference(String objectKey) {
-        return "cosbg:" + objectKey;
     }
 
     private String extractLocalAvatarObjectKey(String avatarUrl) {
@@ -482,25 +384,8 @@ public class UserAccountService {
         return objectKey.isBlank() ? null : objectKey;
     }
 
-    private String extractLocalHomeBackgroundObjectKey(String homeBackgroundUrl) {
-        if (homeBackgroundUrl == null || !homeBackgroundUrl.startsWith("cosbg:")) {
-            return null;
-        }
-
-        String objectKey = homeBackgroundUrl.substring("cosbg:".length()).trim();
-        return objectKey.isBlank() ? null : objectKey;
-    }
-
     private void deleteLocalAvatarQuietly(String avatarUrl) {
         String objectKey = extractLocalAvatarObjectKey(avatarUrl);
-
-        if (objectKey != null) {
-            cosFileStorageService.deleteObjectQuietly(objectKey);
-        }
-    }
-
-    private void deleteLocalHomeBackgroundQuietly(String homeBackgroundUrl) {
-        String objectKey = extractLocalHomeBackgroundObjectKey(homeBackgroundUrl);
 
         if (objectKey != null) {
             cosFileStorageService.deleteObjectQuietly(objectKey);

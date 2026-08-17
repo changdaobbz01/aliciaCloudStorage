@@ -3,9 +3,9 @@ package com.alicia.cloudstorage.api.service;
 import com.alicia.cloudstorage.api.auth.TokenService;
 import com.alicia.cloudstorage.api.dto.AdminCreateUserRequest;
 import com.alicia.cloudstorage.api.dto.AdminResetUserPasswordRequest;
-import com.alicia.cloudstorage.api.dto.AdminUpdateUserQuotaRequest;
 import com.alicia.cloudstorage.api.dto.ChangePasswordRequest;
 import com.alicia.cloudstorage.api.dto.LoginRequest;
+import com.alicia.cloudstorage.api.dto.UserProfileResponse;
 import com.alicia.cloudstorage.api.entity.SysUser;
 import com.alicia.cloudstorage.api.entity.UserRole;
 import com.alicia.cloudstorage.api.entity.UserStatus;
@@ -16,7 +16,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -26,8 +25,8 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -47,7 +46,7 @@ class UserAccountServiceTest {
     private CosFileStorageService cosFileStorageService;
 
     @Mock
-    private StorageQuotaService storageQuotaService;
+    private CloudUserProfileService cloudUserProfileService;
 
     @InjectMocks
     private UserAccountService userAccountService;
@@ -66,10 +65,12 @@ class UserAccountServiceTest {
         user.setStatus(UserStatus.ACTIVE);
         user.setStorageQuotaBytes(4096L);
 
+        UserProfileResponse profile = profile(user, 4096L, 1024L, 3072L);
+
         when(sysUserRepository.findByEmail("email-user@example.com")).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("Passw0rd", "hash")).thenReturn(true);
         when(tokenService.createToken(user)).thenReturn("token");
-        when(storageQuotaService.getUsedBytes(18L)).thenReturn(1024L);
+        when(cloudUserProfileService.toUserProfile(user)).thenReturn(profile);
 
         var response = userAccountService.login(new LoginRequest("Email-User@Example.COM", null, null, "Passw0rd"));
 
@@ -79,10 +80,35 @@ class UserAccountServiceTest {
     }
 
     @Test
-    void createVerifiedEmailUserPersistsActiveUserAndReturnsLoginSession() {
-        long defaultQuotaBytes = 2048L;
+    void getCurrentUserDelegatesToCloudProfileService() {
+        UserProfileResponse profile = new UserProfileResponse(
+                7L,
+                "13800000007",
+                null,
+                "Current User",
+                null,
+                null,
+                "USER",
+                "ACTIVE",
+                LocalDateTime.of(2026, 8, 17, 11, 0),
+                1024L,
+                0L,
+                1024L
+        );
 
-        when(storageQuotaService.getDefaultUserQuotaBytes()).thenReturn(defaultQuotaBytes);
+        when(cloudUserProfileService.getCurrentUser(7L)).thenReturn(profile);
+
+        assertThat(userAccountService.getCurrentUser(7L)).isSameAs(profile);
+    }
+
+    @Test
+    void createVerifiedEmailUserPersistsActiveUserAndReturnsLoginSession() {
+        doAnswer(invocation -> {
+            SysUser user = invocation.getArgument(0);
+            user.setStorageQuotaBytes(2048L);
+            return null;
+        }).when(cloudUserProfileService).assignDefaultStorageQuota(any(SysUser.class));
+
         when(sysUserRepository.existsByEmail("new@example.com")).thenReturn(false);
         when(passwordEncoder.encode("Passw0rd")).thenReturn("hash");
         when(sysUserRepository.save(any(SysUser.class))).thenAnswer(invocation -> {
@@ -92,7 +118,8 @@ class UserAccountServiceTest {
             return user;
         });
         when(tokenService.createToken(any(SysUser.class))).thenReturn("new-token");
-        when(storageQuotaService.getUsedBytes(72L)).thenReturn(0L);
+        when(cloudUserProfileService.toUserProfile(any(SysUser.class)))
+                .thenAnswer(invocation -> profile(invocation.getArgument(0), 2048L, 0L, 2048L));
 
         var response = userAccountService.createVerifiedEmailUser("New@Example.COM", "New User", "Passw0rd");
 
@@ -103,16 +130,22 @@ class UserAccountServiceTest {
         assertThat(savedUser.getEmail()).isEqualTo("new@example.com");
         assertThat(savedUser.getEmailVerifiedAt()).isNotNull();
         assertThat(savedUser.getStatus()).isEqualTo(UserStatus.ACTIVE);
-        assertThat(savedUser.getStorageQuotaBytes()).isEqualTo(defaultQuotaBytes);
+        assertThat(savedUser.getStorageQuotaBytes()).isEqualTo(2048L);
         assertThat(response.token()).isEqualTo("new-token");
         assertThat(response.user().email()).isEqualTo("new@example.com");
     }
 
     @Test
-    void createAdminUserUsesDefaultQuotaAndReturnsUnlimitedProfile() {
-        long defaultQuotaBytes = 512L * 1024L * 1024L;
-
-        when(storageQuotaService.getDefaultUserQuotaBytes()).thenReturn(defaultQuotaBytes);
+    void createAdminUserDelegatesInitialQuotaAndReturnsUnlimitedProfile() {
+        doAnswer(invocation -> {
+            SysUser user = invocation.getArgument(0);
+            user.setStorageQuotaBytes(512L * 1024L * 1024L);
+            return null;
+        }).when(cloudUserProfileService).assignInitialStorageQuota(
+                any(SysUser.class),
+                eq(UserRole.ADMIN),
+                eq(null)
+        );
         when(passwordEncoder.encode("Admin@123")).thenReturn("hashed-password");
         when(sysUserRepository.save(any(SysUser.class))).thenAnswer(invocation -> {
             SysUser user = invocation.getArgument(0);
@@ -120,7 +153,10 @@ class UserAccountServiceTest {
             ReflectionTestUtils.setField(user, "createdAt", LocalDateTime.of(2026, 4, 29, 16, 0));
             return user;
         });
-        when(storageQuotaService.getUsedBytes(55L)).thenReturn(1024L);
+        when(cloudUserProfileService.inheritAdminHomeBackground(eq(1L), eq(false), any(SysUser.class)))
+                .thenAnswer(invocation -> invocation.getArgument(2));
+        when(cloudUserProfileService.toUserProfile(any(SysUser.class)))
+                .thenAnswer(invocation -> profile(invocation.getArgument(0), null, 1024L, null));
 
         var response = userAccountService.createUser(
                 1L,
@@ -137,52 +173,13 @@ class UserAccountServiceTest {
 
         ArgumentCaptor<SysUser> userCaptor = ArgumentCaptor.forClass(SysUser.class);
         verify(sysUserRepository).save(userCaptor.capture());
-        assertThat(userCaptor.getValue().getStorageQuotaBytes()).isEqualTo(defaultQuotaBytes);
+        assertThat(userCaptor.getValue().getStorageQuotaBytes()).isEqualTo(512L * 1024L * 1024L);
         assertThat(userCaptor.getValue().getTokenVersion()).isZero();
         assertThat(userCaptor.getValue().getRole()).isEqualTo(UserRole.ADMIN);
         assertThat(userCaptor.getValue().getStatus()).isEqualTo(UserStatus.ACTIVE);
         assertThat(response.storageQuotaBytes()).isNull();
         assertThat(response.usedBytes()).isEqualTo(1024L);
         assertThat(response.remainingBytes()).isNull();
-    }
-
-    @Test
-    void updateUserQuotaPersistsNewQuota() {
-        SysUser user = new SysUser();
-        ReflectionTestUtils.setField(user, "id", 77L);
-        ReflectionTestUtils.setField(user, "createdAt", LocalDateTime.of(2026, 4, 29, 15, 30));
-        user.setPhoneNumber("13900000000");
-        user.setNickname("Alicia");
-        user.setRole(UserRole.USER);
-        user.setStatus(UserStatus.ACTIVE);
-        user.setStorageQuotaBytes(1024L);
-
-        when(sysUserRepository.findById(77L)).thenReturn(Optional.of(user));
-        when(storageQuotaService.normalizeQuotaBytes(eq(4096L), anyString())).thenReturn(4096L);
-        when(storageQuotaService.getUsedBytes(77L)).thenReturn(1536L);
-        when(sysUserRepository.save(any(SysUser.class))).thenAnswer(invocation -> invocation.getArgument(0));
-
-        var response = userAccountService.updateUserStorageQuota(77L, new AdminUpdateUserQuotaRequest(4096L));
-
-        verify(storageQuotaService).validateQuotaAssignment(77L, 4096L);
-        assertThat(user.getStorageQuotaBytes()).isEqualTo(4096L);
-        assertThat(response.storageQuotaBytes()).isEqualTo(4096L);
-        assertThat(response.usedBytes()).isEqualTo(1536L);
-        assertThat(response.remainingBytes()).isEqualTo(2560L);
-    }
-
-    @Test
-    void updateUserQuotaRejectsAdminAccounts() {
-        SysUser user = new SysUser();
-        ReflectionTestUtils.setField(user, "id", 91L);
-        user.setRole(UserRole.ADMIN);
-        user.setStatus(UserStatus.ACTIVE);
-        user.setStorageQuotaBytes(1024L);
-
-        when(sysUserRepository.findById(91L)).thenReturn(Optional.of(user));
-
-        assertThatThrownBy(() -> userAccountService.updateUserStorageQuota(91L, new AdminUpdateUserQuotaRequest(4096L)))
-                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
@@ -237,30 +234,20 @@ class UserAccountServiceTest {
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
-    @Test
-    void uploadCurrentUserHomeBackgroundPersistsCosReference() {
-        SysUser user = new SysUser();
-        ReflectionTestUtils.setField(user, "id", 23L);
-        ReflectionTestUtils.setField(user, "createdAt", LocalDateTime.of(2026, 4, 29, 18, 0));
-        user.setPhoneNumber("13800000023");
-        user.setNickname("Background User");
-        user.setRole(UserRole.USER);
-        user.setStatus(UserStatus.ACTIVE);
-        user.setStorageQuotaBytes(2048L);
-        user.setHomeBackgroundUrl("cosbg:user-home-backgrounds/23/old.webp");
-
-        MockMultipartFile file = new MockMultipartFile("file", "bg.webp", "image/webp", new byte[]{1, 2, 3});
-
-        when(sysUserRepository.findById(23L)).thenReturn(Optional.of(user));
-        when(cosFileStorageService.uploadUserHomeBackground(23L, file))
-                .thenReturn(new CosFileStorageService.StoredCosFile("user-home-backgrounds/23/new.webp", "image/webp", 3L));
-        when(sysUserRepository.save(any(SysUser.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(storageQuotaService.getUsedBytes(23L)).thenReturn(512L);
-
-        var response = userAccountService.uploadCurrentUserHomeBackground(23L, file);
-
-        verify(cosFileStorageService).deleteObjectQuietly("user-home-backgrounds/23/old.webp");
-        assertThat(user.getHomeBackgroundUrl()).isEqualTo("cosbg:user-home-backgrounds/23/new.webp");
-        assertThat(response.homeBackgroundUrl()).isEqualTo("cosbg:user-home-backgrounds/23/new.webp");
+    private UserProfileResponse profile(SysUser user, Long storageQuotaBytes, long usedBytes, Long remainingBytes) {
+        return new UserProfileResponse(
+                user.getId(),
+                user.getPhoneNumber() == null ? "" : user.getPhoneNumber(),
+                user.getEmail(),
+                user.getNickname(),
+                user.getAvatarUrl(),
+                user.getHomeBackgroundUrl(),
+                user.getRole().name(),
+                user.getStatus().name(),
+                user.getCreatedAt(),
+                storageQuotaBytes,
+                usedBytes,
+                remainingBytes
+        );
     }
 }

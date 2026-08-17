@@ -9,6 +9,7 @@ import com.alicia.cloudstorage.api.dto.RequestEmailRegistrationCodeRequest;
 import com.alicia.cloudstorage.api.dto.UpdateProfileRequest;
 import com.alicia.cloudstorage.api.dto.UserProfileResponse;
 import com.alicia.cloudstorage.api.dto.VerifyEmailRegistrationRequest;
+import com.alicia.cloudstorage.api.service.CloudUserProfileService;
 import com.alicia.cloudstorage.api.service.EmailRegistrationService;
 import com.alicia.cloudstorage.api.service.UserAccountService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -38,13 +39,19 @@ public class AuthController {
     private static final String SIGNED_MEDIA_REDIRECT_CACHE_CONTROL = "private, max-age=240";
 
     private final UserAccountService userAccountService;
+    private final CloudUserProfileService cloudUserProfileService;
     private final EmailRegistrationService emailRegistrationService;
 
     /**
      * 注入账号业务服务，供登录和个人资料接口复用。
      */
-    public AuthController(UserAccountService userAccountService, EmailRegistrationService emailRegistrationService) {
+    public AuthController(
+            UserAccountService userAccountService,
+            CloudUserProfileService cloudUserProfileService,
+            EmailRegistrationService emailRegistrationService
+    ) {
         this.userAccountService = userAccountService;
+        this.cloudUserProfileService = cloudUserProfileService;
         this.emailRegistrationService = emailRegistrationService;
     }
 
@@ -79,7 +86,7 @@ public class AuthController {
      */
     @GetMapping("/me")
     public UserProfileResponse me(@RequestAttribute(AuthRequestAttributes.CURRENT_USER_ID) Long userId) {
-        return userAccountService.getCurrentUser(userId);
+        return cloudUserProfileService.getCurrentUser(userId);
     }
 
     /**
@@ -112,7 +119,7 @@ public class AuthController {
             @RequestAttribute(AuthRequestAttributes.CURRENT_USER_ID) Long userId,
             @RequestPart("file") MultipartFile file
     ) {
-        return userAccountService.uploadCurrentUserHomeBackground(userId, file);
+        return cloudUserProfileService.uploadCurrentUserHomeBackground(userId, file);
     }
 
     /**
@@ -132,7 +139,7 @@ public class AuthController {
      */
     @GetMapping("/background/{userId}")
     public ResponseEntity<Void> getHomeBackground(@PathVariable Long userId) {
-        String accessUrl = userAccountService.resolveUserHomeBackgroundAccessUrl(userId).url();
+        String accessUrl = cloudUserProfileService.resolveUserHomeBackgroundAccessUrl(userId).url();
         return ResponseEntity.status(HttpStatus.FOUND)
                 .header(HttpHeaders.CACHE_CONTROL, SIGNED_MEDIA_REDIRECT_CACHE_CONTROL)
                 .location(URI.create(accessUrl))
@@ -146,7 +153,7 @@ public class AuthController {
     public UserProfileResponse clearHomeBackground(
             @RequestAttribute(AuthRequestAttributes.CURRENT_USER_ID) Long userId
     ) {
-        return userAccountService.clearCurrentUserHomeBackground(userId);
+        return cloudUserProfileService.clearCurrentUserHomeBackground(userId);
     }
 
     /**
