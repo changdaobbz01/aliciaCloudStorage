@@ -16,6 +16,18 @@ function trimFormString(value: unknown) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+function firstFormErrorMessage(errorInfo: unknown) {
+  const fields = (errorInfo as { errorFields?: Array<{ errors?: unknown[] }> }).errorFields ?? [];
+  for (const field of fields) {
+    const message = field.errors?.find((error) => typeof error === 'string');
+    if (typeof message === 'string' && message.trim()) {
+      return message;
+    }
+  }
+
+  return null;
+}
+
 function resolveDownloadUrl(downloadPath: string) {
   if (/^https?:\/\//i.test(downloadPath)) {
     return downloadPath;
@@ -164,6 +176,14 @@ export function LoginPage() {
     }
   }
 
+  function handleLoginFailed(errorInfo: unknown) {
+    message.error(firstFormErrorMessage(errorInfo) ?? '请填写账号和密码。');
+  }
+
+  function handleRegisterFailed(errorInfo: unknown) {
+    message.error(firstFormErrorMessage(errorInfo) ?? '请完整填写注册信息。');
+  }
+
   function resolveRegistrationEmail() {
     const formEmail = trimFormString(registerForm.getFieldValue('email'));
     if (formEmail) {
@@ -214,7 +234,12 @@ export function LoginPage() {
         </div>
 
         {authMode === 'login' ? (
-          <Form<LoginPayload> form={loginForm} layout="vertical" onFinish={handleFinish}>
+          <Form<LoginPayload>
+            form={loginForm}
+            layout="vertical"
+            onFinish={handleFinish}
+            onFinishFailed={handleLoginFailed}
+          >
             <Form.Item
               name="identifier"
               label="手机号或邮箱"
@@ -231,12 +256,17 @@ export function LoginPage() {
               <Input.Password placeholder="请输入密码" autoComplete="current-password" />
             </Form.Item>
 
-            <Button type="primary" htmlType="button" block className="login-submit" onClick={() => void loginForm.submit()}>
+            <Button type="primary" htmlType="submit" block className="login-submit">
               登录
             </Button>
           </Form>
         ) : (
-          <Form<RegisterFormValues> form={registerForm} layout="vertical" onFinish={handleRegister}>
+          <Form<RegisterFormValues>
+            form={registerForm}
+            layout="vertical"
+            onFinish={handleRegister}
+            onFinishFailed={handleRegisterFailed}
+          >
             <Form.Item
               name="email"
               label="邮箱"
@@ -319,11 +349,10 @@ export function LoginPage() {
 
             <Button
               type="primary"
-              htmlType="button"
+              htmlType="submit"
               block
               loading={registering}
               className="login-submit"
-              onClick={() => void registerForm.submit()}
             >
               注册并登录
             </Button>
