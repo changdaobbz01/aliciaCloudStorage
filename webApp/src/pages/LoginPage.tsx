@@ -12,6 +12,10 @@ type RegisterFormValues = VerifyEmailRegistrationPayload & {
   confirmPassword: string;
 };
 
+function trimFormString(value: unknown) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
 function resolveDownloadUrl(downloadPath: string) {
   if (/^https?:\/\//i.test(downloadPath)) {
     return downloadPath;
@@ -96,7 +100,7 @@ export function LoginPage() {
   async function handleFinish(values: LoginPayload) {
     try {
       const session = await login({
-        identifier: values.identifier.trim(),
+        identifier: trimFormString(values.identifier),
         password: values.password,
       });
       setCurrentSession(session);
@@ -110,9 +114,10 @@ export function LoginPage() {
 
   async function handleSendRegistrationCode() {
     try {
-      const { email } = await registerForm.validateFields(['email']);
+      await registerForm.validateFields(['email']);
+      const email = trimFormString(registerForm.getFieldValue('email'));
       setSendingCode(true);
-      await requestEmailRegistrationCode({ email: email.trim() });
+      await requestEmailRegistrationCode({ email });
       setCodeCooldown(60);
       message.success('如果邮箱可用，验证码会发送到该邮箱。');
     } catch (error) {
@@ -128,9 +133,9 @@ export function LoginPage() {
     try {
       setRegistering(true);
       const session = await verifyEmailRegistration({
-        email: values.email.trim(),
-        code: values.code.trim(),
-        nickname: values.nickname.trim(),
+        email: trimFormString(values.email),
+        code: trimFormString(values.code),
+        nickname: trimFormString(values.nickname),
         password: values.password,
       });
       setCurrentSession(session);
