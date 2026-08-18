@@ -125,7 +125,15 @@ curl http://127.0.0.1:8093/api/identity/health
 curl http://127.0.0.1:8093/api/identity/internal/users/1
 ```
 
-当前生产流量仍由 `CloudStorageApi` 处理登录、注册、Token 和账号资料；`identityApi` 只用于后续拆分验证，当前只读连接现有身份表，不接管写流量。
+验证 Identity API 内部登录：
+
+```powershell
+curl -X POST http://127.0.0.1:8093/api/identity/auth/login `
+  -H "Content-Type: application/json" `
+  -d "{\"identifier\":\"你的账号或邮箱\",\"password\":\"你的密码\"}"
+```
+
+当前生产流量仍由 `CloudStorageApi` 处理登录、注册、Token 和账号资料；`identityApi` 只用于后续拆分验证，当前可只读连接现有身份表并独立验证登录，不接管公网流量。
 
 ### HTTPS 部署（已签发证书后）
 

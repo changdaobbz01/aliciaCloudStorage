@@ -699,6 +699,8 @@ AliciaCloudStorage/identityApi
 - 只读身份模型：`IdentityUser`，映射现有 `sys_user` 身份字段。
 - 只读 Repository：`IdentityUserRepository`。
 - 内部只读查询接口：`GET /api/identity/internal/users/{userId}`。
+- 内部登录验证接口：`POST /api/identity/auth/login`。
+- 兼容旧 token 格式的临时 `IdentityTokenService`，后续再替换为标准 JWT。
 - Compose 中注入同一个 MySQL 连接，但 `identity` profile 默认不启动。
 - Dockerfile：`identityApi/Dockerfile`。
 - Compose profile：`identity`，默认不启动、不接生产流量。
@@ -742,6 +744,7 @@ identityApi
 - 服务器可用 `docker compose --profile identity up -d --build identity` 单独启动。
 - 单独启动后 `http://127.0.0.1:8093/api/identity/health` 可用。
 - 单独启动后 `http://127.0.0.1:8093/api/identity/internal/users/1` 可读取身份资料，响应不包含 `passwordHash`。
+- 单独启动后 `POST http://127.0.0.1:8093/api/identity/auth/login` 可验证老用户密码并返回 token。
 - 生产流量仍由 CloudStorageApi 处理，网关暂不路由到 identity 容器。
 
 后续验证：
@@ -958,7 +961,7 @@ Android：
 
 1. 保持旧 `sys_user.storage_quota_bytes` 和 `sys_user.home_background_url` 一个版本周期不删。
 2. 在服务器验证 `identityApi` 可以只读查询 `sys_user`，并确认响应不包含密码哈希。
-3. 迁移登录和 `/api/auth/me`，让 identity 在本地或 profile 容器中独立验证。
+3. 补齐 identity 内部 `/me` token 解析验证，确认 identity 自己签发的 token 可读取当前用户。
 4. 迁移邮箱验证码注册。
 5. 迁移密码修改、管理员重置密码和管理员身份管理。
 

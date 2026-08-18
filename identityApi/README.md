@@ -14,12 +14,14 @@ Local endpoints:
 
 - `GET /api/identity/health`
 - `GET /api/identity/internal/users/{userId}`
+- `POST /api/identity/auth/login`
 
 The internal user endpoint is read-only and does not return `password_hash`.
+The login endpoint is for isolated identity verification only; production `/api/auth/login` still routes to `CloudStorageApi`.
 
 Planned migration order:
 
-1. Move login and current-user reads into this module.
+1. Verify login and current-user reads inside this module.
 2. Move email registration and verification.
 3. Move password changes and administrator identity management.
 4. Let `CloudStorageApi` consume identity tokens instead of issuing them.

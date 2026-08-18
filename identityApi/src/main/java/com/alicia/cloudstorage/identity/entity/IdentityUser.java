@@ -33,6 +33,9 @@ public class IdentityUser {
     @Column(name = "avatar_url", length = 500)
     private String avatarUrl;
 
+    @Column(name = "password_hash", nullable = false)
+    private String passwordHash;
+
     @Column(name = "token_version", nullable = false)
     private Long tokenVersion;
 
@@ -72,6 +75,10 @@ public class IdentityUser {
 
     public String getAvatarUrl() {
         return avatarUrl;
+    }
+
+    public String getPasswordHash() {
+        return passwordHash;
     }
 
     public Long getTokenVersion() {
