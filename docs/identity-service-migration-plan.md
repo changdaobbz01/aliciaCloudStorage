@@ -355,6 +355,14 @@ cloud_user_profile.home_background_url = sys_user.home_background_url
 
 第一期暂时不删除 `sys_user.storage_quota_bytes` 和 `sys_user.home_background_url`，只停止新代码写入。等生产稳定后再做清理迁移。
 
+当前已落地：
+
+- `V12__create_cloud_user_profile.sql` 创建 `cloud_user_profile`。
+- 首次迁移时从 `sys_user.storage_quota_bytes` 和 `sys_user.home_background_url` 回填老用户云盘资料。
+- `CloudUserProfileService` 通过 `CloudUserProfileRepository` 读写云盘额度和主页背景。
+- `StorageQuotaService` 通过云盘资料读取器从 `cloud_user_profile` 获取容量。
+- 旧 `sys_user` 字段暂时保留，只作为缺失 profile 时的兼容兜底。
+
 ### 6.2 第二期表结构清理
 
 生产稳定后再考虑：
@@ -659,10 +667,13 @@ main-site-frontend
 5. `IdentityAccountService.createUser` 和 `createVerifiedEmailUser` 不再接收云盘额度参数。
 6. 新用户创建后，由 `CloudUserProfileService.initializeDefaultNewUserProfile` 或 `initializeAdminCreatedUserProfile` 初始化云盘额度和管理员背景继承。
 7. 当前旧表仍有 `sys_user.storage_quota_bytes`，通过 `@DynamicInsert` 使用数据库默认值兜底；真正业务额度在同一事务内由云盘资料服务写入。
+8. 新增 `cloud_user_profile` 表，老用户从 `sys_user` 回填云盘额度和主页背景。
+9. `CloudUserProfileService` 写入 `cloud_user_profile`，不再把云盘背景和额度写回 `SysUser`。
+10. `StorageQuotaService` 通过 `cloud_user_profile` 读取容量，旧 `sys_user` 字段仅作缺失 profile 时的兜底。
 
 验证：
 
-- `.\mvnw.cmd -pl CloudStorageApi clean test` 通过。
+- `.\mvnw.cmd -pl CloudStorageApi test` 通过。
 - Web 登录、注册、修改资料、上传头像、背景、管理员用户管理都通过。
 - Android 登录、注册、个人资料、云盘首页通过。
 
@@ -730,9 +741,9 @@ identityApi
 1. 新增 `IdentityTokenVerifier`。
 2. 替换 `AuthService` 中对 `SysUserRepository` 的依赖。
 3. `AuthInterceptor` 写入 `CurrentPrincipal` 或 `CURRENT_USER_ID`。
-4. 新增 `cloud_user_profile` 表。
-5. 首次访问云盘时自动创建 `cloud_user_profile`。
-6. `StorageQuotaService` 从 `cloud_user_profile` 读取容量。
+4. 保持现有 `cloud_user_profile` 作为云盘用户资料来源。
+5. 继续保留缺失 profile 时从旧 `sys_user` 字段补齐的兼容逻辑，直到生产确认无缺失。
+6. 把 CloudStorageApi 中剩余身份写能力切到 Identity API 或删除旧实现。
 
 验证：
 
@@ -813,7 +824,7 @@ identityApi
 
 | 阶段 | 回滚方式 |
 | --- | --- |
-| 阶段 1 | 回退代码即可，无数据库结构变化 |
+| 阶段 1 | 回退代码即可；新增 `cloud_user_profile` 表保留不影响旧代码，回滚时不要删除旧 `sys_user` 字段 |
 | 阶段 2 | 停止 identity 容器，网关仍指向旧 api |
 | 阶段 3 | 保留旧 `/api/auth/**` 实现一版，必要时切回 |
 | 阶段 4 | 保持响应结构兼容，旧客户端继续可用 |
@@ -882,9 +893,13 @@ Android：
 - `CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/controller/AuthController.java`
 - `CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/controller/AdminIdentityUserController.java`
 - `CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/controller/AdminCloudUserProfileController.java`
+- `CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/entity/CloudUserProfileEntity.java`
+- `CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/repository/CloudUserProfileRepository.java`
 - `CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/service/UserAccountService.java`
 - `CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/service/EmailRegistrationService.java`
 - `CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/service/StorageQuotaService.java`
+- `CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/service/CloudUserProfileService.java`
+- `CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/service/SysUserStorageQuotaAccountReader.java`
 - `CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/auth/AuthService.java`
 - `CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/auth/TokenService.java`
 - `CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/entity/SysUser.java`
@@ -917,12 +932,12 @@ Android：
 
 ## 15. 推荐下一步
 
-下一步不要直接新建 Identity Service。先做阶段 1：
+阶段 1 已经开始落地，下一步进入生产验证和阶段 2 准备：
 
-1. 在 `CloudStorageApi` 内部拆出身份领域和云盘用户资料领域。
-2. 新增 `CloudUserProfile` 概念，但先不迁移数据库。
-3. 把 `UserAccountService` 的职责收窄。
-4. 确认 Web 和 Android 行为不变。
-5. 单独提交。
+1. 部署包含 `V12__create_cloud_user_profile.sql` 的版本，确认 Flyway 成功执行。
+2. 验证老用户 `/api/auth/me`、背景图、容量展示、上传容量校验和管理员改额度。
+3. 查询 `cloud_user_profile` 行数是否与 `sys_user` 一致。
+4. 保持旧 `sys_user.storage_quota_bytes` 和 `sys_user.home_background_url` 一个版本周期不删。
+5. 新建 `identityApi` 模块骨架，先迁移登录、注册、验证码、密码和账号资料相关代码。
 
-这一步完成后，再新增 `identityApi` 会顺很多，也更容易判断每个接口应该归谁。
+这一步完成后，`CloudStorageApi` 已经能把云盘资料和身份资料分开维护，再新增 `identityApi` 会顺很多，也更容易判断每个接口应该归谁。
