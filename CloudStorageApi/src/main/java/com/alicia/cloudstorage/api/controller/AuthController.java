@@ -18,7 +18,6 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -111,17 +110,6 @@ public class AuthController {
     }
 
     /**
-     * 上传当前登录用户的主页背景图。
-     */
-    @PostMapping(value = "/background", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public UserProfileResponse uploadHomeBackground(
-            @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
-            @RequestPart("file") MultipartFile file
-    ) {
-        return userAccountService.uploadCurrentUserHomeBackground(principal.userId(), file);
-    }
-
-    /**
      * 读取用户上传到 COS 的头像图片，供前端头像组件展示。
      */
     @GetMapping("/avatar/{userId}")
@@ -131,28 +119,6 @@ public class AuthController {
                 .header(HttpHeaders.CACHE_CONTROL, SIGNED_MEDIA_REDIRECT_CACHE_CONTROL)
                 .location(URI.create(accessUrl))
                 .build();
-    }
-
-    /**
-     * 读取用户上传到 COS 的主页背景图，供前端主页背景展示。
-     */
-    @GetMapping("/background/{userId}")
-    public ResponseEntity<Void> getHomeBackground(@PathVariable Long userId) {
-        String accessUrl = userAccountService.resolveUserHomeBackgroundAccessUrl(userId).url();
-        return ResponseEntity.status(HttpStatus.FOUND)
-                .header(HttpHeaders.CACHE_CONTROL, SIGNED_MEDIA_REDIRECT_CACHE_CONTROL)
-                .location(URI.create(accessUrl))
-                .build();
-    }
-
-    /**
-     * 清空当前登录用户已设置的主页背景图。
-     */
-    @DeleteMapping("/background")
-    public UserProfileResponse clearHomeBackground(
-            @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal
-    ) {
-        return userAccountService.clearCurrentUserHomeBackground(principal.userId());
     }
 
     /**

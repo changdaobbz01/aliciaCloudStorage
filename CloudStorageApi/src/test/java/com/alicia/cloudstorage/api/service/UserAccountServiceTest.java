@@ -9,7 +9,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.mock.web.MockMultipartFile;
 
 import java.time.LocalDateTime;
 
@@ -41,23 +40,6 @@ class UserAccountServiceTest {
 
         assertThat(response.token()).isEqualTo("token");
         assertThat(response.user()).isSameAs(profile);
-    }
-
-    @Test
-    void uploadHomeBackgroundCombinesUpdatedCloudProfileWithCurrentIdentity() {
-        MockMultipartFile file = new MockMultipartFile("file", "bg.webp", "image/webp", new byte[]{1, 2, 3});
-        IdentityAccount account = regularIdentityAccount(23L);
-        CloudUserProfileService.CloudUserProfile cloudProfile =
-                new CloudUserProfileService.CloudUserProfile(23L, "cosbg:user-home-backgrounds/23/new.webp", 2048L);
-        UserProfileResponse responseProfile = profile(account, 2048L, 512L, 1536L);
-
-        when(cloudUserProfileService.uploadCurrentUserHomeBackground(23L, file)).thenReturn(cloudProfile);
-        when(identityAccountService.getCurrentUser(23L)).thenReturn(account);
-        when(cloudUserProfileService.toUserProfile(account, cloudProfile)).thenReturn(responseProfile);
-
-        var response = userAccountService.uploadCurrentUserHomeBackground(23L, file);
-
-        assertThat(response).isSameAs(responseProfile);
     }
 
     @Test

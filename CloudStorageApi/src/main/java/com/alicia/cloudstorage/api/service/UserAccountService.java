@@ -47,13 +47,6 @@ public class UserAccountService {
         return cloudUserProfileService.toUserProfile(account);
     }
 
-    public UserProfileResponse uploadCurrentUserHomeBackground(Long userId, MultipartFile file) {
-        CloudUserProfileService.CloudUserProfile cloudProfile =
-                cloudUserProfileService.uploadCurrentUserHomeBackground(userId, file);
-        IdentityAccount account = identityAccountService.getCurrentUser(userId);
-        return cloudUserProfileService.toUserProfile(account, cloudProfile);
-    }
-
     @Transactional(readOnly = true)
     public AvatarDownloadPayload openUserAvatar(Long userId) {
         IdentityAccountService.AvatarDownloadPayload downloadedCosFile =
@@ -66,31 +59,8 @@ public class UserAccountService {
     }
 
     @Transactional(readOnly = true)
-    public HomeBackgroundDownloadPayload openUserHomeBackground(Long userId) {
-        CloudUserProfileService.HomeBackgroundDownloadPayload downloadedCosFile =
-                cloudUserProfileService.openUserHomeBackground(userId);
-        return new HomeBackgroundDownloadPayload(
-                downloadedCosFile.contentType(),
-                downloadedCosFile.contentLength(),
-                downloadedCosFile.inputStream()
-        );
-    }
-
-    @Transactional(readOnly = true)
     public CosFileStorageService.PresignedCosUrl resolveUserAvatarAccessUrl(Long userId) {
         return identityAccountService.resolveUserAvatarAccessUrl(userId);
-    }
-
-    @Transactional(readOnly = true)
-    public CosFileStorageService.PresignedCosUrl resolveUserHomeBackgroundAccessUrl(Long userId) {
-        return cloudUserProfileService.resolveUserHomeBackgroundAccessUrl(userId);
-    }
-
-    public UserProfileResponse clearCurrentUserHomeBackground(Long userId) {
-        CloudUserProfileService.CloudUserProfile cloudProfile =
-                cloudUserProfileService.clearCurrentUserHomeBackground(userId);
-        IdentityAccount account = identityAccountService.getCurrentUser(userId);
-        return cloudUserProfileService.toUserProfile(account, cloudProfile);
     }
 
     public void changePassword(Long userId, ChangePasswordRequest request) {
@@ -110,13 +80,6 @@ public class UserAccountService {
     }
 
     public record AvatarDownloadPayload(
-            String contentType,
-            long contentLength,
-            InputStream inputStream
-    ) {
-    }
-
-    public record HomeBackgroundDownloadPayload(
             String contentType,
             long contentLength,
             InputStream inputStream

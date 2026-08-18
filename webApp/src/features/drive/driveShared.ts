@@ -87,7 +87,7 @@ export function resolveHomeBackgroundSrc(user: User | null | undefined) {
   }
 
   if (user.homeBackgroundUrl.startsWith('cosbg:')) {
-    return `/api/auth/background/${user.id}?v=${encodeURIComponent(user.homeBackgroundUrl)}`;
+    return `/api/cloud-profile/background/${user.id}?v=${encodeURIComponent(user.homeBackgroundUrl)}`;
   }
 
   return user.homeBackgroundUrl;

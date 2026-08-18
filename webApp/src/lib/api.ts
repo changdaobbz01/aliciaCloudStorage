@@ -554,7 +554,7 @@ export function uploadCurrentUserHomeBackground(file: File, token: string) {
   formData.append('file', file);
 
   return requestUploadJson<User>(
-    '/api/auth/background',
+    '/api/cloud-profile/background',
     formData,
     token,
   );
@@ -564,7 +564,7 @@ export function uploadCurrentUserHomeBackground(file: File, token: string) {
  * 清空当前用户的主页背景图。
  */
 export function clearCurrentUserHomeBackground(token: string) {
-  return requestJson<User>('/api/auth/background', withToken(token, { method: 'DELETE' }));
+  return requestJson<User>('/api/cloud-profile/background', withToken(token, { method: 'DELETE' }));
 }
 
 /**

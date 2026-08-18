@@ -40,17 +40,20 @@
 - `PUT /api/auth/profile`
 - `POST /api/auth/avatar`
 - `GET /api/auth/avatar/{userId}`
-- `POST /api/auth/background`
-- `GET /api/auth/background/{userId}`
-- `DELETE /api/auth/background`
 - `PUT /api/auth/password`
+
+云盘个性化资料入口已迁出：
+
+- `POST /api/cloud-profile/background`
+- `GET /api/cloud-profile/background/{userId}`
+- `DELETE /api/cloud-profile/background`
 
 问题：
 
 - 登录注册属于公共身份。
 - `me`、昵称、头像、密码属于公共身份或账号中心。
-- 主页背景属于云盘个性化设置，不应放在公共身份里。
-- 当前一个 Controller 混合了公共身份和云盘偏好。
+- 主页背景属于云盘个性化设置，已从 `AuthController` 移到 `CloudProfileController`。
+- `AuthController` 后续继续收敛为登录、注册、公共资料、头像和密码相关入口。
 
 ### 3.2 后端账号业务
 
@@ -459,17 +462,24 @@ exp: 过期时间
 - `/api/app-package/**`
 - `/api/admin/app-package/**`
 
-迁移：
+已迁移：
 
 | 当前接口 | 调整 |
 | --- | --- |
 | `/api/auth/background` | 移到 `/api/cloud-profile/background` |
 | `/api/auth/background/{userId}` | 移到 `/api/cloud-profile/background/{userId}` |
+
+待迁移：
+
+| 当前接口 | 调整 |
+| --- | --- |
 | `/api/admin/users/{userId}/quota` | 移到 `/api/admin/cloud-users/{userId}/quota` |
 
-兼容期：
+兼容策略：
 
-- 旧路径保留一段时间，内部转调用新服务，避免 Web 和 Android 同时大改。
+- 当前应用尚未正式发布，旧 `/api/auth/background` 路径不再保留。
+- Web 已直接调用 `/api/cloud-profile/background`。
+- Android 当前只读取 `homeBackgroundUrl` 响应字段，未发现上传/清空背景接口调用。
 
 ### 8.3 管理端拆分
 
@@ -799,7 +809,6 @@ identityApi
 - CloudStorageApi 中身份写接口。
 - `sys_user.storage_quota_bytes`。
 - `sys_user.home_background_url`。
-- 老的 `/api/auth/background` 兼容路径。
 
 ## 12. 回滚策略
 

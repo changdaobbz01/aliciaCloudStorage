@@ -33,8 +33,8 @@ public class WebMvcConfig implements WebMvcConfigurer {
                         "/api/auth/me",
                         "/api/auth/profile",
                         "/api/auth/avatar",
-                        "/api/auth/background",
                         "/api/auth/password",
+                        "/api/cloud-profile/background",
                         "/api/share-links/**",
                         "/api/storage/**"
                 );
