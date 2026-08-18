@@ -1,6 +1,7 @@
 package com.alicia.cloudstorage.api.controller;
 
 import com.alicia.cloudstorage.api.auth.AuthRequestAttributes;
+import com.alicia.cloudstorage.api.auth.CurrentPrincipal;
 import com.alicia.cloudstorage.api.dto.ApiMessageResponse;
 import com.alicia.cloudstorage.api.dto.AppPackageInfoResponse;
 import com.alicia.cloudstorage.api.service.AppPackageService;
@@ -41,9 +42,9 @@ public class AdminAppPackageController {
             @RequestPart("file") MultipartFile file,
             @RequestParam("versionName") String versionName,
             @RequestParam("releaseNotes") String releaseNotes,
-            @RequestAttribute(AuthRequestAttributes.CURRENT_USER_ID) Long adminUserId
+            @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal
     ) {
-        return appPackageService.storePackage(file, versionName, releaseNotes, adminUserId);
+        return appPackageService.storePackage(file, versionName, releaseNotes, principal.userId());
     }
 
     /**

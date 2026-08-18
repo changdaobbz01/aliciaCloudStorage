@@ -1,6 +1,7 @@
 package com.alicia.cloudstorage.api.controller;
 
 import com.alicia.cloudstorage.api.auth.AuthRequestAttributes;
+import com.alicia.cloudstorage.api.auth.CurrentPrincipal;
 import com.alicia.cloudstorage.api.dto.ApiMessageResponse;
 import com.alicia.cloudstorage.api.dto.ChangePasswordRequest;
 import com.alicia.cloudstorage.api.dto.LoginRequest;
@@ -81,8 +82,10 @@ public class AuthController {
      * 查询当前登录用户的基础资料信息。
      */
     @GetMapping("/me")
-    public UserProfileResponse me(@RequestAttribute(AuthRequestAttributes.CURRENT_USER_ID) Long userId) {
-        return userAccountService.getCurrentUser(userId);
+    public UserProfileResponse me(
+            @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal
+    ) {
+        return userAccountService.getCurrentUser(principal.userId());
     }
 
     /**
@@ -90,10 +93,10 @@ public class AuthController {
      */
     @PutMapping("/profile")
     public UserProfileResponse updateProfile(
-            @RequestAttribute(AuthRequestAttributes.CURRENT_USER_ID) Long userId,
+            @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
             @Valid @RequestBody UpdateProfileRequest request
     ) {
-        return userAccountService.updateCurrentUser(userId, request);
+        return userAccountService.updateCurrentUser(principal.userId(), request);
     }
 
     /**
@@ -101,10 +104,10 @@ public class AuthController {
      */
     @PostMapping(value = "/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public UserProfileResponse uploadAvatar(
-            @RequestAttribute(AuthRequestAttributes.CURRENT_USER_ID) Long userId,
+            @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
             @RequestPart("file") MultipartFile file
     ) {
-        return userAccountService.uploadCurrentUserAvatar(userId, file);
+        return userAccountService.uploadCurrentUserAvatar(principal.userId(), file);
     }
 
     /**
@@ -112,10 +115,10 @@ public class AuthController {
      */
     @PostMapping(value = "/background", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public UserProfileResponse uploadHomeBackground(
-            @RequestAttribute(AuthRequestAttributes.CURRENT_USER_ID) Long userId,
+            @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
             @RequestPart("file") MultipartFile file
     ) {
-        return userAccountService.uploadCurrentUserHomeBackground(userId, file);
+        return userAccountService.uploadCurrentUserHomeBackground(principal.userId(), file);
     }
 
     /**
@@ -147,9 +150,9 @@ public class AuthController {
      */
     @DeleteMapping("/background")
     public UserProfileResponse clearHomeBackground(
-            @RequestAttribute(AuthRequestAttributes.CURRENT_USER_ID) Long userId
+            @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal
     ) {
-        return userAccountService.clearCurrentUserHomeBackground(userId);
+        return userAccountService.clearCurrentUserHomeBackground(principal.userId());
     }
 
     /**
@@ -157,10 +160,10 @@ public class AuthController {
      */
     @PutMapping("/password")
     public ApiMessageResponse changePassword(
-            @RequestAttribute(AuthRequestAttributes.CURRENT_USER_ID) Long userId,
+            @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
             @Valid @RequestBody ChangePasswordRequest request
     ) {
-        userAccountService.changePassword(userId, request);
+        userAccountService.changePassword(principal.userId(), request);
         return new ApiMessageResponse("密码修改成功。");
     }
 }

@@ -1,6 +1,7 @@
 package com.alicia.cloudstorage.api.controller;
 
 import com.alicia.cloudstorage.api.auth.AuthRequestAttributes;
+import com.alicia.cloudstorage.api.auth.CurrentPrincipal;
 import com.alicia.cloudstorage.api.dto.CreateShareLinkRequest;
 import com.alicia.cloudstorage.api.dto.SaveShareLinkRequest;
 import com.alicia.cloudstorage.api.dto.ShareLinkDetailResponse;
@@ -44,49 +45,49 @@ public class ShareLinkController {
 
     @PostMapping
     public ShareLinkSummaryResponse createShareLink(
-            @RequestAttribute(AuthRequestAttributes.CURRENT_USER_ID) Long userId,
+            @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
             @Valid @RequestBody CreateShareLinkRequest request
     ) {
-        return shareLinkService.createShareLink(userId, request);
+        return shareLinkService.createShareLink(principal.userId(), request);
     }
 
     @GetMapping("/my")
     public List<ShareLinkSummaryResponse> listMyShareLinks(
-            @RequestAttribute(AuthRequestAttributes.CURRENT_USER_ID) Long userId
+            @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal
     ) {
-        return shareLinkService.listMyShareLinks(userId);
+        return shareLinkService.listMyShareLinks(principal.userId());
     }
 
     @DeleteMapping("/{shareId}")
     public ShareLinkSummaryResponse revokeShareLink(
-            @RequestAttribute(AuthRequestAttributes.CURRENT_USER_ID) Long userId,
+            @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
             @PathVariable Long shareId
     ) {
-        return shareLinkService.revokeShareLink(userId, shareId);
+        return shareLinkService.revokeShareLink(principal.userId(), shareId);
     }
 
     @GetMapping("/{shareCode}/detail")
     public ShareLinkDetailResponse getShareDetail(
-            @RequestAttribute(AuthRequestAttributes.CURRENT_USER_ID) Long userId,
+            @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
             @PathVariable String shareCode,
             @RequestHeader(value = SHARE_ACCESS_HEADER, required = false) String shareAccessToken
     ) {
-        return shareLinkService.getShareDetail(userId, shareCode, shareAccessToken);
+        return shareLinkService.getShareDetail(principal.userId(), shareCode, shareAccessToken);
     }
 
     @PostMapping("/{shareCode}/save")
     public List<StorageNodeSummaryResponse> saveShare(
-            @RequestAttribute(AuthRequestAttributes.CURRENT_USER_ID) Long userId,
+            @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
             @PathVariable String shareCode,
             @RequestHeader(value = SHARE_ACCESS_HEADER, required = false) String shareAccessToken,
             @RequestBody(required = false) SaveShareLinkRequest request
     ) {
-        return shareLinkService.saveShare(userId, shareCode, shareAccessToken, request);
+        return shareLinkService.saveShare(principal.userId(), shareCode, shareAccessToken, request);
     }
 
     @GetMapping("/{shareCode}/files/{fileId}/access-url")
     public SignedUrlResponse getShareFileAccessUrl(
-            @RequestAttribute(AuthRequestAttributes.CURRENT_USER_ID) Long userId,
+            @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
             @PathVariable String shareCode,
             @PathVariable Long fileId,
             @RequestHeader(value = SHARE_ACCESS_HEADER, required = false) String shareAccessToken,
@@ -94,7 +95,7 @@ public class ShareLinkController {
     ) {
         boolean attachment = "attachment".equalsIgnoreCase(disposition) || "download".equalsIgnoreCase(disposition);
         StorageCommandService.StorageAccessUrlPayload payload = shareLinkService.createShareFileAccessUrl(
-                userId,
+                principal.userId(),
                 shareCode,
                 fileId,
                 shareAccessToken,
@@ -110,13 +111,13 @@ public class ShareLinkController {
 
     @GetMapping("/{shareCode}/files/{fileId}/download")
     public ResponseEntity<InputStreamResource> downloadShareFile(
-            @RequestAttribute(AuthRequestAttributes.CURRENT_USER_ID) Long userId,
+            @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
             @PathVariable String shareCode,
             @PathVariable Long fileId,
             @RequestHeader(value = SHARE_ACCESS_HEADER, required = false) String shareAccessToken
     ) {
         StorageCommandService.StorageDownloadPayload downloadPayload = shareLinkService.downloadShareFile(
-                userId,
+                principal.userId(),
                 shareCode,
                 fileId,
                 shareAccessToken

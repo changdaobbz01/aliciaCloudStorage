@@ -1,6 +1,7 @@
 package com.alicia.cloudstorage.api.controller;
 
 import com.alicia.cloudstorage.api.auth.AuthRequestAttributes;
+import com.alicia.cloudstorage.api.auth.CurrentPrincipal;
 import com.alicia.cloudstorage.api.dto.AdminCreateUserRequest;
 import com.alicia.cloudstorage.api.dto.AdminResetUserPasswordRequest;
 import com.alicia.cloudstorage.api.dto.ApiMessageResponse;
@@ -35,19 +36,19 @@ public class AdminIdentityUserController {
 
     @PostMapping
     public UserProfileResponse createUser(
-            @RequestAttribute(AuthRequestAttributes.CURRENT_USER_ID) Long adminUserId,
+            @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
             @Valid @RequestBody AdminCreateUserRequest request
     ) {
-        return adminIdentityManagementService.createUser(adminUserId, request);
+        return adminIdentityManagementService.createUser(principal.userId(), request);
     }
 
     @PutMapping("/{userId}/password")
     public ApiMessageResponse resetUserPassword(
-            @RequestAttribute(AuthRequestAttributes.CURRENT_USER_ID) Long adminUserId,
+            @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
             @PathVariable Long userId,
             @Valid @RequestBody AdminResetUserPasswordRequest request
     ) {
-        adminIdentityManagementService.resetUserPassword(adminUserId, userId, request);
+        adminIdentityManagementService.resetUserPassword(principal.userId(), userId, request);
         return new ApiMessageResponse("用户密码已重置，旧登录状态已失效。");
     }
 }
