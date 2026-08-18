@@ -92,6 +92,9 @@ services:
       context: ./webApp
     ports:
       - "80:80"
+    networks:
+      - default
+      - alicia_gateway
     depends_on:
       - api
       - rag
@@ -99,3 +102,7 @@ services:
 volumes:
   alicia_cloud_storage_mysql_data:
   alicia_cloud_storage_app_package_data:
+
+networks:
+  alicia_gateway:
+    external: true

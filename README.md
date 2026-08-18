@@ -84,6 +84,12 @@ cp .env.example .env
 
 当前仓库已经改成多阶段 Docker 构建，最省事的启动方式是直接使用 Docker Compose。
 
+`frontend` 容器会加入外部网关网络，用于把主域名 `/` 代理到工具主站。首次启动前先创建一次：
+
+```powershell
+docker network create alicia_gateway
+```
+
 ### 1. 启动容器
 
 ```powershell
@@ -93,7 +99,7 @@ docker compose up -d --build
 启动后默认地址：
 
 - 前端：`http://localhost/cloudPan/`
-- 旧云盘根入口：`http://localhost/` 会跳转到 `/cloudPan/`
+- 主域名根入口：`http://localhost/` 会代理到工具主站容器
 - 后端（仅本机回环）：`http://127.0.0.1:8090`
 - 健康检查（仅本机回环）：`http://127.0.0.1:8090/api/health`
 - RAG（仅本机回环）：`http://127.0.0.1:8091`
