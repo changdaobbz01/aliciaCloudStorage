@@ -704,7 +704,9 @@ AliciaCloudStorage/identityApi
 - 内部邮箱验证码发送接口：`POST /api/identity/auth/register/email-code`。
 - 内部邮箱验证码注册接口：`POST /api/identity/auth/register/verify`。
 - 邮件发送配置：`alicia.mail.*`，identity 容器复用现有 SMTP 环境变量。
-- 邮箱注册当前只创建身份用户，云盘 `cloud_user_profile` 仍由 CloudStorageApi 在消费身份用户时负责补建。
+- 邮箱注册当前只创建身份用户，云盘 `cloud_user_profile` 由 CloudStorageApi 在消费身份用户时负责补建。
+- CloudStorageApi 已新增 `CloudUserProfileProvisioningService`，鉴权通过后会确保当前身份用户存在云盘 profile。
+- identity 新用户的云盘 profile 默认额度取 `alicia.storage.default-user-quota-bytes`，不再误用 `sys_user.storage_quota_bytes` 的旧数据库默认值。
 - 兼容旧 token 格式的临时 `IdentityTokenService`，后续再替换为标准 JWT。
 - Compose 中注入同一个 MySQL 连接，但 `identity` profile 默认不启动。
 - Dockerfile：`identityApi/Dockerfile`。
@@ -753,6 +755,7 @@ identityApi
 - 单独启动后 `GET http://127.0.0.1:8093/api/identity/auth/me` 可用 identity token 读取当前用户。
 - 单独启动后 `POST http://127.0.0.1:8093/api/identity/auth/register/email-code` 可发送注册验证码。
 - 单独启动后 `POST http://127.0.0.1:8093/api/identity/auth/register/verify` 可创建邮箱注册身份用户并返回 identity token。
+- 使用 identity 注册返回的 token 请求 CloudStorageApi 受保护接口时，CloudStorageApi 会自动补建 `cloud_user_profile`。
 - 生产流量仍由 CloudStorageApi 处理，网关暂不路由到 identity 容器。
 
 后续验证：
@@ -968,9 +971,9 @@ Android：
 阶段 1 已经开始落地，下一步进入生产验证和阶段 2 准备：
 
 1. 保持旧 `sys_user.storage_quota_bytes` 和 `sys_user.home_background_url` 一个版本周期不删。
-2. 在服务器验证 `identityApi` 的邮箱验证码发送、邮箱注册、登录和 `/me`。
+2. 在服务器验证 identity 新用户请求 CloudStorageApi 时会自动生成 `cloud_user_profile`。
 3. 迁移密码修改、管理员重置密码和管理员身份管理。
 4. 准备网关双轨验证方案，让 `/api/auth/**` 可以按环境切到 identity。
-5. 再处理 CloudStorageApi 首次消费 identity 新用户时的云盘 profile provisioning 策略。
+5. 再设计主站统一登录态和云盘业务 profile 的最终 provisioning 边界。
 
-这一步完成后，`CloudStorageApi` 已经能把云盘资料和身份资料分开维护，`identityApi` 也可以独立读取身份表并创建邮箱注册身份用户。后面要做的是把剩余身份写能力一块一块搬进去，而不是再调整主站/云盘路径结构。
+这一步完成后，`CloudStorageApi` 已经能把云盘资料和身份资料分开维护，并能接住由 `identityApi` 新建的身份用户。后面要做的是把剩余身份写能力一块一块搬进去，而不是再调整主站/云盘路径结构。

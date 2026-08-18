@@ -154,6 +154,8 @@ curl -X POST http://127.0.0.1:8093/api/identity/auth/register/verify `
 
 当前生产流量仍由 `CloudStorageApi` 处理登录、注册、Token 和账号资料；`identityApi` 只用于后续拆分验证，当前可连接现有身份表并独立验证登录、当前用户读取和邮箱注册，不接管公网流量。
 
+`identityApi` 新注册用户首次携带 identity token 访问 CloudStorageApi 受保护接口时，CloudStorageApi 会自动补建对应的 `cloud_user_profile`，云盘默认额度取 `ALICIA_STORAGE_DEFAULT_USER_QUOTA_BYTES`。
+
 ### HTTPS 部署（已签发证书后）
 
 如果你已经拿到 Nginx 证书文件，可以把证书和私钥分别放到：

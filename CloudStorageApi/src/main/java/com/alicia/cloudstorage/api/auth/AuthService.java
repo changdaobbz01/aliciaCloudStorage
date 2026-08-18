@@ -3,6 +3,7 @@ package com.alicia.cloudstorage.api.auth;
 import com.alicia.cloudstorage.api.entity.SysUser;
 import com.alicia.cloudstorage.api.entity.UserStatus;
 import com.alicia.cloudstorage.api.repository.SysUserRepository;
+import com.alicia.cloudstorage.api.service.CloudUserProfileProvisioningService;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -10,10 +11,16 @@ public class AuthService {
 
     private final TokenService tokenService;
     private final SysUserRepository sysUserRepository;
+    private final CloudUserProfileProvisioningService cloudUserProfileProvisioningService;
 
-    public AuthService(TokenService tokenService, SysUserRepository sysUserRepository) {
+    public AuthService(
+            TokenService tokenService,
+            SysUserRepository sysUserRepository,
+            CloudUserProfileProvisioningService cloudUserProfileProvisioningService
+    ) {
         this.tokenService = tokenService;
         this.sysUserRepository = sysUserRepository;
+        this.cloudUserProfileProvisioningService = cloudUserProfileProvisioningService;
     }
 
     /**
@@ -73,6 +80,7 @@ public class AuthService {
             throw new AuthException("登录状态已失效，请重新登录。");
         }
 
+        cloudUserProfileProvisioningService.ensureCloudProfile(user);
         return new AuthenticatedUser(user, new CurrentPrincipal(user.getId(), user.getRole()));
     }
 

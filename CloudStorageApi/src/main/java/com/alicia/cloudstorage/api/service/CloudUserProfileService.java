@@ -23,17 +23,20 @@ public class CloudUserProfileService {
     private final CloudUserProfileRepository cloudUserProfileRepository;
     private final CosFileStorageService cosFileStorageService;
     private final StorageQuotaService storageQuotaService;
+    private final CloudUserProfileProvisioningService cloudUserProfileProvisioningService;
 
     public CloudUserProfileService(
             SysUserRepository sysUserRepository,
             CloudUserProfileRepository cloudUserProfileRepository,
             CosFileStorageService cosFileStorageService,
-            StorageQuotaService storageQuotaService
+            StorageQuotaService storageQuotaService,
+            CloudUserProfileProvisioningService cloudUserProfileProvisioningService
     ) {
         this.sysUserRepository = sysUserRepository;
         this.cloudUserProfileRepository = cloudUserProfileRepository;
         this.cosFileStorageService = cosFileStorageService;
         this.storageQuotaService = storageQuotaService;
+        this.cloudUserProfileProvisioningService = cloudUserProfileProvisioningService;
     }
 
     public CloudUserProfile getCloudUserProfile(Long userId) {
@@ -50,7 +53,8 @@ public class CloudUserProfileService {
 
     public CloudUserProfile uploadCurrentUserHomeBackground(Long userId, MultipartFile file) {
         SysUser user = requireActiveUser(userId);
-        CloudUserProfileEntity profile = findExistingOrCreateUnsavedCloudProfile(user);
+        CloudUserProfileEntity profile =
+                cloudUserProfileProvisioningService.findExistingOrCreateUnsavedCloudProfile(user);
         String oldHomeBackgroundUrl = profile.getHomeBackgroundUrl();
         CosFileStorageService.StoredCosFile backgroundFile = cosFileStorageService.uploadUserHomeBackground(userId, file);
 
@@ -92,7 +96,8 @@ public class CloudUserProfileService {
 
     public CloudUserProfile clearCurrentUserHomeBackground(Long userId) {
         SysUser user = requireActiveUser(userId);
-        CloudUserProfileEntity profile = findExistingOrCreateUnsavedCloudProfile(user);
+        CloudUserProfileEntity profile =
+                cloudUserProfileProvisioningService.findExistingOrCreateUnsavedCloudProfile(user);
         String oldHomeBackgroundUrl = profile.getHomeBackgroundUrl();
 
         profile.setHomeBackgroundUrl(null);
@@ -109,7 +114,8 @@ public class CloudUserProfileService {
             throw new IllegalArgumentException("管理员账号不限制存储额度，无需修改。");
         }
 
-        CloudUserProfileEntity profile = findExistingOrCreateUnsavedCloudProfile(user);
+        CloudUserProfileEntity profile =
+                cloudUserProfileProvisioningService.findExistingOrCreateUnsavedCloudProfile(user);
         long storageQuotaBytes = storageQuotaService.normalizeQuotaBytes(request.storageQuotaBytes(), "用户最大存储额度");
         storageQuotaService.validateQuotaAssignment(userId, storageQuotaBytes);
 
@@ -119,7 +125,8 @@ public class CloudUserProfileService {
 
     public CloudUserProfile initializeDefaultNewUserProfile(IdentityAccount account) {
         SysUser user = requireUser(account.id());
-        CloudUserProfileEntity profile = findExistingOrCreateUnsavedCloudProfile(user);
+        CloudUserProfileEntity profile =
+                cloudUserProfileProvisioningService.findExistingOrCreateUnsavedCloudProfile(user);
 
         profile.setStorageQuotaBytes(storageQuotaService.getDefaultUserQuotaBytes());
         return toCloudUserProfile(cloudUserProfileRepository.save(profile));
@@ -132,7 +139,8 @@ public class CloudUserProfileService {
             boolean inheritAdminBackground
     ) {
         SysUser user = requireUser(account.id());
-        CloudUserProfileEntity profile = findExistingOrCreateUnsavedCloudProfile(user);
+        CloudUserProfileEntity profile =
+                cloudUserProfileProvisioningService.findExistingOrCreateUnsavedCloudProfile(user);
         profile.setStorageQuotaBytes(resolveInitialStorageQuota(account.role(), requestedQuotaBytes));
 
         if (inheritAdminBackground) {
@@ -196,27 +204,7 @@ public class CloudUserProfileService {
     }
 
     private CloudUserProfileEntity requireCloudProfile(SysUser user) {
-        return cloudUserProfileRepository.findById(user.getId())
-                .orElseGet(() -> cloudUserProfileRepository.save(createCloudProfileFromLegacyUser(user)));
-    }
-
-    private CloudUserProfileEntity findExistingOrCreateUnsavedCloudProfile(SysUser user) {
-        return cloudUserProfileRepository.findById(user.getId())
-                .orElseGet(() -> createCloudProfileFromLegacyUser(user));
-    }
-
-    private CloudUserProfileEntity createCloudProfileFromLegacyUser(SysUser user) {
-        CloudUserProfileEntity profile = new CloudUserProfileEntity();
-        profile.setIdentityUserId(user.getId());
-        profile.setHomeBackgroundUrl(user.getHomeBackgroundUrl());
-        profile.setStorageQuotaBytes(resolveLegacyStorageQuota(user));
-        return profile;
-    }
-
-    private long resolveLegacyStorageQuota(SysUser user) {
-        return user.getStorageQuotaBytes() == null
-                ? storageQuotaService.getDefaultUserQuotaBytes()
-                : user.getStorageQuotaBytes();
+        return cloudUserProfileProvisioningService.ensureCloudProfile(user);
     }
 
     private CloudUserProfile toCloudUserProfile(CloudUserProfileEntity profile) {

@@ -7,9 +7,9 @@ import com.alicia.cloudstorage.api.entity.UserRole;
 import com.alicia.cloudstorage.api.entity.UserStatus;
 import com.alicia.cloudstorage.api.repository.CloudUserProfileRepository;
 import com.alicia.cloudstorage.api.repository.SysUserRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
@@ -41,8 +41,20 @@ class CloudUserProfileServiceTest {
     @Mock
     private StorageQuotaService storageQuotaService;
 
-    @InjectMocks
     private CloudUserProfileService cloudUserProfileService;
+
+    @BeforeEach
+    void setUp() {
+        CloudUserProfileProvisioningService provisioningService =
+                new CloudUserProfileProvisioningService(cloudUserProfileRepository, 2048L);
+        cloudUserProfileService = new CloudUserProfileService(
+                sysUserRepository,
+                cloudUserProfileRepository,
+                cosFileStorageService,
+                storageQuotaService,
+                provisioningService
+        );
+    }
 
     @Test
     void updateUserQuotaPersistsNewQuota() {
@@ -99,8 +111,8 @@ class CloudUserProfileServiceTest {
     }
 
     @Test
-    void getCloudUserProfileBackfillsMissingProfileFromLegacyUserFields() {
-        SysUser user = regularUser(23L, 2048L);
+    void getCloudUserProfileBackfillsMissingProfileWithDefaultQuotaAndLegacyBackground() {
+        SysUser user = regularUser(23L, 512L);
         user.setHomeBackgroundUrl("cosbg:user-home-backgrounds/23/legacy.webp");
 
         when(sysUserRepository.findById(23L)).thenReturn(Optional.of(user));

@@ -4,6 +4,7 @@ import com.alicia.cloudstorage.api.entity.SysUser;
 import com.alicia.cloudstorage.api.entity.UserRole;
 import com.alicia.cloudstorage.api.entity.UserStatus;
 import com.alicia.cloudstorage.api.repository.SysUserRepository;
+import com.alicia.cloudstorage.api.service.CloudUserProfileProvisioningService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -15,6 +16,8 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -25,6 +28,9 @@ class AuthServiceTest {
 
     @Mock
     private SysUserRepository sysUserRepository;
+
+    @Mock
+    private CloudUserProfileProvisioningService cloudUserProfileProvisioningService;
 
     @InjectMocks
     private AuthService authService;
@@ -42,6 +48,8 @@ class AuthServiceTest {
 
         assertThatThrownBy(() -> authService.requireUser("Bearer token"))
                 .isInstanceOf(AuthException.class);
+
+        verify(cloudUserProfileProvisioningService, never()).ensureCloudProfile(user);
     }
 
     @Test
@@ -56,6 +64,7 @@ class AuthServiceTest {
         when(sysUserRepository.findById(18L)).thenReturn(Optional.of(user));
 
         assertThat(authService.requireUser("Bearer token")).isSameAs(user);
+        verify(cloudUserProfileProvisioningService).ensureCloudProfile(user);
     }
 
     @Test
