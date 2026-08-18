@@ -78,7 +78,7 @@ class IdentityAccountServiceTest {
         when(tokenService.createToken(any(SysUser.class))).thenReturn("new-token");
 
         IdentityLoginSession response =
-                identityAccountService.createVerifiedEmailUser("New@Example.COM", "New User", "Passw0rd", 2048L);
+                identityAccountService.createVerifiedEmailUser("New@Example.COM", "New User", "Passw0rd");
 
         ArgumentCaptor<SysUser> userCaptor = ArgumentCaptor.forClass(SysUser.class);
         verify(sysUserRepository).save(userCaptor.capture());
@@ -87,13 +87,13 @@ class IdentityAccountServiceTest {
         assertThat(savedUser.getEmail()).isEqualTo("new@example.com");
         assertThat(savedUser.getEmailVerifiedAt()).isNotNull();
         assertThat(savedUser.getStatus()).isEqualTo(UserStatus.ACTIVE);
-        assertThat(savedUser.getStorageQuotaBytes()).isEqualTo(2048L);
+        assertThat(savedUser.getStorageQuotaBytes()).isNull();
         assertThat(response.token()).isEqualTo("new-token");
         assertThat(response.account().email()).isEqualTo("new@example.com");
     }
 
     @Test
-    void createAdminUserPersistsSuppliedInitialQuota() {
+    void createAdminUserPersistsOnlyIdentityFields() {
         when(passwordEncoder.encode("Admin@123")).thenReturn("hashed-password");
         when(sysUserRepository.save(any(SysUser.class))).thenAnswer(invocation -> {
             SysUser user = invocation.getArgument(0);
@@ -111,13 +111,12 @@ class IdentityAccountServiceTest {
                         "Admin@123",
                         "ADMIN",
                         null
-                ),
-                512L * 1024L * 1024L
+                )
         );
 
         ArgumentCaptor<SysUser> userCaptor = ArgumentCaptor.forClass(SysUser.class);
         verify(sysUserRepository).save(userCaptor.capture());
-        assertThat(userCaptor.getValue().getStorageQuotaBytes()).isEqualTo(512L * 1024L * 1024L);
+        assertThat(userCaptor.getValue().getStorageQuotaBytes()).isNull();
         assertThat(userCaptor.getValue().getTokenVersion()).isZero();
         assertThat(response.role()).isEqualTo(UserRole.ADMIN);
         assertThat(response.status()).isEqualTo(UserStatus.ACTIVE);

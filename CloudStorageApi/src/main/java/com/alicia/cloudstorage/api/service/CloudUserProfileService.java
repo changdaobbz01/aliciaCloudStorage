@@ -113,29 +113,35 @@ public class CloudUserProfileService {
         return toCloudUserProfile(sysUserRepository.save(user));
     }
 
-    public long resolveInitialStorageQuota(UserRole role, Long requestedQuotaBytes) {
+    public CloudUserProfile initializeDefaultNewUserProfile(IdentityAccount account) {
+        SysUser user = requireUser(account.id());
+        user.setStorageQuotaBytes(storageQuotaService.getDefaultUserQuotaBytes());
+        return toCloudUserProfile(sysUserRepository.save(user));
+    }
+
+    public CloudUserProfile initializeAdminCreatedUserProfile(
+            Long adminUserId,
+            IdentityAccount account,
+            Long requestedQuotaBytes,
+            boolean inheritAdminBackground
+    ) {
+        SysUser user = requireUser(account.id());
+        user.setStorageQuotaBytes(resolveInitialStorageQuota(account.role(), requestedQuotaBytes));
+
+        if (inheritAdminBackground) {
+            String inheritedHomeBackgroundUrl = resolveInheritedHomeBackgroundUrl(adminUserId, account.id());
+            if (inheritedHomeBackgroundUrl != null) {
+                user.setHomeBackgroundUrl(inheritedHomeBackgroundUrl);
+            }
+        }
+
+        return toCloudUserProfile(sysUserRepository.save(user));
+    }
+
+    private long resolveInitialStorageQuota(UserRole role, Long requestedQuotaBytes) {
         return role == UserRole.ADMIN
                 ? storageQuotaService.getDefaultUserQuotaBytes()
                 : storageQuotaService.normalizeQuotaBytes(requestedQuotaBytes, "用户最大存储额度");
-    }
-
-    public long resolveDefaultStorageQuota() {
-        return storageQuotaService.getDefaultUserQuotaBytes();
-    }
-
-    public CloudUserProfile inheritAdminHomeBackground(Long adminUserId, boolean inheritAdminBackground, Long targetUserId) {
-        SysUser targetUser = requireUser(targetUserId);
-        if (!inheritAdminBackground) {
-            return toCloudUserProfile(targetUser);
-        }
-
-        String inheritedHomeBackgroundUrl = resolveInheritedHomeBackgroundUrl(adminUserId, targetUserId);
-        if (inheritedHomeBackgroundUrl == null) {
-            return toCloudUserProfile(targetUser);
-        }
-
-        targetUser.setHomeBackgroundUrl(inheritedHomeBackgroundUrl);
-        return toCloudUserProfile(sysUserRepository.save(targetUser));
     }
 
     public UserProfileResponse toUserProfile(IdentityAccount account) {

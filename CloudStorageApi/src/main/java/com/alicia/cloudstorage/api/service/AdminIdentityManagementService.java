@@ -3,7 +3,6 @@ package com.alicia.cloudstorage.api.service;
 import com.alicia.cloudstorage.api.dto.AdminCreateUserRequest;
 import com.alicia.cloudstorage.api.dto.AdminResetUserPasswordRequest;
 import com.alicia.cloudstorage.api.dto.UserProfileResponse;
-import com.alicia.cloudstorage.api.entity.UserRole;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,14 +31,13 @@ public class AdminIdentityManagementService {
     }
 
     public UserProfileResponse createUser(Long adminUserId, AdminCreateUserRequest request) {
-        UserRole role = identityAccountService.normalizeRole(request.role());
-        long storageQuotaBytes = cloudUserProfileService.resolveInitialStorageQuota(role, request.storageQuotaBytes());
-        IdentityAccount account = identityAccountService.createUser(request, storageQuotaBytes);
+        IdentityAccount account = identityAccountService.createUser(request);
         CloudUserProfileService.CloudUserProfile cloudProfile =
-                cloudUserProfileService.inheritAdminHomeBackground(
+                cloudUserProfileService.initializeAdminCreatedUserProfile(
                         adminUserId,
-                        request.inheritAdminBackground(),
-                        account.id()
+                        account,
+                        request.storageQuotaBytes(),
+                        request.inheritAdminBackground()
                 );
 
         return cloudUserProfileService.toUserProfile(account, cloudProfile);

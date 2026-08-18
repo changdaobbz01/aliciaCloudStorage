@@ -47,7 +47,7 @@ class AdminIdentityManagementServiceTest {
     }
 
     @Test
-    void createUserResolvesCloudQuotaBeforePersistingIdentityAndBackground() {
+    void createUserPersistsIdentityThenInitializesCloudProfile() {
         AdminCreateUserRequest request = new AdminCreateUserRequest(
                 "13800000001",
                 "Quota Admin",
@@ -62,16 +62,15 @@ class AdminIdentityManagementServiceTest {
                 new CloudUserProfileService.CloudUserProfile(55L, "cosbg:user-home-backgrounds/55/bg.webp", 2048L);
         UserProfileResponse responseProfile = profile(account, null, 1024L, null);
 
-        when(identityAccountService.normalizeRole("ADMIN")).thenReturn(UserRole.ADMIN);
-        when(cloudUserProfileService.resolveInitialStorageQuota(UserRole.ADMIN, null)).thenReturn(2048L);
-        when(identityAccountService.createUser(request, 2048L)).thenReturn(account);
-        when(cloudUserProfileService.inheritAdminHomeBackground(1L, true, 55L)).thenReturn(cloudProfile);
+        when(identityAccountService.createUser(request)).thenReturn(account);
+        when(cloudUserProfileService.initializeAdminCreatedUserProfile(1L, account, null, true)).thenReturn(cloudProfile);
         when(cloudUserProfileService.toUserProfile(account, cloudProfile)).thenReturn(responseProfile);
 
         UserProfileResponse response = adminIdentityManagementService.createUser(1L, request);
 
         assertThat(response).isSameAs(responseProfile);
-        verify(identityAccountService).createUser(request, 2048L);
+        verify(identityAccountService).createUser(request);
+        verify(cloudUserProfileService).initializeAdminCreatedUserProfile(1L, account, null, true);
     }
 
     @Test

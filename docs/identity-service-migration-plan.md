@@ -83,7 +83,8 @@
 
 当前入口：
 
-- `CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/controller/AdminUserController.java`
+- `CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/controller/AdminIdentityUserController.java`
+- `CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/controller/AdminCloudUserProfileController.java`
 
 现有职责：
 
@@ -640,18 +641,21 @@ main-site-frontend
 - 不新增服务，先把代码边界拆开。
 - 为后续抽服务降低风险。
 
-建议改动：
+已落地改动：
 
 1. 新增 `CurrentPrincipal`，业务服务不再传 `SysUser`。
 2. 把 `UserAccountService` 拆成：
    - `IdentityAccountService`：登录、密码、邮箱、昵称、头像、状态。
    - `CloudUserProfileService`：容量、主页背景、云盘资料。
-3. 把 `AdminUserController` 的业务拆成身份管理和云盘容量管理。
+3. 把旧管理员用户管理入口拆成 `AdminIdentityUserController` 和 `AdminCloudUserProfileController`。
 4. `StorageQuotaService` 不再直接把 `SysUser` 当完整账号来源，先通过一个接口读取角色和容量。
+5. `IdentityAccountService.createUser` 和 `createVerifiedEmailUser` 不再接收云盘额度参数。
+6. 新用户创建后，由 `CloudUserProfileService.initializeDefaultNewUserProfile` 或 `initializeAdminCreatedUserProfile` 初始化云盘额度和管理员背景继承。
+7. 当前旧表仍有 `sys_user.storage_quota_bytes`，通过 `@DynamicInsert` 使用数据库默认值兜底；真正业务额度在同一事务内由云盘资料服务写入。
 
 验证：
 
-- CloudStorageApi 单测全量通过。
+- `.\mvnw.cmd -pl CloudStorageApi clean test` 通过。
 - Web 登录、注册、修改资料、上传头像、背景、管理员用户管理都通过。
 - Android 登录、注册、个人资料、云盘首页通过。
 
@@ -870,7 +874,8 @@ Android：
 后端：
 
 - `CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/controller/AuthController.java`
-- `CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/controller/AdminUserController.java`
+- `CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/controller/AdminIdentityUserController.java`
+- `CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/controller/AdminCloudUserProfileController.java`
 - `CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/service/UserAccountService.java`
 - `CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/service/EmailRegistrationService.java`
 - `CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/service/StorageQuotaService.java`

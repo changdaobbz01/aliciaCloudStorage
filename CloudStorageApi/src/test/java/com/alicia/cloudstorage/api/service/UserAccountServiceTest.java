@@ -61,14 +61,16 @@ class UserAccountServiceTest {
     }
 
     @Test
-    void createVerifiedEmailUserUsesDefaultCloudQuotaForCurrentSchema() {
+    void createVerifiedEmailUserInitializesDefaultCloudProfileAfterIdentityCreation() {
         IdentityAccount account = regularIdentityAccount(72L);
+        CloudUserProfileService.CloudUserProfile cloudProfile =
+                new CloudUserProfileService.CloudUserProfile(72L, null, 2048L);
         UserProfileResponse profile = profile(account, 2048L, 0L, 2048L);
 
-        when(cloudUserProfileService.resolveDefaultStorageQuota()).thenReturn(2048L);
-        when(identityAccountService.createVerifiedEmailUser("New@Example.COM", "New User", "Passw0rd", 2048L))
+        when(identityAccountService.createVerifiedEmailUser("New@Example.COM", "New User", "Passw0rd"))
                 .thenReturn(new IdentityLoginSession("new-token", account));
-        when(cloudUserProfileService.toUserProfile(account)).thenReturn(profile);
+        when(cloudUserProfileService.initializeDefaultNewUserProfile(account)).thenReturn(cloudProfile);
+        when(cloudUserProfileService.toUserProfile(account, cloudProfile)).thenReturn(profile);
 
         var response = userAccountService.createVerifiedEmailUser("New@Example.COM", "New User", "Passw0rd");
 

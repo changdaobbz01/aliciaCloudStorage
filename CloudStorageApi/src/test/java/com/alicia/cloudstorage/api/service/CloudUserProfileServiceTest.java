@@ -88,7 +88,23 @@ class CloudUserProfileServiceTest {
     }
 
     @Test
-    void inheritAdminHomeBackgroundDuplicatesLocalCosReference() {
+    void initializeDefaultNewUserProfilePersistsDefaultQuotaAfterIdentityCreation() {
+        SysUser user = regularUser(72L, null);
+        IdentityAccount account = identityAccount(72L, UserRole.USER);
+
+        when(sysUserRepository.findById(72L)).thenReturn(Optional.of(user));
+        when(storageQuotaService.getDefaultUserQuotaBytes()).thenReturn(2048L);
+        when(sysUserRepository.save(user)).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var result = cloudUserProfileService.initializeDefaultNewUserProfile(account);
+
+        verify(sysUserRepository).save(user);
+        assertThat(user.getStorageQuotaBytes()).isEqualTo(2048L);
+        assertThat(result.storageQuotaBytes()).isEqualTo(2048L);
+    }
+
+    @Test
+    void initializeAdminCreatedUserProfileOwnsQuotaAndBackgroundInitialization() {
         SysUser admin = new SysUser();
         ReflectionTestUtils.setField(admin, "id", 1L);
         admin.setPhoneNumber("13800000001");
@@ -97,31 +113,38 @@ class CloudUserProfileServiceTest {
         admin.setStatus(UserStatus.ACTIVE);
         admin.setStorageQuotaBytes(2048L);
         admin.setHomeBackgroundUrl("cosbg:user-home-backgrounds/1/source.webp");
-        SysUser targetUser = regularUser(23L, 2048L);
+        SysUser targetUser = regularUser(23L, null);
+        IdentityAccount account = identityAccount(23L, UserRole.USER);
 
         when(sysUserRepository.findById(23L)).thenReturn(Optional.of(targetUser));
+        when(storageQuotaService.normalizeQuotaBytes(4096L, "用户最大存储额度")).thenReturn(4096L);
         when(sysUserRepository.findById(1L)).thenReturn(Optional.of(admin));
         when(cosFileStorageService.duplicateUserHomeBackground(23L, "user-home-backgrounds/1/source.webp"))
                 .thenReturn(new CosFileStorageService.StoredCosFile("user-home-backgrounds/23/copied.webp", "image/webp", 3L));
         when(sysUserRepository.save(targetUser)).thenAnswer(invocation -> invocation.getArgument(0));
 
-        var result = cloudUserProfileService.inheritAdminHomeBackground(1L, true, 23L);
+        var result = cloudUserProfileService.initializeAdminCreatedUserProfile(1L, account, 4096L, true);
 
         verify(sysUserRepository).save(targetUser);
-        assertThat(result.userId()).isEqualTo(23L);
+        assertThat(targetUser.getStorageQuotaBytes()).isEqualTo(4096L);
+        assertThat(targetUser.getHomeBackgroundUrl()).isEqualTo("cosbg:user-home-backgrounds/23/copied.webp");
+        assertThat(result.storageQuotaBytes()).isEqualTo(4096L);
         assertThat(result.homeBackgroundUrl()).isEqualTo("cosbg:user-home-backgrounds/23/copied.webp");
     }
 
     @Test
-    void resolveInitialStorageQuotaKeepsRoleRulesInCloudProfileBoundary() {
+    void initializeAdminCreatedAdminProfileUsesDefaultQuotaWhenQuotaRequestIsMissing() {
+        SysUser user = regularUser(81L, null);
+        IdentityAccount account = identityAccount(81L, UserRole.ADMIN);
+
+        when(sysUserRepository.findById(81L)).thenReturn(Optional.of(user));
         when(storageQuotaService.getDefaultUserQuotaBytes()).thenReturn(2048L);
-        when(storageQuotaService.normalizeQuotaBytes(4096L, "用户最大存储额度")).thenReturn(4096L);
+        when(sysUserRepository.save(user)).thenAnswer(invocation -> invocation.getArgument(0));
 
-        long adminQuota = cloudUserProfileService.resolveInitialStorageQuota(UserRole.ADMIN, null);
-        long userQuota = cloudUserProfileService.resolveInitialStorageQuota(UserRole.USER, 4096L);
+        var result = cloudUserProfileService.initializeAdminCreatedUserProfile(1L, account, null, false);
 
-        assertThat(adminQuota).isEqualTo(2048L);
-        assertThat(userQuota).isEqualTo(4096L);
+        assertThat(user.getStorageQuotaBytes()).isEqualTo(2048L);
+        assertThat(result.storageQuotaBytes()).isEqualTo(2048L);
     }
 
     @Test
@@ -150,6 +173,19 @@ class CloudUserProfileServiceTest {
         assertThat(response.storageQuotaBytes()).isEqualTo(4096L);
         assertThat(response.usedBytes()).isEqualTo(1536L);
         assertThat(response.remainingBytes()).isEqualTo(2560L);
+    }
+
+    private IdentityAccount identityAccount(Long id, UserRole role) {
+        return new IdentityAccount(
+                id,
+                "13900000000",
+                "user@example.com",
+                "Alicia",
+                null,
+                role,
+                UserStatus.ACTIVE,
+                LocalDateTime.of(2026, 4, 29, 15, 30)
+        );
     }
 
     private SysUser regularUser(Long id, Long storageQuotaBytes) {

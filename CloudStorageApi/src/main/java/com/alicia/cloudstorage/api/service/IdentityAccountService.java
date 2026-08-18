@@ -166,7 +166,7 @@ public class IdentityAccountService {
                 .toList();
     }
 
-    public IdentityAccount createUser(AdminCreateUserRequest request, long initialStorageQuotaBytes) {
+    public IdentityAccount createUser(AdminCreateUserRequest request) {
         String phoneNumber = normalizePhoneNumber(request.phoneNumber());
         String nickname = normalizeNickname(request.nickname());
         String password = normalizePassword(request.password(), "密码不能为空。");
@@ -191,7 +191,6 @@ public class IdentityAccountService {
         user.setTokenVersion(0L);
         user.setRole(role);
         user.setStatus(UserStatus.ACTIVE);
-        user.setStorageQuotaBytes(initialStorageQuotaBytes);
 
         return IdentityAccount.from(sysUserRepository.save(user));
     }
@@ -199,8 +198,7 @@ public class IdentityAccountService {
     public IdentityLoginSession createVerifiedEmailUser(
             String email,
             String nickname,
-            String password,
-            long initialStorageQuotaBytes
+            String password
     ) {
         String normalizedEmail = normalizeEmail(email);
         String normalizedNickname = normalizeNickname(nickname);
@@ -224,7 +222,6 @@ public class IdentityAccountService {
         user.setTokenVersion(0L);
         user.setRole(UserRole.USER);
         user.setStatus(UserStatus.ACTIVE);
-        user.setStorageQuotaBytes(initialStorageQuotaBytes);
 
         SysUser savedUser = sysUserRepository.save(user);
         return new IdentityLoginSession(tokenService.createToken(savedUser), IdentityAccount.from(savedUser));

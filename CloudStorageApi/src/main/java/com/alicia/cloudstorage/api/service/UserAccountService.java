@@ -98,10 +98,11 @@ public class UserAccountService {
     }
 
     public LoginResponse createVerifiedEmailUser(String email, String nickname, String password) {
-        long storageQuotaBytes = cloudUserProfileService.resolveDefaultStorageQuota();
         IdentityLoginSession session =
-                identityAccountService.createVerifiedEmailUser(email, nickname, password, storageQuotaBytes);
-        return new LoginResponse(session.token(), cloudUserProfileService.toUserProfile(session.account()));
+                identityAccountService.createVerifiedEmailUser(email, nickname, password);
+        CloudUserProfileService.CloudUserProfile cloudProfile =
+                cloudUserProfileService.initializeDefaultNewUserProfile(session.account());
+        return new LoginResponse(session.token(), cloudUserProfileService.toUserProfile(session.account(), cloudProfile));
     }
 
     public String normalizeEmail(String value) {
