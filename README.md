@@ -140,7 +140,19 @@ curl http://127.0.0.1:8093/api/identity/auth/me `
   -H "Authorization: Bearer 你的_identity_token"
 ```
 
-当前生产流量仍由 `CloudStorageApi` 处理登录、注册、Token 和账号资料；`identityApi` 只用于后续拆分验证，当前可只读连接现有身份表并独立验证登录，不接管公网流量。
+验证 Identity API 内部邮箱注册：
+
+```powershell
+curl -X POST http://127.0.0.1:8093/api/identity/auth/register/email-code `
+  -H "Content-Type: application/json" `
+  -d "{\"email\":\"你的邮箱\"}"
+
+curl -X POST http://127.0.0.1:8093/api/identity/auth/register/verify `
+  -H "Content-Type: application/json" `
+  -d "{\"email\":\"你的邮箱\",\"code\":\"邮箱验证码\",\"nickname\":\"昵称\",\"password\":\"密码\"}"
+```
+
+当前生产流量仍由 `CloudStorageApi` 处理登录、注册、Token 和账号资料；`identityApi` 只用于后续拆分验证，当前可连接现有身份表并独立验证登录、当前用户读取和邮箱注册，不接管公网流量。
 
 ### HTTPS 部署（已签发证书后）
 

@@ -1,6 +1,7 @@
 package com.alicia.cloudstorage.identity.config;
 
 import com.alicia.cloudstorage.identity.dto.IdentityErrorResponse;
+import com.alicia.cloudstorage.identity.mail.EmailDeliveryException;
 import com.alicia.cloudstorage.identity.service.IdentityAuthException;
 import org.springframework.http.HttpStatus;
 import org.springframework.validation.FieldError;
@@ -25,6 +26,12 @@ public class IdentityExceptionHandler {
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public IdentityErrorResponse handleIllegalArgumentException(IllegalArgumentException ex) {
         return error(400, ex.getMessage());
+    }
+
+    @ExceptionHandler(EmailDeliveryException.class)
+    @ResponseStatus(HttpStatus.SERVICE_UNAVAILABLE)
+    public IdentityErrorResponse handleEmailDeliveryException(EmailDeliveryException ex) {
+        return error(503, ex.getMessage());
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

@@ -3,7 +3,9 @@ package com.alicia.cloudstorage.identity.controller;
 import com.alicia.cloudstorage.identity.dto.IdentityLoginRequest;
 import com.alicia.cloudstorage.identity.dto.IdentityLoginResponse;
 import com.alicia.cloudstorage.identity.dto.IdentityUserResponse;
+import com.alicia.cloudstorage.identity.dto.VerifyEmailRegistrationRequest;
 import com.alicia.cloudstorage.identity.service.IdentityAuthService;
+import com.alicia.cloudstorage.identity.service.IdentityEmailRegistrationService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -15,8 +17,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.time.LocalDateTime;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -30,6 +32,9 @@ class IdentityAuthControllerTest {
 
     @MockitoBean
     private IdentityAuthService identityAuthService;
+
+    @MockitoBean
+    private IdentityEmailRegistrationService identityEmailRegistrationService;
 
     @Test
     void loginReturnsTokenAndIdentityUserWithoutPasswordHash() throws Exception {
@@ -84,5 +89,53 @@ class IdentityAuthControllerTest {
                 .andExpect(jsonPath("$.passwordHash").doesNotExist());
 
         verify(identityAuthService).me("Bearer token");
+    }
+
+    @Test
+    void requestEmailRegistrationCodeReturnsGenericMessage() throws Exception {
+        mockMvc.perform(post("/api/identity/auth/register/email-code")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header(HttpHeaders.USER_AGENT, "JUnit")
+                        .content("{\"email\":\"NewUser@Example.COM\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("如果邮箱可用，验证码会发送到该邮箱。"));
+
+        verify(identityEmailRegistrationService)
+                .requestRegistrationCode("NewUser@Example.COM", "127.0.0.1", "JUnit");
+    }
+
+    @Test
+    void verifyEmailRegistrationReturnsTokenAndIdentityUser() throws Exception {
+        IdentityUserResponse user = new IdentityUserResponse(
+                8L,
+                null,
+                "newuser@example.com",
+                LocalDateTime.of(2026, 8, 17, 15, 30),
+                "New User",
+                null,
+                0L,
+                "USER",
+                "ACTIVE",
+                LocalDateTime.of(2026, 8, 17, 15, 30)
+        );
+
+        when(identityEmailRegistrationService.verifyRegistration(any(VerifyEmailRegistrationRequest.class)))
+                .thenReturn(new IdentityLoginResponse("token", user));
+
+        mockMvc.perform(post("/api/identity/auth/register/verify")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "NewUser@Example.COM",
+                                  "code": "123456",
+                                  "nickname": "New User",
+                                  "password": "Passw0rd"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.token").value("token"))
+                .andExpect(jsonPath("$.user.id").value(8))
+                .andExpect(jsonPath("$.user.email").value("newuser@example.com"))
+                .andExpect(jsonPath("$.user.passwordHash").doesNotExist());
     }
 }

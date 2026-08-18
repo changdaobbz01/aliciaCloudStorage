@@ -10,4 +10,6 @@ public interface IdentityUserRepository extends JpaRepository<IdentityUser, Long
     Optional<IdentityUser> findByEmail(String email);
 
     Optional<IdentityUser> findByPhoneNumber(String phoneNumber);
+
+    boolean existsByEmail(String email);
 }

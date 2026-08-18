@@ -697,10 +697,14 @@ AliciaCloudStorage/identityApi
 - 应用入口：`IdentityApiApplication`。
 - 独立健康检查：`GET /api/identity/health`。
 - 只读身份模型：`IdentityUser`，映射现有 `sys_user` 身份字段。
-- 只读 Repository：`IdentityUserRepository`。
+- 身份 Repository：`IdentityUserRepository`，当前支持读取用户和创建邮箱注册用户。
 - 内部只读查询接口：`GET /api/identity/internal/users/{userId}`。
 - 内部登录验证接口：`POST /api/identity/auth/login`。
 - 内部当前用户接口：`GET /api/identity/auth/me`。
+- 内部邮箱验证码发送接口：`POST /api/identity/auth/register/email-code`。
+- 内部邮箱验证码注册接口：`POST /api/identity/auth/register/verify`。
+- 邮件发送配置：`alicia.mail.*`，identity 容器复用现有 SMTP 环境变量。
+- 邮箱注册当前只创建身份用户，云盘 `cloud_user_profile` 仍由 CloudStorageApi 在消费身份用户时负责补建。
 - 兼容旧 token 格式的临时 `IdentityTokenService`，后续再替换为标准 JWT。
 - Compose 中注入同一个 MySQL 连接，但 `identity` profile 默认不启动。
 - Dockerfile：`identityApi/Dockerfile`。
@@ -747,6 +751,8 @@ identityApi
 - 单独启动后 `http://127.0.0.1:8093/api/identity/internal/users/1` 可读取身份资料，响应不包含 `passwordHash`。
 - 单独启动后 `POST http://127.0.0.1:8093/api/identity/auth/login` 可验证老用户密码并返回 token。
 - 单独启动后 `GET http://127.0.0.1:8093/api/identity/auth/me` 可用 identity token 读取当前用户。
+- 单独启动后 `POST http://127.0.0.1:8093/api/identity/auth/register/email-code` 可发送注册验证码。
+- 单独启动后 `POST http://127.0.0.1:8093/api/identity/auth/register/verify` 可创建邮箱注册身份用户并返回 identity token。
 - 生产流量仍由 CloudStorageApi 处理，网关暂不路由到 identity 容器。
 
 后续验证：
@@ -962,9 +968,9 @@ Android：
 阶段 1 已经开始落地，下一步进入生产验证和阶段 2 准备：
 
 1. 保持旧 `sys_user.storage_quota_bytes` 和 `sys_user.home_background_url` 一个版本周期不删。
-2. 在服务器验证 `identityApi` 可以只读查询 `sys_user`，并确认响应不包含密码哈希。
-3. 迁移邮箱验证码注册。
-4. 迁移密码修改、管理员重置密码和管理员身份管理。
-5. 准备网关双轨验证方案，让 `/api/auth/**` 可以按环境切到 identity。
+2. 在服务器验证 `identityApi` 的邮箱验证码发送、邮箱注册、登录和 `/me`。
+3. 迁移密码修改、管理员重置密码和管理员身份管理。
+4. 准备网关双轨验证方案，让 `/api/auth/**` 可以按环境切到 identity。
+5. 再处理 CloudStorageApi 首次消费 identity 新用户时的云盘 profile provisioning 策略。
 
-这一步完成后，`CloudStorageApi` 已经能把云盘资料和身份资料分开维护，`identityApi` 也可以独立读取身份表。后面要做的是把身份写能力一块一块搬进去，而不是再调整主站/云盘路径结构。
+这一步完成后，`CloudStorageApi` 已经能把云盘资料和身份资料分开维护，`identityApi` 也可以独立读取身份表并创建邮箱注册身份用户。后面要做的是把剩余身份写能力一块一块搬进去，而不是再调整主站/云盘路径结构。
