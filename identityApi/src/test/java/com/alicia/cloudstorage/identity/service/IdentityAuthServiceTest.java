@@ -78,6 +78,40 @@ class IdentityAuthServiceTest {
                 .hasMessage("当前账号已停用。");
     }
 
+    @Test
+    void meReturnsCurrentUserWhenTokenVersionMatches() {
+        IdentityUser user = identityUser(18L, IdentityUserStatus.ACTIVE);
+
+        when(identityTokenService.parseToken("token"))
+                .thenReturn(new IdentityTokenService.TokenClaims(18L, 2L, 4_200_000_000L));
+        when(identityUserRepository.findById(18L)).thenReturn(Optional.of(user));
+
+        var response = identityAuthService.me("Bearer token");
+
+        assertThat(response.id()).isEqualTo(18L);
+        assertThat(response.email()).isEqualTo("email-user@example.com");
+    }
+
+    @Test
+    void meRejectsMissingBearerToken() {
+        assertThatThrownBy(() -> identityAuthService.me(null))
+                .isInstanceOf(IdentityAuthException.class)
+                .hasMessage("请先登录。");
+    }
+
+    @Test
+    void meRejectsStaleTokenVersion() {
+        IdentityUser user = identityUser(18L, IdentityUserStatus.ACTIVE);
+
+        when(identityTokenService.parseToken("token"))
+                .thenReturn(new IdentityTokenService.TokenClaims(18L, 1L, 4_200_000_000L));
+        when(identityUserRepository.findById(18L)).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> identityAuthService.me("Bearer token"))
+                .isInstanceOf(IdentityAuthException.class)
+                .hasMessage("登录状态已失效。");
+    }
+
     private IdentityUser identityUser(Long id, IdentityUserStatus status) {
         IdentityUser user = newIdentityUser();
         ReflectionTestUtils.setField(user, "id", id);

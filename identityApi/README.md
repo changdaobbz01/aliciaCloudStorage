@@ -15,9 +15,10 @@ Local endpoints:
 - `GET /api/identity/health`
 - `GET /api/identity/internal/users/{userId}`
 - `POST /api/identity/auth/login`
+- `GET /api/identity/auth/me`
 
 The internal user endpoint is read-only and does not return `password_hash`.
-The login endpoint is for isolated identity verification only; production `/api/auth/login` still routes to `CloudStorageApi`.
+The login and current-user endpoints are for isolated identity verification only; production `/api/auth/**` still routes to `CloudStorageApi`.
 
 Planned migration order:
 

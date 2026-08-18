@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.Instant;
 import java.util.Base64;
 
@@ -41,6 +42,43 @@ public class IdentityTokenService {
         return encodedPayload + "." + sign(encodedPayload);
     }
 
+    public TokenClaims parseToken(String token) {
+        if (token == null || token.isBlank()) {
+            throw new IdentityAuthException("Token 不能为空。");
+        }
+
+        String[] parts = token.split("\\.");
+        if (parts.length != 2) {
+            throw new IdentityAuthException("Token 格式不正确。");
+        }
+
+        String encodedPayload = parts[0];
+        String signature = parts[1];
+        String expectedSignature = sign(encodedPayload);
+
+        if (!MessageDigest.isEqual(
+                expectedSignature.getBytes(StandardCharsets.UTF_8),
+                signature.getBytes(StandardCharsets.UTF_8)
+        )) {
+            throw new IdentityAuthException("Token 签名校验失败。");
+        }
+
+        String payload = base64UrlDecode(encodedPayload);
+        String[] payloadParts = payload.split(":");
+        if (payloadParts.length != 3 && payloadParts.length != 4) {
+            throw new IdentityAuthException("Token 载荷不正确。");
+        }
+
+        int expiresAtIndex = payloadParts.length - 1;
+        long tokenVersion = payloadParts.length == 4 ? parseTokenVersion(payloadParts[2]) : 0L;
+        long expiresAt = parseExpiresAt(payloadParts[expiresAtIndex]);
+        if (Instant.now().getEpochSecond() >= expiresAt) {
+            throw new IdentityAuthException("登录状态已过期。");
+        }
+
+        return new TokenClaims(parseUserId(payloadParts[0]), tokenVersion, expiresAt);
+    }
+
     private String sign(String value) {
         try {
             Mac mac = Mac.getInstance("HmacSHA256");
@@ -56,5 +94,44 @@ public class IdentityTokenService {
         return Base64.getUrlEncoder()
                 .withoutPadding()
                 .encodeToString(value.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private String base64UrlDecode(String value) {
+        try {
+            return new String(Base64.getUrlDecoder().decode(value), StandardCharsets.UTF_8);
+        } catch (IllegalArgumentException ex) {
+            throw new IdentityAuthException("Token 载荷不正确。");
+        }
+    }
+
+    private Long parseUserId(String value) {
+        try {
+            return Long.parseLong(value);
+        } catch (NumberFormatException ex) {
+            throw new IdentityAuthException("Token 用户编号不合法。");
+        }
+    }
+
+    private long parseTokenVersion(String value) {
+        try {
+            return Long.parseLong(value);
+        } catch (NumberFormatException ex) {
+            throw new IdentityAuthException("Token 版本号不合法。");
+        }
+    }
+
+    private long parseExpiresAt(String value) {
+        try {
+            return Long.parseLong(value);
+        } catch (NumberFormatException ex) {
+            throw new IdentityAuthException("Token 过期时间不合法。");
+        }
+    }
+
+    public record TokenClaims(
+            Long userId,
+            long tokenVersion,
+            long expiresAt
+    ) {
     }
 }

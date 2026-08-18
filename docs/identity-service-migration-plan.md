@@ -700,6 +700,7 @@ AliciaCloudStorage/identityApi
 - 只读 Repository：`IdentityUserRepository`。
 - 内部只读查询接口：`GET /api/identity/internal/users/{userId}`。
 - 内部登录验证接口：`POST /api/identity/auth/login`。
+- 内部当前用户接口：`GET /api/identity/auth/me`。
 - 兼容旧 token 格式的临时 `IdentityTokenService`，后续再替换为标准 JWT。
 - Compose 中注入同一个 MySQL 连接，但 `identity` profile 默认不启动。
 - Dockerfile：`identityApi/Dockerfile`。
@@ -745,6 +746,7 @@ identityApi
 - 单独启动后 `http://127.0.0.1:8093/api/identity/health` 可用。
 - 单独启动后 `http://127.0.0.1:8093/api/identity/internal/users/1` 可读取身份资料，响应不包含 `passwordHash`。
 - 单独启动后 `POST http://127.0.0.1:8093/api/identity/auth/login` 可验证老用户密码并返回 token。
+- 单独启动后 `GET http://127.0.0.1:8093/api/identity/auth/me` 可用 identity token 读取当前用户。
 - 生产流量仍由 CloudStorageApi 处理，网关暂不路由到 identity 容器。
 
 后续验证：
@@ -961,8 +963,8 @@ Android：
 
 1. 保持旧 `sys_user.storage_quota_bytes` 和 `sys_user.home_background_url` 一个版本周期不删。
 2. 在服务器验证 `identityApi` 可以只读查询 `sys_user`，并确认响应不包含密码哈希。
-3. 补齐 identity 内部 `/me` token 解析验证，确认 identity 自己签发的 token 可读取当前用户。
-4. 迁移邮箱验证码注册。
-5. 迁移密码修改、管理员重置密码和管理员身份管理。
+3. 迁移邮箱验证码注册。
+4. 迁移密码修改、管理员重置密码和管理员身份管理。
+5. 准备网关双轨验证方案，让 `/api/auth/**` 可以按环境切到 identity。
 
 这一步完成后，`CloudStorageApi` 已经能把云盘资料和身份资料分开维护，`identityApi` 也可以独立读取身份表。后面要做的是把身份写能力一块一块搬进去，而不是再调整主站/云盘路径结构。

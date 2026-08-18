@@ -53,6 +53,41 @@ public class IdentityAuthService {
         );
     }
 
+    public IdentityUserResponse me(String authorizationHeader) {
+        IdentityTokenService.TokenClaims tokenClaims = identityTokenService.parseToken(extractBearerToken(authorizationHeader));
+        IdentityUser user = identityUserRepository.findById(tokenClaims.userId())
+                .orElseThrow(() -> new IdentityAuthException("登录用户不存在。"));
+
+        long currentTokenVersion = user.getTokenVersion() == null ? 0L : user.getTokenVersion();
+        if (currentTokenVersion != tokenClaims.tokenVersion()) {
+            throw new IdentityAuthException("登录状态已失效。");
+        }
+
+        if (user.getStatus() != IdentityUserStatus.ACTIVE) {
+            throw new IdentityAuthException("当前账号已停用。");
+        }
+
+        return IdentityUserResponse.from(user);
+    }
+
+    private String extractBearerToken(String authorizationHeader) {
+        if (authorizationHeader == null || authorizationHeader.isBlank()) {
+            throw new IdentityAuthException("请先登录。");
+        }
+
+        String prefix = "Bearer ";
+        if (!authorizationHeader.regionMatches(true, 0, prefix, 0, prefix.length())) {
+            throw new IdentityAuthException("登录凭证格式不正确。");
+        }
+
+        String token = authorizationHeader.substring(prefix.length()).trim();
+        if (token.isEmpty()) {
+            throw new IdentityAuthException("请先登录。");
+        }
+
+        return token;
+    }
+
     private LoginIdentifier normalizeLoginIdentifier(IdentityLoginRequest request) {
         String rawIdentifier = firstPresent(request.identifier(), request.email(), request.phoneNumber());
         if (rawIdentifier == null) {

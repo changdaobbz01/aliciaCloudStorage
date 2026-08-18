@@ -7,6 +7,7 @@ import com.alicia.cloudstorage.identity.service.IdentityAuthService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -15,7 +16,9 @@ import java.time.LocalDateTime;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -54,5 +57,32 @@ class IdentityAuthControllerTest {
                 .andExpect(jsonPath("$.user.id").value(7))
                 .andExpect(jsonPath("$.user.email").value("user@example.com"))
                 .andExpect(jsonPath("$.user.passwordHash").doesNotExist());
+    }
+
+    @Test
+    void meReturnsCurrentIdentityUserFromBearerToken() throws Exception {
+        IdentityUserResponse user = new IdentityUserResponse(
+                7L,
+                null,
+                "user@example.com",
+                LocalDateTime.of(2026, 8, 17, 15, 30),
+                "Alicia",
+                "cos:user-avatars/7/avatar.webp",
+                3L,
+                "USER",
+                "ACTIVE",
+                LocalDateTime.of(2026, 4, 29, 15, 30)
+        );
+
+        when(identityAuthService.me("Bearer token")).thenReturn(user);
+
+        mockMvc.perform(get("/api/identity/auth/me")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer token"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(7))
+                .andExpect(jsonPath("$.email").value("user@example.com"))
+                .andExpect(jsonPath("$.passwordHash").doesNotExist());
+
+        verify(identityAuthService).me("Bearer token");
     }
 }
