@@ -497,11 +497,12 @@ Cloud 管理：
 
 当前相关位置：
 
-- `webApp/src/pages/LoginPage.tsx`
 - `webApp/src/lib/api.ts`
 - `webApp/src/lib/session.ts`
+- `webApp/src/lib/unifiedLogin.ts`
 - `webApp/src/context/session-context.tsx`
 - `webApp/src/components/protected-route.tsx`
+- `webApp/src/pages/UnifiedLoginRedirectPage.tsx`
 - `webApp/src/pages/DrivePage.tsx`
 - `webApp/src/features/drive/hooks/useDriveProfileSettings.ts`
 - `webApp/src/features/drive/hooks/useDriveAccountsAdmin.ts`
@@ -510,8 +511,8 @@ Cloud 管理：
 
 改造方向：
 
-1. 登录和注册可以先继续由云盘 Web 页面承载，但调用对象变成 Identity。
-2. 后续把登录页移动到 mainSite，云盘未登录时跳转 `/login?returnTo=/cloudPan/`。
+1. 登录和注册由 mainSite `/login` 承载，云盘 Web 不再拥有独立登录页面。
+2. 云盘未登录或 token 过期时跳转 `/login?returnTo=/cloudPan/`。
 3. `User` 类型拆成：
    - `IdentityUser`
    - `CloudUserProfile`
@@ -605,12 +606,13 @@ main-site-frontend
 /rag/                     -> rag
 ```
 
-兼容路由：
+云盘内部旧路径：
 
 ```text
-/share/{code}             -> /cloudPan/share/{code}
 /cloudPan/login           -> /login?returnTo=/cloudPan/
 ```
+
+根路径 `/share/{code}` 不再作为云盘分享兼容入口；主站后续如果需要分享能力，由 mainSite 自己接管。
 
 ## 11. 分阶段实施计划
 
@@ -881,8 +883,8 @@ Web：
 
 - `webApp/src/lib/api.ts`
 - `webApp/src/types.ts`
-- `webApp/src/pages/LoginPage.tsx`
 - `webApp/src/lib/session.ts`
+- `webApp/src/lib/unifiedLogin.ts`
 - `webApp/src/context/session-context.tsx`
 - `webApp/src/features/drive/hooks/useDriveProfileSettings.ts`
 - `webApp/src/features/drive/hooks/useDriveAccountsAdmin.ts`

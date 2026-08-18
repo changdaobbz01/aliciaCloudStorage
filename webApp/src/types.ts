@@ -30,27 +30,6 @@ export type User = {
   remainingBytes: number | null;
 };
 
-export type LoginPayload = {
-  identifier: string;
-  password: string;
-};
-
-export type RequestEmailRegistrationCodePayload = {
-  email: string;
-};
-
-export type VerifyEmailRegistrationPayload = {
-  email: string;
-  code: string;
-  nickname: string;
-  password: string;
-};
-
-export type LoginResponse = {
-  token: string;
-  user: User;
-};
-
 export type AppPackageInfo = {
   available: boolean;
   fileName: string | null;

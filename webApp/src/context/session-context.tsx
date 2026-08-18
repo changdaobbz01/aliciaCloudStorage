@@ -1,21 +1,20 @@
 import { App as AntApp } from 'antd';
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { AUTH_EXPIRED_EVENT, fetchCurrentUser } from '../lib/api';
 import {
   clearCurrentSession as clearStoredSession,
   loadAuthToken,
   loadCurrentUser,
-  saveCurrentSession,
   saveCurrentUser,
 } from '../lib/session';
-import type { LoginResponse, User } from '../types';
+import { cloudReturnTo, redirectToUnifiedLogin } from '../lib/unifiedLogin';
+import type { User } from '../types';
 
 type SessionContextValue = {
   currentUser: User | null;
   authToken: string | null;
   isSessionChecking: boolean;
-  setCurrentSession: (session: LoginResponse) => void;
   clearCurrentSession: () => void;
   updateCurrentUser: (user: User) => void;
 };
@@ -28,7 +27,6 @@ const SessionContext = createContext<SessionContextValue | null>(null);
 export function SessionProvider({ children }: { children: ReactNode }) {
   const { message } = AntApp.useApp();
   const location = useLocation();
-  const navigate = useNavigate();
   const lastAuthExpiredMessageAt = useRef(0);
   const [currentUser, setCurrentUser] = useState<User | null>(() =>
     loadAuthToken() ? loadCurrentUser() : null,
@@ -50,12 +48,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         lastAuthExpiredMessageAt.current = now;
       }
 
-      if (location.pathname !== '/login') {
-        void navigate('/login', {
-          replace: true,
-          state: { from: `${location.pathname}${location.search}${location.hash}` },
-        });
-      }
+      redirectToUnifiedLogin(cloudReturnTo(location.pathname, location.search, location.hash));
     }
 
     window.addEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
@@ -63,7 +56,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     return () => {
       window.removeEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
     };
-  }, [location.hash, location.pathname, location.search, message, navigate]);
+  }, [location.hash, location.pathname, location.search, message]);
 
   useEffect(() => {
     const token = loadAuthToken();
@@ -107,16 +100,6 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, []);
 
   /**
-   * 保存一组新的登录态到内存和本地缓存中。
-   */
-  function setCurrentSession(session: LoginResponse) {
-    saveCurrentSession(session);
-    setCurrentUser(session.user);
-    setAuthToken(session.token);
-    setIsSessionChecking(false);
-  }
-
-  /**
    * 在用户修改资料后同步更新本地缓存中的用户信息。
    */
   function updateCurrentUser(user: User) {
@@ -147,7 +130,6 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         currentUser,
         authToken,
         isSessionChecking,
-        setCurrentSession,
         clearCurrentSession,
         updateCurrentUser,
       }}

@@ -10,13 +10,10 @@ import type {
   CreateUserPayload,
   DriveOverview,
   HealthResponse,
-  LoginPayload,
-  LoginResponse,
   MoveNodePayload,
   MultipartUploadPart,
   MultipartUploadStatus,
   RenameNodePayload,
-  RequestEmailRegistrationCodePayload,
   ResetUserPasswordPayload,
   SaveShareLinkPayload,
   ShareLinkDetail,
@@ -31,7 +28,6 @@ import type {
   UpdateProfilePayload,
   UsageHistoryPoint,
   User,
-  VerifyEmailRegistrationPayload,
   VerifySharePasswordPayload,
   VerifySharePasswordResponse,
 } from '../types';
@@ -511,39 +507,6 @@ function parseFileName(contentDisposition: string | null) {
  */
 export function fetchHealth() {
   return requestJson<HealthResponse>('/api/health');
-}
-
-/**
- * 使用手机号或邮箱和密码向后端发起登录请求。
- */
-export function login(payload: LoginPayload) {
-  return requestJson<LoginResponse>('/api/auth/login', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
-  });
-}
-
-export function requestEmailRegistrationCode(payload: RequestEmailRegistrationCodePayload) {
-  return requestJson<ApiMessageResponse>('/api/auth/register/email-code', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
-  });
-}
-
-export function verifyEmailRegistration(payload: VerifyEmailRegistrationPayload) {
-  return requestJson<LoginResponse>('/api/auth/register/verify', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
-  });
 }
 
 /**

@@ -1,7 +1,21 @@
 import { Result, Spin } from 'antd';
+import { useEffect } from 'react';
 import type { ReactNode } from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { useSession } from '../context/session-context';
+import { cloudReturnTo, redirectToUnifiedLogin } from '../lib/unifiedLogin';
+
+function UnifiedLoginRedirect({ returnTo }: { returnTo: string }) {
+  useEffect(() => {
+    redirectToUnifiedLogin(returnTo);
+  }, [returnTo]);
+
+  return (
+    <div className="route-pending">
+      <Spin size="large" />
+    </div>
+  );
+}
 
 /**
  * 在进入受保护页面前校验登录态和账号状态。
@@ -19,7 +33,7 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
   }
 
   if (!authToken || !currentUser) {
-    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+    return <UnifiedLoginRedirect returnTo={cloudReturnTo(location.pathname, location.search, location.hash)} />;
   }
 
   if (currentUser.status !== 'ACTIVE') {

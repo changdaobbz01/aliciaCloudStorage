@@ -26,6 +26,7 @@ import { ROOT_PARENT_KEY } from '../features/drive/driveShared';
 import { collapseSelectedShareNodeIds } from '../features/drive/shareTreeSelection';
 import type { FolderTreeNode } from '../features/drive/types';
 import { buildAppDownloadUrl, buildShareIntentUrl } from '../lib/mobileApp';
+import { cloudReturnTo, redirectToUnifiedLogin } from '../lib/unifiedLogin';
 
 type ShareTreeNode = StorageNode & {
   children?: ShareTreeNode[];
@@ -316,7 +317,7 @@ export function SharePage() {
   }
 
   function goLogin() {
-    void navigate('/login', { state: { from: location.pathname }, replace: false });
+    redirectToUnifiedLogin(cloudReturnTo(location.pathname, location.search, location.hash), false);
   }
 
   function openInAndroidApp() {

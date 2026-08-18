@@ -5,10 +5,8 @@ import { App, ConfigProvider } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import RootApp from './App';
 import { SessionProvider } from './context/session-context';
-import { publicAssetPath, ROUTER_BASENAME } from './lib/appPaths';
+import { ROUTER_BASENAME } from './lib/appPaths';
 import './index.css';
-
-document.documentElement.style.setProperty('--login-bg-image', `url("${publicAssetPath('/login-bg.png')}")`);
 
 /**
  * 挂载前端应用根节点，并注入路由、主题和全局会话能力。

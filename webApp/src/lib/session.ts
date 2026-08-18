@@ -1,4 +1,4 @@
-import type { LoginResponse, User } from '../types';
+import type { User } from '../types';
 
 const USER_STORAGE_KEY = 'alicia-cloud-storage.current-user';
 const TOKEN_STORAGE_KEY = 'alicia-cloud-storage.auth-token';
@@ -26,14 +26,6 @@ export function loadCurrentUser() {
  */
 export function loadAuthToken() {
   return localStorage.getItem(TOKEN_STORAGE_KEY);
-}
-
-/**
- * 将完整的登录态写入浏览器本地存储。
- */
-export function saveCurrentSession(session: LoginResponse) {
-  localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(session.user));
-  localStorage.setItem(TOKEN_STORAGE_KEY, session.token);
 }
 
 /**

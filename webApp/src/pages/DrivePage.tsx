@@ -21,6 +21,7 @@ import { useNavigate } from 'react-router-dom';
 import { LazyChunkErrorBoundary } from '../components/lazy-chunk-error-boundary';
 import { RegulatoryFooter } from '../components/RegulatoryFooter';
 import { publicAssetPath } from '../lib/appPaths';
+import { redirectToUnifiedLogin } from '../lib/unifiedLogin';
 import { DriveAccountsAdminModals } from '../features/drive/DriveAccountsAdminModals';
 import { DriveAppPackageUploadModal } from '../features/drive/DriveAppPackageUploadModal';
 import { DrivePreviewModal } from '../features/drive/DrivePreviewModal';
@@ -124,7 +125,7 @@ export function DrivePage() {
     message,
     updateCurrentUser,
     clearCurrentSession,
-    onNavigateToLogin: () => void navigate('/login', { replace: true }),
+    onNavigateToLogin: () => redirectToUnifiedLogin(),
     maxHomeBackgroundBytes: MAX_HOME_BACKGROUND_BYTES,
   });
   const storageDialogs = useDriveStorageDialogs({
