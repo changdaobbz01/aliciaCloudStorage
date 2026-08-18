@@ -1,17 +1,16 @@
 package com.alicia.cloudstorage.api.controller;
 
+import com.alicia.cloudstorage.api.auth.AuthRequestAttributes;
 import com.alicia.cloudstorage.api.dto.AdminCreateUserRequest;
 import com.alicia.cloudstorage.api.dto.AdminResetUserPasswordRequest;
-import com.alicia.cloudstorage.api.dto.AdminUpdateUserQuotaRequest;
 import com.alicia.cloudstorage.api.dto.ApiMessageResponse;
 import com.alicia.cloudstorage.api.dto.UserProfileResponse;
-import com.alicia.cloudstorage.api.service.UserAccountService;
-import com.alicia.cloudstorage.api.auth.AuthRequestAttributes;
+import com.alicia.cloudstorage.api.service.AdminIdentityManagementService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -21,42 +20,25 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/admin/users")
-public class AdminUserController {
+public class AdminIdentityUserController {
 
-    private final UserAccountService userAccountService;
+    private final AdminIdentityManagementService adminIdentityManagementService;
 
-    /**
-     * 注入账号业务服务，供管理员账号管理接口使用。
-     */
-    public AdminUserController(UserAccountService userAccountService) {
-        this.userAccountService = userAccountService;
+    public AdminIdentityUserController(AdminIdentityManagementService adminIdentityManagementService) {
+        this.adminIdentityManagementService = adminIdentityManagementService;
     }
 
-    /**
-     * 查询管理员可见的全部账号列表。
-     */
     @GetMapping
     public List<UserProfileResponse> listUsers() {
-        return userAccountService.listUsers();
+        return adminIdentityManagementService.listUsers();
     }
 
-    /**
-     * 由管理员创建新的账号记录。
-     */
     @PostMapping
     public UserProfileResponse createUser(
             @RequestAttribute(AuthRequestAttributes.CURRENT_USER_ID) Long adminUserId,
             @Valid @RequestBody AdminCreateUserRequest request
     ) {
-        return userAccountService.createUser(adminUserId, request);
-    }
-
-    @PutMapping("/{userId}/quota")
-    public UserProfileResponse updateUserQuota(
-            @PathVariable Long userId,
-            @Valid @RequestBody AdminUpdateUserQuotaRequest request
-    ) {
-        return userAccountService.updateUserStorageQuota(userId, request);
+        return adminIdentityManagementService.createUser(adminUserId, request);
     }
 
     @PutMapping("/{userId}/password")
@@ -65,7 +47,7 @@ public class AdminUserController {
             @PathVariable Long userId,
             @Valid @RequestBody AdminResetUserPasswordRequest request
     ) {
-        userAccountService.resetUserPassword(adminUserId, userId, request);
+        adminIdentityManagementService.resetUserPassword(adminUserId, userId, request);
         return new ApiMessageResponse("用户密码已重置，旧登录状态已失效。");
     }
 }

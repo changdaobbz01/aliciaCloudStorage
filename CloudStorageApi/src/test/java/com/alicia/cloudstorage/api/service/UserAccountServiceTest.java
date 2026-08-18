@@ -1,7 +1,5 @@
 package com.alicia.cloudstorage.api.service;
 
-import com.alicia.cloudstorage.api.dto.AdminCreateUserRequest;
-import com.alicia.cloudstorage.api.dto.AdminUpdateUserQuotaRequest;
 import com.alicia.cloudstorage.api.dto.LoginRequest;
 import com.alicia.cloudstorage.api.dto.UserProfileResponse;
 import com.alicia.cloudstorage.api.entity.UserRole;
@@ -16,7 +14,6 @@ import org.springframework.mock.web.MockMultipartFile;
 import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -47,34 +44,6 @@ class UserAccountServiceTest {
     }
 
     @Test
-    void createUserResolvesCloudQuotaBeforePersistingIdentity() {
-        AdminCreateUserRequest request = new AdminCreateUserRequest(
-                "13800000001",
-                "Quota Admin",
-                null,
-                true,
-                "Admin@123",
-                "ADMIN",
-                null
-        );
-        IdentityAccount account = regularIdentityAccount(55L, UserRole.ADMIN);
-        CloudUserProfileService.CloudUserProfile cloudProfile =
-                new CloudUserProfileService.CloudUserProfile(55L, "cosbg:user-home-backgrounds/55/bg.webp", 2048L);
-        UserProfileResponse responseProfile = profile(account, null, 1024L, null);
-
-        when(identityAccountService.normalizeRole("ADMIN")).thenReturn(UserRole.ADMIN);
-        when(cloudUserProfileService.resolveInitialStorageQuota(UserRole.ADMIN, null)).thenReturn(2048L);
-        when(identityAccountService.createUser(request, 2048L)).thenReturn(account);
-        when(cloudUserProfileService.inheritAdminHomeBackground(1L, true, 55L)).thenReturn(cloudProfile);
-        when(cloudUserProfileService.toUserProfile(account, cloudProfile)).thenReturn(responseProfile);
-
-        var response = userAccountService.createUser(1L, request);
-
-        assertThat(response).isSameAs(responseProfile);
-        verify(identityAccountService).createUser(request, 2048L);
-    }
-
-    @Test
     void uploadHomeBackgroundCombinesUpdatedCloudProfileWithCurrentIdentity() {
         MockMultipartFile file = new MockMultipartFile("file", "bg.webp", "image/webp", new byte[]{1, 2, 3});
         IdentityAccount account = regularIdentityAccount(23L);
@@ -89,24 +58,6 @@ class UserAccountServiceTest {
         var response = userAccountService.uploadCurrentUserHomeBackground(23L, file);
 
         assertThat(response).isSameAs(responseProfile);
-    }
-
-    @Test
-    void updateUserStorageQuotaUsesAdminIdentityLookupForCompatibleResponse() {
-        AdminUpdateUserQuotaRequest request = new AdminUpdateUserQuotaRequest(4096L);
-        IdentityAccount account = regularIdentityAccount(77L);
-        CloudUserProfileService.CloudUserProfile cloudProfile =
-                new CloudUserProfileService.CloudUserProfile(77L, null, 4096L);
-        UserProfileResponse responseProfile = profile(account, 4096L, 1536L, 2560L);
-
-        when(cloudUserProfileService.updateUserStorageQuota(77L, request)).thenReturn(cloudProfile);
-        when(identityAccountService.getUser(77L)).thenReturn(account);
-        when(cloudUserProfileService.toUserProfile(account, cloudProfile)).thenReturn(responseProfile);
-
-        var response = userAccountService.updateUserStorageQuota(77L, request);
-
-        assertThat(response).isSameAs(responseProfile);
-        verify(identityAccountService).getUser(77L);
     }
 
     @Test
@@ -126,17 +77,13 @@ class UserAccountServiceTest {
     }
 
     private IdentityAccount regularIdentityAccount(Long id) {
-        return regularIdentityAccount(id, UserRole.USER);
-    }
-
-    private IdentityAccount regularIdentityAccount(Long id, UserRole role) {
         return new IdentityAccount(
                 id,
                 "13900000000",
                 "user@example.com",
                 "Alicia",
                 null,
-                role,
+                UserRole.USER,
                 UserStatus.ACTIVE,
                 LocalDateTime.of(2026, 4, 29, 15, 30)
         );
