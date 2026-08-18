@@ -685,13 +685,22 @@ main-site-frontend
 - 先接管当前 `sys_user` 和 `email_verification_code` 表。
 - 对外路径保持 `/api/auth/**`。
 
-建议新增目录：
+当前已落地骨架：
 
 ```text
 AliciaCloudStorage/identityApi
 ```
 
-建议模块：
+已包含：
+
+- Maven 子模块：`identity-api`。
+- 应用入口：`IdentityApiApplication`。
+- 独立健康检查：`GET /api/identity/health`。
+- Dockerfile：`identityApi/Dockerfile`。
+- Compose profile：`identity`，默认不启动、不接生产流量。
+- README：`identityApi/README.md`。
+
+目标模块：
 
 ```text
 identityApi
@@ -723,6 +732,14 @@ identityApi
 - 不要把 `StorageQuotaService` 带进 Identity。
 
 验证：
+
+- 骨架阶段：`.\mvnw.cmd -pl identityApi test` 通过。
+- 骨架阶段：`.\mvnw.cmd -pl CloudStorageApi,identityApi,rag test` 通过。
+- 服务器可用 `docker compose --profile identity up -d --build identity` 单独启动。
+- 单独启动后 `http://127.0.0.1:8093/api/identity/health` 可用。
+- 生产流量仍由 CloudStorageApi 处理，网关暂不路由到 identity 容器。
+
+后续验证：
 
 - Identity 单测覆盖登录、注册、验证码、密码、token。
 - 本地启动后 `/api/auth/login` 可用。
@@ -934,10 +951,10 @@ Android：
 
 阶段 1 已经开始落地，下一步进入生产验证和阶段 2 准备：
 
-1. 部署包含 `V12__create_cloud_user_profile.sql` 的版本，确认 Flyway 成功执行。
-2. 验证老用户 `/api/auth/me`、背景图、容量展示、上传容量校验和管理员改额度。
-3. 查询 `cloud_user_profile` 行数是否与 `sys_user` 一致。
-4. 保持旧 `sys_user.storage_quota_bytes` 和 `sys_user.home_background_url` 一个版本周期不删。
-5. 新建 `identityApi` 模块骨架，先迁移登录、注册、验证码、密码和账号资料相关代码。
+1. 保持旧 `sys_user.storage_quota_bytes` 和 `sys_user.home_background_url` 一个版本周期不删。
+2. 在 `identityApi` 中迁移只读身份模型和 Repository，先不要接管写流量。
+3. 迁移登录和 `/api/auth/me`，让 identity 在本地或 profile 容器中独立验证。
+4. 迁移邮箱验证码注册。
+5. 迁移密码修改、管理员重置密码和管理员身份管理。
 
-这一步完成后，`CloudStorageApi` 已经能把云盘资料和身份资料分开维护，再新增 `identityApi` 会顺很多，也更容易判断每个接口应该归谁。
+这一步完成后，`CloudStorageApi` 已经能把云盘资料和身份资料分开维护，`identityApi` 也有了独立可运行骨架。后面要做的是把身份能力一块一块搬进去，而不是再调整主站/云盘路径结构。

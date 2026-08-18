@@ -60,6 +60,17 @@ services:
       db:
         condition: service_healthy
 
+  identity:
+    profiles:
+      - identity
+    build:
+      context: .
+      dockerfile: identityApi/Dockerfile
+    environment:
+      SERVER_PORT: 8082
+    ports:
+      - "127.0.0.1:8093:8082"
+
   rag:
     build:
       context: .

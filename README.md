@@ -30,6 +30,8 @@
 ```text
 AliciaCloudStorage/
 ├─ CloudStorageApi/      # Spring Boot 后端
+├─ identityApi/          # 统一身份服务骨架，默认不接生产流量
+├─ rag/                  # RAG 语义服务
 ├─ CloudStorageDB/       # 早期 SQL 初始化脚本
 ├─ webApp/               # React + Vite 前端
 ├─ phoneApp/             # Android 客户端（Kotlin + Jetpack Compose）
@@ -105,6 +107,7 @@ docker compose up -d --build
 - 健康检查（仅本机回环）：`http://127.0.0.1:8090/api/health`
 - RAG（仅本机回环）：`http://127.0.0.1:8091`
 - 同域 RAG 入口：`http://localhost/rag/api/health`
+- Identity API 骨架默认不启动；需要单独验证时使用 `--profile identity`
 - MySQL（仅本机回环）：`127.0.0.1:3310`
 
 查看运行状态：
@@ -113,6 +116,15 @@ docker compose up -d --build
 docker compose ps
 docker compose logs -f api
 ```
+
+单独验证 Identity API 骨架：
+
+```powershell
+docker compose --profile identity up -d --build identity
+curl http://127.0.0.1:8093/api/identity/health
+```
+
+当前生产流量仍由 `CloudStorageApi` 处理登录、注册、Token 和账号资料；`identityApi` 只是后续拆分用的新服务骨架。
 
 ### HTTPS 部署（已签发证书后）
 
@@ -208,6 +220,12 @@ ALICIA_BOOTSTRAP_ADMIN_AVATAR_URL=
 
 ```powershell
 .\mvnw -pl CloudStorageApi test
+```
+
+全部后端模块测试：
+
+```powershell
+.\mvnw -pl CloudStorageApi,identityApi,rag test
 ```
 
 前端构建检查：
