@@ -117,7 +117,7 @@ interface AliciaCloudService {
         @Body payload: CreateUserPayload,
     ): Response<User>
 
-    @PUT("api/admin/users/{userId}/quota")
+    @PUT("api/admin/cloud-users/{userId}/quota")
     suspend fun updateUserQuota(
         @Header("Authorization") authorization: String,
         @Path("userId") userId: Long,

@@ -93,8 +93,8 @@
 
 - `GET /api/admin/users`
 - `POST /api/admin/users`
-- `PUT /api/admin/users/{userId}/quota`
 - `PUT /api/admin/users/{userId}/password`
+- `PUT /api/admin/cloud-users/{userId}/quota`
 
 问题：
 
@@ -468,17 +468,14 @@ exp: 过期时间
 | --- | --- |
 | `/api/auth/background` | 移到 `/api/cloud-profile/background` |
 | `/api/auth/background/{userId}` | 移到 `/api/cloud-profile/background/{userId}` |
-
-待迁移：
-
-| 当前接口 | 调整 |
-| --- | --- |
 | `/api/admin/users/{userId}/quota` | 移到 `/api/admin/cloud-users/{userId}/quota` |
 
 兼容策略：
 
 - 当前应用尚未正式发布，旧 `/api/auth/background` 路径不再保留。
+- 当前应用尚未正式发布，旧 `/api/admin/users/{userId}/quota` 路径不再保留。
 - Web 已直接调用 `/api/cloud-profile/background`。
+- Web 和 Android 已直接调用 `/api/admin/cloud-users/{userId}/quota`。
 - Android 当前只读取 `homeBackgroundUrl` 响应字段，未发现上传/清空背景接口调用。
 
 ### 8.3 管理端拆分

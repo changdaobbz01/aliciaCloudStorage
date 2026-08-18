@@ -1119,7 +1119,7 @@ export function createUser(payload: CreateUserPayload, token: string) {
 
 export function updateUserStorageQuota(userId: number, payload: UpdateUserStorageQuotaPayload, token: string) {
   return requestJson<User>(
-    `/api/admin/users/${userId}/quota`,
+    `/api/admin/cloud-users/${userId}/quota`,
     withToken(token, {
       method: 'PUT',
       headers: {
