@@ -57,4 +57,36 @@ class AuthServiceTest {
 
         assertThat(authService.requireUser("Bearer token")).isSameAs(user);
     }
+
+    @Test
+    void requirePrincipalReturnsLightweightCurrentUser() {
+        SysUser user = new SysUser();
+        ReflectionTestUtils.setField(user, "id", 22L);
+        user.setRole(UserRole.ADMIN);
+        user.setStatus(UserStatus.ACTIVE);
+        user.setTokenVersion(1L);
+
+        when(tokenService.parseToken("token")).thenReturn(new TokenService.TokenClaims(22L, 1L, 4_200_000_000L));
+        when(sysUserRepository.findById(22L)).thenReturn(Optional.of(user));
+
+        CurrentPrincipal principal = authService.requirePrincipal("Bearer token");
+
+        assertThat(principal.userId()).isEqualTo(22L);
+        assertThat(principal.isAdmin()).isTrue();
+    }
+
+    @Test
+    void requireAdminPrincipalRejectsRegularUsers() {
+        SysUser user = new SysUser();
+        ReflectionTestUtils.setField(user, "id", 28L);
+        user.setRole(UserRole.USER);
+        user.setStatus(UserStatus.ACTIVE);
+        user.setTokenVersion(1L);
+
+        when(tokenService.parseToken("token")).thenReturn(new TokenService.TokenClaims(28L, 1L, 4_200_000_000L));
+        when(sysUserRepository.findById(28L)).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> authService.requireAdminPrincipal("Bearer token"))
+                .isInstanceOf(AuthException.class);
+    }
 }

@@ -45,7 +45,6 @@ class CloudUserProfileServiceTest {
 
         when(sysUserRepository.findById(77L)).thenReturn(Optional.of(user));
         when(storageQuotaService.normalizeQuotaBytes(eq(4096L), anyString())).thenReturn(4096L);
-        when(storageQuotaService.getUsedBytes(77L)).thenReturn(1536L);
         when(sysUserRepository.save(any(SysUser.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         var response = cloudUserProfileService.updateUserStorageQuota(77L, new AdminUpdateUserQuotaRequest(4096L));
@@ -53,8 +52,6 @@ class CloudUserProfileServiceTest {
         verify(storageQuotaService).validateQuotaAssignment(77L, 4096L);
         assertThat(user.getStorageQuotaBytes()).isEqualTo(4096L);
         assertThat(response.storageQuotaBytes()).isEqualTo(4096L);
-        assertThat(response.usedBytes()).isEqualTo(1536L);
-        assertThat(response.remainingBytes()).isEqualTo(2560L);
     }
 
     @Test
@@ -82,7 +79,6 @@ class CloudUserProfileServiceTest {
         when(cosFileStorageService.uploadUserHomeBackground(23L, file))
                 .thenReturn(new CosFileStorageService.StoredCosFile("user-home-backgrounds/23/new.webp", "image/webp", 3L));
         when(sysUserRepository.save(any(SysUser.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(storageQuotaService.getUsedBytes(23L)).thenReturn(512L);
 
         var response = cloudUserProfileService.uploadCurrentUserHomeBackground(23L, file);
 
@@ -103,31 +99,57 @@ class CloudUserProfileServiceTest {
         admin.setHomeBackgroundUrl("cosbg:user-home-backgrounds/1/source.webp");
         SysUser targetUser = regularUser(23L, 2048L);
 
+        when(sysUserRepository.findById(23L)).thenReturn(Optional.of(targetUser));
         when(sysUserRepository.findById(1L)).thenReturn(Optional.of(admin));
         when(cosFileStorageService.duplicateUserHomeBackground(23L, "user-home-backgrounds/1/source.webp"))
                 .thenReturn(new CosFileStorageService.StoredCosFile("user-home-backgrounds/23/copied.webp", "image/webp", 3L));
         when(sysUserRepository.save(targetUser)).thenAnswer(invocation -> invocation.getArgument(0));
 
-        SysUser result = cloudUserProfileService.inheritAdminHomeBackground(1L, true, targetUser);
+        var result = cloudUserProfileService.inheritAdminHomeBackground(1L, true, 23L);
 
         verify(sysUserRepository).save(targetUser);
-        assertThat(result).isSameAs(targetUser);
-        assertThat(targetUser.getHomeBackgroundUrl()).isEqualTo("cosbg:user-home-backgrounds/23/copied.webp");
+        assertThat(result.userId()).isEqualTo(23L);
+        assertThat(result.homeBackgroundUrl()).isEqualTo("cosbg:user-home-backgrounds/23/copied.webp");
     }
 
     @Test
-    void assignInitialStorageQuotaKeepsRoleRulesInCloudProfileBoundary() {
-        SysUser admin = new SysUser();
-        SysUser user = new SysUser();
-
+    void resolveInitialStorageQuotaKeepsRoleRulesInCloudProfileBoundary() {
         when(storageQuotaService.getDefaultUserQuotaBytes()).thenReturn(2048L);
         when(storageQuotaService.normalizeQuotaBytes(4096L, "用户最大存储额度")).thenReturn(4096L);
 
-        cloudUserProfileService.assignInitialStorageQuota(admin, UserRole.ADMIN, null);
-        cloudUserProfileService.assignInitialStorageQuota(user, UserRole.USER, 4096L);
+        long adminQuota = cloudUserProfileService.resolveInitialStorageQuota(UserRole.ADMIN, null);
+        long userQuota = cloudUserProfileService.resolveInitialStorageQuota(UserRole.USER, 4096L);
 
-        assertThat(admin.getStorageQuotaBytes()).isEqualTo(2048L);
-        assertThat(user.getStorageQuotaBytes()).isEqualTo(4096L);
+        assertThat(adminQuota).isEqualTo(2048L);
+        assertThat(userQuota).isEqualTo(4096L);
+    }
+
+    @Test
+    void toUserProfileCombinesIdentityAndCloudProfileForCompatibleResponse() {
+        IdentityAccount account = new IdentityAccount(
+                23L,
+                null,
+                "user@example.com",
+                "Alicia",
+                "cos:user-avatars/23/avatar.webp",
+                UserRole.USER,
+                UserStatus.ACTIVE,
+                LocalDateTime.of(2026, 4, 29, 15, 30)
+        );
+        CloudUserProfileService.CloudUserProfile cloudProfile =
+                new CloudUserProfileService.CloudUserProfile(23L, "cosbg:user-home-backgrounds/23/bg.webp", 4096L);
+
+        when(storageQuotaService.getUsedBytes(23L)).thenReturn(1536L);
+
+        var response = cloudUserProfileService.toUserProfile(account, cloudProfile);
+
+        assertThat(response.phoneNumber()).isEmpty();
+        assertThat(response.email()).isEqualTo("user@example.com");
+        assertThat(response.avatarUrl()).isEqualTo("cos:user-avatars/23/avatar.webp");
+        assertThat(response.homeBackgroundUrl()).isEqualTo("cosbg:user-home-backgrounds/23/bg.webp");
+        assertThat(response.storageQuotaBytes()).isEqualTo(4096L);
+        assertThat(response.usedBytes()).isEqualTo(1536L);
+        assertThat(response.remainingBytes()).isEqualTo(2560L);
     }
 
     private SysUser regularUser(Long id, Long storageQuotaBytes) {

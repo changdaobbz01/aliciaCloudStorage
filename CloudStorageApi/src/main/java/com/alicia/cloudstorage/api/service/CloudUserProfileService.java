@@ -32,20 +32,29 @@ public class CloudUserProfileService {
     }
 
     @Transactional(readOnly = true)
-    public UserProfileResponse getCurrentUser(Long userId) {
-        return toUserProfile(requireActiveUser(userId));
+    public CloudUserProfile getCloudUserProfile(Long userId) {
+        return toCloudUserProfile(requireUser(userId));
     }
 
-    public UserProfileResponse uploadCurrentUserHomeBackground(Long userId, MultipartFile file) {
+    @Transactional(readOnly = true)
+    public UserProfileResponse getCurrentUser(IdentityAccount account) {
+        if (account.status() != UserStatus.ACTIVE) {
+            throw new AuthException("当前账号已停用。");
+        }
+
+        return toUserProfile(account);
+    }
+
+    public CloudUserProfile uploadCurrentUserHomeBackground(Long userId, MultipartFile file) {
         SysUser user = requireActiveUser(userId);
         String oldHomeBackgroundUrl = user.getHomeBackgroundUrl();
         CosFileStorageService.StoredCosFile backgroundFile = cosFileStorageService.uploadUserHomeBackground(userId, file);
 
         user.setHomeBackgroundUrl(toLocalHomeBackgroundReference(backgroundFile.objectKey()));
-        UserProfileResponse response = toUserProfile(sysUserRepository.save(user));
+        CloudUserProfile profile = toCloudUserProfile(sysUserRepository.save(user));
         deleteLocalHomeBackgroundQuietly(oldHomeBackgroundUrl);
 
-        return response;
+        return profile;
     }
 
     @Transactional(readOnly = true)
@@ -79,18 +88,18 @@ public class CloudUserProfileService {
         return cosFileStorageService.createInlineDownloadUrl(objectKey, null, null);
     }
 
-    public UserProfileResponse clearCurrentUserHomeBackground(Long userId) {
+    public CloudUserProfile clearCurrentUserHomeBackground(Long userId) {
         SysUser user = requireActiveUser(userId);
         String oldHomeBackgroundUrl = user.getHomeBackgroundUrl();
 
         user.setHomeBackgroundUrl(null);
-        UserProfileResponse response = toUserProfile(sysUserRepository.save(user));
+        CloudUserProfile profile = toCloudUserProfile(sysUserRepository.save(user));
         deleteLocalHomeBackgroundQuietly(oldHomeBackgroundUrl);
 
-        return response;
+        return profile;
     }
 
-    public UserProfileResponse updateUserStorageQuota(Long userId, AdminUpdateUserQuotaRequest request) {
+    public CloudUserProfile updateUserStorageQuota(Long userId, AdminUpdateUserQuotaRequest request) {
         SysUser user = requireUser(userId);
 
         if (user.getRole() == UserRole.ADMIN) {
@@ -101,53 +110,57 @@ public class CloudUserProfileService {
         storageQuotaService.validateQuotaAssignment(userId, storageQuotaBytes);
 
         user.setStorageQuotaBytes(storageQuotaBytes);
-        return toUserProfile(sysUserRepository.save(user));
+        return toCloudUserProfile(sysUserRepository.save(user));
     }
 
-    public void assignInitialStorageQuota(SysUser user, UserRole role, Long requestedQuotaBytes) {
-        long storageQuotaBytes = role == UserRole.ADMIN
+    public long resolveInitialStorageQuota(UserRole role, Long requestedQuotaBytes) {
+        return role == UserRole.ADMIN
                 ? storageQuotaService.getDefaultUserQuotaBytes()
                 : storageQuotaService.normalizeQuotaBytes(requestedQuotaBytes, "用户最大存储额度");
-        user.setStorageQuotaBytes(storageQuotaBytes);
     }
 
-    public void assignDefaultStorageQuota(SysUser user) {
-        user.setStorageQuotaBytes(storageQuotaService.getDefaultUserQuotaBytes());
+    public long resolveDefaultStorageQuota() {
+        return storageQuotaService.getDefaultUserQuotaBytes();
     }
 
-    public SysUser inheritAdminHomeBackground(Long adminUserId, boolean inheritAdminBackground, SysUser targetUser) {
-        if (!inheritAdminBackground || targetUser == null || targetUser.getId() == null) {
-            return targetUser;
+    public CloudUserProfile inheritAdminHomeBackground(Long adminUserId, boolean inheritAdminBackground, Long targetUserId) {
+        SysUser targetUser = requireUser(targetUserId);
+        if (!inheritAdminBackground) {
+            return toCloudUserProfile(targetUser);
         }
 
-        String inheritedHomeBackgroundUrl = resolveInheritedHomeBackgroundUrl(adminUserId, targetUser.getId());
+        String inheritedHomeBackgroundUrl = resolveInheritedHomeBackgroundUrl(adminUserId, targetUserId);
         if (inheritedHomeBackgroundUrl == null) {
-            return targetUser;
+            return toCloudUserProfile(targetUser);
         }
 
         targetUser.setHomeBackgroundUrl(inheritedHomeBackgroundUrl);
-        return sysUserRepository.save(targetUser);
+        return toCloudUserProfile(sysUserRepository.save(targetUser));
     }
 
-    public UserProfileResponse toUserProfile(SysUser user) {
-        long usedBytes = user.getId() == null ? 0L : storageQuotaService.getUsedBytes(user.getId());
-        long quotaBytes = user.getStorageQuotaBytes() == null
+    public UserProfileResponse toUserProfile(IdentityAccount account) {
+        return toUserProfile(account, getCloudUserProfile(account.id()));
+    }
+
+    public UserProfileResponse toUserProfile(IdentityAccount account, CloudUserProfile cloudProfile) {
+        long usedBytes = account.id() == null ? 0L : storageQuotaService.getUsedBytes(account.id());
+        long quotaBytes = cloudProfile.storageQuotaBytes() == null
                 ? storageQuotaService.getDefaultUserQuotaBytes()
-                : user.getStorageQuotaBytes();
-        boolean admin = user.getRole() == UserRole.ADMIN;
+                : cloudProfile.storageQuotaBytes();
+        boolean admin = account.role() == UserRole.ADMIN;
         Long storageQuotaBytes = admin ? null : quotaBytes;
         Long remainingBytes = admin ? null : Math.max(0L, quotaBytes - usedBytes);
 
         return new UserProfileResponse(
-                user.getId(),
-                user.getPhoneNumber() == null ? "" : user.getPhoneNumber(),
-                user.getEmail(),
-                user.getNickname(),
-                user.getAvatarUrl(),
-                user.getHomeBackgroundUrl(),
-                user.getRole().name(),
-                user.getStatus().name(),
-                user.getCreatedAt(),
+                account.id(),
+                account.phoneNumberOrEmpty(),
+                account.email(),
+                account.nickname(),
+                account.avatarUrl(),
+                cloudProfile.homeBackgroundUrl(),
+                account.role().name(),
+                account.status().name(),
+                account.createdAt(),
                 storageQuotaBytes,
                 usedBytes,
                 remainingBytes
@@ -167,6 +180,14 @@ public class CloudUserProfileService {
     private SysUser requireUser(Long userId) {
         return sysUserRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("用户不存在。"));
+    }
+
+    private CloudUserProfile toCloudUserProfile(SysUser user) {
+        return new CloudUserProfile(
+                user.getId(),
+                user.getHomeBackgroundUrl(),
+                user.getStorageQuotaBytes()
+        );
     }
 
     private String resolveInheritedHomeBackgroundUrl(Long adminUserId, Long targetUserId) {
@@ -205,6 +226,13 @@ public class CloudUserProfileService {
         if (objectKey != null) {
             cosFileStorageService.deleteObjectQuietly(objectKey);
         }
+    }
+
+    public record CloudUserProfile(
+            Long userId,
+            String homeBackgroundUrl,
+            Long storageQuotaBytes
+    ) {
     }
 
     public record HomeBackgroundDownloadPayload(

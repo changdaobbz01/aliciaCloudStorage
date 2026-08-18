@@ -22,8 +22,9 @@ public class AuthInterceptor implements HandlerInterceptor {
      */
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
-        Long userId = authService.requireUserId(request.getHeader("Authorization"));
-        request.setAttribute(AuthRequestAttributes.CURRENT_USER_ID, userId);
+        CurrentPrincipal principal = authService.requirePrincipal(request.getHeader("Authorization"));
+        request.setAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL, principal);
+        request.setAttribute(AuthRequestAttributes.CURRENT_USER_ID, principal.userId());
         return true;
     }
 }

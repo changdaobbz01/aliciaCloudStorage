@@ -1,9 +1,6 @@
 package com.alicia.cloudstorage.api.service;
 
-import com.alicia.cloudstorage.api.entity.SysUser;
-import com.alicia.cloudstorage.api.entity.UserRole;
 import com.alicia.cloudstorage.api.repository.StorageNodeRepository;
-import com.alicia.cloudstorage.api.repository.SysUserRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,13 +11,13 @@ import java.util.Locale;
 @Transactional(readOnly = true)
 public class StorageQuotaService {
 
-    private final SysUserRepository sysUserRepository;
+    private final StorageQuotaAccountReader storageQuotaAccountReader;
     private final StorageNodeRepository storageNodeRepository;
     private final long systemTotalSpaceBytes;
     private final long defaultUserQuotaBytes;
 
     public StorageQuotaService(
-            SysUserRepository sysUserRepository,
+            StorageQuotaAccountReader storageQuotaAccountReader,
             StorageNodeRepository storageNodeRepository,
             @Value("${alicia.storage.total-space-bytes:1073741824}") long systemTotalSpaceBytes,
             @Value("${alicia.storage.default-user-quota-bytes:536870912}") long defaultUserQuotaBytes
@@ -37,7 +34,7 @@ public class StorageQuotaService {
             throw new IllegalArgumentException("默认用户存储额度不能超过系统总存储空间。");
         }
 
-        this.sysUserRepository = sysUserRepository;
+        this.storageQuotaAccountReader = storageQuotaAccountReader;
         this.storageNodeRepository = storageNodeRepository;
         this.systemTotalSpaceBytes = systemTotalSpaceBytes;
         this.defaultUserQuotaBytes = defaultUserQuotaBytes;
@@ -52,12 +49,11 @@ public class StorageQuotaService {
     }
 
     public boolean isAdmin(Long userId) {
-        return requireUser(userId).getRole() == UserRole.ADMIN;
+        return storageQuotaAccountReader.requireAccount(userId).isAdmin();
     }
 
     public long getUserQuotaBytes(Long userId) {
-        Long quotaBytes = requireUser(userId).getStorageQuotaBytes();
-        return quotaBytes == null ? defaultUserQuotaBytes : quotaBytes;
+        return storageQuotaAccountReader.requireAccount(userId).quotaBytesOrDefault(defaultUserQuotaBytes);
     }
 
     public long getUsedBytes(Long userId) {
@@ -70,8 +66,7 @@ public class StorageQuotaService {
     }
 
     public long getTotalAllocatedQuotaBytes() {
-        Long allocatedBytes = sysUserRepository.sumStorageQuotaBytes();
-        return allocatedBytes == null ? 0L : allocatedBytes;
+        return storageQuotaAccountReader.getTotalAllocatedQuotaBytes();
     }
 
     public long getTotalActualUsedBytes() {
@@ -135,11 +130,6 @@ public class StorageQuotaService {
 
     private long getRemainingBytes(long quotaBytes, long usedBytes) {
         return Math.max(0L, quotaBytes - usedBytes);
-    }
-
-    private SysUser requireUser(Long userId) {
-        return sysUserRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("用户不存在。"));
     }
 
     private String formatBytes(long value) {

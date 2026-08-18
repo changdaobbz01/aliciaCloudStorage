@@ -1,6 +1,5 @@
 package com.alicia.cloudstorage.api.auth;
 
-import com.alicia.cloudstorage.api.entity.SysUser;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.stereotype.Component;
@@ -23,8 +22,9 @@ public class AdminAuthInterceptor implements HandlerInterceptor {
      */
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
-        SysUser adminUser = authService.requireAdminUser(request.getHeader("Authorization"));
-        request.setAttribute(AuthRequestAttributes.CURRENT_USER_ID, adminUser.getId());
+        CurrentPrincipal principal = authService.requireAdminPrincipal(request.getHeader("Authorization"));
+        request.setAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL, principal);
+        request.setAttribute(AuthRequestAttributes.CURRENT_USER_ID, principal.userId());
         return true;
     }
 }
