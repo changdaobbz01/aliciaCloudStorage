@@ -92,7 +92,8 @@ docker compose up -d --build
 
 启动后默认地址：
 
-- 前端：`http://localhost`
+- 前端：`http://localhost/cloudPan/`
+- 旧云盘根入口：`http://localhost/` 会跳转到 `/cloudPan/`
 - 后端（仅本机回环）：`http://127.0.0.1:8090`
 - 健康检查（仅本机回环）：`http://127.0.0.1:8090/api/health`
 - RAG（仅本机回环）：`http://127.0.0.1:8091`
@@ -119,7 +120,7 @@ docker compose logs -f api
 docker compose -f compose.yaml -f compose.https.yaml up -d --build frontend
 ```
 
-这样会额外开放 `443`，并将 `http://` 请求自动跳转到 `https://`。正式 RAG 入口为 `https://windwindwind-alicia.cn/rag`，SSE 请求由 Nginx 直通 `rag` 容器；`/rag/internal/` 不对公网开放。
+这样会额外开放 `443`，并将 `http://` 请求自动跳转到 `https://`。云盘 Web 入口为 `https://windwindwind-alicia.cn/cloudPan/`，正式 RAG 入口为 `https://windwindwind-alicia.cn/rag`，SSE 请求由 Nginx 直通 `rag` 容器；`/rag/internal/` 不对公网开放。
 
 生产服务器更新 RAG 与 Nginx 时，在仓库内执行：
 
@@ -171,7 +172,7 @@ npm run dev
 
 前端开发地址：
 
-- `http://localhost:5173`
+- `http://localhost:5173/cloudPan/`
 
 ## 首个管理员初始化
 

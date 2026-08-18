@@ -89,7 +89,7 @@ select {
   aspect-ratio: 1 / 1;
   transform: translate(-50%, -50%);
   z-index: 1;
-  background: url('/login-bg.png') center / contain no-repeat;
+  background: var(--login-bg-image, none) center / contain no-repeat;
   opacity: 1;
   filter: drop-shadow(0 18px 42px rgba(148, 163, 184, 0.1));
   pointer-events: none;

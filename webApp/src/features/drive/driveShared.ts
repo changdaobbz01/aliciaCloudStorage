@@ -1,5 +1,6 @@
 import type { AppPackageInfo, StorageFileCategory, StorageViewMode, User } from '../../types';
 import type { DriveListState } from './types';
+import { appUrl } from '../../lib/appPaths';
 
 const BYTES_PER_GIB = 1024 * 1024 * 1024;
 export const ROOT_PARENT_KEY = 'ROOT';
@@ -103,11 +104,7 @@ export function resolveAppDownloadUrl(downloadPath = APP_DOWNLOAD_PUBLIC_PATH) {
 export function resolveShareUrl(shareCode: string) {
   const path = `/share/${encodeURIComponent(shareCode)}`;
 
-  if (typeof window === 'undefined') {
-    return path;
-  }
-
-  return new URL(path, window.location.origin).toString();
+  return appUrl(path);
 }
 
 export function createEmptyAppPackageInfo(): AppPackageInfo {

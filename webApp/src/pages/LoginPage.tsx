@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { RegulatoryFooter } from '../components/RegulatoryFooter';
 import { useSession } from '../context/session-context';
 import { fetchPublicAppPackage, login, requestEmailRegistrationCode, verifyEmailRegistration } from '../lib/api';
+import { publicAssetPath } from '../lib/appPaths';
 import type { AppPackageInfo, LoginPayload, VerifyEmailRegistrationPayload } from '../types';
 
 type AuthMode = 'login' | 'register';
@@ -364,7 +365,7 @@ export function LoginPage() {
         <aside className="login-download-card" aria-label="安卓版下载">
           <div className="login-download-head">
             <img
-              src="/apple-touch-icon.png"
+              src={publicAssetPath('/apple-touch-icon.png')}
               alt="Alicia云盘"
               className="login-download-icon"
             />

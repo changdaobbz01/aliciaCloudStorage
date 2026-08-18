@@ -20,6 +20,7 @@ import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LazyChunkErrorBoundary } from '../components/lazy-chunk-error-boundary';
 import { RegulatoryFooter } from '../components/RegulatoryFooter';
+import { publicAssetPath } from '../lib/appPaths';
 import { DriveAccountsAdminModals } from '../features/drive/DriveAccountsAdminModals';
 import { DriveAppPackageUploadModal } from '../features/drive/DriveAppPackageUploadModal';
 import { DrivePreviewModal } from '../features/drive/DrivePreviewModal';
@@ -545,7 +546,7 @@ export function DrivePage() {
         <section className="sider-download-card">
           <div className="sider-download-head">
             <img
-              src="/apple-touch-icon.png"
+              src={publicAssetPath('/apple-touch-icon.png')}
               alt="Alicia云盘"
               className="sider-download-icon"
             />

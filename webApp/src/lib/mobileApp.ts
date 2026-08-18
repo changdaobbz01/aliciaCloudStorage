@@ -1,3 +1,5 @@
+import { appPath, appUrl } from './appPaths';
+
 const DEFAULT_ANDROID_PACKAGE_NAME = 'com.alicia.cloudstorage.phone.add';
 
 export const ANDROID_PACKAGE_NAME =
@@ -5,10 +7,10 @@ export const ANDROID_PACKAGE_NAME =
 
 export function buildAppDownloadUrl(shareCode?: string) {
   if (typeof window === 'undefined') {
-    return '/app-download';
+    return appPath('/app-download');
   }
 
-  const url = new URL('/app-download', window.location.origin);
+  const url = new URL(appPath('/app-download'), window.location.origin);
   if (shareCode) {
     url.searchParams.set('share', shareCode);
   }
@@ -17,9 +19,7 @@ export function buildAppDownloadUrl(shareCode?: string) {
 
 export function buildShareIntentUrl(shareCode: string) {
   const sharePath = `/share/${encodeURIComponent(shareCode)}`;
-  const shareUrl = typeof window === 'undefined'
-    ? sharePath
-    : new URL(sharePath, window.location.origin).toString();
+  const shareUrl = appUrl(sharePath);
 
   return `intent://share/${encodeURIComponent(shareCode)}#Intent;scheme=aliciacloud;package=${ANDROID_PACKAGE_NAME};S.browser_fallback_url=${encodeURIComponent(
     buildAppDownloadUrl(shareCode),
