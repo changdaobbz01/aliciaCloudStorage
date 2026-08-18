@@ -6,8 +6,16 @@ Current status:
 
 - The module is scaffolded and buildable.
 - It exposes an independent health endpoint for deployment checks.
+- It can read public identity fields from the existing `sys_user` table.
 - No production traffic is routed here yet.
 - Existing login, registration, token, and account-management behavior still runs in `CloudStorageApi`.
+
+Local endpoints:
+
+- `GET /api/identity/health`
+- `GET /api/identity/internal/users/{userId}`
+
+The internal user endpoint is read-only and does not return `password_hash`.
 
 Planned migration order:
 

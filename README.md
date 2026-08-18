@@ -122,9 +122,10 @@ docker compose logs -f api
 ```powershell
 docker compose --profile identity up -d --build identity
 curl http://127.0.0.1:8093/api/identity/health
+curl http://127.0.0.1:8093/api/identity/internal/users/1
 ```
 
-当前生产流量仍由 `CloudStorageApi` 处理登录、注册、Token 和账号资料；`identityApi` 只是后续拆分用的新服务骨架。
+当前生产流量仍由 `CloudStorageApi` 处理登录、注册、Token 和账号资料；`identityApi` 只用于后续拆分验证，当前只读连接现有身份表，不接管写流量。
 
 ### HTTPS 部署（已签发证书后）
 

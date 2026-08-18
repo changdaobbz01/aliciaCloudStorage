@@ -696,6 +696,10 @@ AliciaCloudStorage/identityApi
 - Maven 子模块：`identity-api`。
 - 应用入口：`IdentityApiApplication`。
 - 独立健康检查：`GET /api/identity/health`。
+- 只读身份模型：`IdentityUser`，映射现有 `sys_user` 身份字段。
+- 只读 Repository：`IdentityUserRepository`。
+- 内部只读查询接口：`GET /api/identity/internal/users/{userId}`。
+- Compose 中注入同一个 MySQL 连接，但 `identity` profile 默认不启动。
 - Dockerfile：`identityApi/Dockerfile`。
 - Compose profile：`identity`，默认不启动、不接生产流量。
 - README：`identityApi/README.md`。
@@ -737,6 +741,7 @@ identityApi
 - 骨架阶段：`.\mvnw.cmd -pl CloudStorageApi,identityApi,rag test` 通过。
 - 服务器可用 `docker compose --profile identity up -d --build identity` 单独启动。
 - 单独启动后 `http://127.0.0.1:8093/api/identity/health` 可用。
+- 单独启动后 `http://127.0.0.1:8093/api/identity/internal/users/1` 可读取身份资料，响应不包含 `passwordHash`。
 - 生产流量仍由 CloudStorageApi 处理，网关暂不路由到 identity 容器。
 
 后续验证：
@@ -952,9 +957,9 @@ Android：
 阶段 1 已经开始落地，下一步进入生产验证和阶段 2 准备：
 
 1. 保持旧 `sys_user.storage_quota_bytes` 和 `sys_user.home_background_url` 一个版本周期不删。
-2. 在 `identityApi` 中迁移只读身份模型和 Repository，先不要接管写流量。
+2. 在服务器验证 `identityApi` 可以只读查询 `sys_user`，并确认响应不包含密码哈希。
 3. 迁移登录和 `/api/auth/me`，让 identity 在本地或 profile 容器中独立验证。
 4. 迁移邮箱验证码注册。
 5. 迁移密码修改、管理员重置密码和管理员身份管理。
 
-这一步完成后，`CloudStorageApi` 已经能把云盘资料和身份资料分开维护，`identityApi` 也有了独立可运行骨架。后面要做的是把身份能力一块一块搬进去，而不是再调整主站/云盘路径结构。
+这一步完成后，`CloudStorageApi` 已经能把云盘资料和身份资料分开维护，`identityApi` 也可以独立读取身份表。后面要做的是把身份写能力一块一块搬进去，而不是再调整主站/云盘路径结构。
