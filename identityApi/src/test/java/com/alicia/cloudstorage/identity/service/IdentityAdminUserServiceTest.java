@@ -1,5 +1,6 @@
 package com.alicia.cloudstorage.identity.service;
 
+import com.alicia.cloudstorage.identity.dto.AdminCreateIdentityUserRequest;
 import com.alicia.cloudstorage.identity.dto.AdminResetUserPasswordRequest;
 import com.alicia.cloudstorage.identity.entity.IdentityUser;
 import com.alicia.cloudstorage.identity.entity.IdentityUserRole;
@@ -7,6 +8,7 @@ import com.alicia.cloudstorage.identity.entity.IdentityUserStatus;
 import com.alicia.cloudstorage.identity.repository.IdentityUserRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -14,10 +16,12 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -36,6 +40,131 @@ class IdentityAdminUserServiceTest {
 
     @InjectMocks
     private IdentityAdminUserService identityAdminUserService;
+
+    @Test
+    void listUsersRequiresAdminAndReturnsIdentityUsers() {
+        IdentityUser admin = identityUser(1L, IdentityUserRole.ADMIN, 0L);
+        IdentityUser firstUser = identityUser(1L, IdentityUserRole.ADMIN, 0L);
+        IdentityUser secondUser = identityUser(2L, IdentityUserRole.USER, 0L);
+        secondUser.setEmail("second@example.com");
+        secondUser.setNickname("Second");
+
+        when(identityPrincipalService.requireAdminUser("Bearer admin-token")).thenReturn(admin);
+        when(identityUserRepository.findAllByOrderByIdAsc()).thenReturn(List.of(firstUser, secondUser));
+
+        var response = identityAdminUserService.listUsers("Bearer admin-token");
+
+        assertThat(response).hasSize(2);
+        assertThat(response.get(0).id()).isEqualTo(1L);
+        assertThat(response.get(1).email()).isEqualTo("second@example.com");
+        verify(identityPrincipalService).requireAdminUser("Bearer admin-token");
+    }
+
+    @Test
+    void createUserPersistsOnlyIdentityFields() {
+        IdentityUser admin = identityUser(1L, IdentityUserRole.ADMIN, 0L);
+        AdminCreateIdentityUserRequest request = new AdminCreateIdentityUserRequest(
+                "13800000001",
+                null,
+                "New User",
+                "https://example.com/avatar.png",
+                "Passw0rd",
+                "USER"
+        );
+
+        when(identityPrincipalService.requireAdminUser("Bearer admin-token")).thenReturn(admin);
+        when(identityUserRepository.existsByPhoneNumber("13800000001")).thenReturn(false);
+        when(passwordEncoder.encode("Passw0rd")).thenReturn("password-hash");
+        when(identityUserRepository.save(any(IdentityUser.class))).thenAnswer(invocation -> {
+            IdentityUser user = invocation.getArgument(0);
+            ReflectionTestUtils.setField(user, "id", 72L);
+            ReflectionTestUtils.setField(user, "createdAt", LocalDateTime.of(2026, 8, 19, 9, 30));
+            return user;
+        });
+
+        var response = identityAdminUserService.createUser("Bearer admin-token", request);
+
+        ArgumentCaptor<IdentityUser> userCaptor = ArgumentCaptor.forClass(IdentityUser.class);
+        verify(identityUserRepository).save(userCaptor.capture());
+        IdentityUser savedUser = userCaptor.getValue();
+        assertThat(savedUser.getPhoneNumber()).isEqualTo("13800000001");
+        assertThat(savedUser.getEmail()).isNull();
+        assertThat(savedUser.getEmailVerifiedAt()).isNull();
+        assertThat(savedUser.getNickname()).isEqualTo("New User");
+        assertThat(savedUser.getAvatarUrl()).isEqualTo("https://example.com/avatar.png");
+        assertThat(savedUser.getPasswordHash()).isEqualTo("password-hash");
+        assertThat(savedUser.getTokenVersion()).isZero();
+        assertThat(savedUser.getRole()).isEqualTo(IdentityUserRole.USER);
+        assertThat(savedUser.getStatus()).isEqualTo(IdentityUserStatus.ACTIVE);
+        assertThat(response.id()).isEqualTo(72L);
+    }
+
+    @Test
+    void createUserAcceptsEmailIdentifierAndNormalizesIt() {
+        IdentityUser admin = identityUser(1L, IdentityUserRole.ADMIN, 0L);
+        AdminCreateIdentityUserRequest request = new AdminCreateIdentityUserRequest(
+                null,
+                "NewUser@Example.COM",
+                "New User",
+                null,
+                "Passw0rd",
+                "ADMIN"
+        );
+
+        when(identityPrincipalService.requireAdminUser("Bearer admin-token")).thenReturn(admin);
+        when(identityUserRepository.existsByEmail("newuser@example.com")).thenReturn(false);
+        when(passwordEncoder.encode("Passw0rd")).thenReturn("password-hash");
+        when(identityUserRepository.save(any(IdentityUser.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        identityAdminUserService.createUser("Bearer admin-token", request);
+
+        ArgumentCaptor<IdentityUser> userCaptor = ArgumentCaptor.forClass(IdentityUser.class);
+        verify(identityUserRepository).save(userCaptor.capture());
+        assertThat(userCaptor.getValue().getEmail()).isEqualTo("newuser@example.com");
+        assertThat(userCaptor.getValue().getRole()).isEqualTo(IdentityUserRole.ADMIN);
+    }
+
+    @Test
+    void createUserRejectsMissingLoginIdentifier() {
+        IdentityUser admin = identityUser(1L, IdentityUserRole.ADMIN, 0L);
+
+        when(identityPrincipalService.requireAdminUser("Bearer admin-token")).thenReturn(admin);
+
+        assertThatThrownBy(() -> identityAdminUserService.createUser(
+                "Bearer admin-token",
+                new AdminCreateIdentityUserRequest(null, null, "New User", null, "Passw0rd", "USER")
+        )).isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("手机号或邮箱不能为空。");
+    }
+
+    @Test
+    void createUserRejectsDuplicatePhoneNumber() {
+        IdentityUser admin = identityUser(1L, IdentityUserRole.ADMIN, 0L);
+
+        when(identityPrincipalService.requireAdminUser("Bearer admin-token")).thenReturn(admin);
+        when(identityUserRepository.existsByPhoneNumber("13800000001")).thenReturn(true);
+
+        assertThatThrownBy(() -> identityAdminUserService.createUser(
+                "Bearer admin-token",
+                new AdminCreateIdentityUserRequest("13800000001", null, "New User", null, "Passw0rd", "USER")
+        )).isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("手机号已被其他账户使用。");
+
+        verify(identityUserRepository, never()).save(any());
+    }
+
+    @Test
+    void createUserRejectsInvalidRole() {
+        IdentityUser admin = identityUser(1L, IdentityUserRole.ADMIN, 0L);
+
+        when(identityPrincipalService.requireAdminUser("Bearer admin-token")).thenReturn(admin);
+
+        assertThatThrownBy(() -> identityAdminUserService.createUser(
+                "Bearer admin-token",
+                new AdminCreateIdentityUserRequest("13800000001", null, "New User", null, "Passw0rd", "OWNER")
+        )).isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("角色只能是 ADMIN 或 USER。");
+    }
 
     @Test
     void resetUserPasswordUpdatesTargetPasswordAndInvalidatesTokens() {

@@ -1,11 +1,18 @@
 package com.alicia.cloudstorage.identity.service;
 
+import com.alicia.cloudstorage.identity.dto.AdminCreateIdentityUserRequest;
 import com.alicia.cloudstorage.identity.dto.AdminResetUserPasswordRequest;
+import com.alicia.cloudstorage.identity.dto.IdentityUserResponse;
 import com.alicia.cloudstorage.identity.entity.IdentityUser;
+import com.alicia.cloudstorage.identity.entity.IdentityUserRole;
+import com.alicia.cloudstorage.identity.entity.IdentityUserStatus;
 import com.alicia.cloudstorage.identity.repository.IdentityUserRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.Locale;
 
 @Service
 @Transactional
@@ -23,6 +30,57 @@ public class IdentityAdminUserService {
         this.identityPrincipalService = identityPrincipalService;
         this.identityUserRepository = identityUserRepository;
         this.passwordEncoder = passwordEncoder;
+    }
+
+    @Transactional(readOnly = true)
+    public List<IdentityUserResponse> listUsers(String authorizationHeader) {
+        identityPrincipalService.requireAdminUser(authorizationHeader);
+        return identityUserRepository.findAllByOrderByIdAsc().stream()
+                .map(IdentityUserResponse::from)
+                .toList();
+    }
+
+    public IdentityUserResponse createUser(
+            String authorizationHeader,
+            AdminCreateIdentityUserRequest request
+    ) {
+        identityPrincipalService.requireAdminUser(authorizationHeader);
+
+        String phoneNumber = normalizeOptionalPhoneNumber(request.phoneNumber());
+        String email = normalizeOptionalEmail(request.email());
+        String nickname = normalizeNickname(request.nickname());
+        String password = normalizePassword(request.password(), "密码不能为空。");
+        String avatarUrl = normalizeAvatarUrl(request.avatarUrl());
+        IdentityUserRole role = normalizeRole(request.role());
+
+        if (phoneNumber == null && email == null) {
+            throw new IllegalArgumentException("手机号或邮箱不能为空。");
+        }
+
+        if (password.length() < 6) {
+            throw new IllegalArgumentException("密码长度至少为 6 位。");
+        }
+
+        if (phoneNumber != null && identityUserRepository.existsByPhoneNumber(phoneNumber)) {
+            throw new IllegalArgumentException("手机号已被其他账户使用。");
+        }
+
+        if (email != null && identityUserRepository.existsByEmail(email)) {
+            throw new IllegalArgumentException("邮箱已注册，请直接登录。");
+        }
+
+        IdentityUser user = new IdentityUser();
+        user.setPhoneNumber(phoneNumber);
+        user.setEmail(email);
+        user.setEmailVerifiedAt(null);
+        user.setNickname(nickname);
+        user.setAvatarUrl(avatarUrl);
+        user.setPasswordHash(passwordEncoder.encode(password));
+        user.setTokenVersion(0L);
+        user.setRole(role);
+        user.setStatus(IdentityUserStatus.ACTIVE);
+
+        return IdentityUserResponse.from(identityUserRepository.save(user));
     }
 
     public void resetUserPassword(
@@ -58,6 +116,60 @@ public class IdentityAdminUserService {
         }
 
         return value;
+    }
+
+    private String normalizeNickname(String value) {
+        if (value == null || value.trim().isEmpty()) {
+            throw new IllegalArgumentException("昵称不能为空。");
+        }
+
+        return value.trim();
+    }
+
+    private String normalizeOptionalPhoneNumber(String value) {
+        if (value == null || value.trim().isEmpty()) {
+            return null;
+        }
+
+        String phoneNumber = value.trim();
+        if (!phoneNumber.matches("^1\\d{10}$")) {
+            throw new IllegalArgumentException("请输入 11 位手机号。");
+        }
+
+        return phoneNumber;
+    }
+
+    private String normalizeOptionalEmail(String value) {
+        if (value == null || value.trim().isEmpty()) {
+            return null;
+        }
+
+        String email = value.trim().toLowerCase(Locale.ROOT);
+        if (email.length() > 320 || !email.matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")) {
+            throw new IllegalArgumentException("请输入有效邮箱地址。");
+        }
+
+        return email;
+    }
+
+    private String normalizeAvatarUrl(String value) {
+        if (value == null || value.trim().isEmpty()) {
+            return null;
+        }
+
+        return value.trim();
+    }
+
+    private IdentityUserRole normalizeRole(String role) {
+        if (role == null || role.isBlank()) {
+            return IdentityUserRole.USER;
+        }
+
+        try {
+            return IdentityUserRole.valueOf(role.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalArgumentException("角色只能是 ADMIN 或 USER。");
+        }
     }
 
     private void invalidateTokens(IdentityUser user) {
