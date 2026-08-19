@@ -3,6 +3,7 @@ package com.alicia.cloudstorage.api.service;
 import com.alicia.cloudstorage.api.dto.AdminCreateUserRequest;
 import com.alicia.cloudstorage.api.dto.AdminResetUserPasswordRequest;
 import com.alicia.cloudstorage.api.dto.UserProfileResponse;
+import com.alicia.cloudstorage.api.identity.IdentityAdminGateway;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -12,26 +13,26 @@ import java.util.List;
 @Transactional
 public class AdminIdentityManagementService {
 
-    private final IdentityAccountService identityAccountService;
+    private final IdentityAdminGateway identityAdminGateway;
     private final CloudUserProfileService cloudUserProfileService;
 
     public AdminIdentityManagementService(
-            IdentityAccountService identityAccountService,
+            IdentityAdminGateway identityAdminGateway,
             CloudUserProfileService cloudUserProfileService
     ) {
-        this.identityAccountService = identityAccountService;
+        this.identityAdminGateway = identityAdminGateway;
         this.cloudUserProfileService = cloudUserProfileService;
     }
 
     @Transactional(readOnly = true)
-    public List<UserProfileResponse> listUsers() {
-        return identityAccountService.listUsers().stream()
+    public List<UserProfileResponse> listUsers(String authorization) {
+        return identityAdminGateway.listUsers(authorization).stream()
                 .map(cloudUserProfileService::toUserProfile)
                 .toList();
     }
 
-    public UserProfileResponse createUser(Long adminUserId, AdminCreateUserRequest request) {
-        IdentityAccount account = identityAccountService.createUser(request);
+    public UserProfileResponse createUser(String authorization, Long adminUserId, AdminCreateUserRequest request) {
+        IdentityAccount account = identityAdminGateway.createUser(authorization, request);
         CloudUserProfileService.CloudUserProfile cloudProfile =
                 cloudUserProfileService.initializeAdminCreatedUserProfile(
                         adminUserId,
@@ -43,7 +44,7 @@ public class AdminIdentityManagementService {
         return cloudUserProfileService.toUserProfile(account, cloudProfile);
     }
 
-    public void resetUserPassword(Long adminUserId, Long targetUserId, AdminResetUserPasswordRequest request) {
-        identityAccountService.resetUserPassword(adminUserId, targetUserId, request);
+    public void resetUserPassword(String authorization, Long targetUserId, AdminResetUserPasswordRequest request) {
+        identityAdminGateway.resetUserPassword(authorization, targetUserId, request);
     }
 }

@@ -5,6 +5,7 @@ import com.alicia.cloudstorage.api.dto.AdminResetUserPasswordRequest;
 import com.alicia.cloudstorage.api.dto.UserProfileResponse;
 import com.alicia.cloudstorage.api.entity.UserRole;
 import com.alicia.cloudstorage.api.entity.UserStatus;
+import com.alicia.cloudstorage.api.identity.IdentityAdminGateway;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -22,7 +23,7 @@ import static org.mockito.Mockito.when;
 class AdminIdentityManagementServiceTest {
 
     @Mock
-    private IdentityAccountService identityAccountService;
+    private IdentityAdminGateway identityAdminGateway;
 
     @Mock
     private CloudUserProfileService cloudUserProfileService;
@@ -37,11 +38,11 @@ class AdminIdentityManagementServiceTest {
         UserProfileResponse firstProfile = profile(firstAccount, null, 1024L, null);
         UserProfileResponse secondProfile = profile(secondAccount, 4096L, 1536L, 2560L);
 
-        when(identityAccountService.listUsers()).thenReturn(List.of(firstAccount, secondAccount));
+        when(identityAdminGateway.listUsers("Bearer admin-token")).thenReturn(List.of(firstAccount, secondAccount));
         when(cloudUserProfileService.toUserProfile(firstAccount)).thenReturn(firstProfile);
         when(cloudUserProfileService.toUserProfile(secondAccount)).thenReturn(secondProfile);
 
-        List<UserProfileResponse> responses = adminIdentityManagementService.listUsers();
+        List<UserProfileResponse> responses = adminIdentityManagementService.listUsers("Bearer admin-token");
 
         assertThat(responses).containsExactly(firstProfile, secondProfile);
     }
@@ -62,14 +63,14 @@ class AdminIdentityManagementServiceTest {
                 new CloudUserProfileService.CloudUserProfile(55L, "cosbg:user-home-backgrounds/55/bg.webp", 2048L);
         UserProfileResponse responseProfile = profile(account, null, 1024L, null);
 
-        when(identityAccountService.createUser(request)).thenReturn(account);
+        when(identityAdminGateway.createUser("Bearer admin-token", request)).thenReturn(account);
         when(cloudUserProfileService.initializeAdminCreatedUserProfile(1L, account, null, true)).thenReturn(cloudProfile);
         when(cloudUserProfileService.toUserProfile(account, cloudProfile)).thenReturn(responseProfile);
 
-        UserProfileResponse response = adminIdentityManagementService.createUser(1L, request);
+        UserProfileResponse response = adminIdentityManagementService.createUser("Bearer admin-token", 1L, request);
 
         assertThat(response).isSameAs(responseProfile);
-        verify(identityAccountService).createUser(request);
+        verify(identityAdminGateway).createUser("Bearer admin-token", request);
         verify(cloudUserProfileService).initializeAdminCreatedUserProfile(1L, account, null, true);
     }
 
@@ -77,9 +78,9 @@ class AdminIdentityManagementServiceTest {
     void resetUserPasswordDelegatesToIdentityService() {
         AdminResetUserPasswordRequest request = new AdminResetUserPasswordRequest("ResetPass@456");
 
-        adminIdentityManagementService.resetUserPassword(1L, 64L, request);
+        adminIdentityManagementService.resetUserPassword("Bearer admin-token", 64L, request);
 
-        verify(identityAccountService).resetUserPassword(1L, 64L, request);
+        verify(identityAdminGateway).resetUserPassword("Bearer admin-token", 64L, request);
     }
 
     private IdentityAccount identityAccount(Long id, UserRole role) {
