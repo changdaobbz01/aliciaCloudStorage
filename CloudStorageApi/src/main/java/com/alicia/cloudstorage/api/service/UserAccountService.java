@@ -17,20 +17,17 @@ import java.io.InputStream;
 @Transactional
 public class UserAccountService {
 
-    private final IdentityAccountService identityAccountService;
     private final IdentityAuthGateway identityAuthGateway;
     private final IdentityUserGateway identityUserGateway;
     private final CloudUserProfileService cloudUserProfileService;
     private final CosFileStorageService cosFileStorageService;
 
     public UserAccountService(
-            IdentityAccountService identityAccountService,
             IdentityAuthGateway identityAuthGateway,
             IdentityUserGateway identityUserGateway,
             CloudUserProfileService cloudUserProfileService,
             CosFileStorageService cosFileStorageService
     ) {
-        this.identityAccountService = identityAccountService;
         this.identityAuthGateway = identityAuthGateway;
         this.identityUserGateway = identityUserGateway;
         this.cloudUserProfileService = cloudUserProfileService;
@@ -89,18 +86,6 @@ public class UserAccountService {
 
     public void changePassword(String authorization, ChangePasswordRequest request) {
         identityAuthGateway.changePassword(authorization, request);
-    }
-
-    public LoginResponse createVerifiedEmailUser(String email, String nickname, String password) {
-        IdentityLoginSession session =
-                identityAccountService.createVerifiedEmailUser(email, nickname, password);
-        CloudUserProfileService.CloudUserProfile cloudProfile =
-                cloudUserProfileService.initializeDefaultNewUserProfile(session.account());
-        return new LoginResponse(session.token(), cloudUserProfileService.toUserProfile(session.account(), cloudProfile));
-    }
-
-    public String normalizeEmail(String value) {
-        return identityAccountService.normalizeEmail(value);
     }
 
     private String toLocalAvatarReference(String objectKey) {

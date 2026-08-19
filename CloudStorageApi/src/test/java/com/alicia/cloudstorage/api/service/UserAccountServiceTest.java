@@ -30,9 +30,6 @@ import static org.mockito.Mockito.when;
 class UserAccountServiceTest {
 
     @Mock
-    private IdentityAccountService identityAccountService;
-
-    @Mock
     private IdentityAuthGateway identityAuthGateway;
 
     @Mock
@@ -195,24 +192,6 @@ class UserAccountServiceTest {
                 .hasMessage("Avatar not found.");
 
         verify(cosFileStorageService, never()).createInlineDownloadUrl(any(), any(), any());
-    }
-
-    @Test
-    void createVerifiedEmailUserInitializesDefaultCloudProfileAfterIdentityCreation() {
-        IdentityAccount account = regularIdentityAccount(72L);
-        CloudUserProfileService.CloudUserProfile cloudProfile =
-                new CloudUserProfileService.CloudUserProfile(72L, null, 2048L);
-        UserProfileResponse profile = profile(account, 2048L, 0L, 2048L);
-
-        when(identityAccountService.createVerifiedEmailUser("New@Example.COM", "New User", "Passw0rd"))
-                .thenReturn(new IdentityLoginSession("new-token", account));
-        when(cloudUserProfileService.initializeDefaultNewUserProfile(account)).thenReturn(cloudProfile);
-        when(cloudUserProfileService.toUserProfile(account, cloudProfile)).thenReturn(profile);
-
-        var response = userAccountService.createVerifiedEmailUser("New@Example.COM", "New User", "Passw0rd");
-
-        assertThat(response.token()).isEqualTo("new-token");
-        assertThat(response.user()).isSameAs(profile);
     }
 
     @Test

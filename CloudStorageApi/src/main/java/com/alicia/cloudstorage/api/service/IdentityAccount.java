@@ -1,6 +1,5 @@
 package com.alicia.cloudstorage.api.service;
 
-import com.alicia.cloudstorage.api.entity.SysUser;
 import com.alicia.cloudstorage.api.entity.UserRole;
 import com.alicia.cloudstorage.api.entity.UserStatus;
 
@@ -16,19 +15,6 @@ public record IdentityAccount(
         UserStatus status,
         LocalDateTime createdAt
 ) {
-
-    public static IdentityAccount from(SysUser user) {
-        return new IdentityAccount(
-                user.getId(),
-                user.getPhoneNumber(),
-                user.getEmail(),
-                user.getNickname(),
-                user.getAvatarUrl(),
-                user.getRole(),
-                user.getStatus(),
-                user.getCreatedAt()
-        );
-    }
 
     public String phoneNumberOrEmpty() {
         return phoneNumber == null ? "" : phoneNumber;
