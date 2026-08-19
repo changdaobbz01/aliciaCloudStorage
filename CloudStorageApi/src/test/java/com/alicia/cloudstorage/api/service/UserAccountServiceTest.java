@@ -1,9 +1,11 @@
 package com.alicia.cloudstorage.api.service;
 
+import com.alicia.cloudstorage.api.dto.ChangePasswordRequest;
 import com.alicia.cloudstorage.api.dto.LoginRequest;
 import com.alicia.cloudstorage.api.dto.UserProfileResponse;
 import com.alicia.cloudstorage.api.entity.UserRole;
 import com.alicia.cloudstorage.api.entity.UserStatus;
+import com.alicia.cloudstorage.api.identity.IdentityAuthGateway;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -13,6 +15,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -20,6 +23,9 @@ class UserAccountServiceTest {
 
     @Mock
     private IdentityAccountService identityAccountService;
+
+    @Mock
+    private IdentityAuthGateway identityAuthGateway;
 
     @Mock
     private CloudUserProfileService cloudUserProfileService;
@@ -58,6 +64,15 @@ class UserAccountServiceTest {
 
         assertThat(response.token()).isEqualTo("new-token");
         assertThat(response.user()).isSameAs(profile);
+    }
+
+    @Test
+    void changePasswordDelegatesToIdentityApiGateway() {
+        ChangePasswordRequest request = new ChangePasswordRequest("OldPass1", "NewPass1");
+
+        userAccountService.changePassword("Bearer token", request);
+
+        verify(identityAuthGateway).changePassword("Bearer token", request);
     }
 
     private IdentityAccount regularIdentityAccount(Long id) {

@@ -5,6 +5,7 @@ import com.alicia.cloudstorage.api.dto.LoginRequest;
 import com.alicia.cloudstorage.api.dto.LoginResponse;
 import com.alicia.cloudstorage.api.dto.UpdateProfileRequest;
 import com.alicia.cloudstorage.api.dto.UserProfileResponse;
+import com.alicia.cloudstorage.api.identity.IdentityAuthGateway;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -16,13 +17,16 @@ import java.io.InputStream;
 public class UserAccountService {
 
     private final IdentityAccountService identityAccountService;
+    private final IdentityAuthGateway identityAuthGateway;
     private final CloudUserProfileService cloudUserProfileService;
 
     public UserAccountService(
             IdentityAccountService identityAccountService,
+            IdentityAuthGateway identityAuthGateway,
             CloudUserProfileService cloudUserProfileService
     ) {
         this.identityAccountService = identityAccountService;
+        this.identityAuthGateway = identityAuthGateway;
         this.cloudUserProfileService = cloudUserProfileService;
     }
 
@@ -63,8 +67,8 @@ public class UserAccountService {
         return identityAccountService.resolveUserAvatarAccessUrl(userId);
     }
 
-    public void changePassword(Long userId, ChangePasswordRequest request) {
-        identityAccountService.changePassword(userId, request);
+    public void changePassword(String authorization, ChangePasswordRequest request) {
+        identityAuthGateway.changePassword(authorization, request);
     }
 
     public LoginResponse createVerifiedEmailUser(String email, String nickname, String password) {

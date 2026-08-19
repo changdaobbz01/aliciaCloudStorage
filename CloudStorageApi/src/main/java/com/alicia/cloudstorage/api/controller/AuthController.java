@@ -24,6 +24,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
@@ -127,9 +128,10 @@ public class AuthController {
     @PutMapping("/password")
     public ApiMessageResponse changePassword(
             @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
             @Valid @RequestBody ChangePasswordRequest request
     ) {
-        userAccountService.changePassword(principal.userId(), request);
+        userAccountService.changePassword(authorization, request);
         return new ApiMessageResponse("密码修改成功。");
     }
 }
