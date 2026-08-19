@@ -6,8 +6,6 @@ import com.alicia.cloudstorage.api.dto.AdminResetUserPasswordRequest;
 import com.alicia.cloudstorage.api.entity.UserRole;
 import com.alicia.cloudstorage.api.entity.UserStatus;
 import com.alicia.cloudstorage.api.service.IdentityAccount;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -15,6 +13,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.util.List;
 
@@ -31,7 +30,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 class HttpIdentityAdminGatewayTest {
 
-    private final ObjectMapper objectMapper = JsonMapper.builder()
+    private final JsonMapper objectMapper = JsonMapper.builder()
             .build();
 
     @Test

@@ -1,10 +1,10 @@
 package com.alicia.cloudstorage.api.identity;
 
 import com.alicia.cloudstorage.api.auth.AuthException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 import java.nio.charset.StandardCharsets;
 import java.util.function.Supplier;

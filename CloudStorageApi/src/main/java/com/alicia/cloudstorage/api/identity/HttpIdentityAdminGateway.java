@@ -5,12 +5,11 @@ import com.alicia.cloudstorage.api.dto.AdminResetUserPasswordRequest;
 import com.alicia.cloudstorage.api.entity.UserRole;
 import com.alicia.cloudstorage.api.entity.UserStatus;
 import com.alicia.cloudstorage.api.service.IdentityAccount;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.time.LocalDateTime;
 import java.util.Arrays;
@@ -20,11 +19,11 @@ import java.util.List;
 public class HttpIdentityAdminGateway implements IdentityAdminGateway {
 
     private final RestClient restClient;
-    private final ObjectMapper objectMapper;
+    private final JsonMapper objectMapper;
 
     public HttpIdentityAdminGateway(
             RestClient.Builder restClientBuilder,
-            ObjectMapper objectMapper,
+            JsonMapper objectMapper,
             @Value("${alicia.identity-api.base-url}") String identityApiBaseUrl
     ) {
         this.restClient = restClientBuilder.baseUrl(identityApiBaseUrl).build();
