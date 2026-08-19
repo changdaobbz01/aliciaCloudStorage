@@ -2,6 +2,7 @@ package com.alicia.cloudstorage.api.config;
 
 import com.alicia.cloudstorage.api.identity.HttpIdentityAdminGateway;
 import com.alicia.cloudstorage.api.identity.HttpIdentityAuthGateway;
+import com.alicia.cloudstorage.api.identity.HttpIdentityUserGateway;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.util.TestPropertyValues;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
@@ -27,12 +28,13 @@ class HttpClientConfigTest {
                     .applyTo(context);
             context.register(HttpClientConfig.class);
             context.registerBean(JsonMapper.class, () -> JsonMapper.builder().build());
-            context.register(HttpIdentityAdminGateway.class, HttpIdentityAuthGateway.class);
+            context.register(HttpIdentityAdminGateway.class, HttpIdentityAuthGateway.class, HttpIdentityUserGateway.class);
 
             context.refresh();
 
             assertThat(context.getBean(HttpIdentityAdminGateway.class)).isNotNull();
             assertThat(context.getBean(HttpIdentityAuthGateway.class)).isNotNull();
+            assertThat(context.getBean(HttpIdentityUserGateway.class)).isNotNull();
         }
     }
 }

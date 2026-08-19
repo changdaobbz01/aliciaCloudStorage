@@ -4,6 +4,7 @@ import com.alicia.cloudstorage.api.dto.AdminUpdateUserQuotaRequest;
 import com.alicia.cloudstorage.api.dto.UserProfileResponse;
 import com.alicia.cloudstorage.api.entity.UserRole;
 import com.alicia.cloudstorage.api.entity.UserStatus;
+import com.alicia.cloudstorage.api.identity.IdentityUserGateway;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -20,7 +21,7 @@ import static org.mockito.Mockito.when;
 class AdminCloudUserProfileManagementServiceTest {
 
     @Mock
-    private IdentityAccountService identityAccountService;
+    private IdentityUserGateway identityUserGateway;
 
     @Mock
     private CloudUserProfileService cloudUserProfileService;
@@ -59,12 +60,12 @@ class AdminCloudUserProfileManagementServiceTest {
         );
 
         when(cloudUserProfileService.updateUserStorageQuota(77L, request)).thenReturn(cloudProfile);
-        when(identityAccountService.getUser(77L)).thenReturn(account);
+        when(identityUserGateway.getUser(77L)).thenReturn(account);
         when(cloudUserProfileService.toUserProfile(account, cloudProfile)).thenReturn(responseProfile);
 
         UserProfileResponse response = adminCloudUserProfileManagementService.updateUserStorageQuota(77L, request);
 
         assertThat(response).isSameAs(responseProfile);
-        verify(identityAccountService).getUser(77L);
+        verify(identityUserGateway).getUser(77L);
     }
 }

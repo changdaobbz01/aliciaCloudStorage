@@ -6,6 +6,7 @@ import com.alicia.cloudstorage.api.dto.LoginResponse;
 import com.alicia.cloudstorage.api.dto.UpdateProfileRequest;
 import com.alicia.cloudstorage.api.dto.UserProfileResponse;
 import com.alicia.cloudstorage.api.identity.IdentityAuthGateway;
+import com.alicia.cloudstorage.api.identity.IdentityUserGateway;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -18,17 +19,20 @@ public class UserAccountService {
 
     private final IdentityAccountService identityAccountService;
     private final IdentityAuthGateway identityAuthGateway;
+    private final IdentityUserGateway identityUserGateway;
     private final CloudUserProfileService cloudUserProfileService;
     private final CosFileStorageService cosFileStorageService;
 
     public UserAccountService(
             IdentityAccountService identityAccountService,
             IdentityAuthGateway identityAuthGateway,
+            IdentityUserGateway identityUserGateway,
             CloudUserProfileService cloudUserProfileService,
             CosFileStorageService cosFileStorageService
     ) {
         this.identityAccountService = identityAccountService;
         this.identityAuthGateway = identityAuthGateway;
+        this.identityUserGateway = identityUserGateway;
         this.cloudUserProfileService = cloudUserProfileService;
         this.cosFileStorageService = cosFileStorageService;
     }
@@ -68,8 +72,8 @@ public class UserAccountService {
 
     @Transactional(readOnly = true)
     public AvatarDownloadPayload openUserAvatar(Long userId) {
-        IdentityAccountService.AvatarDownloadPayload downloadedCosFile =
-                identityAccountService.openUserAvatar(userId);
+        String objectKey = requireLocalAvatarObjectKey(identityUserGateway.getUser(userId).avatarUrl());
+        CosFileStorageService.DownloadedCosFile downloadedCosFile = cosFileStorageService.openFileStream(objectKey);
         return new AvatarDownloadPayload(
                 downloadedCosFile.contentType(),
                 downloadedCosFile.contentLength(),
@@ -79,7 +83,8 @@ public class UserAccountService {
 
     @Transactional(readOnly = true)
     public CosFileStorageService.PresignedCosUrl resolveUserAvatarAccessUrl(Long userId) {
-        return identityAccountService.resolveUserAvatarAccessUrl(userId);
+        String objectKey = requireLocalAvatarObjectKey(identityUserGateway.getUser(userId).avatarUrl());
+        return cosFileStorageService.createInlineDownloadUrl(objectKey, null, null);
     }
 
     public void changePassword(String authorization, ChangePasswordRequest request) {
@@ -109,6 +114,15 @@ public class UserAccountService {
 
         String objectKey = avatarUrl.substring("cos:".length()).trim();
         return objectKey.isBlank() ? null : objectKey;
+    }
+
+    private String requireLocalAvatarObjectKey(String avatarUrl) {
+        String objectKey = extractLocalAvatarObjectKey(avatarUrl);
+        if (objectKey == null) {
+            throw new IllegalArgumentException("Avatar not found.");
+        }
+
+        return objectKey;
     }
 
     private void deleteLocalAvatarQuietly(String avatarUrl) {

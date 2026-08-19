@@ -1,6 +1,7 @@
 package com.alicia.cloudstorage.api.service;
 
 import com.alicia.cloudstorage.api.dto.UserProfileResponse;
+import com.alicia.cloudstorage.api.identity.IdentityUserGateway;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -9,28 +10,28 @@ import org.springframework.web.multipart.MultipartFile;
 @Transactional
 public class CloudProfileManagementService {
 
-    private final IdentityAccountService identityAccountService;
+    private final IdentityUserGateway identityUserGateway;
     private final CloudUserProfileService cloudUserProfileService;
 
     public CloudProfileManagementService(
-            IdentityAccountService identityAccountService,
+            IdentityUserGateway identityUserGateway,
             CloudUserProfileService cloudUserProfileService
     ) {
-        this.identityAccountService = identityAccountService;
+        this.identityUserGateway = identityUserGateway;
         this.cloudUserProfileService = cloudUserProfileService;
     }
 
     public UserProfileResponse uploadCurrentUserHomeBackground(Long userId, MultipartFile file) {
         CloudUserProfileService.CloudUserProfile cloudProfile =
                 cloudUserProfileService.uploadCurrentUserHomeBackground(userId, file);
-        IdentityAccount account = identityAccountService.getCurrentUser(userId);
+        IdentityAccount account = identityUserGateway.getUser(userId);
         return cloudUserProfileService.toUserProfile(account, cloudProfile);
     }
 
     public UserProfileResponse clearCurrentUserHomeBackground(Long userId) {
         CloudUserProfileService.CloudUserProfile cloudProfile =
                 cloudUserProfileService.clearCurrentUserHomeBackground(userId);
-        IdentityAccount account = identityAccountService.getCurrentUser(userId);
+        IdentityAccount account = identityUserGateway.getUser(userId);
         return cloudUserProfileService.toUserProfile(account, cloudProfile);
     }
 

@@ -3,6 +3,7 @@ package com.alicia.cloudstorage.api.service;
 import com.alicia.cloudstorage.api.dto.UserProfileResponse;
 import com.alicia.cloudstorage.api.entity.UserRole;
 import com.alicia.cloudstorage.api.entity.UserStatus;
+import com.alicia.cloudstorage.api.identity.IdentityUserGateway;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -19,7 +20,7 @@ import static org.mockito.Mockito.when;
 class CloudProfileManagementServiceTest {
 
     @Mock
-    private IdentityAccountService identityAccountService;
+    private IdentityUserGateway identityUserGateway;
 
     @Mock
     private CloudUserProfileService cloudUserProfileService;
@@ -36,7 +37,7 @@ class CloudProfileManagementServiceTest {
         UserProfileResponse responseProfile = profile(account, 2048L, 512L, 1536L);
 
         when(cloudUserProfileService.uploadCurrentUserHomeBackground(23L, file)).thenReturn(cloudProfile);
-        when(identityAccountService.getCurrentUser(23L)).thenReturn(account);
+        when(identityUserGateway.getUser(23L)).thenReturn(account);
         when(cloudUserProfileService.toUserProfile(account, cloudProfile)).thenReturn(responseProfile);
 
         var response = cloudProfileManagementService.uploadCurrentUserHomeBackground(23L, file);
@@ -52,7 +53,7 @@ class CloudProfileManagementServiceTest {
         UserProfileResponse responseProfile = profile(account, 2048L, 512L, 1536L);
 
         when(cloudUserProfileService.clearCurrentUserHomeBackground(23L)).thenReturn(cloudProfile);
-        when(identityAccountService.getCurrentUser(23L)).thenReturn(account);
+        when(identityUserGateway.getUser(23L)).thenReturn(account);
         when(cloudUserProfileService.toUserProfile(account, cloudProfile)).thenReturn(responseProfile);
 
         var response = cloudProfileManagementService.clearCurrentUserHomeBackground(23L);

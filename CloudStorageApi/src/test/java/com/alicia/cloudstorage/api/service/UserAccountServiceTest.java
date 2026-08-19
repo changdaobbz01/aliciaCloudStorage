@@ -7,6 +7,7 @@ import com.alicia.cloudstorage.api.dto.UserProfileResponse;
 import com.alicia.cloudstorage.api.entity.UserRole;
 import com.alicia.cloudstorage.api.entity.UserStatus;
 import com.alicia.cloudstorage.api.identity.IdentityAuthGateway;
+import com.alicia.cloudstorage.api.identity.IdentityUserGateway;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -33,6 +34,9 @@ class UserAccountServiceTest {
 
     @Mock
     private IdentityAuthGateway identityAuthGateway;
+
+    @Mock
+    private IdentityUserGateway identityUserGateway;
 
     @Mock
     private CloudUserProfileService cloudUserProfileService;
@@ -150,6 +154,47 @@ class UserAccountServiceTest {
 
         verify(cosFileStorageService).deleteObjectQuietly("user-avatars/18/new.webp");
         verify(cosFileStorageService, never()).deleteObjectQuietly("user-avatars/18/old.webp");
+    }
+
+    @Test
+    void resolveUserAvatarAccessUrlUsesIdentityApiAvatarReference() {
+        IdentityAccount account = identityAccount(
+                18L,
+                "13900000000",
+                "user@example.com",
+                "Alicia",
+                "cos:user-avatars/18/avatar.webp"
+        );
+        CosFileStorageService.PresignedCosUrl signedUrl =
+                new CosFileStorageService.PresignedCosUrl("https://files.example/avatar.webp", 600L);
+
+        when(identityUserGateway.getUser(18L)).thenReturn(account);
+        when(cosFileStorageService.createInlineDownloadUrl("user-avatars/18/avatar.webp", null, null))
+                .thenReturn(signedUrl);
+
+        var response = userAccountService.resolveUserAvatarAccessUrl(18L);
+
+        assertThat(response).isSameAs(signedUrl);
+        verify(identityUserGateway).getUser(18L);
+    }
+
+    @Test
+    void resolveUserAvatarAccessUrlRejectsMissingLocalAvatarReference() {
+        IdentityAccount account = identityAccount(
+                18L,
+                "13900000000",
+                "user@example.com",
+                "Alicia",
+                null
+        );
+
+        when(identityUserGateway.getUser(18L)).thenReturn(account);
+
+        assertThatThrownBy(() -> userAccountService.resolveUserAvatarAccessUrl(18L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Avatar not found.");
+
+        verify(cosFileStorageService, never()).createInlineDownloadUrl(any(), any(), any());
     }
 
     @Test
