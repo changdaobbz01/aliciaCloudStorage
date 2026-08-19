@@ -2,8 +2,6 @@ package com.alicia.cloudstorage.api.identity;
 
 import com.alicia.cloudstorage.api.dto.AdminCreateUserRequest;
 import com.alicia.cloudstorage.api.dto.AdminResetUserPasswordRequest;
-import com.alicia.cloudstorage.api.entity.UserRole;
-import com.alicia.cloudstorage.api.entity.UserStatus;
 import com.alicia.cloudstorage.api.service.IdentityAccount;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
@@ -11,7 +9,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import tools.jackson.databind.json.JsonMapper;
 
-import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
 
@@ -32,14 +29,14 @@ public class HttpIdentityAdminGateway implements IdentityAdminGateway {
 
     @Override
     public List<IdentityAccount> listUsers(String authorization) {
-        IdentityUserResponse[] response = IdentityGatewaySupport.exchange(() -> restClient.get()
+        IdentityUserPayload[] response = IdentityGatewaySupport.exchange(() -> restClient.get()
                 .uri("/api/identity/admin/users")
                 .header(HttpHeaders.AUTHORIZATION, authorization)
                 .retrieve()
-                .body(IdentityUserResponse[].class), objectMapper);
+                .body(IdentityUserPayload[].class), objectMapper);
 
-        return Arrays.stream(response == null ? new IdentityUserResponse[0] : response)
-                .map(IdentityUserResponse::toAccount)
+        return Arrays.stream(response == null ? new IdentityUserPayload[0] : response)
+                .map(IdentityUserPayload::toAccount)
                 .toList();
     }
 
@@ -54,12 +51,12 @@ public class HttpIdentityAdminGateway implements IdentityAdminGateway {
                 request.role()
         );
 
-        IdentityUserResponse response = IdentityGatewaySupport.exchange(() -> restClient.post()
+        IdentityUserPayload response = IdentityGatewaySupport.exchange(() -> restClient.post()
                 .uri("/api/identity/admin/users")
                 .header(HttpHeaders.AUTHORIZATION, authorization)
                 .body(payload)
                 .retrieve()
-                .body(IdentityUserResponse.class), objectMapper);
+                .body(IdentityUserPayload.class), objectMapper);
 
         if (response == null) {
             throw new IllegalStateException("身份服务返回为空。");
@@ -88,30 +85,4 @@ public class HttpIdentityAdminGateway implements IdentityAdminGateway {
     ) {
     }
 
-    private record IdentityUserResponse(
-            Long id,
-            String phoneNumber,
-            String email,
-            String emailVerifiedAt,
-            String nickname,
-            String avatarUrl,
-            Long tokenVersion,
-            String role,
-            String status,
-            String createdAt
-    ) {
-
-        private IdentityAccount toAccount() {
-            return new IdentityAccount(
-                    id,
-                    phoneNumber,
-                    email,
-                    nickname,
-                    avatarUrl,
-                    UserRole.valueOf(role),
-                    UserStatus.valueOf(status),
-                    LocalDateTime.parse(createdAt)
-            );
-        }
-    }
 }

@@ -39,13 +39,14 @@ class UserAccountServiceTest {
         IdentityAccount account = regularIdentityAccount(18L);
         UserProfileResponse profile = profile(account, 4096L, 1024L, 3072L);
 
-        when(identityAccountService.login(request)).thenReturn(new IdentityLoginSession("token", account));
+        when(identityAuthGateway.login(request)).thenReturn(new IdentityLoginSession("token", account));
         when(cloudUserProfileService.toUserProfile(account)).thenReturn(profile);
 
         var response = userAccountService.login(request);
 
         assertThat(response.token()).isEqualTo("token");
         assertThat(response.user()).isSameAs(profile);
+        verify(identityAuthGateway).login(request);
     }
 
     @Test

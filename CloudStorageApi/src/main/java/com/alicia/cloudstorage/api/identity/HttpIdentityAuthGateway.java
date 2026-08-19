@@ -1,6 +1,8 @@
 package com.alicia.cloudstorage.api.identity;
 
 import com.alicia.cloudstorage.api.dto.ChangePasswordRequest;
+import com.alicia.cloudstorage.api.dto.LoginRequest;
+import com.alicia.cloudstorage.api.service.IdentityLoginSession;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Service;
@@ -20,6 +22,21 @@ public class HttpIdentityAuthGateway implements IdentityAuthGateway {
     ) {
         this.restClient = restClientBuilder.baseUrl(identityApiBaseUrl).build();
         this.objectMapper = objectMapper;
+    }
+
+    @Override
+    public IdentityLoginSession login(LoginRequest request) {
+        IdentityLoginPayload response = IdentityGatewaySupport.exchange(() -> restClient.post()
+                .uri("/api/identity/auth/login")
+                .body(request)
+                .retrieve()
+                .body(IdentityLoginPayload.class), objectMapper);
+
+        if (response == null) {
+            throw new IllegalStateException("身份服务登录响应为空。");
+        }
+
+        return response.toSession();
     }
 
     @Override

@@ -30,9 +30,8 @@ public class UserAccountService {
         this.cloudUserProfileService = cloudUserProfileService;
     }
 
-    @Transactional(readOnly = true)
     public LoginResponse login(LoginRequest request) {
-        IdentityLoginSession session = identityAccountService.login(request);
+        IdentityLoginSession session = identityAuthGateway.login(request);
         return new LoginResponse(session.token(), cloudUserProfileService.toUserProfile(session.account()));
     }
 

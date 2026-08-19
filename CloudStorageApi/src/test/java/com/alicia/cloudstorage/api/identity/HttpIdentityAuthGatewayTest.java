@@ -2,6 +2,10 @@ package com.alicia.cloudstorage.api.identity;
 
 import com.alicia.cloudstorage.api.auth.AuthException;
 import com.alicia.cloudstorage.api.dto.ChangePasswordRequest;
+import com.alicia.cloudstorage.api.dto.LoginRequest;
+import com.alicia.cloudstorage.api.entity.UserRole;
+import com.alicia.cloudstorage.api.entity.UserStatus;
+import com.alicia.cloudstorage.api.service.IdentityLoginSession;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -11,6 +15,7 @@ import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 import tools.jackson.databind.json.JsonMapper;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.content;
@@ -23,6 +28,61 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 class HttpIdentityAuthGatewayTest {
 
     private final JsonMapper objectMapper = JsonMapper.builder().build();
+
+    @Test
+    void loginDelegatesToIdentityApiAndMapsSession() {
+        TestGatewayContext context = newContext();
+        context.server().expect(requestTo("http://identity.test/api/identity/auth/login"))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(content().string(containsString("\"identifier\":\"user@example.com\"")))
+                .andExpect(content().string(containsString("\"password\":\"Passw0rd\"")))
+                .andRespond(withSuccess("""
+                        {
+                          "token": "identity-token",
+                          "user": {
+                            "id": 6,
+                            "phoneNumber": null,
+                            "email": "user@example.com",
+                            "emailVerifiedAt": "2026-08-17T07:22:18",
+                            "nickname": "Alicia",
+                            "avatarUrl": "cos:user-avatars/6/avatar.png",
+                            "tokenVersion": 1,
+                            "role": "USER",
+                            "status": "ACTIVE",
+                            "createdAt": "2026-08-17T07:22:18"
+                          }
+                        }
+                        """, MediaType.APPLICATION_JSON));
+
+        IdentityLoginSession session = context.gateway().login(
+                new LoginRequest("user@example.com", null, null, "Passw0rd")
+        );
+
+        assertThat(session.token()).isEqualTo("identity-token");
+        assertThat(session.account().id()).isEqualTo(6L);
+        assertThat(session.account().email()).isEqualTo("user@example.com");
+        assertThat(session.account().role()).isEqualTo(UserRole.USER);
+        assertThat(session.account().status()).isEqualTo(UserStatus.ACTIVE);
+        context.server().verify();
+    }
+
+    @Test
+    void loginFailureBecomesCloudBusinessError() {
+        TestGatewayContext context = newContext();
+        context.server().expect(requestTo("http://identity.test/api/identity/auth/login"))
+                .andRespond(withStatus(HttpStatus.BAD_REQUEST)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body("""
+                                {"status":400,"error":"账号或密码不正确。","timestamp":"2026-08-19T09:30:00Z"}
+                                """));
+
+        assertThatThrownBy(() -> context.gateway().login(
+                new LoginRequest("user@example.com", null, null, "wrong")
+        )).isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("账号或密码不正确。");
+
+        context.server().verify();
+    }
 
     @Test
     void changePasswordDelegatesToIdentityApi() {
