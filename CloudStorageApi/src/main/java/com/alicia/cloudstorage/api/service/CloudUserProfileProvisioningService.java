@@ -1,7 +1,6 @@
 package com.alicia.cloudstorage.api.service;
 
 import com.alicia.cloudstorage.api.entity.CloudUserProfileEntity;
-import com.alicia.cloudstorage.api.entity.SysUser;
 import com.alicia.cloudstorage.api.repository.CloudUserProfileRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -26,21 +25,31 @@ public class CloudUserProfileProvisioningService {
         this.defaultUserQuotaBytes = defaultUserQuotaBytes;
     }
 
-    public CloudUserProfileEntity ensureCloudProfile(SysUser user) {
-        return cloudUserProfileRepository.findById(user.getId())
-                .orElseGet(() -> cloudUserProfileRepository.save(createDefaultCloudProfile(user)));
+    public CloudUserProfileEntity ensureCloudProfile(IdentityAccount account) {
+        Long userId = requireIdentityUserId(account);
+        return cloudUserProfileRepository.findById(userId)
+                .orElseGet(() -> cloudUserProfileRepository.save(createDefaultCloudProfile(userId)));
     }
 
-    public CloudUserProfileEntity findExistingOrCreateUnsavedCloudProfile(SysUser user) {
-        return cloudUserProfileRepository.findById(user.getId())
-                .orElseGet(() -> createDefaultCloudProfile(user));
+    public CloudUserProfileEntity findExistingOrCreateUnsavedCloudProfile(IdentityAccount account) {
+        Long userId = requireIdentityUserId(account);
+        return cloudUserProfileRepository.findById(userId)
+                .orElseGet(() -> createDefaultCloudProfile(userId));
     }
 
-    private CloudUserProfileEntity createDefaultCloudProfile(SysUser user) {
+    private CloudUserProfileEntity createDefaultCloudProfile(Long userId) {
         CloudUserProfileEntity profile = new CloudUserProfileEntity();
-        profile.setIdentityUserId(user.getId());
-        profile.setHomeBackgroundUrl(user.getHomeBackgroundUrl());
+        profile.setIdentityUserId(userId);
+        profile.setHomeBackgroundUrl(null);
         profile.setStorageQuotaBytes(defaultUserQuotaBytes);
         return profile;
+    }
+
+    private Long requireIdentityUserId(IdentityAccount account) {
+        if (account == null || account.id() == null) {
+            throw new IllegalArgumentException("用户不存在。");
+        }
+
+        return account.id();
     }
 }

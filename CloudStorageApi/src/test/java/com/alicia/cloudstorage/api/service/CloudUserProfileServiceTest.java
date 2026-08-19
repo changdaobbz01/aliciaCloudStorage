@@ -2,18 +2,16 @@ package com.alicia.cloudstorage.api.service;
 
 import com.alicia.cloudstorage.api.dto.AdminUpdateUserQuotaRequest;
 import com.alicia.cloudstorage.api.entity.CloudUserProfileEntity;
-import com.alicia.cloudstorage.api.entity.SysUser;
 import com.alicia.cloudstorage.api.entity.UserRole;
 import com.alicia.cloudstorage.api.entity.UserStatus;
+import com.alicia.cloudstorage.api.identity.IdentityUserGateway;
 import com.alicia.cloudstorage.api.repository.CloudUserProfileRepository;
-import com.alicia.cloudstorage.api.repository.SysUserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -30,7 +28,7 @@ import static org.mockito.Mockito.when;
 class CloudUserProfileServiceTest {
 
     @Mock
-    private SysUserRepository sysUserRepository;
+    private IdentityUserGateway identityUserGateway;
 
     @Mock
     private CloudUserProfileRepository cloudUserProfileRepository;
@@ -48,7 +46,7 @@ class CloudUserProfileServiceTest {
         CloudUserProfileProvisioningService provisioningService =
                 new CloudUserProfileProvisioningService(cloudUserProfileRepository, 2048L);
         cloudUserProfileService = new CloudUserProfileService(
-                sysUserRepository,
+                identityUserGateway,
                 cloudUserProfileRepository,
                 cosFileStorageService,
                 storageQuotaService,
@@ -58,10 +56,10 @@ class CloudUserProfileServiceTest {
 
     @Test
     void updateUserQuotaPersistsNewQuota() {
-        SysUser user = regularUser(77L, 1024L);
+        IdentityAccount user = identityAccount(77L, UserRole.USER);
         CloudUserProfileEntity profile = cloudProfile(77L, null, 1024L);
 
-        when(sysUserRepository.findById(77L)).thenReturn(Optional.of(user));
+        when(identityUserGateway.getUser(77L)).thenReturn(user);
         when(cloudUserProfileRepository.findById(77L)).thenReturn(Optional.of(profile));
         when(storageQuotaService.normalizeQuotaBytes(eq(4096L), anyString())).thenReturn(4096L);
         when(cloudUserProfileRepository.save(any(CloudUserProfileEntity.class)))
@@ -76,27 +74,22 @@ class CloudUserProfileServiceTest {
 
     @Test
     void updateUserQuotaRejectsAdminAccounts() {
-        SysUser user = new SysUser();
-        ReflectionTestUtils.setField(user, "id", 91L);
-        user.setRole(UserRole.ADMIN);
-        user.setStatus(UserStatus.ACTIVE);
-        user.setStorageQuotaBytes(1024L);
-
-        when(sysUserRepository.findById(91L)).thenReturn(Optional.of(user));
+        when(identityUserGateway.getUser(91L)).thenReturn(identityAccount(91L, UserRole.ADMIN));
 
         assertThatThrownBy(() -> cloudUserProfileService.updateUserStorageQuota(91L, new AdminUpdateUserQuotaRequest(4096L)))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("管理员账号不限制存储额度，无需修改。");
     }
 
     @Test
     void uploadCurrentUserHomeBackgroundPersistsCosReference() {
-        SysUser user = regularUser(23L, 2048L);
+        IdentityAccount user = identityAccount(23L, UserRole.USER);
         CloudUserProfileEntity profile =
                 cloudProfile(23L, "cosbg:user-home-backgrounds/23/old.webp", 2048L);
 
         MockMultipartFile file = new MockMultipartFile("file", "bg.webp", "image/webp", new byte[]{1, 2, 3});
 
-        when(sysUserRepository.findById(23L)).thenReturn(Optional.of(user));
+        when(identityUserGateway.getUser(23L)).thenReturn(user);
         when(cloudUserProfileRepository.findById(23L)).thenReturn(Optional.of(profile));
         when(cosFileStorageService.uploadUserHomeBackground(23L, file))
                 .thenReturn(new CosFileStorageService.StoredCosFile("user-home-backgrounds/23/new.webp", "image/webp", 3L));
@@ -111,11 +104,8 @@ class CloudUserProfileServiceTest {
     }
 
     @Test
-    void getCloudUserProfileBackfillsMissingProfileWithDefaultQuotaAndLegacyBackground() {
-        SysUser user = regularUser(23L, 512L);
-        user.setHomeBackgroundUrl("cosbg:user-home-backgrounds/23/legacy.webp");
-
-        when(sysUserRepository.findById(23L)).thenReturn(Optional.of(user));
+    void getCloudUserProfileBackfillsMissingProfileWithDefaultQuota() {
+        when(identityUserGateway.getUser(23L)).thenReturn(identityAccount(23L, UserRole.USER));
         when(cloudUserProfileRepository.findById(23L)).thenReturn(Optional.empty());
         when(cloudUserProfileRepository.save(any(CloudUserProfileEntity.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
@@ -124,15 +114,13 @@ class CloudUserProfileServiceTest {
 
         assertThat(response.userId()).isEqualTo(23L);
         assertThat(response.storageQuotaBytes()).isEqualTo(2048L);
-        assertThat(response.homeBackgroundUrl()).isEqualTo("cosbg:user-home-backgrounds/23/legacy.webp");
+        assertThat(response.homeBackgroundUrl()).isNull();
     }
 
     @Test
     void initializeDefaultNewUserProfilePersistsDefaultQuotaAfterIdentityCreation() {
-        SysUser user = regularUser(72L, null);
         IdentityAccount account = identityAccount(72L, UserRole.USER);
 
-        when(sysUserRepository.findById(72L)).thenReturn(Optional.of(user));
         when(cloudUserProfileRepository.findById(72L)).thenReturn(Optional.empty());
         when(storageQuotaService.getDefaultUserQuotaBytes()).thenReturn(2048L);
         when(cloudUserProfileRepository.save(any(CloudUserProfileEntity.class)))
@@ -140,28 +128,19 @@ class CloudUserProfileServiceTest {
 
         var result = cloudUserProfileService.initializeDefaultNewUserProfile(account);
 
-        assertThat(user.getStorageQuotaBytes()).isNull();
         assertThat(result.storageQuotaBytes()).isEqualTo(2048L);
+        assertThat(result.homeBackgroundUrl()).isNull();
     }
 
     @Test
     void initializeAdminCreatedUserProfileOwnsQuotaAndBackgroundInitialization() {
-        SysUser admin = new SysUser();
-        ReflectionTestUtils.setField(admin, "id", 1L);
-        admin.setPhoneNumber("13800000001");
-        admin.setNickname("Admin");
-        admin.setRole(UserRole.ADMIN);
-        admin.setStatus(UserStatus.ACTIVE);
-        admin.setStorageQuotaBytes(2048L);
-        SysUser targetUser = regularUser(23L, null);
         IdentityAccount account = identityAccount(23L, UserRole.USER);
         CloudUserProfileEntity adminProfile =
                 cloudProfile(1L, "cosbg:user-home-backgrounds/1/source.webp", 2048L);
 
-        when(sysUserRepository.findById(23L)).thenReturn(Optional.of(targetUser));
         when(cloudUserProfileRepository.findById(23L)).thenReturn(Optional.empty());
         when(storageQuotaService.normalizeQuotaBytes(4096L, "用户最大存储额度")).thenReturn(4096L);
-        when(sysUserRepository.findById(1L)).thenReturn(Optional.of(admin));
+        when(identityUserGateway.getUser(1L)).thenReturn(identityAccount(1L, UserRole.ADMIN));
         when(cloudUserProfileRepository.findById(1L)).thenReturn(Optional.of(adminProfile));
         when(cosFileStorageService.duplicateUserHomeBackground(23L, "user-home-backgrounds/1/source.webp"))
                 .thenReturn(new CosFileStorageService.StoredCosFile("user-home-backgrounds/23/copied.webp", "image/webp", 3L));
@@ -170,18 +149,14 @@ class CloudUserProfileServiceTest {
 
         var result = cloudUserProfileService.initializeAdminCreatedUserProfile(1L, account, 4096L, true);
 
-        assertThat(targetUser.getStorageQuotaBytes()).isNull();
-        assertThat(targetUser.getHomeBackgroundUrl()).isNull();
         assertThat(result.storageQuotaBytes()).isEqualTo(4096L);
         assertThat(result.homeBackgroundUrl()).isEqualTo("cosbg:user-home-backgrounds/23/copied.webp");
     }
 
     @Test
     void initializeAdminCreatedAdminProfileUsesDefaultQuotaWhenQuotaRequestIsMissing() {
-        SysUser user = regularUser(81L, null);
         IdentityAccount account = identityAccount(81L, UserRole.ADMIN);
 
-        when(sysUserRepository.findById(81L)).thenReturn(Optional.of(user));
         when(cloudUserProfileRepository.findById(81L)).thenReturn(Optional.empty());
         when(storageQuotaService.getDefaultUserQuotaBytes()).thenReturn(2048L);
         when(cloudUserProfileRepository.save(any(CloudUserProfileEntity.class)))
@@ -189,7 +164,6 @@ class CloudUserProfileServiceTest {
 
         var result = cloudUserProfileService.initializeAdminCreatedUserProfile(1L, account, null, false);
 
-        assertThat(user.getStorageQuotaBytes()).isNull();
         assertThat(result.storageQuotaBytes()).isEqualTo(2048L);
     }
 
@@ -232,18 +206,6 @@ class CloudUserProfileServiceTest {
                 UserStatus.ACTIVE,
                 LocalDateTime.of(2026, 4, 29, 15, 30)
         );
-    }
-
-    private SysUser regularUser(Long id, Long storageQuotaBytes) {
-        SysUser user = new SysUser();
-        ReflectionTestUtils.setField(user, "id", id);
-        ReflectionTestUtils.setField(user, "createdAt", LocalDateTime.of(2026, 4, 29, 15, 30));
-        user.setPhoneNumber("13900000000");
-        user.setNickname("Alicia");
-        user.setRole(UserRole.USER);
-        user.setStatus(UserStatus.ACTIVE);
-        user.setStorageQuotaBytes(storageQuotaBytes);
-        return user;
     }
 
     private CloudUserProfileEntity cloudProfile(Long userId, String homeBackgroundUrl, Long storageQuotaBytes) {

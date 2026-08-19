@@ -1,15 +1,15 @@
 package com.alicia.cloudstorage.api.service;
 
 import com.alicia.cloudstorage.api.entity.CloudUserProfileEntity;
-import com.alicia.cloudstorage.api.entity.SysUser;
+import com.alicia.cloudstorage.api.entity.UserRole;
+import com.alicia.cloudstorage.api.entity.UserStatus;
 import com.alicia.cloudstorage.api.repository.CloudUserProfileRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -26,53 +26,68 @@ class CloudUserProfileProvisioningServiceTest {
     private CloudUserProfileRepository cloudUserProfileRepository;
 
     @Test
-    void ensureCloudProfileReturnsExistingProfile() {
+    void ensureCloudProfileKeepsExistingProfile() {
         CloudUserProfileProvisioningService service =
                 new CloudUserProfileProvisioningService(cloudUserProfileRepository, 2048L);
-        SysUser user = user(7L, 512L);
-        CloudUserProfileEntity existingProfile = profile(7L, 4096L);
+        CloudUserProfileEntity existingProfile = profile(7L, 512L);
 
         when(cloudUserProfileRepository.findById(7L)).thenReturn(Optional.of(existingProfile));
 
-        assertThat(service.ensureCloudProfile(user)).isSameAs(existingProfile);
+        CloudUserProfileEntity result = service.ensureCloudProfile(account(7L));
+
+        assertThat(result).isSameAs(existingProfile);
         verify(cloudUserProfileRepository, never()).save(any());
     }
 
     @Test
-    void ensureCloudProfileCreatesDefaultProfileForIdentityUser() {
+    void ensureCloudProfileCreatesSavedDefaultProfileFromIdentityAccount() {
         CloudUserProfileProvisioningService service =
                 new CloudUserProfileProvisioningService(cloudUserProfileRepository, 53687091200L);
-        SysUser user = user(7L, 536870912L);
-        user.setHomeBackgroundUrl("cosbg:user-home-backgrounds/7/legacy.webp");
 
         when(cloudUserProfileRepository.findById(7L)).thenReturn(Optional.empty());
         when(cloudUserProfileRepository.save(any(CloudUserProfileEntity.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        CloudUserProfileEntity result = service.ensureCloudProfile(user);
+        CloudUserProfileEntity result = service.ensureCloudProfile(account(7L));
 
         assertThat(result.getIdentityUserId()).isEqualTo(7L);
         assertThat(result.getStorageQuotaBytes()).isEqualTo(53687091200L);
-        assertThat(result.getHomeBackgroundUrl()).isEqualTo("cosbg:user-home-backgrounds/7/legacy.webp");
-
-        ArgumentCaptor<CloudUserProfileEntity> profileCaptor =
-                ArgumentCaptor.forClass(CloudUserProfileEntity.class);
-        verify(cloudUserProfileRepository).save(profileCaptor.capture());
-        assertThat(profileCaptor.getValue().getStorageQuotaBytes()).isEqualTo(53687091200L);
+        assertThat(result.getHomeBackgroundUrl()).isNull();
     }
 
     @Test
-    void constructorRejectsInvalidDefaultQuota() {
+    void findExistingOrCreateUnsavedCloudProfileDoesNotPersistDefaultProfile() {
+        CloudUserProfileProvisioningService service =
+                new CloudUserProfileProvisioningService(cloudUserProfileRepository, 2048L);
+
+        when(cloudUserProfileRepository.findById(7L)).thenReturn(Optional.empty());
+
+        CloudUserProfileEntity result = service.findExistingOrCreateUnsavedCloudProfile(account(7L));
+
+        assertThat(result.getIdentityUserId()).isEqualTo(7L);
+        assertThat(result.getStorageQuotaBytes()).isEqualTo(2048L);
+        assertThat(result.getHomeBackgroundUrl()).isNull();
+        verify(cloudUserProfileRepository, never()).save(any());
+    }
+
+    @Test
+    void rejectsInvalidDefaultQuotaConfiguration() {
         assertThatThrownBy(() -> new CloudUserProfileProvisioningService(cloudUserProfileRepository, 0L))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("默认用户存储额度配置必须大于 0。");
     }
 
-    private SysUser user(Long id, Long legacyStorageQuotaBytes) {
-        SysUser user = new SysUser();
-        ReflectionTestUtils.setField(user, "id", id);
-        user.setStorageQuotaBytes(legacyStorageQuotaBytes);
-        return user;
+    private IdentityAccount account(Long id) {
+        return new IdentityAccount(
+                id,
+                "13900000000",
+                "user@example.com",
+                "Alicia",
+                null,
+                UserRole.USER,
+                UserStatus.ACTIVE,
+                LocalDateTime.of(2026, 4, 29, 15, 30)
+        );
     }
 
     private CloudUserProfileEntity profile(Long userId, Long storageQuotaBytes) {

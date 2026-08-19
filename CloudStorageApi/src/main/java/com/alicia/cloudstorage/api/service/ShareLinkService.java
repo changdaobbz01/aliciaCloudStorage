@@ -13,11 +13,10 @@ import com.alicia.cloudstorage.api.entity.ShareLink;
 import com.alicia.cloudstorage.api.entity.ShareLinkItem;
 import com.alicia.cloudstorage.api.entity.ShareLinkStatus;
 import com.alicia.cloudstorage.api.entity.StorageNode;
-import com.alicia.cloudstorage.api.entity.SysUser;
+import com.alicia.cloudstorage.api.identity.IdentityUserGateway;
 import com.alicia.cloudstorage.api.repository.ShareLinkItemRepository;
 import com.alicia.cloudstorage.api.repository.ShareLinkRepository;
 import com.alicia.cloudstorage.api.repository.StorageNodeRepository;
-import com.alicia.cloudstorage.api.repository.SysUserRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -57,7 +56,7 @@ public class ShareLinkService {
     private final ShareLinkRepository shareLinkRepository;
     private final ShareLinkItemRepository shareLinkItemRepository;
     private final StorageNodeRepository storageNodeRepository;
-    private final SysUserRepository sysUserRepository;
+    private final IdentityUserGateway identityUserGateway;
     private final PasswordEncoder passwordEncoder;
     private final StorageCommandService storageCommandService;
     private final CosFileStorageService cosFileStorageService;
@@ -70,7 +69,7 @@ public class ShareLinkService {
             ShareLinkRepository shareLinkRepository,
             ShareLinkItemRepository shareLinkItemRepository,
             StorageNodeRepository storageNodeRepository,
-            SysUserRepository sysUserRepository,
+            IdentityUserGateway identityUserGateway,
             PasswordEncoder passwordEncoder,
             StorageCommandService storageCommandService,
             CosFileStorageService cosFileStorageService,
@@ -80,7 +79,7 @@ public class ShareLinkService {
         this.shareLinkRepository = shareLinkRepository;
         this.shareLinkItemRepository = shareLinkItemRepository;
         this.storageNodeRepository = storageNodeRepository;
-        this.sysUserRepository = sysUserRepository;
+        this.identityUserGateway = identityUserGateway;
         this.passwordEncoder = passwordEncoder;
         this.storageCommandService = storageCommandService;
         this.cosFileStorageService = cosFileStorageService;
@@ -200,8 +199,7 @@ public class ShareLinkService {
 
         List<StorageNode> rootNodes = loadActiveSharedRootNodes(shareLink);
         List<StorageNode> sharedNodes = collectActiveSharedNodes(rootNodes);
-        SysUser owner = sysUserRepository.findById(shareLink.getOwnerId())
-                .orElseThrow(() -> new IllegalArgumentException("分享者不存在。"));
+        IdentityAccount owner = identityUserGateway.getUser(shareLink.getOwnerId());
 
         shareLink.setViewCount((shareLink.getViewCount() == null ? 0L : shareLink.getViewCount()) + 1L);
         shareLink.setLastAccessedAt(LocalDateTime.now());
@@ -210,7 +208,7 @@ public class ShareLinkService {
         return new ShareLinkDetailResponse(
                 shareLink.getShareCode(),
                 shareLink.getTitle(),
-                owner.getNickname(),
+                owner.nickname(),
                 shareLink.getExpiresAt(),
                 shareLink.isAllowDownload(),
                 shareLink.isAllowSave(),

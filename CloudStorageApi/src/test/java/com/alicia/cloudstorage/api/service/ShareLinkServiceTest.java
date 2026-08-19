@@ -9,10 +9,12 @@ import com.alicia.cloudstorage.api.entity.ShareLink;
 import com.alicia.cloudstorage.api.entity.ShareLinkItem;
 import com.alicia.cloudstorage.api.entity.ShareLinkStatus;
 import com.alicia.cloudstorage.api.entity.StorageNode;
+import com.alicia.cloudstorage.api.entity.UserRole;
+import com.alicia.cloudstorage.api.entity.UserStatus;
+import com.alicia.cloudstorage.api.identity.IdentityUserGateway;
 import com.alicia.cloudstorage.api.repository.ShareLinkItemRepository;
 import com.alicia.cloudstorage.api.repository.ShareLinkRepository;
 import com.alicia.cloudstorage.api.repository.StorageNodeRepository;
-import com.alicia.cloudstorage.api.repository.SysUserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -47,7 +49,7 @@ class ShareLinkServiceTest {
     private StorageNodeRepository storageNodeRepository;
 
     @Mock
-    private SysUserRepository sysUserRepository;
+    private IdentityUserGateway identityUserGateway;
 
     @Mock
     private PasswordEncoder passwordEncoder;
@@ -66,7 +68,7 @@ class ShareLinkServiceTest {
                 shareLinkRepository,
                 shareLinkItemRepository,
                 storageNodeRepository,
-                sysUserRepository,
+                identityUserGateway,
                 passwordEncoder,
                 storageCommandService,
                 cosFileStorageService,
@@ -136,7 +138,7 @@ class ShareLinkServiceTest {
                 shareLinkRepository,
                 shareLinkItemRepository,
                 storageNodeRepository,
-                sysUserRepository,
+                identityUserGateway,
                 passwordEncoder,
                 storageCommandService,
                 cosFileStorageService,
@@ -176,6 +178,24 @@ class ShareLinkServiceTest {
                 .hasMessage("请先输入分享提取码。");
 
         verify(shareLinkItemRepository, never()).findByShareIdOrderBySortOrderAsc(1L);
+    }
+
+    @Test
+    void shareDetailReadsOwnerNicknameFromIdentityApi() {
+        ShareLink shareLink = activeShare(8L, 9L, "share-code");
+        StorageNode sharedFile = fileNode(81L, 9L, null, "report.pdf", "cos/report.pdf");
+        ShareLinkItem shareItem = shareItem(8L, 81L);
+
+        when(shareLinkRepository.findByShareCode("share-code")).thenReturn(Optional.of(shareLink));
+        when(shareLinkItemRepository.findByShareIdOrderBySortOrderAsc(8L)).thenReturn(List.of(shareItem));
+        when(storageNodeRepository.findByIdAndOwnerIdAndDeletedFalse(81L, 9L)).thenReturn(Optional.of(sharedFile));
+        when(identityUserGateway.getUser(9L)).thenReturn(identityAccount(9L, "Owner Alicia"));
+
+        var response = shareLinkService.getShareDetail(20L, "share-code", null);
+
+        assertThat(response.ownerNickname()).isEqualTo("Owner Alicia");
+        assertThat(response.rootNodeIds()).containsExactly(81L);
+        verify(identityUserGateway).getUser(9L);
     }
 
     @Test
@@ -396,5 +416,18 @@ class ShareLinkServiceTest {
         node.setMimeType("application/pdf");
         node.setStoragePath(storagePath);
         return node;
+    }
+
+    private IdentityAccount identityAccount(Long id, String nickname) {
+        return new IdentityAccount(
+                id,
+                "13900000000",
+                "user@example.com",
+                nickname,
+                null,
+                UserRole.USER,
+                UserStatus.ACTIVE,
+                LocalDateTime.of(2026, 4, 29, 15, 30)
+        );
     }
 }

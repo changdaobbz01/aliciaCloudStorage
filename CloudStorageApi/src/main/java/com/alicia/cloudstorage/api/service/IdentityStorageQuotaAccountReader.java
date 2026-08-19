@@ -1,36 +1,34 @@
 package com.alicia.cloudstorage.api.service;
 
 import com.alicia.cloudstorage.api.entity.CloudUserProfileEntity;
-import com.alicia.cloudstorage.api.entity.SysUser;
+import com.alicia.cloudstorage.api.identity.IdentityUserGateway;
 import com.alicia.cloudstorage.api.repository.CloudUserProfileRepository;
-import com.alicia.cloudstorage.api.repository.SysUserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Transactional(readOnly = true)
-public class SysUserStorageQuotaAccountReader implements StorageQuotaAccountReader {
+public class IdentityStorageQuotaAccountReader implements StorageQuotaAccountReader {
 
-    private final SysUserRepository sysUserRepository;
+    private final IdentityUserGateway identityUserGateway;
     private final CloudUserProfileRepository cloudUserProfileRepository;
 
-    public SysUserStorageQuotaAccountReader(
-            SysUserRepository sysUserRepository,
+    public IdentityStorageQuotaAccountReader(
+            IdentityUserGateway identityUserGateway,
             CloudUserProfileRepository cloudUserProfileRepository
     ) {
-        this.sysUserRepository = sysUserRepository;
+        this.identityUserGateway = identityUserGateway;
         this.cloudUserProfileRepository = cloudUserProfileRepository;
     }
 
     @Override
     public StorageQuotaAccount requireAccount(Long userId) {
-        SysUser user = sysUserRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("用户不存在。"));
+        IdentityAccount account = identityUserGateway.getUser(userId);
         Long storageQuotaBytes = cloudUserProfileRepository.findById(userId)
                 .map(CloudUserProfileEntity::getStorageQuotaBytes)
-                .orElse(user.getStorageQuotaBytes());
+                .orElse(null);
 
-        return new StorageQuotaAccount(user.getId(), user.getRole(), storageQuotaBytes);
+        return new StorageQuotaAccount(account.id(), account.role(), storageQuotaBytes);
     }
 
     @Override

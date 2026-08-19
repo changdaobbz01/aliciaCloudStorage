@@ -1,47 +1,41 @@
 package com.alicia.cloudstorage.api.service;
 
 import com.alicia.cloudstorage.api.entity.CloudUserProfileEntity;
-import com.alicia.cloudstorage.api.entity.SysUser;
 import com.alicia.cloudstorage.api.entity.UserRole;
 import com.alicia.cloudstorage.api.entity.UserStatus;
+import com.alicia.cloudstorage.api.identity.IdentityUserGateway;
 import com.alicia.cloudstorage.api.repository.CloudUserProfileRepository;
-import com.alicia.cloudstorage.api.repository.SysUserRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class SysUserStorageQuotaAccountReaderTest {
+class IdentityStorageQuotaAccountReaderTest {
 
     @Mock
-    private SysUserRepository sysUserRepository;
+    private IdentityUserGateway identityUserGateway;
 
     @Mock
     private CloudUserProfileRepository cloudUserProfileRepository;
 
     @InjectMocks
-    private SysUserStorageQuotaAccountReader storageQuotaAccountReader;
+    private IdentityStorageQuotaAccountReader storageQuotaAccountReader;
 
     @Test
-    void requireAccountMapsOnlyQuotaRelevantUserFields() {
-        SysUser user = new SysUser();
-        ReflectionTestUtils.setField(user, "id", 7L);
-        user.setRole(UserRole.USER);
-        user.setStatus(UserStatus.ACTIVE);
-        user.setStorageQuotaBytes(1024L);
+    void requireAccountCombinesIdentityRoleWithCloudQuota() {
         CloudUserProfileEntity profile = new CloudUserProfileEntity();
         profile.setIdentityUserId(7L);
         profile.setStorageQuotaBytes(4096L);
 
-        when(sysUserRepository.findById(7L)).thenReturn(Optional.of(user));
+        when(identityUserGateway.getUser(7L)).thenReturn(account(7L, UserRole.USER));
         when(cloudUserProfileRepository.findById(7L)).thenReturn(Optional.of(profile));
 
         StorageQuotaAccount account = storageQuotaAccountReader.requireAccount(7L);
@@ -52,19 +46,13 @@ class SysUserStorageQuotaAccountReaderTest {
     }
 
     @Test
-    void requireAccountFallsBackToLegacyQuotaWhenCloudProfileIsMissing() {
-        SysUser user = new SysUser();
-        ReflectionTestUtils.setField(user, "id", 7L);
-        user.setRole(UserRole.USER);
-        user.setStatus(UserStatus.ACTIVE);
-        user.setStorageQuotaBytes(1024L);
-
-        when(sysUserRepository.findById(7L)).thenReturn(Optional.of(user));
+    void requireAccountLeavesQuotaEmptyWhenCloudProfileIsMissing() {
+        when(identityUserGateway.getUser(7L)).thenReturn(account(7L, UserRole.USER));
         when(cloudUserProfileRepository.findById(7L)).thenReturn(Optional.empty());
 
         StorageQuotaAccount account = storageQuotaAccountReader.requireAccount(7L);
 
-        assertThat(account.storageQuotaBytes()).isEqualTo(1024L);
+        assertThat(account.storageQuotaBytes()).isNull();
     }
 
     @Test
@@ -72,5 +60,18 @@ class SysUserStorageQuotaAccountReaderTest {
         when(cloudUserProfileRepository.sumStorageQuotaBytes()).thenReturn(null);
 
         assertThat(storageQuotaAccountReader.getTotalAllocatedQuotaBytes()).isZero();
+    }
+
+    private IdentityAccount account(Long id, UserRole role) {
+        return new IdentityAccount(
+                id,
+                "13900000000",
+                "user@example.com",
+                "Alicia",
+                null,
+                role,
+                UserStatus.ACTIVE,
+                LocalDateTime.of(2026, 4, 29, 15, 30)
+        );
     }
 }
