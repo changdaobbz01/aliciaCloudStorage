@@ -3,6 +3,8 @@ package com.alicia.cloudstorage.api.identity;
 import com.alicia.cloudstorage.api.auth.AuthException;
 import com.alicia.cloudstorage.api.dto.ChangePasswordRequest;
 import com.alicia.cloudstorage.api.dto.LoginRequest;
+import com.alicia.cloudstorage.api.dto.RequestEmailRegistrationCodeRequest;
+import com.alicia.cloudstorage.api.dto.VerifyEmailRegistrationRequest;
 import com.alicia.cloudstorage.api.entity.UserRole;
 import com.alicia.cloudstorage.api.entity.UserStatus;
 import com.alicia.cloudstorage.api.service.IdentityLoginSession;
@@ -139,6 +141,63 @@ class HttpIdentityAuthGatewayTest {
         )).isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("旧密码不正确。");
 
+        context.server().verify();
+    }
+
+    @Test
+    void requestEmailRegistrationCodeDelegatesToIdentityApiWithClientMetadata() {
+        TestGatewayContext context = newContext();
+        context.server().expect(requestTo("http://identity.test/api/identity/auth/register/email-code"))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(header("X-Forwarded-For", "203.0.113.8"))
+                .andExpect(header(HttpHeaders.USER_AGENT, "JUnit"))
+                .andExpect(content().string(containsString("\"email\":\"NewUser@Example.COM\"")))
+                .andRespond(withSuccess("""
+                        {"message":"如果邮箱可用，验证码会发送到该邮箱。"}
+                        """, MediaType.APPLICATION_JSON));
+
+        context.gateway().requestEmailRegistrationCode(
+                new RequestEmailRegistrationCodeRequest("NewUser@Example.COM"),
+                "203.0.113.8",
+                "JUnit"
+        );
+
+        context.server().verify();
+    }
+
+    @Test
+    void verifyEmailRegistrationDelegatesToIdentityApiAndMapsSession() {
+        TestGatewayContext context = newContext();
+        context.server().expect(requestTo("http://identity.test/api/identity/auth/register/verify"))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(content().string(containsString("\"email\":\"NewUser@Example.COM\"")))
+                .andExpect(content().string(containsString("\"code\":\"123456\"")))
+                .andExpect(content().string(containsString("\"nickname\":\"New User\"")))
+                .andRespond(withSuccess("""
+                        {
+                          "token": "new-token",
+                          "user": {
+                            "id": 8,
+                            "phoneNumber": null,
+                            "email": "newuser@example.com",
+                            "emailVerifiedAt": "2026-08-17T07:22:18",
+                            "nickname": "New User",
+                            "avatarUrl": null,
+                            "tokenVersion": 0,
+                            "role": "USER",
+                            "status": "ACTIVE",
+                            "createdAt": "2026-08-17T07:22:18"
+                          }
+                        }
+                        """, MediaType.APPLICATION_JSON));
+
+        IdentityLoginSession session = context.gateway().verifyEmailRegistration(
+                new VerifyEmailRegistrationRequest("NewUser@Example.COM", "123456", "New User", "Passw0rd")
+        );
+
+        assertThat(session.token()).isEqualTo("new-token");
+        assertThat(session.account().id()).isEqualTo(8L);
+        assertThat(session.account().email()).isEqualTo("newuser@example.com");
         context.server().verify();
     }
 

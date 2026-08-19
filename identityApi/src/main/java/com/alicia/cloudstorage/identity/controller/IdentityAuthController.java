@@ -24,6 +24,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/identity/auth")
 public class IdentityAuthController {
 
+    private static final String FORWARDED_FOR_HEADER = "X-Forwarded-For";
+
     private final IdentityAuthService identityAuthService;
     private final IdentityEmailRegistrationService identityEmailRegistrationService;
 
@@ -57,11 +59,12 @@ public class IdentityAuthController {
     @PostMapping("/register/email-code")
     public IdentityMessageResponse requestEmailRegistrationCode(
             @Valid @RequestBody RequestEmailRegistrationCodeRequest request,
-            HttpServletRequest servletRequest
+            HttpServletRequest servletRequest,
+            @RequestHeader(value = FORWARDED_FOR_HEADER, required = false) String forwardedFor
     ) {
         identityEmailRegistrationService.requestRegistrationCode(
                 request.email(),
-                servletRequest.getRemoteAddr(),
+                resolveClientAddress(servletRequest, forwardedFor),
                 servletRequest.getHeader(HttpHeaders.USER_AGENT)
         );
         return new IdentityMessageResponse("如果邮箱可用，验证码会发送到该邮箱。");
@@ -70,5 +73,13 @@ public class IdentityAuthController {
     @PostMapping("/register/verify")
     public IdentityLoginResponse verifyEmailRegistration(@Valid @RequestBody VerifyEmailRegistrationRequest request) {
         return identityEmailRegistrationService.verifyRegistration(request);
+    }
+
+    private String resolveClientAddress(HttpServletRequest servletRequest, String forwardedFor) {
+        if (forwardedFor != null && !forwardedFor.isBlank()) {
+            return forwardedFor.split(",", 2)[0].trim();
+        }
+
+        return servletRequest.getRemoteAddr();
     }
 }

@@ -112,12 +112,13 @@ class IdentityAuthControllerTest {
         mockMvc.perform(post("/api/identity/auth/register/email-code")
                         .contentType(MediaType.APPLICATION_JSON)
                         .header(HttpHeaders.USER_AGENT, "JUnit")
+                        .header("X-Forwarded-For", "203.0.113.8, 10.0.0.5")
                         .content("{\"email\":\"NewUser@Example.COM\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("如果邮箱可用，验证码会发送到该邮箱。"));
 
         verify(identityEmailRegistrationService)
-                .requestRegistrationCode("NewUser@Example.COM", "127.0.0.1", "JUnit");
+                .requestRegistrationCode("NewUser@Example.COM", "203.0.113.8", "JUnit");
     }
 
     @Test

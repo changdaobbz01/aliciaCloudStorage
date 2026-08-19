@@ -2,6 +2,8 @@ package com.alicia.cloudstorage.api.identity;
 
 import com.alicia.cloudstorage.api.dto.ChangePasswordRequest;
 import com.alicia.cloudstorage.api.dto.LoginRequest;
+import com.alicia.cloudstorage.api.dto.RequestEmailRegistrationCodeRequest;
+import com.alicia.cloudstorage.api.dto.VerifyEmailRegistrationRequest;
 import com.alicia.cloudstorage.api.service.IdentityLoginSession;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
@@ -11,6 +13,8 @@ import tools.jackson.databind.json.JsonMapper;
 
 @Service
 public class HttpIdentityAuthGateway implements IdentityAuthGateway {
+
+    private static final String FORWARDED_FOR_HEADER = "X-Forwarded-For";
 
     private final RestClient restClient;
     private final JsonMapper objectMapper;
@@ -47,5 +51,44 @@ public class HttpIdentityAuthGateway implements IdentityAuthGateway {
                 .body(request)
                 .retrieve()
                 .toBodilessEntity(), objectMapper);
+    }
+
+    @Override
+    public void requestEmailRegistrationCode(
+            RequestEmailRegistrationCodeRequest request,
+            String clientIp,
+            String userAgent
+    ) {
+        IdentityGatewaySupport.exchange(() -> restClient.post()
+                .uri("/api/identity/auth/register/email-code")
+                .headers(headers -> applyClientMetadata(headers, clientIp, userAgent))
+                .body(request)
+                .retrieve()
+                .toBodilessEntity(), objectMapper);
+    }
+
+    @Override
+    public IdentityLoginSession verifyEmailRegistration(VerifyEmailRegistrationRequest request) {
+        IdentityLoginPayload response = IdentityGatewaySupport.exchange(() -> restClient.post()
+                .uri("/api/identity/auth/register/verify")
+                .body(request)
+                .retrieve()
+                .body(IdentityLoginPayload.class), objectMapper);
+
+        if (response == null) {
+            throw new IllegalStateException("身份服务注册响应为空。");
+        }
+
+        return response.toSession();
+    }
+
+    private void applyClientMetadata(HttpHeaders headers, String clientIp, String userAgent) {
+        if (clientIp != null && !clientIp.isBlank()) {
+            headers.set(FORWARDED_FOR_HEADER, clientIp.trim());
+        }
+
+        if (userAgent != null && !userAgent.isBlank()) {
+            headers.set(HttpHeaders.USER_AGENT, userAgent.trim());
+        }
     }
 }
