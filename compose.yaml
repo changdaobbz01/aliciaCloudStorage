@@ -51,10 +51,10 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      identity:
+        condition: service_started
 
   identity:
-    profiles:
-      - identity
     build:
       context: .
       dockerfile: identityApi/Dockerfile

@@ -4,8 +4,8 @@
 
 ## 项目特点
 
-- 普通用户不能自助注册，由管理员统一创建账号
-- 支持登录鉴权、个人资料修改、密码修改、管理员重置他人密码
+- 支持邮箱验证码自助注册，也支持管理员统一创建账号
+- 支持统一身份登录鉴权、个人资料修改、密码修改、管理员重置他人密码
 - 文件二进制内容存储在腾讯云 COS，MySQL 存储文件和文件夹元数据
 - 支持文件列表、搜索、类型筛选、分页、排序
 - 支持新建文件夹、上传、下载、重命名、移动
@@ -29,8 +29,8 @@
 
 ```text
 AliciaCloudStorage/
-├─ CloudStorageApi/      # Spring Boot 后端
-├─ identityApi/          # 统一身份服务骨架，默认不接生产流量
+├─ CloudStorageApi/      # 云盘业务后端，保留公网兼容 API 并聚合云盘资料
+├─ identityApi/          # 统一身份服务，负责登录、注册、Token 和账号资料
 ├─ rag/                  # RAG 语义服务
 ├─ CloudStorageDB/       # 早期 SQL 初始化脚本
 ├─ webApp/               # React + Vite 前端
@@ -108,7 +108,7 @@ docker compose up -d --build
 - 健康检查（仅本机回环）：`http://127.0.0.1:8090/api/health`
 - RAG（仅本机回环）：`http://127.0.0.1:8091`
 - 同域 RAG 入口：`http://localhost/rag/api/health`
-- Identity API 骨架默认不启动；需要单独验证时使用 `--profile identity`
+- Identity API（仅本机回环）：`http://127.0.0.1:8093`
 - MySQL（仅本机回环）：`127.0.0.1:3310`
 
 查看运行状态：
@@ -118,10 +118,9 @@ docker compose ps
 docker compose logs -f api
 ```
 
-单独验证 Identity API 骨架：
+验证 Identity API：
 
 ```powershell
-docker compose --profile identity up -d --build identity
 curl http://127.0.0.1:8093/api/identity/health
 curl http://127.0.0.1:8093/api/identity/internal/users/1
 ```
@@ -153,7 +152,7 @@ curl -X POST http://127.0.0.1:8093/api/identity/auth/register/verify `
   -d "{\"email\":\"你的邮箱\",\"code\":\"邮箱验证码\",\"nickname\":\"昵称\",\"password\":\"密码\"}"
 ```
 
-当前生产流量仍由 `CloudStorageApi` 处理登录、注册、Token 和账号资料；`identityApi` 只用于后续拆分验证，当前可连接现有身份表并独立验证登录、当前用户读取和邮箱注册，不接管公网流量。
+当前公网 `/api/auth/**` 仍由 `CloudStorageApi` 保持兼容入口；登录、注册、Token 校验、密码和账号资料写入已经由 `identityApi` 执行。`CloudStorageApi` 负责补齐云盘资料，并继续返回旧版 Web 和 Android 兼容的用户响应结构。
 
 `identityApi` 新注册用户首次携带 identity token 访问 CloudStorageApi 受保护接口时，CloudStorageApi 会自动补建对应的 `cloud_user_profile`，云盘默认额度取 `ALICIA_STORAGE_DEFAULT_USER_QUOTA_BYTES`。
 
