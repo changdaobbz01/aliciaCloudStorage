@@ -1,6 +1,6 @@
 package com.alicia.cloudstorage.api.controller;
 
-import com.alicia.cloudstorage.api.auth.AuthService;
+import com.alicia.cloudstorage.api.auth.CurrentPrincipalService;
 import com.alicia.cloudstorage.api.config.JacksonConfiguration;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,7 +22,7 @@ class HealthControllerSerializationTest {
     private MockMvc mockMvc;
 
     @MockitoBean
-    private AuthService authService;
+    private CurrentPrincipalService currentPrincipalService;
 
     @Test
     void healthTimestampIncludesAnExplicitOffset() throws Exception {

@@ -5,11 +5,11 @@ import com.alicia.cloudstorage.api.service.IdentityAccount;
 import org.springframework.stereotype.Service;
 
 @Service
-public class AuthService {
+public class CurrentPrincipalService {
 
     private final IdentityAuthGateway identityAuthGateway;
 
-    public AuthService(IdentityAuthGateway identityAuthGateway) {
+    public CurrentPrincipalService(IdentityAuthGateway identityAuthGateway) {
         this.identityAuthGateway = identityAuthGateway;
     }
 

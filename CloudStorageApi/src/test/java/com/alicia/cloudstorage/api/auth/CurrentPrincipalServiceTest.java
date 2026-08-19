@@ -18,13 +18,13 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class AuthServiceTest {
+class CurrentPrincipalServiceTest {
 
     @Mock
     private IdentityAuthGateway identityAuthGateway;
 
     @InjectMocks
-    private AuthService authService;
+    private CurrentPrincipalService currentPrincipalService;
 
     @Test
     void requirePrincipalDelegatesToIdentityApiAndReturnsLightweightCurrentUser() {
@@ -32,7 +32,7 @@ class AuthServiceTest {
 
         when(identityAuthGateway.me("Bearer token")).thenReturn(account);
 
-        CurrentPrincipal principal = authService.requirePrincipal("Bearer token");
+        CurrentPrincipal principal = currentPrincipalService.requirePrincipal("Bearer token");
 
         assertThat(principal.userId()).isEqualTo(22L);
         assertThat(principal.isAdmin()).isTrue();
@@ -43,7 +43,7 @@ class AuthServiceTest {
     void requireAdminPrincipalRejectsRegularUsers() {
         when(identityAuthGateway.me("Bearer token")).thenReturn(account(28L, UserRole.USER));
 
-        assertThatThrownBy(() -> authService.requireAdminPrincipal("Bearer token"))
+        assertThatThrownBy(() -> currentPrincipalService.requireAdminPrincipal("Bearer token"))
                 .isInstanceOf(AuthException.class)
                 .hasMessage("当前接口仅允许管理员访问。");
     }
@@ -52,7 +52,7 @@ class AuthServiceTest {
     void requireAdminPrincipalAcceptsAdminUsers() {
         when(identityAuthGateway.me("Bearer token")).thenReturn(account(1L, UserRole.ADMIN));
 
-        CurrentPrincipal principal = authService.requireAdminPrincipal("Bearer token");
+        CurrentPrincipal principal = currentPrincipalService.requireAdminPrincipal("Bearer token");
 
         assertThat(principal.userId()).isEqualTo(1L);
         assertThat(principal.isAdmin()).isTrue();
@@ -63,7 +63,7 @@ class AuthServiceTest {
         when(identityAuthGateway.me("Bearer stale-token"))
                 .thenThrow(new AuthException("登录状态已失效。"));
 
-        assertThatThrownBy(() -> authService.requirePrincipal("Bearer stale-token"))
+        assertThatThrownBy(() -> currentPrincipalService.requirePrincipal("Bearer stale-token"))
                 .isInstanceOf(AuthException.class)
                 .hasMessage("登录状态已失效。");
     }

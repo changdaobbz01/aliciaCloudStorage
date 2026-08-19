@@ -8,13 +8,13 @@ import org.springframework.web.servlet.HandlerInterceptor;
 @Component
 public class AuthInterceptor implements HandlerInterceptor {
 
-    private final AuthService authService;
+    private final CurrentPrincipalService currentPrincipalService;
 
     /**
      * 注入鉴权服务，用于解析请求头中的登录令牌。
      */
-    public AuthInterceptor(AuthService authService) {
-        this.authService = authService;
+    public AuthInterceptor(CurrentPrincipalService currentPrincipalService) {
+        this.currentPrincipalService = currentPrincipalService;
     }
 
     /**
@@ -22,7 +22,7 @@ public class AuthInterceptor implements HandlerInterceptor {
      */
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
-        CurrentPrincipal principal = authService.requirePrincipal(request.getHeader("Authorization"));
+        CurrentPrincipal principal = currentPrincipalService.requirePrincipal(request.getHeader("Authorization"));
         request.setAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL, principal);
         request.setAttribute(AuthRequestAttributes.CURRENT_USER_ID, principal.userId());
         return true;

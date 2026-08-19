@@ -8,13 +8,13 @@ import org.springframework.web.servlet.HandlerInterceptor;
 @Component
 public class AdminAuthInterceptor implements HandlerInterceptor {
 
-    private final AuthService authService;
+    private final CurrentPrincipalService currentPrincipalService;
 
     /**
      * 注入鉴权服务，用于管理员接口的权限校验。
      */
-    public AdminAuthInterceptor(AuthService authService) {
-        this.authService = authService;
+    public AdminAuthInterceptor(CurrentPrincipalService currentPrincipalService) {
+        this.currentPrincipalService = currentPrincipalService;
     }
 
     /**
@@ -22,7 +22,7 @@ public class AdminAuthInterceptor implements HandlerInterceptor {
      */
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
-        CurrentPrincipal principal = authService.requireAdminPrincipal(request.getHeader("Authorization"));
+        CurrentPrincipal principal = currentPrincipalService.requireAdminPrincipal(request.getHeader("Authorization"));
         request.setAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL, principal);
         request.setAttribute(AuthRequestAttributes.CURRENT_USER_ID, principal.userId());
         return true;
