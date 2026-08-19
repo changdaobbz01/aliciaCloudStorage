@@ -4,6 +4,7 @@ import com.alicia.cloudstorage.api.auth.AuthException;
 import com.alicia.cloudstorage.api.dto.ChangePasswordRequest;
 import com.alicia.cloudstorage.api.dto.LoginRequest;
 import com.alicia.cloudstorage.api.dto.RequestEmailRegistrationCodeRequest;
+import com.alicia.cloudstorage.api.dto.UpdateProfileRequest;
 import com.alicia.cloudstorage.api.dto.VerifyEmailRegistrationRequest;
 import com.alicia.cloudstorage.api.entity.UserRole;
 import com.alicia.cloudstorage.api.entity.UserStatus;
@@ -128,6 +129,60 @@ class HttpIdentityAuthGatewayTest {
 
         assertThatThrownBy(() -> context.gateway().me("Bearer stale-token"))
                 .isInstanceOf(AuthException.class)
+                .hasMessage("请先登录。");
+
+        context.server().verify();
+    }
+
+    @Test
+    void updateProfileDelegatesToIdentityApiAndMapsAccount() {
+        TestGatewayContext context = newContext();
+        context.server().expect(requestTo("http://identity.test/api/identity/auth/profile"))
+                .andExpect(method(HttpMethod.PUT))
+                .andExpect(header(HttpHeaders.AUTHORIZATION, "Bearer user-token"))
+                .andExpect(content().string(containsString("\"phoneNumber\":\"13900000000\"")))
+                .andExpect(content().string(containsString("\"nickname\":\"Updated Alicia\"")))
+                .andExpect(content().string(containsString("\"avatarUrl\":\"cos:user-avatars/6/new.png\"")))
+                .andRespond(withSuccess("""
+                        {
+                          "id": 6,
+                          "phoneNumber": "13900000000",
+                          "email": "user@example.com",
+                          "emailVerifiedAt": "2026-08-17T07:22:18",
+                          "nickname": "Updated Alicia",
+                          "avatarUrl": "cos:user-avatars/6/new.png",
+                          "tokenVersion": 1,
+                          "role": "USER",
+                          "status": "ACTIVE",
+                          "createdAt": "2026-08-17T07:22:18"
+                        }
+                        """, MediaType.APPLICATION_JSON));
+
+        var account = context.gateway().updateProfile(
+                "Bearer user-token",
+                new UpdateProfileRequest("13900000000", "Updated Alicia", "cos:user-avatars/6/new.png")
+        );
+
+        assertThat(account.phoneNumber()).isEqualTo("13900000000");
+        assertThat(account.nickname()).isEqualTo("Updated Alicia");
+        assertThat(account.avatarUrl()).isEqualTo("cos:user-avatars/6/new.png");
+        context.server().verify();
+    }
+
+    @Test
+    void updateProfileAuthFailureBecomesCloudAuthException() {
+        TestGatewayContext context = newContext();
+        context.server().expect(requestTo("http://identity.test/api/identity/auth/profile"))
+                .andRespond(withStatus(HttpStatus.UNAUTHORIZED)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body("""
+                                {"status":401,"error":"请先登录。","timestamp":"2026-08-19T09:30:00Z"}
+                                """));
+
+        assertThatThrownBy(() -> context.gateway().updateProfile(
+                "Bearer stale-token",
+                new UpdateProfileRequest("13900000000", "Updated Alicia", null)
+        )).isInstanceOf(AuthException.class)
                 .hasMessage("请先登录。");
 
         context.server().verify();

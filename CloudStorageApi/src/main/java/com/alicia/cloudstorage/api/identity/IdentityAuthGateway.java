@@ -3,6 +3,7 @@ package com.alicia.cloudstorage.api.identity;
 import com.alicia.cloudstorage.api.dto.ChangePasswordRequest;
 import com.alicia.cloudstorage.api.dto.LoginRequest;
 import com.alicia.cloudstorage.api.dto.RequestEmailRegistrationCodeRequest;
+import com.alicia.cloudstorage.api.dto.UpdateProfileRequest;
 import com.alicia.cloudstorage.api.dto.VerifyEmailRegistrationRequest;
 import com.alicia.cloudstorage.api.service.IdentityAccount;
 import com.alicia.cloudstorage.api.service.IdentityLoginSession;
@@ -12,6 +13,8 @@ public interface IdentityAuthGateway {
     IdentityLoginSession login(LoginRequest request);
 
     IdentityAccount me(String authorization);
+
+    IdentityAccount updateProfile(String authorization, UpdateProfileRequest request);
 
     void changePassword(String authorization, ChangePasswordRequest request);
 

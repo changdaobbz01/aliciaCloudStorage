@@ -2,6 +2,7 @@ package com.alicia.cloudstorage.identity.service;
 
 import com.alicia.cloudstorage.identity.dto.ChangePasswordRequest;
 import com.alicia.cloudstorage.identity.dto.IdentityLoginRequest;
+import com.alicia.cloudstorage.identity.dto.UpdateIdentityProfileRequest;
 import com.alicia.cloudstorage.identity.entity.IdentityUser;
 import com.alicia.cloudstorage.identity.entity.IdentityUserRole;
 import com.alicia.cloudstorage.identity.entity.IdentityUserStatus;
@@ -114,6 +115,79 @@ class IdentityAuthServiceTest {
         assertThatThrownBy(() -> identityAuthService.me("Bearer token"))
                 .isInstanceOf(IdentityAuthException.class)
                 .hasMessage("登录状态已失效。");
+    }
+
+    @Test
+    void updateProfileUpdatesIdentityFields() {
+        IdentityUser user = identityUser(18L, IdentityUserStatus.ACTIVE);
+
+        when(identityPrincipalService.requireActiveUser("Bearer token")).thenReturn(user);
+        when(identityUserRepository.existsByPhoneNumberAndIdNot("13900000000", 18L)).thenReturn(false);
+        when(identityUserRepository.save(user)).thenReturn(user);
+
+        var response = identityAuthService.updateProfile(
+                "Bearer token",
+                new UpdateIdentityProfileRequest(
+                        "13900000000",
+                        " Updated Alicia ",
+                        " cos:user-avatars/18/new.webp "
+                )
+        );
+
+        assertThat(user.getPhoneNumber()).isEqualTo("13900000000");
+        assertThat(user.getNickname()).isEqualTo("Updated Alicia");
+        assertThat(user.getAvatarUrl()).isEqualTo("cos:user-avatars/18/new.webp");
+        assertThat(response.nickname()).isEqualTo("Updated Alicia");
+        verify(identityUserRepository).save(user);
+    }
+
+    @Test
+    void updateProfileAllowsEmptyPhoneForEmailUser() {
+        IdentityUser user = identityUser(18L, IdentityUserStatus.ACTIVE);
+
+        when(identityPrincipalService.requireActiveUser("Bearer token")).thenReturn(user);
+        when(identityUserRepository.save(user)).thenReturn(user);
+
+        var response = identityAuthService.updateProfile(
+                "Bearer token",
+                new UpdateIdentityProfileRequest("", "Email User", null)
+        );
+
+        assertThat(user.getPhoneNumber()).isNull();
+        assertThat(response.phoneNumber()).isNull();
+        verify(identityUserRepository).save(user);
+    }
+
+    @Test
+    void updateProfileRejectsDuplicatePhoneNumber() {
+        IdentityUser user = identityUser(18L, IdentityUserStatus.ACTIVE);
+
+        when(identityPrincipalService.requireActiveUser("Bearer token")).thenReturn(user);
+        when(identityUserRepository.existsByPhoneNumberAndIdNot("13900000000", 18L)).thenReturn(true);
+
+        assertThatThrownBy(() -> identityAuthService.updateProfile(
+                "Bearer token",
+                new UpdateIdentityProfileRequest("13900000000", "Alicia", null)
+        )).isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("手机号已被其他账户使用。");
+
+        verify(identityUserRepository, never()).save(user);
+    }
+
+    @Test
+    void updateProfileRejectsEmptyPhoneForPhoneOnlyUser() {
+        IdentityUser user = identityUser(18L, IdentityUserStatus.ACTIVE);
+        ReflectionTestUtils.setField(user, "email", null);
+
+        when(identityPrincipalService.requireActiveUser("Bearer token")).thenReturn(user);
+
+        assertThatThrownBy(() -> identityAuthService.updateProfile(
+                "Bearer token",
+                new UpdateIdentityProfileRequest("", "Phone User", null)
+        )).isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("手机号不能为空。");
+
+        verify(identityUserRepository, never()).save(user);
     }
 
     @Test

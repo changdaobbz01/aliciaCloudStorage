@@ -95,9 +95,10 @@ public class AuthController {
     @PutMapping("/profile")
     public UserProfileResponse updateProfile(
             @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
             @Valid @RequestBody UpdateProfileRequest request
     ) {
-        return userAccountService.updateCurrentUser(principal.userId(), request);
+        return userAccountService.updateCurrentUser(authorization, request);
     }
 
     /**
@@ -106,9 +107,10 @@ public class AuthController {
     @PostMapping(value = "/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public UserProfileResponse uploadAvatar(
             @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
             @RequestPart("file") MultipartFile file
     ) {
-        return userAccountService.uploadCurrentUserAvatar(principal.userId(), file);
+        return userAccountService.uploadCurrentUserAvatar(authorization, file);
     }
 
     /**

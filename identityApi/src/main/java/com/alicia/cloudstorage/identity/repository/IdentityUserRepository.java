@@ -16,5 +16,7 @@ public interface IdentityUserRepository extends JpaRepository<IdentityUser, Long
 
     boolean existsByPhoneNumber(String phoneNumber);
 
+    boolean existsByPhoneNumberAndIdNot(String phoneNumber, Long id);
+
     List<IdentityUser> findAllByOrderByIdAsc();
 }

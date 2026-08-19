@@ -1,0 +1,15 @@
+package com.alicia.cloudstorage.identity.dto;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
+public record UpdateIdentityProfileRequest(
+        @Size(max = 20, message = "手机号长度不能超过 20 个字符。")
+        String phoneNumber,
+        @NotBlank(message = "昵称不能为空。")
+        @Size(max = 100, message = "昵称长度不能超过 100 个字符。")
+        String nickname,
+        @Size(max = 500, message = "头像地址长度不能超过 500 个字符。")
+        String avatarUrl
+) {
+}

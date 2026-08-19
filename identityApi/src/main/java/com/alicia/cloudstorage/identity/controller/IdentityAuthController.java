@@ -6,6 +6,7 @@ import com.alicia.cloudstorage.identity.dto.IdentityLoginResponse;
 import com.alicia.cloudstorage.identity.dto.IdentityMessageResponse;
 import com.alicia.cloudstorage.identity.dto.IdentityUserResponse;
 import com.alicia.cloudstorage.identity.dto.RequestEmailRegistrationCodeRequest;
+import com.alicia.cloudstorage.identity.dto.UpdateIdentityProfileRequest;
 import com.alicia.cloudstorage.identity.dto.VerifyEmailRegistrationRequest;
 import com.alicia.cloudstorage.identity.service.IdentityAuthService;
 import com.alicia.cloudstorage.identity.service.IdentityEmailRegistrationService;
@@ -45,6 +46,14 @@ public class IdentityAuthController {
     @GetMapping("/me")
     public IdentityUserResponse me(@RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization) {
         return identityAuthService.me(authorization);
+    }
+
+    @PutMapping("/profile")
+    public IdentityUserResponse updateProfile(
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
+            @Valid @RequestBody UpdateIdentityProfileRequest request
+    ) {
+        return identityAuthService.updateProfile(authorization, request);
     }
 
     @PutMapping("/password")

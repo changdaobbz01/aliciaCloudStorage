@@ -93,6 +93,44 @@ class IdentityAuthControllerTest {
     }
 
     @Test
+    void updateProfileReturnsUpdatedIdentityUser() throws Exception {
+        IdentityUserResponse user = new IdentityUserResponse(
+                7L,
+                "13900000000",
+                "user@example.com",
+                LocalDateTime.of(2026, 8, 17, 15, 30),
+                "Updated Alicia",
+                "cos:user-avatars/7/new.webp",
+                3L,
+                "USER",
+                "ACTIVE",
+                LocalDateTime.of(2026, 4, 29, 15, 30)
+        );
+
+        when(identityAuthService.updateProfile(
+                org.mockito.ArgumentMatchers.eq("Bearer token"),
+                any()
+        )).thenReturn(user);
+
+        mockMvc.perform(put("/api/identity/auth/profile")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer token")
+                        .content("""
+                                {
+                                  "phoneNumber": "13900000000",
+                                  "nickname": "Updated Alicia",
+                                  "avatarUrl": "cos:user-avatars/7/new.webp"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(7))
+                .andExpect(jsonPath("$.phoneNumber").value("13900000000"))
+                .andExpect(jsonPath("$.nickname").value("Updated Alicia"))
+                .andExpect(jsonPath("$.avatarUrl").value("cos:user-avatars/7/new.webp"))
+                .andExpect(jsonPath("$.passwordHash").doesNotExist());
+    }
+
+    @Test
     void changePasswordReturnsSuccessMessage() throws Exception {
         mockMvc.perform(put("/api/identity/auth/password")
                         .contentType(MediaType.APPLICATION_JSON)

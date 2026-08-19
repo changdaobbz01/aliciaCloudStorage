@@ -19,15 +19,18 @@ public class UserAccountService {
     private final IdentityAccountService identityAccountService;
     private final IdentityAuthGateway identityAuthGateway;
     private final CloudUserProfileService cloudUserProfileService;
+    private final CosFileStorageService cosFileStorageService;
 
     public UserAccountService(
             IdentityAccountService identityAccountService,
             IdentityAuthGateway identityAuthGateway,
-            CloudUserProfileService cloudUserProfileService
+            CloudUserProfileService cloudUserProfileService,
+            CosFileStorageService cosFileStorageService
     ) {
         this.identityAccountService = identityAccountService;
         this.identityAuthGateway = identityAuthGateway;
         this.cloudUserProfileService = cloudUserProfileService;
+        this.cosFileStorageService = cosFileStorageService;
     }
 
     public LoginResponse login(LoginRequest request) {
@@ -39,14 +42,28 @@ public class UserAccountService {
         return cloudUserProfileService.getCurrentUser(identityAuthGateway.me(authorization));
     }
 
-    public UserProfileResponse updateCurrentUser(Long userId, UpdateProfileRequest request) {
-        IdentityAccount account = identityAccountService.updateCurrentUser(userId, request);
+    public UserProfileResponse updateCurrentUser(String authorization, UpdateProfileRequest request) {
+        IdentityAccount account = identityAuthGateway.updateProfile(authorization, request);
         return cloudUserProfileService.toUserProfile(account);
     }
 
-    public UserProfileResponse uploadCurrentUserAvatar(Long userId, MultipartFile file) {
-        IdentityAccount account = identityAccountService.uploadCurrentUserAvatar(userId, file);
-        return cloudUserProfileService.toUserProfile(account);
+    public UserProfileResponse uploadCurrentUserAvatar(String authorization, MultipartFile file) {
+        IdentityAccount currentAccount = identityAuthGateway.me(authorization);
+        CosFileStorageService.StoredCosFile avatarFile =
+                cosFileStorageService.uploadUserAvatar(currentAccount.id(), file);
+        String avatarUrl = toLocalAvatarReference(avatarFile.objectKey());
+
+        try {
+            IdentityAccount updatedAccount = identityAuthGateway.updateProfile(
+                    authorization,
+                    new UpdateProfileRequest(currentAccount.phoneNumber(), currentAccount.nickname(), avatarUrl)
+            );
+            deleteLocalAvatarQuietly(currentAccount.avatarUrl());
+            return cloudUserProfileService.toUserProfile(updatedAccount);
+        } catch (RuntimeException ex) {
+            cosFileStorageService.deleteObjectQuietly(avatarFile.objectKey());
+            throw ex;
+        }
     }
 
     @Transactional(readOnly = true)
@@ -79,6 +96,27 @@ public class UserAccountService {
 
     public String normalizeEmail(String value) {
         return identityAccountService.normalizeEmail(value);
+    }
+
+    private String toLocalAvatarReference(String objectKey) {
+        return "cos:" + objectKey;
+    }
+
+    private String extractLocalAvatarObjectKey(String avatarUrl) {
+        if (avatarUrl == null || !avatarUrl.startsWith("cos:")) {
+            return null;
+        }
+
+        String objectKey = avatarUrl.substring("cos:".length()).trim();
+        return objectKey.isBlank() ? null : objectKey;
+    }
+
+    private void deleteLocalAvatarQuietly(String avatarUrl) {
+        String objectKey = extractLocalAvatarObjectKey(avatarUrl);
+
+        if (objectKey != null) {
+            cosFileStorageService.deleteObjectQuietly(objectKey);
+        }
     }
 
     public record AvatarDownloadPayload(

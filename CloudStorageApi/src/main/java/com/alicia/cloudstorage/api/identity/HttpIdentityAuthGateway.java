@@ -3,6 +3,7 @@ package com.alicia.cloudstorage.api.identity;
 import com.alicia.cloudstorage.api.dto.ChangePasswordRequest;
 import com.alicia.cloudstorage.api.dto.LoginRequest;
 import com.alicia.cloudstorage.api.dto.RequestEmailRegistrationCodeRequest;
+import com.alicia.cloudstorage.api.dto.UpdateProfileRequest;
 import com.alicia.cloudstorage.api.dto.VerifyEmailRegistrationRequest;
 import com.alicia.cloudstorage.api.service.IdentityAccount;
 import com.alicia.cloudstorage.api.service.IdentityLoginSession;
@@ -54,6 +55,22 @@ public class HttpIdentityAuthGateway implements IdentityAuthGateway {
 
         if (response == null) {
             throw new IllegalStateException("身份服务当前用户响应为空。");
+        }
+
+        return response.toAccount();
+    }
+
+    @Override
+    public IdentityAccount updateProfile(String authorization, UpdateProfileRequest request) {
+        IdentityUserPayload response = IdentityGatewaySupport.exchange(() -> restClient.put()
+                .uri("/api/identity/auth/profile")
+                .header(HttpHeaders.AUTHORIZATION, authorization)
+                .body(request)
+                .retrieve()
+                .body(IdentityUserPayload.class), objectMapper);
+
+        if (response == null) {
+            throw new IllegalStateException("身份服务资料更新响应为空。");
         }
 
         return response.toAccount();
