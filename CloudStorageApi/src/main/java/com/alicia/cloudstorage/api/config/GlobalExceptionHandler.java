@@ -2,7 +2,7 @@ package com.alicia.cloudstorage.api.config;
 
 import com.alicia.cloudstorage.api.auth.AuthException;
 import com.alicia.cloudstorage.api.dto.ApiErrorResponse;
-import com.alicia.cloudstorage.api.mail.EmailDeliveryException;
+import com.alicia.cloudstorage.api.identity.IdentityServiceUnavailableException;
 import com.alicia.cloudstorage.api.service.CosStorageException;
 import com.alicia.cloudstorage.api.service.ScopedTrashSnapshotStaleException;
 import org.slf4j.Logger;
@@ -48,18 +48,18 @@ public class GlobalExceptionHandler {
         return new ApiErrorResponse(409, ex.getMessage(), LocalDateTime.now());
     }
 
+    @ExceptionHandler(IdentityServiceUnavailableException.class)
+    @ResponseStatus(HttpStatus.SERVICE_UNAVAILABLE)
+    public ApiErrorResponse handleIdentityServiceUnavailable(IdentityServiceUnavailableException ex) {
+        return new ApiErrorResponse(503, ex.getMessage(), LocalDateTime.now());
+    }
+
     /**
      * 统一处理文件系统或本地资源写入失败等服务端状态异常。     */
     @ExceptionHandler(IllegalStateException.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public ApiErrorResponse handleIllegalStateException(IllegalStateException ex) {
         return new ApiErrorResponse(500, ex.getMessage(), LocalDateTime.now());
-    }
-
-    @ExceptionHandler(EmailDeliveryException.class)
-    @ResponseStatus(HttpStatus.SERVICE_UNAVAILABLE)
-    public ApiErrorResponse handleEmailDeliveryException(EmailDeliveryException ex) {
-        return new ApiErrorResponse(503, ex.getMessage(), LocalDateTime.now());
     }
 
     /**

@@ -268,6 +268,26 @@ class HttpIdentityAuthGatewayTest {
     }
 
     @Test
+    void upstreamServiceFailureBecomesIdentityUnavailableError() {
+        TestGatewayContext context = newContext();
+        context.server().expect(requestTo("http://identity.test/api/identity/auth/register/email-code"))
+                .andRespond(withStatus(HttpStatus.SERVICE_UNAVAILABLE)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body("""
+                                {"status":503,"error":"验证码邮件发送失败，请稍后再试。","timestamp":"2026-08-19T09:30:00Z"}
+                                """));
+
+        assertThatThrownBy(() -> context.gateway().requestEmailRegistrationCode(
+                new RequestEmailRegistrationCodeRequest("NewUser@Example.COM"),
+                "203.0.113.8",
+                "JUnit"
+        )).isInstanceOf(IdentityServiceUnavailableException.class)
+                .hasMessage("验证码邮件发送失败，请稍后再试。");
+
+        context.server().verify();
+    }
+
+    @Test
     void verifyEmailRegistrationDelegatesToIdentityApiAndMapsSession() {
         TestGatewayContext context = newContext();
         context.server().expect(requestTo("http://identity.test/api/identity/auth/register/verify"))

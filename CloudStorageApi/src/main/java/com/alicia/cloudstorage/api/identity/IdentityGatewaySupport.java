@@ -20,7 +20,7 @@ final class IdentityGatewaySupport {
         } catch (RestClientResponseException ex) {
             throw translateResponseException(ex, objectMapper);
         } catch (RestClientException ex) {
-            throw new IllegalStateException("身份服务暂不可用。", ex);
+            throw new IdentityServiceUnavailableException("身份服务暂不可用。", ex);
         }
     }
 
@@ -39,7 +39,7 @@ final class IdentityGatewaySupport {
             return new IllegalArgumentException(message);
         }
 
-        return new IllegalStateException(message);
+        return new IdentityServiceUnavailableException(message, ex);
     }
 
     private static String extractErrorMessage(RestClientResponseException ex, ObjectMapper objectMapper) {
