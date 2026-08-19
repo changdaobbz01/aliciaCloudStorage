@@ -1,5 +1,6 @@
 package com.alicia.cloudstorage.identity.controller;
 
+import com.alicia.cloudstorage.identity.dto.ChangePasswordRequest;
 import com.alicia.cloudstorage.identity.dto.IdentityLoginRequest;
 import com.alicia.cloudstorage.identity.dto.IdentityLoginResponse;
 import com.alicia.cloudstorage.identity.dto.IdentityMessageResponse;
@@ -13,6 +14,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpHeaders;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -41,6 +43,15 @@ public class IdentityAuthController {
     @GetMapping("/me")
     public IdentityUserResponse me(@RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization) {
         return identityAuthService.me(authorization);
+    }
+
+    @PutMapping("/password")
+    public IdentityMessageResponse changePassword(
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
+            @Valid @RequestBody ChangePasswordRequest request
+    ) {
+        identityAuthService.changePassword(authorization, request);
+        return new IdentityMessageResponse("密码修改成功。");
     }
 
     @PostMapping("/register/email-code")

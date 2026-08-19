@@ -19,8 +19,9 @@ import java.time.LocalDateTime;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -89,6 +90,21 @@ class IdentityAuthControllerTest {
                 .andExpect(jsonPath("$.passwordHash").doesNotExist());
 
         verify(identityAuthService).me("Bearer token");
+    }
+
+    @Test
+    void changePasswordReturnsSuccessMessage() throws Exception {
+        mockMvc.perform(put("/api/identity/auth/password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer token")
+                        .content("{\"oldPassword\":\"OldPass1\",\"newPassword\":\"NewPass1\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("密码修改成功。"));
+
+        verify(identityAuthService).changePassword(
+                org.mockito.ArgumentMatchers.eq("Bearer token"),
+                any()
+        );
     }
 
     @Test

@@ -1,5 +1,6 @@
 package com.alicia.cloudstorage.identity.service;
 
+import com.alicia.cloudstorage.identity.dto.ChangePasswordRequest;
 import com.alicia.cloudstorage.identity.dto.IdentityLoginRequest;
 import com.alicia.cloudstorage.identity.entity.IdentityUser;
 import com.alicia.cloudstorage.identity.entity.IdentityUserRole;
@@ -18,6 +19,8 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -110,6 +113,80 @@ class IdentityAuthServiceTest {
         assertThatThrownBy(() -> identityAuthService.me("Bearer token"))
                 .isInstanceOf(IdentityAuthException.class)
                 .hasMessage("登录状态已失效。");
+    }
+
+    @Test
+    void changePasswordUpdatesPasswordHashAndInvalidatesTokens() {
+        IdentityUser user = identityUser(18L, IdentityUserStatus.ACTIVE);
+
+        when(identityTokenService.parseToken("token"))
+                .thenReturn(new IdentityTokenService.TokenClaims(18L, 2L, 4_200_000_000L));
+        when(identityUserRepository.findById(18L)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("OldPass1", "hash")).thenReturn(true);
+        when(passwordEncoder.encode("NewPass1")).thenReturn("new-hash");
+
+        identityAuthService.changePassword(
+                "Bearer token",
+                new ChangePasswordRequest("OldPass1", "NewPass1")
+        );
+
+        assertThat(user.getPasswordHash()).isEqualTo("new-hash");
+        assertThat(user.getTokenVersion()).isEqualTo(3L);
+        verify(identityUserRepository).save(user);
+    }
+
+    @Test
+    void changePasswordRejectsIncorrectOldPassword() {
+        IdentityUser user = identityUser(18L, IdentityUserStatus.ACTIVE);
+
+        when(identityTokenService.parseToken("token"))
+                .thenReturn(new IdentityTokenService.TokenClaims(18L, 2L, 4_200_000_000L));
+        when(identityUserRepository.findById(18L)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("wrong", "hash")).thenReturn(false);
+
+        assertThatThrownBy(() -> identityAuthService.changePassword(
+                "Bearer token",
+                new ChangePasswordRequest("wrong", "NewPass1")
+        )).isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("旧密码不正确。");
+
+        verify(identityUserRepository, never()).save(user);
+    }
+
+    @Test
+    void changePasswordRejectsShortNewPassword() {
+        IdentityUser user = identityUser(18L, IdentityUserStatus.ACTIVE);
+
+        when(identityTokenService.parseToken("token"))
+                .thenReturn(new IdentityTokenService.TokenClaims(18L, 2L, 4_200_000_000L));
+        when(identityUserRepository.findById(18L)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("OldPass1", "hash")).thenReturn(true);
+
+        assertThatThrownBy(() -> identityAuthService.changePassword(
+                "Bearer token",
+                new ChangePasswordRequest("OldPass1", "short")
+        )).isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("新密码长度至少为 6 位。");
+
+        verify(identityUserRepository, never()).save(user);
+    }
+
+    @Test
+    void changePasswordRejectsSamePassword() {
+        IdentityUser user = identityUser(18L, IdentityUserStatus.ACTIVE);
+
+        when(identityTokenService.parseToken("token"))
+                .thenReturn(new IdentityTokenService.TokenClaims(18L, 2L, 4_200_000_000L));
+        when(identityUserRepository.findById(18L)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("SamePass1", "hash")).thenReturn(true);
+
+        assertThatThrownBy(() -> identityAuthService.changePassword(
+                "Bearer token",
+                new ChangePasswordRequest("SamePass1", "SamePass1")
+        )).isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("新密码不能与旧密码相同。");
+
+        verify(identityUserRepository, never()).save(user);
     }
 
     private IdentityUser identityUser(Long id, IdentityUserStatus status) {

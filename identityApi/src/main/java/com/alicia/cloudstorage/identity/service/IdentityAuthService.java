@@ -1,5 +1,6 @@
 package com.alicia.cloudstorage.identity.service;
 
+import com.alicia.cloudstorage.identity.dto.ChangePasswordRequest;
 import com.alicia.cloudstorage.identity.dto.IdentityLoginRequest;
 import com.alicia.cloudstorage.identity.dto.IdentityLoginResponse;
 import com.alicia.cloudstorage.identity.dto.IdentityUserResponse;
@@ -54,6 +55,33 @@ public class IdentityAuthService {
     }
 
     public IdentityUserResponse me(String authorizationHeader) {
+        return IdentityUserResponse.from(requireActiveUserFromAuthorization(authorizationHeader));
+    }
+
+    @Transactional
+    public void changePassword(String authorizationHeader, ChangePasswordRequest request) {
+        IdentityUser user = requireActiveUserFromAuthorization(authorizationHeader);
+        String oldPassword = normalizePassword(request.oldPassword(), "旧密码不能为空。");
+        String newPassword = normalizePassword(request.newPassword(), "新密码不能为空。");
+
+        if (!passwordEncoder.matches(oldPassword, user.getPasswordHash())) {
+            throw new IllegalArgumentException("旧密码不正确。");
+        }
+
+        if (newPassword.length() < 6) {
+            throw new IllegalArgumentException("新密码长度至少为 6 位。");
+        }
+
+        if (oldPassword.equals(newPassword)) {
+            throw new IllegalArgumentException("新密码不能与旧密码相同。");
+        }
+
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        invalidateTokens(user);
+        identityUserRepository.save(user);
+    }
+
+    private IdentityUser requireActiveUserFromAuthorization(String authorizationHeader) {
         IdentityTokenService.TokenClaims tokenClaims = identityTokenService.parseToken(extractBearerToken(authorizationHeader));
         IdentityUser user = identityUserRepository.findById(tokenClaims.userId())
                 .orElseThrow(() -> new IdentityAuthException("登录用户不存在。"));
@@ -67,7 +95,7 @@ public class IdentityAuthService {
             throw new IdentityAuthException("当前账号已停用。");
         }
 
-        return IdentityUserResponse.from(user);
+        return user;
     }
 
     private String extractBearerToken(String authorizationHeader) {
@@ -128,6 +156,19 @@ public class IdentityAuthService {
         }
 
         return phoneNumber;
+    }
+
+    private String normalizePassword(String value, String errorMessage) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(errorMessage);
+        }
+
+        return value;
+    }
+
+    private void invalidateTokens(IdentityUser user) {
+        long currentVersion = user.getTokenVersion() == null ? 0L : user.getTokenVersion();
+        user.setTokenVersion(currentVersion + 1);
     }
 
     private enum LoginIdentifierType {
