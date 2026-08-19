@@ -68,6 +68,7 @@ cp .env.example .env
 
 - `MYSQL_ROOT_PASSWORD`
 - `ALICIA_AUTH_TOKEN_SECRET`
+- `ALICIA_SHARE_ACCESS_TOKEN_SECRET`
 - `ALICIA_COS_SECRET_ID`
 - `ALICIA_COS_SECRET_KEY`
 - `ALICIA_COS_REGION`
@@ -199,7 +200,8 @@ PowerShell 示例：
 $env:SPRING_DATASOURCE_URL="jdbc:mysql://localhost:3310/alicia_cloud_storage?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai&characterEncoding=utf8"
 $env:SPRING_DATASOURCE_USERNAME="root"
 $env:SPRING_DATASOURCE_PASSWORD="123456"
-$env:ALICIA_AUTH_TOKEN_SECRET="replace-this-with-a-long-random-secret"
+$env:ALICIA_IDENTITY_API_BASE_URL="http://localhost:8093"
+$env:ALICIA_SHARE_ACCESS_TOKEN_SECRET="replace-this-with-a-long-random-secret"
 $env:ALICIA_COS_SECRET_ID="your-secret-id"
 $env:ALICIA_COS_SECRET_KEY="your-secret-key"
 $env:ALICIA_COS_REGION="ap-shanghai"

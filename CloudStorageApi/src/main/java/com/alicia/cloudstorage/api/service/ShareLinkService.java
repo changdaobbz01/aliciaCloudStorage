@@ -62,7 +62,7 @@ public class ShareLinkService {
     private final CosFileStorageService cosFileStorageService;
     private final SecureRandom secureRandom = new SecureRandom();
     private final Map<String, PasswordAttemptState> passwordAttemptStates = new ConcurrentHashMap<>();
-    private final String tokenSecret;
+    private final String shareAccessTokenSecret;
     private final int maxExpandedNodes;
 
     public ShareLinkService(
@@ -73,7 +73,7 @@ public class ShareLinkService {
             PasswordEncoder passwordEncoder,
             StorageCommandService storageCommandService,
             CosFileStorageService cosFileStorageService,
-            @Value("${alicia.auth.token-secret}") String tokenSecret,
+            @Value("${alicia.share.access-token-secret}") String shareAccessTokenSecret,
             @Value("${alicia.share.max-expanded-nodes:5000}") int maxExpandedNodes
     ) {
         this.shareLinkRepository = shareLinkRepository;
@@ -83,7 +83,7 @@ public class ShareLinkService {
         this.passwordEncoder = passwordEncoder;
         this.storageCommandService = storageCommandService;
         this.cosFileStorageService = cosFileStorageService;
-        this.tokenSecret = tokenSecret;
+        this.shareAccessTokenSecret = shareAccessTokenSecret;
         this.maxExpandedNodes = maxExpandedNodes;
     }
 
@@ -708,7 +708,7 @@ public class ShareLinkService {
     private String sign(String value) {
         try {
             Mac mac = Mac.getInstance("HmacSHA256");
-            mac.init(new SecretKeySpec(tokenSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+            mac.init(new SecretKeySpec(shareAccessTokenSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
             byte[] bytes = mac.doFinal(value.getBytes(StandardCharsets.UTF_8));
             return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
         } catch (Exception exception) {
