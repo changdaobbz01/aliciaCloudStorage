@@ -20,15 +20,18 @@ public class IdentityAuthService {
     private final IdentityUserRepository identityUserRepository;
     private final PasswordEncoder passwordEncoder;
     private final IdentityTokenService identityTokenService;
+    private final IdentityPrincipalService identityPrincipalService;
 
     public IdentityAuthService(
             IdentityUserRepository identityUserRepository,
             PasswordEncoder passwordEncoder,
-            IdentityTokenService identityTokenService
+            IdentityTokenService identityTokenService,
+            IdentityPrincipalService identityPrincipalService
     ) {
         this.identityUserRepository = identityUserRepository;
         this.passwordEncoder = passwordEncoder;
         this.identityTokenService = identityTokenService;
+        this.identityPrincipalService = identityPrincipalService;
     }
 
     public IdentityLoginResponse login(IdentityLoginRequest request) {
@@ -55,12 +58,12 @@ public class IdentityAuthService {
     }
 
     public IdentityUserResponse me(String authorizationHeader) {
-        return IdentityUserResponse.from(requireActiveUserFromAuthorization(authorizationHeader));
+        return IdentityUserResponse.from(identityPrincipalService.requireActiveUser(authorizationHeader));
     }
 
     @Transactional
     public void changePassword(String authorizationHeader, ChangePasswordRequest request) {
-        IdentityUser user = requireActiveUserFromAuthorization(authorizationHeader);
+        IdentityUser user = identityPrincipalService.requireActiveUser(authorizationHeader);
         String oldPassword = normalizePassword(request.oldPassword(), "旧密码不能为空。");
         String newPassword = normalizePassword(request.newPassword(), "新密码不能为空。");
 
@@ -79,41 +82,6 @@ public class IdentityAuthService {
         user.setPasswordHash(passwordEncoder.encode(newPassword));
         invalidateTokens(user);
         identityUserRepository.save(user);
-    }
-
-    private IdentityUser requireActiveUserFromAuthorization(String authorizationHeader) {
-        IdentityTokenService.TokenClaims tokenClaims = identityTokenService.parseToken(extractBearerToken(authorizationHeader));
-        IdentityUser user = identityUserRepository.findById(tokenClaims.userId())
-                .orElseThrow(() -> new IdentityAuthException("登录用户不存在。"));
-
-        long currentTokenVersion = user.getTokenVersion() == null ? 0L : user.getTokenVersion();
-        if (currentTokenVersion != tokenClaims.tokenVersion()) {
-            throw new IdentityAuthException("登录状态已失效。");
-        }
-
-        if (user.getStatus() != IdentityUserStatus.ACTIVE) {
-            throw new IdentityAuthException("当前账号已停用。");
-        }
-
-        return user;
-    }
-
-    private String extractBearerToken(String authorizationHeader) {
-        if (authorizationHeader == null || authorizationHeader.isBlank()) {
-            throw new IdentityAuthException("请先登录。");
-        }
-
-        String prefix = "Bearer ";
-        if (!authorizationHeader.regionMatches(true, 0, prefix, 0, prefix.length())) {
-            throw new IdentityAuthException("登录凭证格式不正确。");
-        }
-
-        String token = authorizationHeader.substring(prefix.length()).trim();
-        if (token.isEmpty()) {
-            throw new IdentityAuthException("请先登录。");
-        }
-
-        return token;
     }
 
     private LoginIdentifier normalizeLoginIdentifier(IdentityLoginRequest request) {

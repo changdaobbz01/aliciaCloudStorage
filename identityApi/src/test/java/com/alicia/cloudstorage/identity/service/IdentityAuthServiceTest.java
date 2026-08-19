@@ -35,6 +35,9 @@ class IdentityAuthServiceTest {
     @Mock
     private IdentityTokenService identityTokenService;
 
+    @Mock
+    private IdentityPrincipalService identityPrincipalService;
+
     @InjectMocks
     private IdentityAuthService identityAuthService;
 
@@ -85,9 +88,7 @@ class IdentityAuthServiceTest {
     void meReturnsCurrentUserWhenTokenVersionMatches() {
         IdentityUser user = identityUser(18L, IdentityUserStatus.ACTIVE);
 
-        when(identityTokenService.parseToken("token"))
-                .thenReturn(new IdentityTokenService.TokenClaims(18L, 2L, 4_200_000_000L));
-        when(identityUserRepository.findById(18L)).thenReturn(Optional.of(user));
+        when(identityPrincipalService.requireActiveUser("Bearer token")).thenReturn(user);
 
         var response = identityAuthService.me("Bearer token");
 
@@ -97,6 +98,9 @@ class IdentityAuthServiceTest {
 
     @Test
     void meRejectsMissingBearerToken() {
+        when(identityPrincipalService.requireActiveUser(null))
+                .thenThrow(new IdentityAuthException("请先登录。"));
+
         assertThatThrownBy(() -> identityAuthService.me(null))
                 .isInstanceOf(IdentityAuthException.class)
                 .hasMessage("请先登录。");
@@ -104,11 +108,8 @@ class IdentityAuthServiceTest {
 
     @Test
     void meRejectsStaleTokenVersion() {
-        IdentityUser user = identityUser(18L, IdentityUserStatus.ACTIVE);
-
-        when(identityTokenService.parseToken("token"))
-                .thenReturn(new IdentityTokenService.TokenClaims(18L, 1L, 4_200_000_000L));
-        when(identityUserRepository.findById(18L)).thenReturn(Optional.of(user));
+        when(identityPrincipalService.requireActiveUser("Bearer token"))
+                .thenThrow(new IdentityAuthException("登录状态已失效。"));
 
         assertThatThrownBy(() -> identityAuthService.me("Bearer token"))
                 .isInstanceOf(IdentityAuthException.class)
@@ -119,9 +120,7 @@ class IdentityAuthServiceTest {
     void changePasswordUpdatesPasswordHashAndInvalidatesTokens() {
         IdentityUser user = identityUser(18L, IdentityUserStatus.ACTIVE);
 
-        when(identityTokenService.parseToken("token"))
-                .thenReturn(new IdentityTokenService.TokenClaims(18L, 2L, 4_200_000_000L));
-        when(identityUserRepository.findById(18L)).thenReturn(Optional.of(user));
+        when(identityPrincipalService.requireActiveUser("Bearer token")).thenReturn(user);
         when(passwordEncoder.matches("OldPass1", "hash")).thenReturn(true);
         when(passwordEncoder.encode("NewPass1")).thenReturn("new-hash");
 
@@ -139,9 +138,7 @@ class IdentityAuthServiceTest {
     void changePasswordRejectsIncorrectOldPassword() {
         IdentityUser user = identityUser(18L, IdentityUserStatus.ACTIVE);
 
-        when(identityTokenService.parseToken("token"))
-                .thenReturn(new IdentityTokenService.TokenClaims(18L, 2L, 4_200_000_000L));
-        when(identityUserRepository.findById(18L)).thenReturn(Optional.of(user));
+        when(identityPrincipalService.requireActiveUser("Bearer token")).thenReturn(user);
         when(passwordEncoder.matches("wrong", "hash")).thenReturn(false);
 
         assertThatThrownBy(() -> identityAuthService.changePassword(
@@ -157,9 +154,7 @@ class IdentityAuthServiceTest {
     void changePasswordRejectsShortNewPassword() {
         IdentityUser user = identityUser(18L, IdentityUserStatus.ACTIVE);
 
-        when(identityTokenService.parseToken("token"))
-                .thenReturn(new IdentityTokenService.TokenClaims(18L, 2L, 4_200_000_000L));
-        when(identityUserRepository.findById(18L)).thenReturn(Optional.of(user));
+        when(identityPrincipalService.requireActiveUser("Bearer token")).thenReturn(user);
         when(passwordEncoder.matches("OldPass1", "hash")).thenReturn(true);
 
         assertThatThrownBy(() -> identityAuthService.changePassword(
@@ -175,9 +170,7 @@ class IdentityAuthServiceTest {
     void changePasswordRejectsSamePassword() {
         IdentityUser user = identityUser(18L, IdentityUserStatus.ACTIVE);
 
-        when(identityTokenService.parseToken("token"))
-                .thenReturn(new IdentityTokenService.TokenClaims(18L, 2L, 4_200_000_000L));
-        when(identityUserRepository.findById(18L)).thenReturn(Optional.of(user));
+        when(identityPrincipalService.requireActiveUser("Bearer token")).thenReturn(user);
         when(passwordEncoder.matches("SamePass1", "hash")).thenReturn(true);
 
         assertThatThrownBy(() -> identityAuthService.changePassword(
