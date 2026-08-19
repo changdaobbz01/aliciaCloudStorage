@@ -83,9 +83,10 @@ public class AuthController {
      */
     @GetMapping("/me")
     public UserProfileResponse me(
-            @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal
+            @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization
     ) {
-        return userAccountService.getCurrentUser(principal.userId());
+        return userAccountService.getCurrentUser(authorization);
     }
 
     /**

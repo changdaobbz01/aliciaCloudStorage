@@ -50,6 +50,20 @@ class UserAccountServiceTest {
     }
 
     @Test
+    void getCurrentUserCombinesIdentityApiUserWithCloudProfileResponse() {
+        IdentityAccount account = regularIdentityAccount(18L);
+        UserProfileResponse profile = profile(account, 4096L, 1024L, 3072L);
+
+        when(identityAuthGateway.me("Bearer token")).thenReturn(account);
+        when(cloudUserProfileService.getCurrentUser(account)).thenReturn(profile);
+
+        var response = userAccountService.getCurrentUser("Bearer token");
+
+        assertThat(response).isSameAs(profile);
+        verify(identityAuthGateway).me("Bearer token");
+    }
+
+    @Test
     void createVerifiedEmailUserInitializesDefaultCloudProfileAfterIdentityCreation() {
         IdentityAccount account = regularIdentityAccount(72L);
         CloudUserProfileService.CloudUserProfile cloudProfile =

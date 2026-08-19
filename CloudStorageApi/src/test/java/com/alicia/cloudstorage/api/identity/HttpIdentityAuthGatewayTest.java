@@ -87,6 +87,53 @@ class HttpIdentityAuthGatewayTest {
     }
 
     @Test
+    void meDelegatesToIdentityApiAndMapsAccount() {
+        TestGatewayContext context = newContext();
+        context.server().expect(requestTo("http://identity.test/api/identity/auth/me"))
+                .andExpect(method(HttpMethod.GET))
+                .andExpect(header(HttpHeaders.AUTHORIZATION, "Bearer user-token"))
+                .andRespond(withSuccess("""
+                        {
+                          "id": 6,
+                          "phoneNumber": null,
+                          "email": "user@example.com",
+                          "emailVerifiedAt": "2026-08-17T07:22:18",
+                          "nickname": "Alicia",
+                          "avatarUrl": "cos:user-avatars/6/avatar.png",
+                          "tokenVersion": 1,
+                          "role": "USER",
+                          "status": "ACTIVE",
+                          "createdAt": "2026-08-17T07:22:18"
+                        }
+                        """, MediaType.APPLICATION_JSON));
+
+        var account = context.gateway().me("Bearer user-token");
+
+        assertThat(account.id()).isEqualTo(6L);
+        assertThat(account.email()).isEqualTo("user@example.com");
+        assertThat(account.role()).isEqualTo(UserRole.USER);
+        assertThat(account.status()).isEqualTo(UserStatus.ACTIVE);
+        context.server().verify();
+    }
+
+    @Test
+    void meAuthFailureBecomesCloudAuthException() {
+        TestGatewayContext context = newContext();
+        context.server().expect(requestTo("http://identity.test/api/identity/auth/me"))
+                .andRespond(withStatus(HttpStatus.UNAUTHORIZED)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body("""
+                                {"status":401,"error":"请先登录。","timestamp":"2026-08-19T09:30:00Z"}
+                                """));
+
+        assertThatThrownBy(() -> context.gateway().me("Bearer stale-token"))
+                .isInstanceOf(AuthException.class)
+                .hasMessage("请先登录。");
+
+        context.server().verify();
+    }
+
+    @Test
     void changePasswordDelegatesToIdentityApi() {
         TestGatewayContext context = newContext();
         context.server().expect(requestTo("http://identity.test/api/identity/auth/password"))

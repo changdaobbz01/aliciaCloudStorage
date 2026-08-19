@@ -35,9 +35,8 @@ public class UserAccountService {
         return new LoginResponse(session.token(), cloudUserProfileService.toUserProfile(session.account()));
     }
 
-    @Transactional(readOnly = true)
-    public UserProfileResponse getCurrentUser(Long userId) {
-        return cloudUserProfileService.getCurrentUser(identityAccountService.getCurrentUser(userId));
+    public UserProfileResponse getCurrentUser(String authorization) {
+        return cloudUserProfileService.getCurrentUser(identityAuthGateway.me(authorization));
     }
 
     public UserProfileResponse updateCurrentUser(Long userId, UpdateProfileRequest request) {
