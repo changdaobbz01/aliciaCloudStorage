@@ -10,9 +10,11 @@ import com.alicia.cloudstorage.api.dto.RequestEmailRegistrationCodeRequest;
 import com.alicia.cloudstorage.api.dto.UpdateProfileRequest;
 import com.alicia.cloudstorage.api.dto.UserProfileResponse;
 import com.alicia.cloudstorage.api.dto.VerifyEmailRegistrationRequest;
-import com.alicia.cloudstorage.api.service.IdentityAuthCompatibilityService;
 import com.alicia.cloudstorage.api.service.IdentityAvatarCompatibilityService;
 import com.alicia.cloudstorage.api.service.IdentityEmailRegistrationCompatibilityService;
+import com.alicia.cloudstorage.api.service.IdentityPasswordCompatibilityService;
+import com.alicia.cloudstorage.api.service.IdentityProfileCompatibilityService;
+import com.alicia.cloudstorage.api.service.IdentitySessionCompatibilityService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpHeaders;
@@ -39,21 +41,27 @@ public class IdentityAuthCompatibilityController {
 
     private static final String SIGNED_MEDIA_REDIRECT_CACHE_CONTROL = "private, max-age=240";
 
-    private final IdentityAuthCompatibilityService identityAuthCompatibilityService;
     private final IdentityAvatarCompatibilityService identityAvatarCompatibilityService;
     private final IdentityEmailRegistrationCompatibilityService identityEmailRegistrationCompatibilityService;
+    private final IdentityPasswordCompatibilityService identityPasswordCompatibilityService;
+    private final IdentityProfileCompatibilityService identityProfileCompatibilityService;
+    private final IdentitySessionCompatibilityService identitySessionCompatibilityService;
 
     /**
      * 保留旧版 /api/auth/** 合约，同时将身份读写委托给 identityApi。
      */
     public IdentityAuthCompatibilityController(
-            IdentityAuthCompatibilityService identityAuthCompatibilityService,
             IdentityAvatarCompatibilityService identityAvatarCompatibilityService,
-            IdentityEmailRegistrationCompatibilityService identityEmailRegistrationCompatibilityService
+            IdentityEmailRegistrationCompatibilityService identityEmailRegistrationCompatibilityService,
+            IdentityPasswordCompatibilityService identityPasswordCompatibilityService,
+            IdentityProfileCompatibilityService identityProfileCompatibilityService,
+            IdentitySessionCompatibilityService identitySessionCompatibilityService
     ) {
-        this.identityAuthCompatibilityService = identityAuthCompatibilityService;
         this.identityAvatarCompatibilityService = identityAvatarCompatibilityService;
         this.identityEmailRegistrationCompatibilityService = identityEmailRegistrationCompatibilityService;
+        this.identityPasswordCompatibilityService = identityPasswordCompatibilityService;
+        this.identityProfileCompatibilityService = identityProfileCompatibilityService;
+        this.identitySessionCompatibilityService = identitySessionCompatibilityService;
     }
 
     /**
@@ -61,7 +69,7 @@ public class IdentityAuthCompatibilityController {
      */
     @PostMapping("/login")
     public LoginResponse login(@Valid @RequestBody LoginRequest request) {
-        return identityAuthCompatibilityService.login(request);
+        return identitySessionCompatibilityService.login(request);
     }
 
     @PostMapping("/register/email-code")
@@ -90,7 +98,7 @@ public class IdentityAuthCompatibilityController {
             @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization
     ) {
-        return identityAuthCompatibilityService.getCurrentUser(authorization);
+        return identityProfileCompatibilityService.getCurrentUser(authorization);
     }
 
     /**
@@ -102,7 +110,7 @@ public class IdentityAuthCompatibilityController {
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
             @Valid @RequestBody UpdateProfileRequest request
     ) {
-        return identityAuthCompatibilityService.updateCurrentUser(authorization, request);
+        return identityProfileCompatibilityService.updateCurrentUser(authorization, request);
     }
 
     /**
@@ -138,7 +146,7 @@ public class IdentityAuthCompatibilityController {
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
             @Valid @RequestBody ChangePasswordRequest request
     ) {
-        identityAuthCompatibilityService.changePassword(authorization, request);
+        identityPasswordCompatibilityService.changePassword(authorization, request);
         return new ApiMessageResponse("密码修改成功。");
     }
 }

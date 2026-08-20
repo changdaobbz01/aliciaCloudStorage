@@ -1,14 +1,12 @@
 package com.alicia.cloudstorage.api.service;
 
+import com.alicia.cloudstorage.api.dto.LoginRequest;
+import com.alicia.cloudstorage.api.dto.UserProfileResponse;
+import com.alicia.cloudstorage.api.identity.IdentityAuthGateway;
 import com.alicia.cloudstorage.api.identity.IdentityLoginSession;
 import com.alicia.cloudstorage.api.identity.IdentityUserSnapshot;
-import com.alicia.cloudstorage.api.dto.ChangePasswordRequest;
-import com.alicia.cloudstorage.api.dto.LoginRequest;
-import com.alicia.cloudstorage.api.dto.UpdateProfileRequest;
-import com.alicia.cloudstorage.api.dto.UserProfileResponse;
 import com.alicia.cloudstorage.api.identity.UserRole;
 import com.alicia.cloudstorage.api.identity.UserStatus;
-import com.alicia.cloudstorage.api.identity.IdentityAuthGateway;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -22,7 +20,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class IdentityAuthCompatibilityServiceTest {
+class IdentitySessionCompatibilityServiceTest {
 
     @Mock
     private IdentityAuthGateway identityAuthGateway;
@@ -31,66 +29,22 @@ class IdentityAuthCompatibilityServiceTest {
     private CloudUserProfileService cloudUserProfileService;
 
     @InjectMocks
-    private IdentityAuthCompatibilityService identityAuthCompatibilityService;
+    private IdentitySessionCompatibilityService identitySessionCompatibilityService;
 
     @Test
     void loginCombinesIdentitySessionWithCloudProfileResponse() {
         LoginRequest request = new LoginRequest("Email-User@Example.COM", null, null, "Passw0rd");
-        IdentityUserSnapshot account = regularIdentityUserSnapshot(18L);
+        IdentityUserSnapshot account = identityUserSnapshot(18L, "13900000000", "user@example.com", "Alicia", null);
         UserProfileResponse profile = profile(account, 4096L, 1024L, 3072L);
 
         when(identityAuthGateway.login(request)).thenReturn(new IdentityLoginSession("token", account));
         when(cloudUserProfileService.toUserProfile(account)).thenReturn(profile);
 
-        var response = identityAuthCompatibilityService.login(request);
+        var response = identitySessionCompatibilityService.login(request);
 
         assertThat(response.token()).isEqualTo("token");
         assertThat(response.user()).isSameAs(profile);
         verify(identityAuthGateway).login(request);
-    }
-
-    @Test
-    void getCurrentUserCombinesIdentityApiUserWithCloudProfileResponse() {
-        IdentityUserSnapshot account = regularIdentityUserSnapshot(18L);
-        UserProfileResponse profile = profile(account, 4096L, 1024L, 3072L);
-
-        when(identityAuthGateway.me("Bearer token")).thenReturn(account);
-        when(cloudUserProfileService.getCurrentUser(account)).thenReturn(profile);
-
-        var response = identityAuthCompatibilityService.getCurrentUser("Bearer token");
-
-        assertThat(response).isSameAs(profile);
-        verify(identityAuthGateway).me("Bearer token");
-    }
-
-    @Test
-    void updateCurrentUserDelegatesToIdentityApiGateway() {
-        UpdateProfileRequest request =
-                new UpdateProfileRequest("13900000000", "Updated Alicia", "cos:user-avatars/18/new.webp");
-        IdentityUserSnapshot account = identityUserSnapshot(18L, "13900000000", "user@example.com", "Updated Alicia",
-                "cos:user-avatars/18/new.webp");
-        UserProfileResponse profile = profile(account, 4096L, 1024L, 3072L);
-
-        when(identityAuthGateway.updateProfile("Bearer token", request)).thenReturn(account);
-        when(cloudUserProfileService.toUserProfile(account)).thenReturn(profile);
-
-        var response = identityAuthCompatibilityService.updateCurrentUser("Bearer token", request);
-
-        assertThat(response).isSameAs(profile);
-        verify(identityAuthGateway).updateProfile("Bearer token", request);
-    }
-
-    @Test
-    void changePasswordDelegatesToIdentityApiGateway() {
-        ChangePasswordRequest request = new ChangePasswordRequest("OldPass1", "NewPass1");
-
-        identityAuthCompatibilityService.changePassword("Bearer token", request);
-
-        verify(identityAuthGateway).changePassword("Bearer token", request);
-    }
-
-    private IdentityUserSnapshot regularIdentityUserSnapshot(Long id) {
-        return identityUserSnapshot(id, "13900000000", "user@example.com", "Alicia", null);
     }
 
     private IdentityUserSnapshot identityUserSnapshot(
