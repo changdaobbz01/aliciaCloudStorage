@@ -11,6 +11,7 @@ import com.alicia.cloudstorage.api.dto.UpdateProfileRequest;
 import com.alicia.cloudstorage.api.dto.UserProfileResponse;
 import com.alicia.cloudstorage.api.dto.VerifyEmailRegistrationRequest;
 import com.alicia.cloudstorage.api.service.IdentityAuthCompatibilityService;
+import com.alicia.cloudstorage.api.service.IdentityAvatarCompatibilityService;
 import com.alicia.cloudstorage.api.service.IdentityEmailRegistrationCompatibilityService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -39,6 +40,7 @@ public class IdentityAuthCompatibilityController {
     private static final String SIGNED_MEDIA_REDIRECT_CACHE_CONTROL = "private, max-age=240";
 
     private final IdentityAuthCompatibilityService identityAuthCompatibilityService;
+    private final IdentityAvatarCompatibilityService identityAvatarCompatibilityService;
     private final IdentityEmailRegistrationCompatibilityService identityEmailRegistrationCompatibilityService;
 
     /**
@@ -46,9 +48,11 @@ public class IdentityAuthCompatibilityController {
      */
     public IdentityAuthCompatibilityController(
             IdentityAuthCompatibilityService identityAuthCompatibilityService,
+            IdentityAvatarCompatibilityService identityAvatarCompatibilityService,
             IdentityEmailRegistrationCompatibilityService identityEmailRegistrationCompatibilityService
     ) {
         this.identityAuthCompatibilityService = identityAuthCompatibilityService;
+        this.identityAvatarCompatibilityService = identityAvatarCompatibilityService;
         this.identityEmailRegistrationCompatibilityService = identityEmailRegistrationCompatibilityService;
     }
 
@@ -110,7 +114,7 @@ public class IdentityAuthCompatibilityController {
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
             @RequestPart("file") MultipartFile file
     ) {
-        return identityAuthCompatibilityService.uploadCurrentUserAvatar(authorization, file);
+        return identityAvatarCompatibilityService.uploadCurrentUserAvatar(authorization, file);
     }
 
     /**
@@ -118,7 +122,7 @@ public class IdentityAuthCompatibilityController {
      */
     @GetMapping("/avatar/{userId}")
     public ResponseEntity<Void> getAvatar(@PathVariable Long userId) {
-        String accessUrl = identityAuthCompatibilityService.resolveUserAvatarAccessUrl(userId).url();
+        String accessUrl = identityAvatarCompatibilityService.resolveUserAvatarAccessUrl(userId).url();
         return ResponseEntity.status(HttpStatus.FOUND)
                 .header(HttpHeaders.CACHE_CONTROL, SIGNED_MEDIA_REDIRECT_CACHE_CONTROL)
                 .location(URI.create(accessUrl))
