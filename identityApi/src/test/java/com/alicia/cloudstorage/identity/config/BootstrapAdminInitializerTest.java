@@ -1,15 +1,12 @@
 package com.alicia.cloudstorage.identity.config;
 
 import com.alicia.cloudstorage.identity.entity.IdentityUser;
-import com.alicia.cloudstorage.identity.entity.IdentityUserRole;
-import com.alicia.cloudstorage.identity.entity.IdentityUserStatus;
 import com.alicia.cloudstorage.identity.repository.IdentityUserRepository;
+import com.alicia.cloudstorage.identity.service.IdentityUserCreationService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.security.crypto.password.PasswordEncoder;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -25,7 +22,7 @@ class BootstrapAdminInitializerTest {
     private IdentityUserRepository identityUserRepository;
 
     @Mock
-    private PasswordEncoder passwordEncoder;
+    private IdentityUserCreationService identityUserCreationService;
 
     @Test
     void skipsWhenIdentityUsersAlreadyExist() {
@@ -68,38 +65,34 @@ class BootstrapAdminInitializerTest {
                 initializer(" 13800000000 ", " Passw0rd ", " Alicia Admin ", " cos:user-avatars/1/a.png ");
 
         when(identityUserRepository.count()).thenReturn(0L);
-        when(passwordEncoder.encode("Passw0rd")).thenReturn("password-hash");
-        when(identityUserRepository.save(any(IdentityUser.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(identityUserCreationService.createBootstrapAdmin(
+                "13800000000",
+                "Passw0rd",
+                " Alicia Admin ",
+                " cos:user-avatars/1/a.png "
+        )).thenReturn(identityUser("13800000000"));
 
         initializer.run(null);
 
-        ArgumentCaptor<IdentityUser> userCaptor = ArgumentCaptor.forClass(IdentityUser.class);
-        verify(identityUserRepository).save(userCaptor.capture());
-        IdentityUser savedUser = userCaptor.getValue();
-        assertThat(savedUser.getPhoneNumber()).isEqualTo("13800000000");
-        assertThat(savedUser.getEmail()).isNull();
-        assertThat(savedUser.getEmailVerifiedAt()).isNull();
-        assertThat(savedUser.getNickname()).isEqualTo("Alicia Admin");
-        assertThat(savedUser.getAvatarUrl()).isEqualTo("cos:user-avatars/1/a.png");
-        assertThat(savedUser.getPasswordHash()).isEqualTo("password-hash");
-        assertThat(savedUser.getTokenVersion()).isZero();
-        assertThat(savedUser.getRole()).isEqualTo(IdentityUserRole.ADMIN);
-        assertThat(savedUser.getStatus()).isEqualTo(IdentityUserStatus.ACTIVE);
+        verify(identityUserCreationService).createBootstrapAdmin(
+                "13800000000",
+                "Passw0rd",
+                " Alicia Admin ",
+                " cos:user-avatars/1/a.png "
+        );
     }
 
     @Test
-    void usesDefaultNicknameWhenNicknameIsMissing() {
+    void wrapsInvalidBootstrapConfigurationAsStartupFailure() {
         BootstrapAdminInitializer initializer = initializer("13800000000", "Passw0rd", null, null);
 
         when(identityUserRepository.count()).thenReturn(0L);
-        when(passwordEncoder.encode("Passw0rd")).thenReturn("password-hash");
-        when(identityUserRepository.save(any(IdentityUser.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(identityUserCreationService.createBootstrapAdmin("13800000000", "Passw0rd", null, null))
+                .thenThrow(new IllegalArgumentException("密码长度至少为 6 位。"));
 
-        initializer.run(null);
-
-        ArgumentCaptor<IdentityUser> userCaptor = ArgumentCaptor.forClass(IdentityUser.class);
-        verify(identityUserRepository).save(userCaptor.capture());
-        assertThat(userCaptor.getValue().getNickname()).isEqualTo("\u7cfb\u7edf\u7ba1\u7406\u5458");
+        assertThatThrownBy(() -> initializer.run(null))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Invalid bootstrap admin configuration: 密码长度至少为 6 位。");
     }
 
     private BootstrapAdminInitializer initializer(
@@ -110,11 +103,17 @@ class BootstrapAdminInitializerTest {
     ) {
         return new BootstrapAdminInitializer(
                 identityUserRepository,
-                passwordEncoder,
+                identityUserCreationService,
                 phone,
                 password,
                 nickname,
                 avatarUrl
         );
+    }
+
+    private IdentityUser identityUser(String phoneNumber) {
+        IdentityUser user = new IdentityUser();
+        user.setPhoneNumber(phoneNumber);
+        return user;
     }
 }

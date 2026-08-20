@@ -4,8 +4,6 @@ import com.alicia.cloudstorage.identity.dto.VerifyEmailRegistrationRequest;
 import com.alicia.cloudstorage.identity.entity.EmailVerificationCode;
 import com.alicia.cloudstorage.identity.entity.EmailVerificationPurpose;
 import com.alicia.cloudstorage.identity.entity.IdentityUser;
-import com.alicia.cloudstorage.identity.entity.IdentityUserRole;
-import com.alicia.cloudstorage.identity.entity.IdentityUserStatus;
 import com.alicia.cloudstorage.identity.mail.EmailSender;
 import com.alicia.cloudstorage.identity.repository.EmailVerificationCodeRepository;
 import com.alicia.cloudstorage.identity.repository.IdentityUserRepository;
@@ -51,7 +49,7 @@ class IdentityEmailRegistrationServiceTest {
     private PasswordEncoder passwordEncoder;
 
     @Mock
-    private IdentityCredentialService identityCredentialService;
+    private IdentityUserCreationService identityUserCreationService;
 
     @Mock
     private EmailSender emailSender;
@@ -70,8 +68,8 @@ class IdentityEmailRegistrationServiceTest {
                 verificationCodeRepository,
                 identityUserRepository,
                 passwordEncoder,
-                identityCredentialService,
                 identityUserInputNormalizer,
+                identityUserCreationService,
                 emailSender,
                 identityTokenService,
                 FIXED_CLOCK
@@ -143,13 +141,12 @@ class IdentityEmailRegistrationServiceTest {
         )).thenReturn(Optional.of(latestCode));
         when(passwordEncoder.matches("123456", "hashed-code")).thenReturn(true);
         when(identityUserRepository.existsByEmail("newuser@example.com")).thenReturn(false);
-        when(identityCredentialService.encodeInitialPassword("Passw0rd")).thenReturn("password-hash");
-        when(identityUserRepository.save(any(IdentityUser.class))).thenAnswer(invocation -> {
-            IdentityUser user = invocation.getArgument(0);
-            ReflectionTestUtils.setField(user, "id", 88L);
-            ReflectionTestUtils.setField(user, "createdAt", NOW);
-            return user;
-        });
+        when(identityUserCreationService.createVerifiedEmailUser(
+                "newuser@example.com",
+                "New User",
+                "Passw0rd",
+                NOW
+        )).thenReturn(identityUser(88L));
         when(identityTokenService.createToken(any(IdentityUser.class))).thenReturn("token");
 
         var response = service.verifyRegistration(
@@ -162,18 +159,12 @@ class IdentityEmailRegistrationServiceTest {
         assertThat(response.user().role()).isEqualTo("USER");
         assertThat(latestCode.getConsumedAt()).isEqualTo(NOW);
         verify(verificationCodeRepository).save(latestCode);
-
-        ArgumentCaptor<IdentityUser> userCaptor = ArgumentCaptor.forClass(IdentityUser.class);
-        verify(identityUserRepository).save(userCaptor.capture());
-        IdentityUser savedUser = userCaptor.getValue();
-        assertThat(savedUser.getPhoneNumber()).isNull();
-        assertThat(savedUser.getEmail()).isEqualTo("newuser@example.com");
-        assertThat(savedUser.getEmailVerifiedAt()).isEqualTo(NOW);
-        assertThat(savedUser.getNickname()).isEqualTo("New User");
-        assertThat(savedUser.getPasswordHash()).isEqualTo("password-hash");
-        assertThat(savedUser.getTokenVersion()).isEqualTo(0L);
-        assertThat(savedUser.getRole()).isEqualTo(IdentityUserRole.USER);
-        assertThat(savedUser.getStatus()).isEqualTo(IdentityUserStatus.ACTIVE);
+        verify(identityUserCreationService).createVerifiedEmailUser(
+                "newuser@example.com",
+                "New User",
+                "Passw0rd",
+                NOW
+        );
     }
 
     @Test
@@ -194,7 +185,7 @@ class IdentityEmailRegistrationServiceTest {
 
         assertThat(latestCode.getAttempts()).isEqualTo(1);
         verify(verificationCodeRepository).save(latestCode);
-        verify(identityUserRepository, never()).save(any(IdentityUser.class));
+        verify(identityUserCreationService, never()).createVerifiedEmailUser(anyString(), anyString(), anyString(), any());
     }
 
     private EmailVerificationCode activeCode() {
@@ -207,5 +198,16 @@ class IdentityEmailRegistrationServiceTest {
         latestCode.setExpiresAt(NOW.plusMinutes(5));
         latestCode.setResendAfter(NOW.minusSeconds(1));
         return latestCode;
+    }
+
+    private IdentityUser identityUser(Long id) {
+        IdentityUser user = new IdentityUser();
+        ReflectionTestUtils.setField(user, "id", id);
+        ReflectionTestUtils.setField(user, "email", "newuser@example.com");
+        ReflectionTestUtils.setField(user, "nickname", "New User");
+        ReflectionTestUtils.setField(user, "role", com.alicia.cloudstorage.identity.entity.IdentityUserRole.USER);
+        ReflectionTestUtils.setField(user, "status", com.alicia.cloudstorage.identity.entity.IdentityUserStatus.ACTIVE);
+        ReflectionTestUtils.setField(user, "createdAt", NOW);
+        return user;
     }
 }

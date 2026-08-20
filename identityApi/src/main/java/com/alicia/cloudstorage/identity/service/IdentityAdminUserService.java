@@ -4,8 +4,6 @@ import com.alicia.cloudstorage.identity.dto.AdminCreateIdentityUserRequest;
 import com.alicia.cloudstorage.identity.dto.AdminResetUserPasswordRequest;
 import com.alicia.cloudstorage.identity.dto.IdentityUserResponse;
 import com.alicia.cloudstorage.identity.entity.IdentityUser;
-import com.alicia.cloudstorage.identity.entity.IdentityUserRole;
-import com.alicia.cloudstorage.identity.entity.IdentityUserStatus;
 import com.alicia.cloudstorage.identity.repository.IdentityUserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,18 +17,18 @@ public class IdentityAdminUserService {
     private final IdentityPrincipalService identityPrincipalService;
     private final IdentityUserRepository identityUserRepository;
     private final IdentityCredentialService identityCredentialService;
-    private final IdentityUserInputNormalizer identityUserInputNormalizer;
+    private final IdentityUserCreationService identityUserCreationService;
 
     public IdentityAdminUserService(
             IdentityPrincipalService identityPrincipalService,
             IdentityUserRepository identityUserRepository,
             IdentityCredentialService identityCredentialService,
-            IdentityUserInputNormalizer identityUserInputNormalizer
+            IdentityUserCreationService identityUserCreationService
     ) {
         this.identityPrincipalService = identityPrincipalService;
         this.identityUserRepository = identityUserRepository;
         this.identityCredentialService = identityCredentialService;
-        this.identityUserInputNormalizer = identityUserInputNormalizer;
+        this.identityUserCreationService = identityUserCreationService;
     }
 
     @Transactional(readOnly = true)
@@ -46,38 +44,7 @@ public class IdentityAdminUserService {
             AdminCreateIdentityUserRequest request
     ) {
         identityPrincipalService.requireAdminUser(authorizationHeader);
-
-        String phoneNumber = identityUserInputNormalizer.normalizeOptionalPhoneNumber(request.phoneNumber());
-        String email = identityUserInputNormalizer.normalizeOptionalEmail(request.email());
-        String nickname = identityUserInputNormalizer.normalizeNickname(request.nickname());
-        String passwordHash = identityCredentialService.encodeInitialPassword(request.password());
-        String avatarUrl = identityUserInputNormalizer.normalizeAvatarUrl(request.avatarUrl());
-        IdentityUserRole role = identityUserInputNormalizer.normalizeRole(request.role());
-
-        if (phoneNumber == null && email == null) {
-            throw new IllegalArgumentException("手机号或邮箱不能为空。");
-        }
-
-        if (phoneNumber != null && identityUserRepository.existsByPhoneNumber(phoneNumber)) {
-            throw new IllegalArgumentException("手机号已被其他账户使用。");
-        }
-
-        if (email != null && identityUserRepository.existsByEmail(email)) {
-            throw new IllegalArgumentException("邮箱已注册，请直接登录。");
-        }
-
-        IdentityUser user = new IdentityUser();
-        user.setPhoneNumber(phoneNumber);
-        user.setEmail(email);
-        user.setEmailVerifiedAt(null);
-        user.setNickname(nickname);
-        user.setAvatarUrl(avatarUrl);
-        user.setPasswordHash(passwordHash);
-        user.setTokenVersion(0L);
-        user.setRole(role);
-        user.setStatus(IdentityUserStatus.ACTIVE);
-
-        return IdentityUserResponse.from(identityUserRepository.save(user));
+        return IdentityUserResponse.from(identityUserCreationService.createAdminManagedUser(request));
     }
 
     public void resetUserPassword(

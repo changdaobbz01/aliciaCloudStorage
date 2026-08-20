@@ -1,16 +1,14 @@
 package com.alicia.cloudstorage.identity.service;
 
 import com.alicia.cloudstorage.identity.dto.IdentityLoginResponse;
+import com.alicia.cloudstorage.identity.dto.IdentityUserResponse;
 import com.alicia.cloudstorage.identity.dto.VerifyEmailRegistrationRequest;
 import com.alicia.cloudstorage.identity.entity.EmailVerificationCode;
 import com.alicia.cloudstorage.identity.entity.EmailVerificationPurpose;
 import com.alicia.cloudstorage.identity.entity.IdentityUser;
-import com.alicia.cloudstorage.identity.entity.IdentityUserRole;
-import com.alicia.cloudstorage.identity.entity.IdentityUserStatus;
 import com.alicia.cloudstorage.identity.mail.EmailSender;
 import com.alicia.cloudstorage.identity.repository.EmailVerificationCodeRepository;
 import com.alicia.cloudstorage.identity.repository.IdentityUserRepository;
-import com.alicia.cloudstorage.identity.dto.IdentityUserResponse;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,8 +34,8 @@ public class IdentityEmailRegistrationService {
     private final EmailVerificationCodeRepository verificationCodeRepository;
     private final IdentityUserRepository identityUserRepository;
     private final PasswordEncoder passwordEncoder;
-    private final IdentityCredentialService identityCredentialService;
     private final IdentityUserInputNormalizer identityUserInputNormalizer;
+    private final IdentityUserCreationService identityUserCreationService;
     private final EmailSender emailSender;
     private final IdentityTokenService identityTokenService;
     private final Clock clock;
@@ -46,8 +44,8 @@ public class IdentityEmailRegistrationService {
             EmailVerificationCodeRepository verificationCodeRepository,
             IdentityUserRepository identityUserRepository,
             PasswordEncoder passwordEncoder,
-            IdentityCredentialService identityCredentialService,
             IdentityUserInputNormalizer identityUserInputNormalizer,
+            IdentityUserCreationService identityUserCreationService,
             EmailSender emailSender,
             IdentityTokenService identityTokenService,
             Clock clock
@@ -55,8 +53,8 @@ public class IdentityEmailRegistrationService {
         this.verificationCodeRepository = verificationCodeRepository;
         this.identityUserRepository = identityUserRepository;
         this.passwordEncoder = passwordEncoder;
-        this.identityCredentialService = identityCredentialService;
         this.identityUserInputNormalizer = identityUserInputNormalizer;
+        this.identityUserCreationService = identityUserCreationService;
         this.emailSender = emailSender;
         this.identityTokenService = identityTokenService;
         this.clock = clock;
@@ -124,29 +122,16 @@ public class IdentityEmailRegistrationService {
         verificationCode.setConsumedAt(now);
         verificationCodeRepository.save(verificationCode);
 
-        IdentityUser user = createVerifiedEmailUser(email, request.nickname(), request.password(), now);
+        IdentityUser user = identityUserCreationService.createVerifiedEmailUser(
+                email,
+                request.nickname(),
+                request.password(),
+                now
+        );
         return new IdentityLoginResponse(
                 identityTokenService.createToken(user),
                 IdentityUserResponse.from(user)
         );
-    }
-
-    private IdentityUser createVerifiedEmailUser(String email, String nickname, String password, LocalDateTime verifiedAt) {
-        String normalizedNickname = identityUserInputNormalizer.normalizeNickname(nickname);
-        String passwordHash = identityCredentialService.encodeInitialPassword(password);
-
-        IdentityUser user = new IdentityUser();
-        user.setPhoneNumber(null);
-        user.setEmail(email);
-        user.setEmailVerifiedAt(verifiedAt);
-        user.setNickname(normalizedNickname);
-        user.setAvatarUrl(null);
-        user.setPasswordHash(passwordHash);
-        user.setTokenVersion(0L);
-        user.setRole(IdentityUserRole.USER);
-        user.setStatus(IdentityUserStatus.ACTIVE);
-
-        return identityUserRepository.save(user);
     }
 
     private boolean isUsable(EmailVerificationCode verificationCode, LocalDateTime now) {
