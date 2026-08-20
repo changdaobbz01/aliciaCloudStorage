@@ -23,7 +23,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class IdentityRegistrationCompatibilityServiceTest {
+class IdentityEmailRegistrationCompatibilityServiceTest {
 
     @Mock
     private IdentityAuthGateway identityAuthGateway;
@@ -32,7 +32,7 @@ class IdentityRegistrationCompatibilityServiceTest {
     private CloudUserProfileService cloudUserProfileService;
 
     @InjectMocks
-    private IdentityRegistrationCompatibilityService service;
+    private IdentityEmailRegistrationCompatibilityService service;
 
     @Test
     void requestRegistrationCodeDelegatesToIdentityApiGatewayWithClientMetadata() {

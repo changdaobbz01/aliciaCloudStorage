@@ -10,12 +10,15 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Transactional
-public class IdentityRegistrationCompatibilityService {
+public class IdentityEmailRegistrationCompatibilityService {
 
     private final IdentityAuthGateway identityAuthGateway;
     private final CloudUserProfileService cloudUserProfileService;
 
-    public IdentityRegistrationCompatibilityService(
+    /**
+     * 适配旧版邮箱注册接口，身份创建由 identityApi 完成，云盘只初始化 profile。
+     */
+    public IdentityEmailRegistrationCompatibilityService(
             IdentityAuthGateway identityAuthGateway,
             CloudUserProfileService cloudUserProfileService
     ) {

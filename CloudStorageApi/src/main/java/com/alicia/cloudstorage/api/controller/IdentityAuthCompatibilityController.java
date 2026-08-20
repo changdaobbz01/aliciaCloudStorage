@@ -11,7 +11,7 @@ import com.alicia.cloudstorage.api.dto.UpdateProfileRequest;
 import com.alicia.cloudstorage.api.dto.UserProfileResponse;
 import com.alicia.cloudstorage.api.dto.VerifyEmailRegistrationRequest;
 import com.alicia.cloudstorage.api.service.IdentityAuthCompatibilityService;
-import com.alicia.cloudstorage.api.service.IdentityRegistrationCompatibilityService;
+import com.alicia.cloudstorage.api.service.IdentityEmailRegistrationCompatibilityService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpHeaders;
@@ -39,17 +39,17 @@ public class IdentityAuthCompatibilityController {
     private static final String SIGNED_MEDIA_REDIRECT_CACHE_CONTROL = "private, max-age=240";
 
     private final IdentityAuthCompatibilityService identityAuthCompatibilityService;
-    private final IdentityRegistrationCompatibilityService identityRegistrationCompatibilityService;
+    private final IdentityEmailRegistrationCompatibilityService identityEmailRegistrationCompatibilityService;
 
     /**
      * 保留旧版 /api/auth/** 合约，同时将身份读写委托给 identityApi。
      */
     public IdentityAuthCompatibilityController(
             IdentityAuthCompatibilityService identityAuthCompatibilityService,
-            IdentityRegistrationCompatibilityService identityRegistrationCompatibilityService
+            IdentityEmailRegistrationCompatibilityService identityEmailRegistrationCompatibilityService
     ) {
         this.identityAuthCompatibilityService = identityAuthCompatibilityService;
-        this.identityRegistrationCompatibilityService = identityRegistrationCompatibilityService;
+        this.identityEmailRegistrationCompatibilityService = identityEmailRegistrationCompatibilityService;
     }
 
     /**
@@ -65,7 +65,7 @@ public class IdentityAuthCompatibilityController {
             @Valid @RequestBody RequestEmailRegistrationCodeRequest request,
             HttpServletRequest servletRequest
     ) {
-        identityRegistrationCompatibilityService.requestRegistrationCode(
+        identityEmailRegistrationCompatibilityService.requestRegistrationCode(
                 request.email(),
                 servletRequest.getRemoteAddr(),
                 servletRequest.getHeader(HttpHeaders.USER_AGENT)
@@ -75,7 +75,7 @@ public class IdentityAuthCompatibilityController {
 
     @PostMapping("/register/verify")
     public LoginResponse verifyEmailRegistration(@Valid @RequestBody VerifyEmailRegistrationRequest request) {
-        return identityRegistrationCompatibilityService.verifyRegistration(request);
+        return identityEmailRegistrationCompatibilityService.verifyRegistration(request);
     }
 
     /**
