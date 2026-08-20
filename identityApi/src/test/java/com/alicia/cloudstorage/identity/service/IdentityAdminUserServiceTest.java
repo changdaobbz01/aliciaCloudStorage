@@ -1,7 +1,6 @@
 package com.alicia.cloudstorage.identity.service;
 
 import com.alicia.cloudstorage.identity.dto.AdminCreateIdentityUserRequest;
-import com.alicia.cloudstorage.identity.dto.AdminResetUserPasswordRequest;
 import com.alicia.cloudstorage.identity.entity.IdentityUser;
 import com.alicia.cloudstorage.identity.entity.IdentityUserRole;
 import com.alicia.cloudstorage.identity.entity.IdentityUserStatus;
@@ -15,14 +14,9 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -34,9 +28,6 @@ class IdentityAdminUserServiceTest {
 
     @Mock
     private IdentityUserRepository identityUserRepository;
-
-    @Mock
-    private IdentityCredentialService identityCredentialService;
 
     @Mock
     private IdentityUserCreationService identityUserCreationService;
@@ -90,90 +81,6 @@ class IdentityAdminUserServiceTest {
         verify(identityUserCreationService).createAdminManagedUser(request);
         assertThat(response.id()).isEqualTo(72L);
         assertThat(response.phoneNumber()).isEqualTo("13800000001");
-    }
-
-    @Test
-    void resetUserPasswordUpdatesTargetPasswordAndInvalidatesTokens() {
-        IdentityUser admin = identityUser(1L, IdentityUserRole.ADMIN, 0L);
-        IdentityUser target = identityUser(64L, IdentityUserRole.USER, 2L);
-        target.setPasswordHash("current-hash");
-
-        when(identityPrincipalService.requireAdminUser("Bearer admin-token")).thenReturn(admin);
-        when(identityUserRepository.findById(64L)).thenReturn(Optional.of(target));
-        doAnswer(invocation -> {
-            target.setPasswordHash("reset-hash");
-            target.setTokenVersion(3L);
-            return null;
-        }).when(identityCredentialService).resetPassword(target, "ResetPass1");
-
-        identityAdminUserService.resetUserPassword(
-                "Bearer admin-token",
-                64L,
-                new AdminResetUserPasswordRequest("ResetPass1")
-        );
-
-        assertThat(target.getPasswordHash()).isEqualTo("reset-hash");
-        assertThat(target.getTokenVersion()).isEqualTo(3L);
-        verify(identityUserRepository).save(target);
-    }
-
-    @Test
-    void resetUserPasswordRejectsResettingCurrentAdmin() {
-        IdentityUser admin = identityUser(5L, IdentityUserRole.ADMIN, 0L);
-
-        when(identityPrincipalService.requireAdminUser("Bearer admin-token")).thenReturn(admin);
-
-        assertThatThrownBy(() -> identityAdminUserService.resetUserPassword(
-                "Bearer admin-token",
-                5L,
-                new AdminResetUserPasswordRequest("ResetPass1")
-        )).isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("当前接口仅用于重置其他用户密码，请使用修改密码功能。");
-
-        verify(identityUserRepository, never()).findById(5L);
-    }
-
-    @Test
-    void resetUserPasswordRejectsShortNewPassword() {
-        IdentityUser admin = identityUser(1L, IdentityUserRole.ADMIN, 0L);
-        IdentityUser target = identityUser(64L, IdentityUserRole.USER, 2L);
-
-        when(identityPrincipalService.requireAdminUser("Bearer admin-token")).thenReturn(admin);
-        when(identityUserRepository.findById(64L)).thenReturn(Optional.of(target));
-        doThrow(new IllegalArgumentException("新密码长度至少为 6 位。"))
-                .when(identityCredentialService)
-                .resetPassword(target, "short");
-
-        assertThatThrownBy(() -> identityAdminUserService.resetUserPassword(
-                "Bearer admin-token",
-                64L,
-                new AdminResetUserPasswordRequest("short")
-        )).isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("新密码长度至少为 6 位。");
-
-        verify(identityUserRepository, never()).save(target);
-    }
-
-    @Test
-    void resetUserPasswordRejectsSameCurrentPassword() {
-        IdentityUser admin = identityUser(1L, IdentityUserRole.ADMIN, 0L);
-        IdentityUser target = identityUser(64L, IdentityUserRole.USER, 2L);
-        target.setPasswordHash("current-hash");
-
-        when(identityPrincipalService.requireAdminUser("Bearer admin-token")).thenReturn(admin);
-        when(identityUserRepository.findById(64L)).thenReturn(Optional.of(target));
-        doThrow(new IllegalArgumentException("新密码不能与当前密码相同。"))
-                .when(identityCredentialService)
-                .resetPassword(target, "ResetPass1");
-
-        assertThatThrownBy(() -> identityAdminUserService.resetUserPassword(
-                "Bearer admin-token",
-                64L,
-                new AdminResetUserPasswordRequest("ResetPass1")
-        )).isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("新密码不能与当前密码相同。");
-
-        verify(identityUserRepository, never()).save(target);
     }
 
     private IdentityUser identityUser(Long id, IdentityUserRole role, Long tokenVersion) {

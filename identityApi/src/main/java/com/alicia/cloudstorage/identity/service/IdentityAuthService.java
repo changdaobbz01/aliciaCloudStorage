@@ -1,6 +1,5 @@
 package com.alicia.cloudstorage.identity.service;
 
-import com.alicia.cloudstorage.identity.dto.ChangePasswordRequest;
 import com.alicia.cloudstorage.identity.dto.IdentityLoginRequest;
 import com.alicia.cloudstorage.identity.dto.IdentityLoginResponse;
 import com.alicia.cloudstorage.identity.dto.IdentityUserResponse;
@@ -59,13 +58,6 @@ public class IdentityAuthService {
 
     public IdentityUserResponse me(String authorizationHeader) {
         return IdentityUserResponse.from(identityPrincipalService.requireActiveUser(authorizationHeader));
-    }
-
-    @Transactional
-    public void changePassword(String authorizationHeader, ChangePasswordRequest request) {
-        IdentityUser user = identityPrincipalService.requireActiveUser(authorizationHeader);
-        identityCredentialService.changePassword(user, request.oldPassword(), request.newPassword());
-        identityUserRepository.save(user);
     }
 
     private LoginIdentifier normalizeLoginIdentifier(IdentityLoginRequest request) {

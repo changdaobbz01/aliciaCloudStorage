@@ -3,6 +3,7 @@ package com.alicia.cloudstorage.identity.controller;
 import com.alicia.cloudstorage.identity.dto.AdminCreateIdentityUserRequest;
 import com.alicia.cloudstorage.identity.dto.IdentityUserResponse;
 import com.alicia.cloudstorage.identity.service.IdentityAdminUserService;
+import com.alicia.cloudstorage.identity.service.IdentityPasswordService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -32,6 +33,9 @@ class IdentityAdminUserControllerTest {
 
     @MockitoBean
     private IdentityAdminUserService identityAdminUserService;
+
+    @MockitoBean
+    private IdentityPasswordService identityPasswordService;
 
     @Test
     void listUsersReturnsIdentityUsersWithoutPasswordHash() throws Exception {
@@ -85,7 +89,7 @@ class IdentityAdminUserControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("用户密码已重置，旧登录状态已失效。"));
 
-        verify(identityAdminUserService).resetUserPassword(
+        verify(identityPasswordService).resetUserPassword(
                 eq("Bearer admin-token"),
                 eq(64L),
                 any()

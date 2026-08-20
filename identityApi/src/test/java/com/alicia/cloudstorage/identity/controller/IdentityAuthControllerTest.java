@@ -6,6 +6,7 @@ import com.alicia.cloudstorage.identity.dto.IdentityUserResponse;
 import com.alicia.cloudstorage.identity.dto.VerifyEmailRegistrationRequest;
 import com.alicia.cloudstorage.identity.service.IdentityAuthService;
 import com.alicia.cloudstorage.identity.service.IdentityEmailRegistrationService;
+import com.alicia.cloudstorage.identity.service.IdentityPasswordService;
 import com.alicia.cloudstorage.identity.service.IdentityProfileService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,6 +38,9 @@ class IdentityAuthControllerTest {
 
     @MockitoBean
     private IdentityEmailRegistrationService identityEmailRegistrationService;
+
+    @MockitoBean
+    private IdentityPasswordService identityPasswordService;
 
     @MockitoBean
     private IdentityProfileService identityProfileService;
@@ -143,7 +147,7 @@ class IdentityAuthControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("密码修改成功。"));
 
-        verify(identityAuthService).changePassword(
+        verify(identityPasswordService).changePassword(
                 org.mockito.ArgumentMatchers.eq("Bearer token"),
                 any()
         );

@@ -1,6 +1,5 @@
 package com.alicia.cloudstorage.identity.service;
 
-import com.alicia.cloudstorage.identity.dto.ChangePasswordRequest;
 import com.alicia.cloudstorage.identity.dto.IdentityLoginRequest;
 import com.alicia.cloudstorage.identity.entity.IdentityUser;
 import com.alicia.cloudstorage.identity.entity.IdentityUserRole;
@@ -19,10 +18,6 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -119,81 +114,6 @@ class IdentityAuthServiceTest {
         assertThatThrownBy(() -> identityAuthService.me("Bearer token"))
                 .isInstanceOf(IdentityAuthException.class)
                 .hasMessage("登录状态已失效。");
-    }
-
-    @Test
-    void changePasswordUpdatesPasswordHashAndInvalidatesTokens() {
-        IdentityUser user = identityUser(18L, IdentityUserStatus.ACTIVE);
-
-        when(identityPrincipalService.requireActiveUser("Bearer token")).thenReturn(user);
-        doAnswer(invocation -> {
-            user.setPasswordHash("new-hash");
-            user.setTokenVersion(3L);
-            return null;
-        }).when(identityCredentialService).changePassword(user, "OldPass1", "NewPass1");
-
-        identityAuthService.changePassword(
-                "Bearer token",
-                new ChangePasswordRequest("OldPass1", "NewPass1")
-        );
-
-        assertThat(user.getPasswordHash()).isEqualTo("new-hash");
-        assertThat(user.getTokenVersion()).isEqualTo(3L);
-        verify(identityUserRepository).save(user);
-    }
-
-    @Test
-    void changePasswordRejectsIncorrectOldPassword() {
-        IdentityUser user = identityUser(18L, IdentityUserStatus.ACTIVE);
-
-        when(identityPrincipalService.requireActiveUser("Bearer token")).thenReturn(user);
-        doThrow(new IllegalArgumentException("旧密码不正确。"))
-                .when(identityCredentialService)
-                .changePassword(user, "wrong", "NewPass1");
-
-        assertThatThrownBy(() -> identityAuthService.changePassword(
-                "Bearer token",
-                new ChangePasswordRequest("wrong", "NewPass1")
-        )).isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("旧密码不正确。");
-
-        verify(identityUserRepository, never()).save(user);
-    }
-
-    @Test
-    void changePasswordRejectsShortNewPassword() {
-        IdentityUser user = identityUser(18L, IdentityUserStatus.ACTIVE);
-
-        when(identityPrincipalService.requireActiveUser("Bearer token")).thenReturn(user);
-        doThrow(new IllegalArgumentException("新密码长度至少为 6 位。"))
-                .when(identityCredentialService)
-                .changePassword(user, "OldPass1", "short");
-
-        assertThatThrownBy(() -> identityAuthService.changePassword(
-                "Bearer token",
-                new ChangePasswordRequest("OldPass1", "short")
-        )).isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("新密码长度至少为 6 位。");
-
-        verify(identityUserRepository, never()).save(user);
-    }
-
-    @Test
-    void changePasswordRejectsSamePassword() {
-        IdentityUser user = identityUser(18L, IdentityUserStatus.ACTIVE);
-
-        when(identityPrincipalService.requireActiveUser("Bearer token")).thenReturn(user);
-        doThrow(new IllegalArgumentException("新密码不能与旧密码相同。"))
-                .when(identityCredentialService)
-                .changePassword(user, "SamePass1", "SamePass1");
-
-        assertThatThrownBy(() -> identityAuthService.changePassword(
-                "Bearer token",
-                new ChangePasswordRequest("SamePass1", "SamePass1")
-        )).isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("新密码不能与旧密码相同。");
-
-        verify(identityUserRepository, never()).save(user);
     }
 
     private IdentityUser identityUser(Long id, IdentityUserStatus status) {

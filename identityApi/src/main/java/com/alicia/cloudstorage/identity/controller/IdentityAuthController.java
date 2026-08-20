@@ -10,6 +10,7 @@ import com.alicia.cloudstorage.identity.dto.UpdateIdentityProfileRequest;
 import com.alicia.cloudstorage.identity.dto.VerifyEmailRegistrationRequest;
 import com.alicia.cloudstorage.identity.service.IdentityAuthService;
 import com.alicia.cloudstorage.identity.service.IdentityEmailRegistrationService;
+import com.alicia.cloudstorage.identity.service.IdentityPasswordService;
 import com.alicia.cloudstorage.identity.service.IdentityProfileService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -30,15 +31,18 @@ public class IdentityAuthController {
 
     private final IdentityAuthService identityAuthService;
     private final IdentityEmailRegistrationService identityEmailRegistrationService;
+    private final IdentityPasswordService identityPasswordService;
     private final IdentityProfileService identityProfileService;
 
     public IdentityAuthController(
             IdentityAuthService identityAuthService,
             IdentityEmailRegistrationService identityEmailRegistrationService,
+            IdentityPasswordService identityPasswordService,
             IdentityProfileService identityProfileService
     ) {
         this.identityAuthService = identityAuthService;
         this.identityEmailRegistrationService = identityEmailRegistrationService;
+        this.identityPasswordService = identityPasswordService;
         this.identityProfileService = identityProfileService;
     }
 
@@ -65,7 +69,7 @@ public class IdentityAuthController {
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
             @Valid @RequestBody ChangePasswordRequest request
     ) {
-        identityAuthService.changePassword(authorization, request);
+        identityPasswordService.changePassword(authorization, request);
         return new IdentityMessageResponse("密码修改成功。");
     }
 

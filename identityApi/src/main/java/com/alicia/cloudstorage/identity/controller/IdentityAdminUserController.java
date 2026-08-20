@@ -5,6 +5,7 @@ import com.alicia.cloudstorage.identity.dto.AdminResetUserPasswordRequest;
 import com.alicia.cloudstorage.identity.dto.IdentityMessageResponse;
 import com.alicia.cloudstorage.identity.dto.IdentityUserResponse;
 import com.alicia.cloudstorage.identity.service.IdentityAdminUserService;
+import com.alicia.cloudstorage.identity.service.IdentityPasswordService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpHeaders;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,9 +24,14 @@ import java.util.List;
 public class IdentityAdminUserController {
 
     private final IdentityAdminUserService identityAdminUserService;
+    private final IdentityPasswordService identityPasswordService;
 
-    public IdentityAdminUserController(IdentityAdminUserService identityAdminUserService) {
+    public IdentityAdminUserController(
+            IdentityAdminUserService identityAdminUserService,
+            IdentityPasswordService identityPasswordService
+    ) {
         this.identityAdminUserService = identityAdminUserService;
+        this.identityPasswordService = identityPasswordService;
     }
 
     @GetMapping
@@ -49,7 +55,7 @@ public class IdentityAdminUserController {
             @PathVariable Long userId,
             @Valid @RequestBody AdminResetUserPasswordRequest request
     ) {
-        identityAdminUserService.resetUserPassword(authorization, userId, request);
+        identityPasswordService.resetUserPassword(authorization, userId, request);
         return new IdentityMessageResponse("用户密码已重置，旧登录状态已失效。");
     }
 }
