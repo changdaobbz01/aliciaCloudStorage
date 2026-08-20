@@ -1,7 +1,7 @@
 package com.alicia.cloudstorage.api.auth;
 
 import com.alicia.cloudstorage.api.identity.IdentityAuthGateway;
-import com.alicia.cloudstorage.api.service.IdentityAccount;
+import com.alicia.cloudstorage.api.identity.IdentityAccount;
 import org.springframework.stereotype.Service;
 
 @Service

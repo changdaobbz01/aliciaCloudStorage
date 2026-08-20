@@ -1,5 +1,7 @@
 package com.alicia.cloudstorage.api.service;
 
+import com.alicia.cloudstorage.api.identity.IdentityLoginSession;
+import com.alicia.cloudstorage.api.identity.IdentityAccount;
 import com.alicia.cloudstorage.api.dto.ChangePasswordRequest;
 import com.alicia.cloudstorage.api.dto.LoginRequest;
 import com.alicia.cloudstorage.api.dto.LoginResponse;

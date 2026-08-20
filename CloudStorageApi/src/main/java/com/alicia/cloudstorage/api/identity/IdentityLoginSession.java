@@ -1,4 +1,4 @@
-package com.alicia.cloudstorage.api.service;
+package com.alicia.cloudstorage.api.identity;
 
 public record IdentityLoginSession(
         String token,

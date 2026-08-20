@@ -1,6 +1,5 @@
 package com.alicia.cloudstorage.api.identity;
 
-import com.alicia.cloudstorage.api.service.IdentityAccount;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;

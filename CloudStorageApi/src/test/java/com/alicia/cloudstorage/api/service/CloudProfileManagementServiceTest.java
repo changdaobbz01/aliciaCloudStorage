@@ -1,5 +1,6 @@
 package com.alicia.cloudstorage.api.service;
 
+import com.alicia.cloudstorage.api.identity.IdentityAccount;
 import com.alicia.cloudstorage.api.dto.UserProfileResponse;
 import com.alicia.cloudstorage.api.entity.UserRole;
 import com.alicia.cloudstorage.api.entity.UserStatus;

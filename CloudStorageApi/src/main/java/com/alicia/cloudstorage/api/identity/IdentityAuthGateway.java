@@ -5,8 +5,6 @@ import com.alicia.cloudstorage.api.dto.LoginRequest;
 import com.alicia.cloudstorage.api.dto.RequestEmailRegistrationCodeRequest;
 import com.alicia.cloudstorage.api.dto.UpdateProfileRequest;
 import com.alicia.cloudstorage.api.dto.VerifyEmailRegistrationRequest;
-import com.alicia.cloudstorage.api.service.IdentityAccount;
-import com.alicia.cloudstorage.api.service.IdentityLoginSession;
 
 public interface IdentityAuthGateway {
 

@@ -2,7 +2,6 @@ package com.alicia.cloudstorage.api.identity;
 
 import com.alicia.cloudstorage.api.dto.AdminCreateUserRequest;
 import com.alicia.cloudstorage.api.dto.AdminResetUserPasswordRequest;
-import com.alicia.cloudstorage.api.service.IdentityAccount;
 
 import java.util.List;
 

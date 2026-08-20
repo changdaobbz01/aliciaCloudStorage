@@ -1,5 +1,6 @@
 package com.alicia.cloudstorage.api.service;
 
+import com.alicia.cloudstorage.api.identity.IdentityAccount;
 import com.alicia.cloudstorage.api.dto.UserProfileResponse;
 import com.alicia.cloudstorage.api.identity.IdentityUserGateway;
 import org.springframework.stereotype.Service;

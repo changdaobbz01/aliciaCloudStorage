@@ -5,8 +5,6 @@ import com.alicia.cloudstorage.api.dto.LoginRequest;
 import com.alicia.cloudstorage.api.dto.RequestEmailRegistrationCodeRequest;
 import com.alicia.cloudstorage.api.dto.UpdateProfileRequest;
 import com.alicia.cloudstorage.api.dto.VerifyEmailRegistrationRequest;
-import com.alicia.cloudstorage.api.service.IdentityAccount;
-import com.alicia.cloudstorage.api.service.IdentityLoginSession;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Service;

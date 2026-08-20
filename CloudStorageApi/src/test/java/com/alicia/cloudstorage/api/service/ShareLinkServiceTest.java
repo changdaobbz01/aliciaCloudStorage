@@ -1,5 +1,6 @@
 package com.alicia.cloudstorage.api.service;
 
+import com.alicia.cloudstorage.api.identity.IdentityAccount;
 import com.alicia.cloudstorage.api.dto.CreateShareLinkRequest;
 import com.alicia.cloudstorage.api.dto.SaveShareLinkRequest;
 import com.alicia.cloudstorage.api.dto.StorageNodeSummaryResponse;
