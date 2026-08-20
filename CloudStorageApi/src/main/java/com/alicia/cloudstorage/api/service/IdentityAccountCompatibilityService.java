@@ -15,14 +15,14 @@ import java.io.InputStream;
 
 @Service
 @Transactional
-public class UserAccountService {
+public class IdentityAccountCompatibilityService {
 
     private final IdentityAuthGateway identityAuthGateway;
     private final IdentityUserGateway identityUserGateway;
     private final CloudUserProfileService cloudUserProfileService;
     private final CosFileStorageService cosFileStorageService;
 
-    public UserAccountService(
+    public IdentityAccountCompatibilityService(
             IdentityAuthGateway identityAuthGateway,
             IdentityUserGateway identityUserGateway,
             CloudUserProfileService cloudUserProfileService,

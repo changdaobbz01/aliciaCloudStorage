@@ -27,7 +27,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class UserAccountServiceTest {
+class IdentityAccountCompatibilityServiceTest {
 
     @Mock
     private IdentityAuthGateway identityAuthGateway;
@@ -42,7 +42,7 @@ class UserAccountServiceTest {
     private CosFileStorageService cosFileStorageService;
 
     @InjectMocks
-    private UserAccountService userAccountService;
+    private IdentityAccountCompatibilityService identityAccountCompatibilityService;
 
     @Test
     void loginCombinesIdentitySessionWithCloudProfileResponse() {
@@ -53,7 +53,7 @@ class UserAccountServiceTest {
         when(identityAuthGateway.login(request)).thenReturn(new IdentityLoginSession("token", account));
         when(cloudUserProfileService.toUserProfile(account)).thenReturn(profile);
 
-        var response = userAccountService.login(request);
+        var response = identityAccountCompatibilityService.login(request);
 
         assertThat(response.token()).isEqualTo("token");
         assertThat(response.user()).isSameAs(profile);
@@ -68,7 +68,7 @@ class UserAccountServiceTest {
         when(identityAuthGateway.me("Bearer token")).thenReturn(account);
         when(cloudUserProfileService.getCurrentUser(account)).thenReturn(profile);
 
-        var response = userAccountService.getCurrentUser("Bearer token");
+        var response = identityAccountCompatibilityService.getCurrentUser("Bearer token");
 
         assertThat(response).isSameAs(profile);
         verify(identityAuthGateway).me("Bearer token");
@@ -85,7 +85,7 @@ class UserAccountServiceTest {
         when(identityAuthGateway.updateProfile("Bearer token", request)).thenReturn(account);
         when(cloudUserProfileService.toUserProfile(account)).thenReturn(profile);
 
-        var response = userAccountService.updateCurrentUser("Bearer token", request);
+        var response = identityAccountCompatibilityService.updateCurrentUser("Bearer token", request);
 
         assertThat(response).isSameAs(profile);
         verify(identityAuthGateway).updateProfile("Bearer token", request);
@@ -117,7 +117,7 @@ class UserAccountServiceTest {
                 .thenReturn(updatedAccount);
         when(cloudUserProfileService.toUserProfile(updatedAccount)).thenReturn(profile);
 
-        var response = userAccountService.uploadCurrentUserAvatar("Bearer token", file);
+        var response = identityAccountCompatibilityService.uploadCurrentUserAvatar("Bearer token", file);
 
         ArgumentCaptor<UpdateProfileRequest> requestCaptor = ArgumentCaptor.forClass(UpdateProfileRequest.class);
         verify(identityAuthGateway).updateProfile(eq("Bearer token"), requestCaptor.capture());
@@ -145,7 +145,7 @@ class UserAccountServiceTest {
         when(identityAuthGateway.updateProfile(eq("Bearer token"), any(UpdateProfileRequest.class)))
                 .thenThrow(new IllegalArgumentException("昵称不能为空。"));
 
-        assertThatThrownBy(() -> userAccountService.uploadCurrentUserAvatar("Bearer token", file))
+        assertThatThrownBy(() -> identityAccountCompatibilityService.uploadCurrentUserAvatar("Bearer token", file))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("昵称不能为空。");
 
@@ -169,7 +169,7 @@ class UserAccountServiceTest {
         when(cosFileStorageService.createInlineDownloadUrl("user-avatars/18/avatar.webp", null, null))
                 .thenReturn(signedUrl);
 
-        var response = userAccountService.resolveUserAvatarAccessUrl(18L);
+        var response = identityAccountCompatibilityService.resolveUserAvatarAccessUrl(18L);
 
         assertThat(response).isSameAs(signedUrl);
         verify(identityUserGateway).getUser(18L);
@@ -187,7 +187,7 @@ class UserAccountServiceTest {
 
         when(identityUserGateway.getUser(18L)).thenReturn(account);
 
-        assertThatThrownBy(() -> userAccountService.resolveUserAvatarAccessUrl(18L))
+        assertThatThrownBy(() -> identityAccountCompatibilityService.resolveUserAvatarAccessUrl(18L))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Avatar not found.");
 
@@ -198,7 +198,7 @@ class UserAccountServiceTest {
     void changePasswordDelegatesToIdentityApiGateway() {
         ChangePasswordRequest request = new ChangePasswordRequest("OldPass1", "NewPass1");
 
-        userAccountService.changePassword("Bearer token", request);
+        identityAccountCompatibilityService.changePassword("Bearer token", request);
 
         verify(identityAuthGateway).changePassword("Bearer token", request);
     }

@@ -10,8 +10,8 @@ import com.alicia.cloudstorage.api.dto.RequestEmailRegistrationCodeRequest;
 import com.alicia.cloudstorage.api.dto.UpdateProfileRequest;
 import com.alicia.cloudstorage.api.dto.UserProfileResponse;
 import com.alicia.cloudstorage.api.dto.VerifyEmailRegistrationRequest;
-import com.alicia.cloudstorage.api.service.EmailRegistrationService;
-import com.alicia.cloudstorage.api.service.UserAccountService;
+import com.alicia.cloudstorage.api.service.IdentityAccountCompatibilityService;
+import com.alicia.cloudstorage.api.service.IdentityRegistrationCompatibilityService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpHeaders;
@@ -34,30 +34,30 @@ import java.net.URI;
 
 @RestController
 @RequestMapping("/api/auth")
-public class AuthController {
+public class IdentityAuthCompatibilityController {
 
     private static final String SIGNED_MEDIA_REDIRECT_CACHE_CONTROL = "private, max-age=240";
 
-    private final UserAccountService userAccountService;
-    private final EmailRegistrationService emailRegistrationService;
+    private final IdentityAccountCompatibilityService identityAccountCompatibilityService;
+    private final IdentityRegistrationCompatibilityService identityRegistrationCompatibilityService;
 
     /**
-     * 注入账号业务服务，供登录和个人资料接口复用。
+     * 保留旧版 /api/auth/** 合约，同时将身份读写委托给 identityApi。
      */
-    public AuthController(
-            UserAccountService userAccountService,
-            EmailRegistrationService emailRegistrationService
+    public IdentityAuthCompatibilityController(
+            IdentityAccountCompatibilityService identityAccountCompatibilityService,
+            IdentityRegistrationCompatibilityService identityRegistrationCompatibilityService
     ) {
-        this.userAccountService = userAccountService;
-        this.emailRegistrationService = emailRegistrationService;
+        this.identityAccountCompatibilityService = identityAccountCompatibilityService;
+        this.identityRegistrationCompatibilityService = identityRegistrationCompatibilityService;
     }
 
     /**
-     * 使用手机号和密码执行登录，并返回新的访问令牌。
+     * 使用手机号、邮箱或账号标识登录，并返回旧版客户端兼容的用户资料。
      */
     @PostMapping("/login")
     public LoginResponse login(@Valid @RequestBody LoginRequest request) {
-        return userAccountService.login(request);
+        return identityAccountCompatibilityService.login(request);
     }
 
     @PostMapping("/register/email-code")
@@ -65,7 +65,7 @@ public class AuthController {
             @Valid @RequestBody RequestEmailRegistrationCodeRequest request,
             HttpServletRequest servletRequest
     ) {
-        emailRegistrationService.requestRegistrationCode(
+        identityRegistrationCompatibilityService.requestRegistrationCode(
                 request.email(),
                 servletRequest.getRemoteAddr(),
                 servletRequest.getHeader(HttpHeaders.USER_AGENT)
@@ -75,22 +75,22 @@ public class AuthController {
 
     @PostMapping("/register/verify")
     public LoginResponse verifyEmailRegistration(@Valid @RequestBody VerifyEmailRegistrationRequest request) {
-        return emailRegistrationService.verifyRegistration(request);
+        return identityRegistrationCompatibilityService.verifyRegistration(request);
     }
 
     /**
-     * 查询当前登录用户的基础资料信息。
+     * 查询当前登录用户，并合并 identity 账号资料与云盘 profile。
      */
     @GetMapping("/me")
     public UserProfileResponse me(
             @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization
     ) {
-        return userAccountService.getCurrentUser(authorization);
+        return identityAccountCompatibilityService.getCurrentUser(authorization);
     }
 
     /**
-     * 更新当前登录用户的手机号、昵称和头像地址。
+     * 更新当前登录用户的身份资料，并返回云盘兼容响应。
      */
     @PutMapping("/profile")
     public UserProfileResponse updateProfile(
@@ -98,7 +98,7 @@ public class AuthController {
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
             @Valid @RequestBody UpdateProfileRequest request
     ) {
-        return userAccountService.updateCurrentUser(authorization, request);
+        return identityAccountCompatibilityService.updateCurrentUser(authorization, request);
     }
 
     /**
@@ -110,7 +110,7 @@ public class AuthController {
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
             @RequestPart("file") MultipartFile file
     ) {
-        return userAccountService.uploadCurrentUserAvatar(authorization, file);
+        return identityAccountCompatibilityService.uploadCurrentUserAvatar(authorization, file);
     }
 
     /**
@@ -118,7 +118,7 @@ public class AuthController {
      */
     @GetMapping("/avatar/{userId}")
     public ResponseEntity<Void> getAvatar(@PathVariable Long userId) {
-        String accessUrl = userAccountService.resolveUserAvatarAccessUrl(userId).url();
+        String accessUrl = identityAccountCompatibilityService.resolveUserAvatarAccessUrl(userId).url();
         return ResponseEntity.status(HttpStatus.FOUND)
                 .header(HttpHeaders.CACHE_CONTROL, SIGNED_MEDIA_REDIRECT_CACHE_CONTROL)
                 .location(URI.create(accessUrl))
@@ -134,7 +134,7 @@ public class AuthController {
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
             @Valid @RequestBody ChangePasswordRequest request
     ) {
-        userAccountService.changePassword(authorization, request);
+        identityAccountCompatibilityService.changePassword(authorization, request);
         return new ApiMessageResponse("密码修改成功。");
     }
 }
