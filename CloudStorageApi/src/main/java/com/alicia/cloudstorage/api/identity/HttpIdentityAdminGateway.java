@@ -28,14 +28,14 @@ public class HttpIdentityAdminGateway implements IdentityAdminGateway {
 
     @Override
     public List<IdentityAccount> listUsers(String authorization) {
-        IdentityUserPayload[] response = IdentityGatewaySupport.exchange(() -> restClient.get()
+        IdentityUserResponsePayload[] response = IdentityGatewaySupport.exchange(() -> restClient.get()
                 .uri("/api/identity/admin/users")
                 .header(HttpHeaders.AUTHORIZATION, authorization)
                 .retrieve()
-                .body(IdentityUserPayload[].class), objectMapper);
+                .body(IdentityUserResponsePayload[].class), objectMapper);
 
-        return Arrays.stream(response == null ? new IdentityUserPayload[0] : response)
-                .map(IdentityUserPayload::toAccount)
+        return Arrays.stream(response == null ? new IdentityUserResponsePayload[0] : response)
+                .map(IdentityUserResponsePayload::toAccount)
                 .toList();
     }
 
@@ -50,12 +50,12 @@ public class HttpIdentityAdminGateway implements IdentityAdminGateway {
                 request.role()
         );
 
-        IdentityUserPayload response = IdentityGatewaySupport.exchange(() -> restClient.post()
+        IdentityUserResponsePayload response = IdentityGatewaySupport.exchange(() -> restClient.post()
                 .uri("/api/identity/admin/users")
                 .header(HttpHeaders.AUTHORIZATION, authorization)
                 .body(payload)
                 .retrieve()
-                .body(IdentityUserPayload.class), objectMapper);
+                .body(IdentityUserResponsePayload.class), objectMapper);
 
         if (response == null) {
             throw new IllegalStateException("身份服务返回为空。");

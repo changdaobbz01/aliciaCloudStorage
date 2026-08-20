@@ -22,10 +22,10 @@ public class HttpIdentityUserGateway implements IdentityUserGateway {
 
     @Override
     public IdentityAccount getUser(Long userId) {
-        IdentityUserPayload response = IdentityGatewaySupport.exchange(() -> restClient.get()
+        IdentityUserResponsePayload response = IdentityGatewaySupport.exchange(() -> restClient.get()
                 .uri("/api/identity/internal/users/{userId}", userId)
                 .retrieve()
-                .body(IdentityUserPayload.class), objectMapper);
+                .body(IdentityUserResponsePayload.class), objectMapper);
 
         if (response == null) {
             throw new IllegalStateException("身份服务用户查询响应为空。");

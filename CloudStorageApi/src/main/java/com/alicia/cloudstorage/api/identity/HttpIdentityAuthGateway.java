@@ -30,11 +30,11 @@ public class HttpIdentityAuthGateway implements IdentityAuthGateway {
 
     @Override
     public IdentityLoginSession login(LoginRequest request) {
-        IdentityLoginPayload response = IdentityGatewaySupport.exchange(() -> restClient.post()
+        IdentityLoginResponsePayload response = IdentityGatewaySupport.exchange(() -> restClient.post()
                 .uri("/api/identity/auth/login")
                 .body(request)
                 .retrieve()
-                .body(IdentityLoginPayload.class), objectMapper);
+                .body(IdentityLoginResponsePayload.class), objectMapper);
 
         if (response == null) {
             throw new IllegalStateException("身份服务登录响应为空。");
@@ -45,11 +45,11 @@ public class HttpIdentityAuthGateway implements IdentityAuthGateway {
 
     @Override
     public IdentityAccount me(String authorization) {
-        IdentityUserPayload response = IdentityGatewaySupport.exchange(() -> restClient.get()
+        IdentityUserResponsePayload response = IdentityGatewaySupport.exchange(() -> restClient.get()
                 .uri("/api/identity/auth/me")
                 .header(HttpHeaders.AUTHORIZATION, authorization)
                 .retrieve()
-                .body(IdentityUserPayload.class), objectMapper);
+                .body(IdentityUserResponsePayload.class), objectMapper);
 
         if (response == null) {
             throw new IllegalStateException("身份服务当前用户响应为空。");
@@ -60,12 +60,12 @@ public class HttpIdentityAuthGateway implements IdentityAuthGateway {
 
     @Override
     public IdentityAccount updateProfile(String authorization, UpdateProfileRequest request) {
-        IdentityUserPayload response = IdentityGatewaySupport.exchange(() -> restClient.put()
+        IdentityUserResponsePayload response = IdentityGatewaySupport.exchange(() -> restClient.put()
                 .uri("/api/identity/auth/profile")
                 .header(HttpHeaders.AUTHORIZATION, authorization)
                 .body(request)
                 .retrieve()
-                .body(IdentityUserPayload.class), objectMapper);
+                .body(IdentityUserResponsePayload.class), objectMapper);
 
         if (response == null) {
             throw new IllegalStateException("身份服务资料更新响应为空。");
@@ -100,11 +100,11 @@ public class HttpIdentityAuthGateway implements IdentityAuthGateway {
 
     @Override
     public IdentityLoginSession verifyEmailRegistration(VerifyEmailRegistrationRequest request) {
-        IdentityLoginPayload response = IdentityGatewaySupport.exchange(() -> restClient.post()
+        IdentityLoginResponsePayload response = IdentityGatewaySupport.exchange(() -> restClient.post()
                 .uri("/api/identity/auth/register/verify")
                 .body(request)
                 .retrieve()
-                .body(IdentityLoginPayload.class), objectMapper);
+                .body(IdentityLoginResponsePayload.class), objectMapper);
 
         if (response == null) {
             throw new IllegalStateException("身份服务注册响应为空。");

@@ -1,8 +1,8 @@
 package com.alicia.cloudstorage.api.identity;
 
-record IdentityLoginPayload(
+record IdentityLoginResponsePayload(
         String token,
-        IdentityUserPayload user
+        IdentityUserResponsePayload user
 ) {
 
     IdentityLoginSession toSession() {
