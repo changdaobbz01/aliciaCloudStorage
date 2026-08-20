@@ -19,7 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class IdentityStorageQuotaAccountReaderTest {
+class CloudProfileStorageQuotaAccountReaderTest {
 
     @Mock
     private IdentityUserGateway identityUserGateway;
@@ -28,7 +28,7 @@ class IdentityStorageQuotaAccountReaderTest {
     private CloudUserProfileRepository cloudUserProfileRepository;
 
     @InjectMocks
-    private IdentityStorageQuotaAccountReader storageQuotaAccountReader;
+    private CloudProfileStorageQuotaAccountReader storageQuotaAccountReader;
 
     @Test
     void requireAccountCombinesIdentityRoleWithCloudQuota() {

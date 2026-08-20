@@ -9,12 +9,15 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Transactional(readOnly = true)
-public class IdentityStorageQuotaAccountReader implements StorageQuotaAccountReader {
+public class CloudProfileStorageQuotaAccountReader implements StorageQuotaAccountReader {
 
     private final IdentityUserGateway identityUserGateway;
     private final CloudUserProfileRepository cloudUserProfileRepository;
 
-    public IdentityStorageQuotaAccountReader(
+    /**
+     * 身份服务提供用户和角色，云盘 profile 拥有存储额度。
+     */
+    public CloudProfileStorageQuotaAccountReader(
             IdentityUserGateway identityUserGateway,
             CloudUserProfileRepository cloudUserProfileRepository
     ) {
