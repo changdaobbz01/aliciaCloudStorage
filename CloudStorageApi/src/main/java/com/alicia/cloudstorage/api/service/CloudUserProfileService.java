@@ -13,8 +13,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.InputStream;
-
 @Service
 @Transactional
 public class CloudUserProfileService {
@@ -63,22 +61,6 @@ public class CloudUserProfileService {
         deleteLocalHomeBackgroundQuietly(oldHomeBackgroundUrl);
 
         return cloudProfile;
-    }
-
-    public HomeBackgroundDownloadPayload openUserHomeBackground(Long userId) {
-        IdentityAccount user = requireUser(userId);
-        String objectKey = extractLocalHomeBackgroundObjectKey(requireCloudProfile(user).getHomeBackgroundUrl());
-
-        if (objectKey == null) {
-            throw new IllegalArgumentException("主页背景图不存在。");
-        }
-
-        CosFileStorageService.DownloadedCosFile downloadedCosFile = cosFileStorageService.openFileStream(objectKey);
-        return new HomeBackgroundDownloadPayload(
-                downloadedCosFile.contentType(),
-                downloadedCosFile.contentLength(),
-                downloadedCosFile.inputStream()
-        );
     }
 
     public CosFileStorageService.PresignedCosUrl resolveUserHomeBackgroundAccessUrl(Long userId) {
@@ -256,13 +238,6 @@ public class CloudUserProfileService {
             Long userId,
             String homeBackgroundUrl,
             Long storageQuotaBytes
-    ) {
-    }
-
-    public record HomeBackgroundDownloadPayload(
-            String contentType,
-            long contentLength,
-            InputStream inputStream
     ) {
     }
 }

@@ -13,8 +13,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.InputStream;
-
 @Service
 @Transactional
 public class IdentityAccountCompatibilityService {
@@ -70,17 +68,6 @@ public class IdentityAccountCompatibilityService {
     }
 
     @Transactional(readOnly = true)
-    public AvatarDownloadPayload openUserAvatar(Long userId) {
-        String objectKey = requireLocalAvatarObjectKey(identityUserGateway.getUser(userId).avatarUrl());
-        CosFileStorageService.DownloadedCosFile downloadedCosFile = cosFileStorageService.openFileStream(objectKey);
-        return new AvatarDownloadPayload(
-                downloadedCosFile.contentType(),
-                downloadedCosFile.contentLength(),
-                downloadedCosFile.inputStream()
-        );
-    }
-
-    @Transactional(readOnly = true)
     public CosFileStorageService.PresignedCosUrl resolveUserAvatarAccessUrl(Long userId) {
         String objectKey = requireLocalAvatarObjectKey(identityUserGateway.getUser(userId).avatarUrl());
         return cosFileStorageService.createInlineDownloadUrl(objectKey, null, null);
@@ -118,12 +105,5 @@ public class IdentityAccountCompatibilityService {
         if (objectKey != null) {
             cosFileStorageService.deleteObjectQuietly(objectKey);
         }
-    }
-
-    public record AvatarDownloadPayload(
-            String contentType,
-            long contentLength,
-            InputStream inputStream
-    ) {
     }
 }
