@@ -10,7 +10,7 @@ import com.alicia.cloudstorage.api.dto.RequestEmailRegistrationCodeRequest;
 import com.alicia.cloudstorage.api.dto.UpdateProfileRequest;
 import com.alicia.cloudstorage.api.dto.UserProfileResponse;
 import com.alicia.cloudstorage.api.dto.VerifyEmailRegistrationRequest;
-import com.alicia.cloudstorage.api.service.IdentityAccountCompatibilityService;
+import com.alicia.cloudstorage.api.service.IdentityAuthCompatibilityService;
 import com.alicia.cloudstorage.api.service.IdentityRegistrationCompatibilityService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -38,17 +38,17 @@ public class IdentityAuthCompatibilityController {
 
     private static final String SIGNED_MEDIA_REDIRECT_CACHE_CONTROL = "private, max-age=240";
 
-    private final IdentityAccountCompatibilityService identityAccountCompatibilityService;
+    private final IdentityAuthCompatibilityService identityAuthCompatibilityService;
     private final IdentityRegistrationCompatibilityService identityRegistrationCompatibilityService;
 
     /**
      * 保留旧版 /api/auth/** 合约，同时将身份读写委托给 identityApi。
      */
     public IdentityAuthCompatibilityController(
-            IdentityAccountCompatibilityService identityAccountCompatibilityService,
+            IdentityAuthCompatibilityService identityAuthCompatibilityService,
             IdentityRegistrationCompatibilityService identityRegistrationCompatibilityService
     ) {
-        this.identityAccountCompatibilityService = identityAccountCompatibilityService;
+        this.identityAuthCompatibilityService = identityAuthCompatibilityService;
         this.identityRegistrationCompatibilityService = identityRegistrationCompatibilityService;
     }
 
@@ -57,7 +57,7 @@ public class IdentityAuthCompatibilityController {
      */
     @PostMapping("/login")
     public LoginResponse login(@Valid @RequestBody LoginRequest request) {
-        return identityAccountCompatibilityService.login(request);
+        return identityAuthCompatibilityService.login(request);
     }
 
     @PostMapping("/register/email-code")
@@ -86,7 +86,7 @@ public class IdentityAuthCompatibilityController {
             @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization
     ) {
-        return identityAccountCompatibilityService.getCurrentUser(authorization);
+        return identityAuthCompatibilityService.getCurrentUser(authorization);
     }
 
     /**
@@ -98,7 +98,7 @@ public class IdentityAuthCompatibilityController {
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
             @Valid @RequestBody UpdateProfileRequest request
     ) {
-        return identityAccountCompatibilityService.updateCurrentUser(authorization, request);
+        return identityAuthCompatibilityService.updateCurrentUser(authorization, request);
     }
 
     /**
@@ -110,7 +110,7 @@ public class IdentityAuthCompatibilityController {
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
             @RequestPart("file") MultipartFile file
     ) {
-        return identityAccountCompatibilityService.uploadCurrentUserAvatar(authorization, file);
+        return identityAuthCompatibilityService.uploadCurrentUserAvatar(authorization, file);
     }
 
     /**
@@ -118,7 +118,7 @@ public class IdentityAuthCompatibilityController {
      */
     @GetMapping("/avatar/{userId}")
     public ResponseEntity<Void> getAvatar(@PathVariable Long userId) {
-        String accessUrl = identityAccountCompatibilityService.resolveUserAvatarAccessUrl(userId).url();
+        String accessUrl = identityAuthCompatibilityService.resolveUserAvatarAccessUrl(userId).url();
         return ResponseEntity.status(HttpStatus.FOUND)
                 .header(HttpHeaders.CACHE_CONTROL, SIGNED_MEDIA_REDIRECT_CACHE_CONTROL)
                 .location(URI.create(accessUrl))
@@ -134,7 +134,7 @@ public class IdentityAuthCompatibilityController {
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
             @Valid @RequestBody ChangePasswordRequest request
     ) {
-        identityAccountCompatibilityService.changePassword(authorization, request);
+        identityAuthCompatibilityService.changePassword(authorization, request);
         return new ApiMessageResponse("密码修改成功。");
     }
 }
