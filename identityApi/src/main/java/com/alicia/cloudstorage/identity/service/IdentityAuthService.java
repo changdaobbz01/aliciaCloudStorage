@@ -4,7 +4,6 @@ import com.alicia.cloudstorage.identity.dto.ChangePasswordRequest;
 import com.alicia.cloudstorage.identity.dto.IdentityLoginRequest;
 import com.alicia.cloudstorage.identity.dto.IdentityLoginResponse;
 import com.alicia.cloudstorage.identity.dto.IdentityUserResponse;
-import com.alicia.cloudstorage.identity.dto.UpdateIdentityProfileRequest;
 import com.alicia.cloudstorage.identity.entity.IdentityUser;
 import com.alicia.cloudstorage.identity.entity.IdentityUserStatus;
 import com.alicia.cloudstorage.identity.repository.IdentityUserRepository;
@@ -60,28 +59,6 @@ public class IdentityAuthService {
 
     public IdentityUserResponse me(String authorizationHeader) {
         return IdentityUserResponse.from(identityPrincipalService.requireActiveUser(authorizationHeader));
-    }
-
-    @Transactional
-    public IdentityUserResponse updateProfile(String authorizationHeader, UpdateIdentityProfileRequest request) {
-        IdentityUser user = identityPrincipalService.requireActiveUser(authorizationHeader);
-        String phoneNumber = identityUserInputNormalizer.normalizeOptionalPhoneNumber(request.phoneNumber());
-        String nickname = identityUserInputNormalizer.normalizeNickname(request.nickname());
-        String avatarUrl = identityUserInputNormalizer.normalizeAvatarUrl(request.avatarUrl());
-
-        if (phoneNumber == null && user.getEmail() == null) {
-            throw new IllegalArgumentException("手机号不能为空。");
-        }
-
-        if (phoneNumber != null && identityUserRepository.existsByPhoneNumberAndIdNot(phoneNumber, user.getId())) {
-            throw new IllegalArgumentException("手机号已被其他账户使用。");
-        }
-
-        user.setPhoneNumber(phoneNumber);
-        user.setNickname(nickname);
-        user.setAvatarUrl(avatarUrl);
-
-        return IdentityUserResponse.from(identityUserRepository.save(user));
     }
 
     @Transactional

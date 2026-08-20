@@ -10,6 +10,7 @@ import com.alicia.cloudstorage.identity.dto.UpdateIdentityProfileRequest;
 import com.alicia.cloudstorage.identity.dto.VerifyEmailRegistrationRequest;
 import com.alicia.cloudstorage.identity.service.IdentityAuthService;
 import com.alicia.cloudstorage.identity.service.IdentityEmailRegistrationService;
+import com.alicia.cloudstorage.identity.service.IdentityProfileService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpHeaders;
@@ -29,13 +30,16 @@ public class IdentityAuthController {
 
     private final IdentityAuthService identityAuthService;
     private final IdentityEmailRegistrationService identityEmailRegistrationService;
+    private final IdentityProfileService identityProfileService;
 
     public IdentityAuthController(
             IdentityAuthService identityAuthService,
-            IdentityEmailRegistrationService identityEmailRegistrationService
+            IdentityEmailRegistrationService identityEmailRegistrationService,
+            IdentityProfileService identityProfileService
     ) {
         this.identityAuthService = identityAuthService;
         this.identityEmailRegistrationService = identityEmailRegistrationService;
+        this.identityProfileService = identityProfileService;
     }
 
     @PostMapping("/login")
@@ -53,7 +57,7 @@ public class IdentityAuthController {
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
             @Valid @RequestBody UpdateIdentityProfileRequest request
     ) {
-        return identityAuthService.updateProfile(authorization, request);
+        return identityProfileService.updateProfile(authorization, request);
     }
 
     @PutMapping("/password")

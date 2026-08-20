@@ -6,6 +6,7 @@ import com.alicia.cloudstorage.identity.dto.IdentityUserResponse;
 import com.alicia.cloudstorage.identity.dto.VerifyEmailRegistrationRequest;
 import com.alicia.cloudstorage.identity.service.IdentityAuthService;
 import com.alicia.cloudstorage.identity.service.IdentityEmailRegistrationService;
+import com.alicia.cloudstorage.identity.service.IdentityProfileService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -36,6 +37,9 @@ class IdentityAuthControllerTest {
 
     @MockitoBean
     private IdentityEmailRegistrationService identityEmailRegistrationService;
+
+    @MockitoBean
+    private IdentityProfileService identityProfileService;
 
     @Test
     void loginReturnsTokenAndIdentityUserWithoutPasswordHash() throws Exception {
@@ -107,7 +111,7 @@ class IdentityAuthControllerTest {
                 LocalDateTime.of(2026, 4, 29, 15, 30)
         );
 
-        when(identityAuthService.updateProfile(
+        when(identityProfileService.updateProfile(
                 org.mockito.ArgumentMatchers.eq("Bearer token"),
                 any()
         )).thenReturn(user);
