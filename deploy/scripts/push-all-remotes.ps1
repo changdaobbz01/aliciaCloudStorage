@@ -5,11 +5,30 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$repoRoot = git rev-parse --show-toplevel
+function Invoke-Git {
+    param(
+        [Parameter(ValueFromRemainingArguments = $true)]
+        [string[]]$GitArgs
+    )
+
+    & git @GitArgs
+    if ($LASTEXITCODE -ne 0) {
+        throw "git $($GitArgs -join ' ') failed with exit code $LASTEXITCODE."
+    }
+}
+
+$repoRoot = & git rev-parse --show-toplevel
+if ($LASTEXITCODE -ne 0) {
+    throw "Not in a git repository."
+}
+
 Set-Location $repoRoot
 
 if ([string]::IsNullOrWhiteSpace($Branch)) {
-    $Branch = (git rev-parse --abbrev-ref HEAD).Trim()
+    $Branch = (& git rev-parse --abbrev-ref HEAD).Trim()
+    if ($LASTEXITCODE -ne 0) {
+        throw "Unable to resolve the current git branch."
+    }
 }
 
 if ($Branch -eq "HEAD") {
@@ -32,7 +51,7 @@ if ($dirtyStatus) {
 
 foreach ($remote in $Remotes) {
     Write-Host "Pushing $Branch to $remote..." -ForegroundColor Cyan
-    git push $remote "${Branch}:${Branch}"
+    Invoke-Git push $remote "${Branch}:${Branch}"
 }
 
 Write-Host "Pushed $Branch to: $($Remotes -join ', ')" -ForegroundColor Green
