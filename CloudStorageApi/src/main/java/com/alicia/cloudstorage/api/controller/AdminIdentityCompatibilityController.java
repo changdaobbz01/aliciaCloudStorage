@@ -6,7 +6,7 @@ import com.alicia.cloudstorage.api.dto.AdminCreateUserRequest;
 import com.alicia.cloudstorage.api.dto.AdminResetUserPasswordRequest;
 import com.alicia.cloudstorage.api.dto.ApiMessageResponse;
 import com.alicia.cloudstorage.api.dto.UserProfileResponse;
-import com.alicia.cloudstorage.api.service.AdminIdentityManagementService;
+import com.alicia.cloudstorage.api.service.AdminIdentityCompatibilityService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpHeaders;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,19 +23,22 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/admin/users")
-public class AdminIdentityUserController {
+public class AdminIdentityCompatibilityController {
 
-    private final AdminIdentityManagementService adminIdentityManagementService;
+    private final AdminIdentityCompatibilityService adminIdentityCompatibilityService;
 
-    public AdminIdentityUserController(AdminIdentityManagementService adminIdentityManagementService) {
-        this.adminIdentityManagementService = adminIdentityManagementService;
+    /**
+     * 保留旧版 /api/admin/users 管理入口，实际身份写入由 identityApi 完成。
+     */
+    public AdminIdentityCompatibilityController(AdminIdentityCompatibilityService adminIdentityCompatibilityService) {
+        this.adminIdentityCompatibilityService = adminIdentityCompatibilityService;
     }
 
     @GetMapping
     public List<UserProfileResponse> listUsers(
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization
     ) {
-        return adminIdentityManagementService.listUsers(authorization);
+        return adminIdentityCompatibilityService.listUsers(authorization);
     }
 
     @PostMapping
@@ -44,7 +47,7 @@ public class AdminIdentityUserController {
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
             @Valid @RequestBody AdminCreateUserRequest request
     ) {
-        return adminIdentityManagementService.createUser(authorization, principal.userId(), request);
+        return adminIdentityCompatibilityService.createUser(authorization, principal.userId(), request);
     }
 
     @PutMapping("/{userId}/password")
@@ -54,7 +57,7 @@ public class AdminIdentityUserController {
             @PathVariable Long userId,
             @Valid @RequestBody AdminResetUserPasswordRequest request
     ) {
-        adminIdentityManagementService.resetUserPassword(authorization, userId, request);
+        adminIdentityCompatibilityService.resetUserPassword(authorization, userId, request);
         return new ApiMessageResponse("用户密码已重置，旧登录状态已失效。");
     }
 }

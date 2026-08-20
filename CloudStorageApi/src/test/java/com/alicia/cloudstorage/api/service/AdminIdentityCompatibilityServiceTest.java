@@ -21,7 +21,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class AdminIdentityManagementServiceTest {
+class AdminIdentityCompatibilityServiceTest {
 
     @Mock
     private IdentityAdminGateway identityAdminGateway;
@@ -30,7 +30,7 @@ class AdminIdentityManagementServiceTest {
     private CloudUserProfileService cloudUserProfileService;
 
     @InjectMocks
-    private AdminIdentityManagementService adminIdentityManagementService;
+    private AdminIdentityCompatibilityService adminIdentityCompatibilityService;
 
     @Test
     void listUsersCombinesIdentityAccountsWithCloudProfilesForCompatibleResponses() {
@@ -43,7 +43,7 @@ class AdminIdentityManagementServiceTest {
         when(cloudUserProfileService.toUserProfile(firstAccount)).thenReturn(firstProfile);
         when(cloudUserProfileService.toUserProfile(secondAccount)).thenReturn(secondProfile);
 
-        List<UserProfileResponse> responses = adminIdentityManagementService.listUsers("Bearer admin-token");
+        List<UserProfileResponse> responses = adminIdentityCompatibilityService.listUsers("Bearer admin-token");
 
         assertThat(responses).containsExactly(firstProfile, secondProfile);
     }
@@ -68,7 +68,7 @@ class AdminIdentityManagementServiceTest {
         when(cloudUserProfileService.initializeAdminCreatedUserProfile(1L, account, null, true)).thenReturn(cloudProfile);
         when(cloudUserProfileService.toUserProfile(account, cloudProfile)).thenReturn(responseProfile);
 
-        UserProfileResponse response = adminIdentityManagementService.createUser("Bearer admin-token", 1L, request);
+        UserProfileResponse response = adminIdentityCompatibilityService.createUser("Bearer admin-token", 1L, request);
 
         assertThat(response).isSameAs(responseProfile);
         verify(identityAdminGateway).createUser("Bearer admin-token", request);
@@ -79,7 +79,7 @@ class AdminIdentityManagementServiceTest {
     void resetUserPasswordDelegatesToIdentityService() {
         AdminResetUserPasswordRequest request = new AdminResetUserPasswordRequest("ResetPass@456");
 
-        adminIdentityManagementService.resetUserPassword("Bearer admin-token", 64L, request);
+        adminIdentityCompatibilityService.resetUserPassword("Bearer admin-token", 64L, request);
 
         verify(identityAdminGateway).resetUserPassword("Bearer admin-token", 64L, request);
     }

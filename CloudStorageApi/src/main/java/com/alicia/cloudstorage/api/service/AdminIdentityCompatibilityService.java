@@ -12,12 +12,15 @@ import java.util.List;
 
 @Service
 @Transactional
-public class AdminIdentityManagementService {
+public class AdminIdentityCompatibilityService {
 
     private final IdentityAdminGateway identityAdminGateway;
     private final CloudUserProfileService cloudUserProfileService;
 
-    public AdminIdentityManagementService(
+    /**
+     * 组合 identity 账号管理结果和云盘 profile，返回旧管理面板兼容响应。
+     */
+    public AdminIdentityCompatibilityService(
             IdentityAdminGateway identityAdminGateway,
             CloudUserProfileService cloudUserProfileService
     ) {
