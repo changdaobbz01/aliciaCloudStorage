@@ -19,7 +19,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class AdminCloudUserProfileManagementServiceTest {
+class AdminCloudUserProfileServiceTest {
 
     @Mock
     private IdentityUserGateway identityUserGateway;
@@ -28,7 +28,7 @@ class AdminCloudUserProfileManagementServiceTest {
     private CloudUserProfileService cloudUserProfileService;
 
     @InjectMocks
-    private AdminCloudUserProfileManagementService adminCloudUserProfileManagementService;
+    private AdminCloudUserProfileService adminCloudUserProfileService;
 
     @Test
     void updateUserStorageQuotaCombinesCloudMutationWithIdentitySnapshot() {
@@ -64,7 +64,7 @@ class AdminCloudUserProfileManagementServiceTest {
         when(identityUserGateway.getUser(77L)).thenReturn(account);
         when(cloudUserProfileService.toUserProfile(account, cloudProfile)).thenReturn(responseProfile);
 
-        UserProfileResponse response = adminCloudUserProfileManagementService.updateUserStorageQuota(77L, request);
+        UserProfileResponse response = adminCloudUserProfileService.updateUserStorageQuota(77L, request);
 
         assertThat(response).isSameAs(responseProfile);
         verify(identityUserGateway).getUser(77L);

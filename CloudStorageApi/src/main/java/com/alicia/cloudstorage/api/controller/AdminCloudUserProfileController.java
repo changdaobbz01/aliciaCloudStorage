@@ -2,7 +2,7 @@ package com.alicia.cloudstorage.api.controller;
 
 import com.alicia.cloudstorage.api.dto.AdminUpdateUserQuotaRequest;
 import com.alicia.cloudstorage.api.dto.UserProfileResponse;
-import com.alicia.cloudstorage.api.service.AdminCloudUserProfileManagementService;
+import com.alicia.cloudstorage.api.service.AdminCloudUserProfileService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -14,12 +14,12 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/admin/cloud-users")
 public class AdminCloudUserProfileController {
 
-    private final AdminCloudUserProfileManagementService adminCloudUserProfileManagementService;
+    private final AdminCloudUserProfileService adminCloudUserProfileService;
 
     public AdminCloudUserProfileController(
-            AdminCloudUserProfileManagementService adminCloudUserProfileManagementService
+            AdminCloudUserProfileService adminCloudUserProfileService
     ) {
-        this.adminCloudUserProfileManagementService = adminCloudUserProfileManagementService;
+        this.adminCloudUserProfileService = adminCloudUserProfileService;
     }
 
     @PutMapping("/{userId}/quota")
@@ -27,6 +27,6 @@ public class AdminCloudUserProfileController {
             @PathVariable Long userId,
             @Valid @RequestBody AdminUpdateUserQuotaRequest request
     ) {
-        return adminCloudUserProfileManagementService.updateUserStorageQuota(userId, request);
+        return adminCloudUserProfileService.updateUserStorageQuota(userId, request);
     }
 }

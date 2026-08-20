@@ -2,7 +2,7 @@ package com.alicia.cloudstorage.api.controller;
 
 import com.alicia.cloudstorage.api.dto.AdminUpdateUserQuotaRequest;
 import com.alicia.cloudstorage.api.dto.UserProfileResponse;
-import com.alicia.cloudstorage.api.service.AdminCloudUserProfileManagementService;
+import com.alicia.cloudstorage.api.service.AdminCloudUserProfileService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -26,20 +26,20 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class AdminCloudUserProfileControllerTest {
 
     @Mock
-    private AdminCloudUserProfileManagementService adminCloudUserProfileManagementService;
+    private AdminCloudUserProfileService adminCloudUserProfileService;
 
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders
-                .standaloneSetup(new AdminCloudUserProfileController(adminCloudUserProfileManagementService))
+                .standaloneSetup(new AdminCloudUserProfileController(adminCloudUserProfileService))
                 .build();
     }
 
     @Test
     void updateUserQuotaUsesCloudUserAdminRoute() throws Exception {
-        when(adminCloudUserProfileManagementService.updateUserStorageQuota(
+        when(adminCloudUserProfileService.updateUserStorageQuota(
                 eq(77L),
                 any(AdminUpdateUserQuotaRequest.class)
         )).thenReturn(profile());
@@ -51,7 +51,7 @@ class AdminCloudUserProfileControllerTest {
                 .andExpect(jsonPath("$.id").value(77))
                 .andExpect(jsonPath("$.storageQuotaBytes").value(4096));
 
-        verify(adminCloudUserProfileManagementService).updateUserStorageQuota(
+        verify(adminCloudUserProfileService).updateUserStorageQuota(
                 eq(77L),
                 any(AdminUpdateUserQuotaRequest.class)
         );
