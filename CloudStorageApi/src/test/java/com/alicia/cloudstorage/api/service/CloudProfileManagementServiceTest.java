@@ -1,6 +1,6 @@
 package com.alicia.cloudstorage.api.service;
 
-import com.alicia.cloudstorage.api.identity.IdentityAccount;
+import com.alicia.cloudstorage.api.identity.IdentityUserSnapshot;
 import com.alicia.cloudstorage.api.dto.UserProfileResponse;
 import com.alicia.cloudstorage.api.identity.UserRole;
 import com.alicia.cloudstorage.api.identity.UserStatus;
@@ -32,7 +32,7 @@ class CloudProfileManagementServiceTest {
     @Test
     void uploadHomeBackgroundCombinesUpdatedCloudProfileWithCurrentIdentity() {
         MockMultipartFile file = new MockMultipartFile("file", "bg.webp", "image/webp", new byte[]{1, 2, 3});
-        IdentityAccount account = regularIdentityAccount(23L);
+        IdentityUserSnapshot account = regularIdentityUserSnapshot(23L);
         CloudUserProfileService.CloudUserProfile cloudProfile =
                 new CloudUserProfileService.CloudUserProfile(23L, "cosbg:user-home-backgrounds/23/new.webp", 2048L);
         UserProfileResponse responseProfile = profile(account, 2048L, 512L, 1536L);
@@ -48,7 +48,7 @@ class CloudProfileManagementServiceTest {
 
     @Test
     void clearHomeBackgroundCombinesUpdatedCloudProfileWithCurrentIdentity() {
-        IdentityAccount account = regularIdentityAccount(23L);
+        IdentityUserSnapshot account = regularIdentityUserSnapshot(23L);
         CloudUserProfileService.CloudUserProfile cloudProfile =
                 new CloudUserProfileService.CloudUserProfile(23L, null, 2048L);
         UserProfileResponse responseProfile = profile(account, 2048L, 512L, 1536L);
@@ -62,8 +62,8 @@ class CloudProfileManagementServiceTest {
         assertThat(response).isSameAs(responseProfile);
     }
 
-    private IdentityAccount regularIdentityAccount(Long id) {
-        return new IdentityAccount(
+    private IdentityUserSnapshot regularIdentityUserSnapshot(Long id) {
+        return new IdentityUserSnapshot(
                 id,
                 "13900000000",
                 "user@example.com",
@@ -75,7 +75,7 @@ class CloudProfileManagementServiceTest {
         );
     }
 
-    private UserProfileResponse profile(IdentityAccount account, Long storageQuotaBytes, long usedBytes, Long remainingBytes) {
+    private UserProfileResponse profile(IdentityUserSnapshot account, Long storageQuotaBytes, long usedBytes, Long remainingBytes) {
         return new UserProfileResponse(
                 account.id(),
                 account.phoneNumberOrEmpty(),

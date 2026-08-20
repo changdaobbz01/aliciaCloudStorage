@@ -1,7 +1,7 @@
 package com.alicia.cloudstorage.api.service;
 
 import com.alicia.cloudstorage.api.identity.IdentityLoginSession;
-import com.alicia.cloudstorage.api.identity.IdentityAccount;
+import com.alicia.cloudstorage.api.identity.IdentityUserSnapshot;
 import com.alicia.cloudstorage.api.dto.LoginResponse;
 import com.alicia.cloudstorage.api.dto.RequestEmailRegistrationCodeRequest;
 import com.alicia.cloudstorage.api.dto.UserProfileResponse;
@@ -52,7 +52,7 @@ class IdentityEmailRegistrationCompatibilityServiceTest {
     void verifyRegistrationInitializesCloudProfileAfterIdentityApiRegistration() {
         VerifyEmailRegistrationRequest request =
                 new VerifyEmailRegistrationRequest("NewUser@Example.COM", "123456", "New User", "Passw0rd");
-        IdentityAccount account = new IdentityAccount(
+        IdentityUserSnapshot account = new IdentityUserSnapshot(
                 88L,
                 null,
                 "newuser@example.com",

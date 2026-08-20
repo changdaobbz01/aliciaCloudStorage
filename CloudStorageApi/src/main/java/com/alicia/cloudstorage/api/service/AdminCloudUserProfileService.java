@@ -1,6 +1,6 @@
 package com.alicia.cloudstorage.api.service;
 
-import com.alicia.cloudstorage.api.identity.IdentityAccount;
+import com.alicia.cloudstorage.api.identity.IdentityUserSnapshot;
 import com.alicia.cloudstorage.api.dto.AdminUpdateUserQuotaRequest;
 import com.alicia.cloudstorage.api.dto.UserProfileResponse;
 import com.alicia.cloudstorage.api.identity.IdentityUserGateway;
@@ -25,7 +25,7 @@ public class AdminCloudUserProfileService {
     public UserProfileResponse updateUserStorageQuota(Long userId, AdminUpdateUserQuotaRequest request) {
         CloudUserProfileService.CloudUserProfile cloudProfile =
                 cloudUserProfileService.updateUserStorageQuota(userId, request);
-        IdentityAccount account = identityUserGateway.getUser(userId);
+        IdentityUserSnapshot account = identityUserGateway.getUser(userId);
         return cloudUserProfileService.toUserProfile(account, cloudProfile);
     }
 }

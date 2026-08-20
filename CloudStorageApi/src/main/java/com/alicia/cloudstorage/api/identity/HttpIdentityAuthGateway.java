@@ -44,7 +44,7 @@ public class HttpIdentityAuthGateway implements IdentityAuthGateway {
     }
 
     @Override
-    public IdentityAccount me(String authorization) {
+    public IdentityUserSnapshot me(String authorization) {
         IdentityUserResponsePayload response = IdentityGatewaySupport.exchange(() -> restClient.get()
                 .uri("/api/identity/auth/me")
                 .header(HttpHeaders.AUTHORIZATION, authorization)
@@ -55,11 +55,11 @@ public class HttpIdentityAuthGateway implements IdentityAuthGateway {
             throw new IllegalStateException("身份服务当前用户响应为空。");
         }
 
-        return response.toAccount();
+        return response.toSnapshot();
     }
 
     @Override
-    public IdentityAccount updateProfile(String authorization, UpdateProfileRequest request) {
+    public IdentityUserSnapshot updateProfile(String authorization, UpdateProfileRequest request) {
         IdentityUserResponsePayload response = IdentityGatewaySupport.exchange(() -> restClient.put()
                 .uri("/api/identity/auth/profile")
                 .header(HttpHeaders.AUTHORIZATION, authorization)
@@ -71,7 +71,7 @@ public class HttpIdentityAuthGateway implements IdentityAuthGateway {
             throw new IllegalStateException("身份服务资料更新响应为空。");
         }
 
-        return response.toAccount();
+        return response.toSnapshot();
     }
 
     @Override

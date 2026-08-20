@@ -1,11 +1,8 @@
 package com.alicia.cloudstorage.api.identity;
 
-import com.alicia.cloudstorage.api.identity.UserRole;
-import com.alicia.cloudstorage.api.identity.UserStatus;
-
 import java.time.LocalDateTime;
 
-public record IdentityAccount(
+public record IdentityUserSnapshot(
         Long id,
         String phoneNumber,
         String email,

@@ -1,7 +1,7 @@
 package com.alicia.cloudstorage.api.service;
 
 import com.alicia.cloudstorage.api.identity.IdentityLoginSession;
-import com.alicia.cloudstorage.api.identity.IdentityAccount;
+import com.alicia.cloudstorage.api.identity.IdentityUserSnapshot;
 import com.alicia.cloudstorage.api.dto.ChangePasswordRequest;
 import com.alicia.cloudstorage.api.dto.LoginRequest;
 import com.alicia.cloudstorage.api.dto.LoginResponse;
@@ -36,7 +36,7 @@ public class IdentityAuthCompatibilityService {
 
     public LoginResponse login(LoginRequest request) {
         IdentityLoginSession session = identityAuthGateway.login(request);
-        return new LoginResponse(session.token(), cloudUserProfileService.toUserProfile(session.account()));
+        return new LoginResponse(session.token(), cloudUserProfileService.toUserProfile(session.user()));
     }
 
     public UserProfileResponse getCurrentUser(String authorization) {
@@ -44,18 +44,18 @@ public class IdentityAuthCompatibilityService {
     }
 
     public UserProfileResponse updateCurrentUser(String authorization, UpdateProfileRequest request) {
-        IdentityAccount account = identityAuthGateway.updateProfile(authorization, request);
+        IdentityUserSnapshot account = identityAuthGateway.updateProfile(authorization, request);
         return cloudUserProfileService.toUserProfile(account);
     }
 
     public UserProfileResponse uploadCurrentUserAvatar(String authorization, MultipartFile file) {
-        IdentityAccount currentAccount = identityAuthGateway.me(authorization);
+        IdentityUserSnapshot currentAccount = identityAuthGateway.me(authorization);
         CosFileStorageService.StoredCosFile avatarFile =
                 cosFileStorageService.uploadUserAvatar(currentAccount.id(), file);
         String avatarUrl = toLocalAvatarReference(avatarFile.objectKey());
 
         try {
-            IdentityAccount updatedAccount = identityAuthGateway.updateProfile(
+            IdentityUserSnapshot updatedAccount = identityAuthGateway.updateProfile(
                     authorization,
                     new UpdateProfileRequest(currentAccount.phoneNumber(), currentAccount.nickname(), avatarUrl)
             );

@@ -1,6 +1,6 @@
 package com.alicia.cloudstorage.api.service;
 
-import com.alicia.cloudstorage.api.identity.IdentityAccount;
+import com.alicia.cloudstorage.api.identity.IdentityUserSnapshot;
 import com.alicia.cloudstorage.api.dto.AdminCreateUserRequest;
 import com.alicia.cloudstorage.api.dto.AdminResetUserPasswordRequest;
 import com.alicia.cloudstorage.api.dto.UserProfileResponse;
@@ -33,9 +33,9 @@ class AdminIdentityCompatibilityServiceTest {
     private AdminIdentityCompatibilityService adminIdentityCompatibilityService;
 
     @Test
-    void listUsersCombinesIdentityAccountsWithCloudProfilesForCompatibleResponses() {
-        IdentityAccount firstAccount = identityAccount(7L, UserRole.ADMIN);
-        IdentityAccount secondAccount = identityAccount(8L, UserRole.USER);
+    void listUsersCombinesIdentityUserSnapshotsWithCloudProfilesForCompatibleResponses() {
+        IdentityUserSnapshot firstAccount = identityUserSnapshot(7L, UserRole.ADMIN);
+        IdentityUserSnapshot secondAccount = identityUserSnapshot(8L, UserRole.USER);
         UserProfileResponse firstProfile = profile(firstAccount, null, 1024L, null);
         UserProfileResponse secondProfile = profile(secondAccount, 4096L, 1536L, 2560L);
 
@@ -59,7 +59,7 @@ class AdminIdentityCompatibilityServiceTest {
                 "ADMIN",
                 null
         );
-        IdentityAccount account = identityAccount(55L, UserRole.ADMIN);
+        IdentityUserSnapshot account = identityUserSnapshot(55L, UserRole.ADMIN);
         CloudUserProfileService.CloudUserProfile cloudProfile =
                 new CloudUserProfileService.CloudUserProfile(55L, "cosbg:user-home-backgrounds/55/bg.webp", 2048L);
         UserProfileResponse responseProfile = profile(account, null, 1024L, null);
@@ -84,8 +84,8 @@ class AdminIdentityCompatibilityServiceTest {
         verify(identityAdminGateway).resetUserPassword("Bearer admin-token", 64L, request);
     }
 
-    private IdentityAccount identityAccount(Long id, UserRole role) {
-        return new IdentityAccount(
+    private IdentityUserSnapshot identityUserSnapshot(Long id, UserRole role) {
+        return new IdentityUserSnapshot(
                 id,
                 "13900000000",
                 "user@example.com",
@@ -97,7 +97,7 @@ class AdminIdentityCompatibilityServiceTest {
         );
     }
 
-    private UserProfileResponse profile(IdentityAccount account, Long storageQuotaBytes, long usedBytes, Long remainingBytes) {
+    private UserProfileResponse profile(IdentityUserSnapshot account, Long storageQuotaBytes, long usedBytes, Long remainingBytes) {
         return new UserProfileResponse(
                 account.id(),
                 account.phoneNumberOrEmpty(),

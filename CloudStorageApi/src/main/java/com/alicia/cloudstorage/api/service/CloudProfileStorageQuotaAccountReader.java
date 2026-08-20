@@ -1,6 +1,6 @@
 package com.alicia.cloudstorage.api.service;
 
-import com.alicia.cloudstorage.api.identity.IdentityAccount;
+import com.alicia.cloudstorage.api.identity.IdentityUserSnapshot;
 import com.alicia.cloudstorage.api.entity.CloudUserProfileEntity;
 import com.alicia.cloudstorage.api.identity.IdentityUserGateway;
 import com.alicia.cloudstorage.api.repository.CloudUserProfileRepository;
@@ -27,7 +27,7 @@ public class CloudProfileStorageQuotaAccountReader implements StorageQuotaAccoun
 
     @Override
     public StorageQuotaAccount requireAccount(Long userId) {
-        IdentityAccount account = identityUserGateway.getUser(userId);
+        IdentityUserSnapshot account = identityUserGateway.getUser(userId);
         Long storageQuotaBytes = cloudUserProfileRepository.findById(userId)
                 .map(CloudUserProfileEntity::getStorageQuotaBytes)
                 .orElse(null);

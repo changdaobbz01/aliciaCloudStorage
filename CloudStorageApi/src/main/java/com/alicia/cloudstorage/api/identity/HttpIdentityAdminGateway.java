@@ -27,7 +27,7 @@ public class HttpIdentityAdminGateway implements IdentityAdminGateway {
     }
 
     @Override
-    public List<IdentityAccount> listUsers(String authorization) {
+    public List<IdentityUserSnapshot> listUsers(String authorization) {
         IdentityUserResponsePayload[] response = IdentityGatewaySupport.exchange(() -> restClient.get()
                 .uri("/api/identity/admin/users")
                 .header(HttpHeaders.AUTHORIZATION, authorization)
@@ -35,12 +35,12 @@ public class HttpIdentityAdminGateway implements IdentityAdminGateway {
                 .body(IdentityUserResponsePayload[].class), objectMapper);
 
         return Arrays.stream(response == null ? new IdentityUserResponsePayload[0] : response)
-                .map(IdentityUserResponsePayload::toAccount)
+                .map(IdentityUserResponsePayload::toSnapshot)
                 .toList();
     }
 
     @Override
-    public IdentityAccount createUser(String authorization, AdminCreateUserRequest request) {
+    public IdentityUserSnapshot createUser(String authorization, AdminCreateUserRequest request) {
         IdentityCreateUserRequest payload = new IdentityCreateUserRequest(
                 request.phoneNumber(),
                 null,
@@ -61,7 +61,7 @@ public class HttpIdentityAdminGateway implements IdentityAdminGateway {
             throw new IllegalStateException("身份服务返回为空。");
         }
 
-        return response.toAccount();
+        return response.toSnapshot();
     }
 
     @Override

@@ -37,10 +37,10 @@ public class IdentityEmailRegistrationCompatibilityService {
     public LoginResponse verifyRegistration(VerifyEmailRegistrationRequest request) {
         IdentityLoginSession session = identityAuthGateway.verifyEmailRegistration(request);
         CloudUserProfileService.CloudUserProfile cloudProfile =
-                cloudUserProfileService.initializeDefaultNewUserProfile(session.account());
+                cloudUserProfileService.initializeDefaultNewUserProfile(session.user());
         return new LoginResponse(
                 session.token(),
-                cloudUserProfileService.toUserProfile(session.account(), cloudProfile)
+                cloudUserProfileService.toUserProfile(session.user(), cloudProfile)
         );
     }
 }

@@ -61,10 +61,10 @@ class HttpIdentityAuthGatewayTest {
         );
 
         assertThat(session.token()).isEqualTo("identity-token");
-        assertThat(session.account().id()).isEqualTo(6L);
-        assertThat(session.account().email()).isEqualTo("user@example.com");
-        assertThat(session.account().role()).isEqualTo(UserRole.USER);
-        assertThat(session.account().status()).isEqualTo(UserStatus.ACTIVE);
+        assertThat(session.user().id()).isEqualTo(6L);
+        assertThat(session.user().email()).isEqualTo("user@example.com");
+        assertThat(session.user().role()).isEqualTo(UserRole.USER);
+        assertThat(session.user().status()).isEqualTo(UserStatus.ACTIVE);
         context.server().verify();
     }
 
@@ -317,8 +317,8 @@ class HttpIdentityAuthGatewayTest {
         );
 
         assertThat(session.token()).isEqualTo("new-token");
-        assertThat(session.account().id()).isEqualTo(8L);
-        assertThat(session.account().email()).isEqualTo("newuser@example.com");
+        assertThat(session.user().id()).isEqualTo(8L);
+        assertThat(session.user().email()).isEqualTo("newuser@example.com");
         context.server().verify();
     }
 

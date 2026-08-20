@@ -3,7 +3,7 @@ package com.alicia.cloudstorage.api.auth;
 import com.alicia.cloudstorage.api.identity.UserRole;
 import com.alicia.cloudstorage.api.identity.UserStatus;
 import com.alicia.cloudstorage.api.identity.IdentityAuthGateway;
-import com.alicia.cloudstorage.api.identity.IdentityAccount;
+import com.alicia.cloudstorage.api.identity.IdentityUserSnapshot;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -28,7 +28,7 @@ class CurrentPrincipalServiceTest {
 
     @Test
     void requirePrincipalDelegatesToIdentityApiAndReturnsLightweightCurrentUser() {
-        IdentityAccount account = account(22L, UserRole.ADMIN);
+        IdentityUserSnapshot account = account(22L, UserRole.ADMIN);
 
         when(identityAuthGateway.me("Bearer token")).thenReturn(account);
 
@@ -68,8 +68,8 @@ class CurrentPrincipalServiceTest {
                 .hasMessage("登录状态已失效。");
     }
 
-    private IdentityAccount account(Long id, UserRole role) {
-        return new IdentityAccount(
+    private IdentityUserSnapshot account(Long id, UserRole role) {
+        return new IdentityUserSnapshot(
                 id,
                 "13900000000",
                 "user@example.com",

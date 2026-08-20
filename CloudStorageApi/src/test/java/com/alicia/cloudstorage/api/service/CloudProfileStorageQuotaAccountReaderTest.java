@@ -1,6 +1,6 @@
 package com.alicia.cloudstorage.api.service;
 
-import com.alicia.cloudstorage.api.identity.IdentityAccount;
+import com.alicia.cloudstorage.api.identity.IdentityUserSnapshot;
 import com.alicia.cloudstorage.api.entity.CloudUserProfileEntity;
 import com.alicia.cloudstorage.api.identity.UserRole;
 import com.alicia.cloudstorage.api.identity.UserStatus;
@@ -63,8 +63,8 @@ class CloudProfileStorageQuotaAccountReaderTest {
         assertThat(storageQuotaAccountReader.getTotalAllocatedQuotaBytes()).isZero();
     }
 
-    private IdentityAccount account(Long id, UserRole role) {
-        return new IdentityAccount(
+    private IdentityUserSnapshot account(Long id, UserRole role) {
+        return new IdentityUserSnapshot(
                 id,
                 "13900000000",
                 "user@example.com",

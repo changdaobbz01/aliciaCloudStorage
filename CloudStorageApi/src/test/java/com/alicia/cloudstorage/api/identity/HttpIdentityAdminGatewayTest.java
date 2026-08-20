@@ -55,7 +55,7 @@ class HttpIdentityAdminGatewayTest {
                         ]
                         """, MediaType.APPLICATION_JSON));
 
-        List<IdentityAccount> accounts = context.gateway().listUsers("Bearer admin-token");
+        List<IdentityUserSnapshot> accounts = context.gateway().listUsers("Bearer admin-token");
 
         assertThat(accounts).hasSize(1);
         assertThat(accounts.get(0).id()).isEqualTo(7L);
@@ -98,7 +98,7 @@ class HttpIdentityAdminGatewayTest {
                 4096L
         );
 
-        IdentityAccount account = context.gateway().createUser("Bearer admin-token", request);
+        IdentityUserSnapshot account = context.gateway().createUser("Bearer admin-token", request);
 
         assertThat(account.id()).isEqualTo(8L);
         assertThat(account.phoneNumber()).isEqualTo("13800000001");

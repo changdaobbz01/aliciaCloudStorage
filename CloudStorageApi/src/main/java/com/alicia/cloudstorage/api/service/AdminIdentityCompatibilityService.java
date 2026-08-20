@@ -1,6 +1,6 @@
 package com.alicia.cloudstorage.api.service;
 
-import com.alicia.cloudstorage.api.identity.IdentityAccount;
+import com.alicia.cloudstorage.api.identity.IdentityUserSnapshot;
 import com.alicia.cloudstorage.api.dto.AdminCreateUserRequest;
 import com.alicia.cloudstorage.api.dto.AdminResetUserPasswordRequest;
 import com.alicia.cloudstorage.api.dto.UserProfileResponse;
@@ -36,7 +36,7 @@ public class AdminIdentityCompatibilityService {
     }
 
     public UserProfileResponse createUser(String authorization, Long adminUserId, AdminCreateUserRequest request) {
-        IdentityAccount account = identityAdminGateway.createUser(authorization, request);
+        IdentityUserSnapshot account = identityAdminGateway.createUser(authorization, request);
         CloudUserProfileService.CloudUserProfile cloudProfile =
                 cloudUserProfileService.initializeAdminCreatedUserProfile(
                         adminUserId,

@@ -15,8 +15,8 @@ record IdentityUserResponsePayload(
         String createdAt
 ) {
 
-    IdentityAccount toAccount() {
-        return new IdentityAccount(
+    IdentityUserSnapshot toSnapshot() {
+        return new IdentityUserSnapshot(
                 id,
                 phoneNumber,
                 email,

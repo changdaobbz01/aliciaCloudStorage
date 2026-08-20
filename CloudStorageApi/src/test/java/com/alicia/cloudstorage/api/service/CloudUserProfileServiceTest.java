@@ -1,6 +1,6 @@
 package com.alicia.cloudstorage.api.service;
 
-import com.alicia.cloudstorage.api.identity.IdentityAccount;
+import com.alicia.cloudstorage.api.identity.IdentityUserSnapshot;
 import com.alicia.cloudstorage.api.dto.AdminUpdateUserQuotaRequest;
 import com.alicia.cloudstorage.api.entity.CloudUserProfileEntity;
 import com.alicia.cloudstorage.api.identity.UserRole;
@@ -57,7 +57,7 @@ class CloudUserProfileServiceTest {
 
     @Test
     void updateUserQuotaPersistsNewQuota() {
-        IdentityAccount user = identityAccount(77L, UserRole.USER);
+        IdentityUserSnapshot user = identityUserSnapshot(77L, UserRole.USER);
         CloudUserProfileEntity profile = cloudProfile(77L, null, 1024L);
 
         when(identityUserGateway.getUser(77L)).thenReturn(user);
@@ -75,7 +75,7 @@ class CloudUserProfileServiceTest {
 
     @Test
     void updateUserQuotaRejectsAdminAccounts() {
-        when(identityUserGateway.getUser(91L)).thenReturn(identityAccount(91L, UserRole.ADMIN));
+        when(identityUserGateway.getUser(91L)).thenReturn(identityUserSnapshot(91L, UserRole.ADMIN));
 
         assertThatThrownBy(() -> cloudUserProfileService.updateUserStorageQuota(91L, new AdminUpdateUserQuotaRequest(4096L)))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -84,7 +84,7 @@ class CloudUserProfileServiceTest {
 
     @Test
     void uploadCurrentUserHomeBackgroundPersistsCosReference() {
-        IdentityAccount user = identityAccount(23L, UserRole.USER);
+        IdentityUserSnapshot user = identityUserSnapshot(23L, UserRole.USER);
         CloudUserProfileEntity profile =
                 cloudProfile(23L, "cosbg:user-home-backgrounds/23/old.webp", 2048L);
 
@@ -106,7 +106,7 @@ class CloudUserProfileServiceTest {
 
     @Test
     void getCloudUserProfileBackfillsMissingProfileWithDefaultQuota() {
-        when(identityUserGateway.getUser(23L)).thenReturn(identityAccount(23L, UserRole.USER));
+        when(identityUserGateway.getUser(23L)).thenReturn(identityUserSnapshot(23L, UserRole.USER));
         when(cloudUserProfileRepository.findById(23L)).thenReturn(Optional.empty());
         when(cloudUserProfileRepository.save(any(CloudUserProfileEntity.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
@@ -120,7 +120,7 @@ class CloudUserProfileServiceTest {
 
     @Test
     void initializeDefaultNewUserProfilePersistsDefaultQuotaAfterIdentityCreation() {
-        IdentityAccount account = identityAccount(72L, UserRole.USER);
+        IdentityUserSnapshot account = identityUserSnapshot(72L, UserRole.USER);
 
         when(cloudUserProfileRepository.findById(72L)).thenReturn(Optional.empty());
         when(storageQuotaService.getDefaultUserQuotaBytes()).thenReturn(2048L);
@@ -135,13 +135,13 @@ class CloudUserProfileServiceTest {
 
     @Test
     void initializeAdminCreatedUserProfileOwnsQuotaAndBackgroundInitialization() {
-        IdentityAccount account = identityAccount(23L, UserRole.USER);
+        IdentityUserSnapshot account = identityUserSnapshot(23L, UserRole.USER);
         CloudUserProfileEntity adminProfile =
                 cloudProfile(1L, "cosbg:user-home-backgrounds/1/source.webp", 2048L);
 
         when(cloudUserProfileRepository.findById(23L)).thenReturn(Optional.empty());
         when(storageQuotaService.normalizeQuotaBytes(4096L, "用户最大存储额度")).thenReturn(4096L);
-        when(identityUserGateway.getUser(1L)).thenReturn(identityAccount(1L, UserRole.ADMIN));
+        when(identityUserGateway.getUser(1L)).thenReturn(identityUserSnapshot(1L, UserRole.ADMIN));
         when(cloudUserProfileRepository.findById(1L)).thenReturn(Optional.of(adminProfile));
         when(cosFileStorageService.duplicateUserHomeBackground(23L, "user-home-backgrounds/1/source.webp"))
                 .thenReturn(new CosFileStorageService.StoredCosFile("user-home-backgrounds/23/copied.webp", "image/webp", 3L));
@@ -156,7 +156,7 @@ class CloudUserProfileServiceTest {
 
     @Test
     void initializeAdminCreatedAdminProfileUsesDefaultQuotaWhenQuotaRequestIsMissing() {
-        IdentityAccount account = identityAccount(81L, UserRole.ADMIN);
+        IdentityUserSnapshot account = identityUserSnapshot(81L, UserRole.ADMIN);
 
         when(cloudUserProfileRepository.findById(81L)).thenReturn(Optional.empty());
         when(storageQuotaService.getDefaultUserQuotaBytes()).thenReturn(2048L);
@@ -170,7 +170,7 @@ class CloudUserProfileServiceTest {
 
     @Test
     void toUserProfileCombinesIdentityAndCloudProfileForCompatibleResponse() {
-        IdentityAccount account = new IdentityAccount(
+        IdentityUserSnapshot account = new IdentityUserSnapshot(
                 23L,
                 null,
                 "user@example.com",
@@ -196,8 +196,8 @@ class CloudUserProfileServiceTest {
         assertThat(response.remainingBytes()).isEqualTo(2560L);
     }
 
-    private IdentityAccount identityAccount(Long id, UserRole role) {
-        return new IdentityAccount(
+    private IdentityUserSnapshot identityUserSnapshot(Long id, UserRole role) {
+        return new IdentityUserSnapshot(
                 id,
                 "13900000000",
                 "user@example.com",

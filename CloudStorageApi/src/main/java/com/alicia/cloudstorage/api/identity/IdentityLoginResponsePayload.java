@@ -10,6 +10,6 @@ record IdentityLoginResponsePayload(
             throw new IllegalStateException("身份服务登录响应不完整。");
         }
 
-        return new IdentityLoginSession(token, user.toAccount());
+        return new IdentityLoginSession(token, user.toSnapshot());
     }
 }

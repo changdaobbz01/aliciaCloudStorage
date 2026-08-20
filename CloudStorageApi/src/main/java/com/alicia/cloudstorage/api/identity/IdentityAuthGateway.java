@@ -10,9 +10,9 @@ public interface IdentityAuthGateway {
 
     IdentityLoginSession login(LoginRequest request);
 
-    IdentityAccount me(String authorization);
+    IdentityUserSnapshot me(String authorization);
 
-    IdentityAccount updateProfile(String authorization, UpdateProfileRequest request);
+    IdentityUserSnapshot updateProfile(String authorization, UpdateProfileRequest request);
 
     void changePassword(String authorization, ChangePasswordRequest request);
 

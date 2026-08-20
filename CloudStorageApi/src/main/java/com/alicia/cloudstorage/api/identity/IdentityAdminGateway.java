@@ -7,9 +7,9 @@ import java.util.List;
 
 public interface IdentityAdminGateway {
 
-    List<IdentityAccount> listUsers(String authorization);
+    List<IdentityUserSnapshot> listUsers(String authorization);
 
-    IdentityAccount createUser(String authorization, AdminCreateUserRequest request);
+    IdentityUserSnapshot createUser(String authorization, AdminCreateUserRequest request);
 
     void resetUserPassword(String authorization, Long targetUserId, AdminResetUserPasswordRequest request);
 }

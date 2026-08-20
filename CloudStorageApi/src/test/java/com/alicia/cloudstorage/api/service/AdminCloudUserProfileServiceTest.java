@@ -1,6 +1,6 @@
 package com.alicia.cloudstorage.api.service;
 
-import com.alicia.cloudstorage.api.identity.IdentityAccount;
+import com.alicia.cloudstorage.api.identity.IdentityUserSnapshot;
 import com.alicia.cloudstorage.api.dto.AdminUpdateUserQuotaRequest;
 import com.alicia.cloudstorage.api.dto.UserProfileResponse;
 import com.alicia.cloudstorage.api.identity.UserRole;
@@ -33,7 +33,7 @@ class AdminCloudUserProfileServiceTest {
     @Test
     void updateUserStorageQuotaCombinesCloudMutationWithIdentitySnapshot() {
         AdminUpdateUserQuotaRequest request = new AdminUpdateUserQuotaRequest(4096L);
-        IdentityAccount account = new IdentityAccount(
+        IdentityUserSnapshot account = new IdentityUserSnapshot(
                 77L,
                 "13900000000",
                 "user@example.com",

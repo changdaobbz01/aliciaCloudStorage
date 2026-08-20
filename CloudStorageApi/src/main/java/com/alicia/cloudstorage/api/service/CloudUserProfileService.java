@@ -1,6 +1,6 @@
 package com.alicia.cloudstorage.api.service;
 
-import com.alicia.cloudstorage.api.identity.IdentityAccount;
+import com.alicia.cloudstorage.api.identity.IdentityUserSnapshot;
 import com.alicia.cloudstorage.api.auth.AuthException;
 import com.alicia.cloudstorage.api.dto.AdminUpdateUserQuotaRequest;
 import com.alicia.cloudstorage.api.dto.UserProfileResponse;
@@ -41,7 +41,7 @@ public class CloudUserProfileService {
         return toCloudUserProfile(requireCloudProfile(requireUser(userId)));
     }
 
-    public UserProfileResponse getCurrentUser(IdentityAccount account) {
+    public UserProfileResponse getCurrentUser(IdentityUserSnapshot account) {
         if (account.status() != UserStatus.ACTIVE) {
             throw new AuthException("当前账号已停用。");
         }
@@ -50,7 +50,7 @@ public class CloudUserProfileService {
     }
 
     public CloudUserProfile uploadCurrentUserHomeBackground(Long userId, MultipartFile file) {
-        IdentityAccount user = requireActiveUser(userId);
+        IdentityUserSnapshot user = requireActiveUser(userId);
         CloudUserProfileEntity profile =
                 cloudUserProfileProvisioningService.findExistingOrCreateUnsavedCloudProfile(user);
         String oldHomeBackgroundUrl = profile.getHomeBackgroundUrl();
@@ -64,7 +64,7 @@ public class CloudUserProfileService {
     }
 
     public CosFileStorageService.PresignedCosUrl resolveUserHomeBackgroundAccessUrl(Long userId) {
-        IdentityAccount user = requireUser(userId);
+        IdentityUserSnapshot user = requireUser(userId);
         String objectKey = extractLocalHomeBackgroundObjectKey(requireCloudProfile(user).getHomeBackgroundUrl());
 
         if (objectKey == null) {
@@ -75,7 +75,7 @@ public class CloudUserProfileService {
     }
 
     public CloudUserProfile clearCurrentUserHomeBackground(Long userId) {
-        IdentityAccount user = requireActiveUser(userId);
+        IdentityUserSnapshot user = requireActiveUser(userId);
         CloudUserProfileEntity profile =
                 cloudUserProfileProvisioningService.findExistingOrCreateUnsavedCloudProfile(user);
         String oldHomeBackgroundUrl = profile.getHomeBackgroundUrl();
@@ -88,7 +88,7 @@ public class CloudUserProfileService {
     }
 
     public CloudUserProfile updateUserStorageQuota(Long userId, AdminUpdateUserQuotaRequest request) {
-        IdentityAccount user = requireUser(userId);
+        IdentityUserSnapshot user = requireUser(userId);
 
         if (user.role() == UserRole.ADMIN) {
             throw new IllegalArgumentException("管理员账号不限制存储额度，无需修改。");
@@ -103,7 +103,7 @@ public class CloudUserProfileService {
         return toCloudUserProfile(cloudUserProfileRepository.save(profile));
     }
 
-    public CloudUserProfile initializeDefaultNewUserProfile(IdentityAccount account) {
+    public CloudUserProfile initializeDefaultNewUserProfile(IdentityUserSnapshot account) {
         CloudUserProfileEntity profile =
                 cloudUserProfileProvisioningService.findExistingOrCreateUnsavedCloudProfile(account);
 
@@ -113,7 +113,7 @@ public class CloudUserProfileService {
 
     public CloudUserProfile initializeAdminCreatedUserProfile(
             Long adminUserId,
-            IdentityAccount account,
+            IdentityUserSnapshot account,
             Long requestedQuotaBytes,
             boolean inheritAdminBackground
     ) {
@@ -137,11 +137,11 @@ public class CloudUserProfileService {
                 : storageQuotaService.normalizeQuotaBytes(requestedQuotaBytes, "用户最大存储额度");
     }
 
-    public UserProfileResponse toUserProfile(IdentityAccount account) {
+    public UserProfileResponse toUserProfile(IdentityUserSnapshot account) {
         return toUserProfile(account, getCloudUserProfile(account.id()));
     }
 
-    public UserProfileResponse toUserProfile(IdentityAccount account, CloudUserProfile cloudProfile) {
+    public UserProfileResponse toUserProfile(IdentityUserSnapshot account, CloudUserProfile cloudProfile) {
         long usedBytes = account.id() == null ? 0L : storageQuotaService.getUsedBytes(account.id());
         long quotaBytes = cloudProfile.storageQuotaBytes() == null
                 ? storageQuotaService.getDefaultUserQuotaBytes()
@@ -166,8 +166,8 @@ public class CloudUserProfileService {
         );
     }
 
-    private IdentityAccount requireActiveUser(Long userId) {
-        IdentityAccount user = requireUser(userId);
+    private IdentityUserSnapshot requireActiveUser(Long userId) {
+        IdentityUserSnapshot user = requireUser(userId);
 
         if (user.status() != UserStatus.ACTIVE) {
             throw new AuthException("当前账号已停用。");
@@ -176,7 +176,7 @@ public class CloudUserProfileService {
         return user;
     }
 
-    private IdentityAccount requireUser(Long userId) {
+    private IdentityUserSnapshot requireUser(Long userId) {
         if (userId == null) {
             throw new IllegalArgumentException("用户不存在。");
         }
@@ -184,7 +184,7 @@ public class CloudUserProfileService {
         return identityUserGateway.getUser(userId);
     }
 
-    private CloudUserProfileEntity requireCloudProfile(IdentityAccount user) {
+    private CloudUserProfileEntity requireCloudProfile(IdentityUserSnapshot user) {
         return cloudUserProfileProvisioningService.ensureCloudProfile(user);
     }
 
@@ -197,7 +197,7 @@ public class CloudUserProfileService {
     }
 
     private String resolveInheritedHomeBackgroundUrl(Long adminUserId, Long targetUserId) {
-        IdentityAccount adminUser = requireActiveUser(adminUserId);
+        IdentityUserSnapshot adminUser = requireActiveUser(adminUserId);
         String sourceHomeBackgroundUrl = requireCloudProfile(adminUser).getHomeBackgroundUrl();
         if (sourceHomeBackgroundUrl == null || sourceHomeBackgroundUrl.isBlank()) {
             return null;

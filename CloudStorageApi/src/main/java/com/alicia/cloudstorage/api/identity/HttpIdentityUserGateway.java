@@ -21,7 +21,7 @@ public class HttpIdentityUserGateway implements IdentityUserGateway {
     }
 
     @Override
-    public IdentityAccount getUser(Long userId) {
+    public IdentityUserSnapshot getUser(Long userId) {
         IdentityUserResponsePayload response = IdentityGatewaySupport.exchange(() -> restClient.get()
                 .uri("/api/identity/internal/users/{userId}", userId)
                 .retrieve()
@@ -31,6 +31,6 @@ public class HttpIdentityUserGateway implements IdentityUserGateway {
             throw new IllegalStateException("身份服务用户查询响应为空。");
         }
 
-        return response.toAccount();
+        return response.toSnapshot();
     }
 }

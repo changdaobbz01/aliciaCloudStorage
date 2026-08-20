@@ -1,6 +1,6 @@
 package com.alicia.cloudstorage.api.service;
 
-import com.alicia.cloudstorage.api.identity.IdentityAccount;
+import com.alicia.cloudstorage.api.identity.IdentityUserSnapshot;
 import com.alicia.cloudstorage.api.dto.CreateShareLinkRequest;
 import com.alicia.cloudstorage.api.dto.SaveShareLinkRequest;
 import com.alicia.cloudstorage.api.dto.StorageNodeSummaryResponse;
@@ -190,7 +190,7 @@ class ShareLinkServiceTest {
         when(shareLinkRepository.findByShareCode("share-code")).thenReturn(Optional.of(shareLink));
         when(shareLinkItemRepository.findByShareIdOrderBySortOrderAsc(8L)).thenReturn(List.of(shareItem));
         when(storageNodeRepository.findByIdAndOwnerIdAndDeletedFalse(81L, 9L)).thenReturn(Optional.of(sharedFile));
-        when(identityUserGateway.getUser(9L)).thenReturn(identityAccount(9L, "Owner Alicia"));
+        when(identityUserGateway.getUser(9L)).thenReturn(identityUserSnapshot(9L, "Owner Alicia"));
 
         var response = shareLinkService.getShareDetail(20L, "share-code", null);
 
@@ -419,8 +419,8 @@ class ShareLinkServiceTest {
         return node;
     }
 
-    private IdentityAccount identityAccount(Long id, String nickname) {
-        return new IdentityAccount(
+    private IdentityUserSnapshot identityUserSnapshot(Long id, String nickname) {
+        return new IdentityUserSnapshot(
                 id,
                 "13900000000",
                 "user@example.com",

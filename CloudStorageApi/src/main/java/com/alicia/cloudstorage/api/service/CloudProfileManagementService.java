@@ -1,6 +1,6 @@
 package com.alicia.cloudstorage.api.service;
 
-import com.alicia.cloudstorage.api.identity.IdentityAccount;
+import com.alicia.cloudstorage.api.identity.IdentityUserSnapshot;
 import com.alicia.cloudstorage.api.dto.UserProfileResponse;
 import com.alicia.cloudstorage.api.identity.IdentityUserGateway;
 import org.springframework.stereotype.Service;
@@ -25,14 +25,14 @@ public class CloudProfileManagementService {
     public UserProfileResponse uploadCurrentUserHomeBackground(Long userId, MultipartFile file) {
         CloudUserProfileService.CloudUserProfile cloudProfile =
                 cloudUserProfileService.uploadCurrentUserHomeBackground(userId, file);
-        IdentityAccount account = identityUserGateway.getUser(userId);
+        IdentityUserSnapshot account = identityUserGateway.getUser(userId);
         return cloudUserProfileService.toUserProfile(account, cloudProfile);
     }
 
     public UserProfileResponse clearCurrentUserHomeBackground(Long userId) {
         CloudUserProfileService.CloudUserProfile cloudProfile =
                 cloudUserProfileService.clearCurrentUserHomeBackground(userId);
-        IdentityAccount account = identityUserGateway.getUser(userId);
+        IdentityUserSnapshot account = identityUserGateway.getUser(userId);
         return cloudUserProfileService.toUserProfile(account, cloudProfile);
     }
 

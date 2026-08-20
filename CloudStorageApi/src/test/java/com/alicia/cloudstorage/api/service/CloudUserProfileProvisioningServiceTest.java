@@ -1,6 +1,6 @@
 package com.alicia.cloudstorage.api.service;
 
-import com.alicia.cloudstorage.api.identity.IdentityAccount;
+import com.alicia.cloudstorage.api.identity.IdentityUserSnapshot;
 import com.alicia.cloudstorage.api.entity.CloudUserProfileEntity;
 import com.alicia.cloudstorage.api.identity.UserRole;
 import com.alicia.cloudstorage.api.identity.UserStatus;
@@ -41,7 +41,7 @@ class CloudUserProfileProvisioningServiceTest {
     }
 
     @Test
-    void ensureCloudProfileCreatesSavedDefaultProfileFromIdentityAccount() {
+    void ensureCloudProfileCreatesSavedDefaultProfileFromIdentityUserSnapshot() {
         CloudUserProfileProvisioningService service =
                 new CloudUserProfileProvisioningService(cloudUserProfileRepository, 53687091200L);
 
@@ -78,8 +78,8 @@ class CloudUserProfileProvisioningServiceTest {
                 .hasMessage("默认用户存储额度配置必须大于 0。");
     }
 
-    private IdentityAccount account(Long id) {
-        return new IdentityAccount(
+    private IdentityUserSnapshot account(Long id) {
+        return new IdentityUserSnapshot(
                 id,
                 "13900000000",
                 "user@example.com",

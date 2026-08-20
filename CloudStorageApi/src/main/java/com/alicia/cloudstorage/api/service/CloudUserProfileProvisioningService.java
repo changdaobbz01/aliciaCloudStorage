@@ -1,6 +1,6 @@
 package com.alicia.cloudstorage.api.service;
 
-import com.alicia.cloudstorage.api.identity.IdentityAccount;
+import com.alicia.cloudstorage.api.identity.IdentityUserSnapshot;
 import com.alicia.cloudstorage.api.entity.CloudUserProfileEntity;
 import com.alicia.cloudstorage.api.repository.CloudUserProfileRepository;
 import org.springframework.beans.factory.annotation.Value;
@@ -26,13 +26,13 @@ public class CloudUserProfileProvisioningService {
         this.defaultUserQuotaBytes = defaultUserQuotaBytes;
     }
 
-    public CloudUserProfileEntity ensureCloudProfile(IdentityAccount account) {
+    public CloudUserProfileEntity ensureCloudProfile(IdentityUserSnapshot account) {
         Long userId = requireIdentityUserId(account);
         return cloudUserProfileRepository.findById(userId)
                 .orElseGet(() -> cloudUserProfileRepository.save(createDefaultCloudProfile(userId)));
     }
 
-    public CloudUserProfileEntity findExistingOrCreateUnsavedCloudProfile(IdentityAccount account) {
+    public CloudUserProfileEntity findExistingOrCreateUnsavedCloudProfile(IdentityUserSnapshot account) {
         Long userId = requireIdentityUserId(account);
         return cloudUserProfileRepository.findById(userId)
                 .orElseGet(() -> createDefaultCloudProfile(userId));
@@ -46,7 +46,7 @@ public class CloudUserProfileProvisioningService {
         return profile;
     }
 
-    private Long requireIdentityUserId(IdentityAccount account) {
+    private Long requireIdentityUserId(IdentityUserSnapshot account) {
         if (account == null || account.id() == null) {
             throw new IllegalArgumentException("用户不存在。");
         }

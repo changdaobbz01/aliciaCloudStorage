@@ -1,7 +1,7 @@
 package com.alicia.cloudstorage.api.service;
 
 import com.alicia.cloudstorage.api.identity.IdentityLoginSession;
-import com.alicia.cloudstorage.api.identity.IdentityAccount;
+import com.alicia.cloudstorage.api.identity.IdentityUserSnapshot;
 import com.alicia.cloudstorage.api.dto.ChangePasswordRequest;
 import com.alicia.cloudstorage.api.dto.LoginRequest;
 import com.alicia.cloudstorage.api.dto.UpdateProfileRequest;
@@ -49,7 +49,7 @@ class IdentityAuthCompatibilityServiceTest {
     @Test
     void loginCombinesIdentitySessionWithCloudProfileResponse() {
         LoginRequest request = new LoginRequest("Email-User@Example.COM", null, null, "Passw0rd");
-        IdentityAccount account = regularIdentityAccount(18L);
+        IdentityUserSnapshot account = regularIdentityUserSnapshot(18L);
         UserProfileResponse profile = profile(account, 4096L, 1024L, 3072L);
 
         when(identityAuthGateway.login(request)).thenReturn(new IdentityLoginSession("token", account));
@@ -64,7 +64,7 @@ class IdentityAuthCompatibilityServiceTest {
 
     @Test
     void getCurrentUserCombinesIdentityApiUserWithCloudProfileResponse() {
-        IdentityAccount account = regularIdentityAccount(18L);
+        IdentityUserSnapshot account = regularIdentityUserSnapshot(18L);
         UserProfileResponse profile = profile(account, 4096L, 1024L, 3072L);
 
         when(identityAuthGateway.me("Bearer token")).thenReturn(account);
@@ -80,7 +80,7 @@ class IdentityAuthCompatibilityServiceTest {
     void updateCurrentUserDelegatesToIdentityApiGateway() {
         UpdateProfileRequest request =
                 new UpdateProfileRequest("13900000000", "Updated Alicia", "cos:user-avatars/18/new.webp");
-        IdentityAccount account = identityAccount(18L, "13900000000", "user@example.com", "Updated Alicia",
+        IdentityUserSnapshot account = identityUserSnapshot(18L, "13900000000", "user@example.com", "Updated Alicia",
                 "cos:user-avatars/18/new.webp");
         UserProfileResponse profile = profile(account, 4096L, 1024L, 3072L);
 
@@ -95,14 +95,14 @@ class IdentityAuthCompatibilityServiceTest {
 
     @Test
     void uploadCurrentUserAvatarUpdatesIdentityProfileAndDeletesOldLocalAvatar() {
-        IdentityAccount currentAccount = identityAccount(
+        IdentityUserSnapshot currentAccount = identityUserSnapshot(
                 18L,
                 "13900000000",
                 "user@example.com",
                 "Alicia",
                 "cos:user-avatars/18/old.webp"
         );
-        IdentityAccount updatedAccount = identityAccount(
+        IdentityUserSnapshot updatedAccount = identityUserSnapshot(
                 18L,
                 "13900000000",
                 "user@example.com",
@@ -132,7 +132,7 @@ class IdentityAuthCompatibilityServiceTest {
 
     @Test
     void uploadCurrentUserAvatarDeletesNewAvatarWhenIdentityUpdateFails() {
-        IdentityAccount currentAccount = identityAccount(
+        IdentityUserSnapshot currentAccount = identityUserSnapshot(
                 18L,
                 "13900000000",
                 "user@example.com",
@@ -157,7 +157,7 @@ class IdentityAuthCompatibilityServiceTest {
 
     @Test
     void resolveUserAvatarAccessUrlUsesIdentityApiAvatarReference() {
-        IdentityAccount account = identityAccount(
+        IdentityUserSnapshot account = identityUserSnapshot(
                 18L,
                 "13900000000",
                 "user@example.com",
@@ -179,7 +179,7 @@ class IdentityAuthCompatibilityServiceTest {
 
     @Test
     void resolveUserAvatarAccessUrlRejectsMissingLocalAvatarReference() {
-        IdentityAccount account = identityAccount(
+        IdentityUserSnapshot account = identityUserSnapshot(
                 18L,
                 "13900000000",
                 "user@example.com",
@@ -205,18 +205,18 @@ class IdentityAuthCompatibilityServiceTest {
         verify(identityAuthGateway).changePassword("Bearer token", request);
     }
 
-    private IdentityAccount regularIdentityAccount(Long id) {
-        return identityAccount(id, "13900000000", "user@example.com", "Alicia", null);
+    private IdentityUserSnapshot regularIdentityUserSnapshot(Long id) {
+        return identityUserSnapshot(id, "13900000000", "user@example.com", "Alicia", null);
     }
 
-    private IdentityAccount identityAccount(
+    private IdentityUserSnapshot identityUserSnapshot(
             Long id,
             String phoneNumber,
             String email,
             String nickname,
             String avatarUrl
     ) {
-        return new IdentityAccount(
+        return new IdentityUserSnapshot(
                 id,
                 phoneNumber,
                 email,
@@ -228,7 +228,7 @@ class IdentityAuthCompatibilityServiceTest {
         );
     }
 
-    private UserProfileResponse profile(IdentityAccount account, Long storageQuotaBytes, long usedBytes, Long remainingBytes) {
+    private UserProfileResponse profile(IdentityUserSnapshot account, Long storageQuotaBytes, long usedBytes, Long remainingBytes) {
         return new UserProfileResponse(
                 account.id(),
                 account.phoneNumberOrEmpty(),

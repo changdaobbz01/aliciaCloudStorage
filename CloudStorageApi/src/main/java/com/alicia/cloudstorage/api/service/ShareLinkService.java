@@ -1,6 +1,6 @@
 package com.alicia.cloudstorage.api.service;
 
-import com.alicia.cloudstorage.api.identity.IdentityAccount;
+import com.alicia.cloudstorage.api.identity.IdentityUserSnapshot;
 import com.alicia.cloudstorage.api.dto.CreateShareLinkRequest;
 import com.alicia.cloudstorage.api.dto.SaveShareLinkRequest;
 import com.alicia.cloudstorage.api.dto.ShareLinkDetailResponse;
@@ -200,7 +200,7 @@ public class ShareLinkService {
 
         List<StorageNode> rootNodes = loadActiveSharedRootNodes(shareLink);
         List<StorageNode> sharedNodes = collectActiveSharedNodes(rootNodes);
-        IdentityAccount owner = identityUserGateway.getUser(shareLink.getOwnerId());
+        IdentityUserSnapshot owner = identityUserGateway.getUser(shareLink.getOwnerId());
 
         shareLink.setViewCount((shareLink.getViewCount() == null ? 0L : shareLink.getViewCount()) + 1L);
         shareLink.setLastAccessedAt(LocalDateTime.now());
