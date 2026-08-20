@@ -2,30 +2,19 @@ package com.alicia.cloudstorage.identity.service;
 
 import com.alicia.cloudstorage.identity.dto.VerifyEmailRegistrationRequest;
 import com.alicia.cloudstorage.identity.entity.EmailVerificationCode;
-import com.alicia.cloudstorage.identity.entity.EmailVerificationPurpose;
 import com.alicia.cloudstorage.identity.entity.IdentityUser;
-import com.alicia.cloudstorage.identity.mail.EmailSender;
-import com.alicia.cloudstorage.identity.repository.EmailVerificationCodeRepository;
 import com.alicia.cloudstorage.identity.repository.IdentityUserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import java.time.Clock;
-import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -33,26 +22,16 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class IdentityEmailRegistrationServiceTest {
 
-    private static final Clock FIXED_CLOCK = Clock.fixed(
-            Instant.parse("2026-08-17T02:30:00Z"),
-            ZoneId.of("Asia/Shanghai")
-    );
-    private static final LocalDateTime NOW = LocalDateTime.now(FIXED_CLOCK);
-
-    @Mock
-    private EmailVerificationCodeRepository verificationCodeRepository;
+    private static final LocalDateTime VERIFIED_AT = LocalDateTime.of(2026, 8, 17, 10, 30);
 
     @Mock
     private IdentityUserRepository identityUserRepository;
 
     @Mock
-    private PasswordEncoder passwordEncoder;
+    private EmailVerificationCodeService emailVerificationCodeService;
 
     @Mock
     private IdentityUserCreationService identityUserCreationService;
-
-    @Mock
-    private EmailSender emailSender;
 
     @Mock
     private IdentityTokenService identityTokenService;
@@ -65,43 +44,22 @@ class IdentityEmailRegistrationServiceTest {
     void setUp() {
         identityUserInputNormalizer = new IdentityUserInputNormalizer();
         service = new IdentityEmailRegistrationService(
-                verificationCodeRepository,
                 identityUserRepository,
-                passwordEncoder,
                 identityUserInputNormalizer,
+                emailVerificationCodeService,
                 identityUserCreationService,
-                emailSender,
-                identityTokenService,
-                FIXED_CLOCK
+                identityTokenService
         );
     }
 
     @Test
-    void requestRegistrationCodeStoresHashedCodeAndSendsEmail() {
+    void requestRegistrationCodeDelegatesForAvailableEmail() {
         when(identityUserRepository.existsByEmail("newuser@example.com")).thenReturn(false);
-        when(verificationCodeRepository.findFirstByEmailAndPurposeAndConsumedAtIsNullOrderByCreatedAtDesc(
-                "newuser@example.com",
-                EmailVerificationPurpose.REGISTER
-        )).thenReturn(Optional.empty());
-        when(passwordEncoder.encode(anyString())).thenReturn("hashed-code");
 
         service.requestRegistrationCode("NewUser@Example.COM", "127.0.0.1", "JUnit");
 
-        ArgumentCaptor<EmailVerificationCode> codeCaptor = ArgumentCaptor.forClass(EmailVerificationCode.class);
-        verify(verificationCodeRepository).save(codeCaptor.capture());
-        EmailVerificationCode savedCode = codeCaptor.getValue();
-        assertThat(savedCode.getEmail()).isEqualTo("newuser@example.com");
-        assertThat(savedCode.getPurpose()).isEqualTo(EmailVerificationPurpose.REGISTER);
-        assertThat(savedCode.getCodeHash()).isEqualTo("hashed-code");
-        assertThat(savedCode.getExpiresAt()).isEqualTo(NOW.plusMinutes(10));
-        assertThat(savedCode.getResendAfter()).isEqualTo(NOW.plusSeconds(60));
-        assertThat(savedCode.getRequestIpHash()).hasSize(64);
-        assertThat(savedCode.getUserAgentHash()).hasSize(64);
-        verify(emailSender).sendText(
-                org.mockito.ArgumentMatchers.eq("newuser@example.com"),
-                org.mockito.ArgumentMatchers.eq("Alicia 云盘注册验证码"),
-                org.mockito.ArgumentMatchers.contains("10 分钟内有效")
-        );
+        verify(emailVerificationCodeService)
+                .requestRegistrationCode("newuser@example.com", "127.0.0.1", "JUnit");
     }
 
     @Test
@@ -110,44 +68,24 @@ class IdentityEmailRegistrationServiceTest {
 
         service.requestRegistrationCode("NewUser@Example.COM", "127.0.0.1", "JUnit");
 
-        verify(verificationCodeRepository, never()).save(any());
-        verify(emailSender, never()).sendText(anyString(), anyString(), anyString());
-    }
-
-    @Test
-    void requestRegistrationCodeRejectsBeforeResendCooldown() {
-        EmailVerificationCode latestCode = new EmailVerificationCode();
-        latestCode.setResendAfter(NOW.plusSeconds(30));
-
-        when(identityUserRepository.existsByEmail("newuser@example.com")).thenReturn(false);
-        when(verificationCodeRepository.findFirstByEmailAndPurposeAndConsumedAtIsNullOrderByCreatedAtDesc(
-                "newuser@example.com",
-                EmailVerificationPurpose.REGISTER
-        )).thenReturn(Optional.of(latestCode));
-
-        assertThatThrownBy(() -> service.requestRegistrationCode("NewUser@Example.COM", "127.0.0.1", "JUnit"))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("验证码已发送");
-        verify(emailSender, never()).sendText(anyString(), anyString(), anyString());
+        verify(emailVerificationCodeService, never())
+                .requestRegistrationCode("newuser@example.com", "127.0.0.1", "JUnit");
     }
 
     @Test
     void verifyRegistrationConsumesCodeCreatesIdentityUserAndReturnsToken() {
-        EmailVerificationCode latestCode = activeCode();
+        EmailVerificationCodeService.VerifiedEmailCode verifiedCode = verifiedCode();
 
-        when(verificationCodeRepository.findFirstByEmailAndPurposeAndConsumedAtIsNullOrderByCreatedAtDesc(
-                "newuser@example.com",
-                EmailVerificationPurpose.REGISTER
-        )).thenReturn(Optional.of(latestCode));
-        when(passwordEncoder.matches("123456", "hashed-code")).thenReturn(true);
+        when(emailVerificationCodeService.verifyRegistrationCode("newuser@example.com", "123456"))
+                .thenReturn(verifiedCode);
         when(identityUserRepository.existsByEmail("newuser@example.com")).thenReturn(false);
         when(identityUserCreationService.createVerifiedEmailUser(
                 "newuser@example.com",
                 "New User",
                 "Passw0rd",
-                NOW
+                VERIFIED_AT
         )).thenReturn(identityUser(88L));
-        when(identityTokenService.createToken(any(IdentityUser.class))).thenReturn("token");
+        when(identityTokenService.createToken(org.mockito.ArgumentMatchers.any(IdentityUser.class))).thenReturn("token");
 
         var response = service.verifyRegistration(
                 new VerifyEmailRegistrationRequest("NewUser@Example.COM", "123456", "New User", "Passw0rd")
@@ -157,47 +95,58 @@ class IdentityEmailRegistrationServiceTest {
         assertThat(response.user().id()).isEqualTo(88L);
         assertThat(response.user().email()).isEqualTo("newuser@example.com");
         assertThat(response.user().role()).isEqualTo("USER");
-        assertThat(latestCode.getConsumedAt()).isEqualTo(NOW);
-        verify(verificationCodeRepository).save(latestCode);
+        verify(emailVerificationCodeService).consume(verifiedCode);
         verify(identityUserCreationService).createVerifiedEmailUser(
                 "newuser@example.com",
                 "New User",
                 "Passw0rd",
-                NOW
+                VERIFIED_AT
         );
     }
 
     @Test
-    void verifyRegistrationIncrementsAttemptsWhenCodeDoesNotMatch() {
-        EmailVerificationCode latestCode = activeCode();
+    void verifyRegistrationChecksDuplicateEmailBeforeConsumingCode() {
+        EmailVerificationCodeService.VerifiedEmailCode verifiedCode = verifiedCode();
 
-        when(verificationCodeRepository.findFirstByEmailAndPurposeAndConsumedAtIsNullOrderByCreatedAtDesc(
-                "newuser@example.com",
-                EmailVerificationPurpose.REGISTER
-        )).thenReturn(Optional.of(latestCode));
-        when(passwordEncoder.matches("000000", "hashed-code")).thenReturn(false);
+        when(emailVerificationCodeService.verifyRegistrationCode("newuser@example.com", "123456"))
+                .thenReturn(verifiedCode);
+        when(identityUserRepository.existsByEmail("newuser@example.com")).thenReturn(true);
+
+        assertThatThrownBy(() -> service.verifyRegistration(
+                new VerifyEmailRegistrationRequest("NewUser@Example.COM", "123456", "New User", "Passw0rd")
+        )).isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("邮箱已注册，请直接登录。");
+
+        verify(emailVerificationCodeService, never()).consume(verifiedCode);
+        verify(identityUserCreationService, never()).createVerifiedEmailUser(
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any()
+        );
+    }
+
+    @Test
+    void verifyRegistrationDoesNotCreateUserWhenCodeIsInvalid() {
+        when(emailVerificationCodeService.verifyRegistrationCode("newuser@example.com", "000000"))
+                .thenThrow(new IllegalArgumentException("验证码不正确或已过期。"));
 
         assertThatThrownBy(() -> service.verifyRegistration(
                 new VerifyEmailRegistrationRequest("NewUser@Example.COM", "000000", "New User", "Passw0rd")
-        ))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("验证码不正确");
+        )).isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("验证码不正确或已过期。");
 
-        assertThat(latestCode.getAttempts()).isEqualTo(1);
-        verify(verificationCodeRepository).save(latestCode);
-        verify(identityUserCreationService, never()).createVerifiedEmailUser(anyString(), anyString(), anyString(), any());
+        verify(identityUserRepository, never()).existsByEmail("newuser@example.com");
+        verify(identityUserCreationService, never()).createVerifiedEmailUser(
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any()
+        );
     }
 
-    private EmailVerificationCode activeCode() {
-        EmailVerificationCode latestCode = new EmailVerificationCode();
-        latestCode.setEmail("newuser@example.com");
-        latestCode.setPurpose(EmailVerificationPurpose.REGISTER);
-        latestCode.setCodeHash("hashed-code");
-        latestCode.setAttempts(0);
-        latestCode.setMaxAttempts(5);
-        latestCode.setExpiresAt(NOW.plusMinutes(5));
-        latestCode.setResendAfter(NOW.minusSeconds(1));
-        return latestCode;
+    private EmailVerificationCodeService.VerifiedEmailCode verifiedCode() {
+        return new EmailVerificationCodeService.VerifiedEmailCode(new EmailVerificationCode(), VERIFIED_AT);
     }
 
     private IdentityUser identityUser(Long id) {
@@ -207,7 +156,7 @@ class IdentityEmailRegistrationServiceTest {
         ReflectionTestUtils.setField(user, "nickname", "New User");
         ReflectionTestUtils.setField(user, "role", com.alicia.cloudstorage.identity.entity.IdentityUserRole.USER);
         ReflectionTestUtils.setField(user, "status", com.alicia.cloudstorage.identity.entity.IdentityUserStatus.ACTIVE);
-        ReflectionTestUtils.setField(user, "createdAt", NOW);
+        ReflectionTestUtils.setField(user, "createdAt", VERIFIED_AT);
         return user;
     }
 }
