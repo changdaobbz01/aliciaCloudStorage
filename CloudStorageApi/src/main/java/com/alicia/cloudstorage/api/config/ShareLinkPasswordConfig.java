@@ -6,10 +6,10 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 @Configuration
-public class PasswordConfig {
+public class ShareLinkPasswordConfig {
 
     /**
-     * 提供全局可复用的 BCrypt 密码编码器。
+     * CloudStorageApi 只负责分享链接访问密码；账号密码由 identityApi 管理。
      */
     @Bean
     public PasswordEncoder passwordEncoder() {
