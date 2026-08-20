@@ -11,7 +11,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.Locale;
 
 @Service
 @Transactional
@@ -20,15 +19,18 @@ public class IdentityAdminUserService {
     private final IdentityPrincipalService identityPrincipalService;
     private final IdentityUserRepository identityUserRepository;
     private final IdentityCredentialService identityCredentialService;
+    private final IdentityUserInputNormalizer identityUserInputNormalizer;
 
     public IdentityAdminUserService(
             IdentityPrincipalService identityPrincipalService,
             IdentityUserRepository identityUserRepository,
-            IdentityCredentialService identityCredentialService
+            IdentityCredentialService identityCredentialService,
+            IdentityUserInputNormalizer identityUserInputNormalizer
     ) {
         this.identityPrincipalService = identityPrincipalService;
         this.identityUserRepository = identityUserRepository;
         this.identityCredentialService = identityCredentialService;
+        this.identityUserInputNormalizer = identityUserInputNormalizer;
     }
 
     @Transactional(readOnly = true)
@@ -45,12 +47,12 @@ public class IdentityAdminUserService {
     ) {
         identityPrincipalService.requireAdminUser(authorizationHeader);
 
-        String phoneNumber = normalizeOptionalPhoneNumber(request.phoneNumber());
-        String email = normalizeOptionalEmail(request.email());
-        String nickname = normalizeNickname(request.nickname());
+        String phoneNumber = identityUserInputNormalizer.normalizeOptionalPhoneNumber(request.phoneNumber());
+        String email = identityUserInputNormalizer.normalizeOptionalEmail(request.email());
+        String nickname = identityUserInputNormalizer.normalizeNickname(request.nickname());
         String passwordHash = identityCredentialService.encodeInitialPassword(request.password());
-        String avatarUrl = normalizeAvatarUrl(request.avatarUrl());
-        IdentityUserRole role = normalizeRole(request.role());
+        String avatarUrl = identityUserInputNormalizer.normalizeAvatarUrl(request.avatarUrl());
+        IdentityUserRole role = identityUserInputNormalizer.normalizeRole(request.role());
 
         if (phoneNumber == null && email == null) {
             throw new IllegalArgumentException("手机号或邮箱不能为空。");
@@ -92,60 +94,6 @@ public class IdentityAdminUserService {
                 .orElseThrow(() -> new IllegalArgumentException("用户不存在。"));
         identityCredentialService.resetPassword(targetUser, request.newPassword());
         identityUserRepository.save(targetUser);
-    }
-
-    private String normalizeNickname(String value) {
-        if (value == null || value.trim().isEmpty()) {
-            throw new IllegalArgumentException("昵称不能为空。");
-        }
-
-        return value.trim();
-    }
-
-    private String normalizeOptionalPhoneNumber(String value) {
-        if (value == null || value.trim().isEmpty()) {
-            return null;
-        }
-
-        String phoneNumber = value.trim();
-        if (!phoneNumber.matches("^1\\d{10}$")) {
-            throw new IllegalArgumentException("请输入 11 位手机号。");
-        }
-
-        return phoneNumber;
-    }
-
-    private String normalizeOptionalEmail(String value) {
-        if (value == null || value.trim().isEmpty()) {
-            return null;
-        }
-
-        String email = value.trim().toLowerCase(Locale.ROOT);
-        if (email.length() > 320 || !email.matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")) {
-            throw new IllegalArgumentException("请输入有效邮箱地址。");
-        }
-
-        return email;
-    }
-
-    private String normalizeAvatarUrl(String value) {
-        if (value == null || value.trim().isEmpty()) {
-            return null;
-        }
-
-        return value.trim();
-    }
-
-    private IdentityUserRole normalizeRole(String role) {
-        if (role == null || role.isBlank()) {
-            return IdentityUserRole.USER;
-        }
-
-        try {
-            return IdentityUserRole.valueOf(role.trim().toUpperCase(Locale.ROOT));
-        } catch (IllegalArgumentException ex) {
-            throw new IllegalArgumentException("角色只能是 ADMIN 或 USER。");
-        }
     }
 
 }

@@ -11,8 +11,6 @@ import com.alicia.cloudstorage.identity.repository.IdentityUserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Locale;
-
 @Service
 @Transactional(readOnly = true)
 public class IdentityAuthService {
@@ -21,17 +19,20 @@ public class IdentityAuthService {
     private final IdentityCredentialService identityCredentialService;
     private final IdentityTokenService identityTokenService;
     private final IdentityPrincipalService identityPrincipalService;
+    private final IdentityUserInputNormalizer identityUserInputNormalizer;
 
     public IdentityAuthService(
             IdentityUserRepository identityUserRepository,
             IdentityCredentialService identityCredentialService,
             IdentityTokenService identityTokenService,
-            IdentityPrincipalService identityPrincipalService
+            IdentityPrincipalService identityPrincipalService,
+            IdentityUserInputNormalizer identityUserInputNormalizer
     ) {
         this.identityUserRepository = identityUserRepository;
         this.identityCredentialService = identityCredentialService;
         this.identityTokenService = identityTokenService;
         this.identityPrincipalService = identityPrincipalService;
+        this.identityUserInputNormalizer = identityUserInputNormalizer;
     }
 
     public IdentityLoginResponse login(IdentityLoginRequest request) {
@@ -64,9 +65,9 @@ public class IdentityAuthService {
     @Transactional
     public IdentityUserResponse updateProfile(String authorizationHeader, UpdateIdentityProfileRequest request) {
         IdentityUser user = identityPrincipalService.requireActiveUser(authorizationHeader);
-        String phoneNumber = normalizeOptionalPhoneNumber(request.phoneNumber());
-        String nickname = normalizeNickname(request.nickname());
-        String avatarUrl = normalizeAvatarUrl(request.avatarUrl());
+        String phoneNumber = identityUserInputNormalizer.normalizeOptionalPhoneNumber(request.phoneNumber());
+        String nickname = identityUserInputNormalizer.normalizeNickname(request.nickname());
+        String avatarUrl = identityUserInputNormalizer.normalizeAvatarUrl(request.avatarUrl());
 
         if (phoneNumber == null && user.getEmail() == null) {
             throw new IllegalArgumentException("手机号不能为空。");
@@ -98,10 +99,10 @@ public class IdentityAuthService {
 
         String identifier = rawIdentifier.trim();
         if (identifier.contains("@")) {
-            return new LoginIdentifier(LoginIdentifierType.EMAIL, normalizeEmail(identifier));
+            return new LoginIdentifier(LoginIdentifierType.EMAIL, identityUserInputNormalizer.normalizeEmail(identifier));
         }
 
-        return new LoginIdentifier(LoginIdentifierType.PHONE, normalizePhoneNumber(identifier));
+        return new LoginIdentifier(LoginIdentifierType.PHONE, identityUserInputNormalizer.normalizePhoneNumber(identifier));
     }
 
     private String firstPresent(String... values) {
@@ -112,48 +113,6 @@ public class IdentityAuthService {
         }
 
         return null;
-    }
-
-    private String normalizeEmail(String value) {
-        String email = value.trim().toLowerCase(Locale.ROOT);
-        if (email.isEmpty() || email.length() > 320 || !email.matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")) {
-            throw new IllegalArgumentException("请输入有效邮箱地址。");
-        }
-
-        return email;
-    }
-
-    private String normalizePhoneNumber(String value) {
-        String phoneNumber = value.trim();
-        if (!phoneNumber.matches("^1\\d{10}$")) {
-            throw new IllegalArgumentException("请输入 11 位手机号。");
-        }
-
-        return phoneNumber;
-    }
-
-    private String normalizeOptionalPhoneNumber(String value) {
-        if (value == null || value.trim().isEmpty()) {
-            return null;
-        }
-
-        return normalizePhoneNumber(value);
-    }
-
-    private String normalizeNickname(String value) {
-        if (value == null || value.trim().isEmpty()) {
-            throw new IllegalArgumentException("昵称不能为空。");
-        }
-
-        return value.trim();
-    }
-
-    private String normalizeAvatarUrl(String value) {
-        if (value == null || value.trim().isEmpty()) {
-            return null;
-        }
-
-        return value.trim();
     }
 
     private enum LoginIdentifierType {

@@ -22,7 +22,6 @@ import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.HexFormat;
-import java.util.Locale;
 
 @Service
 @Transactional
@@ -38,6 +37,7 @@ public class IdentityEmailRegistrationService {
     private final IdentityUserRepository identityUserRepository;
     private final PasswordEncoder passwordEncoder;
     private final IdentityCredentialService identityCredentialService;
+    private final IdentityUserInputNormalizer identityUserInputNormalizer;
     private final EmailSender emailSender;
     private final IdentityTokenService identityTokenService;
     private final Clock clock;
@@ -47,6 +47,7 @@ public class IdentityEmailRegistrationService {
             IdentityUserRepository identityUserRepository,
             PasswordEncoder passwordEncoder,
             IdentityCredentialService identityCredentialService,
+            IdentityUserInputNormalizer identityUserInputNormalizer,
             EmailSender emailSender,
             IdentityTokenService identityTokenService,
             Clock clock
@@ -55,13 +56,14 @@ public class IdentityEmailRegistrationService {
         this.identityUserRepository = identityUserRepository;
         this.passwordEncoder = passwordEncoder;
         this.identityCredentialService = identityCredentialService;
+        this.identityUserInputNormalizer = identityUserInputNormalizer;
         this.emailSender = emailSender;
         this.identityTokenService = identityTokenService;
         this.clock = clock;
     }
 
     public void requestRegistrationCode(String rawEmail, String requestIp, String userAgent) {
-        String email = normalizeEmail(rawEmail);
+        String email = identityUserInputNormalizer.normalizeEmail(rawEmail);
 
         if (identityUserRepository.existsByEmail(email)) {
             return;
@@ -94,7 +96,7 @@ public class IdentityEmailRegistrationService {
     }
 
     public IdentityLoginResponse verifyRegistration(VerifyEmailRegistrationRequest request) {
-        String email = normalizeEmail(request.email());
+        String email = identityUserInputNormalizer.normalizeEmail(request.email());
         String code = request.code().trim();
         LocalDateTime now = now();
 
@@ -130,7 +132,7 @@ public class IdentityEmailRegistrationService {
     }
 
     private IdentityUser createVerifiedEmailUser(String email, String nickname, String password, LocalDateTime verifiedAt) {
-        String normalizedNickname = normalizeNickname(nickname);
+        String normalizedNickname = identityUserInputNormalizer.normalizeNickname(nickname);
         String passwordHash = identityCredentialService.encodeInitialPassword(password);
 
         IdentityUser user = new IdentityUser();
@@ -172,27 +174,6 @@ public class IdentityEmailRegistrationService {
                 验证码 10 分钟内有效，请勿转发给他人。
                 如果这不是你本人操作，可以忽略这封邮件。
                 """.formatted(code);
-    }
-
-    private String normalizeEmail(String value) {
-        if (value == null) {
-            throw new IllegalArgumentException("邮箱不能为空。");
-        }
-
-        String email = value.trim().toLowerCase(Locale.ROOT);
-        if (email.isEmpty() || email.length() > 320 || !email.matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")) {
-            throw new IllegalArgumentException("请输入有效邮箱地址。");
-        }
-
-        return email;
-    }
-
-    private String normalizeNickname(String value) {
-        if (value == null || value.trim().isEmpty()) {
-            throw new IllegalArgumentException("昵称不能为空。");
-        }
-
-        return value.trim();
     }
 
     private String normalizeMetadata(String value) {

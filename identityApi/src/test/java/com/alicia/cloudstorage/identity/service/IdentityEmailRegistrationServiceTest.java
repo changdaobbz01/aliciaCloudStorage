@@ -59,15 +59,19 @@ class IdentityEmailRegistrationServiceTest {
     @Mock
     private IdentityTokenService identityTokenService;
 
+    private IdentityUserInputNormalizer identityUserInputNormalizer;
+
     private IdentityEmailRegistrationService service;
 
     @BeforeEach
     void setUp() {
+        identityUserInputNormalizer = new IdentityUserInputNormalizer();
         service = new IdentityEmailRegistrationService(
                 verificationCodeRepository,
                 identityUserRepository,
                 passwordEncoder,
                 identityCredentialService,
+                identityUserInputNormalizer,
                 emailSender,
                 identityTokenService,
                 FIXED_CLOCK
