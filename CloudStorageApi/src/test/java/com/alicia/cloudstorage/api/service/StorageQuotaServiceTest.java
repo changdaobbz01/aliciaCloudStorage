@@ -1,6 +1,6 @@
 package com.alicia.cloudstorage.api.service;
 
-import com.alicia.cloudstorage.api.entity.UserRole;
+import com.alicia.cloudstorage.api.identity.UserRole;
 import com.alicia.cloudstorage.api.repository.StorageNodeRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

@@ -1,6 +1,6 @@
 package com.alicia.cloudstorage.api.service;
 
-import com.alicia.cloudstorage.api.entity.UserRole;
+import com.alicia.cloudstorage.api.identity.UserRole;
 
 public record StorageQuotaAccount(
         Long userId,

@@ -1,6 +1,6 @@
 package com.alicia.cloudstorage.api.auth;
 
-import com.alicia.cloudstorage.api.entity.UserRole;
+import com.alicia.cloudstorage.api.identity.UserRole;
 
 public record CurrentPrincipal(
         Long userId,

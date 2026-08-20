@@ -1,4 +1,4 @@
-package com.alicia.cloudstorage.api.entity;
+package com.alicia.cloudstorage.api.identity;
 
 public enum UserRole {
     ADMIN,

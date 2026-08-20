@@ -2,8 +2,8 @@ package com.alicia.cloudstorage.api.service;
 
 import com.alicia.cloudstorage.api.identity.IdentityAccount;
 import com.alicia.cloudstorage.api.dto.UserProfileResponse;
-import com.alicia.cloudstorage.api.entity.UserRole;
-import com.alicia.cloudstorage.api.entity.UserStatus;
+import com.alicia.cloudstorage.api.identity.UserRole;
+import com.alicia.cloudstorage.api.identity.UserStatus;
 import com.alicia.cloudstorage.api.identity.IdentityUserGateway;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
