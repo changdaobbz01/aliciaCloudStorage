@@ -179,6 +179,15 @@ bash deploy/scripts/update-rag-production.sh
 
 脚本会拒绝覆盖服务端已有的 tracked 改动，确认 `.env` 已配置 DeepSeek，快进拉取 `main`，重建 `rag` 与 `frontend`，最后同时检查 `127.0.0.1:8091/api/health` 和公网 `/rag/api/health`。密钥只保留在服务器 `.env`，不会输出到日志。
 
+生产服务器建议把 `origin` 指向 Gitee，以减少 GitHub 连接失败造成的更新中断：
+
+```bash
+cd ~/aliciaCloudStorage
+git remote set-url origin https://gitee.com/zengLi199447/cloud-alicia.git
+git fetch origin main
+git pull --ff-only origin main
+```
+
 ## 开发模式
 
 如果你希望前后端分开开发，推荐这样启动：
@@ -246,6 +255,19 @@ ALICIA_BOOTSTRAP_ADMIN_AVATAR_URL=
 - 空库初始化完成后，按需清空 `ALICIA_BOOTSTRAP_ADMIN_PHONE` 和 `ALICIA_BOOTSTRAP_ADMIN_PASSWORD`
 
 ## 常用命令
+
+本地提交后同步到 Gitee 和 GitHub：
+
+```powershell
+.\deploy\scripts\push-all-remotes.ps1
+```
+
+等价于：
+
+```powershell
+git push gitee main
+git push origin main
+```
 
 后端测试：
 
