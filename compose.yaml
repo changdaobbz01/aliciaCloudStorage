@@ -120,6 +120,7 @@ services:
       - alicia_gateway
     depends_on:
       - api
+      - identity
       - rag
 
 volumes:

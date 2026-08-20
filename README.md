@@ -109,6 +109,7 @@ docker compose up -d --build
 - RAG（仅本机回环）：`http://127.0.0.1:8091`
 - 同域 RAG 入口：`http://localhost/rag/api/health`
 - Identity API（仅本机回环）：`http://127.0.0.1:8093`
+- 同域 Identity 公开入口：`http://localhost/api/identity/health`
 - MySQL（仅本机回环）：`127.0.0.1:3310`
 
 查看运行状态：
@@ -122,8 +123,11 @@ docker compose logs -f api
 
 ```powershell
 curl http://127.0.0.1:8093/api/identity/health
+curl http://localhost/api/identity/health
 curl http://127.0.0.1:8093/api/identity/internal/users/1
 ```
+
+`/api/identity/internal/**` 只允许通过内网回环端口验证，不经 Nginx 对公网开放。
 
 验证 Identity API 内部登录：
 
@@ -169,7 +173,7 @@ curl -X POST http://127.0.0.1:8093/api/identity/auth/register/verify `
 docker compose -f compose.yaml -f compose.https.yaml up -d --build frontend
 ```
 
-这样会额外开放 `443`，并将 `http://` 请求自动跳转到 `https://`。统一登录入口为 `https://windwindwind-alicia.cn/login`，云盘 Web 入口为 `https://windwindwind-alicia.cn/cloudPan/`，正式 RAG 入口为 `https://windwindwind-alicia.cn/rag`，SSE 请求由 Nginx 直通 `rag` 容器；`/rag/internal/` 不对公网开放。
+这样会额外开放 `443`，并将 `http://` 请求自动跳转到 `https://`。统一登录入口为 `https://windwindwind-alicia.cn/login`，云盘 Web 入口为 `https://windwindwind-alicia.cn/cloudPan/`，正式 RAG 入口为 `https://windwindwind-alicia.cn/rag`，SSE 请求由 Nginx 直通 `rag` 容器；Identity 公开入口为 `https://windwindwind-alicia.cn/api/identity/health`、`/api/identity/auth/**` 和 `/api/identity/admin/**`。`/rag/internal/` 与 `/api/identity/internal/**` 不对公网开放。
 
 生产服务器更新 RAG 与 Nginx 时，在仓库内执行：
 
