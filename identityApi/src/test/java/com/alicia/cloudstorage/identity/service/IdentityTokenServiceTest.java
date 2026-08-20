@@ -16,7 +16,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class IdentityTokenServiceTest {
 
     @Test
-    void createTokenEmbedsUserIdAndTokenVersionInLegacyCompatiblePayload() {
+    void createTokenUsesVersionedPayloadWithoutPhoneNumber() {
         IdentityUser user = newIdentityUser();
         ReflectionTestUtils.setField(user, "id", 33L);
         ReflectionTestUtils.setField(user, "phoneNumber", "13800000033");
@@ -27,7 +27,8 @@ class IdentityTokenServiceTest {
         String encodedPayload = token.substring(0, token.indexOf('.'));
         String payload = new String(Base64.getUrlDecoder().decode(encodedPayload), StandardCharsets.UTF_8);
 
-        assertThat(payload).startsWith("33:13800000033:7:");
+        assertThat(payload).startsWith("v2:33:7:");
+        assertThat(payload).doesNotContain("13800000033");
     }
 
     @Test
@@ -59,6 +60,23 @@ class IdentityTokenServiceTest {
 
         assertThat(claims.userId()).isEqualTo(44L);
         assertThat(claims.tokenVersion()).isZero();
+        assertThat(claims.expiresAt()).isEqualTo(expiresAt);
+    }
+
+    @Test
+    void parseTokenSupportsLegacyFourPartPayloadWithTokenVersion() throws Exception {
+        IdentityTokenService tokenService = new IdentityTokenService("legacy-secret", 3600L);
+        long expiresAt = Instant.now().getEpochSecond() + 3600L;
+        String rawPayload = "44:13800000044:9:" + expiresAt;
+        String encodedPayload = Base64.getUrlEncoder()
+                .withoutPadding()
+                .encodeToString(rawPayload.getBytes(StandardCharsets.UTF_8));
+        String token = encodedPayload + "." + sign(encodedPayload, "legacy-secret");
+
+        IdentityTokenService.TokenClaims claims = tokenService.parseToken(token);
+
+        assertThat(claims.userId()).isEqualTo(44L);
+        assertThat(claims.tokenVersion()).isEqualTo(9L);
         assertThat(claims.expiresAt()).isEqualTo(expiresAt);
     }
 

@@ -14,6 +14,8 @@ import java.util.Base64;
 @Service
 public class IdentityTokenService {
 
+    private static final String TOKEN_PAYLOAD_VERSION = "v2";
+
     private final String secret;
     private final long expireSeconds;
 
@@ -36,7 +38,7 @@ public class IdentityTokenService {
     public String createToken(IdentityUser user) {
         long expiresAt = Instant.now().getEpochSecond() + expireSeconds;
         long tokenVersion = user.getTokenVersion() == null ? 0L : user.getTokenVersion();
-        String payload = user.getId() + ":" + user.getPhoneNumber() + ":" + tokenVersion + ":" + expiresAt;
+        String payload = TOKEN_PAYLOAD_VERSION + ":" + user.getId() + ":" + tokenVersion + ":" + expiresAt;
         String encodedPayload = base64UrlEncode(payload);
 
         return encodedPayload + "." + sign(encodedPayload);
@@ -65,18 +67,41 @@ public class IdentityTokenService {
 
         String payload = base64UrlDecode(encodedPayload);
         String[] payloadParts = payload.split(":");
-        if (payloadParts.length != 3 && payloadParts.length != 4) {
-            throw new IdentityAuthException("Token 载荷不正确。");
-        }
-
-        int expiresAtIndex = payloadParts.length - 1;
-        long tokenVersion = payloadParts.length == 4 ? parseTokenVersion(payloadParts[2]) : 0L;
-        long expiresAt = parseExpiresAt(payloadParts[expiresAtIndex]);
+        TokenClaims tokenClaims = parsePayloadParts(payloadParts);
+        long expiresAt = tokenClaims.expiresAt();
         if (Instant.now().getEpochSecond() >= expiresAt) {
             throw new IdentityAuthException("登录状态已过期。");
         }
 
-        return new TokenClaims(parseUserId(payloadParts[0]), tokenVersion, expiresAt);
+        return tokenClaims;
+    }
+
+    private TokenClaims parsePayloadParts(String[] payloadParts) {
+        if (payloadParts.length == 4 && TOKEN_PAYLOAD_VERSION.equals(payloadParts[0])) {
+            return new TokenClaims(
+                    parseUserId(payloadParts[1]),
+                    parseTokenVersion(payloadParts[2]),
+                    parseExpiresAt(payloadParts[3])
+            );
+        }
+
+        if (payloadParts.length == 4) {
+            return new TokenClaims(
+                    parseUserId(payloadParts[0]),
+                    parseTokenVersion(payloadParts[2]),
+                    parseExpiresAt(payloadParts[3])
+            );
+        }
+
+        if (payloadParts.length == 3) {
+            return new TokenClaims(
+                    parseUserId(payloadParts[0]),
+                    0L,
+                    parseExpiresAt(payloadParts[2])
+            );
+        }
+
+        throw new IdentityAuthException("Token 载荷不正确。");
     }
 
     private String sign(String value) {
