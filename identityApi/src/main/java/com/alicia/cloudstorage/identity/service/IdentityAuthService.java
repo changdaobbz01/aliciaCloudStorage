@@ -8,7 +8,6 @@ import com.alicia.cloudstorage.identity.dto.UpdateIdentityProfileRequest;
 import com.alicia.cloudstorage.identity.entity.IdentityUser;
 import com.alicia.cloudstorage.identity.entity.IdentityUserStatus;
 import com.alicia.cloudstorage.identity.repository.IdentityUserRepository;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,18 +18,18 @@ import java.util.Locale;
 public class IdentityAuthService {
 
     private final IdentityUserRepository identityUserRepository;
-    private final PasswordEncoder passwordEncoder;
+    private final IdentityCredentialService identityCredentialService;
     private final IdentityTokenService identityTokenService;
     private final IdentityPrincipalService identityPrincipalService;
 
     public IdentityAuthService(
             IdentityUserRepository identityUserRepository,
-            PasswordEncoder passwordEncoder,
+            IdentityCredentialService identityCredentialService,
             IdentityTokenService identityTokenService,
             IdentityPrincipalService identityPrincipalService
     ) {
         this.identityUserRepository = identityUserRepository;
-        this.passwordEncoder = passwordEncoder;
+        this.identityCredentialService = identityCredentialService;
         this.identityTokenService = identityTokenService;
         this.identityPrincipalService = identityPrincipalService;
     }
@@ -44,7 +43,7 @@ public class IdentityAuthService {
                     .orElseThrow(() -> new IllegalArgumentException("账号或密码不正确。"));
         };
 
-        if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
+        if (!identityCredentialService.matches(request.password(), user.getPasswordHash())) {
             throw new IllegalArgumentException("账号或密码不正确。");
         }
 
@@ -87,23 +86,7 @@ public class IdentityAuthService {
     @Transactional
     public void changePassword(String authorizationHeader, ChangePasswordRequest request) {
         IdentityUser user = identityPrincipalService.requireActiveUser(authorizationHeader);
-        String oldPassword = normalizePassword(request.oldPassword(), "旧密码不能为空。");
-        String newPassword = normalizePassword(request.newPassword(), "新密码不能为空。");
-
-        if (!passwordEncoder.matches(oldPassword, user.getPasswordHash())) {
-            throw new IllegalArgumentException("旧密码不正确。");
-        }
-
-        if (newPassword.length() < 6) {
-            throw new IllegalArgumentException("新密码长度至少为 6 位。");
-        }
-
-        if (oldPassword.equals(newPassword)) {
-            throw new IllegalArgumentException("新密码不能与旧密码相同。");
-        }
-
-        user.setPasswordHash(passwordEncoder.encode(newPassword));
-        invalidateTokens(user);
+        identityCredentialService.changePassword(user, request.oldPassword(), request.newPassword());
         identityUserRepository.save(user);
     }
 
@@ -171,19 +154,6 @@ public class IdentityAuthService {
         }
 
         return value.trim();
-    }
-
-    private String normalizePassword(String value, String errorMessage) {
-        if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException(errorMessage);
-        }
-
-        return value;
-    }
-
-    private void invalidateTokens(IdentityUser user) {
-        long currentVersion = user.getTokenVersion() == null ? 0L : user.getTokenVersion();
-        user.setTokenVersion(currentVersion + 1);
     }
 
     private enum LoginIdentifierType {

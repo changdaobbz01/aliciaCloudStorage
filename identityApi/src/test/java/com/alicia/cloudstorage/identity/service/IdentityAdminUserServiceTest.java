@@ -12,7 +12,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
@@ -22,6 +21,8 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -36,7 +37,7 @@ class IdentityAdminUserServiceTest {
     private IdentityUserRepository identityUserRepository;
 
     @Mock
-    private PasswordEncoder passwordEncoder;
+    private IdentityCredentialService identityCredentialService;
 
     @InjectMocks
     private IdentityAdminUserService identityAdminUserService;
@@ -73,8 +74,8 @@ class IdentityAdminUserServiceTest {
         );
 
         when(identityPrincipalService.requireAdminUser("Bearer admin-token")).thenReturn(admin);
+        when(identityCredentialService.encodeInitialPassword("Passw0rd")).thenReturn("password-hash");
         when(identityUserRepository.existsByPhoneNumber("13800000001")).thenReturn(false);
-        when(passwordEncoder.encode("Passw0rd")).thenReturn("password-hash");
         when(identityUserRepository.save(any(IdentityUser.class))).thenAnswer(invocation -> {
             IdentityUser user = invocation.getArgument(0);
             ReflectionTestUtils.setField(user, "id", 72L);
@@ -112,8 +113,8 @@ class IdentityAdminUserServiceTest {
         );
 
         when(identityPrincipalService.requireAdminUser("Bearer admin-token")).thenReturn(admin);
+        when(identityCredentialService.encodeInitialPassword("Passw0rd")).thenReturn("password-hash");
         when(identityUserRepository.existsByEmail("newuser@example.com")).thenReturn(false);
-        when(passwordEncoder.encode("Passw0rd")).thenReturn("password-hash");
         when(identityUserRepository.save(any(IdentityUser.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         identityAdminUserService.createUser("Bearer admin-token", request);
@@ -174,8 +175,11 @@ class IdentityAdminUserServiceTest {
 
         when(identityPrincipalService.requireAdminUser("Bearer admin-token")).thenReturn(admin);
         when(identityUserRepository.findById(64L)).thenReturn(Optional.of(target));
-        when(passwordEncoder.matches("ResetPass1", "current-hash")).thenReturn(false);
-        when(passwordEncoder.encode("ResetPass1")).thenReturn("reset-hash");
+        doAnswer(invocation -> {
+            target.setPasswordHash("reset-hash");
+            target.setTokenVersion(3L);
+            return null;
+        }).when(identityCredentialService).resetPassword(target, "ResetPass1");
 
         identityAdminUserService.resetUserPassword(
                 "Bearer admin-token",
@@ -211,6 +215,9 @@ class IdentityAdminUserServiceTest {
 
         when(identityPrincipalService.requireAdminUser("Bearer admin-token")).thenReturn(admin);
         when(identityUserRepository.findById(64L)).thenReturn(Optional.of(target));
+        doThrow(new IllegalArgumentException("新密码长度至少为 6 位。"))
+                .when(identityCredentialService)
+                .resetPassword(target, "short");
 
         assertThatThrownBy(() -> identityAdminUserService.resetUserPassword(
                 "Bearer admin-token",
@@ -230,7 +237,9 @@ class IdentityAdminUserServiceTest {
 
         when(identityPrincipalService.requireAdminUser("Bearer admin-token")).thenReturn(admin);
         when(identityUserRepository.findById(64L)).thenReturn(Optional.of(target));
-        when(passwordEncoder.matches("ResetPass1", "current-hash")).thenReturn(true);
+        doThrow(new IllegalArgumentException("新密码不能与当前密码相同。"))
+                .when(identityCredentialService)
+                .resetPassword(target, "ResetPass1");
 
         assertThatThrownBy(() -> identityAdminUserService.resetUserPassword(
                 "Bearer admin-token",

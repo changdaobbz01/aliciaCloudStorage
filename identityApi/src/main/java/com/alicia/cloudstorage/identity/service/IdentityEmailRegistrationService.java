@@ -37,6 +37,7 @@ public class IdentityEmailRegistrationService {
     private final EmailVerificationCodeRepository verificationCodeRepository;
     private final IdentityUserRepository identityUserRepository;
     private final PasswordEncoder passwordEncoder;
+    private final IdentityCredentialService identityCredentialService;
     private final EmailSender emailSender;
     private final IdentityTokenService identityTokenService;
     private final Clock clock;
@@ -45,6 +46,7 @@ public class IdentityEmailRegistrationService {
             EmailVerificationCodeRepository verificationCodeRepository,
             IdentityUserRepository identityUserRepository,
             PasswordEncoder passwordEncoder,
+            IdentityCredentialService identityCredentialService,
             EmailSender emailSender,
             IdentityTokenService identityTokenService,
             Clock clock
@@ -52,6 +54,7 @@ public class IdentityEmailRegistrationService {
         this.verificationCodeRepository = verificationCodeRepository;
         this.identityUserRepository = identityUserRepository;
         this.passwordEncoder = passwordEncoder;
+        this.identityCredentialService = identityCredentialService;
         this.emailSender = emailSender;
         this.identityTokenService = identityTokenService;
         this.clock = clock;
@@ -128,11 +131,7 @@ public class IdentityEmailRegistrationService {
 
     private IdentityUser createVerifiedEmailUser(String email, String nickname, String password, LocalDateTime verifiedAt) {
         String normalizedNickname = normalizeNickname(nickname);
-        String normalizedPassword = normalizePassword(password);
-
-        if (normalizedPassword.length() < 6) {
-            throw new IllegalArgumentException("密码长度至少为 6 位。");
-        }
+        String passwordHash = identityCredentialService.encodeInitialPassword(password);
 
         IdentityUser user = new IdentityUser();
         user.setPhoneNumber(null);
@@ -140,7 +139,7 @@ public class IdentityEmailRegistrationService {
         user.setEmailVerifiedAt(verifiedAt);
         user.setNickname(normalizedNickname);
         user.setAvatarUrl(null);
-        user.setPasswordHash(passwordEncoder.encode(normalizedPassword));
+        user.setPasswordHash(passwordHash);
         user.setTokenVersion(0L);
         user.setRole(IdentityUserRole.USER);
         user.setStatus(IdentityUserStatus.ACTIVE);
@@ -194,14 +193,6 @@ public class IdentityEmailRegistrationService {
         }
 
         return value.trim();
-    }
-
-    private String normalizePassword(String value) {
-        if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException("密码不能为空。");
-        }
-
-        return value;
     }
 
     private String normalizeMetadata(String value) {

@@ -12,7 +12,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
@@ -20,6 +19,8 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -31,7 +32,7 @@ class IdentityAuthServiceTest {
     private IdentityUserRepository identityUserRepository;
 
     @Mock
-    private PasswordEncoder passwordEncoder;
+    private IdentityCredentialService identityCredentialService;
 
     @Mock
     private IdentityTokenService identityTokenService;
@@ -47,7 +48,7 @@ class IdentityAuthServiceTest {
         IdentityUser user = identityUser(18L, IdentityUserStatus.ACTIVE);
 
         when(identityUserRepository.findByEmail("email-user@example.com")).thenReturn(Optional.of(user));
-        when(passwordEncoder.matches("Passw0rd", "hash")).thenReturn(true);
+        when(identityCredentialService.matches("Passw0rd", "hash")).thenReturn(true);
         when(identityTokenService.createToken(user)).thenReturn("token");
 
         var response = identityAuthService.login(
@@ -64,7 +65,7 @@ class IdentityAuthServiceTest {
         IdentityUser user = identityUser(18L, IdentityUserStatus.ACTIVE);
 
         when(identityUserRepository.findByEmail("email-user@example.com")).thenReturn(Optional.of(user));
-        when(passwordEncoder.matches("wrong", "hash")).thenReturn(false);
+        when(identityCredentialService.matches("wrong", "hash")).thenReturn(false);
 
         assertThatThrownBy(() -> identityAuthService.login(
                 new IdentityLoginRequest("email-user@example.com", null, null, "wrong")
@@ -77,7 +78,7 @@ class IdentityAuthServiceTest {
         IdentityUser user = identityUser(18L, IdentityUserStatus.DISABLED);
 
         when(identityUserRepository.findByPhoneNumber("13800000000")).thenReturn(Optional.of(user));
-        when(passwordEncoder.matches("Passw0rd", "hash")).thenReturn(true);
+        when(identityCredentialService.matches("Passw0rd", "hash")).thenReturn(true);
 
         assertThatThrownBy(() -> identityAuthService.login(
                 new IdentityLoginRequest("13800000000", null, null, "Passw0rd")
@@ -195,8 +196,11 @@ class IdentityAuthServiceTest {
         IdentityUser user = identityUser(18L, IdentityUserStatus.ACTIVE);
 
         when(identityPrincipalService.requireActiveUser("Bearer token")).thenReturn(user);
-        when(passwordEncoder.matches("OldPass1", "hash")).thenReturn(true);
-        when(passwordEncoder.encode("NewPass1")).thenReturn("new-hash");
+        doAnswer(invocation -> {
+            user.setPasswordHash("new-hash");
+            user.setTokenVersion(3L);
+            return null;
+        }).when(identityCredentialService).changePassword(user, "OldPass1", "NewPass1");
 
         identityAuthService.changePassword(
                 "Bearer token",
@@ -213,7 +217,9 @@ class IdentityAuthServiceTest {
         IdentityUser user = identityUser(18L, IdentityUserStatus.ACTIVE);
 
         when(identityPrincipalService.requireActiveUser("Bearer token")).thenReturn(user);
-        when(passwordEncoder.matches("wrong", "hash")).thenReturn(false);
+        doThrow(new IllegalArgumentException("旧密码不正确。"))
+                .when(identityCredentialService)
+                .changePassword(user, "wrong", "NewPass1");
 
         assertThatThrownBy(() -> identityAuthService.changePassword(
                 "Bearer token",
@@ -229,7 +235,9 @@ class IdentityAuthServiceTest {
         IdentityUser user = identityUser(18L, IdentityUserStatus.ACTIVE);
 
         when(identityPrincipalService.requireActiveUser("Bearer token")).thenReturn(user);
-        when(passwordEncoder.matches("OldPass1", "hash")).thenReturn(true);
+        doThrow(new IllegalArgumentException("新密码长度至少为 6 位。"))
+                .when(identityCredentialService)
+                .changePassword(user, "OldPass1", "short");
 
         assertThatThrownBy(() -> identityAuthService.changePassword(
                 "Bearer token",
@@ -245,7 +253,9 @@ class IdentityAuthServiceTest {
         IdentityUser user = identityUser(18L, IdentityUserStatus.ACTIVE);
 
         when(identityPrincipalService.requireActiveUser("Bearer token")).thenReturn(user);
-        when(passwordEncoder.matches("SamePass1", "hash")).thenReturn(true);
+        doThrow(new IllegalArgumentException("新密码不能与旧密码相同。"))
+                .when(identityCredentialService)
+                .changePassword(user, "SamePass1", "SamePass1");
 
         assertThatThrownBy(() -> identityAuthService.changePassword(
                 "Bearer token",

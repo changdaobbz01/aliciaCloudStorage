@@ -7,7 +7,6 @@ import com.alicia.cloudstorage.identity.entity.IdentityUser;
 import com.alicia.cloudstorage.identity.entity.IdentityUserRole;
 import com.alicia.cloudstorage.identity.entity.IdentityUserStatus;
 import com.alicia.cloudstorage.identity.repository.IdentityUserRepository;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,16 +19,16 @@ public class IdentityAdminUserService {
 
     private final IdentityPrincipalService identityPrincipalService;
     private final IdentityUserRepository identityUserRepository;
-    private final PasswordEncoder passwordEncoder;
+    private final IdentityCredentialService identityCredentialService;
 
     public IdentityAdminUserService(
             IdentityPrincipalService identityPrincipalService,
             IdentityUserRepository identityUserRepository,
-            PasswordEncoder passwordEncoder
+            IdentityCredentialService identityCredentialService
     ) {
         this.identityPrincipalService = identityPrincipalService;
         this.identityUserRepository = identityUserRepository;
-        this.passwordEncoder = passwordEncoder;
+        this.identityCredentialService = identityCredentialService;
     }
 
     @Transactional(readOnly = true)
@@ -49,16 +48,12 @@ public class IdentityAdminUserService {
         String phoneNumber = normalizeOptionalPhoneNumber(request.phoneNumber());
         String email = normalizeOptionalEmail(request.email());
         String nickname = normalizeNickname(request.nickname());
-        String password = normalizePassword(request.password(), "密码不能为空。");
+        String passwordHash = identityCredentialService.encodeInitialPassword(request.password());
         String avatarUrl = normalizeAvatarUrl(request.avatarUrl());
         IdentityUserRole role = normalizeRole(request.role());
 
         if (phoneNumber == null && email == null) {
             throw new IllegalArgumentException("手机号或邮箱不能为空。");
-        }
-
-        if (password.length() < 6) {
-            throw new IllegalArgumentException("密码长度至少为 6 位。");
         }
 
         if (phoneNumber != null && identityUserRepository.existsByPhoneNumber(phoneNumber)) {
@@ -75,7 +70,7 @@ public class IdentityAdminUserService {
         user.setEmailVerifiedAt(null);
         user.setNickname(nickname);
         user.setAvatarUrl(avatarUrl);
-        user.setPasswordHash(passwordEncoder.encode(password));
+        user.setPasswordHash(passwordHash);
         user.setTokenVersion(0L);
         user.setRole(role);
         user.setStatus(IdentityUserStatus.ACTIVE);
@@ -95,27 +90,8 @@ public class IdentityAdminUserService {
 
         IdentityUser targetUser = identityUserRepository.findById(targetUserId)
                 .orElseThrow(() -> new IllegalArgumentException("用户不存在。"));
-        String newPassword = normalizePassword(request.newPassword(), "新密码不能为空。");
-
-        if (newPassword.length() < 6) {
-            throw new IllegalArgumentException("新密码长度至少为 6 位。");
-        }
-
-        if (passwordEncoder.matches(newPassword, targetUser.getPasswordHash())) {
-            throw new IllegalArgumentException("新密码不能与当前密码相同。");
-        }
-
-        targetUser.setPasswordHash(passwordEncoder.encode(newPassword));
-        invalidateTokens(targetUser);
+        identityCredentialService.resetPassword(targetUser, request.newPassword());
         identityUserRepository.save(targetUser);
-    }
-
-    private String normalizePassword(String value, String errorMessage) {
-        if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException(errorMessage);
-        }
-
-        return value;
     }
 
     private String normalizeNickname(String value) {
@@ -172,8 +148,4 @@ public class IdentityAdminUserService {
         }
     }
 
-    private void invalidateTokens(IdentityUser user) {
-        long currentVersion = user.getTokenVersion() == null ? 0L : user.getTokenVersion();
-        user.setTokenVersion(currentVersion + 1);
-    }
 }

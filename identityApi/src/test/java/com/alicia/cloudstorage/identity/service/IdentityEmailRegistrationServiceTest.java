@@ -51,6 +51,9 @@ class IdentityEmailRegistrationServiceTest {
     private PasswordEncoder passwordEncoder;
 
     @Mock
+    private IdentityCredentialService identityCredentialService;
+
+    @Mock
     private EmailSender emailSender;
 
     @Mock
@@ -64,6 +67,7 @@ class IdentityEmailRegistrationServiceTest {
                 verificationCodeRepository,
                 identityUserRepository,
                 passwordEncoder,
+                identityCredentialService,
                 emailSender,
                 identityTokenService,
                 FIXED_CLOCK
@@ -135,7 +139,7 @@ class IdentityEmailRegistrationServiceTest {
         )).thenReturn(Optional.of(latestCode));
         when(passwordEncoder.matches("123456", "hashed-code")).thenReturn(true);
         when(identityUserRepository.existsByEmail("newuser@example.com")).thenReturn(false);
-        when(passwordEncoder.encode("Passw0rd")).thenReturn("password-hash");
+        when(identityCredentialService.encodeInitialPassword("Passw0rd")).thenReturn("password-hash");
         when(identityUserRepository.save(any(IdentityUser.class))).thenAnswer(invocation -> {
             IdentityUser user = invocation.getArgument(0);
             ReflectionTestUtils.setField(user, "id", 88L);
