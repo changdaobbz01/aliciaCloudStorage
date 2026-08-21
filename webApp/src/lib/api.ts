@@ -520,8 +520,8 @@ export function fetchCurrentUser(token: string) {
  * 更新当前登录用户的资料信息。
  */
 export function updateProfile(payload: UpdateProfilePayload, token: string) {
-  return requestJson<User>(
-    '/api/auth/profile',
+  return requestJson<unknown>(
+    '/api/identity/auth/profile',
     withToken(token, {
       method: 'PUT',
       headers: {
@@ -529,7 +529,7 @@ export function updateProfile(payload: UpdateProfilePayload, token: string) {
       },
       body: JSON.stringify(payload),
     }),
-  );
+  ).then(() => fetchCurrentUser(token));
 }
 
 /**
@@ -572,7 +572,7 @@ export function clearCurrentUserHomeBackground(token: string) {
  */
 export function changePassword(payload: ChangePasswordPayload, token: string) {
   return requestJson<ApiMessageResponse>(
-    '/api/auth/password',
+    '/api/identity/auth/password',
     withToken(token, {
       method: 'PUT',
       headers: {
@@ -1132,7 +1132,7 @@ export function updateUserStorageQuota(userId: number, payload: UpdateUserStorag
 
 export function resetUserPassword(userId: number, payload: ResetUserPasswordPayload, token: string) {
   return requestJson<ApiMessageResponse>(
-    `/api/admin/users/${userId}/password`,
+    `/api/identity/admin/users/${userId}/password`,
     withToken(token, {
       method: 'PUT',
       headers: {

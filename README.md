@@ -158,6 +158,8 @@ curl -X POST http://127.0.0.1:8093/api/identity/auth/register/verify `
 
 当前公网 `/api/auth/**` 仍由 `CloudStorageApi` 保持兼容入口；登录、注册、Token 校验、密码和账号资料写入已经由 `identityApi` 执行。`CloudStorageApi` 负责补齐云盘资料，并继续返回旧版 Web 和 Android 兼容的用户响应结构。
 
+云盘 Web 的纯身份写操作优先走同域 Identity 公开入口，例如 `/api/identity/auth/profile`、`/api/identity/auth/password` 和 `/api/identity/admin/users/{userId}/password`；头像上传、头像访问、当前用户云盘聚合资料仍由 `CloudStorageApi` 的兼容接口提供。
+
 `identityApi` 新注册用户首次携带 identity token 访问 CloudStorageApi 受保护接口时，CloudStorageApi 会自动补建对应的 `cloud_user_profile`，云盘默认额度取 `ALICIA_STORAGE_DEFAULT_USER_QUOTA_BYTES`。
 
 ### HTTPS 部署（已签发证书后）
