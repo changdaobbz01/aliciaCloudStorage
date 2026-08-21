@@ -1,8 +1,8 @@
 import { Form } from 'antd';
 import type { MessageInstance } from 'antd/es/message/interface';
 import { useEffect, useState } from 'react';
-import { createUser, fetchUsers, resetUserPassword, updateUserStorageQuota } from '../../../lib/api';
-import type { User } from '../../../types';
+import { createUser, fetchIdentityAuditLogs, fetchUsers, resetUserPassword, updateUserStorageQuota } from '../../../lib/api';
+import type { IdentityAuditLogPage, IdentityAuditLogQuery, User } from '../../../types';
 import { DEFAULT_NEW_USER_QUOTA_GB, bytesToGigabytes, gigabytesToBytes } from '../driveShared';
 import type {
   CreateUserFormValues,
@@ -29,6 +29,9 @@ export function useDriveAccountsAdmin({
 }: UseDriveAccountsAdminOptions) {
   const [users, setUsers] = useState<User[]>([]);
   const [usersLoading, setUsersLoading] = useState(false);
+  const [auditLogPage, setAuditLogPage] = useState<IdentityAuditLogPage | null>(null);
+  const [auditLogQuery, setAuditLogQuery] = useState<IdentityAuditLogQuery>({ page: 1, size: 20 });
+  const [auditLogsLoading, setAuditLogsLoading] = useState(false);
   const [createUserOpen, setCreateUserOpen] = useState(false);
   const [editQuotaTarget, setEditQuotaTarget] = useState<User | null>(null);
   const [resetPasswordTarget, setResetPasswordTarget] = useState<User | null>(null);
@@ -53,6 +56,49 @@ export function useDriveAccountsAdmin({
     } finally {
       setUsersLoading(false);
     }
+  }
+
+  async function loadAuditLogs(query: IdentityAuditLogQuery = auditLogQuery) {
+    if (!authToken || !isAdmin) {
+      setAuditLogPage(null);
+      return;
+    }
+
+    setAuditLogsLoading(true);
+
+    try {
+      const page = await fetchIdentityAuditLogs(query, authToken);
+      setAuditLogPage(page);
+      setAuditLogQuery({
+        ...query,
+        page: page.page,
+        size: page.size,
+      });
+    } catch (loadError) {
+      message.error(loadError instanceof Error ? loadError.message : '加载审计日志失败。');
+    } finally {
+      setAuditLogsLoading(false);
+    }
+  }
+
+  function applyAuditLogQuery(query: IdentityAuditLogQuery) {
+    const nextQuery = {
+      ...query,
+      page: 1,
+      size: query.size ?? auditLogQuery.size ?? 20,
+    };
+    setAuditLogQuery(nextQuery);
+    void loadAuditLogs(nextQuery);
+  }
+
+  function changeAuditLogPage(page: number, size: number) {
+    const nextQuery = {
+      ...auditLogQuery,
+      page,
+      size,
+    };
+    setAuditLogQuery(nextQuery);
+    void loadAuditLogs(nextQuery);
   }
 
   function openCreateUserModal() {
@@ -178,11 +224,15 @@ export function useDriveAccountsAdmin({
     }
 
     void loadUsers();
+    void loadAuditLogs();
   }, [authToken, isAdmin, isAccountsView]);
 
   return {
     users,
     usersLoading,
+    auditLogPage,
+    auditLogQuery,
+    auditLogsLoading,
     createUserOpen,
     editQuotaTarget,
     resetPasswordTarget,
@@ -191,6 +241,9 @@ export function useDriveAccountsAdmin({
     resetUserPasswordForm,
     createUserRole,
     loadUsers,
+    loadAuditLogs,
+    applyAuditLogQuery,
+    changeAuditLogPage,
     openCreateUserModal,
     closeCreateUserModal,
     openEditUserQuotaModal,

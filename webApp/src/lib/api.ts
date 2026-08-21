@@ -10,6 +10,8 @@ import type {
   CreateUserPayload,
   DriveOverview,
   HealthResponse,
+  IdentityAuditLogPage,
+  IdentityAuditLogQuery,
   IdentityLoginResponse,
   MoveNodePayload,
   MultipartUploadPart,
@@ -1161,6 +1163,49 @@ export function resetUserPassword(userId: number, payload: ResetUserPasswordPayl
       body: JSON.stringify(payload),
     }),
   );
+}
+
+export function fetchIdentityAuditLogs(query: IdentityAuditLogQuery, token: string) {
+  const search = new URLSearchParams();
+
+  if (query.eventType) {
+    search.set('eventType', query.eventType);
+  }
+
+  if (query.outcome) {
+    search.set('outcome', query.outcome);
+  }
+
+  if (query.actorUserId !== undefined && query.actorUserId !== null) {
+    search.set('actorUserId', String(query.actorUserId));
+  }
+
+  if (query.targetUserId !== undefined && query.targetUserId !== null) {
+    search.set('targetUserId', String(query.targetUserId));
+  }
+
+  if (query.identifier?.trim()) {
+    search.set('identifier', query.identifier.trim());
+  }
+
+  if (query.createdFrom) {
+    search.set('createdFrom', query.createdFrom);
+  }
+
+  if (query.createdTo) {
+    search.set('createdTo', query.createdTo);
+  }
+
+  if (query.page) {
+    search.set('page', String(query.page));
+  }
+
+  if (query.size) {
+    search.set('size', String(query.size));
+  }
+
+  const suffix = search.toString() ? `?${search.toString()}` : '';
+  return requestJson<IdentityAuditLogPage>(`/api/identity/admin/audit-logs${suffix}`, withToken(token));
 }
 
 export function fetchPublicAppPackage() {

@@ -155,7 +155,7 @@ export function UserManagementPanel({
   ];
 
   return (
-    <section className="content-panel account-panel">
+    <>
       <div className="panel-header panel-header-spacious">
         <div className="panel-title-copy">
           <Typography.Title level={4}>账号管理</Typography.Title>
@@ -200,6 +200,6 @@ export function UserManagementPanel({
         scroll={{ x: 1360 }}
         locale={{ emptyText: '暂无账号记录。' }}
       />
-    </section>
+    </>
   );
 }

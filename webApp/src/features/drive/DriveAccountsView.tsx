@@ -1,15 +1,22 @@
-import { Alert } from 'antd';
+import { Alert, Tabs } from 'antd';
 import { UserManagementPanel } from '../../components/UserManagementPanel';
-import type { User } from '../../types';
+import type { IdentityAuditLogPage, IdentityAuditLogQuery, User } from '../../types';
+import { IdentityAuditLogPanel } from './IdentityAuditLogPanel';
 
 type DriveAccountsViewProps = {
   isAdmin: boolean;
   currentUserId: number | undefined;
   users: User[];
   loading: boolean;
+  auditLogPage: IdentityAuditLogPage | null;
+  auditLogQuery: IdentityAuditLogQuery;
+  auditLogsLoading: boolean;
   onCreateUser: () => void;
   onEditUserQuota: (user: User) => void;
   onResetUserPassword: (user: User) => void;
+  onApplyAuditLogQuery: (query: IdentityAuditLogQuery) => void;
+  onAuditLogPageChange: (page: number, size: number) => void;
+  onRefreshAuditLogs: () => void;
 };
 
 export default function DriveAccountsView({
@@ -17,9 +24,15 @@ export default function DriveAccountsView({
   currentUserId,
   users,
   loading,
+  auditLogPage,
+  auditLogQuery,
+  auditLogsLoading,
   onCreateUser,
   onEditUserQuota,
   onResetUserPassword,
+  onApplyAuditLogQuery,
+  onAuditLogPageChange,
+  onRefreshAuditLogs,
 }: DriveAccountsViewProps) {
   if (!isAdmin) {
     return (
@@ -35,13 +48,40 @@ export default function DriveAccountsView({
   }
 
   return (
-    <UserManagementPanel
-      currentUserId={currentUserId}
-      users={users}
-      loading={loading}
-      onCreateUser={onCreateUser}
-      onEditUserQuota={onEditUserQuota}
-      onResetUserPassword={onResetUserPassword}
-    />
+    <section className="content-panel account-panel">
+      <Tabs
+        className="account-admin-tabs"
+        items={[
+          {
+            key: 'users',
+            label: '账号列表',
+            children: (
+              <UserManagementPanel
+                currentUserId={currentUserId}
+                users={users}
+                loading={loading}
+                onCreateUser={onCreateUser}
+                onEditUserQuota={onEditUserQuota}
+                onResetUserPassword={onResetUserPassword}
+              />
+            ),
+          },
+          {
+            key: 'auditLogs',
+            label: '审计日志',
+            children: (
+              <IdentityAuditLogPanel
+                page={auditLogPage}
+                query={auditLogQuery}
+                loading={auditLogsLoading}
+                onApplyQuery={onApplyAuditLogQuery}
+                onPageChange={onAuditLogPageChange}
+                onRefresh={onRefreshAuditLogs}
+              />
+            ),
+          },
+        ]}
+      />
+    </section>
   );
 }

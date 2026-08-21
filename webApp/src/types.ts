@@ -6,6 +6,17 @@ export type HealthResponse = {
 
 export type UserRole = 'ADMIN' | 'USER';
 export type UserStatus = 'ACTIVE' | 'DISABLED';
+export type IdentityAuditEventType =
+  | 'LOGIN'
+  | 'TOKEN_REFRESH'
+  | 'LOGOUT'
+  | 'PROFILE_UPDATE'
+  | 'PASSWORD_CHANGE'
+  | 'ADMIN_USER_CREATE'
+  | 'ADMIN_PASSWORD_RESET'
+  | 'EMAIL_REGISTRATION_CODE_REQUEST'
+  | 'EMAIL_REGISTRATION_VERIFY';
+export type IdentityAuditOutcome = 'SUCCESS' | 'FAILURE';
 export type StorageNodeType = 'FOLDER' | 'FILE';
 export type StorageNodeFilter = 'ALL' | StorageNodeType;
 export type StorageFileCategory = 'IMAGE' | 'VIDEO' | 'AUDIO' | 'DOCUMENT' | 'ARCHIVE';
@@ -46,6 +57,37 @@ export type IdentityUser = {
 export type IdentityLoginResponse = {
   token: string;
   user: IdentityUser;
+};
+
+export type IdentityAuditLog = {
+  id: number;
+  eventType: IdentityAuditEventType;
+  outcome: IdentityAuditOutcome;
+  actorUserId: number | null;
+  targetUserId: number | null;
+  identifier: string | null;
+  detail: string | null;
+  createdAt: string;
+};
+
+export type IdentityAuditLogPage = {
+  items: IdentityAuditLog[];
+  page: number;
+  size: number;
+  totalItems: number;
+  totalPages: number;
+};
+
+export type IdentityAuditLogQuery = {
+  eventType?: IdentityAuditEventType | null;
+  outcome?: IdentityAuditOutcome | null;
+  actorUserId?: number | null;
+  targetUserId?: number | null;
+  identifier?: string | null;
+  createdFrom?: string | null;
+  createdTo?: string | null;
+  page?: number;
+  size?: number;
 };
 
 export type AppPackageInfo = {

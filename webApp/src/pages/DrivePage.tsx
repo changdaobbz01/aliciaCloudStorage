@@ -283,6 +283,7 @@ export function DrivePage() {
 
     if (isAccountsView) {
       tasks.push(accounts.loadUsers());
+      tasks.push(accounts.loadAuditLogs());
     }
 
     if (isAppPackageView) {
@@ -471,9 +472,15 @@ export function DrivePage() {
           currentUserId={currentUser?.id}
           users={accounts.users}
           loading={accounts.usersLoading}
+          auditLogPage={accounts.auditLogPage}
+          auditLogQuery={accounts.auditLogQuery}
+          auditLogsLoading={accounts.auditLogsLoading}
           onCreateUser={accounts.openCreateUserModal}
           onEditUserQuota={accounts.openEditUserQuotaModal}
           onResetUserPassword={accounts.openResetUserPasswordModal}
+          onApplyAuditLogQuery={accounts.applyAuditLogQuery}
+          onAuditLogPageChange={accounts.changeAuditLogPage}
+          onRefreshAuditLogs={() => void accounts.loadAuditLogs()}
         />
       ) : null}
 

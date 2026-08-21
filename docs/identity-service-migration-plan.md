@@ -921,6 +921,7 @@ Web：
 - 头像上传。
 - 云盘主页背景上传和清除。
 - 管理员用户面板。
+- 管理员身份审计日志查询。
 
 Android：
 
@@ -972,7 +973,7 @@ Identity：
 - `identityApi/src/main/java/com/alicia/cloudstorage/identity/service/IdentityTokenService.java`
 - `identityApi/src/main/java/com/alicia/cloudstorage/identity/service/IdentityPrincipalService.java`
 - `identityApi/src/main/java/com/alicia/cloudstorage/identity/controller/IdentityAuthController.java`
-- 后续新增 refresh token 表、审计日志、JWT/JWKS 支撑时的实体和 Repository。
+- 后续新增 refresh token 表、JWT/JWKS 支撑时的实体和 Repository。
 
 CloudStorageApi：
 
@@ -987,6 +988,7 @@ Web 和 Android：
 - 主站 `/login` 与云盘 `/cloudPan/` 的共享登录态体验。
 - Web 和 Android 的 token 过期提示和重新登录体验。
 - 管理员面板中身份信息和云盘容量信息的展示边界。
+- Web 管理员身份审计日志筛选体验。
 
 部署：
 
@@ -1000,7 +1002,7 @@ Web 和 Android：
 下一步按风险从低到高推进：
 
 1. 保持旧 `sys_user.storage_quota_bytes` 和 `sys_user.home_background_url` 一个版本周期不删，只观察不写入。
-2. 增加 Identity 审计日志，记录登录、刷新、注销、密码修改、管理员重置密码和管理员创建用户。
+2. 继续观察 Identity 审计日志写入、查询接口和 Web 管理页筛选结果。
 3. 设计 refresh token 表和更细粒度 logout 语义，区分“当前设备退出”和“全部设备退出”。
 4. 将当前自定义 HMAC token 迁移到标准 JWT，并准备 JWKS 公钥发布。
 5. 评估 `sys_user` 是否继续作为 identity 表名，或迁移到独立 schema / `identity_user`。
