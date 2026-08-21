@@ -1400,8 +1400,22 @@ class MainViewModel internal constructor(
                     newPassword = trimmedNewPassword,
                 )
             }.onSuccess { response ->
-                _uiState.update { state -> state.copy(isChangingPassword = false) }
-                emitMessage(response.message.ifBlank { "密码修改成功。" })
+                transferJobs.values.forEach { job -> job.cancel() }
+                transferJobs.clear()
+                transferHistoryCoordinator.clearActive()
+                nextTransferId = 1L
+                cancelManualRefreshLoading()
+                cancelCurrentUserSync()
+                cancelExplorerRefreshes()
+                incomingShareRequestGeneration += 1L
+                sessionStore.clearToken(session.baseUrl)
+                fileDirectoryCache.clear()
+                clearPreviewArtifacts()
+                _uiState.value = AppUiState(
+                    isBooting = false,
+                    baseUrl = session.baseUrl,
+                )
+                emitMessage(response.message.ifBlank { "密码修改成功，请重新登录。" })
                 onSuccess()
             }.onFailure { error ->
                 _uiState.update { state -> state.copy(isChangingPassword = false) }
@@ -2959,7 +2973,8 @@ class MainViewModel internal constructor(
     }
 
     fun logout() {
-        val baseUrl = uiState.value.baseUrl
+        val session = authenticatedSession()
+        val baseUrl = session?.baseUrl ?: uiState.value.baseUrl
         viewModelScope.launch {
             transferJobs.values.forEach { job -> job.cancel() }
             transferJobs.clear()
@@ -2969,6 +2984,14 @@ class MainViewModel internal constructor(
             cancelCurrentUserSync()
             cancelExplorerRefreshes()
             incomingShareRequestGeneration += 1L
+            if (session != null) {
+                runCatching {
+                    repository.logout(
+                        baseUrl = session.baseUrl,
+                        token = session.token,
+                    )
+                }
+            }
             sessionStore.clearToken(baseUrl)
             fileDirectoryCache.clear()
             clearPreviewArtifacts()
@@ -2994,24 +3017,25 @@ class MainViewModel internal constructor(
             }
 
             runCatching {
-                val currentUser = repository.fetchCurrentUser(session.baseUrl, session.token)
-                session to currentUser
-            }.onSuccess { (savedSession, currentUser) ->
-                val restoredTransfers = activateTransferHistory(savedSession.baseUrl, currentUser.id)
+                val refreshedSession = repository.refreshToken(session.baseUrl, session.token)
+                sessionStore.saveSession(refreshedSession.token, session.baseUrl)
+                refreshedSession
+            }.onSuccess { refreshedSession ->
+                val restoredTransfers = activateTransferHistory(session.baseUrl, refreshedSession.user.id)
                 awaitMinimumBootSplashDuration()
                 fileDirectoryCache.clear()
                 clearPreviewArtifacts()
                 _uiState.update { state ->
                     state.copy(
                         isBooting = false,
-                        authToken = savedSession.token,
-                        currentUser = currentUser,
-                        baseUrl = savedSession.baseUrl,
+                        authToken = refreshedSession.token,
+                        currentUser = refreshedSession.user,
+                        baseUrl = session.baseUrl,
                         transfers = restoredTransfers,
                     )
                 }
                 refreshAll(syncUser = false)
-                checkForAppUpdate(savedSession.baseUrl)
+                checkForAppUpdate(session.baseUrl)
                 refreshIncomingShareDetailIfReady()
             }.onFailure { error ->
                 awaitMinimumBootSplashDuration()

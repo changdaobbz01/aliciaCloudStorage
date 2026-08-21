@@ -1,21 +1,25 @@
 import { App as AntApp } from 'antd';
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
-import { AUTH_EXPIRED_EVENT, fetchCurrentUser } from '../lib/api';
+import { AUTH_EXPIRED_EVENT, fetchCurrentUser, logoutAuthToken, refreshAuthToken } from '../lib/api';
 import {
   clearCurrentSession as clearStoredSession,
   loadAuthToken,
   loadCurrentUser,
+  saveAuthToken,
   saveCurrentUser,
 } from '../lib/session';
 import { cloudReturnTo, redirectToUnifiedLogin } from '../lib/unifiedLogin';
 import type { User } from '../types';
+
+const TOKEN_REFRESH_INTERVAL_MS = 30 * 60 * 1000;
 
 type SessionContextValue = {
   currentUser: User | null;
   authToken: string | null;
   isSessionChecking: boolean;
   clearCurrentSession: () => void;
+  logoutCurrentSession: () => Promise<void>;
   updateCurrentUser: (user: User) => void;
 };
 
@@ -67,19 +71,22 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const verifiedToken = token;
+    const storedToken = token;
     let cancelled = false;
 
     /**
-     * 在页面刷新后使用本地令牌重新向后端确认当前登录态。
+     * 在页面刷新后先向 Identity 续签，再用新令牌确认云盘资料。
      */
     async function verifyStoredToken() {
       try {
-        const user = await fetchCurrentUser(verifiedToken);
+        const refreshedToken = await refreshAuthToken(storedToken);
+        const user = await fetchCurrentUser(refreshedToken);
 
         if (!cancelled) {
+          saveAuthToken(refreshedToken);
+          saveCurrentUser(user);
           setCurrentUser(user);
-          setAuthToken(verifiedToken);
+          setAuthToken(refreshedToken);
         }
       } catch {
         if (!cancelled) {
@@ -98,6 +105,42 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!authToken) {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function refreshStoredToken() {
+      const storedToken = loadAuthToken();
+
+      if (!storedToken) {
+        return;
+      }
+
+      try {
+        const refreshedToken = await refreshAuthToken(storedToken);
+
+        if (!cancelled && loadAuthToken()) {
+          saveAuthToken(refreshedToken);
+          setAuthToken(refreshedToken);
+        }
+      } catch {
+        // 401 会由全局鉴权过期事件处理，其他短暂失败等下一轮续签。
+      }
+    }
+
+    const intervalId = window.setInterval(() => {
+      void refreshStoredToken();
+    }, TOKEN_REFRESH_INTERVAL_MS);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [authToken]);
 
   /**
    * 在用户修改资料后同步更新本地缓存中的用户信息。
@@ -124,6 +167,20 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     resetSessionState();
   }
 
+  async function logoutCurrentSession() {
+    const token = loadAuthToken();
+
+    if (token) {
+      try {
+        await logoutAuthToken(token);
+      } catch {
+        // 本地退出不依赖服务端响应；过期或网络失败时仍清掉本地会话。
+      }
+    }
+
+    resetSessionState();
+  }
+
   return (
     <SessionContext.Provider
       value={{
@@ -131,6 +188,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         authToken,
         isSessionChecking,
         clearCurrentSession,
+        logoutCurrentSession,
         updateCurrentUser,
       }}
     >

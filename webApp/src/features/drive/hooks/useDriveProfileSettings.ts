@@ -20,6 +20,7 @@ type UseDriveProfileSettingsOptions = {
   message: MessageInstance;
   updateCurrentUser: (user: User) => void;
   clearCurrentSession: () => void;
+  logoutCurrentSession: () => Promise<void>;
   onNavigateToLogin: () => void;
   maxHomeBackgroundBytes: number;
 };
@@ -30,6 +31,7 @@ export function useDriveProfileSettings({
   message,
   updateCurrentUser,
   clearCurrentSession,
+  logoutCurrentSession,
   onNavigateToLogin,
   maxHomeBackgroundBytes,
 }: UseDriveProfileSettingsOptions) {
@@ -214,8 +216,8 @@ export function useDriveProfileSettings({
     return true;
   }
 
-  function handleLogout() {
-    clearCurrentSession();
+  async function handleLogout() {
+    await logoutCurrentSession();
     onNavigateToLogin();
   }
 
@@ -231,7 +233,7 @@ export function useDriveProfileSettings({
     }
 
     if (event.key === 'logout') {
-      handleLogout();
+      void handleLogout();
     }
   }
 

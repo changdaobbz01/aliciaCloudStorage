@@ -875,8 +875,16 @@ class MainViewModel(
                     newPassword = trimmedNewPassword,
                 )
             }.onSuccess { response ->
-                _uiState.update { state -> state.copy(isChangingPassword = false) }
-                emitMessage(response.message.ifBlank { "密码修改成功。" })
+                transferJobs.values.forEach { job -> job.cancel() }
+                transferJobs.clear()
+                sessionStore.clearToken(session.baseUrl)
+                fileDirectoryCache.clear()
+                clearPreviewArtifacts()
+                _uiState.value = AppUiState(
+                    isBooting = false,
+                    baseUrl = session.baseUrl,
+                )
+                emitMessage(response.message.ifBlank { "密码修改成功，请重新登录。" })
                 onSuccess()
             }.onFailure { error ->
                 _uiState.update { state -> state.copy(isChangingPassword = false) }
@@ -2231,10 +2239,19 @@ class MainViewModel(
     }
 
     fun logout() {
-        val baseUrl = uiState.value.baseUrl
+        val session = authenticatedSession()
+        val baseUrl = session?.baseUrl ?: uiState.value.baseUrl
         viewModelScope.launch {
             transferJobs.values.forEach { job -> job.cancel() }
             transferJobs.clear()
+            if (session != null) {
+                runCatching {
+                    repository.logout(
+                        baseUrl = session.baseUrl,
+                        token = session.token,
+                    )
+                }
+            }
             sessionStore.clearToken(baseUrl)
             fileDirectoryCache.clear()
             clearPreviewArtifacts()
@@ -2258,21 +2275,22 @@ class MainViewModel(
             }
 
             runCatching {
-                val currentUser = repository.fetchCurrentUser(session.baseUrl, session.token)
-                session to currentUser
-            }.onSuccess { (savedSession, currentUser) ->
+                val refreshedSession = repository.refreshToken(session.baseUrl, session.token)
+                sessionStore.saveSession(refreshedSession.token, session.baseUrl)
+                refreshedSession
+            }.onSuccess { refreshedSession ->
                 fileDirectoryCache.clear()
                 clearPreviewArtifacts()
                 _uiState.update { state ->
                     state.copy(
                         isBooting = false,
-                        authToken = savedSession.token,
-                        currentUser = currentUser,
-                        baseUrl = savedSession.baseUrl,
+                        authToken = refreshedSession.token,
+                        currentUser = refreshedSession.user,
+                        baseUrl = session.baseUrl,
                     )
                 }
                 refreshAll()
-                checkForAppUpdate(savedSession.baseUrl)
+                checkForAppUpdate(session.baseUrl)
                 refreshIncomingShareDetailIfReady()
             }.onFailure { error ->
                 sessionStore.clearToken(session.baseUrl)

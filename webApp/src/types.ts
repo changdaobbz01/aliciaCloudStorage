@@ -30,6 +30,24 @@ export type User = {
   remainingBytes: number | null;
 };
 
+export type IdentityUser = {
+  id: number;
+  phoneNumber: string | null;
+  email: string | null;
+  emailVerifiedAt: string | null;
+  nickname: string;
+  avatarUrl: string | null;
+  tokenVersion: number;
+  role: UserRole;
+  status: UserStatus;
+  createdAt: string;
+};
+
+export type IdentityLoginResponse = {
+  token: string;
+  user: IdentityUser;
+};
+
 export type AppPackageInfo = {
   available: boolean;
   fileName: string | null;

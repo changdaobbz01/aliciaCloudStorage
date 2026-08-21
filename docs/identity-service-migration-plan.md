@@ -552,12 +552,14 @@ Cloud 管理：
 
 1. 登录和注册由 mainSite `/login` 承载，云盘 Web 不再拥有独立登录页面。
 2. 云盘未登录或 token 过期时跳转 `/login?returnTo=/cloudPan/`。
-3. `User` 类型拆成：
+3. 云盘 Web 启动时先调用 `/api/identity/auth/token/refresh` 续签，再读取 `/api/cloud-profile/me`。
+4. 云盘 Web 运行中定时续签 token，主动退出登录时调用 `/api/identity/auth/logout` 后再清理本地会话。
+5. `User` 类型后续再拆成：
    - `IdentityUser`
    - `CloudUserProfile`
    - 页面聚合用的 `CurrentUserView`
-4. `homeBackgroundUrl` 不再来自 `/api/auth/me`，而来自 `/api/cloud-profile/me` 聚合响应。
-5. 用户管理面板拆分身份字段和云盘额度字段。
+6. `homeBackgroundUrl` 不再来自 `/api/auth/me`，而来自 `/api/cloud-profile/me` 聚合响应。
+7. 用户管理面板拆分身份字段和云盘额度字段。
 
 ### 9.2 Android
 
@@ -574,7 +576,10 @@ Cloud 管理：
 2. 当前用户云盘聚合资料直接调用 `/api/cloud-profile/me`。
 3. 头像上传和头像展示直接调用 `/api/cloud-profile/avatar`。
 4. 云盘容量、背景等由 CloudStorageApi 获取。
-5. SessionStore 存储 token 的 key 可以后续改名，第一期不强制。
+5. SessionStore 继续保存统一 token，启动恢复时先调用 `/api/identity/auth/token/refresh` 续签。
+6. 主动退出登录时调用 `/api/identity/auth/logout`，然后清理本地 token。
+7. 修改密码成功后立即清理本地 token，引导用户使用新密码重新登录。
+8. SessionStore 存储 token 的 key 可以后续改名，第一期不强制。
 
 ### 9.3 主站 mainSite
 
@@ -961,7 +966,7 @@ CloudStorageApi：
 Web 和 Android：
 
 - 主站 `/login` 与云盘 `/cloudPan/` 的共享登录态体验。
-- Web 和 Android 的 token 过期、刷新、注销体验。
+- Web 和 Android 的 token 过期提示和重新登录体验。
 - 管理员面板中身份信息和云盘容量信息的展示边界。
 
 部署：

@@ -12,6 +12,8 @@ class AliciaCloudServiceRoutesTest {
         assertEquals("api/identity/auth/login", postPath("login"))
         assertEquals("api/identity/auth/register/email-code", postPath("requestEmailRegistrationCode"))
         assertEquals("api/identity/auth/register/verify", postPath("verifyEmailRegistration"))
+        assertEquals("api/identity/auth/token/refresh", postPath("refreshToken"))
+        assertEquals("api/identity/auth/logout", postPath("logout"))
         assertEquals("api/identity/auth/profile", putPath("updateProfile"))
         assertEquals("api/identity/auth/password", putPath("changePassword"))
         assertEquals("api/identity/admin/users/{userId}/password", putPath("resetUserPassword"))

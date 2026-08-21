@@ -28,6 +28,16 @@ interface AliciaCloudService {
         @Body payload: LoginPayload,
     ): Response<IdentityLoginResponse>
 
+    @POST("api/identity/auth/token/refresh")
+    suspend fun refreshToken(
+        @Header("Authorization") authorization: String,
+    ): Response<IdentityLoginResponse>
+
+    @POST("api/identity/auth/logout")
+    suspend fun logout(
+        @Header("Authorization") authorization: String,
+    ): Response<ApiMessageResponse>
+
     @GET("api/cloud-profile/me")
     suspend fun fetchCurrentUser(
         @Header("Authorization") authorization: String,

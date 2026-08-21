@@ -76,7 +76,7 @@ const baseMenuItems = [
 export function DrivePage() {
   const { message } = AntApp.useApp();
   const navigate = useNavigate();
-  const { authToken, currentUser, clearCurrentSession, updateCurrentUser } = useSession();
+  const { authToken, currentUser, clearCurrentSession, logoutCurrentSession, updateCurrentUser } = useSession();
 
   const [activeView, setActiveView] = useState<StorageViewMode>('home');
   const isHomeView = activeView === 'home';
@@ -125,6 +125,7 @@ export function DrivePage() {
     message,
     updateCurrentUser,
     clearCurrentSession,
+    logoutCurrentSession,
     onNavigateToLogin: () => redirectToUnifiedLogin(),
     maxHomeBackgroundBytes: MAX_HOME_BACKGROUND_BYTES,
   });

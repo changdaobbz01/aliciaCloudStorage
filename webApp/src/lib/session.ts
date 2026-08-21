@@ -29,6 +29,13 @@ export function loadAuthToken() {
 }
 
 /**
+ * 单独更新本地保存的身份令牌。
+ */
+export function saveAuthToken(token: string) {
+  localStorage.setItem(TOKEN_STORAGE_KEY, token);
+}
+
+/**
  * 清空浏览器里保存的登录态信息。
  */
 export function clearCurrentSession() {

@@ -10,6 +10,7 @@ import type {
   CreateUserPayload,
   DriveOverview,
   HealthResponse,
+  IdentityLoginResponse,
   MoveNodePayload,
   MultipartUploadPart,
   MultipartUploadStatus,
@@ -58,6 +59,10 @@ type DownloadRequestOptions = {
 
 type RequestOptions = {
   signal?: AbortSignal;
+};
+
+type ApiRequestOptions = {
+  dispatchAuthExpired?: boolean;
 };
 
 export class ApiError extends Error {
@@ -174,10 +179,10 @@ function dispatchAuthExpired(error: ApiError) {
 /**
  * 将非 2xx 响应包装成统一的 ApiError 异常。
  */
-function throwApiError(response: Response, payload: unknown): never {
+function throwApiError(response: Response, payload: unknown, options?: ApiRequestOptions): never {
   const error = new ApiError(toErrorMessage(payload, response.status), response.status, payload);
 
-  if (response.status === 401) {
+  if (response.status === 401 && options?.dispatchAuthExpired !== false) {
     dispatchAuthExpired(error);
   }
 
@@ -187,12 +192,12 @@ function throwApiError(response: Response, payload: unknown): never {
 /**
  * 发起一个返回 JSON 的请求，并在失败时抛出统一异常。
  */
-async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
+async function requestJson<T>(url: string, init?: RequestInit, options?: ApiRequestOptions): Promise<T> {
   const response = await fetch(url, init);
   const payload = await readBody(response);
 
   if (!response.ok) {
-    throwApiError(response, payload);
+    throwApiError(response, payload, options);
   }
 
   return payload as T;
@@ -580,6 +585,21 @@ export function changePassword(payload: ChangePasswordPayload, token: string) {
       },
       body: JSON.stringify(payload),
     }),
+  );
+}
+
+export function refreshAuthToken(token: string) {
+  return requestJson<IdentityLoginResponse>(
+    '/api/identity/auth/token/refresh',
+    withToken(token, { method: 'POST' }),
+  ).then((response) => response.token);
+}
+
+export function logoutAuthToken(token: string) {
+  return requestJson<ApiMessageResponse>(
+    '/api/identity/auth/logout',
+    withToken(token, { method: 'POST' }),
+    { dispatchAuthExpired: false },
   );
 }
 

@@ -93,6 +93,19 @@ class AliciaRepository(
         return identitySession.toCloudLoginResponse(baseUrl)
     }
 
+    suspend fun refreshToken(baseUrl: String, token: String): LoginResponse {
+        val identitySession = serviceFactory.serviceFor(baseUrl)
+            .refreshToken(authorization(token))
+            .requireBody(fallback = "刷新登录状态失败，请重新登录。")
+
+        return identitySession.toCloudLoginResponse(baseUrl)
+    }
+
+    suspend fun logout(baseUrl: String, token: String): ApiMessageResponse =
+        serviceFactory.serviceFor(baseUrl)
+            .logout(authorization(token))
+            .requireBody(fallback = "退出登录失败。")
+
     suspend fun fetchCurrentUser(baseUrl: String, token: String): User =
         serviceFactory.serviceFor(baseUrl)
             .fetchCurrentUser(authorization(token))

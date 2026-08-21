@@ -170,6 +170,8 @@ curl -X POST http://127.0.0.1:8093/api/identity/auth/register/verify `
 
 云盘 Web 的纯身份写操作走同域 Identity 公开入口，例如 `/api/identity/auth/profile`、`/api/identity/auth/password` 和 `/api/identity/admin/users/{userId}/password`；头像上传、头像访问、当前用户云盘聚合资料由 `CloudStorageApi` 的 `/api/cloud-profile/me`、`/api/cloud-profile/avatar` 和 `/api/cloud-profile/avatar/{userId}` 提供。管理员云盘聚合用户列表和创建入口统一为 `/api/admin/cloud-users`，云盘容量调整为 `/api/admin/cloud-users/{userId}/quota`。
 
+云盘 Web 会在启动和运行中通过 `/api/identity/auth/token/refresh` 续签登录态，主动退出登录时调用 `/api/identity/auth/logout` 后再清理本地 token；Android 客户端恢复会话和退出登录也使用同一套 Identity 接口。
+
 `identityApi` 新注册用户首次携带 identity token 访问 CloudStorageApi 受保护接口时，CloudStorageApi 会自动补建对应的 `cloud_user_profile`，云盘默认额度取 `ALICIA_STORAGE_DEFAULT_USER_QUOTA_BYTES`。
 
 ### HTTPS 部署（已签发证书后）
