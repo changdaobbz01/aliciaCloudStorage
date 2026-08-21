@@ -6,7 +6,7 @@ Current status:
 
 - The module is buildable and runs as the identity service in the default compose stack.
 - It exposes an independent health endpoint for deployment checks.
-- It owns login, current-user identity reads, profile writes, password changes, email-code registration, and administrator identity management.
+- It owns login, token refresh/logout, current-user identity reads, profile writes, password changes, email-code registration, and administrator identity management.
 - It still reads and writes the existing `sys_user` table during the migration period.
 - `CloudStorageApi` consumes identity tokens and only adds cloud-drive profile data such as quota and home background.
 
@@ -16,6 +16,8 @@ Local endpoints:
 - `GET /api/identity/internal/users/{userId}`
 - `POST /api/identity/auth/login`
 - `GET /api/identity/auth/me`
+- `POST /api/identity/auth/token/refresh`
+- `POST /api/identity/auth/logout`
 - `POST /api/identity/auth/register/email-code`
 - `POST /api/identity/auth/register/verify`
 

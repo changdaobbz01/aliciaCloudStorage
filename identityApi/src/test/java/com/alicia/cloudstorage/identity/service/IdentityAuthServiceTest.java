@@ -18,6 +18,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -114,6 +115,32 @@ class IdentityAuthServiceTest {
         assertThatThrownBy(() -> identityAuthService.me("Bearer token"))
                 .isInstanceOf(IdentityAuthException.class)
                 .hasMessage("登录状态已失效。");
+    }
+
+    @Test
+    void refreshTokenReturnsNewTokenWithoutChangingTokenVersion() {
+        IdentityUser user = identityUser(18L, IdentityUserStatus.ACTIVE);
+
+        when(identityPrincipalService.requireActiveUser("Bearer token")).thenReturn(user);
+        when(identityTokenService.createToken(user)).thenReturn("new-token");
+
+        var response = identityAuthService.refreshToken("Bearer token");
+
+        assertThat(response.token()).isEqualTo("new-token");
+        assertThat(response.user().id()).isEqualTo(18L);
+        assertThat(user.getTokenVersion()).isEqualTo(2L);
+    }
+
+    @Test
+    void logoutInvalidatesCurrentUserTokens() {
+        IdentityUser user = identityUser(18L, IdentityUserStatus.ACTIVE);
+
+        when(identityPrincipalService.requireActiveUser("Bearer token")).thenReturn(user);
+
+        identityAuthService.logout("Bearer token");
+
+        assertThat(user.getTokenVersion()).isEqualTo(3L);
+        verify(identityUserRepository).save(user);
     }
 
     private IdentityUser identityUser(Long id, IdentityUserStatus status) {

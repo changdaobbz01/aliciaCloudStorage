@@ -56,6 +56,21 @@ public class IdentityAuthController {
         return identityAuthService.me(authorization);
     }
 
+    @PostMapping("/token/refresh")
+    public IdentityLoginResponse refreshToken(
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization
+    ) {
+        return identityAuthService.refreshToken(authorization);
+    }
+
+    @PostMapping("/logout")
+    public IdentityMessageResponse logout(
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization
+    ) {
+        identityAuthService.logout(authorization);
+        return new IdentityMessageResponse("已退出登录。");
+    }
+
     @PutMapping("/profile")
     public IdentityUserResponse updateProfile(
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,

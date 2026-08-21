@@ -144,6 +144,16 @@ curl http://127.0.0.1:8093/api/identity/auth/me `
   -H "Authorization: Bearer 你的_identity_token"
 ```
 
+验证 Identity API 内部 Token 续签和注销：
+
+```powershell
+curl -X POST http://127.0.0.1:8093/api/identity/auth/token/refresh `
+  -H "Authorization: Bearer 你的_identity_token"
+
+curl -X POST http://127.0.0.1:8093/api/identity/auth/logout `
+  -H "Authorization: Bearer 你的_identity_token"
+```
+
 验证 Identity API 内部邮箱注册：
 
 ```powershell
@@ -156,7 +166,7 @@ curl -X POST http://127.0.0.1:8093/api/identity/auth/register/verify `
   -d "{\"email\":\"你的邮箱\",\"code\":\"邮箱验证码\",\"nickname\":\"昵称\",\"password\":\"密码\"}"
 ```
 
-当前公网身份入口为 `/api/identity/auth/**` 和 `/api/identity/admin/**`；登录、注册、Token 校验、密码和账号资料写入已经由 `identityApi` 执行。`CloudStorageApi` 负责补齐云盘资料，并通过 `/api/cloud-profile/**` 返回云盘聚合资料、头像和主页背景。
+当前公网身份入口为 `/api/identity/auth/**` 和 `/api/identity/admin/**`；登录、注册、Token 校验、续签、注销、密码和账号资料写入已经由 `identityApi` 执行。`CloudStorageApi` 负责补齐云盘资料，并通过 `/api/cloud-profile/**` 返回云盘聚合资料、头像和主页背景。
 
 云盘 Web 的纯身份写操作走同域 Identity 公开入口，例如 `/api/identity/auth/profile`、`/api/identity/auth/password` 和 `/api/identity/admin/users/{userId}/password`；头像上传、头像访问、当前用户云盘聚合资料由 `CloudStorageApi` 的 `/api/cloud-profile/me`、`/api/cloud-profile/avatar` 和 `/api/cloud-profile/avatar/{userId}` 提供。
 

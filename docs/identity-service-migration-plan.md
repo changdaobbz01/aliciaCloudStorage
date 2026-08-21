@@ -447,19 +447,19 @@ exp: 过期时间
 | `POST` | `/api/identity/auth/register/email-code` | Identity |
 | `POST` | `/api/identity/auth/register/verify` | Identity |
 | `GET` | `/api/identity/auth/me` | Identity |
+| `POST` | `/api/identity/auth/token/refresh` | Identity |
+| `POST` | `/api/identity/auth/logout` | Identity |
 | `PUT` | `/api/identity/auth/profile` | Identity |
 | `PUT` | `/api/identity/auth/password` | Identity |
 | `GET` | `/api/identity/admin/users` | Identity |
 | `POST` | `/api/identity/admin/users` | Identity |
 | `PUT` | `/api/identity/admin/users/{userId}/password` | Identity |
 
-新增建议：
+后续建议：
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
-| `POST` | `/api/auth/token/refresh` | 刷新登录态 |
-| `POST` | `/api/auth/logout` | 注销当前登录态 |
-| `GET` | `/api/auth/jwks` | 公钥发布，第二期启用 |
+| `GET` | `/api/identity/auth/jwks` | 公钥发布，第二期启用 |
 
 ### 8.2 CloudStorageApi 对外接口
 
@@ -706,6 +706,8 @@ AliciaCloudStorage/identityApi
 - 内部只读查询接口：`GET /api/identity/internal/users/{userId}`。
 - 内部登录验证接口：`POST /api/identity/auth/login`。
 - 内部当前用户接口：`GET /api/identity/auth/me`。
+- 内部 Token 续签接口：`POST /api/identity/auth/token/refresh`。
+- 内部注销接口：`POST /api/identity/auth/logout`，通过递增 `token_version` 让当前用户旧 Token 失效。
 - 内部邮箱验证码发送接口：`POST /api/identity/auth/register/email-code`。
 - 内部邮箱验证码注册接口：`POST /api/identity/auth/register/verify`。
 - 邮件发送配置：`alicia.mail.*`，identity 容器复用现有 SMTP 环境变量。

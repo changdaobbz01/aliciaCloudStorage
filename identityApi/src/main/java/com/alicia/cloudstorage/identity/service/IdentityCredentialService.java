@@ -69,11 +69,6 @@ public class IdentityCredentialService {
 
     private void setPasswordAndInvalidateTokens(IdentityUser user, String password) {
         user.setPasswordHash(passwordEncoder.encode(password));
-        invalidateTokens(user);
-    }
-
-    private void invalidateTokens(IdentityUser user) {
-        long currentVersion = user.getTokenVersion() == null ? 0L : user.getTokenVersion();
-        user.setTokenVersion(currentVersion + 1);
+        user.incrementTokenVersion();
     }
 }

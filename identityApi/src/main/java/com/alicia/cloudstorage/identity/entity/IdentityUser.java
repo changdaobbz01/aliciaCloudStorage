@@ -119,6 +119,11 @@ public class IdentityUser {
         this.tokenVersion = tokenVersion;
     }
 
+    public void incrementTokenVersion() {
+        long currentVersion = tokenVersion == null ? 0L : tokenVersion;
+        tokenVersion = currentVersion + 1;
+    }
+
     public IdentityUserRole getRole() {
         return role;
     }

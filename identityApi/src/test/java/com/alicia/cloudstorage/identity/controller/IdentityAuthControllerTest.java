@@ -101,6 +101,45 @@ class IdentityAuthControllerTest {
     }
 
     @Test
+    void refreshTokenReturnsNewTokenAndCurrentIdentityUser() throws Exception {
+        IdentityUserResponse user = new IdentityUserResponse(
+                7L,
+                null,
+                "user@example.com",
+                LocalDateTime.of(2026, 8, 17, 15, 30),
+                "Alicia",
+                "cos:user-avatars/7/avatar.webp",
+                3L,
+                "USER",
+                "ACTIVE",
+                LocalDateTime.of(2026, 4, 29, 15, 30)
+        );
+
+        when(identityAuthService.refreshToken("Bearer token"))
+                .thenReturn(new IdentityLoginResponse("new-token", user));
+
+        mockMvc.perform(post("/api/identity/auth/token/refresh")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer token"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.token").value("new-token"))
+                .andExpect(jsonPath("$.user.id").value(7))
+                .andExpect(jsonPath("$.user.email").value("user@example.com"))
+                .andExpect(jsonPath("$.user.passwordHash").doesNotExist());
+
+        verify(identityAuthService).refreshToken("Bearer token");
+    }
+
+    @Test
+    void logoutReturnsSuccessMessage() throws Exception {
+        mockMvc.perform(post("/api/identity/auth/logout")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer token"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("已退出登录。"));
+
+        verify(identityAuthService).logout("Bearer token");
+    }
+
+    @Test
     void updateProfileReturnsUpdatedIdentityUser() throws Exception {
         IdentityUserResponse user = new IdentityUserResponse(
                 7L,

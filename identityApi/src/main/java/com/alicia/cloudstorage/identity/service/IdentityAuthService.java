@@ -60,6 +60,21 @@ public class IdentityAuthService {
         return IdentityUserResponse.from(identityPrincipalService.requireActiveUser(authorizationHeader));
     }
 
+    public IdentityLoginResponse refreshToken(String authorizationHeader) {
+        IdentityUser user = identityPrincipalService.requireActiveUser(authorizationHeader);
+        return new IdentityLoginResponse(
+                identityTokenService.createToken(user),
+                IdentityUserResponse.from(user)
+        );
+    }
+
+    @Transactional
+    public void logout(String authorizationHeader) {
+        IdentityUser user = identityPrincipalService.requireActiveUser(authorizationHeader);
+        user.incrementTokenVersion();
+        identityUserRepository.save(user);
+    }
+
     private LoginIdentifier normalizeLoginIdentifier(IdentityLoginRequest request) {
         String rawIdentifier = firstPresent(request.identifier(), request.email(), request.phoneNumber());
         if (rawIdentifier == null) {
