@@ -9,6 +9,7 @@ CURL_TIMEOUT="${ALICIA_VERIFY_CURL_TIMEOUT_SECONDS:-12}"
 INSECURE_TLS="${ALICIA_VERIFY_INSECURE_TLS:-true}"
 SKIP_ADMIN_CHECK="${ALICIA_VERIFY_SKIP_ADMIN_CHECK:-false}"
 SKIP_AUDIT_CHECK="${ALICIA_VERIFY_SKIP_AUDIT_CHECK:-false}"
+SKIP_IDENTITY_FLYWAY_CHECK="${ALICIA_VERIFY_SKIP_IDENTITY_FLYWAY_CHECK:-false}"
 COMPOSE_FILES="${ALICIA_COMPOSE_FILES:-compose.yaml compose.https.yaml}"
 
 CLOUD_BASE_URL="${CLOUD_BASE_URL%/}"
@@ -226,6 +227,19 @@ ORDER BY id DESC
 LIMIT 10;
 "' || fail "identity audit log query failed"
     ok "identity audit log query completed"
+fi
+
+if [[ "$SKIP_IDENTITY_FLYWAY_CHECK" == "true" ]]; then
+    printf '[SKIP] identity Flyway history check\n'
+else
+    printf '\nLatest identity Flyway migrations:\n'
+    compose exec -T db sh -lc 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE" -e "
+SELECT installed_rank, version, description, success, installed_on
+FROM identity_flyway_schema_history
+ORDER BY installed_rank DESC
+LIMIT 5;
+"' || fail "identity Flyway history query failed"
+    ok "identity Flyway history query completed"
 fi
 
 printf '\nAlicia identity/cloud route verification passed.\n'

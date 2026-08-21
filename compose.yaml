@@ -51,8 +51,12 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      identity:
-        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "bash -ec '</dev/tcp/127.0.0.1/8080'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
 
   identity:
     build:
@@ -81,6 +85,8 @@ services:
       - "127.0.0.1:8093:8082"
     depends_on:
       db:
+        condition: service_healthy
+      api:
         condition: service_healthy
 
   rag:

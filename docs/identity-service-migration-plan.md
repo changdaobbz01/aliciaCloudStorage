@@ -377,6 +377,7 @@ cloud_user_profile.home_background_url = sys_user.home_background_url
 
 - `V12__create_cloud_user_profile.sql` 创建 `cloud_user_profile`。
 - `V14__create_identity_refresh_token.sql` 创建 `identity_refresh_token`，用于记录刷新令牌会话。
+- `identityApi/src/main/resources/db/identity-migration/V1__identity_schema_baseline.sql` 建立 Identity 自己的 Flyway 基线，迁移历史写入 `identity_flyway_schema_history`。
 - 首次迁移时从 `sys_user.storage_quota_bytes` 和 `sys_user.home_background_url` 回填老用户云盘资料。
 - `CloudUserProfileService` 通过 `CloudUserProfileRepository` 读写云盘额度和主页背景。
 - `StorageQuotaService` 通过云盘资料读取器从 `cloud_user_profile` 获取容量。
@@ -753,9 +754,9 @@ AliciaCloudStorage/identityApi
 - 邮箱注册当前只创建身份用户，云盘 `cloud_user_profile` 由 CloudStorageApi 在消费身份用户时负责补建。
 - CloudStorageApi 已新增 `CloudUserProfileProvisioningService`，鉴权通过后会确保当前身份用户存在云盘 profile。
 - identity 新用户的云盘 profile 默认额度取 `alicia.storage.default-user-quota-bytes`，不再误用 `sys_user.storage_quota_bytes` 的旧数据库默认值。
-- `IdentityRefreshTokenService` 使用 `JdbcTemplate` 读写 `identity_refresh_token`，避免在当前 CloudStorageApi 统一 Flyway 迁移阶段让 JPA validate 依赖新表实体。
+- `IdentityRefreshTokenService` 使用 `JdbcTemplate` 读写 `identity_refresh_token`，避免把刷新会话表暴露为额外 JPA 实体；该表已纳入 `identityApi` 独立 Flyway 基线。
 - 兼容旧 token 格式的临时 `IdentityTokenService`，后续再替换为标准 JWT/JWKS。
-- Compose 中注入同一个 MySQL 连接，`identity` 已是默认服务，并被 `api` 和 `frontend` 依赖。
+- Compose 中注入同一个 MySQL 连接；共享库过渡期由 `api` 先完成 CloudStorageApi 历史迁移，再启动 `identity` 执行自己的 Flyway 与 JPA validate。
 - Dockerfile：`identityApi/Dockerfile`。
 - README：`identityApi/README.md`。
 
@@ -1027,7 +1028,7 @@ Web 和 Android：
 1. 保持旧 `sys_user.storage_quota_bytes` 和 `sys_user.home_background_url` 一个版本周期不删，只观察不写入。
 2. 继续观察 Identity 审计日志写入、查询接口和 Web 管理页筛选结果。
 3. 观察 `identity_refresh_token` 的生产写入、轮换、会话查询和指定会话撤销结果。
-4. 给主站补一个轻量会话管理入口，和云盘 Web 的会话管理能力保持一致。
+4. 继续观察 `identity_flyway_schema_history`，确认后续身份 schema 变更只进入 `identityApi` 迁移目录。
 5. 将当前自定义 HMAC token 迁移到标准 JWT，并准备 JWKS 公钥发布。
 6. 评估 `sys_user` 是否继续作为 identity 表名，或迁移到独立 schema / `identity_user`。
 
