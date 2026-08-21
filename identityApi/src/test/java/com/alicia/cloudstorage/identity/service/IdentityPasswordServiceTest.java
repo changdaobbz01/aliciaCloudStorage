@@ -36,6 +36,9 @@ class IdentityPasswordServiceTest {
     @Mock
     private IdentityCredentialService identityCredentialService;
 
+    @Mock
+    private IdentityAuditLogService identityAuditLogService;
+
     @InjectMocks
     private IdentityPasswordService identityPasswordService;
 

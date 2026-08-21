@@ -39,6 +39,9 @@ class IdentityAuthServiceTest {
     @Spy
     private IdentityUserInputNormalizer identityUserInputNormalizer = new IdentityUserInputNormalizer();
 
+    @Mock
+    private IdentityAuditLogService identityAuditLogService;
+
     @InjectMocks
     private IdentityAuthService identityAuthService;
 

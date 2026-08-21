@@ -36,6 +36,9 @@ class IdentityEmailRegistrationServiceTest {
     @Mock
     private IdentityTokenService identityTokenService;
 
+    @Mock
+    private IdentityAuditLogService identityAuditLogService;
+
     private IdentityUserInputNormalizer identityUserInputNormalizer;
 
     private IdentityEmailRegistrationService service;
@@ -48,7 +51,8 @@ class IdentityEmailRegistrationServiceTest {
                 identityUserInputNormalizer,
                 emailVerificationCodeService,
                 identityUserCreationService,
-                identityTokenService
+                identityTokenService,
+                identityAuditLogService
         );
     }
 

@@ -18,42 +18,67 @@ public class IdentityAuthService {
     private final IdentityTokenService identityTokenService;
     private final IdentityPrincipalService identityPrincipalService;
     private final IdentityUserInputNormalizer identityUserInputNormalizer;
+    private final IdentityAuditLogService identityAuditLogService;
 
     public IdentityAuthService(
             IdentityUserRepository identityUserRepository,
             IdentityCredentialService identityCredentialService,
             IdentityTokenService identityTokenService,
             IdentityPrincipalService identityPrincipalService,
-            IdentityUserInputNormalizer identityUserInputNormalizer
+            IdentityUserInputNormalizer identityUserInputNormalizer,
+            IdentityAuditLogService identityAuditLogService
     ) {
         this.identityUserRepository = identityUserRepository;
         this.identityCredentialService = identityCredentialService;
         this.identityTokenService = identityTokenService;
         this.identityPrincipalService = identityPrincipalService;
         this.identityUserInputNormalizer = identityUserInputNormalizer;
+        this.identityAuditLogService = identityAuditLogService;
     }
 
     public IdentityLoginResponse login(IdentityLoginRequest request) {
-        LoginIdentifier loginIdentifier = normalizeLoginIdentifier(request);
-        IdentityUser user = switch (loginIdentifier.type()) {
-            case EMAIL -> identityUserRepository.findByEmail(loginIdentifier.value())
-                    .orElseThrow(() -> new IllegalArgumentException("账号或密码不正确。"));
-            case PHONE -> identityUserRepository.findByPhoneNumber(loginIdentifier.value())
-                    .orElseThrow(() -> new IllegalArgumentException("账号或密码不正确。"));
-        };
+        LoginIdentifier loginIdentifier = null;
+        try {
+            loginIdentifier = normalizeLoginIdentifier(request);
+            IdentityUser user = switch (loginIdentifier.type()) {
+                case EMAIL -> identityUserRepository.findByEmail(loginIdentifier.value())
+                        .orElseThrow(() -> new IllegalArgumentException("账号或密码不正确。"));
+                case PHONE -> identityUserRepository.findByPhoneNumber(loginIdentifier.value())
+                        .orElseThrow(() -> new IllegalArgumentException("账号或密码不正确。"));
+            };
 
-        if (!identityCredentialService.matches(request.password(), user.getPasswordHash())) {
-            throw new IllegalArgumentException("账号或密码不正确。");
+            if (!identityCredentialService.matches(request.password(), user.getPasswordHash())) {
+                throw new IllegalArgumentException("账号或密码不正确。");
+            }
+
+            if (user.getStatus() != IdentityUserStatus.ACTIVE) {
+                throw new IdentityAuthException("当前账号已停用。");
+            }
+
+            IdentityLoginResponse response = new IdentityLoginResponse(
+                    identityTokenService.createToken(user),
+                    IdentityUserResponse.from(user)
+            );
+            identityAuditLogService.record(
+                    IdentityAuditEventType.LOGIN,
+                    IdentityAuditOutcome.SUCCESS,
+                    user.getId(),
+                    user.getId(),
+                    loginIdentifier.value(),
+                    null
+            );
+            return response;
+        } catch (RuntimeException ex) {
+            identityAuditLogService.record(
+                    IdentityAuditEventType.LOGIN,
+                    IdentityAuditOutcome.FAILURE,
+                    null,
+                    null,
+                    loginIdentifier == null ? rawLoginIdentifier(request) : loginIdentifier.value(),
+                    ex.getMessage()
+            );
+            throw ex;
         }
-
-        if (user.getStatus() != IdentityUserStatus.ACTIVE) {
-            throw new IdentityAuthException("当前账号已停用。");
-        }
-
-        return new IdentityLoginResponse(
-                identityTokenService.createToken(user),
-                IdentityUserResponse.from(user)
-        );
     }
 
     public IdentityUserResponse me(String authorizationHeader) {
@@ -61,18 +86,77 @@ public class IdentityAuthService {
     }
 
     public IdentityLoginResponse refreshToken(String authorizationHeader) {
-        IdentityUser user = identityPrincipalService.requireActiveUser(authorizationHeader);
-        return new IdentityLoginResponse(
-                identityTokenService.createToken(user),
-                IdentityUserResponse.from(user)
-        );
+        IdentityUser user = null;
+        try {
+            user = identityPrincipalService.requireActiveUser(authorizationHeader);
+            IdentityLoginResponse response = new IdentityLoginResponse(
+                    identityTokenService.createToken(user),
+                    IdentityUserResponse.from(user)
+            );
+            identityAuditLogService.record(
+                    IdentityAuditEventType.TOKEN_REFRESH,
+                    IdentityAuditOutcome.SUCCESS,
+                    user.getId(),
+                    user.getId(),
+                    userIdentifier(user),
+                    null
+            );
+            return response;
+        } catch (RuntimeException ex) {
+            identityAuditLogService.record(
+                    IdentityAuditEventType.TOKEN_REFRESH,
+                    IdentityAuditOutcome.FAILURE,
+                    user == null ? null : user.getId(),
+                    user == null ? null : user.getId(),
+                    userIdentifier(user),
+                    ex.getMessage()
+            );
+            throw ex;
+        }
     }
 
     @Transactional
     public void logout(String authorizationHeader) {
-        IdentityUser user = identityPrincipalService.requireActiveUser(authorizationHeader);
-        user.incrementTokenVersion();
-        identityUserRepository.save(user);
+        IdentityUser user = null;
+        try {
+            user = identityPrincipalService.requireActiveUser(authorizationHeader);
+            user.incrementTokenVersion();
+            identityUserRepository.save(user);
+            identityAuditLogService.record(
+                    IdentityAuditEventType.LOGOUT,
+                    IdentityAuditOutcome.SUCCESS,
+                    user.getId(),
+                    user.getId(),
+                    userIdentifier(user),
+                    null
+            );
+        } catch (RuntimeException ex) {
+            identityAuditLogService.record(
+                    IdentityAuditEventType.LOGOUT,
+                    IdentityAuditOutcome.FAILURE,
+                    user == null ? null : user.getId(),
+                    user == null ? null : user.getId(),
+                    userIdentifier(user),
+                    ex.getMessage()
+            );
+            throw ex;
+        }
+    }
+
+    private String rawLoginIdentifier(IdentityLoginRequest request) {
+        if (request == null) {
+            return null;
+        }
+
+        return firstPresent(request.identifier(), request.email(), request.phoneNumber());
+    }
+
+    private String userIdentifier(IdentityUser user) {
+        if (user == null) {
+            return null;
+        }
+
+        return firstPresent(user.getEmail(), user.getPhoneNumber());
     }
 
     private LoginIdentifier normalizeLoginIdentifier(IdentityLoginRequest request) {

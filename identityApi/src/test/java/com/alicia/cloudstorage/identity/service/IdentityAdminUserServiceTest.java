@@ -32,6 +32,9 @@ class IdentityAdminUserServiceTest {
     @Mock
     private IdentityUserCreationService identityUserCreationService;
 
+    @Mock
+    private IdentityAuditLogService identityAuditLogService;
+
     @InjectMocks
     private IdentityAdminUserService identityAdminUserService;
 

@@ -33,6 +33,9 @@ class IdentityProfileServiceTest {
     @Spy
     private IdentityUserInputNormalizer identityUserInputNormalizer = new IdentityUserInputNormalizer();
 
+    @Mock
+    private IdentityAuditLogService identityAuditLogService;
+
     private IdentityProfileService identityProfileService;
 
     @BeforeEach
@@ -40,7 +43,8 @@ class IdentityProfileServiceTest {
         identityProfileService = new IdentityProfileService(
                 identityPrincipalService,
                 identityUserRepository,
-                identityUserInputNormalizer
+                identityUserInputNormalizer,
+                identityAuditLogService
         );
     }
 
