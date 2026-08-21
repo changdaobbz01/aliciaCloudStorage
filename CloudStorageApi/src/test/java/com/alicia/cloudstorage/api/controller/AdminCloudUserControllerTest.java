@@ -19,8 +19,11 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -52,11 +55,42 @@ class AdminCloudUserControllerTest {
         when(adminCloudUserDirectoryService.listUsers("Bearer admin-token"))
                 .thenReturn(List.of(profile()));
 
-        mockMvc.perform(get("/api/admin/users")
+        mockMvc.perform(get("/api/admin/cloud-users")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer admin-token"))
                 .andExpect(status().isOk())
                 .andExpect(header().doesNotExist("Deprecation"))
                 .andExpect(jsonPath("$[0].storageQuotaBytes").value(4096));
+    }
+
+    @Test
+    void createUserKeepsCloudAggregationRouteUndeprecated() throws Exception {
+        when(adminCloudUserCreationService.createUser(eq("Bearer admin-token"), eq(1L), any()))
+                .thenReturn(profile());
+
+        mockMvc.perform(post("/api/admin/cloud-users")
+                        .requestAttr(PrincipalRequestAttributes.CURRENT_PRINCIPAL, new CurrentPrincipal(1L, UserRole.ADMIN))
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer admin-token")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "phoneNumber": "13900000000",
+                                  "nickname": "Alicia",
+                                  "inheritAdminBackground": false,
+                                  "password": "NewPass1",
+                                  "role": "USER",
+                                  "storageQuotaBytes": 4096
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(header().doesNotExist("Deprecation"))
+                .andExpect(jsonPath("$.storageQuotaBytes").value(4096));
+    }
+
+    @Test
+    void removedAdminUsersRouteReturnsNotFound() throws Exception {
+        mockMvc.perform(get("/api/admin/users")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer admin-token"))
+                .andExpect(status().isNotFound());
     }
 
     @Test

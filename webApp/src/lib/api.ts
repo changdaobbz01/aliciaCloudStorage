@@ -1098,7 +1098,7 @@ export function permanentlyDeleteStorageNodes(payload: BatchNodePayload, token: 
  * 查询管理员可见的账号列表。
  */
 export function fetchUsers(token: string) {
-  return requestJson<User[]>('/api/admin/users', withToken(token));
+  return requestJson<User[]>('/api/admin/cloud-users', withToken(token));
 }
 
 /**
@@ -1106,7 +1106,7 @@ export function fetchUsers(token: string) {
  */
 export function createUser(payload: CreateUserPayload, token: string) {
   return requestJson<User>(
-    '/api/admin/users',
+    '/api/admin/cloud-users',
     withToken(token, {
       method: 'POST',
       headers: {

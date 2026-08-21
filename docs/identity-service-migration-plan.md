@@ -91,14 +91,16 @@
 
 现有职责：
 
-- `GET /api/admin/users`
-- `POST /api/admin/users`
-- `PUT /api/admin/users/{userId}/password`
+- `GET /api/admin/cloud-users`
+- `POST /api/admin/cloud-users`
 - `PUT /api/admin/cloud-users/{userId}/quota`
+- `GET /api/identity/admin/users`
+- `POST /api/identity/admin/users`
+- `PUT /api/identity/admin/users/{userId}/password`
 
 问题：
 
-- 创建用户、重置密码是 Identity 管理职责。
+- Identity 管理账号身份，CloudStorageApi 聚合云盘资料和容量。
 - 调整容量是云盘业务职责。
 - 一个用户管理面板现在把身份管理和云盘额度管理混在一起。
 
@@ -480,15 +482,16 @@ exp: 过期时间
 | `/api/auth/avatar/{userId}` | 移到 `/api/cloud-profile/avatar/{userId}` |
 | `/api/auth/background` | 移到 `/api/cloud-profile/background` |
 | `/api/auth/background/{userId}` | 移到 `/api/cloud-profile/background/{userId}` |
+| `/api/admin/users` | 移到 `/api/admin/cloud-users` |
 | `/api/admin/users/{userId}/quota` | 移到 `/api/admin/cloud-users/{userId}/quota` |
 
 兼容策略：
 
 - 当前应用尚未正式发布，旧 `/api/auth/background` 路径不再保留。
 - 当前应用尚未正式发布，旧 `/api/auth/me`、`/api/auth/avatar` 路径不再保留。
-- 当前应用尚未正式发布，旧 `/api/admin/users/{userId}/quota` 路径不再保留。
+- 当前应用尚未正式发布，旧 `/api/admin/users` 和 `/api/admin/users/{userId}/quota` 路径不再保留。
 - Web 已直接调用 `/api/cloud-profile/me`、`/api/cloud-profile/avatar` 和 `/api/cloud-profile/background`。
-- Web 和 Android 已直接调用 `/api/admin/cloud-users/{userId}/quota`。
+- Web 和 Android 已直接调用 `/api/admin/cloud-users` 和 `/api/admin/cloud-users/{userId}/quota`。
 - Android 已直接调用 `/api/cloud-profile/me` 和 `/api/cloud-profile/avatar`；当前只读取 `homeBackgroundUrl` 响应字段，未发现上传/清空背景接口调用。
 
 ### 8.3 管理端拆分

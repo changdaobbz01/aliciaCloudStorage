@@ -21,8 +21,8 @@ class AliciaCloudServiceRoutesTest {
     fun `keeps cloud aggregate routes on cloud storage api`() {
         assertEquals("api/cloud-profile/me", getPath("fetchCurrentUser"))
         assertEquals("api/cloud-profile/avatar", postPath("uploadAvatar"))
-        assertEquals("api/admin/users", getPath("fetchUsers"))
-        assertEquals("api/admin/users", postPath("createUser"))
+        assertEquals("api/admin/cloud-users", getPath("fetchUsers"))
+        assertEquals("api/admin/cloud-users", postPath("createUser"))
         assertEquals("api/admin/cloud-users/{userId}/quota", putPath("updateUserQuota"))
     }
 

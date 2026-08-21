@@ -106,12 +106,12 @@ interface AliciaCloudService {
         @Header("Authorization") authorization: String,
     ): Response<List<StorageNode>>
 
-    @GET("api/admin/users")
+    @GET("api/admin/cloud-users")
     suspend fun fetchUsers(
         @Header("Authorization") authorization: String,
     ): Response<List<User>>
 
-    @POST("api/admin/users")
+    @POST("api/admin/cloud-users")
     suspend fun createUser(
         @Header("Authorization") authorization: String,
         @Body payload: CreateUserPayload,

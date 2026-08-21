@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/admin/users")
+@RequestMapping("/api/admin/cloud-users")
 public class AdminCloudUserController {
 
     private final AdminCloudUserCreationService adminCloudUserCreationService;
