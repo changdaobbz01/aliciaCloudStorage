@@ -29,7 +29,7 @@
 
 ```text
 AliciaCloudStorage/
-├─ CloudStorageApi/      # 云盘业务后端，保留公网兼容 API 并聚合云盘资料
+├─ CloudStorageApi/      # 云盘业务后端，消费 Identity token 并聚合云盘资料
 ├─ identityApi/          # 统一身份服务，负责登录、注册、Token 和账号资料
 ├─ rag/                  # RAG 语义服务
 ├─ CloudStorageDB/       # 早期 SQL 初始化脚本
@@ -168,7 +168,7 @@ curl -X POST http://127.0.0.1:8093/api/identity/auth/register/verify `
 
 当前公网身份入口为 `/api/identity/auth/**` 和 `/api/identity/admin/**`；登录、注册、Token 校验、续签、注销、密码和账号资料写入已经由 `identityApi` 执行。`CloudStorageApi` 负责补齐云盘资料，并通过 `/api/cloud-profile/**` 返回云盘聚合资料、头像和主页背景。
 
-云盘 Web 的纯身份写操作走同域 Identity 公开入口，例如 `/api/identity/auth/profile`、`/api/identity/auth/password` 和 `/api/identity/admin/users/{userId}/password`；头像上传、头像访问、当前用户云盘聚合资料由 `CloudStorageApi` 的 `/api/cloud-profile/me`、`/api/cloud-profile/avatar` 和 `/api/cloud-profile/avatar/{userId}` 提供。
+云盘 Web 的纯身份写操作走同域 Identity 公开入口，例如 `/api/identity/auth/profile`、`/api/identity/auth/password` 和 `/api/identity/admin/users/{userId}/password`；头像上传、头像访问、当前用户云盘聚合资料由 `CloudStorageApi` 的 `/api/cloud-profile/me`、`/api/cloud-profile/avatar` 和 `/api/cloud-profile/avatar/{userId}` 提供。管理员云盘聚合用户列表和创建入口统一为 `/api/admin/cloud-users`，云盘容量调整为 `/api/admin/cloud-users/{userId}/quota`。
 
 `identityApi` 新注册用户首次携带 identity token 访问 CloudStorageApi 受保护接口时，CloudStorageApi 会自动补建对应的 `cloud_user_profile`，云盘默认额度取 `ALICIA_STORAGE_DEFAULT_USER_QUOTA_BYTES`。
 

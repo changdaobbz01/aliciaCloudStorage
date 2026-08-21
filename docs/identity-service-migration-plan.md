@@ -4,14 +4,14 @@
 
 ## 1. 目标
 
-当前 `CloudStorageApi` 同时承担了登录注册、用户资料、管理员账号管理、云盘额度、头像和主页背景等职责。后续主站也需要登录，新工具模块也会继续增加，因此需要把公共身份能力抽出。
+迁移前 `CloudStorageApi` 同时承担了登录注册、用户资料、管理员账号管理、云盘额度、头像和主页背景等职责。当前登录、注册、Token、密码、公共资料和管理员身份管理已经迁入 `identityApi`；`CloudStorageApi` 只消费身份结果，并继续负责云盘资料、文件、分享、传输、容量和背景。
 
 最终目标：
 
 - 主站、云盘、后续工具共享同一套用户身份。
 - 用户表只由 Identity Service 写入和维护。
 - 云盘只保存云盘业务资料，例如容量、主页背景、文件、分享、传输等。
-- 前端和移动端优先保持接口兼容，逐步迁移，不一次性推翻现有能力。
+- 前端和移动端使用清晰分离后的路径，不再继续保留未发布阶段的旧 `/api/auth/**` 和旧 `/api/admin/users` 兼容入口。
 - 生产部署能分阶段上线，每一步都有验证和回滚方式。
 
 ## 2. 核心原则
@@ -21,72 +21,79 @@
 3. CloudStorageApi 只消费身份结果，不能再直接修改密码、验证码、邮箱、账号状态。
 4. 业务数据继续归业务服务所有。云盘的 `storage_node`、`share_link`、`multipart_upload_session` 等仍归云盘服务。
 5. 第一期迁移优先保留现有用户 ID，避免文件归属和分享归属大规模重写。
-6. 对外接口尽量兼容现有 `/api/auth/**`、`/api/storage/**`、`/api/share-links/**`，降低 Web 和 Android 的改造风险。
+6. 对外接口按职责分层：`/api/identity/**` 归 Identity，`/api/cloud-profile/**` 和 `/api/admin/cloud-users/**` 归云盘，`/api/storage/**`、`/api/share-links/**` 继续归云盘业务。
 
 ## 3. 当前结构复核
 
 ### 3.1 后端认证入口
 
-当前认证接口集中在：
+当前身份接口集中在：
 
-- `CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/controller/AuthController.java`
+- `identityApi/src/main/java/com/alicia/cloudstorage/identity/controller/IdentityAuthController.java`
+- `identityApi/src/main/java/com/alicia/cloudstorage/identity/controller/IdentityAdminUserController.java`
 
-现有职责：
+当前身份职责：
 
-- `POST /api/auth/login`
-- `POST /api/auth/register/email-code`
-- `POST /api/auth/register/verify`
-- `GET /api/auth/me`
-- `PUT /api/auth/profile`
-- `POST /api/auth/avatar`
-- `GET /api/auth/avatar/{userId}`
-- `PUT /api/auth/password`
+- `POST /api/identity/auth/login`
+- `POST /api/identity/auth/register/email-code`
+- `POST /api/identity/auth/register/verify`
+- `GET /api/identity/auth/me`
+- `POST /api/identity/auth/token/refresh`
+- `POST /api/identity/auth/logout`
+- `PUT /api/identity/auth/profile`
+- `PUT /api/identity/auth/password`
+- `GET /api/identity/admin/users`
+- `POST /api/identity/admin/users`
+- `PUT /api/identity/admin/users/{userId}/password`
 
-云盘个性化资料入口已迁出：
+当前云盘资料入口：
 
+- `GET /api/cloud-profile/me`
+- `POST /api/cloud-profile/avatar`
+- `GET /api/cloud-profile/avatar/{userId}`
 - `POST /api/cloud-profile/background`
 - `GET /api/cloud-profile/background/{userId}`
 - `DELETE /api/cloud-profile/background`
 
-问题：
+现状：
 
-- 登录注册属于公共身份。
-- `me`、昵称、头像、密码属于公共身份或账号中心。
-- 主页背景属于云盘个性化设置，已从 `AuthController` 移到 `CloudProfileController`。
-- `AuthController` 后续继续收敛为登录、注册、公共资料、头像和密码相关入口。
+- CloudStorageApi 已不再暴露旧 `AuthController`。
+- 旧 `/api/auth/**` 在云盘服务侧不保留。
+- 云盘主页背景、头像文件处理、容量和聚合资料归 `CloudProfileController`。
 
 ### 3.2 后端账号业务
 
-当前主要服务：
+当前 Identity 主要服务：
 
-- `CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/service/UserAccountService.java`
-- `CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/service/EmailRegistrationService.java`
-- `CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/auth/TokenService.java`
-- `CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/auth/AuthService.java`
+- `identityApi/src/main/java/com/alicia/cloudstorage/identity/service/IdentityAuthService.java`
+- `identityApi/src/main/java/com/alicia/cloudstorage/identity/service/IdentityEmailRegistrationService.java`
+- `identityApi/src/main/java/com/alicia/cloudstorage/identity/service/IdentityPasswordService.java`
+- `identityApi/src/main/java/com/alicia/cloudstorage/identity/service/IdentityProfileService.java`
+- `identityApi/src/main/java/com/alicia/cloudstorage/identity/service/IdentityAdminUserService.java`
+- `identityApi/src/main/java/com/alicia/cloudstorage/identity/service/IdentityTokenService.java`
 
-现有混合职责：
+当前 CloudStorageApi 身份消费服务：
 
-- 邮箱和手机号登录。
-- 邮箱验证码注册。
-- 密码哈希和密码修改。
-- Token 生成和校验。
-- 用户角色、账号状态校验。
-- 用户昵称、头像。
-- 云盘容量额度。
-- 云盘主页背景。
-- 管理员创建用户、重置密码、调整用户容量。
+- `CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/identity/HttpIdentityAuthGateway.java`
+- `CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/identity/HttpIdentityAdminGateway.java`
+- `CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/identity/HttpIdentityUserGateway.java`
+- `CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/principal/CurrentPrincipalService.java`
+- `CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/service/CloudCurrentUserService.java`
+- `CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/service/CloudUserProfileService.java`
 
-问题：
+现状：
 
-- `UserAccountService` 同时依赖 `SysUserRepository`、`TokenService`、`CosFileStorageService`、`StorageQuotaService`，公共身份和云盘业务耦合。
-- `AuthService` 校验 token 后还会查询 `sys_user`，导致所有业务服务都依赖本地用户表。
-- `TokenService` 是自定义 HMAC token，不利于多服务本地校验和后续标准化。
+- 邮箱和手机号登录、邮箱验证码注册、密码哈希和密码修改、Token 生成和校验、账号状态、公共昵称头像已由 Identity 承担。
+- CloudStorageApi 通过 Identity Gateway 校验 token 和读取身份快照，不再直接写密码、邮箱验证码或账号状态。
+- 云盘容量额度、主页背景、文件、分享、应用包和 RAG 仍归云盘业务。
+- `sys_user` 表名暂时保留，但写入边界已经收敛到 Identity；云盘资料落在 `cloud_user_profile`。
 
 ### 3.3 管理员用户管理
 
 当前入口：
 
-- `CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/controller/AdminIdentityUserController.java`
+- `identityApi/src/main/java/com/alicia/cloudstorage/identity/controller/IdentityAdminUserController.java`
+- `CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/controller/AdminCloudUserController.java`
 - `CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/controller/AdminCloudUserProfileController.java`
 
 现有职责：
@@ -98,11 +105,11 @@
 - `POST /api/identity/admin/users`
 - `PUT /api/identity/admin/users/{userId}/password`
 
-问题：
+现状：
 
-- Identity 管理账号身份，CloudStorageApi 聚合云盘资料和容量。
-- 调整容量是云盘业务职责。
-- 一个用户管理面板现在把身份管理和云盘额度管理混在一起。
+- Identity 管理账号身份和密码。
+- CloudStorageApi 聚合云盘资料、已用空间、剩余额度和容量调整。
+- Web 和 Android 已切换到 `/api/admin/cloud-users`，旧 `/api/admin/users` 不保留。
 
 ### 3.4 数据表
 
@@ -216,11 +223,17 @@ https://windwindwind-alicia.cn/login
 https://windwindwind-alicia.cn/cloudPan/
   云盘 Web
 
-https://windwindwind-alicia.cn/api/auth/**
+https://windwindwind-alicia.cn/api/identity/auth/**
   Identity Service
 
-https://windwindwind-alicia.cn/api/admin/identity/**
+https://windwindwind-alicia.cn/api/identity/admin/**
   Identity 管理接口
+
+https://windwindwind-alicia.cn/api/cloud-profile/**
+  CloudStorageApi 云盘资料聚合、头像和背景
+
+https://windwindwind-alicia.cn/api/admin/cloud-users/**
+  CloudStorageApi 管理员云盘用户聚合和容量
 
 https://windwindwind-alicia.cn/api/storage/**
   CloudStorageApi
@@ -387,17 +400,22 @@ cloud_user_profile.home_background_url = sys_user.home_background_url
 
 ### 7.1 当前问题
 
-当前 token 由 `TokenService` 自定义生成，payload 中包含：
+当前 token 由 `identityApi` 的 `IdentityTokenService` 统一签发。为了小步迁移，当前仍是自定义 HMAC token，v2 payload 中包含：
 
 ```text
-userId:phoneNumber:tokenVersion:expiresAt
+v2:userId:tokenVersion:expiresAt
 ```
 
-问题：
+已改进：
 
-- 多服务验证不方便。
-- payload 依赖手机号字段，不适合邮箱和多登录标识。
-- CloudStorageApi 校验 token 后还需要查本地 `sys_user`。
+- payload 不再依赖手机号，兼容邮箱登录用户。
+- `tokenVersion` 已用于密码修改、管理员重置密码和 logout 后的登录态失效。
+- CloudStorageApi 不再本地解析旧 token 或查询本地用户表，而是通过 Identity 当前用户接口校验。
+
+剩余问题：
+
+- 当前 token 仍不是标准 JWT。
+- CloudStorageApi 现在通过 HTTP 调 Identity 校验 token，后续如果流量增大，需要短缓存、introspection 或 JWKS 本地验签方案。
 
 ### 7.2 目标方案
 
@@ -422,20 +440,17 @@ exp: 过期时间
 
 ### 7.3 CloudStorageApi 鉴权改造
 
-替换当前：
+已落地：
 
-- `AuthService`
-- `TokenService`
-- `CurrentPrincipalInterceptor`
-- `AdminPrincipalInterceptor`
+- `CurrentPrincipalInterceptor` 通过 `CurrentPrincipalService` 调 Identity 校验 token，并写入 `CurrentPrincipal`。
+- `AdminPrincipalInterceptor` 基于 `CurrentPrincipal.role` 校验管理员接口。
+- `CurrentPrincipal` 当前只在云盘服务内保存 `userId` 和 `role`，账号状态和 token version 由 Identity 在校验时处理。
+- 普通业务接口只接收当前主体或用户 ID，不再接收完整身份实体。
 
-目标：
+后续可增强：
 
-- `CurrentPrincipalInterceptor` 通过 Identity 校验 token，并写入 `CurrentPrincipal`。
-- `CurrentPrincipal` 至少包含：`userId`、`role`、`status`、`tokenVersion`、`expiresAt`。
-- 普通业务接口只接收 `userId`。
-- 管理接口校验 `role`。
-- 需要强一致账号状态时，通过 Identity 内部接口或短缓存 introspection 校验。
+- 为 Identity 当前用户校验增加短缓存，降低 CloudStorageApi 到 Identity 的频繁往返。
+- 切换 JWT/JWKS 后，CloudStorageApi 可本地验签，只在需要强一致状态时调用 Identity。
 
 ## 8. 接口整改清单
 
@@ -570,10 +585,10 @@ Cloud 管理：
 - `F:/webProject/mainSite/.env.example`
 - `F:/webProject/mainSite/deploy/README.md`
 
-改造方向：
+当前状态和方向：
 
 1. 主站从工具入口升级为统一入口。
-2. 新增 `/login` 页面，调用 Identity 的 `/api/auth/login`。
+2. `/login` 页面调用 Identity 的 `/api/identity/auth/login`。
 3. 登录成功后根据 `returnTo` 跳转，例如 `/cloudPan/`。
 4. 工具卡片进入云盘时带当前登录态，由同域 localStorage 或 cookie 读取。
 5. 如果使用同域路径部署，云盘地址改成 `/cloudPan/`，不再强依赖 `pan` 子域名。
@@ -582,19 +597,17 @@ Cloud 管理：
 
 ### 10.1 Compose
 
-当前 `compose.yaml` 只有：
+当前 `compose.yaml` 已包含：
 
 - `db`
+- `identity`
 - `api`
 - `rag`
 - `frontend`
 
-目标新增：
+当前生产还保留独立 `~/mainSite` compose，主站容器通过内网端口提供给云盘仓库中的 Nginx gateway。
 
-- `identity`
-- `main-site-frontend` 或继续保留独立 `~/mainSite` compose
-
-推荐第一期：
+当前结构：
 
 ```text
 db
@@ -602,7 +615,7 @@ identity
 api
 rag
 frontend-gateway
-main-site-frontend
+main-site-frontend（独立仓库/独立 compose）
 ```
 
 其中：
@@ -610,18 +623,21 @@ main-site-frontend
 - `identity` 连接同一个 MySQL。
 - `api` 不再直接管理 `sys_user`，只管理云盘业务。
 - `frontend-gateway` 继续占用 80/443，负责路由。
-- `main-site-frontend` 内网端口暴露给 gateway。
+- `main-site-frontend` 内网端口暴露给 gateway，后续可再评估是否合并到同一个 compose。
 
 ### 10.2 Nginx 路由
 
-目标路由：
+当前路由：
 
 ```text
 /                         -> main-site-frontend
 /login                    -> main-site-frontend
 /cloudPan/                -> cloud webApp static
-/api/auth/                -> identity
-/api/admin/identity/      -> identity
+/api/identity/health      -> identity
+/api/identity/auth/       -> identity
+/api/identity/admin/      -> identity
+/api/cloud-profile/       -> cloud api
+/api/admin/cloud-users/   -> cloud api
 /api/storage/             -> cloud api
 /api/share-links/         -> cloud api
 /api/public/share-links/  -> cloud api
@@ -667,17 +683,13 @@ main-site-frontend
 已落地改动：
 
 1. 新增 `CurrentPrincipal`，业务服务不再传 `SysUser`。
-2. 把 `UserAccountService` 拆成：
-   - `IdentityAccountService`：登录、密码、邮箱、昵称、头像、状态。
-   - `CloudUserProfileService`：容量、主页背景、云盘资料。
-3. 把旧管理员用户管理入口拆成 `AdminIdentityUserController` 和 `AdminCloudUserProfileController`。
-4. `StorageQuotaService` 不再直接把 `SysUser` 当完整账号来源，先通过一个接口读取角色和容量。
-5. `IdentityAccountService.createUser` 和 `createVerifiedEmailUser` 不再接收云盘额度参数。
-6. 新用户创建后，由 `CloudUserProfileService.initializeDefaultNewUserProfile` 或 `initializeAdminCreatedUserProfile` 初始化云盘额度和管理员背景继承。
-7. 当前旧表仍有 `sys_user.storage_quota_bytes`，通过 `@DynamicInsert` 使用数据库默认值兜底；真正业务额度在同一事务内由云盘资料服务写入。
-8. 新增 `cloud_user_profile` 表，老用户从 `sys_user` 回填云盘额度和主页背景。
-9. `CloudUserProfileService` 写入 `cloud_user_profile`，不再把云盘背景和额度写回 `SysUser`。
-10. `StorageQuotaService` 通过 `cloud_user_profile` 读取容量，旧 `sys_user` 字段仅作缺失 profile 时的兜底。
+2. 新增 `CloudUserProfileService`、`CloudCurrentUserService`、`CloudUserAvatarService`，将云盘资料、头像文件处理、容量和主页背景从身份职责中拆出。
+3. 新增 `CloudUserProfileProvisioningService`，Identity 新用户首次访问云盘受保护接口时自动补建 `cloud_user_profile`。
+4. 管理员云盘聚合入口统一到 `AdminCloudUserController` 和 `AdminCloudUserProfileController`。
+5. `StorageQuotaService` 通过 `StorageQuotaAccountReader` 读取身份角色和云盘容量，不再把完整用户实体作为业务依赖。
+6. 新增 `cloud_user_profile` 表，老用户从 `sys_user` 回填云盘额度和主页背景。
+7. `CloudUserProfileService` 写入 `cloud_user_profile`，不再把云盘背景和额度写回 `sys_user`。
+8. `StorageQuotaService` 通过 `cloud_user_profile` 读取容量，旧 `sys_user` 字段只保留为清理前的历史字段。
 
 验证：
 
@@ -691,7 +703,7 @@ main-site-frontend
 
 - 新增独立 Spring Boot 服务。
 - 先接管当前 `sys_user` 和 `email_verification_code` 表。
-- 对外路径保持 `/api/auth/**`。
+- 对外路径使用 `/api/identity/auth/**` 和 `/api/identity/admin/**`。
 
 当前已落地骨架：
 
@@ -717,32 +729,34 @@ AliciaCloudStorage/identityApi
 - 邮箱注册当前只创建身份用户，云盘 `cloud_user_profile` 由 CloudStorageApi 在消费身份用户时负责补建。
 - CloudStorageApi 已新增 `CloudUserProfileProvisioningService`，鉴权通过后会确保当前身份用户存在云盘 profile。
 - identity 新用户的云盘 profile 默认额度取 `alicia.storage.default-user-quota-bytes`，不再误用 `sys_user.storage_quota_bytes` 的旧数据库默认值。
-- 兼容旧 token 格式的临时 `IdentityTokenService`，后续再替换为标准 JWT。
-- Compose 中注入同一个 MySQL 连接，但 `identity` profile 默认不启动。
+- 兼容旧 token 格式的临时 `IdentityTokenService`，后续再替换为标准 JWT/JWKS。
+- Compose 中注入同一个 MySQL 连接，`identity` 已是默认服务，并被 `api` 和 `frontend` 依赖。
 - Dockerfile：`identityApi/Dockerfile`。
-- Compose profile：`identity`，默认不启动、不接生产流量。
 - README：`identityApi/README.md`。
 
-目标模块：
+当前模块：
 
 ```text
 identityApi
   controller
-    AuthController
+    IdentityAuthController
     IdentityAdminUserController
+    IdentityHealthController
+    IdentityInternalUserController
   service
-    IdentityAccountService
-    EmailVerificationService
-    TokenIssuer
-    RefreshTokenService
+    IdentityAuthService
+    IdentityEmailRegistrationService
+    IdentityPasswordService
+    IdentityProfileService
+    IdentityAdminUserService
+    IdentityPrincipalService
+    IdentityTokenService
   entity
-    SysUser
+    IdentityUser
     EmailVerificationCode
-    IdentityRefreshToken
   repository
-    SysUserRepository
+    IdentityUserRepository
     EmailVerificationCodeRepository
-    IdentityRefreshTokenRepository
   mail
     EmailSender
     SmtpEmailSender
@@ -750,29 +764,23 @@ identityApi
 
 说明：
 
-- 第一期可以复制并迁移当前身份相关代码，但要删除云盘依赖。
-- `CosFileStorageService` 只在头像确实继续由 Identity 托管时引入，且对象前缀必须独立。
+- Identity 当前仍映射既有 `sys_user` 表，后续再决定是否迁移到独立库或重命名为 `identity_user`。
+- 头像文件上传仍由 CloudStorageApi 承担，Identity 只保存公共 `avatarUrl` 字段。
 - 不要把 `StorageQuotaService` 带进 Identity。
 
 验证：
 
-- 骨架阶段：`.\mvnw.cmd -pl identityApi test` 通过。
-- 骨架阶段：`.\mvnw.cmd -pl CloudStorageApi,identityApi,rag test` 通过。
-- 服务器可用 `docker compose --profile identity up -d --build identity` 单独启动。
-- 单独启动后 `http://127.0.0.1:8093/api/identity/health` 可用。
-- 单独启动后 `http://127.0.0.1:8093/api/identity/internal/users/1` 可读取身份资料，响应不包含 `passwordHash`。
-- 单独启动后 `POST http://127.0.0.1:8093/api/identity/auth/login` 可验证老用户密码并返回 token。
-- 单独启动后 `GET http://127.0.0.1:8093/api/identity/auth/me` 可用 identity token 读取当前用户。
-- 单独启动后 `POST http://127.0.0.1:8093/api/identity/auth/register/email-code` 可发送注册验证码。
-- 单独启动后 `POST http://127.0.0.1:8093/api/identity/auth/register/verify` 可创建邮箱注册身份用户并返回 identity token。
+- `.\mvnw.cmd -pl identityApi test` 通过。
+- `http://127.0.0.1:8093/api/identity/health` 可用。
+- `http://127.0.0.1:8093/api/identity/internal/users/1` 可读取身份资料，响应不包含 `passwordHash`。
+- `POST http://127.0.0.1:8093/api/identity/auth/login` 可验证老用户密码并返回 token。
+- `GET http://127.0.0.1:8093/api/identity/auth/me` 可用 identity token 读取当前用户。
+- `POST http://127.0.0.1:8093/api/identity/auth/token/refresh` 可续签 token。
+- `POST http://127.0.0.1:8093/api/identity/auth/logout` 可让当前用户旧 token 失效。
+- `POST http://127.0.0.1:8093/api/identity/auth/register/email-code` 可发送注册验证码。
+- `POST http://127.0.0.1:8093/api/identity/auth/register/verify` 可创建邮箱注册身份用户并返回 identity token。
 - 使用 identity 注册返回的 token 请求 CloudStorageApi 受保护接口时，CloudStorageApi 会自动补建 `cloud_user_profile`。
-- 生产流量仍由 CloudStorageApi 处理，网关暂不路由到 identity 容器。
-
-后续验证：
-
-- Identity 单测覆盖登录、注册、验证码、密码、token。
-- 本地启动后 `/api/auth/login` 可用。
-- CloudStorageApi 暂未切换时生产不受影响。
+- 生产 Nginx 已把 `/api/identity/health`、`/api/identity/auth/**` 和 `/api/identity/admin/**` 路由到 identity 容器。
 
 ### 阶段 3：CloudStorageApi 切换为 Identity token 消费方
 
@@ -782,14 +790,14 @@ identityApi
 - CloudStorageApi 不再写用户密码、邮箱验证码。
 - CloudStorageApi 只校验 Identity token 并拿到当前用户 ID。
 
-建议改动：
+已落地改动：
 
 1. 通过 `IdentityAuthGateway` 调用 Identity 的当前用户接口。
-2. 删除 CloudStorageApi 中对 `SysUserRepository` 的身份写依赖。
-3. `CurrentPrincipalInterceptor` 写入 `CurrentPrincipal` 或 `CURRENT_USER_ID`。
+2. CloudStorageApi 中对 `SysUserRepository` 的身份写依赖已删除。
+3. `CurrentPrincipalInterceptor` 写入 `CurrentPrincipal` 和 `CURRENT_USER_ID`。
 4. 保持现有 `cloud_user_profile` 作为云盘用户资料来源。
-5. 继续保留缺失 profile 时从旧 `sys_user` 字段补齐的兼容逻辑，直到生产确认无缺失。
-6. 把 CloudStorageApi 中剩余身份写能力切到 Identity API 或删除旧实现。
+5. CloudStorageApi 中登录、注册、资料写入、密码修改、管理员身份管理均已切到 Identity API 或移除旧实现。
+6. 旧 `/api/auth/**` 在 CloudStorageApi 不再保留。
 
 验证：
 
@@ -798,20 +806,20 @@ identityApi
 - 管理员仍可访问云盘管理页。
 - 密码修改后旧 token 失效。
 
-### 阶段 4：Web 和 Android 兼容迁移
+### 阶段 4：Web 和 Android 路径迁移
 
 目标：
 
 - 用户无感切换到 Identity。
 - 前端结构逐步干净。
 
-建议改动：
+已落地改动：
 
-1. Web `api.ts` 中 `/api/auth/**` 保持不变。
-2. Web `User` 类型拆分，但页面聚合层保持展示字段兼容。
-3. Android `AliciaCloudApi.kt` 保持路径不变。
-4. 云盘主页背景改走 Cloud profile。
-5. 管理员面板拆分身份和云盘容量。
+1. Web `api.ts` 中登录、注册、资料、密码、管理员身份接口直接调用 `/api/identity/**`。
+2. Web 当前用户云盘聚合资料、头像和背景直接调用 `/api/cloud-profile/**`。
+3. Web 管理员云盘聚合用户列表和创建直接调用 `/api/admin/cloud-users`，容量调整调用 `/api/admin/cloud-users/{userId}/quota`。
+4. Android `AliciaCloudApi.kt` 已同步 Identity、Cloud profile 和 Cloud users 路径。
+5. 旧 `/api/auth/**`、旧 `/api/admin/users` 不保留。
 
 验证：
 
@@ -830,10 +838,10 @@ identityApi
 - 主站成为统一入口。
 - 云盘不再是唯一账号入口。
 
-建议改动：
+当前状态和建议：
 
-1. mainSite 新增登录页面。
-2. mainSite 调 `/api/auth/login` 和 `/api/auth/me`。
+1. mainSite 作为 `/` 和 `/login` 的统一入口。
+2. mainSite 调 `/api/identity/auth/login` 和 `/api/identity/auth/me`。
 3. 云盘未登录跳转主站 `/login?returnTo=/cloudPan/`。
 4. 工具卡片按登录状态展示进入、未登录、即将上线等状态。
 
@@ -848,8 +856,8 @@ identityApi
 
 目标：
 
-- 删除兼容层。
-- 减少重复字段。
+- 删除旧字段。
+- 减少重复数据来源。
 
 清理条件：
 
@@ -859,10 +867,9 @@ identityApi
 
 可清理：
 
-- CloudStorageApi 中旧 `TokenService`。
-- CloudStorageApi 中身份写接口。
 - `sys_user.storage_quota_bytes`。
 - `sys_user.home_background_url`。
+- 文档和部署脚本中残留的旧 `/api/auth/**` 说明。
 
 ## 12. 回滚策略
 
@@ -871,9 +878,9 @@ identityApi
 | 阶段 | 回滚方式 |
 | --- | --- |
 | 阶段 1 | 回退代码即可；新增 `cloud_user_profile` 表保留不影响旧代码，回滚时不要删除旧 `sys_user` 字段 |
-| 阶段 2 | 停止 identity 容器，网关仍指向旧 api |
-| 阶段 3 | 保留旧 `/api/auth/**` 实现一版，必要时切回 |
-| 阶段 4 | 保持响应结构兼容，旧客户端继续可用 |
+| 阶段 2 | 当前 identity 已接生产身份流量，回滚需要同时回退前端路径、Nginx 路由和 CloudStorageApi Identity Gateway |
+| 阶段 3 | 当前 CloudStorageApi 已消费 Identity token，回滚需要恢复旧身份实现和旧前端路径，不建议作为常规回滚手段 |
+| 阶段 4 | 当前客户端已迁移到新路径，回滚需同步回退 Web 和 Android |
 | 阶段 5 | 网关根路径可临时切回云盘前端 |
 | 阶段 6 | 清理前必须有数据库备份，不直接回滚已删除字段 |
 
@@ -923,7 +930,9 @@ Android：
 部署：
 
 - `/api/health`
-- `/api/auth/me`
+- `/api/identity/auth/me`
+- `/api/cloud-profile/me`
+- `/api/admin/cloud-users`
 - `/api/storage/overview`
 - `/rag/api/health`
 - `/`
@@ -932,42 +941,28 @@ Android：
 
 ## 14. 当前优先整改位置
 
-建议第一轮只做内部边界拆分，具体文件：
+当前第一轮身份拆分已经落地，后续重点转为增强 Identity 独立性和清理历史字段。
 
-后端：
+Identity：
 
-- `CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/controller/AuthController.java`
-- `CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/controller/AdminIdentityUserController.java`
-- `CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/controller/AdminCloudUserProfileController.java`
-- `CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/entity/CloudUserProfileEntity.java`
-- `CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/repository/CloudUserProfileRepository.java`
-- `CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/service/UserAccountService.java`
-- `CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/service/EmailRegistrationService.java`
-- `CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/service/StorageQuotaService.java`
+- `identityApi/src/main/java/com/alicia/cloudstorage/identity/service/IdentityTokenService.java`
+- `identityApi/src/main/java/com/alicia/cloudstorage/identity/service/IdentityPrincipalService.java`
+- `identityApi/src/main/java/com/alicia/cloudstorage/identity/controller/IdentityAuthController.java`
+- 后续新增 refresh token 表、审计日志、JWT/JWKS 支撑时的实体和 Repository。
+
+CloudStorageApi：
+
+- `CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/identity/*Gateway.java`
+- `CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/principal/CurrentPrincipalService.java`
+- `CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/service/CloudUserProfileProvisioningService.java`
 - `CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/service/CloudUserProfileService.java`
-- `CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/service/SysUserStorageQuotaAccountReader.java`
-- `CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/auth/AuthService.java`
-- `CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/auth/TokenService.java`
-- `CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/entity/SysUser.java`
-- `CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/repository/SysUserRepository.java`
+- `CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/service/StorageQuotaService.java`
 
-Web：
+Web 和 Android：
 
-- `webApp/src/lib/api.ts`
-- `webApp/src/types.ts`
-- `webApp/src/lib/session.ts`
-- `webApp/src/lib/unifiedLogin.ts`
-- `webApp/src/context/session-context.tsx`
-- `webApp/src/features/drive/hooks/useDriveProfileSettings.ts`
-- `webApp/src/features/drive/hooks/useDriveAccountsAdmin.ts`
-- `webApp/src/components/UserManagementPanel.tsx`
-
-Android：
-
-- `phoneAppAdd/app/src/main/java/com/alicia/cloudstorage/phone/data/AliciaCloudApi.kt`
-- `phoneAppAdd/app/src/main/java/com/alicia/cloudstorage/phone/data/AliciaRepository.kt`
-- `phoneAppAdd/app/src/main/java/com/alicia/cloudstorage/phone/data/SessionStore.kt`
-- `phoneAppAdd/app/src/main/java/com/alicia/cloudstorage/phone/ui/MainViewModel.kt`
+- 主站 `/login` 与云盘 `/cloudPan/` 的共享登录态体验。
+- Web 和 Android 的 token 过期、刷新、注销体验。
+- 管理员面板中身份信息和云盘容量信息的展示边界。
 
 部署：
 
@@ -978,12 +973,12 @@ Android：
 
 ## 15. 推荐下一步
 
-阶段 1 已经开始落地，下一步进入生产验证和阶段 2 准备：
+下一步按风险从低到高推进：
 
-1. 保持旧 `sys_user.storage_quota_bytes` 和 `sys_user.home_background_url` 一个版本周期不删。
-2. 在服务器验证 identity 新用户请求 CloudStorageApi 时会自动生成 `cloud_user_profile`。
-3. 迁移密码修改、管理员重置密码和管理员身份管理。
-4. 准备网关双轨验证方案，让 `/api/auth/**` 可以按环境切到 identity。
-5. 再设计主站统一登录态和云盘业务 profile 的最终 provisioning 边界。
+1. 保持旧 `sys_user.storage_quota_bytes` 和 `sys_user.home_background_url` 一个版本周期不删，只观察不写入。
+2. 增加 Identity 审计日志，记录登录、刷新、注销、密码修改、管理员重置密码和管理员创建用户。
+3. 设计 refresh token 表和更细粒度 logout 语义，区分“当前设备退出”和“全部设备退出”。
+4. 将当前自定义 HMAC token 迁移到标准 JWT，并准备 JWKS 公钥发布。
+5. 评估 `sys_user` 是否继续作为 identity 表名，或迁移到独立 schema / `identity_user`。
 
-这一步完成后，`CloudStorageApi` 已经能把云盘资料和身份资料分开维护，并能接住由 `identityApi` 新建的身份用户。后面要做的是把剩余身份写能力一块一块搬进去，而不是再调整主站/云盘路径结构。
+这一步完成后，当前文档基线已经与生产架构对齐：Identity 负责身份，CloudStorageApi 负责云盘，主站负责统一入口。后续新增工具只需要接入 Identity，不应该再直接复用或写入云盘的用户资料表。
