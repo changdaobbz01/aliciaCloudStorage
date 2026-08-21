@@ -513,7 +513,7 @@ export function fetchHealth() {
  * 获取当前登录用户的资料信息。
  */
 export function fetchCurrentUser(token: string) {
-  return requestJson<User>('/api/auth/me', withToken(token));
+  return requestJson<User>('/api/cloud-profile/me', withToken(token));
 }
 
 /**
@@ -540,7 +540,7 @@ export function uploadCurrentUserAvatar(file: File, token: string) {
   formData.append('file', file);
 
   return requestUploadJson<User>(
-    '/api/auth/avatar',
+    '/api/cloud-profile/avatar',
     formData,
     token,
   );

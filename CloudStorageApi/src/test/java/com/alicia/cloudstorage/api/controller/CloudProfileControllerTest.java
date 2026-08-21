@@ -5,6 +5,7 @@ import com.alicia.cloudstorage.api.auth.CurrentPrincipal;
 import com.alicia.cloudstorage.api.dto.UserProfileResponse;
 import com.alicia.cloudstorage.api.identity.UserRole;
 import com.alicia.cloudstorage.api.service.CloudCurrentUserService;
+import com.alicia.cloudstorage.api.service.CloudProfileManagementService;
 import com.alicia.cloudstorage.api.service.CloudUserAvatarService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -27,7 +28,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @ExtendWith(MockitoExtension.class)
-class CloudAuthProfileControllerTest {
+class CloudProfileControllerTest {
 
     @Mock
     private CloudCurrentUserService cloudCurrentUserService;
@@ -35,20 +36,24 @@ class CloudAuthProfileControllerTest {
     @Mock
     private CloudUserAvatarService cloudUserAvatarService;
 
+    @Mock
+    private CloudProfileManagementService cloudProfileManagementService;
+
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders
-                .standaloneSetup(new CloudAuthProfileController(
+                .standaloneSetup(new CloudProfileController(
                         cloudCurrentUserService,
-                        cloudUserAvatarService
+                        cloudUserAvatarService,
+                        cloudProfileManagementService
                 ))
                 .build();
     }
 
     @Test
-    void removedIdentityWriteRoutesReturnNotFound() throws Exception {
+    void removedAuthRoutesReturnNotFound() throws Exception {
         mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"identifier\":\"user@example.com\",\"password\":\"secret\"}"))
@@ -77,13 +82,23 @@ class CloudAuthProfileControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"oldPassword\":\"old-secret\",\"newPassword\":\"new-secret\"}"))
                 .andExpect(status().isNotFound());
+
+        mockMvc.perform(get("/api/auth/me")
+                        .requestAttr(AuthRequestAttributes.CURRENT_PRINCIPAL, principal())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer token"))
+                .andExpect(status().isNotFound());
+
+        mockMvc.perform(post("/api/auth/avatar")
+                        .requestAttr(AuthRequestAttributes.CURRENT_PRINCIPAL, principal())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer token"))
+                .andExpect(status().isNotFound());
     }
 
     @Test
-    void currentUserKeepsCloudAggregationRouteUndeprecated() throws Exception {
+    void currentUserUsesCloudProfileAggregationRoute() throws Exception {
         when(cloudCurrentUserService.getCurrentUser("Bearer token")).thenReturn(profile());
 
-        mockMvc.perform(get("/api/auth/me")
+        mockMvc.perform(get("/api/cloud-profile/me")
                 .requestAttr(AuthRequestAttributes.CURRENT_PRINCIPAL, principal())
                 .header(HttpHeaders.AUTHORIZATION, "Bearer token"))
                 .andExpect(status().isOk())

@@ -4,12 +4,11 @@
 
 Current status:
 
-- The module is scaffolded and buildable.
+- The module is buildable and runs as the identity service in the default compose stack.
 - It exposes an independent health endpoint for deployment checks.
-- It can read public identity fields from the existing `sys_user` table.
-- It can independently verify login tokens and run email-code registration against `sys_user`.
-- No production traffic is routed here yet.
-- Existing production login, registration, token, and account-management behavior still runs in `CloudStorageApi`.
+- It owns login, current-user identity reads, profile writes, password changes, email-code registration, and administrator identity management.
+- It still reads and writes the existing `sys_user` table during the migration period.
+- `CloudStorageApi` consumes identity tokens and only adds cloud-drive profile data such as quota and home background.
 
 Local endpoints:
 
@@ -21,12 +20,11 @@ Local endpoints:
 - `POST /api/identity/auth/register/verify`
 
 The internal user endpoint is read-only and does not return `password_hash`.
-The auth endpoints are for isolated identity verification only; production `/api/auth/**` still routes to `CloudStorageApi`.
-Email registration in this module creates only the identity user; cloud-drive profile provisioning remains owned by `CloudStorageApi`.
+The auth endpoints are the production identity boundary. Email registration in this module creates only the identity user; cloud-drive profile provisioning remains owned by `CloudStorageApi`.
 
 Planned migration order:
 
-1. Verify login, current-user reads, and email registration inside this module.
-2. Move password changes and administrator identity management.
-3. Let `CloudStorageApi` consume identity tokens instead of issuing them.
-4. Route production `/api/auth/**` to identity after dual-track verification.
+1. Keep public identity writes on `/api/identity/auth/**` and `/api/identity/admin/**`.
+2. Keep cloud-drive aggregate profile reads and media uploads on `/api/cloud-profile/**`.
+3. Continue reducing direct `sys_user` coupling from `CloudStorageApi`.
+4. Move to a dedicated identity-owned database/schema once the service boundary is stable.

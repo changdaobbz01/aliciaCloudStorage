@@ -439,18 +439,19 @@ exp: 过期时间
 
 ### 8.1 Identity 对外接口
 
-第一期建议保持现有路径，减少前端和 Android 改动：
+当前采用清晰分离路径，不再让 CloudStorageApi 继续承担 `/api/auth/**` 兼容入口：
 
 | 方法 | 路径 | 归属 |
 | --- | --- | --- |
-| `POST` | `/api/auth/login` | Identity |
-| `POST` | `/api/auth/register/email-code` | Identity |
-| `POST` | `/api/auth/register/verify` | Identity |
-| `GET` | `/api/auth/me` | Identity |
-| `PUT` | `/api/auth/profile` | Identity |
-| `POST` | `/api/auth/avatar` | Identity |
-| `GET` | `/api/auth/avatar/{userId}` | Identity |
-| `PUT` | `/api/auth/password` | Identity |
+| `POST` | `/api/identity/auth/login` | Identity |
+| `POST` | `/api/identity/auth/register/email-code` | Identity |
+| `POST` | `/api/identity/auth/register/verify` | Identity |
+| `GET` | `/api/identity/auth/me` | Identity |
+| `PUT` | `/api/identity/auth/profile` | Identity |
+| `PUT` | `/api/identity/auth/password` | Identity |
+| `GET` | `/api/identity/admin/users` | Identity |
+| `POST` | `/api/identity/admin/users` | Identity |
+| `PUT` | `/api/identity/admin/users/{userId}/password` | Identity |
 
 新增建议：
 
@@ -474,6 +475,9 @@ exp: 过期时间
 
 | 当前接口 | 调整 |
 | --- | --- |
+| `/api/auth/me` | 移到 `/api/cloud-profile/me` |
+| `/api/auth/avatar` | 移到 `/api/cloud-profile/avatar` |
+| `/api/auth/avatar/{userId}` | 移到 `/api/cloud-profile/avatar/{userId}` |
 | `/api/auth/background` | 移到 `/api/cloud-profile/background` |
 | `/api/auth/background/{userId}` | 移到 `/api/cloud-profile/background/{userId}` |
 | `/api/admin/users/{userId}/quota` | 移到 `/api/admin/cloud-users/{userId}/quota` |
@@ -481,10 +485,11 @@ exp: 过期时间
 兼容策略：
 
 - 当前应用尚未正式发布，旧 `/api/auth/background` 路径不再保留。
+- 当前应用尚未正式发布，旧 `/api/auth/me`、`/api/auth/avatar` 路径不再保留。
 - 当前应用尚未正式发布，旧 `/api/admin/users/{userId}/quota` 路径不再保留。
-- Web 已直接调用 `/api/cloud-profile/background`。
+- Web 已直接调用 `/api/cloud-profile/me`、`/api/cloud-profile/avatar` 和 `/api/cloud-profile/background`。
 - Web 和 Android 已直接调用 `/api/admin/cloud-users/{userId}/quota`。
-- Android 当前只读取 `homeBackgroundUrl` 响应字段，未发现上传/清空背景接口调用。
+- Android 已直接调用 `/api/cloud-profile/me` 和 `/api/cloud-profile/avatar`；当前只读取 `homeBackgroundUrl` 响应字段，未发现上传/清空背景接口调用。
 
 ### 8.3 管理端拆分
 
@@ -533,7 +538,7 @@ Cloud 管理：
    - `IdentityUser`
    - `CloudUserProfile`
    - 页面聚合用的 `CurrentUserView`
-4. `homeBackgroundUrl` 不再来自 `/api/auth/me`，而来自 Cloud profile。
+4. `homeBackgroundUrl` 不再来自 `/api/auth/me`，而来自 `/api/cloud-profile/me` 聚合响应。
 5. 用户管理面板拆分身份字段和云盘额度字段。
 
 ### 9.2 Android
@@ -547,9 +552,9 @@ Cloud 管理：
 
 改造方向：
 
-1. 第一期保留当前接口路径，Android 不必立即改 base URL。
-2. 登录、邮箱验证码、注册返回的 token 改为 Identity JWT，但响应结构保持 `LoginResponse(token, user)`。
-3. 当前用户资料从 Identity 获取。
+1. 登录、邮箱验证码、注册、资料写入和密码变更直接调用 `/api/identity/**`。
+2. 当前用户云盘聚合资料直接调用 `/api/cloud-profile/me`。
+3. 头像上传和头像展示直接调用 `/api/cloud-profile/avatar`。
 4. 云盘容量、背景等由 CloudStorageApi 获取。
 5. SessionStore 存储 token 的 key 可以后续改名，第一期不强制。
 

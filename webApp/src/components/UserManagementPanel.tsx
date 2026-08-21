@@ -9,7 +9,7 @@ function resolveAvatarSrc(user: User) {
   }
 
   if (user.avatarUrl.startsWith('cos:')) {
-    return `/api/auth/avatar/${user.id}?v=${encodeURIComponent(user.avatarUrl)}`;
+    return `/api/cloud-profile/avatar/${user.id}?v=${encodeURIComponent(user.avatarUrl)}`;
   }
 
   return user.avatarUrl;

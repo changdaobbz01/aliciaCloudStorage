@@ -30,8 +30,8 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
         registry.addInterceptor(authInterceptor)
                 .addPathPatterns(
-                        "/api/auth/me",
-                        "/api/auth/avatar",
+                        "/api/cloud-profile/me",
+                        "/api/cloud-profile/avatar",
                         "/api/cloud-profile/background",
                         "/api/share-links/**",
                         "/api/storage/**"

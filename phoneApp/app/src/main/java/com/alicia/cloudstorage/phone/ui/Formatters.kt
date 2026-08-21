@@ -94,7 +94,7 @@ fun resolveUserAvatarUrl(baseUrl: String, user: User): String? {
 
     return when {
         avatarUrl.startsWith("cos:") ->
-            "${baseUrl.removeSuffix("/")}/api/auth/avatar/${user.id}?v=${Uri.encode(avatarUrl)}"
+            "${baseUrl.removeSuffix("/")}/api/cloud-profile/avatar/${user.id}?v=${Uri.encode(avatarUrl)}"
 
         avatarUrl.startsWith("http://") || avatarUrl.startsWith("https://") -> avatarUrl
         avatarUrl.startsWith("/") -> "${baseUrl.removeSuffix("/")}$avatarUrl"

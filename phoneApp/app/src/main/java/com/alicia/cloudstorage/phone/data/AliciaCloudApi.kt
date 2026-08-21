@@ -28,7 +28,7 @@ interface AliciaCloudService {
         @Body payload: LoginPayload,
     ): Response<IdentityLoginResponse>
 
-    @GET("api/auth/me")
+    @GET("api/cloud-profile/me")
     suspend fun fetchCurrentUser(
         @Header("Authorization") authorization: String,
     ): Response<User>
@@ -40,7 +40,7 @@ interface AliciaCloudService {
     ): Response<IdentityUser>
 
     @Multipart
-    @POST("api/auth/avatar")
+    @POST("api/cloud-profile/avatar")
     suspend fun uploadAvatar(
         @Header("Authorization") authorization: String,
         @Part file: MultipartBody.Part,
