@@ -1,7 +1,7 @@
 package com.alicia.cloudstorage.api.service;
 
 import com.alicia.cloudstorage.api.identity.IdentityUserSnapshot;
-import com.alicia.cloudstorage.api.auth.AuthException;
+import com.alicia.cloudstorage.api.principal.PrincipalAccessException;
 import com.alicia.cloudstorage.api.dto.AdminUpdateUserQuotaRequest;
 import com.alicia.cloudstorage.api.dto.UserProfileResponse;
 import com.alicia.cloudstorage.api.entity.CloudUserProfileEntity;
@@ -43,7 +43,7 @@ public class CloudUserProfileService {
 
     public UserProfileResponse getCurrentUser(IdentityUserSnapshot account) {
         if (account.status() != UserStatus.ACTIVE) {
-            throw new AuthException("当前账号已停用。");
+            throw new PrincipalAccessException("当前账号已停用。");
         }
 
         return toUserProfile(account);
@@ -170,7 +170,7 @@ public class CloudUserProfileService {
         IdentityUserSnapshot user = requireUser(userId);
 
         if (user.status() != UserStatus.ACTIVE) {
-            throw new AuthException("当前账号已停用。");
+            throw new PrincipalAccessException("当前账号已停用。");
         }
 
         return user;

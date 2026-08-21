@@ -1,6 +1,6 @@
 package com.alicia.cloudstorage.api.config;
 
-import com.alicia.cloudstorage.api.auth.AuthException;
+import com.alicia.cloudstorage.api.principal.PrincipalAccessException;
 import com.alicia.cloudstorage.api.dto.ApiErrorResponse;
 import com.alicia.cloudstorage.api.identity.IdentityServiceUnavailableException;
 import com.alicia.cloudstorage.api.service.CosStorageException;
@@ -27,9 +27,9 @@ public class GlobalExceptionHandler {
     /**
      * 统一处理登录状态和权限相关异常。
      */
-    @ExceptionHandler(AuthException.class)
+    @ExceptionHandler(PrincipalAccessException.class)
     @ResponseStatus(HttpStatus.UNAUTHORIZED)
-    public ApiErrorResponse handleAuthException(AuthException ex) {
+    public ApiErrorResponse handlePrincipalAccessException(PrincipalAccessException ex) {
         return new ApiErrorResponse(401, ex.getMessage(), LocalDateTime.now());
     }
 

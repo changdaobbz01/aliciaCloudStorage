@@ -1,6 +1,6 @@
 package com.alicia.cloudstorage.api.identity;
 
-import com.alicia.cloudstorage.api.auth.AuthException;
+import com.alicia.cloudstorage.api.principal.PrincipalAccessException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 import tools.jackson.databind.JsonNode;
@@ -32,7 +32,7 @@ final class IdentityGatewaySupport {
         int status = ex.getStatusCode().value();
 
         if (status == 401 || status == 403) {
-            return new AuthException(message);
+            return new PrincipalAccessException(message);
         }
 
         if (status >= 400 && status < 500) {

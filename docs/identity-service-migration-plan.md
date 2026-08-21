@@ -424,12 +424,12 @@ exp: 过期时间
 
 - `AuthService`
 - `TokenService`
-- `AuthInterceptor`
-- `AdminAuthInterceptor`
+- `CurrentPrincipalInterceptor`
+- `AdminPrincipalInterceptor`
 
 目标：
 
-- `AuthInterceptor` 从 JWT 中解析 `CurrentPrincipal`。
+- `CurrentPrincipalInterceptor` 通过 Identity 校验 token，并写入 `CurrentPrincipal`。
 - `CurrentPrincipal` 至少包含：`userId`、`role`、`status`、`tokenVersion`、`expiresAt`。
 - 普通业务接口只接收 `userId`。
 - 管理接口校验 `role`。
@@ -779,9 +779,9 @@ identityApi
 
 建议改动：
 
-1. 新增 `IdentityTokenVerifier`。
-2. 替换 `AuthService` 中对 `SysUserRepository` 的依赖。
-3. `AuthInterceptor` 写入 `CurrentPrincipal` 或 `CURRENT_USER_ID`。
+1. 通过 `IdentityAuthGateway` 调用 Identity 的当前用户接口。
+2. 删除 CloudStorageApi 中对 `SysUserRepository` 的身份写依赖。
+3. `CurrentPrincipalInterceptor` 写入 `CurrentPrincipal` 或 `CURRENT_USER_ID`。
 4. 保持现有 `cloud_user_profile` 作为云盘用户资料来源。
 5. 继续保留缺失 profile 时从旧 `sys_user` 字段补齐的兼容逻辑，直到生产确认无缺失。
 6. 把 CloudStorageApi 中剩余身份写能力切到 Identity API 或删除旧实现。

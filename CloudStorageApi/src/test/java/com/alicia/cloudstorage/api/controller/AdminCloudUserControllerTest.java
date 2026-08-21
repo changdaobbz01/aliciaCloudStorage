@@ -1,7 +1,7 @@
 package com.alicia.cloudstorage.api.controller;
 
-import com.alicia.cloudstorage.api.auth.AuthRequestAttributes;
-import com.alicia.cloudstorage.api.auth.CurrentPrincipal;
+import com.alicia.cloudstorage.api.principal.PrincipalRequestAttributes;
+import com.alicia.cloudstorage.api.principal.CurrentPrincipal;
 import com.alicia.cloudstorage.api.dto.UserProfileResponse;
 import com.alicia.cloudstorage.api.identity.UserRole;
 import com.alicia.cloudstorage.api.service.AdminCloudUserCreationService;
@@ -62,7 +62,7 @@ class AdminCloudUserControllerTest {
     @Test
     void removedPasswordResetRouteReturnsNotFound() throws Exception {
         mockMvc.perform(put("/api/admin/users/77/password")
-                        .requestAttr(AuthRequestAttributes.CURRENT_PRINCIPAL, new CurrentPrincipal(1L, UserRole.ADMIN))
+                        .requestAttr(PrincipalRequestAttributes.CURRENT_PRINCIPAL, new CurrentPrincipal(1L, UserRole.ADMIN))
                         .header(HttpHeaders.AUTHORIZATION, "Bearer admin-token")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"newPassword\":\"new-secret\"}"))

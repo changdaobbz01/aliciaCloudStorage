@@ -1,7 +1,7 @@
 package com.alicia.cloudstorage.api.controller;
 
-import com.alicia.cloudstorage.api.auth.AuthRequestAttributes;
-import com.alicia.cloudstorage.api.auth.CurrentPrincipal;
+import com.alicia.cloudstorage.api.principal.PrincipalRequestAttributes;
+import com.alicia.cloudstorage.api.principal.CurrentPrincipal;
 import com.alicia.cloudstorage.api.dto.UserProfileResponse;
 import com.alicia.cloudstorage.api.service.CloudCurrentUserService;
 import com.alicia.cloudstorage.api.service.CloudProfileManagementService;
@@ -49,7 +49,7 @@ public class CloudProfileController {
      */
     @GetMapping("/me")
     public UserProfileResponse me(
-            @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
+            @RequestAttribute(PrincipalRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization
     ) {
         return cloudCurrentUserService.getCurrentUser(authorization);
@@ -60,7 +60,7 @@ public class CloudProfileController {
      */
     @PostMapping(value = "/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public UserProfileResponse uploadAvatar(
-            @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
+            @RequestAttribute(PrincipalRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
             @RequestPart("file") MultipartFile file
     ) {
@@ -81,7 +81,7 @@ public class CloudProfileController {
 
     @PostMapping(value = "/background", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public UserProfileResponse uploadHomeBackground(
-            @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
+            @RequestAttribute(PrincipalRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
             @Valid @RequestPart("file") MultipartFile file
     ) {
         return cloudProfileManagementService.uploadCurrentUserHomeBackground(principal.userId(), file);
@@ -98,7 +98,7 @@ public class CloudProfileController {
 
     @DeleteMapping("/background")
     public UserProfileResponse clearHomeBackground(
-            @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal
+            @RequestAttribute(PrincipalRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal
     ) {
         return cloudProfileManagementService.clearCurrentUserHomeBackground(principal.userId());
     }

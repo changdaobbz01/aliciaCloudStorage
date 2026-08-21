@@ -1,4 +1,4 @@
-package com.alicia.cloudstorage.api.auth;
+package com.alicia.cloudstorage.api.principal;
 
 import com.alicia.cloudstorage.api.identity.UserRole;
 

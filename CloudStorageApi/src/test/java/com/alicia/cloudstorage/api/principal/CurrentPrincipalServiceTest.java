@@ -1,4 +1,4 @@
-package com.alicia.cloudstorage.api.auth;
+package com.alicia.cloudstorage.api.principal;
 
 import com.alicia.cloudstorage.api.identity.UserRole;
 import com.alicia.cloudstorage.api.identity.UserStatus;
@@ -44,7 +44,7 @@ class CurrentPrincipalServiceTest {
         when(identityAuthGateway.me("Bearer token")).thenReturn(account(28L, UserRole.USER));
 
         assertThatThrownBy(() -> currentPrincipalService.requireAdminPrincipal("Bearer token"))
-                .isInstanceOf(AuthException.class)
+                .isInstanceOf(PrincipalAccessException.class)
                 .hasMessage("当前接口仅允许管理员访问。");
     }
 
@@ -61,10 +61,10 @@ class CurrentPrincipalServiceTest {
     @Test
     void identityAuthFailureIsPropagated() {
         when(identityAuthGateway.me("Bearer stale-token"))
-                .thenThrow(new AuthException("登录状态已失效。"));
+                .thenThrow(new PrincipalAccessException("登录状态已失效。"));
 
         assertThatThrownBy(() -> currentPrincipalService.requirePrincipal("Bearer stale-token"))
-                .isInstanceOf(AuthException.class)
+                .isInstanceOf(PrincipalAccessException.class)
                 .hasMessage("登录状态已失效。");
     }
 

@@ -1,6 +1,6 @@
 package com.alicia.cloudstorage.api.identity;
 
-import com.alicia.cloudstorage.api.auth.AuthException;
+import com.alicia.cloudstorage.api.principal.PrincipalAccessException;
 import com.alicia.cloudstorage.api.dto.UpdateProfileRequest;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
@@ -56,7 +56,7 @@ class HttpIdentityAuthGatewayTest {
     }
 
     @Test
-    void meAuthFailureBecomesCloudAuthException() {
+    void meAuthFailureBecomesCloudPrincipalAccessException() {
         TestGatewayContext context = newContext();
         context.server().expect(requestTo("http://identity.test/api/identity/auth/me"))
                 .andRespond(withStatus(HttpStatus.UNAUTHORIZED)
@@ -66,7 +66,7 @@ class HttpIdentityAuthGatewayTest {
                                 """));
 
         assertThatThrownBy(() -> context.gateway().me("Bearer stale-token"))
-                .isInstanceOf(AuthException.class)
+                .isInstanceOf(PrincipalAccessException.class)
                 .hasMessage("请先登录。");
 
         context.server().verify();
@@ -108,7 +108,7 @@ class HttpIdentityAuthGatewayTest {
     }
 
     @Test
-    void updateProfileAuthFailureBecomesCloudAuthException() {
+    void updateProfileAuthFailureBecomesCloudPrincipalAccessException() {
         TestGatewayContext context = newContext();
         context.server().expect(requestTo("http://identity.test/api/identity/auth/profile"))
                 .andRespond(withStatus(HttpStatus.UNAUTHORIZED)
@@ -120,7 +120,7 @@ class HttpIdentityAuthGatewayTest {
         assertThatThrownBy(() -> context.gateway().updateProfile(
                 "Bearer stale-token",
                 new UpdateProfileRequest("13900000000", "Updated Alicia", null)
-        )).isInstanceOf(AuthException.class)
+        )).isInstanceOf(PrincipalAccessException.class)
                 .hasMessage("请先登录。");
 
         context.server().verify();

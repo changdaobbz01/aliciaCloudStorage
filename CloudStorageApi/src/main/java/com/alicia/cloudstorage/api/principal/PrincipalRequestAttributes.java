@@ -1,10 +1,10 @@
-package com.alicia.cloudstorage.api.auth;
+package com.alicia.cloudstorage.api.principal;
 
-public final class AuthRequestAttributes {
+public final class PrincipalRequestAttributes {
 
     public static final String CURRENT_USER_ID = "currentUserId";
     public static final String CURRENT_PRINCIPAL = "currentPrincipal";
 
-    private AuthRequestAttributes() {
+    private PrincipalRequestAttributes() {
     }
 }

@@ -1,7 +1,7 @@
 package com.alicia.cloudstorage.api.controller;
 
-import com.alicia.cloudstorage.api.auth.AuthRequestAttributes;
-import com.alicia.cloudstorage.api.auth.CurrentPrincipal;
+import com.alicia.cloudstorage.api.principal.PrincipalRequestAttributes;
+import com.alicia.cloudstorage.api.principal.CurrentPrincipal;
 import com.alicia.cloudstorage.api.dto.CreateShareLinkRequest;
 import com.alicia.cloudstorage.api.dto.SaveShareLinkRequest;
 import com.alicia.cloudstorage.api.dto.ShareLinkDetailResponse;
@@ -45,7 +45,7 @@ public class ShareLinkController {
 
     @PostMapping
     public ShareLinkSummaryResponse createShareLink(
-            @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
+            @RequestAttribute(PrincipalRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
             @Valid @RequestBody CreateShareLinkRequest request
     ) {
         return shareLinkService.createShareLink(principal.userId(), request);
@@ -53,14 +53,14 @@ public class ShareLinkController {
 
     @GetMapping("/my")
     public List<ShareLinkSummaryResponse> listMyShareLinks(
-            @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal
+            @RequestAttribute(PrincipalRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal
     ) {
         return shareLinkService.listMyShareLinks(principal.userId());
     }
 
     @DeleteMapping("/{shareId}")
     public ShareLinkSummaryResponse revokeShareLink(
-            @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
+            @RequestAttribute(PrincipalRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
             @PathVariable Long shareId
     ) {
         return shareLinkService.revokeShareLink(principal.userId(), shareId);
@@ -68,7 +68,7 @@ public class ShareLinkController {
 
     @GetMapping("/{shareCode}/detail")
     public ShareLinkDetailResponse getShareDetail(
-            @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
+            @RequestAttribute(PrincipalRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
             @PathVariable String shareCode,
             @RequestHeader(value = SHARE_ACCESS_HEADER, required = false) String shareAccessToken
     ) {
@@ -77,7 +77,7 @@ public class ShareLinkController {
 
     @PostMapping("/{shareCode}/save")
     public List<StorageNodeSummaryResponse> saveShare(
-            @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
+            @RequestAttribute(PrincipalRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
             @PathVariable String shareCode,
             @RequestHeader(value = SHARE_ACCESS_HEADER, required = false) String shareAccessToken,
             @RequestBody(required = false) SaveShareLinkRequest request
@@ -87,7 +87,7 @@ public class ShareLinkController {
 
     @GetMapping("/{shareCode}/files/{fileId}/access-url")
     public SignedUrlResponse getShareFileAccessUrl(
-            @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
+            @RequestAttribute(PrincipalRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
             @PathVariable String shareCode,
             @PathVariable Long fileId,
             @RequestHeader(value = SHARE_ACCESS_HEADER, required = false) String shareAccessToken,
@@ -111,7 +111,7 @@ public class ShareLinkController {
 
     @GetMapping("/{shareCode}/files/{fileId}/download")
     public ResponseEntity<InputStreamResource> downloadShareFile(
-            @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
+            @RequestAttribute(PrincipalRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
             @PathVariable String shareCode,
             @PathVariable Long fileId,
             @RequestHeader(value = SHARE_ACCESS_HEADER, required = false) String shareAccessToken

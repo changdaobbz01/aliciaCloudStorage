@@ -1,7 +1,7 @@
 package com.alicia.cloudstorage.api.controller;
 
-import com.alicia.cloudstorage.api.auth.AuthRequestAttributes;
-import com.alicia.cloudstorage.api.auth.CurrentPrincipal;
+import com.alicia.cloudstorage.api.principal.PrincipalRequestAttributes;
+import com.alicia.cloudstorage.api.principal.CurrentPrincipal;
 import com.alicia.cloudstorage.api.dto.UserProfileResponse;
 import com.alicia.cloudstorage.api.identity.UserRole;
 import com.alicia.cloudstorage.api.service.CloudCurrentUserService;
@@ -70,26 +70,26 @@ class CloudProfileControllerTest {
                 .andExpect(status().isNotFound());
 
         mockMvc.perform(put("/api/auth/profile")
-                        .requestAttr(AuthRequestAttributes.CURRENT_PRINCIPAL, principal())
+                        .requestAttr(PrincipalRequestAttributes.CURRENT_PRINCIPAL, principal())
                         .header(HttpHeaders.AUTHORIZATION, "Bearer token")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"phoneNumber\":\"13900000000\",\"nickname\":\"Alicia\",\"avatarUrl\":null}"))
                 .andExpect(status().isNotFound());
 
         mockMvc.perform(put("/api/auth/password")
-                        .requestAttr(AuthRequestAttributes.CURRENT_PRINCIPAL, principal())
+                        .requestAttr(PrincipalRequestAttributes.CURRENT_PRINCIPAL, principal())
                         .header(HttpHeaders.AUTHORIZATION, "Bearer token")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"oldPassword\":\"old-secret\",\"newPassword\":\"new-secret\"}"))
                 .andExpect(status().isNotFound());
 
         mockMvc.perform(get("/api/auth/me")
-                        .requestAttr(AuthRequestAttributes.CURRENT_PRINCIPAL, principal())
+                        .requestAttr(PrincipalRequestAttributes.CURRENT_PRINCIPAL, principal())
                         .header(HttpHeaders.AUTHORIZATION, "Bearer token"))
                 .andExpect(status().isNotFound());
 
         mockMvc.perform(post("/api/auth/avatar")
-                        .requestAttr(AuthRequestAttributes.CURRENT_PRINCIPAL, principal())
+                        .requestAttr(PrincipalRequestAttributes.CURRENT_PRINCIPAL, principal())
                         .header(HttpHeaders.AUTHORIZATION, "Bearer token"))
                 .andExpect(status().isNotFound());
     }
@@ -99,7 +99,7 @@ class CloudProfileControllerTest {
         when(cloudCurrentUserService.getCurrentUser("Bearer token")).thenReturn(profile());
 
         mockMvc.perform(get("/api/cloud-profile/me")
-                .requestAttr(AuthRequestAttributes.CURRENT_PRINCIPAL, principal())
+                .requestAttr(PrincipalRequestAttributes.CURRENT_PRINCIPAL, principal())
                 .header(HttpHeaders.AUTHORIZATION, "Bearer token"))
                 .andExpect(status().isOk())
                 .andExpect(header().doesNotExist("Deprecation"))

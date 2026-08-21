@@ -1,7 +1,7 @@
 package com.alicia.cloudstorage.api.controller;
 
-import com.alicia.cloudstorage.api.auth.AuthRequestAttributes;
-import com.alicia.cloudstorage.api.auth.CurrentPrincipal;
+import com.alicia.cloudstorage.api.principal.PrincipalRequestAttributes;
+import com.alicia.cloudstorage.api.principal.CurrentPrincipal;
 import com.alicia.cloudstorage.api.dto.ApiMessageResponse;
 import com.alicia.cloudstorage.api.dto.BatchMoveNodeRequest;
 import com.alicia.cloudstorage.api.dto.BatchNodeRequest;
@@ -80,7 +80,7 @@ public class StorageNodeController {
      */
     @GetMapping("/nodes")
     public PageResponse<StorageNodeSummaryResponse> listNodes(
-            @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
+            @RequestAttribute(PrincipalRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
             @RequestParam(required = false) Long parentId,
             @RequestParam(required = false, defaultValue = "false") boolean recursive,
             @RequestParam(required = false) String keyword,
@@ -99,7 +99,7 @@ public class StorageNodeController {
      */
     @GetMapping("/folders")
     public List<StorageNodeSummaryResponse> listFolders(
-            @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal
+            @RequestAttribute(PrincipalRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal
     ) {
         return storageQueryService.listFolders(principal.userId());
     }
@@ -109,7 +109,7 @@ public class StorageNodeController {
      */
     @GetMapping("/trash")
     public PageResponse<StorageNodeSummaryResponse> listTrashNodes(
-            @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
+            @RequestAttribute(PrincipalRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String type,
             @RequestParam(required = false) Integer page,
@@ -125,7 +125,7 @@ public class StorageNodeController {
      */
     @GetMapping("/overview")
     public DriveOverviewResponse getOverview(
-            @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal
+            @RequestAttribute(PrincipalRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal
     ) {
         return storageQueryService.getOverview(principal.userId());
     }
@@ -135,7 +135,7 @@ public class StorageNodeController {
      */
     @GetMapping("/usage-history")
     public List<UsageHistoryPointResponse> getUsageHistory(
-            @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
+            @RequestAttribute(PrincipalRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
             @RequestParam(required = false) Integer days
     ) {
         return storageQueryService.getUsageHistory(principal.userId(), days);
@@ -146,7 +146,7 @@ public class StorageNodeController {
      */
     @PostMapping("/folders")
     public StorageNodeSummaryResponse createFolder(
-            @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
+            @RequestAttribute(PrincipalRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
             @Valid @RequestBody CreateFolderRequest request
     ) {
         return storageCommandService.createFolder(principal.userId(), request);
@@ -157,7 +157,7 @@ public class StorageNodeController {
      */
     @PostMapping(value = "/files", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public StorageNodeSummaryResponse uploadFile(
-            @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
+            @RequestAttribute(PrincipalRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
             @RequestParam(required = false) Long parentId,
             @RequestPart("file") MultipartFile file
     ) {
@@ -169,7 +169,7 @@ public class StorageNodeController {
      */
     @PostMapping("/files/multipart")
     public MultipartUploadStatusResponse createMultipartUpload(
-            @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
+            @RequestAttribute(PrincipalRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
             @Valid @RequestBody CreateMultipartUploadRequest request
     ) {
         return storageMultipartUploadService.createMultipartUpload(principal.userId(), request);
@@ -180,7 +180,7 @@ public class StorageNodeController {
      */
     @GetMapping("/files/multipart/{uploadToken}")
     public MultipartUploadStatusResponse getMultipartUploadStatus(
-            @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
+            @RequestAttribute(PrincipalRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
             @PathVariable String uploadToken
     ) {
         return storageMultipartUploadService.getMultipartUploadStatus(principal.userId(), uploadToken);
@@ -191,7 +191,7 @@ public class StorageNodeController {
      */
     @PostMapping(value = "/files/multipart/{uploadToken}/parts/{partNumber}", consumes = MediaType.APPLICATION_OCTET_STREAM_VALUE)
     public MultipartUploadPartResponse uploadMultipartPart(
-            @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
+            @RequestAttribute(PrincipalRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
             @PathVariable String uploadToken,
             @PathVariable int partNumber,
             HttpServletRequest servletRequest
@@ -204,7 +204,7 @@ public class StorageNodeController {
      */
     @PostMapping("/files/multipart/{uploadToken}/complete")
     public StorageNodeSummaryResponse completeMultipartUpload(
-            @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
+            @RequestAttribute(PrincipalRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
             @PathVariable String uploadToken
     ) {
         return storageMultipartUploadService.completeMultipartUpload(principal.userId(), uploadToken);
@@ -215,7 +215,7 @@ public class StorageNodeController {
      */
     @DeleteMapping("/files/multipart/{uploadToken}")
     public ApiMessageResponse abortMultipartUpload(
-            @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
+            @RequestAttribute(PrincipalRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
             @PathVariable String uploadToken
     ) {
         return storageMultipartUploadService.abortMultipartUpload(principal.userId(), uploadToken);
@@ -226,7 +226,7 @@ public class StorageNodeController {
      */
     @PutMapping("/nodes/{nodeId}/rename")
     public StorageNodeSummaryResponse renameNode(
-            @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
+            @RequestAttribute(PrincipalRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
             @PathVariable Long nodeId,
             @Valid @RequestBody RenameNodeRequest request
     ) {
@@ -238,7 +238,7 @@ public class StorageNodeController {
      */
     @PutMapping("/nodes/batch/rename")
     public List<StorageNodeSummaryResponse> renameNodes(
-            @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
+            @RequestAttribute(PrincipalRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
             @Valid @RequestBody BatchRenameNodeRequest request
     ) {
         return storageCommandService.renameNodes(principal.userId(), request);
@@ -249,7 +249,7 @@ public class StorageNodeController {
      */
     @PutMapping("/nodes/{nodeId}/move")
     public StorageNodeSummaryResponse moveNode(
-            @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
+            @RequestAttribute(PrincipalRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
             @PathVariable Long nodeId,
             @Valid @RequestBody MoveNodeRequest request
     ) {
@@ -261,7 +261,7 @@ public class StorageNodeController {
      */
     @PutMapping("/nodes/batch/move")
     public List<StorageNodeSummaryResponse> moveNodes(
-            @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
+            @RequestAttribute(PrincipalRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
             @Valid @RequestBody BatchMoveNodeRequest request
     ) {
         return storageCommandService.moveNodes(principal.userId(), request);
@@ -272,7 +272,7 @@ public class StorageNodeController {
      */
     @DeleteMapping("/nodes/{nodeId}")
     public ApiMessageResponse moveNodeToTrash(
-            @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
+            @RequestAttribute(PrincipalRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
             @PathVariable Long nodeId
     ) {
         return storageCommandService.moveNodeToTrash(principal.userId(), nodeId);
@@ -283,7 +283,7 @@ public class StorageNodeController {
      */
     @PostMapping("/nodes/batch/trash")
     public ApiMessageResponse moveNodesToTrash(
-            @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
+            @RequestAttribute(PrincipalRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
             @Valid @RequestBody BatchNodeRequest request
     ) {
         return storageCommandService.moveNodesToTrash(principal.userId(), request);
@@ -291,7 +291,7 @@ public class StorageNodeController {
 
     @GetMapping("/nodes/batch/trash/scoped/preview")
     public ScopedTrashPreviewResponse previewScopedTrash(
-            @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
+            @RequestAttribute(PrincipalRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
             @RequestParam(required = false) Long sourceParentId,
             @RequestParam(defaultValue = "false") boolean root,
             @RequestParam List<String> nodeTypes
@@ -301,7 +301,7 @@ public class StorageNodeController {
 
     @PostMapping("/nodes/batch/trash/scoped")
     public ApiMessageResponse moveScopedNodesToTrash(
-            @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
+            @RequestAttribute(PrincipalRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
             @Valid @RequestBody ScopedTrashRequest request
     ) {
         return scopedCollectionTrashService.execute(principal.userId(), request);
@@ -312,7 +312,7 @@ public class StorageNodeController {
      */
     @PostMapping("/trash/{nodeId}/restore")
     public StorageNodeSummaryResponse restoreNode(
-            @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
+            @RequestAttribute(PrincipalRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
             @PathVariable Long nodeId
     ) {
         return storageCommandService.restoreNode(principal.userId(), nodeId);
@@ -323,7 +323,7 @@ public class StorageNodeController {
      */
     @PostMapping("/trash/batch/restore")
     public List<StorageNodeSummaryResponse> restoreNodes(
-            @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
+            @RequestAttribute(PrincipalRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
             @Valid @RequestBody BatchNodeRequest request
     ) {
         return storageCommandService.restoreNodes(principal.userId(), request);
@@ -334,7 +334,7 @@ public class StorageNodeController {
      */
     @DeleteMapping("/trash/{nodeId}")
     public ApiMessageResponse permanentlyDeleteNode(
-            @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
+            @RequestAttribute(PrincipalRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
             @PathVariable Long nodeId
     ) {
         return storageCommandService.permanentlyDeleteNode(principal.userId(), nodeId);
@@ -345,7 +345,7 @@ public class StorageNodeController {
      */
     @PostMapping("/trash/batch/delete")
     public ApiMessageResponse permanentlyDeleteNodes(
-            @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
+            @RequestAttribute(PrincipalRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
             @Valid @RequestBody BatchNodeRequest request
     ) {
         return storageCommandService.permanentlyDeleteNodes(principal.userId(), request);
@@ -356,7 +356,7 @@ public class StorageNodeController {
      */
     @GetMapping("/files/{fileId}/download")
     public ResponseEntity<InputStreamResource> downloadFile(
-            @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
+            @RequestAttribute(PrincipalRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
             @PathVariable Long fileId
     ) {
         StorageCommandService.StorageDownloadPayload downloadPayload = storageCommandService.downloadFile(principal.userId(), fileId);
@@ -383,7 +383,7 @@ public class StorageNodeController {
 
     @GetMapping("/files/{fileId}/access-url")
     public SignedUrlResponse getFileAccessUrl(
-            @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
+            @RequestAttribute(PrincipalRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
             @PathVariable Long fileId,
             @RequestParam(required = false, defaultValue = "inline") String disposition
     ) {
@@ -403,7 +403,7 @@ public class StorageNodeController {
 
     @PostMapping("/nodes/archive")
     public ResponseEntity<StreamingResponseBody> downloadArchive(
-            @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
+            @RequestAttribute(PrincipalRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
             @Valid @RequestBody BatchNodeRequest request
     ) {
         StorageArchiveService.StorageArchivePayload archivePayload = storageArchiveService.createArchive(principal.userId(), request);

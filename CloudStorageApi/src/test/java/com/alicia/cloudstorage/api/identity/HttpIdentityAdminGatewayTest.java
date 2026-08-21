@@ -1,6 +1,6 @@
 package com.alicia.cloudstorage.api.identity;
 
-import com.alicia.cloudstorage.api.auth.AuthException;
+import com.alicia.cloudstorage.api.principal.PrincipalAccessException;
 import com.alicia.cloudstorage.api.dto.AdminCreateUserRequest;
 import com.alicia.cloudstorage.api.identity.UserRole;
 import com.alicia.cloudstorage.api.identity.UserStatus;
@@ -105,7 +105,7 @@ class HttpIdentityAdminGatewayTest {
     }
 
     @Test
-    void identityAuthFailureBecomesCloudAuthException() {
+    void identityAuthFailureBecomesCloudPrincipalAccessException() {
         TestGatewayContext context = newContext();
         context.server().expect(requestTo("http://identity.test/api/identity/admin/users"))
                 .andRespond(withStatus(HttpStatus.UNAUTHORIZED)
@@ -115,7 +115,7 @@ class HttpIdentityAdminGatewayTest {
                                 """));
 
         assertThatThrownBy(() -> context.gateway().listUsers("Bearer user-token"))
-                .isInstanceOf(AuthException.class)
+                .isInstanceOf(PrincipalAccessException.class)
                 .hasMessage("当前接口仅允许管理员访问。");
 
         context.server().verify();

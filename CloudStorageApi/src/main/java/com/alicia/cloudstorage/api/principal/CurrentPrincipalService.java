@@ -1,4 +1,4 @@
-package com.alicia.cloudstorage.api.auth;
+package com.alicia.cloudstorage.api.principal;
 
 import com.alicia.cloudstorage.api.identity.IdentityAuthGateway;
 import com.alicia.cloudstorage.api.identity.IdentityUserSnapshot;
@@ -14,7 +14,7 @@ public class CurrentPrincipalService {
     }
 
     /**
-     * 校验普通用户令牌，并返回轻量当前登录主体。
+     * 通过 Identity 校验普通用户令牌，并返回轻量当前登录主体。
      */
     public CurrentPrincipal requirePrincipal(String authorization) {
         IdentityUserSnapshot account = identityAuthGateway.me(authorization);
@@ -22,13 +22,13 @@ public class CurrentPrincipalService {
     }
 
     /**
-     * 校验管理员令牌，并返回轻量当前登录主体。
+     * 通过 Identity 校验管理员令牌，并返回轻量当前登录主体。
      */
     public CurrentPrincipal requireAdminPrincipal(String authorization) {
         CurrentPrincipal principal = requirePrincipal(authorization);
 
         if (!principal.isAdmin()) {
-            throw new AuthException("当前接口仅允许管理员访问。");
+            throw new PrincipalAccessException("当前接口仅允许管理员访问。");
         }
 
         return principal;

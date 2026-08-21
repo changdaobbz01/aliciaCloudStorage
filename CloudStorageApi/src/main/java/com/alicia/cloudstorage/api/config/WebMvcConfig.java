@@ -1,7 +1,7 @@
 package com.alicia.cloudstorage.api.config;
 
-import com.alicia.cloudstorage.api.auth.AdminAuthInterceptor;
-import com.alicia.cloudstorage.api.auth.AuthInterceptor;
+import com.alicia.cloudstorage.api.principal.AdminPrincipalInterceptor;
+import com.alicia.cloudstorage.api.principal.CurrentPrincipalInterceptor;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
@@ -9,26 +9,29 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @Configuration
 public class WebMvcConfig implements WebMvcConfigurer {
 
-    private final AuthInterceptor authInterceptor;
-    private final AdminAuthInterceptor adminAuthInterceptor;
+    private final CurrentPrincipalInterceptor currentPrincipalInterceptor;
+    private final AdminPrincipalInterceptor adminPrincipalInterceptor;
 
     /**
-     * 注入登录态与管理员权限拦截器。
+     * 注入当前主体与管理员主体拦截器。
      */
-    public WebMvcConfig(AuthInterceptor authInterceptor, AdminAuthInterceptor adminAuthInterceptor) {
-        this.authInterceptor = authInterceptor;
-        this.adminAuthInterceptor = adminAuthInterceptor;
+    public WebMvcConfig(
+            CurrentPrincipalInterceptor currentPrincipalInterceptor,
+            AdminPrincipalInterceptor adminPrincipalInterceptor
+    ) {
+        this.currentPrincipalInterceptor = currentPrincipalInterceptor;
+        this.adminPrincipalInterceptor = adminPrincipalInterceptor;
     }
 
     /**
-     * 注册登录态和管理员权限拦截器，保护需要鉴权的接口。
+     * 注册当前主体和管理员主体拦截器，保护需要登录态的接口。
      */
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
-        registry.addInterceptor(adminAuthInterceptor)
+        registry.addInterceptor(adminPrincipalInterceptor)
                 .addPathPatterns("/api/admin/**");
 
-        registry.addInterceptor(authInterceptor)
+        registry.addInterceptor(currentPrincipalInterceptor)
                 .addPathPatterns(
                         "/api/cloud-profile/me",
                         "/api/cloud-profile/avatar",
