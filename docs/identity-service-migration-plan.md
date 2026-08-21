@@ -570,12 +570,13 @@ Cloud 管理：
 2. 云盘未登录或 token 过期时跳转 `/login?returnTo=/cloudPan/`。
 3. 云盘 Web 启动时先调用 `/api/identity/auth/token/refresh`，优先使用本地 refresh token 续签，再读取 `/api/cloud-profile/me`。
 4. 云盘 Web 运行中定时续签 token，主动退出登录时调用 `/api/identity/auth/logout` 撤销当前 refresh 会话后再清理本地会话。
-5. `User` 类型后续再拆成：
+5. 云盘 Web 头像菜单已接入“登录会话”，可读取当前账号 refresh 会话并撤销非当前有效会话。
+6. `User` 类型后续再拆成：
    - `IdentityUser`
    - `CloudUserProfile`
    - 页面聚合用的 `CurrentUserView`
-6. `homeBackgroundUrl` 不再来自 `/api/auth/me`，而来自 `/api/cloud-profile/me` 聚合响应。
-7. 用户管理面板拆分身份字段和云盘额度字段。
+7. `homeBackgroundUrl` 不再来自 `/api/auth/me`，而来自 `/api/cloud-profile/me` 聚合响应。
+8. 用户管理面板拆分身份字段和云盘额度字段。
 
 ### 9.2 Android
 
@@ -1026,7 +1027,7 @@ Web 和 Android：
 1. 保持旧 `sys_user.storage_quota_bytes` 和 `sys_user.home_background_url` 一个版本周期不删，只观察不写入。
 2. 继续观察 Identity 审计日志写入、查询接口和 Web 管理页筛选结果。
 3. 观察 `identity_refresh_token` 的生产写入、轮换、会话查询和指定会话撤销结果。
-4. 给 Web/主站补一个轻量会话管理入口，允许用户查看设备会话并撤销非当前会话。
+4. 给主站补一个轻量会话管理入口，和云盘 Web 的会话管理能力保持一致。
 5. 将当前自定义 HMAC token 迁移到标准 JWT，并准备 JWKS 公钥发布。
 6. 评估 `sys_user` 是否继续作为 identity 表名，或迁移到独立 schema / `identity_user`。
 

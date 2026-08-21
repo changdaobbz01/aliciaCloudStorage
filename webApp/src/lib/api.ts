@@ -13,6 +13,7 @@ import type {
   IdentityAuditLogPage,
   IdentityAuditLogQuery,
   IdentityLoginResponse,
+  IdentitySession,
   MoveNodePayload,
   MultipartUploadPart,
   MultipartUploadStatus,
@@ -622,6 +623,18 @@ export function logoutAuthToken(token: string, refreshToken?: string | null) {
     '/api/identity/auth/logout',
     init,
     { dispatchAuthExpired: false },
+  );
+}
+
+export function fetchIdentitySessions(token: string, includeRevoked = false) {
+  const suffix = includeRevoked ? '?includeRevoked=true' : '';
+  return requestJson<IdentitySession[]>(`/api/identity/auth/sessions${suffix}`, withToken(token));
+}
+
+export function revokeIdentitySession(token: string, sessionId: number) {
+  return requestJson<ApiMessageResponse>(
+    `/api/identity/auth/sessions/${sessionId}`,
+    withToken(token, { method: 'DELETE' }),
   );
 }
 

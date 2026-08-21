@@ -60,6 +60,18 @@ export type IdentityLoginResponse = {
   user: IdentityUser;
 };
 
+export type IdentitySession = {
+  id: number;
+  issuedAt: string;
+  lastUsedAt: string | null;
+  expiresAt: string;
+  revokedAt: string | null;
+  revokeReason: string | null;
+  clientIp: string | null;
+  userAgent: string | null;
+  current: boolean;
+};
+
 export type IdentityAuditLog = {
   id: number;
   eventType: IdentityAuditEventType;

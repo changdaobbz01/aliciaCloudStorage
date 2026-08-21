@@ -2,6 +2,7 @@
   AndroidOutlined,
   CloudServerOutlined,
   DeleteOutlined,
+  DesktopOutlined,
   DownloadOutlined,
   EditOutlined,
   FolderOpenOutlined,
@@ -378,6 +379,7 @@ export function DrivePage() {
   const avatarMenuItems: MenuProps['items'] = [
     { key: 'profile', icon: <EditOutlined />, label: '个人资料' },
     { key: 'password', icon: <LockOutlined />, label: '修改密码' },
+    { key: 'sessions', icon: <DesktopOutlined />, label: '登录会话' },
     { type: 'divider' },
     { key: 'logout', icon: <LogoutOutlined />, label: '退出登录', danger: true },
   ];
@@ -685,6 +687,11 @@ export function DrivePage() {
         currentAvatarSrc={currentAvatarSrc}
         profileOpen={profileSettings.profileOpen}
         passwordOpen={profileSettings.passwordOpen}
+        sessionsOpen={profileSettings.sessionsOpen}
+        identitySessions={profileSettings.identitySessions}
+        identitySessionsLoading={profileSettings.identitySessionsLoading}
+        identitySessionRevokingId={profileSettings.identitySessionRevokingId}
+        includeRevokedSessions={profileSettings.includeRevokedSessions}
         avatarUploading={profileSettings.avatarUploading}
         profileForm={profileSettings.profileForm}
         passwordForm={profileSettings.passwordForm}
@@ -695,6 +702,10 @@ export function DrivePage() {
         onAvatarFileChange={profileSettings.handleAvatarFileChange}
         onClosePassword={profileSettings.closePasswordModal}
         onSubmitPassword={profileSettings.submitPassword}
+        onCloseSessions={profileSettings.closeSessionsModal}
+        onRefreshSessions={() => profileSettings.loadIdentitySessions()}
+        onIncludeRevokedSessionsChange={profileSettings.changeIncludeRevokedSessions}
+        onRevokeSession={profileSettings.revokeSession}
       />
 
       <DriveAccountsAdminModals

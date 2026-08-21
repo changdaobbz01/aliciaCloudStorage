@@ -1,8 +1,9 @@
-import { UploadOutlined } from '@ant-design/icons';
-import { Avatar, Button, Form, Input, Modal, Space } from 'antd';
+import { LogoutOutlined, ReloadOutlined, UploadOutlined } from '@ant-design/icons';
+import { Avatar, Button, Form, Input, Modal, Popconfirm, Space, Switch, Table, Tag, Typography } from 'antd';
+import type { TableProps } from 'antd';
 import type { FormInstance } from 'antd/es/form';
 import type { MutableRefObject, ChangeEvent } from 'react';
-import type { ChangePasswordPayload, UpdateProfilePayload, User } from '../../types';
+import type { ChangePasswordPayload, IdentitySession, UpdateProfilePayload, User } from '../../types';
 
 type PasswordFormValues = ChangePasswordPayload & {
   confirmPassword: string;
@@ -13,6 +14,11 @@ type DriveProfileModalsProps = {
   currentAvatarSrc: string | undefined;
   profileOpen: boolean;
   passwordOpen: boolean;
+  sessionsOpen: boolean;
+  identitySessions: IdentitySession[];
+  identitySessionsLoading: boolean;
+  identitySessionRevokingId: number | null;
+  includeRevokedSessions: boolean;
   avatarUploading: boolean;
   profileForm: FormInstance<UpdateProfilePayload>;
   passwordForm: FormInstance<PasswordFormValues>;
@@ -23,13 +29,46 @@ type DriveProfileModalsProps = {
   onAvatarFileChange: (event: ChangeEvent<HTMLInputElement>) => void | Promise<void>;
   onClosePassword: () => void;
   onSubmitPassword: (values: PasswordFormValues) => Promise<unknown> | void;
+  onCloseSessions: () => void;
+  onRefreshSessions: () => Promise<unknown> | void;
+  onIncludeRevokedSessionsChange: (checked: boolean) => void;
+  onRevokeSession: (sessionId: number) => Promise<unknown> | void;
 };
+
+function formatTimestamp(value: string | null) {
+  return value ? new Date(value).toLocaleString('zh-CN') : '-';
+}
+
+function isExpired(session: IdentitySession) {
+  return new Date(session.expiresAt).getTime() <= Date.now();
+}
+
+function renderSessionStatus(session: IdentitySession) {
+  if (session.current) {
+    return <Tag color="blue">当前</Tag>;
+  }
+
+  if (session.revokedAt) {
+    return <Tag>已撤销</Tag>;
+  }
+
+  if (isExpired(session)) {
+    return <Tag color="orange">已过期</Tag>;
+  }
+
+  return <Tag color="green">有效</Tag>;
+}
 
 export function DriveProfileModals({
   currentUser,
   currentAvatarSrc,
   profileOpen,
   passwordOpen,
+  sessionsOpen,
+  identitySessions,
+  identitySessionsLoading,
+  identitySessionRevokingId,
+  includeRevokedSessions,
   avatarUploading,
   profileForm,
   passwordForm,
@@ -40,7 +79,84 @@ export function DriveProfileModals({
   onAvatarFileChange,
   onClosePassword,
   onSubmitPassword,
+  onCloseSessions,
+  onRefreshSessions,
+  onIncludeRevokedSessionsChange,
+  onRevokeSession,
 }: DriveProfileModalsProps) {
+  const sessionColumns: TableProps<IdentitySession>['columns'] = [
+    {
+      title: '客户端',
+      key: 'client',
+      width: 300,
+      render: (_, session) => (
+        <div className="session-client-cell">
+          <Typography.Text
+            className="table-primary-text"
+            ellipsis={{ tooltip: session.userAgent ?? '未知客户端' }}
+          >
+            {session.userAgent ?? '未知客户端'}
+          </Typography.Text>
+          <Typography.Text className="muted-text">{session.clientIp ?? '-'}</Typography.Text>
+        </div>
+      ),
+    },
+    {
+      title: '最近使用',
+      dataIndex: 'lastUsedAt',
+      key: 'lastUsedAt',
+      width: 180,
+      render: (value: string | null, session) => formatTimestamp(value ?? session.issuedAt),
+    },
+    {
+      title: '过期时间',
+      dataIndex: 'expiresAt',
+      key: 'expiresAt',
+      width: 180,
+      render: (value: string) => formatTimestamp(value),
+    },
+    {
+      title: '状态',
+      key: 'status',
+      width: 100,
+      render: (_, session) => renderSessionStatus(session),
+    },
+    {
+      title: '操作',
+      key: 'action',
+      width: 130,
+      render: (_, session) => {
+        const canRevoke = !session.current && !session.revokedAt && !isExpired(session);
+
+        if (!canRevoke) {
+          return (
+            <Button size="small" disabled>
+              {session.current ? '当前会话' : '不可撤销'}
+            </Button>
+          );
+        }
+
+        return (
+          <Popconfirm
+            title="撤销这个登录会话？"
+            okText="撤销"
+            cancelText="取消"
+            onConfirm={() => void onRevokeSession(session.id)}
+          >
+            <Button
+              danger
+              size="small"
+              icon={<LogoutOutlined />}
+              loading={identitySessionRevokingId === session.id}
+            >
+              撤销
+            </Button>
+          </Popconfirm>
+        );
+      },
+    },
+  ];
+
   return (
     <>
       <Modal
@@ -132,6 +248,43 @@ export function DriveProfileModals({
             <Input.Password />
           </Form.Item>
         </Form>
+      </Modal>
+
+      <Modal
+        title="登录会话"
+        open={sessionsOpen}
+        onCancel={onCloseSessions}
+        footer={null}
+        width={920}
+        destroyOnHidden
+      >
+        <div className="session-modal-toolbar">
+          <Space size="middle" wrap>
+            <Switch
+              checked={includeRevokedSessions}
+              onChange={onIncludeRevokedSessionsChange}
+            />
+            <Typography.Text>显示已撤销</Typography.Text>
+          </Space>
+          <Button
+            icon={<ReloadOutlined />}
+            loading={identitySessionsLoading}
+            onClick={() => void onRefreshSessions()}
+          >
+            刷新
+          </Button>
+        </div>
+
+        <Table
+          rowKey="id"
+          className="management-table"
+          loading={identitySessionsLoading}
+          columns={sessionColumns}
+          dataSource={identitySessions}
+          pagination={{ pageSize: 8, showSizeChanger: false, position: ['bottomRight'] }}
+          scroll={{ x: 820 }}
+          locale={{ emptyText: '暂无登录会话。' }}
+        />
       </Modal>
     </>
   );

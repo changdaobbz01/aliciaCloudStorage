@@ -4,11 +4,13 @@ import { useRef, useState, type ChangeEvent } from 'react';
 import {
   changePassword,
   clearCurrentUserHomeBackground,
+  fetchIdentitySessions,
+  revokeIdentitySession,
   updateProfile,
   uploadCurrentUserAvatar,
   uploadCurrentUserHomeBackground,
 } from '../../../lib/api';
-import type { ChangePasswordPayload, UpdateProfilePayload, User } from '../../../types';
+import type { ChangePasswordPayload, IdentitySession, UpdateProfilePayload, User } from '../../../types';
 
 type PasswordFormValues = ChangePasswordPayload & {
   confirmPassword: string;
@@ -37,6 +39,11 @@ export function useDriveProfileSettings({
 }: UseDriveProfileSettingsOptions) {
   const [profileOpen, setProfileOpen] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
+  const [sessionsOpen, setSessionsOpen] = useState(false);
+  const [identitySessions, setIdentitySessions] = useState<IdentitySession[]>([]);
+  const [identitySessionsLoading, setIdentitySessionsLoading] = useState(false);
+  const [identitySessionRevokingId, setIdentitySessionRevokingId] = useState<number | null>(null);
+  const [includeRevokedSessions, setIncludeRevokedSessions] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [profileForm] = Form.useForm<UpdateProfilePayload>();
   const [passwordForm] = Form.useForm<PasswordFormValues>();
@@ -168,6 +175,54 @@ export function useDriveProfileSettings({
     setPasswordOpen(false);
   }
 
+  async function loadIdentitySessions(nextIncludeRevoked = includeRevokedSessions) {
+    if (!authToken) {
+      return;
+    }
+
+    setIdentitySessionsLoading(true);
+
+    try {
+      setIdentitySessions(await fetchIdentitySessions(authToken, nextIncludeRevoked));
+    } catch (sessionError) {
+      message.error(sessionError instanceof Error ? sessionError.message : '登录会话加载失败。');
+    } finally {
+      setIdentitySessionsLoading(false);
+    }
+  }
+
+  function openSessionsModal() {
+    setSessionsOpen(true);
+    void loadIdentitySessions();
+  }
+
+  function closeSessionsModal() {
+    setSessionsOpen(false);
+  }
+
+  function changeIncludeRevokedSessions(checked: boolean) {
+    setIncludeRevokedSessions(checked);
+    void loadIdentitySessions(checked);
+  }
+
+  async function revokeSession(sessionId: number) {
+    if (!authToken) {
+      return;
+    }
+
+    setIdentitySessionRevokingId(sessionId);
+
+    try {
+      await revokeIdentitySession(authToken, sessionId);
+      message.success('登录会话已撤销。');
+      await loadIdentitySessions(includeRevokedSessions);
+    } catch (sessionError) {
+      message.error(sessionError instanceof Error ? sessionError.message : '登录会话撤销失败。');
+    } finally {
+      setIdentitySessionRevokingId(null);
+    }
+  }
+
   async function submitProfile(values: UpdateProfilePayload) {
     if (!authToken) {
       return false;
@@ -232,6 +287,11 @@ export function useDriveProfileSettings({
       return;
     }
 
+    if (event.key === 'sessions') {
+      openSessionsModal();
+      return;
+    }
+
     if (event.key === 'logout') {
       void handleLogout();
     }
@@ -240,6 +300,11 @@ export function useDriveProfileSettings({
   return {
     profileOpen,
     passwordOpen,
+    sessionsOpen,
+    identitySessions,
+    identitySessionsLoading,
+    identitySessionRevokingId,
+    includeRevokedSessions,
     avatarUploading,
     profileForm,
     passwordForm,
@@ -254,6 +319,11 @@ export function useDriveProfileSettings({
     clearHomeBackground,
     openPasswordModal,
     closePasswordModal,
+    openSessionsModal,
+    closeSessionsModal,
+    loadIdentitySessions,
+    changeIncludeRevokedSessions,
+    revokeSession,
     submitProfile,
     submitPassword,
     handleLogout,

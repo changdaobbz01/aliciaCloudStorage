@@ -1848,6 +1848,20 @@ select {
   margin-bottom: 18px;
 }
 
+.session-modal-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.session-client-cell {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
 .muted-text {
   color: #94a3b8;
   font-size: 12px;
@@ -1959,9 +1973,15 @@ select {
 
   .header-actions,
   .panel-actions,
+  .session-modal-toolbar,
   .drive-toolbar-left,
   .drive-toolbar-right {
     width: 100%;
+  }
+
+  .session-modal-toolbar {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .header-search {
