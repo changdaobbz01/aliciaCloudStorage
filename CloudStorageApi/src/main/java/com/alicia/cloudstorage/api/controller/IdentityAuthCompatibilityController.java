@@ -16,6 +16,7 @@ import com.alicia.cloudstorage.api.service.IdentityPasswordCompatibilityService;
 import com.alicia.cloudstorage.api.service.IdentityProfileCompatibilityService;
 import com.alicia.cloudstorage.api.service.IdentitySessionCompatibilityService;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -68,15 +69,21 @@ public class IdentityAuthCompatibilityController {
      * 使用手机号、邮箱或账号标识登录，并返回旧版客户端兼容的用户资料。
      */
     @PostMapping("/login")
-    public LoginResponse login(@Valid @RequestBody LoginRequest request) {
+    public LoginResponse login(
+            @Valid @RequestBody LoginRequest request,
+            HttpServletResponse response
+    ) {
+        LegacyIdentityCompatibilityHeaders.markDeprecated(response, "/api/identity/auth/login");
         return identitySessionCompatibilityService.login(request);
     }
 
     @PostMapping("/register/email-code")
     public ApiMessageResponse requestEmailRegistrationCode(
             @Valid @RequestBody RequestEmailRegistrationCodeRequest request,
-            HttpServletRequest servletRequest
+            HttpServletRequest servletRequest,
+            HttpServletResponse response
     ) {
+        LegacyIdentityCompatibilityHeaders.markDeprecated(response, "/api/identity/auth/register/email-code");
         identityEmailRegistrationCompatibilityService.requestRegistrationCode(
                 request.email(),
                 servletRequest.getRemoteAddr(),
@@ -86,7 +93,11 @@ public class IdentityAuthCompatibilityController {
     }
 
     @PostMapping("/register/verify")
-    public LoginResponse verifyEmailRegistration(@Valid @RequestBody VerifyEmailRegistrationRequest request) {
+    public LoginResponse verifyEmailRegistration(
+            @Valid @RequestBody VerifyEmailRegistrationRequest request,
+            HttpServletResponse response
+    ) {
+        LegacyIdentityCompatibilityHeaders.markDeprecated(response, "/api/identity/auth/register/verify");
         return identityEmailRegistrationCompatibilityService.verifyRegistration(request);
     }
 
@@ -108,8 +119,10 @@ public class IdentityAuthCompatibilityController {
     public UserProfileResponse updateProfile(
             @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
-            @Valid @RequestBody UpdateProfileRequest request
+            @Valid @RequestBody UpdateProfileRequest request,
+            HttpServletResponse response
     ) {
+        LegacyIdentityCompatibilityHeaders.markDeprecated(response, "/api/identity/auth/profile");
         return identityProfileCompatibilityService.updateCurrentUser(authorization, request);
     }
 
@@ -144,8 +157,10 @@ public class IdentityAuthCompatibilityController {
     public ApiMessageResponse changePassword(
             @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
-            @Valid @RequestBody ChangePasswordRequest request
+            @Valid @RequestBody ChangePasswordRequest request,
+            HttpServletResponse response
     ) {
+        LegacyIdentityCompatibilityHeaders.markDeprecated(response, "/api/identity/auth/password");
         identityPasswordCompatibilityService.changePassword(authorization, request);
         return new ApiMessageResponse("密码修改成功。");
     }

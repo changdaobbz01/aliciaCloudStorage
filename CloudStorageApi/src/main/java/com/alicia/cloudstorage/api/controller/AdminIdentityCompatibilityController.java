@@ -9,6 +9,7 @@ import com.alicia.cloudstorage.api.dto.UserProfileResponse;
 import com.alicia.cloudstorage.api.service.AdminIdentityCreationCompatibilityService;
 import com.alicia.cloudstorage.api.service.AdminIdentityDirectoryCompatibilityService;
 import com.alicia.cloudstorage.api.service.AdminIdentityPasswordCompatibilityService;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpHeaders;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -65,8 +66,10 @@ public class AdminIdentityCompatibilityController {
             @RequestAttribute(AuthRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
             @PathVariable Long userId,
-            @Valid @RequestBody AdminResetUserPasswordRequest request
+            @Valid @RequestBody AdminResetUserPasswordRequest request,
+            HttpServletResponse response
     ) {
+        LegacyIdentityCompatibilityHeaders.markDeprecated(response, "/api/identity/admin/users/" + userId + "/password");
         adminIdentityPasswordCompatibilityService.resetUserPassword(authorization, userId, request);
         return new ApiMessageResponse("用户密码已重置，旧登录状态已失效。");
     }
