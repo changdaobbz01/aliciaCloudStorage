@@ -2,7 +2,6 @@ package com.alicia.cloudstorage.api.identity;
 
 import com.alicia.cloudstorage.api.auth.AuthException;
 import com.alicia.cloudstorage.api.dto.AdminCreateUserRequest;
-import com.alicia.cloudstorage.api.dto.AdminResetUserPasswordRequest;
 import com.alicia.cloudstorage.api.identity.UserRole;
 import com.alicia.cloudstorage.api.identity.UserStatus;
 import org.junit.jupiter.api.Test;
@@ -102,26 +101,6 @@ class HttpIdentityAdminGatewayTest {
 
         assertThat(account.id()).isEqualTo(8L);
         assertThat(account.phoneNumber()).isEqualTo("13800000001");
-        context.server().verify();
-    }
-
-    @Test
-    void resetUserPasswordDelegatesToIdentityApi() {
-        TestGatewayContext context = newContext();
-        context.server().expect(requestTo("http://identity.test/api/identity/admin/users/8/password"))
-                .andExpect(method(HttpMethod.PUT))
-                .andExpect(header(HttpHeaders.AUTHORIZATION, "Bearer admin-token"))
-                .andExpect(content().string(containsString("\"newPassword\":\"ResetPass1\"")))
-                .andRespond(withSuccess("""
-                        {"message":"用户密码已重置，旧登录状态已失效。"}
-                        """, MediaType.APPLICATION_JSON));
-
-        context.gateway().resetUserPassword(
-                "Bearer admin-token",
-                8L,
-                new AdminResetUserPasswordRequest("ResetPass1")
-        );
-
         context.server().verify();
     }
 

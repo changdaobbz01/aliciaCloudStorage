@@ -11,14 +11,14 @@ import org.springframework.web.multipart.MultipartFile;
 
 @Service
 @Transactional
-public class IdentityAvatarCompatibilityService {
+public class CloudUserAvatarService {
 
     private final IdentityAuthGateway identityAuthGateway;
     private final IdentityUserGateway identityUserGateway;
     private final CloudUserProfileService cloudUserProfileService;
     private final CosFileStorageService cosFileStorageService;
 
-    public IdentityAvatarCompatibilityService(
+    public CloudUserAvatarService(
             IdentityAuthGateway identityAuthGateway,
             IdentityUserGateway identityUserGateway,
             CloudUserProfileService cloudUserProfileService,

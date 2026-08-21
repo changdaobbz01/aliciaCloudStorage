@@ -9,12 +9,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Transactional
-public class AdminIdentityCreationCompatibilityService {
+public class AdminCloudUserCreationService {
 
     private final IdentityAdminGateway identityAdminGateway;
     private final CloudUserProfileService cloudUserProfileService;
 
-    public AdminIdentityCreationCompatibilityService(
+    public AdminCloudUserCreationService(
             IdentityAdminGateway identityAdminGateway,
             CloudUserProfileService cloudUserProfileService
     ) {

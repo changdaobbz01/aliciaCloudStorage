@@ -1,6 +1,5 @@
 package com.alicia.cloudstorage.api.service;
 
-import com.alicia.cloudstorage.api.dto.UpdateProfileRequest;
 import com.alicia.cloudstorage.api.dto.UserProfileResponse;
 import com.alicia.cloudstorage.api.identity.IdentityAuthGateway;
 import com.alicia.cloudstorage.api.identity.IdentityUserSnapshot;
@@ -19,7 +18,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class IdentityProfileCompatibilityServiceTest {
+class CloudCurrentUserServiceTest {
 
     @Mock
     private IdentityAuthGateway identityAuthGateway;
@@ -28,7 +27,7 @@ class IdentityProfileCompatibilityServiceTest {
     private CloudUserProfileService cloudUserProfileService;
 
     @InjectMocks
-    private IdentityProfileCompatibilityService identityProfileCompatibilityService;
+    private CloudCurrentUserService cloudCurrentUserService;
 
     @Test
     void getCurrentUserCombinesIdentityApiUserWithCloudProfileResponse() {
@@ -38,27 +37,10 @@ class IdentityProfileCompatibilityServiceTest {
         when(identityAuthGateway.me("Bearer token")).thenReturn(account);
         when(cloudUserProfileService.getCurrentUser(account)).thenReturn(profile);
 
-        var response = identityProfileCompatibilityService.getCurrentUser("Bearer token");
+        var response = cloudCurrentUserService.getCurrentUser("Bearer token");
 
         assertThat(response).isSameAs(profile);
         verify(identityAuthGateway).me("Bearer token");
-    }
-
-    @Test
-    void updateCurrentUserDelegatesToIdentityApiGateway() {
-        UpdateProfileRequest request =
-                new UpdateProfileRequest("13900000000", "Updated Alicia", "cos:user-avatars/18/new.webp");
-        IdentityUserSnapshot account = identityUserSnapshot(18L, "13900000000", "user@example.com", "Updated Alicia",
-                "cos:user-avatars/18/new.webp");
-        UserProfileResponse profile = profile(account, 4096L, 1024L, 3072L);
-
-        when(identityAuthGateway.updateProfile("Bearer token", request)).thenReturn(account);
-        when(cloudUserProfileService.toUserProfile(account)).thenReturn(profile);
-
-        var response = identityProfileCompatibilityService.updateCurrentUser("Bearer token", request);
-
-        assertThat(response).isSameAs(profile);
-        verify(identityAuthGateway).updateProfile("Bearer token", request);
     }
 
     private IdentityUserSnapshot regularIdentityUserSnapshot(Long id) {

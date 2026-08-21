@@ -9,12 +9,12 @@ import java.util.List;
 
 @Service
 @Transactional(readOnly = true)
-public class AdminIdentityDirectoryCompatibilityService {
+public class AdminCloudUserDirectoryService {
 
     private final IdentityAdminGateway identityAdminGateway;
     private final CloudUserProfileService cloudUserProfileService;
 
-    public AdminIdentityDirectoryCompatibilityService(
+    public AdminCloudUserDirectoryService(
             IdentityAdminGateway identityAdminGateway,
             CloudUserProfileService cloudUserProfileService
     ) {

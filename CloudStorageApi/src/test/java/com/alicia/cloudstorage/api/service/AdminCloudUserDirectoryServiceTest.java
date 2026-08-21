@@ -1,9 +1,7 @@
 package com.alicia.cloudstorage.api.service;
 
-import com.alicia.cloudstorage.api.dto.LoginRequest;
 import com.alicia.cloudstorage.api.dto.UserProfileResponse;
-import com.alicia.cloudstorage.api.identity.IdentityAuthGateway;
-import com.alicia.cloudstorage.api.identity.IdentityLoginSession;
+import com.alicia.cloudstorage.api.identity.IdentityAdminGateway;
 import com.alicia.cloudstorage.api.identity.IdentityUserSnapshot;
 import com.alicia.cloudstorage.api.identity.UserRole;
 import com.alicia.cloudstorage.api.identity.UserStatus;
@@ -14,53 +12,47 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class IdentitySessionCompatibilityServiceTest {
+class AdminCloudUserDirectoryServiceTest {
 
     @Mock
-    private IdentityAuthGateway identityAuthGateway;
+    private IdentityAdminGateway identityAdminGateway;
 
     @Mock
     private CloudUserProfileService cloudUserProfileService;
 
     @InjectMocks
-    private IdentitySessionCompatibilityService identitySessionCompatibilityService;
+    private AdminCloudUserDirectoryService adminCloudUserDirectoryService;
 
     @Test
-    void loginCombinesIdentitySessionWithCloudProfileResponse() {
-        LoginRequest request = new LoginRequest("Email-User@Example.COM", null, null, "Passw0rd");
-        IdentityUserSnapshot account = identityUserSnapshot(18L, "13900000000", "user@example.com", "Alicia", null);
-        UserProfileResponse profile = profile(account, 4096L, 1024L, 3072L);
+    void listUsersCombinesIdentityUserSnapshotsWithCloudProfilesForCompatibleResponses() {
+        IdentityUserSnapshot firstAccount = identityUserSnapshot(7L, UserRole.ADMIN);
+        IdentityUserSnapshot secondAccount = identityUserSnapshot(8L, UserRole.USER);
+        UserProfileResponse firstProfile = profile(firstAccount, null, 1024L, null);
+        UserProfileResponse secondProfile = profile(secondAccount, 4096L, 1536L, 2560L);
 
-        when(identityAuthGateway.login(request)).thenReturn(new IdentityLoginSession("token", account));
-        when(cloudUserProfileService.toUserProfile(account)).thenReturn(profile);
+        when(identityAdminGateway.listUsers("Bearer admin-token")).thenReturn(List.of(firstAccount, secondAccount));
+        when(cloudUserProfileService.toUserProfile(firstAccount)).thenReturn(firstProfile);
+        when(cloudUserProfileService.toUserProfile(secondAccount)).thenReturn(secondProfile);
 
-        var response = identitySessionCompatibilityService.login(request);
+        List<UserProfileResponse> responses = adminCloudUserDirectoryService.listUsers("Bearer admin-token");
 
-        assertThat(response.token()).isEqualTo("token");
-        assertThat(response.user()).isSameAs(profile);
-        verify(identityAuthGateway).login(request);
+        assertThat(responses).containsExactly(firstProfile, secondProfile);
     }
 
-    private IdentityUserSnapshot identityUserSnapshot(
-            Long id,
-            String phoneNumber,
-            String email,
-            String nickname,
-            String avatarUrl
-    ) {
+    private IdentityUserSnapshot identityUserSnapshot(Long id, UserRole role) {
         return new IdentityUserSnapshot(
                 id,
-                phoneNumber,
-                email,
-                nickname,
-                avatarUrl,
-                UserRole.USER,
+                "13900000000",
+                "user@example.com",
+                "Alicia",
+                null,
+                role,
                 UserStatus.ACTIVE,
                 LocalDateTime.of(2026, 4, 29, 15, 30)
         );

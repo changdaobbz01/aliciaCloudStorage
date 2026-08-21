@@ -1,7 +1,6 @@
 package com.alicia.cloudstorage.api.identity;
 
 import com.alicia.cloudstorage.api.dto.AdminCreateUserRequest;
-import com.alicia.cloudstorage.api.dto.AdminResetUserPasswordRequest;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Service;
@@ -62,16 +61,6 @@ public class HttpIdentityAdminGateway implements IdentityAdminGateway {
         }
 
         return response.toSnapshot();
-    }
-
-    @Override
-    public void resetUserPassword(String authorization, Long targetUserId, AdminResetUserPasswordRequest request) {
-        IdentityGatewaySupport.exchange(() -> restClient.put()
-                .uri("/api/identity/admin/users/{userId}/password", targetUserId)
-                .header(HttpHeaders.AUTHORIZATION, authorization)
-                .body(request)
-                .retrieve()
-                .toBodilessEntity(), objectMapper);
     }
 
     private record IdentityCreateUserRequest(

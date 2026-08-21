@@ -1,20 +1,18 @@
 package com.alicia.cloudstorage.api.service;
 
-import com.alicia.cloudstorage.api.dto.LoginRequest;
-import com.alicia.cloudstorage.api.dto.LoginResponse;
+import com.alicia.cloudstorage.api.dto.UserProfileResponse;
 import com.alicia.cloudstorage.api.identity.IdentityAuthGateway;
-import com.alicia.cloudstorage.api.identity.IdentityLoginSession;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Transactional(readOnly = true)
-public class IdentitySessionCompatibilityService {
+public class CloudCurrentUserService {
 
     private final IdentityAuthGateway identityAuthGateway;
     private final CloudUserProfileService cloudUserProfileService;
 
-    public IdentitySessionCompatibilityService(
+    public CloudCurrentUserService(
             IdentityAuthGateway identityAuthGateway,
             CloudUserProfileService cloudUserProfileService
     ) {
@@ -22,8 +20,7 @@ public class IdentitySessionCompatibilityService {
         this.cloudUserProfileService = cloudUserProfileService;
     }
 
-    public LoginResponse login(LoginRequest request) {
-        IdentityLoginSession session = identityAuthGateway.login(request);
-        return new LoginResponse(session.token(), cloudUserProfileService.toUserProfile(session.user()));
+    public UserProfileResponse getCurrentUser(String authorization) {
+        return cloudUserProfileService.getCurrentUser(identityAuthGateway.me(authorization));
     }
 }

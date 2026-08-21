@@ -19,7 +19,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class AdminIdentityCreationCompatibilityServiceTest {
+class AdminCloudUserCreationServiceTest {
 
     @Mock
     private IdentityAdminGateway identityAdminGateway;
@@ -28,7 +28,7 @@ class AdminIdentityCreationCompatibilityServiceTest {
     private CloudUserProfileService cloudUserProfileService;
 
     @InjectMocks
-    private AdminIdentityCreationCompatibilityService adminIdentityCreationCompatibilityService;
+    private AdminCloudUserCreationService adminCloudUserCreationService;
 
     @Test
     void createUserPersistsIdentityThenInitializesCloudProfile() {
@@ -50,7 +50,7 @@ class AdminIdentityCreationCompatibilityServiceTest {
         when(cloudUserProfileService.initializeAdminCreatedUserProfile(1L, account, null, true)).thenReturn(cloudProfile);
         when(cloudUserProfileService.toUserProfile(account, cloudProfile)).thenReturn(responseProfile);
 
-        UserProfileResponse response = adminIdentityCreationCompatibilityService.createUser("Bearer admin-token", 1L, request);
+        UserProfileResponse response = adminCloudUserCreationService.createUser("Bearer admin-token", 1L, request);
 
         assertThat(response).isSameAs(responseProfile);
         verify(identityAdminGateway).createUser("Bearer admin-token", request);

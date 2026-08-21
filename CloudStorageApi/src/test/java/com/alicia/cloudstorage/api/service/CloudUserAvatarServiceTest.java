@@ -26,7 +26,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class IdentityAvatarCompatibilityServiceTest {
+class CloudUserAvatarServiceTest {
 
     @Mock
     private IdentityAuthGateway identityAuthGateway;
@@ -41,7 +41,7 @@ class IdentityAvatarCompatibilityServiceTest {
     private CosFileStorageService cosFileStorageService;
 
     @InjectMocks
-    private IdentityAvatarCompatibilityService identityAvatarCompatibilityService;
+    private CloudUserAvatarService cloudUserAvatarService;
 
     @Test
     void uploadCurrentUserAvatarUpdatesIdentityProfileAndDeletesOldLocalAvatar() {
@@ -69,7 +69,7 @@ class IdentityAvatarCompatibilityServiceTest {
                 .thenReturn(updatedAccount);
         when(cloudUserProfileService.toUserProfile(updatedAccount)).thenReturn(profile);
 
-        var response = identityAvatarCompatibilityService.uploadCurrentUserAvatar("Bearer token", file);
+        var response = cloudUserAvatarService.uploadCurrentUserAvatar("Bearer token", file);
 
         ArgumentCaptor<UpdateProfileRequest> requestCaptor = ArgumentCaptor.forClass(UpdateProfileRequest.class);
         verify(identityAuthGateway).updateProfile(eq("Bearer token"), requestCaptor.capture());
@@ -97,7 +97,7 @@ class IdentityAvatarCompatibilityServiceTest {
         when(identityAuthGateway.updateProfile(eq("Bearer token"), any(UpdateProfileRequest.class)))
                 .thenThrow(new IllegalArgumentException("昵称不能为空。"));
 
-        assertThatThrownBy(() -> identityAvatarCompatibilityService.uploadCurrentUserAvatar("Bearer token", file))
+        assertThatThrownBy(() -> cloudUserAvatarService.uploadCurrentUserAvatar("Bearer token", file))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("昵称不能为空。");
 
@@ -121,7 +121,7 @@ class IdentityAvatarCompatibilityServiceTest {
         when(cosFileStorageService.createInlineDownloadUrl("user-avatars/18/avatar.webp", null, null))
                 .thenReturn(signedUrl);
 
-        var response = identityAvatarCompatibilityService.resolveUserAvatarAccessUrl(18L);
+        var response = cloudUserAvatarService.resolveUserAvatarAccessUrl(18L);
 
         assertThat(response).isSameAs(signedUrl);
         verify(identityUserGateway).getUser(18L);
@@ -139,7 +139,7 @@ class IdentityAvatarCompatibilityServiceTest {
 
         when(identityUserGateway.getUser(18L)).thenReturn(account);
 
-        assertThatThrownBy(() -> identityAvatarCompatibilityService.resolveUserAvatarAccessUrl(18L))
+        assertThatThrownBy(() -> cloudUserAvatarService.resolveUserAvatarAccessUrl(18L))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Avatar not found.");
 
