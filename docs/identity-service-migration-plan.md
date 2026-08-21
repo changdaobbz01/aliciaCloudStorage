@@ -45,6 +45,7 @@
 - `GET /api/identity/admin/users`
 - `POST /api/identity/admin/users`
 - `PUT /api/identity/admin/users/{userId}/password`
+- `GET /api/identity/admin/audit-logs`
 
 当前云盘资料入口：
 
@@ -471,6 +472,7 @@ exp: 过期时间
 | `GET` | `/api/identity/admin/users` | Identity |
 | `POST` | `/api/identity/admin/users` | Identity |
 | `PUT` | `/api/identity/admin/users/{userId}/password` | Identity |
+| `GET` | `/api/identity/admin/audit-logs` | Identity |
 
 后续建议：
 
@@ -936,6 +938,7 @@ Android：
 
 - `/api/health`
 - `/api/identity/auth/me`
+- `/api/identity/admin/audit-logs`
 - `/api/cloud-profile/me`
 - `/api/admin/cloud-users`
 - `/api/storage/overview`
@@ -956,6 +959,7 @@ bash deploy/scripts/verify-identity-cloud-routes.sh
 - Identity 登录、token refresh、logout 后旧 token 失效。
 - `/api/cloud-profile/me` 和 `/api/storage/overview` 使用 identity token。
 - `/api/admin/cloud-users` 管理员入口。
+- `/api/identity/admin/audit-logs` 管理员审计日志查询入口。
 - 旧 `/api/auth/me`、`/api/auth/avatar/{userId}`、`/api/admin/users` 保持 404。
 - `identity_audit_log` 最新记录查询。
 

@@ -168,7 +168,7 @@ curl -X POST http://127.0.0.1:8093/api/identity/auth/register/verify `
 
 当前公网身份入口为 `/api/identity/auth/**` 和 `/api/identity/admin/**`；登录、注册、Token 校验、续签、注销、密码和账号资料写入已经由 `identityApi` 执行。`CloudStorageApi` 负责补齐云盘资料，并通过 `/api/cloud-profile/**` 返回云盘聚合资料、头像和主页背景。
 
-云盘 Web 的纯身份写操作走同域 Identity 公开入口，例如 `/api/identity/auth/profile`、`/api/identity/auth/password` 和 `/api/identity/admin/users/{userId}/password`；头像上传、头像访问、当前用户云盘聚合资料由 `CloudStorageApi` 的 `/api/cloud-profile/me`、`/api/cloud-profile/avatar` 和 `/api/cloud-profile/avatar/{userId}` 提供。管理员云盘聚合用户列表和创建入口统一为 `/api/admin/cloud-users`，云盘容量调整为 `/api/admin/cloud-users/{userId}/quota`。
+云盘 Web 的纯身份写操作走同域 Identity 公开入口，例如 `/api/identity/auth/profile`、`/api/identity/auth/password` 和 `/api/identity/admin/users/{userId}/password`；Identity 管理员审计日志只读查询走 `/api/identity/admin/audit-logs`。头像上传、头像访问、当前用户云盘聚合资料由 `CloudStorageApi` 的 `/api/cloud-profile/me`、`/api/cloud-profile/avatar` 和 `/api/cloud-profile/avatar/{userId}` 提供。管理员云盘聚合用户列表和创建入口统一为 `/api/admin/cloud-users`，云盘容量调整为 `/api/admin/cloud-users/{userId}/quota`。
 
 云盘 Web 会在启动和运行中通过 `/api/identity/auth/token/refresh` 续签登录态，主动退出登录时调用 `/api/identity/auth/logout` 后再清理本地 token；Android 客户端恢复会话和退出登录也使用同一套 Identity 接口。
 
@@ -197,7 +197,7 @@ bash deploy/scripts/update-rag-production.sh
 
 脚本会拒绝覆盖服务端已有的 tracked 改动，确认 `.env` 已配置 DeepSeek，快进拉取 `main`，重建 `rag` 与 `frontend`，最后同时检查 `127.0.0.1:8091/api/health` 和公网 `/rag/api/health`。密钥只保留在服务器 `.env`，不会输出到日志。
 
-生产更新 `api`、`identity` 或前端路由后，可以使用统一回归脚本检查主域路径边界、登录续签、云盘聚合资料、存储概览、管理员云盘用户入口、旧身份路径 404、注销失效和审计日志：
+生产更新 `api`、`identity` 或前端路由后，可以使用统一回归脚本检查主域路径边界、登录续签、云盘聚合资料、存储概览、管理员云盘用户入口、Identity 审计日志查询、旧身份路径 404、注销失效和审计日志最新行：
 
 ```bash
 bash deploy/scripts/verify-identity-cloud-routes.sh

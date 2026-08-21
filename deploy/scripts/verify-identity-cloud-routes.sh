@@ -163,6 +163,9 @@ else
     curl_ok "admin cloud-users route accepts admin identity token" \
         "$CLOUD_BASE_URL/api/admin/cloud-users" \
         -H "Authorization: Bearer $TOKEN"
+    curl_ok "identity audit logs admin route accepts admin identity token" \
+        "$PUBLIC_BASE_URL/api/identity/admin/audit-logs?size=5" \
+        -H "Authorization: Bearer $TOKEN"
 
     expect_status "legacy /api/admin/users remains removed" 404 \
         "$CLOUD_BASE_URL/api/admin/users" \
