@@ -23,31 +23,31 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
 interface AliciaCloudService {
-    @POST("api/auth/login")
+    @POST("api/identity/auth/login")
     suspend fun login(
         @Body payload: LoginPayload,
-    ): Response<LoginResponse>
+    ): Response<IdentityLoginResponse>
 
-    @POST("api/auth/register/email-code")
+    @POST("api/identity/auth/register/email-code")
     suspend fun requestEmailRegistrationCode(
         @Body payload: RequestEmailRegistrationCodePayload,
     ): Response<ApiMessageResponse>
 
-    @POST("api/auth/register/verify")
+    @POST("api/identity/auth/register/verify")
     suspend fun verifyEmailRegistration(
         @Body payload: VerifyEmailRegistrationPayload,
-    ): Response<LoginResponse>
+    ): Response<IdentityLoginResponse>
 
     @GET("api/auth/me")
     suspend fun fetchCurrentUser(
         @Header("Authorization") authorization: String,
     ): Response<User>
 
-    @PUT("api/auth/profile")
+    @PUT("api/identity/auth/profile")
     suspend fun updateProfile(
         @Header("Authorization") authorization: String,
         @Body payload: UpdateProfilePayload,
-    ): Response<User>
+    ): Response<IdentityUser>
 
     @Multipart
     @POST("api/auth/avatar")
@@ -56,7 +56,7 @@ interface AliciaCloudService {
         @Part file: MultipartBody.Part,
     ): Response<User>
 
-    @PUT("api/auth/password")
+    @PUT("api/identity/auth/password")
     suspend fun changePassword(
         @Header("Authorization") authorization: String,
         @Body payload: ChangePasswordPayload,
@@ -124,7 +124,7 @@ interface AliciaCloudService {
         @Body payload: UpdateUserStorageQuotaPayload,
     ): Response<User>
 
-    @PUT("api/admin/users/{userId}/password")
+    @PUT("api/identity/admin/users/{userId}/password")
     suspend fun resetUserPassword(
         @Header("Authorization") authorization: String,
         @Path("userId") userId: Long,

@@ -59,10 +59,13 @@ class AliciaRepository(
         .writeTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
         .build()
 
-    suspend fun login(baseUrl: String, identifier: String, password: String): LoginResponse =
-        serviceFactory.serviceFor(baseUrl)
+    suspend fun login(baseUrl: String, identifier: String, password: String): LoginResponse {
+        val identitySession = serviceFactory.serviceFor(baseUrl)
             .login(LoginPayload(identifier = identifier, password = password))
             .requireBody(fallback = "登录失败，请检查账号和密码。")
+
+        return identitySession.toCloudLoginResponse(baseUrl)
+    }
 
     suspend fun requestEmailRegistrationCode(baseUrl: String, email: String): ApiMessageResponse =
         serviceFactory.serviceFor(baseUrl)
@@ -75,8 +78,8 @@ class AliciaRepository(
         code: String,
         nickname: String,
         password: String,
-    ): LoginResponse =
-        serviceFactory.serviceFor(baseUrl)
+    ): LoginResponse {
+        val identitySession = serviceFactory.serviceFor(baseUrl)
             .verifyEmailRegistration(
                 VerifyEmailRegistrationPayload(
                     email = email,
@@ -86,6 +89,9 @@ class AliciaRepository(
                 ),
             )
             .requireBody(fallback = "注册失败，请检查验证码后再试。")
+
+        return identitySession.toCloudLoginResponse(baseUrl)
+    }
 
     suspend fun fetchCurrentUser(baseUrl: String, token: String): User =
         serviceFactory.serviceFor(baseUrl)
@@ -98,7 +104,7 @@ class AliciaRepository(
         phoneNumber: String,
         nickname: String,
         avatarUrl: String?,
-    ): User =
+    ): User {
         serviceFactory.serviceFor(baseUrl)
             .updateProfile(
                 authorization = authorization(token),
@@ -109,6 +115,9 @@ class AliciaRepository(
                 ),
             )
             .requireBody(fallback = "更新个人资料失败。")
+
+        return fetchCurrentUser(baseUrl, token)
+    }
 
     suspend fun uploadCurrentUserAvatar(
         context: Context,
@@ -285,6 +294,12 @@ class AliciaRepository(
                 ),
             )
             .requireBody(fallback = "重置用户密码失败。")
+
+    private suspend fun IdentityLoginResponse.toCloudLoginResponse(baseUrl: String): LoginResponse =
+        LoginResponse(
+            token = token,
+            user = fetchCurrentUser(baseUrl, token),
+        )
 
     suspend fun createFolder(
         baseUrl: String,

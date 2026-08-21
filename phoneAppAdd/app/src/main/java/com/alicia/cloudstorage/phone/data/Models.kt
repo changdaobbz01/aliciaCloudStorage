@@ -74,6 +74,24 @@ data class LoginResponse(
     val user: User,
 )
 
+data class IdentityLoginResponse(
+    val token: String,
+    val user: IdentityUser,
+)
+
+data class IdentityUser(
+    val id: Long,
+    val phoneNumber: String?,
+    val email: String?,
+    val emailVerifiedAt: String?,
+    val nickname: String,
+    val avatarUrl: String?,
+    val tokenVersion: Long,
+    val role: UserRole,
+    val status: UserStatus,
+    val createdAt: String,
+)
+
 data class ApiMessageResponse(
     val message: String,
 )
