@@ -6,6 +6,7 @@ import com.alicia.cloudstorage.identity.dto.IdentityLoginResponse;
 import com.alicia.cloudstorage.identity.dto.IdentityLogoutRequest;
 import com.alicia.cloudstorage.identity.dto.IdentityMessageResponse;
 import com.alicia.cloudstorage.identity.dto.IdentityRefreshTokenRequest;
+import com.alicia.cloudstorage.identity.dto.IdentitySessionResponse;
 import com.alicia.cloudstorage.identity.dto.IdentityUserResponse;
 import com.alicia.cloudstorage.identity.dto.RequestEmailRegistrationCodeRequest;
 import com.alicia.cloudstorage.identity.dto.UpdateIdentityProfileRequest;
@@ -14,16 +15,22 @@ import com.alicia.cloudstorage.identity.service.IdentityAuthService;
 import com.alicia.cloudstorage.identity.service.IdentityEmailRegistrationService;
 import com.alicia.cloudstorage.identity.service.IdentityPasswordService;
 import com.alicia.cloudstorage.identity.service.IdentityProfileService;
+import com.alicia.cloudstorage.identity.service.IdentitySessionService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpHeaders;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/identity/auth")
@@ -35,17 +42,20 @@ public class IdentityAuthController {
     private final IdentityEmailRegistrationService identityEmailRegistrationService;
     private final IdentityPasswordService identityPasswordService;
     private final IdentityProfileService identityProfileService;
+    private final IdentitySessionService identitySessionService;
 
     public IdentityAuthController(
             IdentityAuthService identityAuthService,
             IdentityEmailRegistrationService identityEmailRegistrationService,
             IdentityPasswordService identityPasswordService,
-            IdentityProfileService identityProfileService
+            IdentityProfileService identityProfileService,
+            IdentitySessionService identitySessionService
     ) {
         this.identityAuthService = identityAuthService;
         this.identityEmailRegistrationService = identityEmailRegistrationService;
         this.identityPasswordService = identityPasswordService;
         this.identityProfileService = identityProfileService;
+        this.identitySessionService = identitySessionService;
     }
 
     @PostMapping("/login")
@@ -88,6 +98,23 @@ public class IdentityAuthController {
     ) {
         identityAuthService.logout(authorization, request);
         return new IdentityMessageResponse("已退出登录。");
+    }
+
+    @GetMapping("/sessions")
+    public List<IdentitySessionResponse> listSessions(
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
+            @RequestParam(required = false) Boolean includeRevoked
+    ) {
+        return identitySessionService.listCurrentUserSessions(authorization, includeRevoked);
+    }
+
+    @DeleteMapping("/sessions/{sessionId}")
+    public IdentityMessageResponse revokeSession(
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
+            @PathVariable Long sessionId
+    ) {
+        identitySessionService.revokeCurrentUserSession(authorization, sessionId);
+        return new IdentityMessageResponse("登录会话已撤销。");
     }
 
     @PutMapping("/profile")

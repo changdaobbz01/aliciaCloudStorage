@@ -158,6 +158,15 @@ TOKEN="$REFRESHED_TOKEN"
 REFRESH_TOKEN="$REFRESHED_REFRESH_TOKEN"
 ok "identity token refresh issued replacement token (${#TOKEN} chars) and refresh token (${#REFRESH_TOKEN} chars)"
 
+sessions_response="$(curl -fsS "${CURL_ARGS[@]}" \
+    "$PUBLIC_BASE_URL/api/identity/auth/sessions" \
+    -H "Authorization: Bearer $TOKEN")"
+SESSION_ID="$(printf '%s' "$sessions_response" | tr -d '\n' | extract_json_number id)"
+if [[ -z "$SESSION_ID" ]]; then
+    fail "identity session list did not return a session id"
+fi
+ok "identity session list returned session $SESSION_ID"
+
 profile_response="$(curl -fsS "${CURL_ARGS[@]}" \
     "$CLOUD_BASE_URL/api/cloud-profile/me" \
     -H "Authorization: Bearer $TOKEN")"

@@ -7,6 +7,7 @@ import com.alicia.cloudstorage.identity.repository.IdentityUserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -30,6 +31,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -112,6 +114,85 @@ class IdentityRefreshTokenServiceTest {
                 .hasMessage("登录状态已失效。");
     }
 
+    @Test
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    void listUserSessionsReturnsActiveSessionsAndMarksCurrentSession() throws Exception {
+        when(jdbcTemplate.query(anyString(), any(RowMapper.class), eq(18L)))
+                .thenAnswer(invocation -> {
+                    RowMapper rowMapper = invocation.getArgument(1);
+                    return List.of(rowMapper.mapRow(sessionRow(51L, null), 0));
+                });
+
+        var sessions = service.listUserSessions(18L, 51L, false);
+
+        assertThat(sessions).hasSize(1);
+        assertThat(sessions.getFirst().id()).isEqualTo(51L);
+        assertThat(sessions.getFirst().current()).isTrue();
+        assertThat(sessions.getFirst().clientIp()).isEqualTo("203.0.113.8");
+        assertThat(sessions.getFirst().userAgent()).isEqualTo("JUnit");
+        assertThat(sessions.getFirst().revokedAt()).isNull();
+
+        ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+        verify(jdbcTemplate).query(sqlCaptor.capture(), any(RowMapper.class), eq(18L));
+        assertThat(sqlCaptor.getValue()).contains("FROM identity_refresh_token")
+                .contains("user_id = ?")
+                .contains("revoked_at IS NULL")
+                .doesNotContain("token_hash");
+    }
+
+    @Test
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    void listUserSessionsCanIncludeRevokedSessions() throws Exception {
+        when(jdbcTemplate.query(anyString(), any(RowMapper.class), eq(18L)))
+                .thenAnswer(invocation -> {
+                    RowMapper rowMapper = invocation.getArgument(1);
+                    return List.of(rowMapper.mapRow(
+                            sessionRow(52L, LocalDateTime.of(2026, 8, 21, 16, 45)),
+                            0
+                    ));
+                });
+
+        var sessions = service.listUserSessions(18L, 51L, true);
+
+        assertThat(sessions).hasSize(1);
+        assertThat(sessions.getFirst().id()).isEqualTo(52L);
+        assertThat(sessions.getFirst().current()).isFalse();
+        assertThat(sessions.getFirst().revokedAt()).isEqualTo(LocalDateTime.of(2026, 8, 21, 16, 45));
+        assertThat(sessions.getFirst().revokeReason()).isEqualTo("logout");
+    }
+
+    @Test
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    void revokeUserSessionRevokesOnlyOwnedSession() throws Exception {
+        when(jdbcTemplate.query(anyString(), any(RowMapper.class), eq(51L)))
+                .thenAnswer(invocation -> {
+                    RowMapper rowMapper = invocation.getArgument(1);
+                    return List.of(rowMapper.mapRow(ownerRow(18L), 0));
+                });
+        when(jdbcTemplate.update(anyString(), any(), eq("user_revoke_session"), eq(51L)))
+                .thenReturn(1);
+
+        service.revokeUserSession(18L, 51L, "user_revoke_session");
+
+        verify(jdbcTemplate).update(anyString(), any(), eq("user_revoke_session"), eq(51L));
+    }
+
+    @Test
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    void revokeUserSessionRejectsForeignSession() throws Exception {
+        when(jdbcTemplate.query(anyString(), any(RowMapper.class), eq(51L)))
+                .thenAnswer(invocation -> {
+                    RowMapper rowMapper = invocation.getArgument(1);
+                    return List.of(rowMapper.mapRow(ownerRow(99L), 0));
+                });
+
+        assertThatThrownBy(() -> service.revokeUserSession(18L, 51L, "user_revoke_session"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("登录会话不存在。");
+
+        verify(jdbcTemplate, never()).update(anyString(), any(), any(), any());
+    }
+
     @SuppressWarnings({"rawtypes", "unchecked"})
     private void stubSessionQuery(ResultSet resultSet) throws Exception {
         when(jdbcTemplate.query(anyString(), any(RowMapper.class), any()))
@@ -140,6 +221,30 @@ class IdentityRefreshTokenServiceTest {
         when(resultSet.getTimestamp("revoked_at"))
                 .thenReturn(revokedAt == null ? null : Timestamp.valueOf(revokedAt));
         when(resultSet.getString("revoke_reason")).thenReturn(null);
+        return resultSet;
+    }
+
+    private ResultSet sessionRow(Long id, LocalDateTime revokedAt) throws Exception {
+        ResultSet resultSet = mock(ResultSet.class);
+        when(resultSet.getLong("id")).thenReturn(id);
+        when(resultSet.getTimestamp("issued_at"))
+                .thenReturn(Timestamp.valueOf(LocalDateTime.of(2026, 8, 21, 16, 0)));
+        when(resultSet.getTimestamp("last_used_at"))
+                .thenReturn(Timestamp.valueOf(LocalDateTime.of(2026, 8, 21, 16, 30)));
+        when(resultSet.getTimestamp("expires_at"))
+                .thenReturn(Timestamp.valueOf(LocalDateTime.of(2026, 9, 20, 16, 0)));
+        when(resultSet.getTimestamp("revoked_at"))
+                .thenReturn(revokedAt == null ? null : Timestamp.valueOf(revokedAt));
+        when(resultSet.getString("revoke_reason"))
+                .thenReturn(revokedAt == null ? null : "logout");
+        when(resultSet.getString("client_ip")).thenReturn("203.0.113.8");
+        when(resultSet.getString("user_agent")).thenReturn("JUnit");
+        return resultSet;
+    }
+
+    private ResultSet ownerRow(Long userId) throws Exception {
+        ResultSet resultSet = mock(ResultSet.class);
+        when(resultSet.getLong("user_id")).thenReturn(userId);
         return resultSet;
     }
 

@@ -1,5 +1,6 @@
 package com.alicia.cloudstorage.identity.service;
 
+import com.alicia.cloudstorage.identity.dto.IdentitySessionResponse;
 import com.alicia.cloudstorage.identity.entity.IdentityUser;
 import com.alicia.cloudstorage.identity.entity.IdentityUserStatus;
 import com.alicia.cloudstorage.identity.repository.IdentityUserRepository;
@@ -39,12 +40,22 @@ public class IdentityRefreshTokenService {
             ) VALUES (?, ?, ?, ?, ?, ?, ?)
             """;
     private static final String SELECT_ACTIVE_BY_HASH_SQL = """
-            SELECT id, user_id, token_hash, token_version, issued_at, last_used_at, expires_at, revoked_at, revoke_reason
+            SELECT id, user_id, token_hash, token_version, issued_at, last_used_at, expires_at, revoked_at, revoke_reason, client_ip, user_agent
             FROM identity_refresh_token
             WHERE token_hash = ?
             """;
     private static final String SELECT_ACTIVE_BY_ID_SQL = """
-            SELECT id, user_id, token_hash, token_version, issued_at, last_used_at, expires_at, revoked_at, revoke_reason
+            SELECT id, user_id, token_hash, token_version, issued_at, last_used_at, expires_at, revoked_at, revoke_reason, client_ip, user_agent
+            FROM identity_refresh_token
+            WHERE id = ?
+            """;
+    private static final String SELECT_USER_SESSIONS_SQL = """
+            SELECT id, issued_at, last_used_at, expires_at, revoked_at, revoke_reason, client_ip, user_agent
+            FROM identity_refresh_token
+            WHERE user_id = ?
+            """;
+    private static final String SELECT_SESSION_OWNER_SQL = """
+            SELECT user_id
             FROM identity_refresh_token
             WHERE id = ?
             """;
@@ -192,6 +203,38 @@ public class IdentityRefreshTokenService {
         );
     }
 
+    @Transactional(readOnly = true)
+    public List<IdentitySessionResponse> listUserSessions(
+            Long userId,
+            Long currentSessionId,
+            boolean includeRevoked
+    ) {
+        String sql = SELECT_USER_SESSIONS_SQL
+                + (includeRevoked ? "" : " AND revoked_at IS NULL")
+                + " ORDER BY CASE WHEN revoked_at IS NULL THEN 0 ELSE 1 END, COALESCE(last_used_at, issued_at) DESC, id DESC";
+
+        return jdbcTemplate.query(
+                sql,
+                (resultSet, rowNumber) -> mapSessionResponse(resultSet, currentSessionId),
+                userId
+        );
+    }
+
+    @Transactional
+    public void revokeUserSession(Long userId, Long sessionId, String reason) {
+        List<Long> owners = jdbcTemplate.query(
+                SELECT_SESSION_OWNER_SQL,
+                (resultSet, rowNumber) -> resultSet.getLong("user_id"),
+                sessionId
+        );
+
+        if (owners.isEmpty() || !owners.get(0).equals(userId)) {
+            throw new IllegalArgumentException("登录会话不存在。");
+        }
+
+        revokeSession(sessionId, reason);
+    }
+
     private StoredRefreshSession requireStoredSessionByHash(String refreshToken) {
         String rawToken = normalize(refreshToken, 512);
         if (rawToken == null) {
@@ -237,7 +280,29 @@ public class IdentityRefreshTokenService {
                 lastUsedAt == null ? null : lastUsedAt.toLocalDateTime(),
                 resultSet.getTimestamp("expires_at").toLocalDateTime(),
                 revokedAt == null ? null : revokedAt.toLocalDateTime(),
-                resultSet.getString("revoke_reason")
+                resultSet.getString("revoke_reason"),
+                resultSet.getString("client_ip"),
+                resultSet.getString("user_agent")
+        );
+    }
+
+    private IdentitySessionResponse mapSessionResponse(
+            java.sql.ResultSet resultSet,
+            Long currentSessionId
+    ) throws java.sql.SQLException {
+        Long sessionId = resultSet.getLong("id");
+        Timestamp lastUsedAt = resultSet.getTimestamp("last_used_at");
+        Timestamp revokedAt = resultSet.getTimestamp("revoked_at");
+        return new IdentitySessionResponse(
+                sessionId,
+                resultSet.getTimestamp("issued_at").toLocalDateTime(),
+                lastUsedAt == null ? null : lastUsedAt.toLocalDateTime(),
+                resultSet.getTimestamp("expires_at").toLocalDateTime(),
+                revokedAt == null ? null : revokedAt.toLocalDateTime(),
+                resultSet.getString("revoke_reason"),
+                resultSet.getString("client_ip"),
+                resultSet.getString("user_agent"),
+                currentSessionId != null && currentSessionId.equals(sessionId)
         );
     }
 
@@ -330,7 +395,9 @@ public class IdentityRefreshTokenService {
             LocalDateTime lastUsedAt,
             LocalDateTime expiresAt,
             LocalDateTime revokedAt,
-            String revokeReason
+            String revokeReason,
+            String clientIp,
+            String userAgent
     ) {
     }
 }

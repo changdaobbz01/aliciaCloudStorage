@@ -40,6 +40,8 @@
 - `GET /api/identity/auth/me`
 - `POST /api/identity/auth/token/refresh`
 - `POST /api/identity/auth/logout`
+- `GET /api/identity/auth/sessions`
+- `DELETE /api/identity/auth/sessions/{sessionId}`
 - `PUT /api/identity/auth/profile`
 - `PUT /api/identity/auth/password`
 - `GET /api/identity/admin/users`
@@ -477,6 +479,8 @@ exp: 过期时间
 | `GET` | `/api/identity/auth/me` | Identity |
 | `POST` | `/api/identity/auth/token/refresh` | Identity |
 | `POST` | `/api/identity/auth/logout` | Identity |
+| `GET` | `/api/identity/auth/sessions` | Identity |
+| `DELETE` | `/api/identity/auth/sessions/{sessionId}` | Identity |
 | `PUT` | `/api/identity/auth/profile` | Identity |
 | `PUT` | `/api/identity/auth/password` | Identity |
 | `GET` | `/api/identity/admin/users` | Identity |
@@ -740,6 +744,8 @@ AliciaCloudStorage/identityApi
 - 内部当前用户接口：`GET /api/identity/auth/me`。
 - 内部 Token 续签接口：`POST /api/identity/auth/token/refresh`，优先使用 `refreshToken` 请求体并轮换刷新令牌。
 - 内部注销接口：`POST /api/identity/auth/logout`，默认撤销当前 refresh 会话，`allDevices=true` 时递增 `token_version` 并撤销全部 refresh 会话。
+- 内部会话查询接口：`GET /api/identity/auth/sessions`，返回当前用户刷新会话元数据，不暴露 refresh token 或 token hash。
+- 内部会话撤销接口：`DELETE /api/identity/auth/sessions/{sessionId}`，只允许撤销当前用户自己的刷新会话。
 - 内部邮箱验证码发送接口：`POST /api/identity/auth/register/email-code`。
 - 内部邮箱验证码注册接口：`POST /api/identity/auth/register/verify`。
 - 邮件发送配置：`alicia.mail.*`，identity 容器复用现有 SMTP 环境变量。
@@ -796,6 +802,8 @@ identityApi
 - `GET http://127.0.0.1:8093/api/identity/auth/me` 可用 identity token 读取当前用户。
 - `POST http://127.0.0.1:8093/api/identity/auth/token/refresh` 可使用 refreshToken 续签并轮换刷新令牌。
 - `POST http://127.0.0.1:8093/api/identity/auth/logout` 可撤销当前 refresh 会话，或通过 `allDevices=true` 让当前用户所有 token 失效。
+- `GET http://127.0.0.1:8093/api/identity/auth/sessions` 可读取当前账号刷新会话列表。
+- `DELETE http://127.0.0.1:8093/api/identity/auth/sessions/{sessionId}` 可撤销当前账号自己的指定刷新会话。
 - `POST http://127.0.0.1:8093/api/identity/auth/register/email-code` 可发送注册验证码。
 - `POST http://127.0.0.1:8093/api/identity/auth/register/verify` 可创建邮箱注册身份用户并返回 identity token。
 - 使用 identity 注册返回的 token 请求 CloudStorageApi 受保护接口时，CloudStorageApi 会自动补建 `cloud_user_profile`。
@@ -969,7 +977,7 @@ bash deploy/scripts/verify-identity-cloud-routes.sh
 脚本覆盖：
 
 - 直连与前端 Nginx health。
-- Identity 登录、refresh token 下发与轮换、logout 后 refresh token 和当前 access token 失效。
+- Identity 登录、refresh token 下发与轮换、刷新会话查询、logout 后 refresh token 和当前 access token 失效。
 - `/api/cloud-profile/me` 和 `/api/storage/overview` 使用 identity token。
 - `/api/admin/cloud-users` 管理员入口。
 - `/api/identity/admin/audit-logs` 管理员审计日志查询入口。
@@ -1017,8 +1025,9 @@ Web 和 Android：
 
 1. 保持旧 `sys_user.storage_quota_bytes` 和 `sys_user.home_background_url` 一个版本周期不删，只观察不写入。
 2. 继续观察 Identity 审计日志写入、查询接口和 Web 管理页筛选结果。
-3. 观察 `identity_refresh_token` 的生产写入、轮换和撤销结果，并补齐主站 `/login` 对 `refreshToken` 的保存。
-4. 将当前自定义 HMAC token 迁移到标准 JWT，并准备 JWKS 公钥发布。
-5. 评估 `sys_user` 是否继续作为 identity 表名，或迁移到独立 schema / `identity_user`。
+3. 观察 `identity_refresh_token` 的生产写入、轮换、会话查询和指定会话撤销结果。
+4. 给 Web/主站补一个轻量会话管理入口，允许用户查看设备会话并撤销非当前会话。
+5. 将当前自定义 HMAC token 迁移到标准 JWT，并准备 JWKS 公钥发布。
+6. 评估 `sys_user` 是否继续作为 identity 表名，或迁移到独立 schema / `identity_user`。
 
 这一步完成后，当前文档基线已经与生产架构对齐：Identity 负责身份，CloudStorageApi 负责云盘，主站负责统一入口。后续新增工具只需要接入 Identity，不应该再直接复用或写入云盘的用户资料表。

@@ -2,12 +2,14 @@ package com.alicia.cloudstorage.identity.controller;
 
 import com.alicia.cloudstorage.identity.dto.IdentityLoginRequest;
 import com.alicia.cloudstorage.identity.dto.IdentityLoginResponse;
+import com.alicia.cloudstorage.identity.dto.IdentitySessionResponse;
 import com.alicia.cloudstorage.identity.dto.IdentityUserResponse;
 import com.alicia.cloudstorage.identity.dto.VerifyEmailRegistrationRequest;
 import com.alicia.cloudstorage.identity.service.IdentityAuthService;
 import com.alicia.cloudstorage.identity.service.IdentityEmailRegistrationService;
 import com.alicia.cloudstorage.identity.service.IdentityPasswordService;
 import com.alicia.cloudstorage.identity.service.IdentityProfileService;
+import com.alicia.cloudstorage.identity.service.IdentitySessionService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -17,12 +19,14 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -46,6 +50,9 @@ class IdentityAuthControllerTest {
 
     @MockitoBean
     private IdentityProfileService identityProfileService;
+
+    @MockitoBean
+    private IdentitySessionService identitySessionService;
 
     @Test
     void loginReturnsTokenAndIdentityUserWithoutPasswordHash() throws Exception {
@@ -141,6 +148,46 @@ class IdentityAuthControllerTest {
                 .andExpect(jsonPath("$.message").value("已退出登录。"));
 
         verify(identityAuthService).logout(eq("Bearer token"), isNull());
+    }
+
+    @Test
+    void listSessionsReturnsCurrentUserSessions() throws Exception {
+        IdentitySessionResponse session = new IdentitySessionResponse(
+                51L,
+                LocalDateTime.of(2026, 8, 21, 16, 0),
+                LocalDateTime.of(2026, 8, 21, 16, 30),
+                LocalDateTime.of(2026, 9, 20, 16, 0),
+                null,
+                null,
+                "203.0.113.8",
+                "JUnit",
+                true
+        );
+
+        when(identitySessionService.listCurrentUserSessions("Bearer token", true))
+                .thenReturn(List.of(session));
+
+        mockMvc.perform(get("/api/identity/auth/sessions")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer token")
+                        .param("includeRevoked", "true"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(51))
+                .andExpect(jsonPath("$[0].lastUsedAt").value("2026-08-21T16:30:00"))
+                .andExpect(jsonPath("$[0].clientIp").value("203.0.113.8"))
+                .andExpect(jsonPath("$[0].userAgent").value("JUnit"))
+                .andExpect(jsonPath("$[0].current").value(true));
+
+        verify(identitySessionService).listCurrentUserSessions("Bearer token", true);
+    }
+
+    @Test
+    void revokeSessionReturnsSuccessMessage() throws Exception {
+        mockMvc.perform(delete("/api/identity/auth/sessions/51")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer token"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("登录会话已撤销。"));
+
+        verify(identitySessionService).revokeCurrentUserSession("Bearer token", 51L);
     }
 
     @Test
