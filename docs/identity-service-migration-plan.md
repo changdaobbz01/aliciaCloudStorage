@@ -944,6 +944,21 @@ Android：
 - `/login`
 - `/cloudPan/`
 
+生产更新 `api`、`identity` 或前端 Nginx 后，可在服务器仓库内执行：
+
+```bash
+bash deploy/scripts/verify-identity-cloud-routes.sh
+```
+
+脚本覆盖：
+
+- 直连与前端 Nginx health。
+- Identity 登录、token refresh、logout 后旧 token 失效。
+- `/api/cloud-profile/me` 和 `/api/storage/overview` 使用 identity token。
+- `/api/admin/cloud-users` 管理员入口。
+- 旧 `/api/auth/me`、`/api/auth/avatar/{userId}`、`/api/admin/users` 保持 404。
+- `identity_audit_log` 最新记录查询。
+
 ## 14. 当前优先整改位置
 
 当前第一轮身份拆分已经落地，后续重点转为增强 Identity 独立性和清理历史字段。

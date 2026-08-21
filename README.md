@@ -197,6 +197,14 @@ bash deploy/scripts/update-rag-production.sh
 
 脚本会拒绝覆盖服务端已有的 tracked 改动，确认 `.env` 已配置 DeepSeek，快进拉取 `main`，重建 `rag` 与 `frontend`，最后同时检查 `127.0.0.1:8091/api/health` 和公网 `/rag/api/health`。密钥只保留在服务器 `.env`，不会输出到日志。
 
+生产更新 `api`、`identity` 或前端路由后，可以使用统一回归脚本检查主域路径边界、登录续签、云盘聚合资料、存储概览、管理员云盘用户入口、旧身份路径 404、注销失效和审计日志：
+
+```bash
+bash deploy/scripts/verify-identity-cloud-routes.sh
+```
+
+脚本默认验证 `http://127.0.0.1:8090`、`http://127.0.0.1:8093` 和 `https://127.0.0.1`；如需改为域名验证，可设置 `ALICIA_PUBLIC_BASE_URL=https://windwindwind-alicia.cn`。完整管理员检查需要使用管理员账号；普通账号可临时设置 `ALICIA_VERIFY_SKIP_ADMIN_CHECK=true`。
+
 生产服务器建议把 `origin` 指向 Gitee，以减少 GitHub 连接失败造成的更新中断：
 
 ```bash
