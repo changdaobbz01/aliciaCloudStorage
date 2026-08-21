@@ -2,6 +2,8 @@ package com.alicia.cloudstorage.identity.service;
 
 import com.alicia.cloudstorage.identity.dto.IdentityLoginRequest;
 import com.alicia.cloudstorage.identity.dto.IdentityLoginResponse;
+import com.alicia.cloudstorage.identity.dto.IdentityLogoutRequest;
+import com.alicia.cloudstorage.identity.dto.IdentityRefreshTokenRequest;
 import com.alicia.cloudstorage.identity.dto.IdentityUserResponse;
 import com.alicia.cloudstorage.identity.entity.IdentityUser;
 import com.alicia.cloudstorage.identity.entity.IdentityUserStatus;
@@ -19,6 +21,7 @@ public class IdentityAuthService {
     private final IdentityPrincipalService identityPrincipalService;
     private final IdentityUserInputNormalizer identityUserInputNormalizer;
     private final IdentityAuditLogService identityAuditLogService;
+    private final IdentityRefreshTokenService identityRefreshTokenService;
 
     public IdentityAuthService(
             IdentityUserRepository identityUserRepository,
@@ -26,7 +29,8 @@ public class IdentityAuthService {
             IdentityTokenService identityTokenService,
             IdentityPrincipalService identityPrincipalService,
             IdentityUserInputNormalizer identityUserInputNormalizer,
-            IdentityAuditLogService identityAuditLogService
+            IdentityAuditLogService identityAuditLogService,
+            IdentityRefreshTokenService identityRefreshTokenService
     ) {
         this.identityUserRepository = identityUserRepository;
         this.identityCredentialService = identityCredentialService;
@@ -34,9 +38,11 @@ public class IdentityAuthService {
         this.identityPrincipalService = identityPrincipalService;
         this.identityUserInputNormalizer = identityUserInputNormalizer;
         this.identityAuditLogService = identityAuditLogService;
+        this.identityRefreshTokenService = identityRefreshTokenService;
     }
 
-    public IdentityLoginResponse login(IdentityLoginRequest request) {
+    @Transactional
+    public IdentityLoginResponse login(IdentityLoginRequest request, String clientAddress, String userAgent) {
         LoginIdentifier loginIdentifier = null;
         try {
             loginIdentifier = normalizeLoginIdentifier(request);
@@ -55,10 +61,7 @@ public class IdentityAuthService {
                 throw new IdentityAuthException("当前账号已停用。");
             }
 
-            IdentityLoginResponse response = new IdentityLoginResponse(
-                    identityTokenService.createToken(user),
-                    IdentityUserResponse.from(user)
-            );
+            IdentityLoginResponse response = createSessionResponse(user, clientAddress, userAgent);
             identityAuditLogService.record(
                     IdentityAuditEventType.LOGIN,
                     IdentityAuditOutcome.SUCCESS,
@@ -85,14 +88,31 @@ public class IdentityAuthService {
         return IdentityUserResponse.from(identityPrincipalService.requireActiveUser(authorizationHeader));
     }
 
-    public IdentityLoginResponse refreshToken(String authorizationHeader) {
+    @Transactional
+    public IdentityLoginResponse refreshToken(
+            String authorizationHeader,
+            IdentityRefreshTokenRequest request,
+            String clientAddress,
+            String userAgent
+    ) {
         IdentityUser user = null;
         try {
-            user = identityPrincipalService.requireActiveUser(authorizationHeader);
-            IdentityLoginResponse response = new IdentityLoginResponse(
-                    identityTokenService.createToken(user),
-                    IdentityUserResponse.from(user)
-            );
+            IdentityLoginResponse response;
+            if (hasRefreshToken(request)) {
+                IdentityRefreshTokenService.RefreshedIdentitySession session =
+                        identityRefreshTokenService.rotate(request.refreshToken(), clientAddress, userAgent);
+                user = session.user();
+                response = createSessionResponse(user, session.sessionId(), session.refreshToken());
+            } else {
+                IdentityPrincipalService.IdentityPrincipal principal =
+                        identityPrincipalService.requireActivePrincipal(authorizationHeader);
+                user = principal.user();
+                Long legacySessionId = principal.tokenClaims().refreshSessionId();
+                if (legacySessionId != null) {
+                    identityRefreshTokenService.revokeSession(legacySessionId, "legacy_refresh_replaced");
+                }
+                response = createSessionResponse(user, clientAddress, userAgent);
+            }
             identityAuditLogService.record(
                     IdentityAuditEventType.TOKEN_REFRESH,
                     IdentityAuditOutcome.SUCCESS,
@@ -116,19 +136,34 @@ public class IdentityAuthService {
     }
 
     @Transactional
-    public void logout(String authorizationHeader) {
+    public void logout(String authorizationHeader, IdentityLogoutRequest request) {
         IdentityUser user = null;
         try {
-            user = identityPrincipalService.requireActiveUser(authorizationHeader);
-            user.incrementTokenVersion();
-            identityUserRepository.save(user);
+            IdentityPrincipalService.IdentityPrincipal principal =
+                    identityPrincipalService.requireActivePrincipal(authorizationHeader);
+            user = principal.user();
+            String detail = "current_session";
+
+            if (request != null && request.logoutAllDevices()) {
+                identityRefreshTokenService.revokeAllForUser(user.getId(), "logout_all_devices");
+                user.incrementTokenVersion();
+                identityUserRepository.save(user);
+                detail = "all_devices";
+            } else if (principal.tokenClaims().refreshSessionId() != null) {
+                identityRefreshTokenService.revokeSession(principal.tokenClaims().refreshSessionId(), "logout");
+            } else {
+                user.incrementTokenVersion();
+                identityUserRepository.save(user);
+                detail = "legacy_all_devices";
+            }
+
             identityAuditLogService.record(
                     IdentityAuditEventType.LOGOUT,
                     IdentityAuditOutcome.SUCCESS,
                     user.getId(),
                     user.getId(),
                     userIdentifier(user),
-                    null
+                    detail
             );
         } catch (RuntimeException ex) {
             identityAuditLogService.record(
@@ -141,6 +176,24 @@ public class IdentityAuthService {
             );
             throw ex;
         }
+    }
+
+    private IdentityLoginResponse createSessionResponse(IdentityUser user, String clientAddress, String userAgent) {
+        IdentityRefreshTokenService.IssuedRefreshToken refreshToken =
+                identityRefreshTokenService.issue(user, clientAddress, userAgent);
+        return createSessionResponse(user, refreshToken.sessionId(), refreshToken.token());
+    }
+
+    private IdentityLoginResponse createSessionResponse(IdentityUser user, Long refreshSessionId, String refreshToken) {
+        return new IdentityLoginResponse(
+                identityTokenService.createToken(user, refreshSessionId),
+                refreshToken,
+                IdentityUserResponse.from(user)
+        );
+    }
+
+    private boolean hasRefreshToken(IdentityRefreshTokenRequest request) {
+        return request != null && request.refreshToken() != null && !request.refreshToken().isBlank();
     }
 
     private String rawLoginIdentifier(IdentityLoginRequest request) {

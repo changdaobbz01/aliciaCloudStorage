@@ -31,11 +31,13 @@ interface AliciaCloudService {
     @POST("api/identity/auth/token/refresh")
     suspend fun refreshToken(
         @Header("Authorization") authorization: String,
+        @Body payload: RefreshTokenPayload,
     ): Response<IdentityLoginResponse>
 
     @POST("api/identity/auth/logout")
     suspend fun logout(
         @Header("Authorization") authorization: String,
+        @Body payload: LogoutPayload,
     ): Response<ApiMessageResponse>
 
     @GET("api/cloud-profile/me")

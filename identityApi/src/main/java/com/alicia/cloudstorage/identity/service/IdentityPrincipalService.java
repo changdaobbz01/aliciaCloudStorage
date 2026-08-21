@@ -13,16 +13,23 @@ public class IdentityPrincipalService {
 
     private final IdentityUserRepository identityUserRepository;
     private final IdentityTokenService identityTokenService;
+    private final IdentityRefreshTokenService identityRefreshTokenService;
 
     public IdentityPrincipalService(
             IdentityUserRepository identityUserRepository,
-            IdentityTokenService identityTokenService
+            IdentityTokenService identityTokenService,
+            IdentityRefreshTokenService identityRefreshTokenService
     ) {
         this.identityUserRepository = identityUserRepository;
         this.identityTokenService = identityTokenService;
+        this.identityRefreshTokenService = identityRefreshTokenService;
     }
 
     public IdentityUser requireActiveUser(String authorizationHeader) {
+        return requireActivePrincipal(authorizationHeader).user();
+    }
+
+    public IdentityPrincipal requireActivePrincipal(String authorizationHeader) {
         IdentityTokenService.TokenClaims tokenClaims = identityTokenService.parseToken(extractBearerToken(authorizationHeader));
         IdentityUser user = identityUserRepository.findById(tokenClaims.userId())
                 .orElseThrow(() -> new IdentityAuthException("登录用户不存在。"));
@@ -36,7 +43,9 @@ public class IdentityPrincipalService {
             throw new IdentityAuthException("当前账号已停用。");
         }
 
-        return user;
+        identityRefreshTokenService.requireActiveSession(tokenClaims.refreshSessionId(), user);
+
+        return new IdentityPrincipal(user, tokenClaims);
     }
 
     public IdentityUser requireAdminUser(String authorizationHeader) {
@@ -65,5 +74,11 @@ public class IdentityPrincipalService {
         }
 
         return token;
+    }
+
+    public record IdentityPrincipal(
+            IdentityUser user,
+            IdentityTokenService.TokenClaims tokenClaims
+    ) {
     }
 }

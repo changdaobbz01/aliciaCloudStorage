@@ -17,6 +17,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 class IdentityPrincipalServiceTest {
@@ -26,6 +27,9 @@ class IdentityPrincipalServiceTest {
 
     @Mock
     private IdentityTokenService identityTokenService;
+
+    @Mock
+    private IdentityRefreshTokenService identityRefreshTokenService;
 
     @InjectMocks
     private IdentityPrincipalService identityPrincipalService;
@@ -41,6 +45,20 @@ class IdentityPrincipalServiceTest {
         IdentityUser response = identityPrincipalService.requireActiveUser("Bearer token");
 
         assertThat(response).isSameAs(user);
+    }
+
+    @Test
+    void requireActiveUserChecksRefreshSessionWhenTokenCarriesSessionId() {
+        IdentityUser user = identityUser(18L, IdentityUserRole.USER, IdentityUserStatus.ACTIVE, 2L);
+
+        when(identityTokenService.parseToken("token"))
+                .thenReturn(new IdentityTokenService.TokenClaims(18L, 2L, 51L, 4_200_000_000L));
+        when(identityUserRepository.findById(18L)).thenReturn(Optional.of(user));
+
+        IdentityUser response = identityPrincipalService.requireActiveUser("Bearer token");
+
+        assertThat(response).isSameAs(user);
+        verify(identityRefreshTokenService).requireActiveSession(51L, user);
     }
 
     @Test

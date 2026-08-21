@@ -374,6 +374,7 @@ cloud_user_profile.home_background_url = sys_user.home_background_url
 当前已落地：
 
 - `V12__create_cloud_user_profile.sql` 创建 `cloud_user_profile`。
+- `V14__create_identity_refresh_token.sql` 创建 `identity_refresh_token`，用于记录刷新令牌会话。
 - 首次迁移时从 `sys_user.storage_quota_bytes` 和 `sys_user.home_background_url` 回填老用户云盘资料。
 - `CloudUserProfileService` 通过 `CloudUserProfileRepository` 读写云盘额度和主页背景。
 - `StorageQuotaService` 通过云盘资料读取器从 `cloud_user_profile` 获取容量。
@@ -401,16 +402,25 @@ cloud_user_profile.home_background_url = sys_user.home_background_url
 
 ### 7.1 当前问题
 
-当前 token 由 `identityApi` 的 `IdentityTokenService` 统一签发。为了小步迁移，当前仍是自定义 HMAC token，v2 payload 中包含：
+当前 token 由 `identityApi` 的 `IdentityTokenService` 统一签发。为了小步迁移，当前仍是自定义 HMAC token。旧 v2 payload 中包含：
 
 ```text
 v2:userId:tokenVersion:expiresAt
 ```
 
+当前新签发的 v3 access token 绑定 refresh 会话：
+
+```text
+v3:userId:tokenVersion:refreshSessionId:expiresAt
+```
+
 已改进：
 
 - payload 不再依赖手机号，兼容邮箱登录用户。
-- `tokenVersion` 已用于密码修改、管理员重置密码和 logout 后的登录态失效。
+- `tokenVersion` 已用于密码修改、管理员重置密码和全设备 logout 后的登录态失效。
+- `identity_refresh_token` 保存刷新令牌摘要、用户、tokenVersion、过期时间、撤销时间、客户端 IP 和 User-Agent。
+- 登录和邮箱注册验证返回 `token` 与 `refreshToken`；续签优先使用 refresh token 轮换，Authorization-only 续签作为兼容路径保留并会补发刷新会话。
+- 默认 logout 只撤销当前 refresh 会话；传 `{"allDevices":true}` 时撤销该用户全部 refresh 会话并递增 `token_version`。
 - CloudStorageApi 不再本地解析旧 token 或查询本地用户表，而是通过 Identity 当前用户接口校验。
 
 剩余问题：
@@ -554,8 +564,8 @@ Cloud 管理：
 
 1. 登录和注册由 mainSite `/login` 承载，云盘 Web 不再拥有独立登录页面。
 2. 云盘未登录或 token 过期时跳转 `/login?returnTo=/cloudPan/`。
-3. 云盘 Web 启动时先调用 `/api/identity/auth/token/refresh` 续签，再读取 `/api/cloud-profile/me`。
-4. 云盘 Web 运行中定时续签 token，主动退出登录时调用 `/api/identity/auth/logout` 后再清理本地会话。
+3. 云盘 Web 启动时先调用 `/api/identity/auth/token/refresh`，优先使用本地 refresh token 续签，再读取 `/api/cloud-profile/me`。
+4. 云盘 Web 运行中定时续签 token，主动退出登录时调用 `/api/identity/auth/logout` 撤销当前 refresh 会话后再清理本地会话。
 5. `User` 类型后续再拆成：
    - `IdentityUser`
    - `CloudUserProfile`
@@ -578,8 +588,8 @@ Cloud 管理：
 2. 当前用户云盘聚合资料直接调用 `/api/cloud-profile/me`。
 3. 头像上传和头像展示直接调用 `/api/cloud-profile/avatar`。
 4. 云盘容量、背景等由 CloudStorageApi 获取。
-5. SessionStore 继续保存统一 token，启动恢复时先调用 `/api/identity/auth/token/refresh` 续签。
-6. 主动退出登录时调用 `/api/identity/auth/logout`，然后清理本地 token。
+5. SessionStore 保存 access token 和 refresh token，启动恢复时先调用 `/api/identity/auth/token/refresh` 续签。
+6. 主动退出登录时调用 `/api/identity/auth/logout`，然后清理本地 token 和 refresh token。
 7. 修改密码成功后立即清理本地 token，引导用户使用新密码重新登录。
 8. SessionStore 存储 token 的 key 可以后续改名，第一期不强制。
 
@@ -728,14 +738,15 @@ AliciaCloudStorage/identityApi
 - 内部只读查询接口：`GET /api/identity/internal/users/{userId}`。
 - 内部登录验证接口：`POST /api/identity/auth/login`。
 - 内部当前用户接口：`GET /api/identity/auth/me`。
-- 内部 Token 续签接口：`POST /api/identity/auth/token/refresh`。
-- 内部注销接口：`POST /api/identity/auth/logout`，通过递增 `token_version` 让当前用户旧 Token 失效。
+- 内部 Token 续签接口：`POST /api/identity/auth/token/refresh`，优先使用 `refreshToken` 请求体并轮换刷新令牌。
+- 内部注销接口：`POST /api/identity/auth/logout`，默认撤销当前 refresh 会话，`allDevices=true` 时递增 `token_version` 并撤销全部 refresh 会话。
 - 内部邮箱验证码发送接口：`POST /api/identity/auth/register/email-code`。
 - 内部邮箱验证码注册接口：`POST /api/identity/auth/register/verify`。
 - 邮件发送配置：`alicia.mail.*`，identity 容器复用现有 SMTP 环境变量。
 - 邮箱注册当前只创建身份用户，云盘 `cloud_user_profile` 由 CloudStorageApi 在消费身份用户时负责补建。
 - CloudStorageApi 已新增 `CloudUserProfileProvisioningService`，鉴权通过后会确保当前身份用户存在云盘 profile。
 - identity 新用户的云盘 profile 默认额度取 `alicia.storage.default-user-quota-bytes`，不再误用 `sys_user.storage_quota_bytes` 的旧数据库默认值。
+- `IdentityRefreshTokenService` 使用 `JdbcTemplate` 读写 `identity_refresh_token`，避免在当前 CloudStorageApi 统一 Flyway 迁移阶段让 JPA validate 依赖新表实体。
 - 兼容旧 token 格式的临时 `IdentityTokenService`，后续再替换为标准 JWT/JWKS。
 - Compose 中注入同一个 MySQL 连接，`identity` 已是默认服务，并被 `api` 和 `frontend` 依赖。
 - Dockerfile：`identityApi/Dockerfile`。
@@ -758,6 +769,7 @@ identityApi
     IdentityAdminUserService
     IdentityPrincipalService
     IdentityTokenService
+    IdentityRefreshTokenService
   entity
     IdentityUser
     EmailVerificationCode
@@ -780,10 +792,10 @@ identityApi
 - `.\mvnw.cmd -pl identityApi test` 通过。
 - `http://127.0.0.1:8093/api/identity/health` 可用。
 - `http://127.0.0.1:8093/api/identity/internal/users/1` 可读取身份资料，响应不包含 `passwordHash`。
-- `POST http://127.0.0.1:8093/api/identity/auth/login` 可验证老用户密码并返回 token。
+- `POST http://127.0.0.1:8093/api/identity/auth/login` 可验证老用户密码并返回 token 与 refreshToken。
 - `GET http://127.0.0.1:8093/api/identity/auth/me` 可用 identity token 读取当前用户。
-- `POST http://127.0.0.1:8093/api/identity/auth/token/refresh` 可续签 token。
-- `POST http://127.0.0.1:8093/api/identity/auth/logout` 可让当前用户旧 token 失效。
+- `POST http://127.0.0.1:8093/api/identity/auth/token/refresh` 可使用 refreshToken 续签并轮换刷新令牌。
+- `POST http://127.0.0.1:8093/api/identity/auth/logout` 可撤销当前 refresh 会话，或通过 `allDevices=true` 让当前用户所有 token 失效。
 - `POST http://127.0.0.1:8093/api/identity/auth/register/email-code` 可发送注册验证码。
 - `POST http://127.0.0.1:8093/api/identity/auth/register/verify` 可创建邮箱注册身份用户并返回 identity token。
 - 使用 identity 注册返回的 token 请求 CloudStorageApi 受保护接口时，CloudStorageApi 会自动补建 `cloud_user_profile`。
@@ -957,7 +969,7 @@ bash deploy/scripts/verify-identity-cloud-routes.sh
 脚本覆盖：
 
 - 直连与前端 Nginx health。
-- Identity 登录、token refresh、logout 后旧 token 失效。
+- Identity 登录、refresh token 下发与轮换、logout 后 refresh token 和当前 access token 失效。
 - `/api/cloud-profile/me` 和 `/api/storage/overview` 使用 identity token。
 - `/api/admin/cloud-users` 管理员入口。
 - `/api/identity/admin/audit-logs` 管理员审计日志查询入口。
@@ -972,8 +984,9 @@ Identity：
 
 - `identityApi/src/main/java/com/alicia/cloudstorage/identity/service/IdentityTokenService.java`
 - `identityApi/src/main/java/com/alicia/cloudstorage/identity/service/IdentityPrincipalService.java`
+- `identityApi/src/main/java/com/alicia/cloudstorage/identity/service/IdentityRefreshTokenService.java`
 - `identityApi/src/main/java/com/alicia/cloudstorage/identity/controller/IdentityAuthController.java`
-- 后续新增 refresh token 表、JWT/JWKS 支撑时的实体和 Repository。
+- 后续新增 JWT/JWKS 支撑时的实体和 Repository。
 
 CloudStorageApi：
 
@@ -986,6 +999,7 @@ CloudStorageApi：
 Web 和 Android：
 
 - 主站 `/login` 与云盘 `/cloudPan/` 的共享登录态体验。
+- 主站登录页保存 `refreshToken`，和云盘 Web/Android 使用同一套 refresh 会话。
 - Web 和 Android 的 token 过期提示和重新登录体验。
 - 管理员面板中身份信息和云盘容量信息的展示边界。
 - Web 管理员身份审计日志筛选体验。
@@ -1003,7 +1017,7 @@ Web 和 Android：
 
 1. 保持旧 `sys_user.storage_quota_bytes` 和 `sys_user.home_background_url` 一个版本周期不删，只观察不写入。
 2. 继续观察 Identity 审计日志写入、查询接口和 Web 管理页筛选结果。
-3. 设计 refresh token 表和更细粒度 logout 语义，区分“当前设备退出”和“全部设备退出”。
+3. 观察 `identity_refresh_token` 的生产写入、轮换和撤销结果，并补齐主站 `/login` 对 `refreshToken` 的保存。
 4. 将当前自定义 HMAC token 迁移到标准 JWT，并准备 JWKS 公钥发布。
 5. 评估 `sys_user` 是否继续作为 identity 表名，或迁移到独立 schema / `identity_user`。
 

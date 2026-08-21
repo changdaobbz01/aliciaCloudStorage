@@ -1,6 +1,8 @@
 package com.alicia.cloudstorage.identity.service;
 
 import com.alicia.cloudstorage.identity.dto.IdentityLoginRequest;
+import com.alicia.cloudstorage.identity.dto.IdentityLogoutRequest;
+import com.alicia.cloudstorage.identity.dto.IdentityRefreshTokenRequest;
 import com.alicia.cloudstorage.identity.entity.IdentityUser;
 import com.alicia.cloudstorage.identity.entity.IdentityUserRole;
 import com.alicia.cloudstorage.identity.entity.IdentityUserStatus;
@@ -19,6 +21,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -42,6 +45,9 @@ class IdentityAuthServiceTest {
     @Mock
     private IdentityAuditLogService identityAuditLogService;
 
+    @Mock
+    private IdentityRefreshTokenService identityRefreshTokenService;
+
     @InjectMocks
     private IdentityAuthService identityAuthService;
 
@@ -51,13 +57,18 @@ class IdentityAuthServiceTest {
 
         when(identityUserRepository.findByEmail("email-user@example.com")).thenReturn(Optional.of(user));
         when(identityCredentialService.matches("Passw0rd", "hash")).thenReturn(true);
-        when(identityTokenService.createToken(user)).thenReturn("token");
+        when(identityRefreshTokenService.issue(user, "203.0.113.8", "JUnit"))
+                .thenReturn(new IdentityRefreshTokenService.IssuedRefreshToken(51L, "refresh-token", LocalDateTime.now()));
+        when(identityTokenService.createToken(user, 51L)).thenReturn("token");
 
         var response = identityAuthService.login(
-                new IdentityLoginRequest("Email-User@Example.COM", null, null, "Passw0rd")
+                new IdentityLoginRequest("Email-User@Example.COM", null, null, "Passw0rd"),
+                "203.0.113.8",
+                "JUnit"
         );
 
         assertThat(response.token()).isEqualTo("token");
+        assertThat(response.refreshToken()).isEqualTo("refresh-token");
         assertThat(response.user().id()).isEqualTo(18L);
         assertThat(response.user().email()).isEqualTo("email-user@example.com");
     }
@@ -70,7 +81,9 @@ class IdentityAuthServiceTest {
         when(identityCredentialService.matches("wrong", "hash")).thenReturn(false);
 
         assertThatThrownBy(() -> identityAuthService.login(
-                new IdentityLoginRequest("email-user@example.com", null, null, "wrong")
+                new IdentityLoginRequest("email-user@example.com", null, null, "wrong"),
+                "203.0.113.8",
+                "JUnit"
         )).isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("账号或密码不正确。");
     }
@@ -83,7 +96,9 @@ class IdentityAuthServiceTest {
         when(identityCredentialService.matches("Passw0rd", "hash")).thenReturn(true);
 
         assertThatThrownBy(() -> identityAuthService.login(
-                new IdentityLoginRequest("13800000000", null, null, "Passw0rd")
+                new IdentityLoginRequest("13800000000", null, null, "Passw0rd"),
+                "203.0.113.8",
+                "JUnit"
         )).isInstanceOf(IdentityAuthException.class)
                 .hasMessage("当前账号已停用。");
     }
@@ -121,28 +136,76 @@ class IdentityAuthServiceTest {
     }
 
     @Test
-    void refreshTokenReturnsNewTokenWithoutChangingTokenVersion() {
+    void refreshTokenRotatesRefreshTokenAndReturnsNewAccessToken() {
         IdentityUser user = identityUser(18L, IdentityUserStatus.ACTIVE);
 
-        when(identityPrincipalService.requireActiveUser("Bearer token")).thenReturn(user);
-        when(identityTokenService.createToken(user)).thenReturn("new-token");
+        when(identityRefreshTokenService.rotate("refresh-token", "203.0.113.8", "JUnit"))
+                .thenReturn(new IdentityRefreshTokenService.RefreshedIdentitySession(
+                        user,
+                        51L,
+                        "new-refresh-token",
+                        LocalDateTime.now()
+                ));
+        when(identityTokenService.createToken(user, 51L)).thenReturn("new-token");
 
-        var response = identityAuthService.refreshToken("Bearer token");
+        var response = identityAuthService.refreshToken(
+                "Bearer token",
+                new IdentityRefreshTokenRequest("refresh-token"),
+                "203.0.113.8",
+                "JUnit"
+        );
 
         assertThat(response.token()).isEqualTo("new-token");
+        assertThat(response.refreshToken()).isEqualTo("new-refresh-token");
         assertThat(response.user().id()).isEqualTo(18L);
         assertThat(user.getTokenVersion()).isEqualTo(2L);
     }
 
     @Test
-    void logoutInvalidatesCurrentUserTokens() {
+    void legacyRefreshTokenCreatesSessionAndRevokesPreviousSessionWhenPresent() {
         IdentityUser user = identityUser(18L, IdentityUserStatus.ACTIVE);
+        IdentityTokenService.TokenClaims claims = new IdentityTokenService.TokenClaims(18L, 2L, 51L, 4_200_000_000L);
 
-        when(identityPrincipalService.requireActiveUser("Bearer token")).thenReturn(user);
+        when(identityPrincipalService.requireActivePrincipal("Bearer token"))
+                .thenReturn(new IdentityPrincipalService.IdentityPrincipal(user, claims));
+        when(identityRefreshTokenService.issue(user, "203.0.113.8", "JUnit"))
+                .thenReturn(new IdentityRefreshTokenService.IssuedRefreshToken(52L, "refresh-token", LocalDateTime.now()));
+        when(identityTokenService.createToken(user, 52L)).thenReturn("new-token");
 
-        identityAuthService.logout("Bearer token");
+        var response = identityAuthService.refreshToken("Bearer token", null, "203.0.113.8", "JUnit");
+
+        assertThat(response.token()).isEqualTo("new-token");
+        assertThat(response.refreshToken()).isEqualTo("refresh-token");
+        verify(identityRefreshTokenService).revokeSession(51L, "legacy_refresh_replaced");
+    }
+
+    @Test
+    void logoutRevokesCurrentSessionWithoutChangingTokenVersion() {
+        IdentityUser user = identityUser(18L, IdentityUserStatus.ACTIVE);
+        IdentityTokenService.TokenClaims claims = new IdentityTokenService.TokenClaims(18L, 2L, 51L, 4_200_000_000L);
+
+        when(identityPrincipalService.requireActivePrincipal("Bearer token"))
+                .thenReturn(new IdentityPrincipalService.IdentityPrincipal(user, claims));
+
+        identityAuthService.logout("Bearer token", null);
+
+        assertThat(user.getTokenVersion()).isEqualTo(2L);
+        verify(identityRefreshTokenService).revokeSession(51L, "logout");
+        verify(identityUserRepository, never()).save(user);
+    }
+
+    @Test
+    void logoutAllDevicesInvalidatesUserTokenVersionAndRefreshSessions() {
+        IdentityUser user = identityUser(18L, IdentityUserStatus.ACTIVE);
+        IdentityTokenService.TokenClaims claims = new IdentityTokenService.TokenClaims(18L, 2L, 51L, 4_200_000_000L);
+
+        when(identityPrincipalService.requireActivePrincipal("Bearer token"))
+                .thenReturn(new IdentityPrincipalService.IdentityPrincipal(user, claims));
+
+        identityAuthService.logout("Bearer token", new IdentityLogoutRequest(null, true));
 
         assertThat(user.getTokenVersion()).isEqualTo(3L);
+        verify(identityRefreshTokenService).revokeAllForUser(18L, "logout_all_devices");
         verify(identityUserRepository).save(user);
     }
 

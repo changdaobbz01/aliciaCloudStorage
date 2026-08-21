@@ -65,17 +65,17 @@ class AliciaRepository(
         return identitySession.toCloudLoginResponse(baseUrl)
     }
 
-    suspend fun refreshToken(baseUrl: String, token: String): LoginResponse {
+    suspend fun refreshToken(baseUrl: String, token: String, refreshToken: String?): LoginResponse {
         val identitySession = serviceFactory.serviceFor(baseUrl)
-            .refreshToken(authorization(token))
+            .refreshToken(authorization(token), RefreshTokenPayload(refreshToken))
             .requireBody(fallback = "刷新登录状态失败，请重新登录。")
 
         return identitySession.toCloudLoginResponse(baseUrl)
     }
 
-    suspend fun logout(baseUrl: String, token: String): ApiMessageResponse =
+    suspend fun logout(baseUrl: String, token: String, refreshToken: String?): ApiMessageResponse =
         serviceFactory.serviceFor(baseUrl)
-            .logout(authorization(token))
+            .logout(authorization(token), LogoutPayload(refreshToken))
             .requireBody(fallback = "退出登录失败。")
 
     suspend fun fetchCurrentUser(baseUrl: String, token: String): User =
@@ -281,6 +281,7 @@ class AliciaRepository(
     private suspend fun IdentityLoginResponse.toCloudLoginResponse(baseUrl: String): LoginResponse =
         LoginResponse(
             token = token,
+            refreshToken = refreshToken,
             user = fetchCurrentUser(baseUrl, token),
         )
 

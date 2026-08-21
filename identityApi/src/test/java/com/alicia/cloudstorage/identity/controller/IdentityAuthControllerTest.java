@@ -19,6 +19,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.time.LocalDateTime;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -60,14 +62,15 @@ class IdentityAuthControllerTest {
                 LocalDateTime.of(2026, 4, 29, 15, 30)
         );
 
-        when(identityAuthService.login(any(IdentityLoginRequest.class)))
-                .thenReturn(new IdentityLoginResponse("token", user));
+        when(identityAuthService.login(any(IdentityLoginRequest.class), eq("127.0.0.1"), isNull()))
+                .thenReturn(new IdentityLoginResponse("token", "refresh-token", user));
 
         mockMvc.perform(post("/api/identity/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"identifier\":\"user@example.com\",\"password\":\"Passw0rd\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.token").value("token"))
+                .andExpect(jsonPath("$.refreshToken").value("refresh-token"))
                 .andExpect(jsonPath("$.user.id").value(7))
                 .andExpect(jsonPath("$.user.email").value("user@example.com"))
                 .andExpect(jsonPath("$.user.passwordHash").doesNotExist());
@@ -115,18 +118,19 @@ class IdentityAuthControllerTest {
                 LocalDateTime.of(2026, 4, 29, 15, 30)
         );
 
-        when(identityAuthService.refreshToken("Bearer token"))
-                .thenReturn(new IdentityLoginResponse("new-token", user));
+        when(identityAuthService.refreshToken(eq("Bearer token"), any(), eq("127.0.0.1"), isNull()))
+                .thenReturn(new IdentityLoginResponse("new-token", "new-refresh-token", user));
 
         mockMvc.perform(post("/api/identity/auth/token/refresh")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer token"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.token").value("new-token"))
+                .andExpect(jsonPath("$.refreshToken").value("new-refresh-token"))
                 .andExpect(jsonPath("$.user.id").value(7))
                 .andExpect(jsonPath("$.user.email").value("user@example.com"))
                 .andExpect(jsonPath("$.user.passwordHash").doesNotExist());
 
-        verify(identityAuthService).refreshToken("Bearer token");
+        verify(identityAuthService).refreshToken(eq("Bearer token"), any(), eq("127.0.0.1"), isNull());
     }
 
     @Test
@@ -136,7 +140,7 @@ class IdentityAuthControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("已退出登录。"));
 
-        verify(identityAuthService).logout("Bearer token");
+        verify(identityAuthService).logout(eq("Bearer token"), isNull());
     }
 
     @Test
@@ -221,8 +225,8 @@ class IdentityAuthControllerTest {
                 LocalDateTime.of(2026, 8, 17, 15, 30)
         );
 
-        when(identityEmailRegistrationService.verifyRegistration(any(VerifyEmailRegistrationRequest.class)))
-                .thenReturn(new IdentityLoginResponse("token", user));
+        when(identityEmailRegistrationService.verifyRegistration(any(VerifyEmailRegistrationRequest.class), eq("127.0.0.1"), isNull()))
+                .thenReturn(new IdentityLoginResponse("token", "refresh-token", user));
 
         mockMvc.perform(post("/api/identity/auth/register/verify")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -236,6 +240,7 @@ class IdentityAuthControllerTest {
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.token").value("token"))
+                .andExpect(jsonPath("$.refreshToken").value("refresh-token"))
                 .andExpect(jsonPath("$.user.id").value(8))
                 .andExpect(jsonPath("$.user.email").value("newuser@example.com"))
                 .andExpect(jsonPath("$.user.passwordHash").doesNotExist());

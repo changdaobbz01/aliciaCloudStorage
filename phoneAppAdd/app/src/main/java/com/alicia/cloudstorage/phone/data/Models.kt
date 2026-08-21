@@ -71,12 +71,23 @@ data class VerifyEmailRegistrationPayload(
 
 data class LoginResponse(
     val token: String,
+    val refreshToken: String?,
     val user: User,
 )
 
 data class IdentityLoginResponse(
     val token: String,
+    val refreshToken: String?,
     val user: IdentityUser,
+)
+
+data class RefreshTokenPayload(
+    val refreshToken: String?,
+)
+
+data class LogoutPayload(
+    val refreshToken: String?,
+    val allDevices: Boolean? = null,
 )
 
 data class IdentityUser(
@@ -227,6 +238,7 @@ data class FolderCrumb(
 
 data class SavedSession(
     val token: String?,
+    val refreshToken: String?,
     val baseUrl: String,
 )
 

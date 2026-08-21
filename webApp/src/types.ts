@@ -56,6 +56,7 @@ export type IdentityUser = {
 
 export type IdentityLoginResponse = {
   token: string;
+  refreshToken?: string | null;
   user: IdentityUser;
 };
 

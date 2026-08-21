@@ -39,6 +39,9 @@ class IdentityPasswordServiceTest {
     @Mock
     private IdentityAuditLogService identityAuditLogService;
 
+    @Mock
+    private IdentityRefreshTokenService identityRefreshTokenService;
+
     @InjectMocks
     private IdentityPasswordService identityPasswordService;
 
@@ -60,6 +63,7 @@ class IdentityPasswordServiceTest {
 
         assertThat(user.getPasswordHash()).isEqualTo("new-hash");
         assertThat(user.getTokenVersion()).isEqualTo(3L);
+        verify(identityRefreshTokenService).revokeAllForUser(18L, "password_change");
         verify(identityUserRepository).save(user);
     }
 
@@ -79,6 +83,7 @@ class IdentityPasswordServiceTest {
                 .hasMessage("旧密码不正确。");
 
         verify(identityUserRepository, never()).save(user);
+        verify(identityRefreshTokenService, never()).revokeAllForUser(18L, "password_change");
     }
 
     @Test
@@ -97,6 +102,7 @@ class IdentityPasswordServiceTest {
                 .hasMessage("新密码长度至少为 6 位。");
 
         verify(identityUserRepository, never()).save(user);
+        verify(identityRefreshTokenService, never()).revokeAllForUser(18L, "password_change");
     }
 
     @Test
@@ -115,6 +121,7 @@ class IdentityPasswordServiceTest {
                 .hasMessage("新密码不能与旧密码相同。");
 
         verify(identityUserRepository, never()).save(user);
+        verify(identityRefreshTokenService, never()).revokeAllForUser(18L, "password_change");
     }
 
     @Test
@@ -139,6 +146,7 @@ class IdentityPasswordServiceTest {
 
         assertThat(target.getPasswordHash()).isEqualTo("reset-hash");
         assertThat(target.getTokenVersion()).isEqualTo(3L);
+        verify(identityRefreshTokenService).revokeAllForUser(64L, "admin_password_reset");
         verify(identityUserRepository).save(target);
     }
 
@@ -176,6 +184,7 @@ class IdentityPasswordServiceTest {
                 org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.anyString()
         );
+        verify(identityRefreshTokenService, never()).revokeAllForUser(64L, "admin_password_reset");
     }
 
     @Test
@@ -197,6 +206,7 @@ class IdentityPasswordServiceTest {
                 .hasMessage("新密码长度至少为 6 位。");
 
         verify(identityUserRepository, never()).save(target);
+        verify(identityRefreshTokenService, never()).revokeAllForUser(64L, "admin_password_reset");
     }
 
     @Test
@@ -219,6 +229,7 @@ class IdentityPasswordServiceTest {
                 .hasMessage("新密码不能与当前密码相同。");
 
         verify(identityUserRepository, never()).save(target);
+        verify(identityRefreshTokenService, never()).revokeAllForUser(64L, "admin_password_reset");
     }
 
     private IdentityUser identityUser(Long id, IdentityUserRole role, Long tokenVersion) {

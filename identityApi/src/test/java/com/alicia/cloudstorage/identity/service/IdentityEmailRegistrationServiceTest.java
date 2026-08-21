@@ -39,6 +39,9 @@ class IdentityEmailRegistrationServiceTest {
     @Mock
     private IdentityAuditLogService identityAuditLogService;
 
+    @Mock
+    private IdentityRefreshTokenService identityRefreshTokenService;
+
     private IdentityUserInputNormalizer identityUserInputNormalizer;
 
     private IdentityEmailRegistrationService service;
@@ -52,7 +55,8 @@ class IdentityEmailRegistrationServiceTest {
                 emailVerificationCodeService,
                 identityUserCreationService,
                 identityTokenService,
-                identityAuditLogService
+                identityAuditLogService,
+                identityRefreshTokenService
         );
     }
 
@@ -89,13 +93,18 @@ class IdentityEmailRegistrationServiceTest {
                 "Passw0rd",
                 VERIFIED_AT
         )).thenReturn(identityUser(88L));
-        when(identityTokenService.createToken(org.mockito.ArgumentMatchers.any(IdentityUser.class))).thenReturn("token");
+        when(identityRefreshTokenService.issue(org.mockito.ArgumentMatchers.any(IdentityUser.class), org.mockito.ArgumentMatchers.eq("203.0.113.8"), org.mockito.ArgumentMatchers.eq("JUnit")))
+                .thenReturn(new IdentityRefreshTokenService.IssuedRefreshToken(51L, "refresh-token", LocalDateTime.now()));
+        when(identityTokenService.createToken(org.mockito.ArgumentMatchers.any(IdentityUser.class), org.mockito.ArgumentMatchers.eq(51L))).thenReturn("token");
 
         var response = service.verifyRegistration(
-                new VerifyEmailRegistrationRequest("NewUser@Example.COM", "123456", "New User", "Passw0rd")
+                new VerifyEmailRegistrationRequest("NewUser@Example.COM", "123456", "New User", "Passw0rd"),
+                "203.0.113.8",
+                "JUnit"
         );
 
         assertThat(response.token()).isEqualTo("token");
+        assertThat(response.refreshToken()).isEqualTo("refresh-token");
         assertThat(response.user().id()).isEqualTo(88L);
         assertThat(response.user().email()).isEqualTo("newuser@example.com");
         assertThat(response.user().role()).isEqualTo("USER");
@@ -117,7 +126,9 @@ class IdentityEmailRegistrationServiceTest {
         when(identityUserRepository.existsByEmail("newuser@example.com")).thenReturn(true);
 
         assertThatThrownBy(() -> service.verifyRegistration(
-                new VerifyEmailRegistrationRequest("NewUser@Example.COM", "123456", "New User", "Passw0rd")
+                new VerifyEmailRegistrationRequest("NewUser@Example.COM", "123456", "New User", "Passw0rd"),
+                "203.0.113.8",
+                "JUnit"
         )).isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("邮箱已注册，请直接登录。");
 
@@ -136,7 +147,9 @@ class IdentityEmailRegistrationServiceTest {
                 .thenThrow(new IllegalArgumentException("验证码不正确或已过期。"));
 
         assertThatThrownBy(() -> service.verifyRegistration(
-                new VerifyEmailRegistrationRequest("NewUser@Example.COM", "000000", "New User", "Passw0rd")
+                new VerifyEmailRegistrationRequest("NewUser@Example.COM", "000000", "New User", "Passw0rd"),
+                "203.0.113.8",
+                "JUnit"
         )).isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("验证码不正确或已过期。");
 

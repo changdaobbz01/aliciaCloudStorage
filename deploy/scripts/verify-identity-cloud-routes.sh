@@ -133,16 +133,30 @@ if [[ -z "$TOKEN" ]]; then
     fail "identity login did not return a token"
 fi
 ok "identity login issued token (${#TOKEN} chars)"
+REFRESH_TOKEN="$(printf '%s' "$login_response" | tr -d '\n' | extract_json_string refreshToken)"
+if [[ -z "$REFRESH_TOKEN" ]]; then
+    fail "identity login did not return a refresh token"
+fi
+ok "identity login issued refresh token (${#REFRESH_TOKEN} chars)"
 
+refresh_payload="$(printf '{"refreshToken":"%s"}' "$(json_escape "$REFRESH_TOKEN")")"
 refresh_response="$(curl -fsS "${CURL_ARGS[@]}" \
     -X POST "$IDENTITY_BASE_URL/api/identity/auth/token/refresh" \
-    -H "Authorization: Bearer $TOKEN")"
+    -H "Authorization: Bearer $TOKEN" \
+    -H "Content-Type: application/json" \
+    --data-binary "$refresh_payload")"
+unset refresh_payload
 REFRESHED_TOKEN="$(printf '%s' "$refresh_response" | tr -d '\n' | extract_json_string token)"
 if [[ -z "$REFRESHED_TOKEN" ]]; then
     fail "identity token refresh did not return a token"
 fi
+REFRESHED_REFRESH_TOKEN="$(printf '%s' "$refresh_response" | tr -d '\n' | extract_json_string refreshToken)"
+if [[ -z "$REFRESHED_REFRESH_TOKEN" ]]; then
+    fail "identity token refresh did not return a replacement refresh token"
+fi
 TOKEN="$REFRESHED_TOKEN"
-ok "identity token refresh issued replacement token (${#TOKEN} chars)"
+REFRESH_TOKEN="$REFRESHED_REFRESH_TOKEN"
+ok "identity token refresh issued replacement token (${#TOKEN} chars) and refresh token (${#REFRESH_TOKEN} chars)"
 
 profile_response="$(curl -fsS "${CURL_ARGS[@]}" \
     "$CLOUD_BASE_URL/api/cloud-profile/me" \
@@ -180,10 +194,17 @@ expect_status "legacy /api/auth/avatar/{userId} remains removed" 404 \
 
 curl_ok "identity logout succeeds" \
     -X POST "$IDENTITY_BASE_URL/api/identity/auth/logout" \
-    -H "Authorization: Bearer $TOKEN"
+    -H "Authorization: Bearer $TOKEN" \
+    -H "Content-Type: application/json" \
+    --data-binary "$(printf '{"refreshToken":"%s"}' "$(json_escape "$REFRESH_TOKEN")")"
 expect_status "logout invalidates refreshed token" 401 \
     -X POST "$IDENTITY_BASE_URL/api/identity/auth/token/refresh" \
     -H "Authorization: Bearer $TOKEN"
+expect_status "logout invalidates refresh token" 401 \
+    -X POST "$IDENTITY_BASE_URL/api/identity/auth/token/refresh" \
+    -H "Authorization: Bearer $TOKEN" \
+    -H "Content-Type: application/json" \
+    --data-binary "$(printf '{"refreshToken":"%s"}' "$(json_escape "$REFRESH_TOKEN")")"
 
 if [[ "$SKIP_AUDIT_CHECK" == "true" ]]; then
     printf '[SKIP] identity audit log check\n'

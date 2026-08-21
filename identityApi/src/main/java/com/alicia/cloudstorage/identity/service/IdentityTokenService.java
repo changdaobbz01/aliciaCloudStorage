@@ -15,6 +15,7 @@ import java.util.Base64;
 public class IdentityTokenService {
 
     private static final String TOKEN_PAYLOAD_VERSION = "v2";
+    private static final String SESSION_TOKEN_PAYLOAD_VERSION = "v3";
 
     private final String secret;
     private final long expireSeconds;
@@ -36,9 +37,15 @@ public class IdentityTokenService {
     }
 
     public String createToken(IdentityUser user) {
+        return createToken(user, null);
+    }
+
+    public String createToken(IdentityUser user, Long refreshSessionId) {
         long expiresAt = Instant.now().getEpochSecond() + expireSeconds;
         long tokenVersion = user.getTokenVersion() == null ? 0L : user.getTokenVersion();
-        String payload = TOKEN_PAYLOAD_VERSION + ":" + user.getId() + ":" + tokenVersion + ":" + expiresAt;
+        String payload = refreshSessionId == null
+                ? TOKEN_PAYLOAD_VERSION + ":" + user.getId() + ":" + tokenVersion + ":" + expiresAt
+                : SESSION_TOKEN_PAYLOAD_VERSION + ":" + user.getId() + ":" + tokenVersion + ":" + refreshSessionId + ":" + expiresAt;
         String encodedPayload = base64UrlEncode(payload);
 
         return encodedPayload + "." + sign(encodedPayload);
@@ -77,10 +84,20 @@ public class IdentityTokenService {
     }
 
     private TokenClaims parsePayloadParts(String[] payloadParts) {
+        if (payloadParts.length == 5 && SESSION_TOKEN_PAYLOAD_VERSION.equals(payloadParts[0])) {
+            return new TokenClaims(
+                    parseUserId(payloadParts[1]),
+                    parseTokenVersion(payloadParts[2]),
+                    parseRefreshSessionId(payloadParts[3]),
+                    parseExpiresAt(payloadParts[4])
+            );
+        }
+
         if (payloadParts.length == 4 && TOKEN_PAYLOAD_VERSION.equals(payloadParts[0])) {
             return new TokenClaims(
                     parseUserId(payloadParts[1]),
                     parseTokenVersion(payloadParts[2]),
+                    null,
                     parseExpiresAt(payloadParts[3])
             );
         }
@@ -89,6 +106,7 @@ public class IdentityTokenService {
             return new TokenClaims(
                     parseUserId(payloadParts[0]),
                     parseTokenVersion(payloadParts[2]),
+                    null,
                     parseExpiresAt(payloadParts[3])
             );
         }
@@ -97,6 +115,7 @@ public class IdentityTokenService {
             return new TokenClaims(
                     parseUserId(payloadParts[0]),
                     0L,
+                    null,
                     parseExpiresAt(payloadParts[2])
             );
         }
@@ -145,6 +164,18 @@ public class IdentityTokenService {
         }
     }
 
+    private Long parseRefreshSessionId(String value) {
+        try {
+            long sessionId = Long.parseLong(value);
+            if (sessionId <= 0L) {
+                throw new NumberFormatException("session id must be positive");
+            }
+            return sessionId;
+        } catch (NumberFormatException ex) {
+            throw new IdentityAuthException("Token 会话编号不合法。");
+        }
+    }
+
     private long parseExpiresAt(String value) {
         try {
             return Long.parseLong(value);
@@ -156,7 +187,11 @@ public class IdentityTokenService {
     public record TokenClaims(
             Long userId,
             long tokenVersion,
+            Long refreshSessionId,
             long expiresAt
     ) {
+        public TokenClaims(Long userId, long tokenVersion, long expiresAt) {
+            this(userId, tokenVersion, null, expiresAt);
+        }
     }
 }

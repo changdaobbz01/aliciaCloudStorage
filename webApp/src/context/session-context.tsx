@@ -1,13 +1,15 @@
 import { App as AntApp } from 'antd';
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
-import { AUTH_EXPIRED_EVENT, fetchCurrentUser, logoutAuthToken, refreshAuthToken } from '../lib/api';
+import { AUTH_EXPIRED_EVENT, fetchCurrentUser, logoutAuthToken, refreshAuthSession } from '../lib/api';
 import {
   clearCurrentSession as clearStoredSession,
   loadAuthToken,
   loadCurrentUser,
+  loadRefreshToken,
   saveAuthToken,
   saveCurrentUser,
+  saveRefreshToken,
 } from '../lib/session';
 import { cloudReturnTo, redirectToUnifiedLogin } from '../lib/unifiedLogin';
 import type { User } from '../types';
@@ -79,14 +81,17 @@ export function SessionProvider({ children }: { children: ReactNode }) {
      */
     async function verifyStoredToken() {
       try {
-        const refreshedToken = await refreshAuthToken(storedToken);
-        const user = await fetchCurrentUser(refreshedToken);
+        const refreshedSession = await refreshAuthSession(storedToken, loadRefreshToken());
+        const user = await fetchCurrentUser(refreshedSession.token);
 
         if (!cancelled) {
-          saveAuthToken(refreshedToken);
+          saveAuthToken(refreshedSession.token);
+          if (refreshedSession.refreshToken) {
+            saveRefreshToken(refreshedSession.refreshToken);
+          }
           saveCurrentUser(user);
           setCurrentUser(user);
-          setAuthToken(refreshedToken);
+          setAuthToken(refreshedSession.token);
         }
       } catch {
         if (!cancelled) {
@@ -121,11 +126,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       }
 
       try {
-        const refreshedToken = await refreshAuthToken(storedToken);
+        const refreshedSession = await refreshAuthSession(storedToken, loadRefreshToken());
 
         if (!cancelled && loadAuthToken()) {
-          saveAuthToken(refreshedToken);
-          setAuthToken(refreshedToken);
+          saveAuthToken(refreshedSession.token);
+          if (refreshedSession.refreshToken) {
+            saveRefreshToken(refreshedSession.refreshToken);
+          }
+          setAuthToken(refreshedSession.token);
         }
       } catch {
         // 401 会由全局鉴权过期事件处理，其他短暂失败等下一轮续签。
@@ -169,10 +177,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   async function logoutCurrentSession() {
     const token = loadAuthToken();
+    const refreshToken = loadRefreshToken();
 
     if (token) {
       try {
-        await logoutAuthToken(token);
+        await logoutAuthToken(token, refreshToken);
       } catch {
         // 本地退出不依赖服务端响应；过期或网络失败时仍清掉本地会话。
       }

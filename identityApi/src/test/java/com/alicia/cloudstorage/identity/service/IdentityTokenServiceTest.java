@@ -32,6 +32,22 @@ class IdentityTokenServiceTest {
     }
 
     @Test
+    void createTokenCanBindRefreshSessionId() {
+        IdentityUser user = newIdentityUser();
+        ReflectionTestUtils.setField(user, "id", 33L);
+        ReflectionTestUtils.setField(user, "phoneNumber", "13800000033");
+        ReflectionTestUtils.setField(user, "tokenVersion", 7L);
+        IdentityTokenService tokenService = new IdentityTokenService("test-secret", 3600L);
+
+        String token = tokenService.createToken(user, 51L);
+        String encodedPayload = token.substring(0, token.indexOf('.'));
+        String payload = new String(Base64.getUrlDecoder().decode(encodedPayload), StandardCharsets.UTF_8);
+
+        assertThat(payload).startsWith("v3:33:7:51:");
+        assertThat(payload).doesNotContain("13800000033");
+    }
+
+    @Test
     void parseTokenReadsSignedClaims() {
         IdentityUser user = newIdentityUser();
         ReflectionTestUtils.setField(user, "id", 33L);
@@ -43,6 +59,22 @@ class IdentityTokenServiceTest {
 
         assertThat(claims.userId()).isEqualTo(33L);
         assertThat(claims.tokenVersion()).isEqualTo(7L);
+        assertThat(claims.refreshSessionId()).isNull();
+        assertThat(claims.expiresAt()).isGreaterThan(Instant.now().getEpochSecond());
+    }
+
+    @Test
+    void parseTokenReadsRefreshSessionIdFromVersionThreePayload() {
+        IdentityUser user = newIdentityUser();
+        ReflectionTestUtils.setField(user, "id", 33L);
+        ReflectionTestUtils.setField(user, "tokenVersion", 7L);
+        IdentityTokenService tokenService = new IdentityTokenService("test-secret", 3600L);
+
+        IdentityTokenService.TokenClaims claims = tokenService.parseToken(tokenService.createToken(user, 51L));
+
+        assertThat(claims.userId()).isEqualTo(33L);
+        assertThat(claims.tokenVersion()).isEqualTo(7L);
+        assertThat(claims.refreshSessionId()).isEqualTo(51L);
         assertThat(claims.expiresAt()).isGreaterThan(Instant.now().getEpochSecond());
     }
 

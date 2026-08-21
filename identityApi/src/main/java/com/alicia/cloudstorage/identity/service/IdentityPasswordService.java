@@ -15,17 +15,20 @@ public class IdentityPasswordService {
     private final IdentityUserRepository identityUserRepository;
     private final IdentityCredentialService identityCredentialService;
     private final IdentityAuditLogService identityAuditLogService;
+    private final IdentityRefreshTokenService identityRefreshTokenService;
 
     public IdentityPasswordService(
             IdentityPrincipalService identityPrincipalService,
             IdentityUserRepository identityUserRepository,
             IdentityCredentialService identityCredentialService,
-            IdentityAuditLogService identityAuditLogService
+            IdentityAuditLogService identityAuditLogService,
+            IdentityRefreshTokenService identityRefreshTokenService
     ) {
         this.identityPrincipalService = identityPrincipalService;
         this.identityUserRepository = identityUserRepository;
         this.identityCredentialService = identityCredentialService;
         this.identityAuditLogService = identityAuditLogService;
+        this.identityRefreshTokenService = identityRefreshTokenService;
     }
 
     public void changePassword(String authorizationHeader, ChangePasswordRequest request) {
@@ -33,6 +36,7 @@ public class IdentityPasswordService {
         try {
             user = identityPrincipalService.requireActiveUser(authorizationHeader);
             identityCredentialService.changePassword(user, request.oldPassword(), request.newPassword());
+            identityRefreshTokenService.revokeAllForUser(user.getId(), "password_change");
             identityUserRepository.save(user);
             identityAuditLogService.record(
                     IdentityAuditEventType.PASSWORD_CHANGE,
@@ -71,6 +75,7 @@ public class IdentityPasswordService {
             targetUser = identityUserRepository.findById(targetUserId)
                     .orElseThrow(() -> new IllegalArgumentException("用户不存在。"));
             identityCredentialService.resetPassword(targetUser, request.newPassword());
+            identityRefreshTokenService.revokeAllForUser(targetUser.getId(), "admin_password_reset");
             identityUserRepository.save(targetUser);
             identityAuditLogService.record(
                     IdentityAuditEventType.ADMIN_PASSWORD_RESET,

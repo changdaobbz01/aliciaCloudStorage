@@ -590,17 +590,37 @@ export function changePassword(payload: ChangePasswordPayload, token: string) {
   );
 }
 
-export function refreshAuthToken(token: string) {
+export function refreshAuthSession(token: string, refreshToken?: string | null) {
+  const init = refreshToken?.trim()
+    ? withToken(token, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ refreshToken: refreshToken.trim() }),
+      })
+    : withToken(token, { method: 'POST' });
+
   return requestJson<IdentityLoginResponse>(
     '/api/identity/auth/token/refresh',
-    withToken(token, { method: 'POST' }),
-  ).then((response) => response.token);
+    init,
+  );
 }
 
-export function logoutAuthToken(token: string) {
+export function logoutAuthToken(token: string, refreshToken?: string | null) {
+  const init = refreshToken?.trim()
+    ? withToken(token, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ refreshToken: refreshToken.trim() }),
+      })
+    : withToken(token, { method: 'POST' });
+
   return requestJson<ApiMessageResponse>(
     '/api/identity/auth/logout',
-    withToken(token, { method: 'POST' }),
+    init,
     { dispatchAuthExpired: false },
   );
 }

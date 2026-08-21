@@ -18,6 +18,7 @@ public class IdentityEmailRegistrationService {
     private final IdentityUserCreationService identityUserCreationService;
     private final IdentityTokenService identityTokenService;
     private final IdentityAuditLogService identityAuditLogService;
+    private final IdentityRefreshTokenService identityRefreshTokenService;
 
     public IdentityEmailRegistrationService(
             IdentityUserRepository identityUserRepository,
@@ -25,7 +26,8 @@ public class IdentityEmailRegistrationService {
             EmailVerificationCodeService emailVerificationCodeService,
             IdentityUserCreationService identityUserCreationService,
             IdentityTokenService identityTokenService,
-            IdentityAuditLogService identityAuditLogService
+            IdentityAuditLogService identityAuditLogService,
+            IdentityRefreshTokenService identityRefreshTokenService
     ) {
         this.identityUserRepository = identityUserRepository;
         this.identityUserInputNormalizer = identityUserInputNormalizer;
@@ -33,6 +35,7 @@ public class IdentityEmailRegistrationService {
         this.identityUserCreationService = identityUserCreationService;
         this.identityTokenService = identityTokenService;
         this.identityAuditLogService = identityAuditLogService;
+        this.identityRefreshTokenService = identityRefreshTokenService;
     }
 
     public void requestRegistrationCode(String rawEmail, String requestIp, String userAgent) {
@@ -74,7 +77,11 @@ public class IdentityEmailRegistrationService {
         }
     }
 
-    public IdentityLoginResponse verifyRegistration(VerifyEmailRegistrationRequest request) {
+    public IdentityLoginResponse verifyRegistration(
+            VerifyEmailRegistrationRequest request,
+            String clientAddress,
+            String userAgent
+    ) {
         String email = null;
         IdentityUser user = null;
         try {
@@ -94,8 +101,11 @@ public class IdentityEmailRegistrationService {
                     request.password(),
                     verifiedCode.verifiedAt()
             );
+            IdentityRefreshTokenService.IssuedRefreshToken refreshToken =
+                    identityRefreshTokenService.issue(user, clientAddress, userAgent);
             IdentityLoginResponse response = new IdentityLoginResponse(
-                    identityTokenService.createToken(user),
+                    identityTokenService.createToken(user, refreshToken.sessionId()),
+                    refreshToken.token(),
                     IdentityUserResponse.from(user)
             );
             identityAuditLogService.record(

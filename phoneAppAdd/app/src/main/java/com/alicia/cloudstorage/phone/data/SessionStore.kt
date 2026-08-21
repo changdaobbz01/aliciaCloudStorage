@@ -22,6 +22,7 @@ private val Context.sessionDataStore: DataStore<Preferences> by preferencesDataS
 
 class SessionStore(private val context: Context) {
     private val tokenKey = stringPreferencesKey("auth_token")
+    private val refreshTokenKey = stringPreferencesKey("refresh_token")
     private val baseUrlKey = stringPreferencesKey("api_base_url")
     private val clipboardShareCodeKey = stringPreferencesKey("clipboard_share_code")
     private val clipboardShareFingerprintKey = stringPreferencesKey("clipboard_share_fingerprint")
@@ -39,6 +40,7 @@ class SessionStore(private val context: Context) {
             .map { preferences ->
                 SavedSession(
                     token = preferences[tokenKey],
+                    refreshToken = preferences[refreshTokenKey],
                     baseUrl = migrateSavedBaseUrl(
                         savedBaseUrl = preferences[baseUrlKey],
                         defaultBaseUrl = defaultBaseUrl,
@@ -72,9 +74,14 @@ class SessionStore(private val context: Context) {
         }
     }
 
-    suspend fun saveSession(token: String, baseUrl: String) {
+    suspend fun saveSession(token: String, refreshToken: String?, baseUrl: String) {
         context.sessionDataStore.edit { preferences ->
             preferences[tokenKey] = token
+            if (refreshToken.isNullOrBlank()) {
+                preferences.remove(refreshTokenKey)
+            } else {
+                preferences[refreshTokenKey] = refreshToken
+            }
             preferences[baseUrlKey] = baseUrl
         }
     }
@@ -82,6 +89,7 @@ class SessionStore(private val context: Context) {
     suspend fun clearToken(keepBaseUrl: String) {
         context.sessionDataStore.edit { preferences ->
             preferences.remove(tokenKey)
+            preferences.remove(refreshTokenKey)
             preferences[baseUrlKey] = keepBaseUrl
         }
     }

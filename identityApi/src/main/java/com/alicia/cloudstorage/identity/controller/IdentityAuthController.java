@@ -3,7 +3,9 @@ package com.alicia.cloudstorage.identity.controller;
 import com.alicia.cloudstorage.identity.dto.ChangePasswordRequest;
 import com.alicia.cloudstorage.identity.dto.IdentityLoginRequest;
 import com.alicia.cloudstorage.identity.dto.IdentityLoginResponse;
+import com.alicia.cloudstorage.identity.dto.IdentityLogoutRequest;
 import com.alicia.cloudstorage.identity.dto.IdentityMessageResponse;
+import com.alicia.cloudstorage.identity.dto.IdentityRefreshTokenRequest;
 import com.alicia.cloudstorage.identity.dto.IdentityUserResponse;
 import com.alicia.cloudstorage.identity.dto.RequestEmailRegistrationCodeRequest;
 import com.alicia.cloudstorage.identity.dto.UpdateIdentityProfileRequest;
@@ -47,8 +49,16 @@ public class IdentityAuthController {
     }
 
     @PostMapping("/login")
-    public IdentityLoginResponse login(@Valid @RequestBody IdentityLoginRequest request) {
-        return identityAuthService.login(request);
+    public IdentityLoginResponse login(
+            @Valid @RequestBody IdentityLoginRequest request,
+            HttpServletRequest servletRequest,
+            @RequestHeader(value = FORWARDED_FOR_HEADER, required = false) String forwardedFor
+    ) {
+        return identityAuthService.login(
+                request,
+                resolveClientAddress(servletRequest, forwardedFor),
+                servletRequest.getHeader(HttpHeaders.USER_AGENT)
+        );
     }
 
     @GetMapping("/me")
@@ -58,16 +68,25 @@ public class IdentityAuthController {
 
     @PostMapping("/token/refresh")
     public IdentityLoginResponse refreshToken(
-            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
+            @RequestBody(required = false) IdentityRefreshTokenRequest request,
+            HttpServletRequest servletRequest,
+            @RequestHeader(value = FORWARDED_FOR_HEADER, required = false) String forwardedFor
     ) {
-        return identityAuthService.refreshToken(authorization);
+        return identityAuthService.refreshToken(
+                authorization,
+                request,
+                resolveClientAddress(servletRequest, forwardedFor),
+                servletRequest.getHeader(HttpHeaders.USER_AGENT)
+        );
     }
 
     @PostMapping("/logout")
     public IdentityMessageResponse logout(
-            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
+            @RequestBody(required = false) IdentityLogoutRequest request
     ) {
-        identityAuthService.logout(authorization);
+        identityAuthService.logout(authorization, request);
         return new IdentityMessageResponse("已退出登录。");
     }
 
@@ -103,8 +122,16 @@ public class IdentityAuthController {
     }
 
     @PostMapping("/register/verify")
-    public IdentityLoginResponse verifyEmailRegistration(@Valid @RequestBody VerifyEmailRegistrationRequest request) {
-        return identityEmailRegistrationService.verifyRegistration(request);
+    public IdentityLoginResponse verifyEmailRegistration(
+            @Valid @RequestBody VerifyEmailRegistrationRequest request,
+            HttpServletRequest servletRequest,
+            @RequestHeader(value = FORWARDED_FOR_HEADER, required = false) String forwardedFor
+    ) {
+        return identityEmailRegistrationService.verifyRegistration(
+                request,
+                resolveClientAddress(servletRequest, forwardedFor),
+                servletRequest.getHeader(HttpHeaders.USER_AGENT)
+        );
     }
 
     private String resolveClientAddress(HttpServletRequest servletRequest, String forwardedFor) {

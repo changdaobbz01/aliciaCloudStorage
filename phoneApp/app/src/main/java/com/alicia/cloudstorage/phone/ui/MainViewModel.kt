@@ -67,6 +67,7 @@ private val defaultBreadCrumbs = listOf(FolderCrumb(id = null, label = "根目�
 
 private data class AuthSession(
     val token: String,
+    val refreshToken: String?,
     val baseUrl: String,
 )
 
@@ -244,6 +245,7 @@ data class AppUiState(
     val isChangingPassword: Boolean = false,
     val baseUrl: String = BuildConfig.DEFAULT_API_BASE_URL,
     val authToken: String? = null,
+    val refreshToken: String? = null,
     val currentUser: User? = null,
     val selectedTab: AppTab = AppTab.HOME,
     val home: HomeUiState = HomeUiState(),
@@ -360,7 +362,7 @@ class MainViewModel(
                     password = password,
                 )
             }.onSuccess { response ->
-                sessionStore.saveSession(response.token, normalizedBaseUrl)
+                sessionStore.saveSession(response.token, response.refreshToken, normalizedBaseUrl)
                 fileDirectoryCache.clear()
                 clearPreviewArtifacts()
                 _uiState.update { state ->
@@ -368,6 +370,7 @@ class MainViewModel(
                         isBooting = false,
                         isSubmittingLogin = false,
                         authToken = response.token,
+                        refreshToken = response.refreshToken,
                         currentUser = response.user,
                         selectedTab = AppTab.HOME,
                         home = HomeUiState(),
@@ -2249,6 +2252,7 @@ class MainViewModel(
                     repository.logout(
                         baseUrl = session.baseUrl,
                         token = session.token,
+                        refreshToken = session.refreshToken,
                     )
                 }
             }
@@ -2275,8 +2279,8 @@ class MainViewModel(
             }
 
             runCatching {
-                val refreshedSession = repository.refreshToken(session.baseUrl, session.token)
-                sessionStore.saveSession(refreshedSession.token, session.baseUrl)
+                val refreshedSession = repository.refreshToken(session.baseUrl, session.token, session.refreshToken)
+                sessionStore.saveSession(refreshedSession.token, refreshedSession.refreshToken, session.baseUrl)
                 refreshedSession
             }.onSuccess { refreshedSession ->
                 fileDirectoryCache.clear()
@@ -2285,6 +2289,7 @@ class MainViewModel(
                     state.copy(
                         isBooting = false,
                         authToken = refreshedSession.token,
+                        refreshToken = refreshedSession.refreshToken,
                         currentUser = refreshedSession.user,
                         baseUrl = session.baseUrl,
                     )
@@ -2296,7 +2301,7 @@ class MainViewModel(
                 sessionStore.clearToken(session.baseUrl)
                 clearPreviewArtifacts()
                 _uiState.update { state ->
-                    state.copy(isBooting = false, authToken = null, currentUser = null)
+                    state.copy(isBooting = false, authToken = null, refreshToken = null, currentUser = null)
                 }
                 handleError(error)
                 checkForAppUpdate(session.baseUrl)
@@ -2831,7 +2836,7 @@ class MainViewModel(
     private fun authenticatedSession(): AuthSession? {
         val state = uiState.value
         val token = state.authToken ?: return null
-        return AuthSession(token = token, baseUrl = state.baseUrl)
+        return AuthSession(token = token, refreshToken = state.refreshToken, baseUrl = state.baseUrl)
     }
 
     private fun normalizeBaseUrl(value: String): String {
