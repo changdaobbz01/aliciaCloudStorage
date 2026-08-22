@@ -158,11 +158,8 @@ class HttpIdentityAdminGatewayTest {
     private TestGatewayContext newContext() {
         RestClient.Builder restClientBuilder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(restClientBuilder).build();
-        HttpIdentityAdminGateway gateway = new HttpIdentityAdminGateway(
-                restClientBuilder,
-                objectMapper,
-                "http://identity.test"
-        );
+        RestClient restClient = restClientBuilder.baseUrl("http://identity.test").build();
+        HttpIdentityAdminGateway gateway = new HttpIdentityAdminGateway(restClient, objectMapper);
         return new TestGatewayContext(server, gateway);
     }
 

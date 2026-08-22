@@ -3,6 +3,7 @@ package com.alicia.cloudstorage.api.config;
 import com.alicia.cloudstorage.api.identity.HttpIdentityAdminGateway;
 import com.alicia.cloudstorage.api.identity.HttpIdentityAuthGateway;
 import com.alicia.cloudstorage.api.identity.HttpIdentityUserGateway;
+import com.alicia.cloudstorage.api.identity.IdentityApiClientProperties;
 import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.util.TestPropertyValues;
@@ -23,15 +24,22 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class HttpClientConfigTest {
 
     @Test
-    void providesRestClientBuilderForIdentityGateways() {
-        try (AnnotationConfigApplicationContext context =
-                     new AnnotationConfigApplicationContext(HttpClientConfig.class)) {
-            assertThat(context.getBean(RestClient.Builder.class)).isNotNull();
+    void providesIdentityRestClientForIdentityGateways() {
+        try (AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext()) {
+            context.registerBean(
+                    IdentityApiClientProperties.class,
+                    () -> new IdentityApiClientProperties("http://identity.test", 2000L, 5000L)
+            );
+            context.register(HttpClientConfig.class);
+
+            context.refresh();
+
+            assertThat(context.getBean(RestClient.class)).isNotNull();
         }
     }
 
     @Test
-    void restClientBuilderAppliesIdentityReadTimeout() throws IOException {
+    void identityRestClientAppliesIdentityReadTimeout() throws IOException {
         HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         ExecutorService executor = Executors.newSingleThreadExecutor();
         server.setExecutor(executor);
@@ -51,9 +59,11 @@ class HttpClientConfigTest {
 
         try {
             RestClient client = new HttpClientConfig()
-                    .restClientBuilder(1000L, 50L)
-                    .baseUrl("http://127.0.0.1:" + server.getAddress().getPort())
-                    .build();
+                    .identityRestClient(new IdentityApiClientProperties(
+                            "http://127.0.0.1:" + server.getAddress().getPort(),
+                            1000L,
+                            50L
+                    ));
 
             assertThatThrownBy(() -> client.get().uri("/slow").retrieve().body(String.class))
                     .isInstanceOf(RestClientException.class);
@@ -65,7 +75,9 @@ class HttpClientConfigTest {
 
     @Test
     void identityRequestFactoryNormalizesInvalidTimeouts() throws Exception {
-        var requestFactory = HttpClientConfig.identityRequestFactory(0L, -5L);
+        var requestFactory = HttpClientConfig.identityRequestFactory(
+                new IdentityApiClientProperties("http://identity.test", 0L, -5L)
+        );
 
         assertThat(readIntField(requestFactory, "connectTimeout")).isEqualTo(1);
         assertThat(readIntField(requestFactory, "readTimeout")).isEqualTo(1);
@@ -80,6 +92,7 @@ class HttpClientConfigTest {
                             "alicia.identity-api.read-timeout-ms=3500"
                     )
                     .applyTo(context);
+            context.register(IdentityApiClientProperties.class);
             context.register(HttpClientConfig.class);
             context.registerBean(JsonMapper.class, () -> JsonMapper.builder().build());
             context.register(HttpIdentityAdminGateway.class, HttpIdentityAuthGateway.class, HttpIdentityUserGateway.class);

@@ -1,7 +1,7 @@
 package com.alicia.cloudstorage.api.identity;
 
 import com.alicia.cloudstorage.api.dto.AdminCreateUserRequest;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
@@ -16,11 +16,10 @@ public class HttpIdentityAdminGateway implements IdentityAdminGateway {
     private final JsonMapper objectMapper;
 
     public HttpIdentityAdminGateway(
-            RestClient.Builder restClientBuilder,
-            JsonMapper objectMapper,
-            @Value("${alicia.identity-api.base-url}") String identityApiBaseUrl
+            @Qualifier("identityRestClient") RestClient restClient,
+            JsonMapper objectMapper
     ) {
-        this.restClient = restClientBuilder.baseUrl(identityApiBaseUrl).build();
+        this.restClient = restClient;
         this.objectMapper = objectMapper;
     }
 

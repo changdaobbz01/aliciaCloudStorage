@@ -1,33 +1,26 @@
 package com.alicia.cloudstorage.api.config;
 
-import org.springframework.beans.factory.annotation.Value;
+import com.alicia.cloudstorage.api.identity.IdentityApiClientProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 
-import java.time.Duration;
-
 @Configuration
 public class HttpClientConfig {
 
     @Bean
-    public RestClient.Builder restClientBuilder(
-            @Value("${alicia.identity-api.connect-timeout-ms:2000}") long identityConnectTimeoutMs,
-            @Value("${alicia.identity-api.read-timeout-ms:5000}") long identityReadTimeoutMs
-    ) {
+    public RestClient identityRestClient(IdentityApiClientProperties properties) {
         return RestClient.builder()
-                .requestFactory(identityRequestFactory(identityConnectTimeoutMs, identityReadTimeoutMs));
+                .baseUrl(properties.baseUrl())
+                .requestFactory(identityRequestFactory(properties))
+                .build();
     }
 
-    static SimpleClientHttpRequestFactory identityRequestFactory(long connectTimeoutMs, long readTimeoutMs) {
+    static SimpleClientHttpRequestFactory identityRequestFactory(IdentityApiClientProperties properties) {
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
-        requestFactory.setConnectTimeout(Duration.ofMillis(normalizeTimeoutMs(connectTimeoutMs)));
-        requestFactory.setReadTimeout(Duration.ofMillis(normalizeTimeoutMs(readTimeoutMs)));
+        requestFactory.setConnectTimeout(properties.connectTimeout());
+        requestFactory.setReadTimeout(properties.readTimeout());
         return requestFactory;
-    }
-
-    private static long normalizeTimeoutMs(long timeoutMs) {
-        return Math.max(1L, timeoutMs);
     }
 }
