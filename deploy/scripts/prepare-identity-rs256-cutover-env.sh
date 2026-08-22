@@ -144,8 +144,8 @@ else
 fi
 printf '\nSensitive key values are written only to the candidate file and are not printed here.\n'
 printf '\nWhen you are ready to cut over, run:\n'
-printf '  cp %s %s\n' "$ENV_FILE" "$BACKUP_FILE"
-printf '  cp %s %s\n' "$CANDIDATE_FILE" "$ENV_FILE"
+printf '  install -m 600 %s %s\n' "$ENV_FILE" "$BACKUP_FILE"
+printf '  install -m 600 %s %s\n' "$CANDIDATE_FILE" "$ENV_FILE"
 printf '  sudo docker compose'
 for file in $COMPOSE_FILES; do
     printf ' -f %s' "$file"
@@ -153,7 +153,7 @@ done
 printf ' up -d --no-build identity\n'
 printf '  ALICIA_VERIFY_TOKEN_ALGORITHM=RS256 ALICIA_VERIFY_TOKEN_KEY_ID=%s bash deploy/scripts/verify-identity-cloud-routes.sh\n' "$RS256_KEY_ID"
 printf '\nRollback command if verification fails:\n'
-printf '  cp %s %s\n' "$BACKUP_FILE" "$ENV_FILE"
+printf '  install -m 600 %s %s\n' "$BACKUP_FILE" "$ENV_FILE"
 printf '  sudo docker compose'
 for file in $COMPOSE_FILES; do
     printf ' -f %s' "$file"

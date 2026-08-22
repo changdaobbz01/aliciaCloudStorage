@@ -145,8 +145,8 @@ printf '  access token ttl:   %s seconds\n' "$TOKEN_EXPIRE_SECONDS"
 printf '\nApply this only after the old HS256 access-token window has expired, plus your chosen grace period.\n'
 printf 'Sensitive key values are written only to the candidate file and are not printed here.\n'
 printf '\nWhen you are ready to remove the historical HS256 key, run:\n'
-printf '  cp %s %s\n' "$ENV_FILE" "$BACKUP_FILE"
-printf '  cp %s %s\n' "$CANDIDATE_FILE" "$ENV_FILE"
+printf '  install -m 600 %s %s\n' "$ENV_FILE" "$BACKUP_FILE"
+printf '  install -m 600 %s %s\n' "$CANDIDATE_FILE" "$ENV_FILE"
 printf '  sudo docker compose'
 for file in $COMPOSE_FILES; do
     printf ' -f %s' "$file"
@@ -154,7 +154,7 @@ done
 printf ' up -d --no-build identity\n'
 printf '  ALICIA_VERIFY_TOKEN_ALGORITHM=%s ALICIA_VERIFY_TOKEN_KEY_ID=%s bash %s\n' "$TOKEN_ALGORITHM" "$CURRENT_KEY_ID" "$VERIFY_SCRIPT"
 printf '\nRollback command if verification fails:\n'
-printf '  cp %s %s\n' "$BACKUP_FILE" "$ENV_FILE"
+printf '  install -m 600 %s %s\n' "$BACKUP_FILE" "$ENV_FILE"
 printf '  sudo docker compose'
 for file in $COMPOSE_FILES; do
     printf ' -f %s' "$file"
