@@ -11,6 +11,7 @@ SKIP_ADMIN_CHECK="${ALICIA_VERIFY_SKIP_ADMIN_CHECK:-false}"
 SKIP_AUDIT_CHECK="${ALICIA_VERIFY_SKIP_AUDIT_CHECK:-false}"
 SKIP_IDENTITY_FLYWAY_CHECK="${ALICIA_VERIFY_SKIP_IDENTITY_FLYWAY_CHECK:-false}"
 COMPOSE_FILES="${ALICIA_COMPOSE_FILES:-compose.yaml compose.https.yaml}"
+ENV_FILE="${ALICIA_VERIFY_ENV_FILE:-.env}"
 
 CLOUD_BASE_URL="${CLOUD_BASE_URL%/}"
 IDENTITY_BASE_URL="${IDENTITY_BASE_URL%/}"
@@ -50,6 +51,44 @@ extract_json_number() {
     sed -n "s/.*\"$key\"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p" | head -n 1
 }
 
+dotenv_value() {
+    local key="$1"
+    local line
+    if [[ ! -f "$ENV_FILE" ]]; then
+        return 0
+    fi
+
+    line="$(sed -n "s/^[[:space:]]*$key[[:space:]]*=[[:space:]]*//p" "$ENV_FILE" | tail -n 1)"
+    line="${line%$'\r'}"
+    line="${line%%#*}"
+    line="${line#"${line%%[![:space:]]*}"}"
+    line="${line%"${line##*[![:space:]]}"}"
+
+    if [[ "${line:0:1}" == "\"" && "${line: -1}" == "\"" ]]; then
+        line="${line:1:${#line}-2}"
+    elif [[ "${line:0:1}" == "'" && "${line: -1}" == "'" ]]; then
+        line="${line:1:${#line}-2}"
+    fi
+
+    printf '%s' "$line"
+}
+
+base64url_decode() {
+    local label="$1"
+    local value="$2"
+    local normalized="${value//-/+}"
+    normalized="${normalized//_/\/}"
+
+    case $((${#normalized} % 4)) in
+        0) ;;
+        2) normalized="${normalized}==" ;;
+        3) normalized="${normalized}=" ;;
+        *) fail "$label has invalid base64url padding" ;;
+    esac
+
+    printf '%s' "$normalized" | base64 -d 2>/dev/null || fail "$label is not valid base64url"
+}
+
 require_jwt_token() {
     local label="$1"
     local token="$2"
@@ -61,6 +100,48 @@ require_jwt_token() {
     fi
 
     ok "$label is JWT-shaped"
+}
+
+require_jwt_metadata() {
+    local label="$1"
+    local token="$2"
+    local encoded_header
+    local encoded_payload
+    local signature
+    local header_json
+    local payload_json
+    local algorithm
+    local token_type
+    local token_key_id
+    local issuer
+    local audience
+    local subject
+    local expires_at
+    local token_version
+
+    IFS='.' read -r encoded_header encoded_payload signature <<< "$token"
+    header_json="$(base64url_decode "$label header" "$encoded_header")"
+    payload_json="$(base64url_decode "$label payload" "$encoded_payload")"
+
+    algorithm="$(printf '%s' "$header_json" | extract_json_string alg)"
+    token_type="$(printf '%s' "$header_json" | extract_json_string typ)"
+    token_key_id="$(printf '%s' "$header_json" | extract_json_string kid)"
+    issuer="$(printf '%s' "$payload_json" | extract_json_string iss)"
+    audience="$(printf '%s' "$payload_json" | extract_json_string aud)"
+    subject="$(printf '%s' "$payload_json" | extract_json_string sub)"
+    expires_at="$(printf '%s' "$payload_json" | extract_json_number exp)"
+    token_version="$(printf '%s' "$payload_json" | extract_json_number ver)"
+
+    [[ "$algorithm" == "HS256" ]] || fail "$label alg expected HS256, got ${algorithm:-<missing>}"
+    [[ "$token_type" == "JWT" ]] || fail "$label typ expected JWT, got ${token_type:-<missing>}"
+    [[ "$token_key_id" == "$EXPECTED_TOKEN_KEY_ID" ]] || fail "$label kid expected $EXPECTED_TOKEN_KEY_ID, got ${token_key_id:-<missing>}"
+    [[ "$issuer" == "$EXPECTED_TOKEN_ISSUER" ]] || fail "$label iss expected $EXPECTED_TOKEN_ISSUER, got ${issuer:-<missing>}"
+    [[ "$audience" == "$EXPECTED_TOKEN_AUDIENCE" ]] || fail "$label aud expected $EXPECTED_TOKEN_AUDIENCE, got ${audience:-<missing>}"
+    [[ -n "$subject" ]] || fail "$label sub is missing"
+    [[ -n "$expires_at" ]] || fail "$label exp is missing"
+    [[ -n "$token_version" ]] || fail "$label ver is missing"
+
+    ok "$label metadata matches expected iss/aud/kid"
 }
 
 curl_ok() {
@@ -133,6 +214,12 @@ compose() {
 
 ACCOUNT="${ALICIA_VERIFY_ACCOUNT:-}"
 PASSWORD="${ALICIA_VERIFY_PASSWORD:-}"
+DOTENV_TOKEN_ISSUER="$(dotenv_value ALICIA_AUTH_TOKEN_ISSUER)"
+DOTENV_TOKEN_AUDIENCE="$(dotenv_value ALICIA_AUTH_TOKEN_AUDIENCE)"
+DOTENV_TOKEN_KEY_ID="$(dotenv_value ALICIA_AUTH_TOKEN_KEY_ID)"
+EXPECTED_TOKEN_ISSUER="${ALICIA_VERIFY_TOKEN_ISSUER:-${DOTENV_TOKEN_ISSUER:-https://windwindwind-alicia.cn}}"
+EXPECTED_TOKEN_AUDIENCE="${ALICIA_VERIFY_TOKEN_AUDIENCE:-${DOTENV_TOKEN_AUDIENCE:-alicia-tools}}"
+EXPECTED_TOKEN_KEY_ID="${ALICIA_VERIFY_TOKEN_KEY_ID:-${DOTENV_TOKEN_KEY_ID:-alicia-hs256-v1}}"
 
 if [[ -z "$ACCOUNT" ]]; then
     read -r -p "Identity account/email/phone: " ACCOUNT
@@ -147,6 +234,7 @@ printf 'Verifying Alicia identity/cloud route boundary...\n'
 printf 'Cloud API: %s\n' "$CLOUD_BASE_URL"
 printf 'Identity API: %s\n' "$IDENTITY_BASE_URL"
 printf 'Public base: %s\n' "$PUBLIC_BASE_URL"
+printf 'Expected JWT: iss=%s aud=%s kid=%s\n' "$EXPECTED_TOKEN_ISSUER" "$EXPECTED_TOKEN_AUDIENCE" "$EXPECTED_TOKEN_KEY_ID"
 
 curl_ok "cloud health direct" "$CLOUD_BASE_URL/api/health"
 curl_ok "identity health direct" "$IDENTITY_BASE_URL/api/identity/health"
@@ -168,6 +256,7 @@ if [[ -z "$TOKEN" ]]; then
 fi
 ok "identity login issued token (${#TOKEN} chars)"
 require_jwt_token "identity login token" "$TOKEN"
+require_jwt_metadata "identity login token" "$TOKEN"
 REFRESH_TOKEN="$(printf '%s' "$login_response" | tr -d '\n' | extract_json_string refreshToken)"
 if [[ -z "$REFRESH_TOKEN" ]]; then
     fail "identity login did not return a refresh token"
@@ -193,6 +282,7 @@ TOKEN="$REFRESHED_TOKEN"
 REFRESH_TOKEN="$REFRESHED_REFRESH_TOKEN"
 ok "identity token refresh issued replacement token (${#TOKEN} chars) and refresh token (${#REFRESH_TOKEN} chars)"
 require_jwt_token "identity refreshed token" "$TOKEN"
+require_jwt_metadata "identity refreshed token" "$TOKEN"
 
 sessions_response="$(curl_json_or_fail "identity session list" \
     "$PUBLIC_BASE_URL/api/identity/auth/sessions" \

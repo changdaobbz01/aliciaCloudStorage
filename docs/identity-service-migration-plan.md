@@ -1005,7 +1005,7 @@ bash deploy/scripts/verify-identity-cloud-routes.sh
 脚本覆盖：
 
 - 直连与前端 Nginx health。
-- Identity 登录、refresh token 下发与轮换、刷新会话查询、logout 后 refresh token 和当前 access token 失效。
+- Identity 登录、refresh token 下发与轮换、JWT `iss/aud/kid` 元数据、刷新会话查询、logout 后 refresh token 和当前 access token 失效。
 - `/api/cloud-profile/me` 和 `/api/storage/overview` 使用 identity token。
 - `/api/admin/cloud-users` 管理员入口。
 - `/api/identity/admin/audit-logs` 管理员审计日志查询入口。
