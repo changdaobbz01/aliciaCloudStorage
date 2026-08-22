@@ -132,7 +132,7 @@ require_jwt_metadata() {
     expires_at="$(printf '%s' "$payload_json" | extract_json_number exp)"
     token_version="$(printf '%s' "$payload_json" | extract_json_number ver)"
 
-    [[ "$algorithm" == "HS256" ]] || fail "$label alg expected HS256, got ${algorithm:-<missing>}"
+    [[ "$algorithm" == "$EXPECTED_TOKEN_ALGORITHM" ]] || fail "$label alg expected $EXPECTED_TOKEN_ALGORITHM, got ${algorithm:-<missing>}"
     [[ "$token_type" == "JWT" ]] || fail "$label typ expected JWT, got ${token_type:-<missing>}"
     [[ "$token_key_id" == "$EXPECTED_TOKEN_KEY_ID" ]] || fail "$label kid expected $EXPECTED_TOKEN_KEY_ID, got ${token_key_id:-<missing>}"
     [[ "$issuer" == "$EXPECTED_TOKEN_ISSUER" ]] || fail "$label iss expected $EXPECTED_TOKEN_ISSUER, got ${issuer:-<missing>}"
@@ -287,9 +287,12 @@ PASSWORD="${ALICIA_VERIFY_PASSWORD:-}"
 DOTENV_TOKEN_ISSUER="$(dotenv_value ALICIA_AUTH_TOKEN_ISSUER)"
 DOTENV_TOKEN_AUDIENCE="$(dotenv_value ALICIA_AUTH_TOKEN_AUDIENCE)"
 DOTENV_TOKEN_KEY_ID="$(dotenv_value ALICIA_AUTH_TOKEN_KEY_ID)"
+DOTENV_TOKEN_ALGORITHM="$(dotenv_value ALICIA_AUTH_TOKEN_ALGORITHM)"
 EXPECTED_TOKEN_ISSUER="${ALICIA_VERIFY_TOKEN_ISSUER:-${DOTENV_TOKEN_ISSUER:-https://windwindwind-alicia.cn}}"
 EXPECTED_TOKEN_AUDIENCE="${ALICIA_VERIFY_TOKEN_AUDIENCE:-${DOTENV_TOKEN_AUDIENCE:-alicia-tools}}"
 EXPECTED_TOKEN_KEY_ID="${ALICIA_VERIFY_TOKEN_KEY_ID:-${DOTENV_TOKEN_KEY_ID:-alicia-hs256-v1}}"
+EXPECTED_TOKEN_ALGORITHM="${ALICIA_VERIFY_TOKEN_ALGORITHM:-${DOTENV_TOKEN_ALGORITHM:-HS256}}"
+EXPECTED_TOKEN_ALGORITHM="$(printf '%s' "$EXPECTED_TOKEN_ALGORITHM" | tr '[:lower:]' '[:upper:]')"
 
 if [[ -z "$ACCOUNT" ]]; then
     read -r -p "Identity account/email/phone: " ACCOUNT
@@ -304,12 +307,23 @@ printf 'Verifying Alicia identity/cloud route boundary...\n'
 printf 'Cloud API: %s\n' "$CLOUD_BASE_URL"
 printf 'Identity API: %s\n' "$IDENTITY_BASE_URL"
 printf 'Public base: %s\n' "$PUBLIC_BASE_URL"
-printf 'Expected JWT: iss=%s aud=%s kid=%s\n' "$EXPECTED_TOKEN_ISSUER" "$EXPECTED_TOKEN_AUDIENCE" "$EXPECTED_TOKEN_KEY_ID"
+printf 'Expected JWT: alg=%s iss=%s aud=%s kid=%s\n' "$EXPECTED_TOKEN_ALGORITHM" "$EXPECTED_TOKEN_ISSUER" "$EXPECTED_TOKEN_AUDIENCE" "$EXPECTED_TOKEN_KEY_ID"
 
 curl_ok "cloud health direct" "$CLOUD_BASE_URL/api/health"
 curl_ok "identity health direct" "$IDENTITY_BASE_URL/api/identity/health"
 curl_ok "cloud health through frontend" "$PUBLIC_BASE_URL/api/health"
 curl_ok "identity health through frontend" "$PUBLIC_BASE_URL/api/identity/health"
+jwks_response="$(curl_json_or_fail "identity jwks endpoint" "$PUBLIC_BASE_URL/api/identity/.well-known/jwks.json")"
+if [[ "$EXPECTED_TOKEN_ALGORITHM" == "RS256" ]]; then
+    jwks_key_id="$(printf '%s' "$jwks_response" | tr -d '\n' | extract_json_string kid)"
+    jwks_algorithm="$(printf '%s' "$jwks_response" | tr -d '\n' | extract_json_string alg)"
+    [[ "$jwks_key_id" == "$EXPECTED_TOKEN_KEY_ID" ]] || fail "identity jwks kid expected $EXPECTED_TOKEN_KEY_ID, got ${jwks_key_id:-<missing>}"
+    [[ "$jwks_algorithm" == "RS256" ]] || fail "identity jwks alg expected RS256, got ${jwks_algorithm:-<missing>}"
+    ok "identity jwks exposes current RSA key"
+else
+    ok "identity jwks endpoint"
+fi
+unset jwks_response
 curl_ok "rag health through frontend" "$RAG_HEALTH_URL"
 curl_ok "cloudPan frontend entry" -I "$PUBLIC_BASE_URL/cloudPan/"
 

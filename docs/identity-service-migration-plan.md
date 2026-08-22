@@ -34,6 +34,7 @@
 
 当前身份职责：
 
+- `GET /api/identity/.well-known/jwks.json`
 - `POST /api/identity/auth/login`
 - `POST /api/identity/auth/register/email-code`
 - `POST /api/identity/auth/register/verify`
@@ -406,7 +407,7 @@ cloud_user_profile.home_background_url = sys_user.home_background_url
 
 ### 7.1 当前状态
 
-当前 token 由 `identityApi` 的 `IdentityTokenService` 统一签发。新签发的 access token 已是标准 JWT，当前第一期仍使用 HS256 对称签名，payload 包含：
+当前 token 由 `identityApi` 的 `IdentityTokenService` 统一签发。新签发的 access token 已是标准 JWT，默认仍使用 HS256 对称签名，也可通过配置切换为 RS256 非对称签名，payload 包含：
 
 ```text
 header.kid: alicia-hs256-v1
@@ -426,6 +427,10 @@ ALICIA_AUTH_TOKEN_ISSUER=https://windwindwind-alicia.cn
 ALICIA_AUTH_TOKEN_AUDIENCE=alicia-tools
 ALICIA_AUTH_TOKEN_KEY_ID=alicia-hs256-v1
 ALICIA_AUTH_TOKEN_PREVIOUS_KEYS=old-kid=old-secret;older-kid=older-secret
+ALICIA_AUTH_TOKEN_ALGORITHM=HS256
+ALICIA_AUTH_TOKEN_RSA_PRIVATE_KEY=
+ALICIA_AUTH_TOKEN_RSA_PUBLIC_KEY=
+ALICIA_AUTH_TOKEN_PREVIOUS_RSA_PUBLIC_KEYS=old-rsa-kid=old-public-key
 ```
 
 为保证平滑升级，`IdentityTokenService` 仍兼容解析旧两段式 token。旧 v2 payload 中包含：
@@ -444,8 +449,9 @@ v3:userId:tokenVersion:refreshSessionId:expiresAt
 
 - payload 不再依赖手机号，兼容邮箱登录用户。
 - 新签发 access token 已迁移为标准 JWT；旧 v2/v3 和更早期 payload 只保留解析兼容，不再新签发。
-- JWT 的 `iss`、`aud` 和 `kid` 会按配置校验，生产验证脚本会检查登录和续签返回的是三段式 JWT。
-- JWT 新签发始终使用当前 key；验签支持当前 key 和配置的历史 key，旧两段式 token 也可用历史 secret 验签。
+- JWT 的 `alg`、`iss`、`aud` 和 `kid` 会按配置校验，生产验证脚本会检查登录和续签返回的是三段式 JWT，并检查 JWKS 入口。
+- JWT 新签发始终使用当前 key；验签支持当前 key 和配置的历史 HS256/RSA key，旧两段式 token 也可用历史 secret 验签。
+- RS256/JWKS 支撑已落地，公钥发布在 `/api/identity/.well-known/jwks.json`；默认生产配置仍是 HS256，正式切换需要先生成 RSA key pair 并更新环境变量。
 - `tokenVersion` 已用于密码修改、管理员重置密码和全设备 logout 后的登录态失效。
 - `identity_refresh_token` 保存刷新令牌摘要、用户、tokenVersion、过期时间、撤销时间、客户端 IP 和 User-Agent。
 - 登录和邮箱注册验证返回 `token` 与 `refreshToken`；续签优先使用 refresh token 轮换，Authorization-only 续签作为兼容路径保留并会补发刷新会话。
@@ -455,7 +461,7 @@ v3:userId:tokenVersion:refreshSessionId:expiresAt
 
 剩余问题：
 
-- 当前 JWT 仍使用 HS256 对称签名，尚未切换非对称签名，也尚未发布 JWKS。
+- 当前生产配置仍使用 HS256 对称签名；RS256/JWKS 能力已落地但尚未在生产启用。
 - CloudStorageApi 现在通过 HTTP 调 Identity 校验 token，后续如果流量增大，需要短缓存、introspection 或 JWKS 本地验签方案。
 
 ### 7.2 后续目标
@@ -475,7 +481,7 @@ exp: 过期时间
 推荐：
 
 - 第一期继续使用对称签名，降低改造成本；HS256 JWT 签发、旧 token 解析兼容、JWT 元数据配置化、基础校验和历史 key 验签窗口已落地。
-- 中期切换到非对称签名和 JWKS，让 CloudStorageApi、RAG 或后续服务只持有公钥。
+- 中期切换到非对称签名和 JWKS，让 CloudStorageApi、RAG 或后续服务只持有公钥；代码已支持 RS256 签发、验签和公钥发布，后续重点是切换部署配置与消费方本地验签。
 - 保留 token version，用于密码修改和管理员重置密码后的登录态失效。
 - 角色和状态暂不写入 access token，仍由 Identity 校验时读取数据库，避免角色/状态变更后出现过期授权信息。
 
@@ -520,7 +526,7 @@ exp: 过期时间
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
-| `GET` | `/api/identity/auth/jwks` | 公钥发布，第二期启用 |
+| `GET` | `/api/identity/.well-known/jwks.json` | Identity RS256 公钥发布 |
 
 ### 8.2 CloudStorageApi 对外接口
 
@@ -684,6 +690,7 @@ main-site-frontend（独立仓库/独立 compose）
 /login                    -> main-site-frontend
 /cloudPan/                -> cloud webApp static
 /api/identity/health      -> identity
+/api/identity/.well-known/jwks.json -> identity
 /api/identity/auth/       -> identity
 /api/identity/admin/      -> identity
 /api/cloud-profile/       -> cloud api
@@ -782,7 +789,7 @@ AliciaCloudStorage/identityApi
 - CloudStorageApi 已新增 `CloudUserProfileProvisioningService`，鉴权通过后会确保当前身份用户存在云盘 profile。
 - identity 新用户的云盘 profile 默认额度取 `alicia.storage.default-user-quota-bytes`，不再误用 `sys_user.storage_quota_bytes` 的旧数据库默认值。
 - `IdentityRefreshTokenService` 使用 `JdbcTemplate` 读写 `identity_refresh_token`，避免把刷新会话表暴露为额外 JPA 实体；该表已纳入 `identityApi` 独立 Flyway 基线。
-- `IdentityTokenService` 已签发标准 JWT，并保留旧两段式 token 解析兼容；后续再切换 JWKS/非对称签名。
+- `IdentityTokenService` 已签发标准 JWT，并保留旧两段式 token 解析兼容；当前默认 HS256，已支持可选 RS256/JWKS。
 - Compose 中注入同一个 MySQL 连接；共享库过渡期由 `api` 先完成 CloudStorageApi 历史迁移，再启动 `identity` 执行自己的 Flyway 与 JPA validate。
 - Dockerfile：`identityApi/Dockerfile`。
 - README：`identityApi/README.md`。
@@ -1006,7 +1013,7 @@ bash deploy/scripts/verify-identity-cloud-routes.sh
 脚本覆盖：
 
 - 直连与前端 Nginx health。
-- Identity 登录、refresh token 下发与轮换、JWT `iss/aud/kid` 元数据、刷新会话查询、指定刷新会话撤销、会话撤销审计事件写入、logout 后 refresh token 和当前 access token 失效。
+- Identity 登录、refresh token 下发与轮换、JWT `alg/iss/aud/kid` 元数据、JWKS 入口、刷新会话查询、指定刷新会话撤销、会话撤销审计事件写入、logout 后 refresh token 和当前 access token 失效。
 - `/api/cloud-profile/me` 和 `/api/storage/overview` 使用 identity token。
 - `/api/admin/cloud-users` 管理员入口。
 - `/api/identity/admin/audit-logs` 管理员审计日志查询入口和 `SESSION_REVOKE` 筛选。
@@ -1023,7 +1030,7 @@ Identity：
 - `identityApi/src/main/java/com/alicia/cloudstorage/identity/service/IdentityPrincipalService.java`
 - `identityApi/src/main/java/com/alicia/cloudstorage/identity/service/IdentityRefreshTokenService.java`
 - `identityApi/src/main/java/com/alicia/cloudstorage/identity/controller/IdentityAuthController.java`
-- 后续新增 JWKS、密钥轮换或非对称签名支撑时的实体和 Repository。
+- 后续如果做后台密钥管理，再新增密钥实体和 Repository；当前 RS256/JWKS 先由环境变量驱动。
 
 CloudStorageApi：
 
@@ -1056,7 +1063,7 @@ Web 和 Android：
 2. 继续观察 Identity 审计日志写入、查询接口和 Web 管理页筛选结果。
 3. 观察 `identity_refresh_token` 的生产写入、轮换、会话查询和指定会话撤销结果。
 4. 继续观察 `identity_flyway_schema_history`，确认后续身份 schema 变更只进入 `identityApi` 迁移目录，并保持双向迁移边界测试通过。
-5. 将当前 HS256 JWT 迁移到非对称签名，并准备 JWKS 公钥发布。
+5. 在生产生成 RSA key pair，将签发配置从 HS256 切到 RS256，并观察 JWKS 公钥发布结果。
 6. 评估 `sys_user` 是否继续作为 identity 表名，或迁移到独立 schema / `identity_user`。
 
 这一步完成后，当前文档基线已经与生产架构对齐：Identity 负责身份，CloudStorageApi 负责云盘，主站负责统一入口。后续新增工具只需要接入 Identity，不应该再直接复用或写入云盘的用户资料表。

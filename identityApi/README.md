@@ -9,7 +9,7 @@ Current status:
 - It owns login, token refresh/logout, current-user identity reads, refresh-session reads/revocation, profile writes, password changes, email-code registration, and administrator identity management.
 - It exposes a read-only administrator audit-log query endpoint for identity security review.
 - It persists refresh-token sessions in `identity_refresh_token`; login/registration return both `token` and `refreshToken`.
-- It issues HS256 JWT access tokens with configurable `iss`, `aud`, and `kid`, plus `sub`, `iat`, `exp`, `ver`, and optional `sid`; new tokens are signed with the current key, verification accepts configured previous keys, and legacy two-part access tokens remain accepted during the transition.
+- It issues JWT access tokens with configurable `alg`, `iss`, `aud`, and `kid`, plus `sub`, `iat`, `exp`, `ver`, and optional `sid`; HS256 remains the default, RS256/JWKS can be enabled by configuration, verification accepts configured previous HS256/RSA keys, and legacy two-part access tokens remain accepted during the transition.
 - It owns identity Flyway migrations under `src/main/resources/db/identity-migration` and records them in `identity_flyway_schema_history`.
 - It still reads and writes the existing `sys_user` table during the migration period.
 - `CloudStorageApi` consumes identity tokens and only adds cloud-drive profile data such as quota and home background.
@@ -17,6 +17,7 @@ Current status:
 Local endpoints:
 
 - `GET /api/identity/health`
+- `GET /api/identity/.well-known/jwks.json`
 - `GET /api/identity/internal/users/{userId}`
 - `POST /api/identity/auth/login`
 - `GET /api/identity/auth/me`
@@ -34,7 +35,7 @@ Local endpoints:
 The internal user endpoint is read-only and does not return `password_hash`.
 The auth endpoints are the production identity boundary. `POST /api/identity/auth/token/refresh` prefers a JSON body containing `refreshToken` and rotates it; Authorization-only refresh remains as a compatibility path. `GET /api/identity/auth/sessions` lists the current user's refresh sessions without exposing token material, and `DELETE /api/identity/auth/sessions/{sessionId}` revokes one of that user's sessions and records `SESSION_REVOKE` audit events. `POST /api/identity/auth/logout` revokes the current refresh session by default, while `{"allDevices":true}` increments `token_version` and revokes all refresh sessions for the user. Email registration in this module creates only the identity user; cloud-drive profile provisioning remains owned by `CloudStorageApi`.
 
-JWT metadata is configured through `ALICIA_AUTH_TOKEN_ISSUER`, `ALICIA_AUTH_TOKEN_AUDIENCE`, and `ALICIA_AUTH_TOKEN_KEY_ID`; the default compose stack passes production-compatible defaults for the shared-domain deployment. For HS256 key rotation, put the new signing key in `ALICIA_AUTH_TOKEN_SECRET` and `ALICIA_AUTH_TOKEN_KEY_ID`, then keep old verification keys in `ALICIA_AUTH_TOKEN_PREVIOUS_KEYS` using `old-kid=old-secret;older-kid=older-secret` until older access tokens expire.
+JWT signing is configured through `ALICIA_AUTH_TOKEN_ALGORITHM`, `ALICIA_AUTH_TOKEN_ISSUER`, `ALICIA_AUTH_TOKEN_AUDIENCE`, and `ALICIA_AUTH_TOKEN_KEY_ID`; the default compose stack keeps `HS256` and production-compatible metadata for the shared-domain deployment. For HS256 key rotation, put the new signing key in `ALICIA_AUTH_TOKEN_SECRET` and `ALICIA_AUTH_TOKEN_KEY_ID`, then keep old verification keys in `ALICIA_AUTH_TOKEN_PREVIOUS_KEYS` using `old-kid=old-secret;older-kid=older-secret` until older access tokens expire. For RS256, configure `ALICIA_AUTH_TOKEN_ALGORITHM=RS256`, a PKCS#8 private key in `ALICIA_AUTH_TOKEN_RSA_PRIVATE_KEY`, its X.509 public key in `ALICIA_AUTH_TOKEN_RSA_PUBLIC_KEY`, and any historical public keys in `ALICIA_AUTH_TOKEN_PREVIOUS_RSA_PUBLIC_KEYS` using `old-kid=public-key;older-kid=public-key`.
 
 Schema migrations:
 

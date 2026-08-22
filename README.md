@@ -75,7 +75,7 @@ cp .env.example .env
 - `ALICIA_COS_REGION`
 - `ALICIA_COS_BUCKET`
 
-JWT access token 元数据默认使用生产主域配置：`ALICIA_AUTH_TOKEN_ISSUER=https://windwindwind-alicia.cn`、`ALICIA_AUTH_TOKEN_AUDIENCE=alicia-tools`、`ALICIA_AUTH_TOKEN_KEY_ID=alicia-hs256-v1`。如果部署到 staging、临时域名或未来做密钥轮换，需要在 `.env` 中显式调整这些值，并同步重建 `identity` 容器。轮换 HS256 密钥时，新密钥写入 `ALICIA_AUTH_TOKEN_SECRET` 和 `ALICIA_AUTH_TOKEN_KEY_ID`，旧密钥按 `old-kid=old-secret;older-kid=older-secret` 格式放入 `ALICIA_AUTH_TOKEN_PREVIOUS_KEYS`；旧 access token 过期后再移除历史 key。
+JWT access token 默认仍使用 `ALICIA_AUTH_TOKEN_ALGORITHM=HS256`，元数据默认使用生产主域配置：`ALICIA_AUTH_TOKEN_ISSUER=https://windwindwind-alicia.cn`、`ALICIA_AUTH_TOKEN_AUDIENCE=alicia-tools`、`ALICIA_AUTH_TOKEN_KEY_ID=alicia-hs256-v1`。如果部署到 staging、临时域名或未来做密钥轮换，需要在 `.env` 中显式调整这些值，并同步重建 `identity` 容器。轮换 HS256 密钥时，新密钥写入 `ALICIA_AUTH_TOKEN_SECRET` 和 `ALICIA_AUTH_TOKEN_KEY_ID`，旧密钥按 `old-kid=old-secret;older-kid=older-secret` 格式放入 `ALICIA_AUTH_TOKEN_PREVIOUS_KEYS`；旧 access token 过期后再移除历史 key。需要切换非对称签名时，将 `ALICIA_AUTH_TOKEN_ALGORITHM` 改为 `RS256`，并配置 PKCS#8 私钥、X.509 公钥和新的 `kid`，公钥会通过 `/api/identity/.well-known/jwks.json` 发布。
 
 如果配置了 COS 自定义源站域名，可以额外填写：
 
@@ -181,7 +181,7 @@ curl -X POST http://127.0.0.1:8093/api/identity/auth/register/verify `
   -d "{\"email\":\"你的邮箱\",\"code\":\"邮箱验证码\",\"nickname\":\"昵称\",\"password\":\"密码\"}"
 ```
 
-当前公网身份入口为 `/api/identity/auth/**` 和 `/api/identity/admin/**`；登录、注册、Token 校验、续签、注销、刷新会话查询/撤销、密码和账号资料写入已经由 `identityApi` 执行。登录和邮箱注册验证会返回 `token` 与 `refreshToken`，其中新签发的 access token 是 HS256 JWT，`iss`、`aud` 和 `kid` 由 `ALICIA_AUTH_TOKEN_ISSUER`、`ALICIA_AUTH_TOKEN_AUDIENCE`、`ALICIA_AUTH_TOKEN_KEY_ID` 配置，签发始终使用当前 key，验签支持当前 key 和 `ALICIA_AUTH_TOKEN_PREVIOUS_KEYS` 中配置的历史 key；旧两段式 token 只保留解析兼容，也可用历史 secret 验签。续签接口优先使用 `refreshToken` 轮换会话，未携带 `refreshToken` 时仍兼容 Authorization 续签并补发新刷新会话。`CloudStorageApi` 负责补齐云盘资料，并通过 `/api/cloud-profile/**` 返回云盘聚合资料、头像和主页背景。
+当前公网身份入口为 `/api/identity/auth/**` 和 `/api/identity/admin/**`；登录、注册、Token 校验、续签、注销、刷新会话查询/撤销、密码和账号资料写入已经由 `identityApi` 执行。登录和邮箱注册验证会返回 `token` 与 `refreshToken`，其中新签发的 access token 默认是 HS256 JWT，也可通过配置切换为 RS256；`iss`、`aud`、`kid` 和算法由 `ALICIA_AUTH_TOKEN_ISSUER`、`ALICIA_AUTH_TOKEN_AUDIENCE`、`ALICIA_AUTH_TOKEN_KEY_ID`、`ALICIA_AUTH_TOKEN_ALGORITHM` 配置，RS256 公钥发布在 `/api/identity/.well-known/jwks.json`。验签支持当前 key 和历史 HS256/RSA key；旧两段式 token 只保留解析兼容，也可用历史 secret 验签。续签接口优先使用 `refreshToken` 轮换会话，未携带 `refreshToken` 时仍兼容 Authorization 续签并补发新刷新会话。`CloudStorageApi` 负责补齐云盘资料，并通过 `/api/cloud-profile/**` 返回云盘聚合资料、头像和主页背景。
 
 `identityApi` 已启用独立 Flyway，迁移文件位于 `identityApi/src/main/resources/db/identity-migration`，迁移历史表为 `identity_flyway_schema_history`。当前仍共用同一个 MySQL 数据库，CloudStorageApi 早期 V1-V14 历史迁移继续保留，后续身份表结构变更应新增到 `identityApi`。CloudStorageApi 和 identityApi 测试中已有双向迁移边界检查，防止新的身份结构变更写回云盘迁移目录，也防止云盘业务结构进入 Identity 迁移目录。
 
@@ -204,7 +204,7 @@ curl -X POST http://127.0.0.1:8093/api/identity/auth/register/verify `
 docker compose -f compose.yaml -f compose.https.yaml up -d --build frontend
 ```
 
-这样会额外开放 `443`，并将 `http://` 请求自动跳转到 `https://`。统一登录入口为 `https://windwindwind-alicia.cn/login`，云盘 Web 入口为 `https://windwindwind-alicia.cn/cloudPan/`，正式 RAG 入口为 `https://windwindwind-alicia.cn/rag`，SSE 请求由 Nginx 直通 `rag` 容器；Identity 公开入口为 `https://windwindwind-alicia.cn/api/identity/health`、`/api/identity/auth/**` 和 `/api/identity/admin/**`。`/rag/internal/` 与 `/api/identity/internal/**` 不对公网开放。
+这样会额外开放 `443`，并将 `http://` 请求自动跳转到 `https://`。统一登录入口为 `https://windwindwind-alicia.cn/login`，云盘 Web 入口为 `https://windwindwind-alicia.cn/cloudPan/`，正式 RAG 入口为 `https://windwindwind-alicia.cn/rag`，SSE 请求由 Nginx 直通 `rag` 容器；Identity 公开入口为 `https://windwindwind-alicia.cn/api/identity/health`、`/api/identity/.well-known/jwks.json`、`/api/identity/auth/**` 和 `/api/identity/admin/**`。`/rag/internal/` 与 `/api/identity/internal/**` 不对公网开放。
 
 生产服务器更新 RAG 与 Nginx 时，在仓库内执行：
 
@@ -214,7 +214,7 @@ bash deploy/scripts/update-rag-production.sh
 
 脚本会拒绝覆盖服务端已有的 tracked 改动，确认 `.env` 已配置 DeepSeek，快进拉取 `main`，重建 `rag` 与 `frontend`，最后同时检查 `127.0.0.1:8091/api/health` 和公网 `/rag/api/health`。密钥只保留在服务器 `.env`，不会输出到日志。
 
-生产更新 `api`、`identity` 或前端路由后，可以使用统一回归脚本检查主域路径边界、登录续签、JWT `iss/aud/kid` 元数据、刷新会话查询和指定撤销、云盘聚合资料、存储概览、管理员云盘用户入口、Identity 审计日志查询、会话撤销审计事件写入、Identity Flyway 迁移历史、旧身份路径 404、注销失效和审计日志最新行：
+生产更新 `api`、`identity` 或前端路由后，可以使用统一回归脚本检查主域路径边界、登录续签、JWT `alg/iss/aud/kid` 元数据、JWKS 入口、刷新会话查询和指定撤销、云盘聚合资料、存储概览、管理员云盘用户入口、Identity 审计日志查询、会话撤销审计事件写入、Identity Flyway 迁移历史、旧身份路径 404、注销失效和审计日志最新行：
 
 ```bash
 bash deploy/scripts/verify-identity-cloud-routes.sh

@@ -7,8 +7,14 @@ import org.springframework.test.util.ReflectionTestUtils;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.PrivateKey;
+import java.security.Signature;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -87,6 +93,42 @@ class IdentityTokenServiceTest {
 
         assertThat(header).contains("\"kid\":\"current-key\"");
         assertThat(tokenService.parseToken(token).userId()).isEqualTo(33L);
+    }
+
+    @Test
+    void createTokenCanUseRs256AndExposePublicJwks() throws Exception {
+        IdentityUser user = newIdentityUser();
+        ReflectionTestUtils.setField(user, "id", 33L);
+        ReflectionTestUtils.setField(user, "tokenVersion", 7L);
+        RsaFixture rsa = rsaFixture();
+        IdentityTokenService tokenService = rsaTokenService("alicia-rs256-v1", rsa);
+
+        String token = tokenService.createToken(user, 51L);
+        String[] parts = token.split("\\.");
+        assertThat(parts).hasSize(3);
+
+        String header = decodePart(parts[0]);
+        String payload = decodePart(parts[1]);
+        IdentityTokenService.TokenClaims claims = tokenService.parseToken(token);
+
+        assertThat(header).contains("\"alg\":\"RS256\"");
+        assertThat(header).contains("\"typ\":\"JWT\"");
+        assertThat(header).contains("\"kid\":\"alicia-rs256-v1\"");
+        assertThat(payload).contains("\"sid\":51");
+        assertThat(claims.userId()).isEqualTo(33L);
+        assertThat(claims.tokenVersion()).isEqualTo(7L);
+        assertThat(claims.refreshSessionId()).isEqualTo(51L);
+
+        Map<String, Object> jwks = tokenService.jwks();
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> keys = (List<Map<String, Object>>) jwks.get("keys");
+        assertThat(keys).hasSize(1);
+        assertThat(keys.getFirst()).containsEntry("kty", "RSA")
+                .containsEntry("use", "sig")
+                .containsEntry("kid", "alicia-rs256-v1")
+                .containsEntry("alg", "RS256");
+        assertThat(keys.getFirst()).containsKeys("n", "e");
+        assertThat(keys.getFirst()).doesNotContainKeys("d", "p", "q");
     }
 
     @Test
@@ -236,6 +278,35 @@ class IdentityTokenServiceTest {
     }
 
     @Test
+    void parseTokenAcceptsRs256JwtSignedWithPreviousPublicKey() throws Exception {
+        RsaFixture current = rsaFixture();
+        RsaFixture previous = rsaFixture();
+        IdentityTokenService tokenService = new IdentityTokenService(
+                "legacy-secret",
+                3600L,
+                "https://windwindwind-alicia.cn",
+                "alicia-tools",
+                "current-rsa",
+                "old-hmac=old-secret",
+                "RS256",
+                current.privateKeyPem(),
+                current.publicKeyPem(),
+                "old-rsa=" + previous.publicKeyPem()
+        );
+        String token = rs256JwtToken(
+                "https://windwindwind-alicia.cn",
+                "alicia-tools",
+                "old-rsa",
+                previous.privateKey()
+        );
+
+        IdentityTokenService.TokenClaims claims = tokenService.parseToken(token);
+
+        assertThat(claims.userId()).isEqualTo(44L);
+        assertThat(claims.tokenVersion()).isEqualTo(9L);
+    }
+
+    @Test
     void parseTokenAcceptsLegacyPayloadSignedWithPreviousSecret() throws Exception {
         IdentityTokenService tokenService = tokenService(
                 "current-secret",
@@ -301,6 +372,40 @@ class IdentityTokenServiceTest {
     }
 
     @Test
+    void constructorRejectsUnsupportedTokenAlgorithm() {
+        assertThatThrownBy(() -> new IdentityTokenService(
+                "test-secret",
+                3600L,
+                "https://windwindwind-alicia.cn",
+                "alicia-tools",
+                "current-key",
+                "",
+                "ES256",
+                "",
+                "",
+                ""
+        )).isInstanceOf(IllegalStateException.class)
+                .hasMessage("Token algorithm must be HS256 or RS256.");
+    }
+
+    @Test
+    void constructorRejectsRs256WithoutKeyPair() {
+        assertThatThrownBy(() -> new IdentityTokenService(
+                "test-secret",
+                3600L,
+                "https://windwindwind-alicia.cn",
+                "alicia-tools",
+                "current-rsa",
+                "",
+                "RS256",
+                "",
+                "",
+                ""
+        )).isInstanceOf(IllegalStateException.class)
+                .hasMessage("RSA private key must not be blank when RS256 is enabled.");
+    }
+
+    @Test
     void constructorRejectsInvalidPreviousKeys() {
         assertThatThrownBy(() -> tokenService(
                 "test-secret",
@@ -361,7 +466,22 @@ class IdentityTokenServiceTest {
             String keyId,
             String previousKeys
     ) {
-        return new IdentityTokenService(secret, expireSeconds, issuer, audience, keyId, previousKeys);
+        return new IdentityTokenService(secret, expireSeconds, issuer, audience, keyId, previousKeys, "HS256", "", "", "");
+    }
+
+    private IdentityTokenService rsaTokenService(String keyId, RsaFixture rsa) {
+        return new IdentityTokenService(
+                "legacy-secret",
+                3600L,
+                "https://windwindwind-alicia.cn",
+                "alicia-tools",
+                keyId,
+                "legacy-hmac=old-secret",
+                "RS256",
+                rsa.privateKeyPem(),
+                rsa.publicKeyPem(),
+                ""
+        );
     }
 
     private String legacyToken(String rawPayload, String secret) throws Exception {
@@ -383,6 +503,34 @@ class IdentityTokenServiceTest {
         return signedValue + "." + sign(signedValue, secret);
     }
 
+    private String rs256JwtToken(String issuer, String audience, String keyId, PrivateKey privateKey) throws Exception {
+        long now = Instant.now().getEpochSecond();
+        long expiresAt = now + 3600L;
+        String header = "{\"alg\":\"RS256\",\"typ\":\"JWT\",\"kid\":\"" + keyId + "\"}";
+        String payload = "{\"iss\":\"" + issuer + "\",\"sub\":\"44\",\"aud\":\"" + audience + "\",\"iat\":" + now
+                + ",\"exp\":" + expiresAt + ",\"ver\":9}";
+        String encodedHeader = encodePart(header);
+        String encodedPayload = encodePart(payload);
+        String signedValue = encodedHeader + "." + encodedPayload;
+        return signedValue + "." + signRsa(signedValue, privateKey);
+    }
+
+    private RsaFixture rsaFixture() throws Exception {
+        KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
+        generator.initialize(2048);
+        KeyPair keyPair = generator.generateKeyPair();
+        return new RsaFixture(
+                keyPair.getPrivate(),
+                pem("PRIVATE KEY", keyPair.getPrivate().getEncoded()),
+                pem("PUBLIC KEY", keyPair.getPublic().getEncoded())
+        );
+    }
+
+    private String pem(String type, byte[] value) {
+        String encoded = Base64.getMimeEncoder(64, "\n".getBytes(StandardCharsets.UTF_8)).encodeToString(value);
+        return "-----BEGIN " + type + "-----\n" + encoded + "\n-----END " + type + "-----";
+    }
+
     private String encodePart(String value) {
         return Base64.getUrlEncoder()
                 .withoutPadding()
@@ -398,5 +546,19 @@ class IdentityTokenServiceTest {
         mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
         byte[] bytes = mac.doFinal(value.getBytes(StandardCharsets.UTF_8));
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+
+    private String signRsa(String value, PrivateKey privateKey) throws Exception {
+        Signature signature = Signature.getInstance("SHA256withRSA");
+        signature.initSign(privateKey);
+        signature.update(value.getBytes(StandardCharsets.UTF_8));
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(signature.sign());
+    }
+
+    private record RsaFixture(
+            PrivateKey privateKey,
+            String privateKeyPem,
+            String publicKeyPem
+    ) {
     }
 }
