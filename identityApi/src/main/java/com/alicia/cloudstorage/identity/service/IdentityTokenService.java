@@ -12,7 +12,9 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
@@ -29,6 +31,8 @@ public class IdentityTokenService {
     private final String issuer;
     private final String audience;
     private final String keyId;
+    private final Map<String, String> secretsByKeyId;
+    private final List<String> verificationSecrets;
     private final JsonMapper jsonMapper = JsonMapper.builder().build();
 
     public IdentityTokenService(
@@ -36,7 +40,8 @@ public class IdentityTokenService {
             @Value("${alicia.auth.token-expire-seconds}") long expireSeconds,
             @Value("${alicia.auth.token-issuer}") String issuer,
             @Value("${alicia.auth.token-audience}") String audience,
-            @Value("${alicia.auth.token-key-id}") String keyId
+            @Value("${alicia.auth.token-key-id}") String keyId,
+            @Value("${alicia.auth.token-previous-keys:}") String previousKeys
     ) {
         if (secret == null || secret.isBlank()) {
             throw new IllegalStateException("Token secret must not be blank.");
@@ -51,6 +56,8 @@ public class IdentityTokenService {
         this.issuer = requireText(issuer, "Token issuer must not be blank.");
         this.audience = requireText(audience, "Token audience must not be blank.");
         this.keyId = requireText(keyId, "Token key id must not be blank.");
+        this.secretsByKeyId = buildSecretsByKeyId(this.keyId, this.secret, previousKeys);
+        this.verificationSecrets = this.secretsByKeyId.values().stream().distinct().toList();
     }
 
     public String createToken(IdentityUser user) {
@@ -81,7 +88,7 @@ public class IdentityTokenService {
         String encodedPayload = base64UrlEncodeJson(payload);
         String signedValue = encodedHeader + "." + encodedPayload;
 
-        return signedValue + "." + sign(signedValue);
+        return signedValue + "." + sign(signedValue, secret);
     }
 
     public TokenClaims parseToken(String token) {
@@ -112,16 +119,19 @@ public class IdentityTokenService {
         String encodedPayload = parts[1];
         String signature = parts[2];
         String signedValue = encodedHeader + "." + encodedPayload;
-        assertSignature(signedValue, signature);
 
         Map<String, Object> header = readJsonObject(encodedHeader);
         Object algorithm = header.get("alg");
         if (!JWT_ALGORITHM.equals(algorithm)) {
             throw new IdentityAuthException("Token 签名算法不正确。");
         }
-        if (!keyId.equals(header.get("kid"))) {
+
+        String tokenKeyId = stringClaim(header, "kid", "Token 密钥标识不正确。");
+        String verificationSecret = secretsByKeyId.get(tokenKeyId);
+        if (verificationSecret == null) {
             throw new IdentityAuthException("Token 密钥标识不正确。");
         }
+        assertSignature(signedValue, signature, verificationSecret);
 
         Map<String, Object> payload = readJsonObject(encodedPayload);
         if (!issuer.equals(payload.get("iss"))) {
@@ -140,7 +150,7 @@ public class IdentityTokenService {
     private TokenClaims parseLegacyToken(String[] parts) {
         String encodedPayload = parts[0];
         String signature = parts[1];
-        assertSignature(encodedPayload, signature);
+        assertSignatureWithAnyKnownSecret(encodedPayload, signature);
 
         String payload = base64UrlDecode(encodedPayload);
         String[] payloadParts = payload.split(":");
@@ -187,21 +197,35 @@ public class IdentityTokenService {
         throw new IdentityAuthException("Token 载荷不正确。");
     }
 
-    private void assertSignature(String signedValue, String signature) {
-        String expectedSignature = sign(signedValue);
+    private void assertSignatureWithAnyKnownSecret(String signedValue, String signature) {
+        for (String knownSecret : verificationSecrets) {
+            if (signatureMatches(signedValue, signature, knownSecret)) {
+                return;
+            }
+        }
 
-        if (!MessageDigest.isEqual(
-                expectedSignature.getBytes(StandardCharsets.UTF_8),
-                signature.getBytes(StandardCharsets.UTF_8)
-        )) {
+        throw new IdentityAuthException("Token 签名校验失败。");
+    }
+
+    private void assertSignature(String signedValue, String signature, String verificationSecret) {
+        if (!signatureMatches(signedValue, signature, verificationSecret)) {
             throw new IdentityAuthException("Token 签名校验失败。");
         }
     }
 
-    private String sign(String value) {
+    private boolean signatureMatches(String signedValue, String signature, String verificationSecret) {
+        String expectedSignature = sign(signedValue, verificationSecret);
+
+        return MessageDigest.isEqual(
+                expectedSignature.getBytes(StandardCharsets.UTF_8),
+                signature.getBytes(StandardCharsets.UTF_8)
+        );
+    }
+
+    private String sign(String value, String signingSecret) {
         try {
             Mac mac = Mac.getInstance("HmacSHA256");
-            mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+            mac.init(new SecretKeySpec(signingSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
             byte[] bytes = mac.doFinal(value.getBytes(StandardCharsets.UTF_8));
             return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
         } catch (Exception ex) {
@@ -215,6 +239,41 @@ public class IdentityTokenService {
         }
 
         return value.trim();
+    }
+
+    private Map<String, String> buildSecretsByKeyId(
+            String currentKeyId,
+            String currentSecret,
+            String previousKeys
+    ) {
+        Map<String, String> result = new LinkedHashMap<>();
+        result.put(currentKeyId, currentSecret);
+
+        if (previousKeys == null || previousKeys.isBlank()) {
+            return Collections.unmodifiableMap(result);
+        }
+
+        for (String rawEntry : previousKeys.split(";")) {
+            String entry = rawEntry.trim();
+            if (entry.isEmpty()) {
+                continue;
+            }
+
+            int separator = entry.indexOf('=');
+            if (separator <= 0 || separator == entry.length() - 1) {
+                throw new IllegalStateException("Previous token keys must use kid=secret entries separated by semicolons.");
+            }
+
+            String previousKeyId = requireText(entry.substring(0, separator), "Previous token key id must not be blank.");
+            String previousSecret = requireText(entry.substring(separator + 1), "Previous token secret must not be blank.");
+            if (result.containsKey(previousKeyId)) {
+                throw new IllegalStateException("Token key id must be unique.");
+            }
+
+            result.put(previousKeyId, previousSecret);
+        }
+
+        return Collections.unmodifiableMap(result);
     }
 
     private String base64UrlEncodeJson(Map<String, Object> value) {

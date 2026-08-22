@@ -425,6 +425,7 @@ sid: refresh session id，可选
 ALICIA_AUTH_TOKEN_ISSUER=https://windwindwind-alicia.cn
 ALICIA_AUTH_TOKEN_AUDIENCE=alicia-tools
 ALICIA_AUTH_TOKEN_KEY_ID=alicia-hs256-v1
+ALICIA_AUTH_TOKEN_PREVIOUS_KEYS=old-kid=old-secret;older-kid=older-secret
 ```
 
 为保证平滑升级，`IdentityTokenService` 仍兼容解析旧两段式 token。旧 v2 payload 中包含：
@@ -444,6 +445,7 @@ v3:userId:tokenVersion:refreshSessionId:expiresAt
 - payload 不再依赖手机号，兼容邮箱登录用户。
 - 新签发 access token 已迁移为标准 JWT；旧 v2/v3 和更早期 payload 只保留解析兼容，不再新签发。
 - JWT 的 `iss`、`aud` 和 `kid` 会按配置校验，生产验证脚本会检查登录和续签返回的是三段式 JWT。
+- JWT 新签发始终使用当前 key；验签支持当前 key 和配置的历史 key，旧两段式 token 也可用历史 secret 验签。
 - `tokenVersion` 已用于密码修改、管理员重置密码和全设备 logout 后的登录态失效。
 - `identity_refresh_token` 保存刷新令牌摘要、用户、tokenVersion、过期时间、撤销时间、客户端 IP 和 User-Agent。
 - 登录和邮箱注册验证返回 `token` 与 `refreshToken`；续签优先使用 refresh token 轮换，Authorization-only 续签作为兼容路径保留并会补发刷新会话。
@@ -471,7 +473,7 @@ exp: 过期时间
 
 推荐：
 
-- 第一期继续使用对称签名，降低改造成本；HS256 JWT 签发、旧 token 解析兼容、JWT 元数据配置化和基础校验已落地。
+- 第一期继续使用对称签名，降低改造成本；HS256 JWT 签发、旧 token 解析兼容、JWT 元数据配置化、基础校验和历史 key 验签窗口已落地。
 - 中期切换到非对称签名和 JWKS，让 CloudStorageApi、RAG 或后续服务只持有公钥。
 - 保留 token version，用于密码修改和管理员重置密码后的登录态失效。
 - 角色和状态暂不写入 access token，仍由 Identity 校验时读取数据库，避免角色/状态变更后出现过期授权信息。

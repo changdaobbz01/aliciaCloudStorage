@@ -66,6 +66,30 @@ class IdentityTokenServiceTest {
     }
 
     @Test
+    void createTokenUsesCurrentKeyWhenPreviousKeysAreConfigured() {
+        IdentityUser user = newIdentityUser();
+        ReflectionTestUtils.setField(user, "id", 33L);
+        ReflectionTestUtils.setField(user, "tokenVersion", 7L);
+        IdentityTokenService tokenService = tokenService(
+                "current-secret",
+                3600L,
+                "https://windwindwind-alicia.cn",
+                "alicia-tools",
+                "current-key",
+                "old-key=old-secret"
+        );
+
+        String token = tokenService.createToken(user);
+        String[] parts = token.split("\\.");
+        assertThat(parts).hasSize(3);
+
+        String header = decodePart(parts[0]);
+
+        assertThat(header).contains("\"kid\":\"current-key\"");
+        assertThat(tokenService.parseToken(token).userId()).isEqualTo(33L);
+    }
+
+    @Test
     void createTokenCanBindRefreshSessionIdInJwtPayload() {
         IdentityUser user = newIdentityUser();
         ReflectionTestUtils.setField(user, "id", 33L);
@@ -194,6 +218,44 @@ class IdentityTokenServiceTest {
     }
 
     @Test
+    void parseTokenAcceptsJwtSignedWithPreviousKey() throws Exception {
+        IdentityTokenService tokenService = tokenService(
+                "current-secret",
+                3600L,
+                "https://windwindwind-alicia.cn",
+                "alicia-tools",
+                "current-key",
+                "old-key=old-secret"
+        );
+        String token = jwtToken("https://windwindwind-alicia.cn", "alicia-tools", "old-key", "old-secret");
+
+        IdentityTokenService.TokenClaims claims = tokenService.parseToken(token);
+
+        assertThat(claims.userId()).isEqualTo(44L);
+        assertThat(claims.tokenVersion()).isEqualTo(9L);
+    }
+
+    @Test
+    void parseTokenAcceptsLegacyPayloadSignedWithPreviousSecret() throws Exception {
+        IdentityTokenService tokenService = tokenService(
+                "current-secret",
+                3600L,
+                "https://windwindwind-alicia.cn",
+                "alicia-tools",
+                "current-key",
+                "old-key=old-secret"
+        );
+        long expiresAt = Instant.now().getEpochSecond() + 3600L;
+        String token = legacyToken("v2:44:9:" + expiresAt, "old-secret");
+
+        IdentityTokenService.TokenClaims claims = tokenService.parseToken(token);
+
+        assertThat(claims.userId()).isEqualTo(44L);
+        assertThat(claims.tokenVersion()).isEqualTo(9L);
+        assertThat(claims.expiresAt()).isEqualTo(expiresAt);
+    }
+
+    @Test
     void parseTokenRejectsJwtWithUnexpectedIssuer() throws Exception {
         IdentityTokenService tokenService = tokenService("test-secret", 3600L);
         String token = jwtToken("https://other.example", "alicia-tools", "alicia-hs256-v1", "test-secret");
@@ -238,6 +300,29 @@ class IdentityTokenServiceTest {
                 .hasMessage("Token key id must not be blank.");
     }
 
+    @Test
+    void constructorRejectsInvalidPreviousKeys() {
+        assertThatThrownBy(() -> tokenService(
+                "test-secret",
+                3600L,
+                "https://windwindwind-alicia.cn",
+                "alicia-tools",
+                "current-key",
+                "missing-separator"
+        )).isInstanceOf(IllegalStateException.class)
+                .hasMessage("Previous token keys must use kid=secret entries separated by semicolons.");
+
+        assertThatThrownBy(() -> tokenService(
+                "test-secret",
+                3600L,
+                "https://windwindwind-alicia.cn",
+                "alicia-tools",
+                "current-key",
+                "current-key=old-secret"
+        )).isInstanceOf(IllegalStateException.class)
+                .hasMessage("Token key id must be unique.");
+    }
+
     private IdentityUser newIdentityUser() {
         try {
             var constructor = IdentityUser.class.getDeclaredConstructor();
@@ -265,7 +350,18 @@ class IdentityTokenServiceTest {
             String audience,
             String keyId
     ) {
-        return new IdentityTokenService(secret, expireSeconds, issuer, audience, keyId);
+        return tokenService(secret, expireSeconds, issuer, audience, keyId, "");
+    }
+
+    private IdentityTokenService tokenService(
+            String secret,
+            long expireSeconds,
+            String issuer,
+            String audience,
+            String keyId,
+            String previousKeys
+    ) {
+        return new IdentityTokenService(secret, expireSeconds, issuer, audience, keyId, previousKeys);
     }
 
     private String legacyToken(String rawPayload, String secret) throws Exception {
