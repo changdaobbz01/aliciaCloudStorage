@@ -30,11 +30,12 @@ public class HttpIdentityAuthGateway implements IdentityAuthGateway {
                 .retrieve()
                 .body(IdentityUserResponsePayload.class), objectMapper);
 
-        if (response == null) {
-            throw new IllegalStateException("身份服务当前用户响应为空。");
-        }
-
-        return response.toSnapshot();
+        return IdentityGatewaySupport.mapRequiredBody(
+                response,
+                "身份服务当前用户响应为空。",
+                "身份服务当前用户响应格式异常。",
+                IdentityUserResponsePayload::toSnapshot
+        );
     }
 
     @Override
@@ -46,10 +47,11 @@ public class HttpIdentityAuthGateway implements IdentityAuthGateway {
                 .retrieve()
                 .body(IdentityUserResponsePayload.class), objectMapper);
 
-        if (response == null) {
-            throw new IllegalStateException("身份服务资料更新响应为空。");
-        }
-
-        return response.toSnapshot();
+        return IdentityGatewaySupport.mapRequiredBody(
+                response,
+                "身份服务资料更新响应为空。",
+                "身份服务资料更新响应格式异常。",
+                IdentityUserResponsePayload::toSnapshot
+        );
     }
 }

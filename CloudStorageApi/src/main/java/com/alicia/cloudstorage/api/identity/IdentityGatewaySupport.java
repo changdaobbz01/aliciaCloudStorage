@@ -7,6 +7,9 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.List;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 final class IdentityGatewaySupport {
@@ -21,6 +24,47 @@ final class IdentityGatewaySupport {
             throw translateResponseException(ex, objectMapper);
         } catch (RestClientException ex) {
             throw new IdentityServiceUnavailableException("身份服务暂不可用。", ex);
+        }
+    }
+
+    static <T, R> R mapRequiredBody(
+            T response,
+            String emptyMessage,
+            String invalidMessage,
+            Function<T, R> mapper
+    ) {
+        if (response == null) {
+            throw new IdentityServiceUnavailableException(emptyMessage);
+        }
+
+        try {
+            return mapper.apply(response);
+        } catch (RuntimeException ex) {
+            throw new IdentityServiceUnavailableException(invalidMessage, ex);
+        }
+    }
+
+    static <T, R> List<R> mapRequiredArrayBody(
+            T[] response,
+            String emptyMessage,
+            String invalidMessage,
+            Function<T, R> mapper
+    ) {
+        if (response == null) {
+            throw new IdentityServiceUnavailableException(emptyMessage);
+        }
+
+        try {
+            return Arrays.stream(response)
+                    .map(item -> {
+                        if (item == null) {
+                            throw new IllegalStateException("Identity response item is null.");
+                        }
+                        return mapper.apply(item);
+                    })
+                    .toList();
+        } catch (RuntimeException ex) {
+            throw new IdentityServiceUnavailableException(invalidMessage, ex);
         }
     }
 

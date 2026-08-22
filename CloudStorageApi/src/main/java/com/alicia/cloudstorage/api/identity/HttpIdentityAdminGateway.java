@@ -7,7 +7,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import tools.jackson.databind.json.JsonMapper;
 
-import java.util.Arrays;
 import java.util.List;
 
 @Service
@@ -33,9 +32,12 @@ public class HttpIdentityAdminGateway implements IdentityAdminGateway {
                 .retrieve()
                 .body(IdentityUserResponsePayload[].class), objectMapper);
 
-        return Arrays.stream(response == null ? new IdentityUserResponsePayload[0] : response)
-                .map(IdentityUserResponsePayload::toSnapshot)
-                .toList();
+        return IdentityGatewaySupport.mapRequiredArrayBody(
+                response,
+                "身份服务管理员用户列表响应为空。",
+                "身份服务管理员用户列表响应格式异常。",
+                IdentityUserResponsePayload::toSnapshot
+        );
     }
 
     @Override
@@ -56,11 +58,12 @@ public class HttpIdentityAdminGateway implements IdentityAdminGateway {
                 .retrieve()
                 .body(IdentityUserResponsePayload.class), objectMapper);
 
-        if (response == null) {
-            throw new IllegalStateException("身份服务返回为空。");
-        }
-
-        return response.toSnapshot();
+        return IdentityGatewaySupport.mapRequiredBody(
+                response,
+                "身份服务创建用户响应为空。",
+                "身份服务创建用户响应格式异常。",
+                IdentityUserResponsePayload::toSnapshot
+        );
     }
 
     private record IdentityCreateUserRequest(

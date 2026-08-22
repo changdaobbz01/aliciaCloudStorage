@@ -65,6 +65,40 @@ class HttpIdentityAdminGatewayTest {
     }
 
     @Test
+    void listUsersEmptyBodyBecomesIdentityUnavailable() {
+        TestGatewayContext context = newContext();
+        context.server().expect(requestTo("http://identity.test/api/identity/admin/users"))
+                .andRespond(withSuccess("", MediaType.APPLICATION_JSON));
+
+        assertThatThrownBy(() -> context.gateway().listUsers("Bearer admin-token"))
+                .isInstanceOf(IdentityServiceUnavailableException.class)
+                .hasMessage("身份服务管理员用户列表响应为空。");
+
+        context.server().verify();
+    }
+
+    @Test
+    void listUsersMalformedBodyBecomesIdentityUnavailable() {
+        TestGatewayContext context = newContext();
+        context.server().expect(requestTo("http://identity.test/api/identity/admin/users"))
+                .andRespond(withSuccess("""
+                        [
+                          {
+                            "id": 7,
+                            "email": "user@example.com",
+                            "createdAt": "2026-08-19T09:30:00"
+                          }
+                        ]
+                        """, MediaType.APPLICATION_JSON));
+
+        assertThatThrownBy(() -> context.gateway().listUsers("Bearer admin-token"))
+                .isInstanceOf(IdentityServiceUnavailableException.class)
+                .hasMessage("身份服务管理员用户列表响应格式异常。");
+
+        context.server().verify();
+    }
+
+    @Test
     void createUserPostsIdentityOnlyPayload() {
         TestGatewayContext context = newContext();
         context.server().expect(requestTo("http://identity.test/api/identity/admin/users"))

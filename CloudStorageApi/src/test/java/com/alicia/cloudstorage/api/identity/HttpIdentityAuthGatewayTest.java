@@ -73,6 +73,38 @@ class HttpIdentityAuthGatewayTest {
     }
 
     @Test
+    void meEmptyBodyBecomesIdentityUnavailable() {
+        TestGatewayContext context = newContext();
+        context.server().expect(requestTo("http://identity.test/api/identity/auth/me"))
+                .andRespond(withSuccess("", MediaType.APPLICATION_JSON));
+
+        assertThatThrownBy(() -> context.gateway().me("Bearer user-token"))
+                .isInstanceOf(IdentityServiceUnavailableException.class)
+                .hasMessage("身份服务当前用户响应为空。");
+
+        context.server().verify();
+    }
+
+    @Test
+    void meMalformedBodyBecomesIdentityUnavailable() {
+        TestGatewayContext context = newContext();
+        context.server().expect(requestTo("http://identity.test/api/identity/auth/me"))
+                .andRespond(withSuccess("""
+                        {
+                          "id": 6,
+                          "email": "user@example.com",
+                          "createdAt": "2026-08-17T07:22:18"
+                        }
+                        """, MediaType.APPLICATION_JSON));
+
+        assertThatThrownBy(() -> context.gateway().me("Bearer user-token"))
+                .isInstanceOf(IdentityServiceUnavailableException.class)
+                .hasMessage("身份服务当前用户响应格式异常。");
+
+        context.server().verify();
+    }
+
+    @Test
     void updateProfileDelegatesToIdentityApiAndMapsAccount() {
         TestGatewayContext context = newContext();
         context.server().expect(requestTo("http://identity.test/api/identity/auth/profile"))

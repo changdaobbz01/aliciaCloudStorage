@@ -27,10 +27,11 @@ public class HttpIdentityUserGateway implements IdentityUserGateway {
                 .retrieve()
                 .body(IdentityUserResponsePayload.class), objectMapper);
 
-        if (response == null) {
-            throw new IllegalStateException("身份服务用户查询响应为空。");
-        }
-
-        return response.toSnapshot();
+        return IdentityGatewaySupport.mapRequiredBody(
+                response,
+                "身份服务用户查询响应为空。",
+                "身份服务用户查询响应格式异常。",
+                IdentityUserResponsePayload::toSnapshot
+        );
     }
 }
