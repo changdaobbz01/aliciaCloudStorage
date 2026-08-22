@@ -451,7 +451,7 @@ v3:userId:tokenVersion:refreshSessionId:expiresAt
 - 新签发 access token 已迁移为标准 JWT；旧 v2/v3 和更早期 payload 只保留解析兼容，不再新签发。
 - JWT 的 `alg`、`iss`、`aud` 和 `kid` 会按配置校验，生产验证脚本会检查登录和续签返回的是三段式 JWT，并检查 JWKS 入口。
 - JWT 新签发始终使用当前 key；验签支持当前 key 和配置的历史 HS256/RSA key，旧两段式 token 也可用历史 secret 验签。
-- RS256/JWKS 支撑已落地，公钥发布在 `/api/identity/.well-known/jwks.json`；默认生产配置仍是 HS256，正式切换需要先生成 RSA key pair 并更新环境变量。
+- RS256/JWKS 支撑已落地，公钥发布在 `/api/identity/.well-known/jwks.json`；生产已于 2026-08-22 切换到 `RS256/alicia-rs256-20260822035821`，并保留 `alicia-hs256-v1` 作为历史 HS256 验签 key。
 - `deploy/scripts/generate-identity-rs256-env.sh` 可生成 PKCS#8 私钥、X.509 公钥和 `.env` 片段，输出目录 `deploy/generated/` 已被 git 忽略；从 HS256 切到 RS256 时，如果 `.env` 未显式配置 `ALICIA_AUTH_TOKEN_KEY_ID`，脚本按 compose 默认 `alicia-hs256-v1` 保留当前 HS256 secret 到历史验签 key。
 - `deploy/scripts/verify-identity-rs256-dry-run.sh` 可在不修改生产 `.env` 的前提下临时启动 RS256 identity，完成统一验证后默认恢复当前配置。
 - `deploy/scripts/prepare-identity-rs256-cutover-env.sh` 可生成正式切换用的候选 `.env`，并输出备份、切换和回滚命令，默认不直接覆盖生产 `.env`；旧 snippet 缺少 `ALICIA_AUTH_TOKEN_PREVIOUS_KEYS` 时会从当前 `.env` 推导旧 HS256 兼容项。
@@ -464,7 +464,7 @@ v3:userId:tokenVersion:refreshSessionId:expiresAt
 
 剩余问题：
 
-- 当前生产配置仍使用 HS256 对称签名；RS256/JWKS 能力已落地但尚未在生产启用。
+- 当前生产签发已切到 RS256；后续需要在旧 HS256 access token 过期后移除 `ALICIA_AUTH_TOKEN_PREVIOUS_KEYS` 中的历史 HS256 key。
 - CloudStorageApi 现在通过 HTTP 调 Identity 校验 token，后续如果流量增大，需要短缓存、introspection 或 JWKS 本地验签方案。
 
 ### 7.2 后续目标
@@ -483,8 +483,8 @@ exp: 过期时间
 
 推荐：
 
-- 第一期继续使用对称签名，降低改造成本；HS256 JWT 签发、旧 token 解析兼容、JWT 元数据配置化、基础校验和历史 key 验签窗口已落地。
-- 中期切换到非对称签名和 JWKS，让 CloudStorageApi、RAG 或后续服务只持有公钥；代码已支持 RS256 签发、验签和公钥发布，后续重点是切换部署配置与消费方本地验签。
+- 第一期对称签名阶段已完成；HS256 JWT 签发、旧 token 解析兼容、JWT 元数据配置化、基础校验和历史 key 验签窗口已落地。
+- 生产非对称签名和 JWKS 切换已完成；后续重点是让 CloudStorageApi、RAG 或后续服务逐步使用 JWKS 本地验签，只持有公钥。
 - 保留 token version，用于密码修改和管理员重置密码后的登录态失效。
 - 角色和状态暂不写入 access token，仍由 Identity 校验时读取数据库，避免角色/状态变更后出现过期授权信息。
 
@@ -792,7 +792,7 @@ AliciaCloudStorage/identityApi
 - CloudStorageApi 已新增 `CloudUserProfileProvisioningService`，鉴权通过后会确保当前身份用户存在云盘 profile。
 - identity 新用户的云盘 profile 默认额度取 `alicia.storage.default-user-quota-bytes`，不再误用 `sys_user.storage_quota_bytes` 的旧数据库默认值。
 - `IdentityRefreshTokenService` 使用 `JdbcTemplate` 读写 `identity_refresh_token`，避免把刷新会话表暴露为额外 JPA 实体；该表已纳入 `identityApi` 独立 Flyway 基线。
-- `IdentityTokenService` 已签发标准 JWT，并保留旧两段式 token 解析兼容；当前默认 HS256，已支持可选 RS256/JWKS。
+- `IdentityTokenService` 已签发标准 JWT，并保留旧两段式 token 解析兼容；代码默认 HS256，生产 `.env` 已切到 RS256/JWKS。
 - Compose 中注入同一个 MySQL 连接；共享库过渡期由 `api` 先完成 CloudStorageApi 历史迁移，再启动 `identity` 执行自己的 Flyway 与 JPA validate。
 - Dockerfile：`identityApi/Dockerfile`。
 - README：`identityApi/README.md`。
@@ -1066,7 +1066,8 @@ Web 和 Android：
 2. 继续观察 Identity 审计日志写入、查询接口和 Web 管理页筛选结果。
 3. 观察 `identity_refresh_token` 的生产写入、轮换、会话查询和指定会话撤销结果。
 4. 继续观察 `identity_flyway_schema_history`，确认后续身份 schema 变更只进入 `identityApi` 迁移目录，并保持双向迁移边界测试通过。
-5. 使用 `deploy/scripts/generate-identity-rs256-env.sh` 在生产生成 RSA key pair，先通过 `deploy/scripts/verify-identity-rs256-dry-run.sh` 演练，再用 `deploy/scripts/prepare-identity-rs256-cutover-env.sh` 准备候选 `.env`，最后将签发配置从 HS256 切到 RS256 并观察 JWKS 公钥发布结果。
-6. 评估 `sys_user` 是否继续作为 identity 表名，或迁移到独立 schema / `identity_user`。
+5. 观察 RS256 生产签发、JWKS 公钥发布和历史 HS256 验签窗口，旧 access token 过期后移除历史 HS256 key。
+6. 评估 CloudStorageApi / RAG 后续是否改为 JWKS 本地验签，减少对 Identity `/auth/me` 的同步依赖。
+7. 评估 `sys_user` 是否继续作为 identity 表名，或迁移到独立 schema / `identity_user`。
 
 这一步完成后，当前文档基线已经与生产架构对齐：Identity 负责身份，CloudStorageApi 负责云盘，主站负责统一入口。后续新增工具只需要接入 Identity，不应该再直接复用或写入云盘的用户资料表。
