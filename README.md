@@ -85,6 +85,14 @@ bash deploy/scripts/generate-identity-rs256-env.sh
 
 脚本会把私钥、公钥和 `.env` 片段写入 `deploy/generated/identity-rs256/`，该目录已被 git 忽略。切换时把生成的 `.env` 片段合并到生产 `.env`，保留当前 HS256 secret 到 `ALICIA_AUTH_TOKEN_PREVIOUS_KEYS`，再重建 `identity` 并运行统一验证脚本。
 
+正式合并 `.env` 前，可以先做一次不改 `.env` 的 RS256 dry-run：
+
+```bash
+bash deploy/scripts/verify-identity-rs256-dry-run.sh
+```
+
+dry-run 会临时用最新生成的 RS256 env 片段重建 `identity`，运行统一路由验证，并默认恢复回 `.env` 中的当前配置。
+
 如果配置了 COS 自定义源站域名，可以额外填写：
 
 - `ALICIA_COS_CUSTOM_DOMAIN`：预览/下载的预签名 URL 会使用该域名，例如 `files.windwindwind-alicia.cn`。

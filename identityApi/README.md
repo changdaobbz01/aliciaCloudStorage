@@ -38,6 +38,7 @@ The auth endpoints are the production identity boundary. `POST /api/identity/aut
 JWT signing is configured through `ALICIA_AUTH_TOKEN_ALGORITHM`, `ALICIA_AUTH_TOKEN_ISSUER`, `ALICIA_AUTH_TOKEN_AUDIENCE`, and `ALICIA_AUTH_TOKEN_KEY_ID`; the default compose stack keeps `HS256` and production-compatible metadata for the shared-domain deployment. For HS256 key rotation, put the new signing key in `ALICIA_AUTH_TOKEN_SECRET` and `ALICIA_AUTH_TOKEN_KEY_ID`, then keep old verification keys in `ALICIA_AUTH_TOKEN_PREVIOUS_KEYS` using `old-kid=old-secret;older-kid=older-secret` until older access tokens expire. For RS256, configure `ALICIA_AUTH_TOKEN_ALGORITHM=RS256`, a PKCS#8 private key in `ALICIA_AUTH_TOKEN_RSA_PRIVATE_KEY`, its X.509 public key in `ALICIA_AUTH_TOKEN_RSA_PUBLIC_KEY`, and any historical public keys in `ALICIA_AUTH_TOKEN_PREVIOUS_RSA_PUBLIC_KEYS` using `old-kid=public-key;older-kid=public-key`.
 
 Use `deploy/scripts/generate-identity-rs256-env.sh` to generate an RS256 key pair and a git-ignored `.env` snippet. When switching from HS256 to RS256, keep the previous HS256 signing secret in `ALICIA_AUTH_TOKEN_PREVIOUS_KEYS` until older access tokens expire.
+Before editing production `.env`, use `deploy/scripts/verify-identity-rs256-dry-run.sh` to temporarily start identity with the generated RS256 snippet, run the shared route verification, and restore the container from `.env`.
 
 Schema migrations:
 
