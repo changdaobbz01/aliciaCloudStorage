@@ -16,7 +16,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class IdentityTokenServiceTest {
 
     @Test
-    void createTokenUsesVersionedPayloadWithoutPhoneNumber() {
+    void createTokenUsesJwtPayloadWithoutPhoneNumber() {
         IdentityUser user = newIdentityUser();
         ReflectionTestUtils.setField(user, "id", 33L);
         ReflectionTestUtils.setField(user, "phoneNumber", "13800000033");
@@ -24,15 +24,24 @@ class IdentityTokenServiceTest {
         IdentityTokenService tokenService = new IdentityTokenService("test-secret", 3600L);
 
         String token = tokenService.createToken(user);
-        String encodedPayload = token.substring(0, token.indexOf('.'));
-        String payload = new String(Base64.getUrlDecoder().decode(encodedPayload), StandardCharsets.UTF_8);
+        String[] parts = token.split("\\.");
+        assertThat(parts).hasSize(3);
 
-        assertThat(payload).startsWith("v2:33:7:");
+        String header = decodePart(parts[0]);
+        String payload = decodePart(parts[1]);
+
+        assertThat(header).contains("\"alg\":\"HS256\"");
+        assertThat(header).contains("\"typ\":\"JWT\"");
+        assertThat(header).contains("\"kid\":\"alicia-hs256-v1\"");
+        assertThat(payload).contains("\"iss\":\"https://windwindwind-alicia.cn\"");
+        assertThat(payload).contains("\"sub\":\"33\"");
+        assertThat(payload).contains("\"aud\":\"alicia-tools\"");
+        assertThat(payload).contains("\"ver\":7");
         assertThat(payload).doesNotContain("13800000033");
     }
 
     @Test
-    void createTokenCanBindRefreshSessionId() {
+    void createTokenCanBindRefreshSessionIdInJwtPayload() {
         IdentityUser user = newIdentityUser();
         ReflectionTestUtils.setField(user, "id", 33L);
         ReflectionTestUtils.setField(user, "phoneNumber", "13800000033");
@@ -40,10 +49,14 @@ class IdentityTokenServiceTest {
         IdentityTokenService tokenService = new IdentityTokenService("test-secret", 3600L);
 
         String token = tokenService.createToken(user, 51L);
-        String encodedPayload = token.substring(0, token.indexOf('.'));
-        String payload = new String(Base64.getUrlDecoder().decode(encodedPayload), StandardCharsets.UTF_8);
+        String[] parts = token.split("\\.");
+        assertThat(parts).hasSize(3);
 
-        assertThat(payload).startsWith("v3:33:7:51:");
+        String payload = decodePart(parts[1]);
+
+        assertThat(payload).contains("\"sub\":\"33\"");
+        assertThat(payload).contains("\"ver\":7");
+        assertThat(payload).contains("\"sid\":51");
         assertThat(payload).doesNotContain("13800000033");
     }
 
@@ -79,14 +92,38 @@ class IdentityTokenServiceTest {
     }
 
     @Test
+    void parseTokenSupportsLegacyVersionTwoPayload() throws Exception {
+        IdentityTokenService tokenService = new IdentityTokenService("legacy-secret", 3600L);
+        long expiresAt = Instant.now().getEpochSecond() + 3600L;
+        String token = legacyToken("v2:44:9:" + expiresAt, "legacy-secret");
+
+        IdentityTokenService.TokenClaims claims = tokenService.parseToken(token);
+
+        assertThat(claims.userId()).isEqualTo(44L);
+        assertThat(claims.tokenVersion()).isEqualTo(9L);
+        assertThat(claims.refreshSessionId()).isNull();
+        assertThat(claims.expiresAt()).isEqualTo(expiresAt);
+    }
+
+    @Test
+    void parseTokenSupportsLegacyVersionThreePayload() throws Exception {
+        IdentityTokenService tokenService = new IdentityTokenService("legacy-secret", 3600L);
+        long expiresAt = Instant.now().getEpochSecond() + 3600L;
+        String token = legacyToken("v3:44:9:52:" + expiresAt, "legacy-secret");
+
+        IdentityTokenService.TokenClaims claims = tokenService.parseToken(token);
+
+        assertThat(claims.userId()).isEqualTo(44L);
+        assertThat(claims.tokenVersion()).isEqualTo(9L);
+        assertThat(claims.refreshSessionId()).isEqualTo(52L);
+        assertThat(claims.expiresAt()).isEqualTo(expiresAt);
+    }
+
+    @Test
     void parseTokenSupportsLegacyThreePartPayload() throws Exception {
         IdentityTokenService tokenService = new IdentityTokenService("legacy-secret", 3600L);
         long expiresAt = Instant.now().getEpochSecond() + 3600L;
-        String rawPayload = "44:13800000044:" + expiresAt;
-        String encodedPayload = Base64.getUrlEncoder()
-                .withoutPadding()
-                .encodeToString(rawPayload.getBytes(StandardCharsets.UTF_8));
-        String token = encodedPayload + "." + sign(encodedPayload, "legacy-secret");
+        String token = legacyToken("44:13800000044:" + expiresAt, "legacy-secret");
 
         IdentityTokenService.TokenClaims claims = tokenService.parseToken(token);
 
@@ -99,11 +136,7 @@ class IdentityTokenServiceTest {
     void parseTokenSupportsLegacyFourPartPayloadWithTokenVersion() throws Exception {
         IdentityTokenService tokenService = new IdentityTokenService("legacy-secret", 3600L);
         long expiresAt = Instant.now().getEpochSecond() + 3600L;
-        String rawPayload = "44:13800000044:9:" + expiresAt;
-        String encodedPayload = Base64.getUrlEncoder()
-                .withoutPadding()
-                .encodeToString(rawPayload.getBytes(StandardCharsets.UTF_8));
-        String token = encodedPayload + "." + sign(encodedPayload, "legacy-secret");
+        String token = legacyToken("44:13800000044:9:" + expiresAt, "legacy-secret");
 
         IdentityTokenService.TokenClaims claims = tokenService.parseToken(token);
 
@@ -121,6 +154,20 @@ class IdentityTokenServiceTest {
                 .hasMessage("Token 签名校验失败。");
     }
 
+    @Test
+    void parseTokenRejectsJwtWithInvalidSignature() {
+        IdentityUser user = newIdentityUser();
+        ReflectionTestUtils.setField(user, "id", 33L);
+        ReflectionTestUtils.setField(user, "tokenVersion", 7L);
+        IdentityTokenService tokenService = new IdentityTokenService("test-secret", 3600L);
+        String token = tokenService.createToken(user);
+        String tamperedToken = token.substring(0, token.lastIndexOf('.') + 1) + "tampered";
+
+        assertThatThrownBy(() -> tokenService.parseToken(tamperedToken))
+                .isInstanceOf(IdentityAuthException.class)
+                .hasMessage("Token 签名校验失败。");
+    }
+
     private IdentityUser newIdentityUser() {
         try {
             var constructor = IdentityUser.class.getDeclaredConstructor();
@@ -129,6 +176,17 @@ class IdentityTokenServiceTest {
         } catch (ReflectiveOperationException ex) {
             throw new AssertionError("Failed to create IdentityUser test fixture.", ex);
         }
+    }
+
+    private String legacyToken(String rawPayload, String secret) throws Exception {
+        String encodedPayload = Base64.getUrlEncoder()
+                .withoutPadding()
+                .encodeToString(rawPayload.getBytes(StandardCharsets.UTF_8));
+        return encodedPayload + "." + sign(encodedPayload, secret);
+    }
+
+    private String decodePart(String encodedPayload) {
+        return new String(Base64.getUrlDecoder().decode(encodedPayload), StandardCharsets.UTF_8);
     }
 
     private String sign(String value, String secret) throws Exception {

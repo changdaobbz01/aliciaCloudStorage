@@ -9,6 +9,7 @@ Current status:
 - It owns login, token refresh/logout, current-user identity reads, refresh-session reads/revocation, profile writes, password changes, email-code registration, and administrator identity management.
 - It exposes a read-only administrator audit-log query endpoint for identity security review.
 - It persists refresh-token sessions in `identity_refresh_token`; login/registration return both `token` and `refreshToken`.
+- It issues HS256 JWT access tokens with `iss`, `sub`, `aud`, `iat`, `exp`, `ver`, and optional `sid`; legacy two-part access tokens remain accepted during the transition.
 - It owns identity Flyway migrations under `src/main/resources/db/identity-migration` and records them in `identity_flyway_schema_history`.
 - It still reads and writes the existing `sys_user` table during the migration period.
 - `CloudStorageApi` consumes identity tokens and only adds cloud-drive profile data such as quota and home background.

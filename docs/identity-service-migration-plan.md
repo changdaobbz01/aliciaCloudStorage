@@ -404,15 +404,27 @@ cloud_user_profile.home_background_url = sys_user.home_background_url
 
 ## 7. Token 与鉴权整改
 
-### 7.1 当前问题
+### 7.1 当前状态
 
-当前 token 由 `identityApi` 的 `IdentityTokenService` 统一签发。为了小步迁移，当前仍是自定义 HMAC token。旧 v2 payload 中包含：
+当前 token 由 `identityApi` 的 `IdentityTokenService` 统一签发。新签发的 access token 已是标准 JWT，当前第一期仍使用 HS256 对称签名，payload 包含：
+
+```text
+iss: https://windwindwind-alicia.cn
+sub: 用户 ID
+aud: alicia-tools
+iat: 签发时间
+exp: 过期时间
+ver: token version
+sid: refresh session id，可选
+```
+
+为保证平滑升级，`IdentityTokenService` 仍兼容解析旧两段式 token。旧 v2 payload 中包含：
 
 ```text
 v2:userId:tokenVersion:expiresAt
 ```
 
-当前新签发的 v3 access token 绑定 refresh 会话：
+旧 v3 access token 绑定 refresh 会话：
 
 ```text
 v3:userId:tokenVersion:refreshSessionId:expiresAt
@@ -421,6 +433,7 @@ v3:userId:tokenVersion:refreshSessionId:expiresAt
 已改进：
 
 - payload 不再依赖手机号，兼容邮箱登录用户。
+- 新签发 access token 已迁移为标准 JWT；旧 v2/v3 和更早期 payload 只保留解析兼容，不再新签发。
 - `tokenVersion` 已用于密码修改、管理员重置密码和全设备 logout 后的登录态失效。
 - `identity_refresh_token` 保存刷新令牌摘要、用户、tokenVersion、过期时间、撤销时间、客户端 IP 和 User-Agent。
 - 登录和邮箱注册验证返回 `token` 与 `refreshToken`；续签优先使用 refresh token 轮换，Authorization-only 续签作为兼容路径保留并会补发刷新会话。
@@ -429,19 +442,17 @@ v3:userId:tokenVersion:refreshSessionId:expiresAt
 
 剩余问题：
 
-- 当前 token 仍不是标准 JWT。
+- 当前 JWT 仍使用 HS256 对称签名，尚未切换非对称签名，也尚未发布 JWKS。
 - CloudStorageApi 现在通过 HTTP 调 Identity 校验 token，后续如果流量增大，需要短缓存、introspection 或 JWKS 本地验签方案。
 
-### 7.2 目标方案
+### 7.2 后续目标
 
-Identity Service 签发标准 JWT：
+Identity Service 中期切换非对称 JWT/JWKS：
 
 ```text
 iss: https://windwindwind-alicia.cn
 sub: 用户 ID
 aud: alicia-tools
-role: ADMIN / USER
-status: ACTIVE
 ver: token version
 iat: 签发时间
 exp: 过期时间
@@ -449,9 +460,10 @@ exp: 过期时间
 
 推荐：
 
-- 第一期可以继续使用对称签名，降低改造成本。
+- 第一期继续使用对称签名，降低改造成本；该阶段已落地。
 - 中期切换到非对称签名和 JWKS，让 CloudStorageApi、RAG 或后续服务只持有公钥。
 - 保留 token version，用于密码修改和管理员重置密码后的登录态失效。
+- 角色和状态暂不写入 access token，仍由 Identity 校验时读取数据库，避免角色/状态变更后出现过期授权信息。
 
 ### 7.3 CloudStorageApi 鉴权改造
 
@@ -756,7 +768,7 @@ AliciaCloudStorage/identityApi
 - CloudStorageApi 已新增 `CloudUserProfileProvisioningService`，鉴权通过后会确保当前身份用户存在云盘 profile。
 - identity 新用户的云盘 profile 默认额度取 `alicia.storage.default-user-quota-bytes`，不再误用 `sys_user.storage_quota_bytes` 的旧数据库默认值。
 - `IdentityRefreshTokenService` 使用 `JdbcTemplate` 读写 `identity_refresh_token`，避免把刷新会话表暴露为额外 JPA 实体；该表已纳入 `identityApi` 独立 Flyway 基线。
-- 兼容旧 token 格式的临时 `IdentityTokenService`，后续再替换为标准 JWT/JWKS。
+- `IdentityTokenService` 已签发标准 JWT，并保留旧两段式 token 解析兼容；后续再切换 JWKS/非对称签名。
 - Compose 中注入同一个 MySQL 连接；共享库过渡期由 `api` 先完成 CloudStorageApi 历史迁移，再启动 `identity` 执行自己的 Flyway 与 JPA validate。
 - Dockerfile：`identityApi/Dockerfile`。
 - README：`identityApi/README.md`。
@@ -997,7 +1009,7 @@ Identity：
 - `identityApi/src/main/java/com/alicia/cloudstorage/identity/service/IdentityPrincipalService.java`
 - `identityApi/src/main/java/com/alicia/cloudstorage/identity/service/IdentityRefreshTokenService.java`
 - `identityApi/src/main/java/com/alicia/cloudstorage/identity/controller/IdentityAuthController.java`
-- 后续新增 JWT/JWKS 支撑时的实体和 Repository。
+- 后续新增 JWKS、密钥轮换或非对称签名支撑时的实体和 Repository。
 
 CloudStorageApi：
 
@@ -1030,7 +1042,7 @@ Web 和 Android：
 2. 继续观察 Identity 审计日志写入、查询接口和 Web 管理页筛选结果。
 3. 观察 `identity_refresh_token` 的生产写入、轮换、会话查询和指定会话撤销结果。
 4. 继续观察 `identity_flyway_schema_history`，确认后续身份 schema 变更只进入 `identityApi` 迁移目录，并保持双向迁移边界测试通过。
-5. 将当前自定义 HMAC token 迁移到标准 JWT，并准备 JWKS 公钥发布。
+5. 将当前 HS256 JWT 迁移到非对称签名，并准备 JWKS 公钥发布。
 6. 评估 `sys_user` 是否继续作为 identity 表名，或迁移到独立 schema / `identity_user`。
 
 这一步完成后，当前文档基线已经与生产架构对齐：Identity 负责身份，CloudStorageApi 负责云盘，主站负责统一入口。后续新增工具只需要接入 Identity，不应该再直接复用或写入云盘的用户资料表。

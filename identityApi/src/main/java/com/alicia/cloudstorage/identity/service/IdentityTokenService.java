@@ -3,6 +3,8 @@ package com.alicia.cloudstorage.identity.service;
 import com.alicia.cloudstorage.identity.entity.IdentityUser;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.json.JsonMapper;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -10,15 +12,24 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Objects;
 
 @Service
 public class IdentityTokenService {
 
     private static final String TOKEN_PAYLOAD_VERSION = "v2";
     private static final String SESSION_TOKEN_PAYLOAD_VERSION = "v3";
+    private static final String JWT_ALGORITHM = "HS256";
+    private static final String JWT_TYPE = "JWT";
+    private static final String JWT_KEY_ID = "alicia-hs256-v1";
+    private static final String JWT_ISSUER = "https://windwindwind-alicia.cn";
+    private static final String JWT_AUDIENCE = "alicia-tools";
 
     private final String secret;
     private final long expireSeconds;
+    private final JsonMapper jsonMapper = JsonMapper.builder().build();
 
     public IdentityTokenService(
             @Value("${alicia.auth.token-secret}") String secret,
@@ -41,14 +52,30 @@ public class IdentityTokenService {
     }
 
     public String createToken(IdentityUser user, Long refreshSessionId) {
-        long expiresAt = Instant.now().getEpochSecond() + expireSeconds;
+        long issuedAt = Instant.now().getEpochSecond();
+        long expiresAt = issuedAt + expireSeconds;
         long tokenVersion = user.getTokenVersion() == null ? 0L : user.getTokenVersion();
-        String payload = refreshSessionId == null
-                ? TOKEN_PAYLOAD_VERSION + ":" + user.getId() + ":" + tokenVersion + ":" + expiresAt
-                : SESSION_TOKEN_PAYLOAD_VERSION + ":" + user.getId() + ":" + tokenVersion + ":" + refreshSessionId + ":" + expiresAt;
-        String encodedPayload = base64UrlEncode(payload);
+        Map<String, Object> header = new LinkedHashMap<>();
+        header.put("alg", JWT_ALGORITHM);
+        header.put("typ", JWT_TYPE);
+        header.put("kid", JWT_KEY_ID);
 
-        return encodedPayload + "." + sign(encodedPayload);
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("iss", JWT_ISSUER);
+        payload.put("sub", String.valueOf(user.getId()));
+        payload.put("aud", JWT_AUDIENCE);
+        payload.put("iat", issuedAt);
+        payload.put("exp", expiresAt);
+        payload.put("ver", tokenVersion);
+        if (refreshSessionId != null) {
+            payload.put("sid", refreshSessionId);
+        }
+
+        String encodedHeader = base64UrlEncodeJson(header);
+        String encodedPayload = base64UrlEncodeJson(payload);
+        String signedValue = encodedHeader + "." + encodedPayload;
+
+        return signedValue + "." + sign(signedValue);
     }
 
     public TokenClaims parseToken(String token) {
@@ -56,31 +83,59 @@ public class IdentityTokenService {
             throw new IdentityAuthException("Token 不能为空。");
         }
 
-        String[] parts = token.split("\\.");
-        if (parts.length != 2) {
+        String[] parts = token.split("\\.", -1);
+        TokenClaims tokenClaims;
+        if (parts.length == 3) {
+            tokenClaims = parseJwtToken(parts);
+        } else if (parts.length == 2) {
+            tokenClaims = parseLegacyToken(parts);
+        } else {
             throw new IdentityAuthException("Token 格式不正确。");
         }
 
-        String encodedPayload = parts[0];
-        String signature = parts[1];
-        String expectedSignature = sign(encodedPayload);
-
-        if (!MessageDigest.isEqual(
-                expectedSignature.getBytes(StandardCharsets.UTF_8),
-                signature.getBytes(StandardCharsets.UTF_8)
-        )) {
-            throw new IdentityAuthException("Token 签名校验失败。");
-        }
-
-        String payload = base64UrlDecode(encodedPayload);
-        String[] payloadParts = payload.split(":");
-        TokenClaims tokenClaims = parsePayloadParts(payloadParts);
         long expiresAt = tokenClaims.expiresAt();
         if (Instant.now().getEpochSecond() >= expiresAt) {
             throw new IdentityAuthException("登录状态已过期。");
         }
 
         return tokenClaims;
+    }
+
+    private TokenClaims parseJwtToken(String[] parts) {
+        String encodedHeader = parts[0];
+        String encodedPayload = parts[1];
+        String signature = parts[2];
+        String signedValue = encodedHeader + "." + encodedPayload;
+        assertSignature(signedValue, signature);
+
+        Map<String, Object> header = readJsonObject(encodedHeader);
+        Object algorithm = header.get("alg");
+        if (!JWT_ALGORITHM.equals(algorithm)) {
+            throw new IdentityAuthException("Token 签名算法不正确。");
+        }
+
+        Map<String, Object> payload = readJsonObject(encodedPayload);
+        if (!JWT_ISSUER.equals(payload.get("iss"))) {
+            throw new IdentityAuthException("Token 签发方不正确。");
+        }
+        requireAudience(payload);
+
+        Long userId = parseUserId(stringClaim(payload, "sub", "Token 用户编号不合法。"));
+        long tokenVersion = longClaim(payload, "ver", "Token 版本号不合法。");
+        Long refreshSessionId = optionalPositiveLongClaim(payload, "sid", "Token 会话编号不合法。");
+        long expiresAt = longClaim(payload, "exp", "Token 过期时间不合法。");
+
+        return new TokenClaims(userId, tokenVersion, refreshSessionId, expiresAt);
+    }
+
+    private TokenClaims parseLegacyToken(String[] parts) {
+        String encodedPayload = parts[0];
+        String signature = parts[1];
+        assertSignature(encodedPayload, signature);
+
+        String payload = base64UrlDecode(encodedPayload);
+        String[] payloadParts = payload.split(":");
+        return parsePayloadParts(payloadParts);
     }
 
     private TokenClaims parsePayloadParts(String[] payloadParts) {
@@ -123,6 +178,17 @@ public class IdentityTokenService {
         throw new IdentityAuthException("Token 载荷不正确。");
     }
 
+    private void assertSignature(String signedValue, String signature) {
+        String expectedSignature = sign(signedValue);
+
+        if (!MessageDigest.isEqual(
+                expectedSignature.getBytes(StandardCharsets.UTF_8),
+                signature.getBytes(StandardCharsets.UTF_8)
+        )) {
+            throw new IdentityAuthException("Token 签名校验失败。");
+        }
+    }
+
     private String sign(String value) {
         try {
             Mac mac = Mac.getInstance("HmacSHA256");
@@ -131,6 +197,14 @@ public class IdentityTokenService {
             return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
         } catch (Exception ex) {
             throw new IllegalStateException("生成 Token 签名失败。", ex);
+        }
+    }
+
+    private String base64UrlEncodeJson(Map<String, Object> value) {
+        try {
+            return base64UrlEncode(jsonMapper.writeValueAsString(value));
+        } catch (JacksonException ex) {
+            throw new IllegalStateException("生成 Token 载荷失败。", ex);
         }
     }
 
@@ -145,6 +219,92 @@ public class IdentityTokenService {
             return new String(Base64.getUrlDecoder().decode(value), StandardCharsets.UTF_8);
         } catch (IllegalArgumentException ex) {
             throw new IdentityAuthException("Token 载荷不正确。");
+        }
+    }
+
+    private Map<String, Object> readJsonObject(String encodedValue) {
+        String json = base64UrlDecode(encodedValue);
+        try {
+            Object value = jsonMapper.readValue(json, Object.class);
+            if (!(value instanceof Map<?, ?> rawMap)) {
+                throw new IdentityAuthException("Token 载荷不正确。");
+            }
+
+            Map<String, Object> result = new LinkedHashMap<>();
+            for (Map.Entry<?, ?> entry : rawMap.entrySet()) {
+                if (!(entry.getKey() instanceof String key)) {
+                    throw new IdentityAuthException("Token 载荷不正确。");
+                }
+                result.put(key, entry.getValue());
+            }
+
+            return result;
+        } catch (JacksonException | IllegalArgumentException ex) {
+            throw new IdentityAuthException("Token 载荷不正确。");
+        }
+    }
+
+    private void requireAudience(Map<String, Object> payload) {
+        Object audience = payload.get("aud");
+        if (JWT_AUDIENCE.equals(audience)) {
+            return;
+        }
+
+        if (audience instanceof Iterable<?> values) {
+            for (Object value : values) {
+                if (Objects.equals(JWT_AUDIENCE, value)) {
+                    return;
+                }
+            }
+        }
+
+        throw new IdentityAuthException("Token 受众不正确。");
+    }
+
+    private String stringClaim(Map<String, Object> payload, String name, String errorMessage) {
+        Object value = payload.get(name);
+        if (value instanceof String text && !text.isBlank()) {
+            return text;
+        }
+
+        if (value instanceof Number number) {
+            return String.valueOf(number.longValue());
+        }
+
+        throw new IdentityAuthException(errorMessage);
+    }
+
+    private long longClaim(Map<String, Object> payload, String name, String errorMessage) {
+        Object value = payload.get(name);
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+
+        if (value instanceof String text) {
+            return parseLongClaim(text, errorMessage);
+        }
+
+        throw new IdentityAuthException(errorMessage);
+    }
+
+    private Long optionalPositiveLongClaim(Map<String, Object> payload, String name, String errorMessage) {
+        if (!payload.containsKey(name)) {
+            return null;
+        }
+
+        long value = longClaim(payload, name, errorMessage);
+        if (value <= 0L) {
+            throw new IdentityAuthException(errorMessage);
+        }
+
+        return value;
+    }
+
+    private long parseLongClaim(String value, String errorMessage) {
+        try {
+            return Long.parseLong(value);
+        } catch (NumberFormatException ex) {
+            throw new IdentityAuthException(errorMessage);
         }
     }
 
