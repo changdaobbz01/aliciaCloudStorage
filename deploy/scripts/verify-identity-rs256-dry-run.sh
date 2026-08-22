@@ -13,6 +13,7 @@ INSECURE_TLS="${ALICIA_VERIFY_INSECURE_TLS:-true}"
 BUILD_IDENTITY="${ALICIA_RS256_DRY_RUN_BUILD:-false}"
 RESTORE_IDENTITY="${ALICIA_RS256_DRY_RUN_RESTORE:-true}"
 VERIFY_RESTORED_IDENTITY="${ALICIA_RS256_DRY_RUN_VERIFY_RESTORE:-true}"
+CHECK_RESTORED_ALGORITHM="${ALICIA_RS256_DRY_RUN_CHECK_RESTORE:-true}"
 
 IDENTITY_BASE_URL="${IDENTITY_BASE_URL%/}"
 PUBLIC_BASE_URL="${PUBLIC_BASE_URL%/}"
@@ -25,6 +26,16 @@ fi
 fail() {
     printf '[FAIL] %s\n' "$1" >&2
     exit 1
+}
+
+json_escape() {
+    local value="$1"
+    value="${value//\\/\\\\}"
+    value="${value//\"/\\\"}"
+    value="${value//$'\n'/\\n}"
+    value="${value//$'\r'/\\r}"
+    value="${value//$'\t'/\\t}"
+    printf '%s' "$value"
 }
 
 dotenv_value() {
@@ -67,6 +78,26 @@ compose() {
     done
 
     "${command[@]}" "$@"
+}
+
+base64url_decode() {
+    local value="$1"
+    local normalized="${value//-/+}"
+    normalized="${normalized//_/\/}"
+
+    case $((${#normalized} % 4)) in
+        0) ;;
+        2) normalized="${normalized}==" ;;
+        3) normalized="${normalized}=" ;;
+        *) fail "JWT header has invalid base64url padding" ;;
+    esac
+
+    printf '%s' "$normalized" | base64 -d 2>/dev/null || fail "JWT header is not valid base64url"
+}
+
+extract_json_string() {
+    local key="$1"
+    sed -n "s/.*\"$key\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p" | head -n 1
 }
 
 latest_snippet() {
@@ -137,6 +168,59 @@ run_verify() {
     fi
 }
 
+expect_current_token_algorithm() {
+    local expected_algorithm="$1"
+    local expected_key_id="$2"
+    local login_payload
+    local login_response
+    local token
+    local refresh_token
+    local encoded_header
+    local encoded_payload
+    local signature
+    local header_json
+    local algorithm
+    local key_id
+
+    login_payload="$(printf '{"identifier":"%s","password":"%s"}' "$(json_escape "$ACCOUNT")" "$(json_escape "$PASSWORD")")"
+    login_response="$(curl "${CURL_ARGS[@]}" -X POST "$IDENTITY_BASE_URL/api/identity/auth/login" \
+        -H "Content-Type: application/json" \
+        --data-binary "$login_payload")"
+    token="$(printf '%s' "$login_response" | tr -d '\n' | extract_json_string token)"
+    refresh_token="$(printf '%s' "$login_response" | tr -d '\n' | extract_json_string refreshToken)"
+    [[ -n "$token" ]] || fail "identity login did not return a token while checking current token algorithm"
+
+    IFS='.' read -r encoded_header encoded_payload signature <<< "$token"
+    header_json="$(base64url_decode "$encoded_header")"
+    algorithm="$(printf '%s' "$header_json" | extract_json_string alg)"
+    key_id="$(printf '%s' "$header_json" | extract_json_string kid)"
+
+    [[ "$algorithm" == "$expected_algorithm" ]] || fail "current identity token alg expected $expected_algorithm, got ${algorithm:-<missing>}"
+    [[ "$key_id" == "$expected_key_id" ]] || fail "current identity token kid expected $expected_key_id, got ${key_id:-<missing>}"
+    printf '[OK] current identity token alg/kid is %s/%s\n' "$algorithm" "$key_id"
+
+    if [[ -n "$refresh_token" ]]; then
+        curl "${CURL_ARGS[@]}" -X POST "$IDENTITY_BASE_URL/api/identity/auth/logout" \
+            -H "Authorization: Bearer $token" \
+            -H "Content-Type: application/json" \
+            --data-binary "$(printf '{"refreshToken":"%s"}' "$(json_escape "$refresh_token")")" \
+            >/dev/null || true
+    fi
+}
+
+expected_restored_algorithm() {
+    local value
+    value="$(dotenv_value "$ENV_FILE" ALICIA_AUTH_TOKEN_ALGORITHM)"
+    value="${value:-HS256}"
+    printf '%s' "$value" | tr '[:lower:]' '[:upper:]'
+}
+
+expected_restored_key_id() {
+    local value
+    value="$(dotenv_value "$ENV_FILE" ALICIA_AUTH_TOKEN_KEY_ID)"
+    printf '%s' "${value:-alicia-hs256-v1}"
+}
+
 if [[ -z "$SNIPPET_FILE" ]]; then
     SNIPPET_FILE="$(latest_snippet)"
 fi
@@ -188,9 +272,14 @@ run_verify "RS256 dry-run" "$RS256_ALGORITHM" "$RS256_KEY_ID"
 
 restore_identity
 
-if [[ "$RESTORE_IDENTITY" == "true" && "$VERIFY_RESTORED_IDENTITY" == "true" ]]; then
-    run_verify "restored identity"
-elif [[ "$RESTORE_IDENTITY" != "true" ]]; then
+if [[ "$RESTORE_IDENTITY" == "true" ]]; then
+    if [[ "$VERIFY_RESTORED_IDENTITY" == "true" ]]; then
+        run_verify "restored identity"
+    fi
+    if [[ "$CHECK_RESTORED_ALGORITHM" == "true" ]]; then
+        expect_current_token_algorithm "$(expected_restored_algorithm)" "$(expected_restored_key_id)"
+    fi
+else
     printf '\n[WARN] Identity was left running with the temporary RS256 config because ALICIA_RS256_DRY_RUN_RESTORE=false.\n' >&2
 fi
 
