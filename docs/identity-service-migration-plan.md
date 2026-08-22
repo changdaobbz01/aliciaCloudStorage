@@ -466,7 +466,7 @@ v3:userId:tokenVersion:refreshSessionId:expiresAt
 剩余问题：
 
 - 当前生产签发已切到 RS256；后续需要在旧 HS256 access token 过期后移除 `ALICIA_AUTH_TOKEN_PREVIOUS_KEYS` 中的历史 HS256 key。
-- CloudStorageApi 现在通过 HTTP 调 Identity 校验 token，后续如果流量增大，需要短缓存、introspection 或 JWKS 本地验签方案。
+- CloudStorageApi 现在通过 HTTP 调 Identity 校验 token，并已为 Identity HTTP 客户端设置可配置连接/读取超时；后续如果流量增大，需要短缓存、introspection 或 JWKS 本地验签方案。
 - 当前不直接把 CloudStorageApi 切为纯本地 JWKS 验签，因为 access token 暂不写入角色和账号状态；管理员权限、禁用账号、`tokenVersion` 失效仍由 Identity 强一致校验。后续可以先做短缓存或本地验签 + Identity 状态快照组合，再评估是否减少 `/api/identity/auth/me` 同步调用。
 
 ### 7.2 后续目标
@@ -498,6 +498,7 @@ exp: 过期时间
 - `AdminPrincipalInterceptor` 基于 `CurrentPrincipal.role` 校验管理员接口。
 - `CurrentPrincipal` 当前只在云盘服务内保存 `userId` 和 `role`，账号状态和 token version 由 Identity 在校验时处理。
 - 普通业务接口只接收当前主体或用户 ID，不再接收完整身份实体。
+- CloudStorageApi 到 Identity 的 HTTP 调用已设置 `ALICIA_IDENTITY_API_CONNECT_TIMEOUT_MS` 和 `ALICIA_IDENTITY_API_READ_TIMEOUT_MS`，避免上游身份服务慢响应拖住云盘请求。
 
 后续可增强：
 
