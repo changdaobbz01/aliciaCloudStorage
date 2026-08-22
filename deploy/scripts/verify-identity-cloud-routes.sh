@@ -187,6 +187,33 @@ expect_status() {
     ok "$label"
 }
 
+expect_recent_audit_event() {
+    local label="$1"
+    local event_type="$2"
+    local outcome="$3"
+    local user_id="$4"
+    local detail="$5"
+    local count
+
+    count="$(compose exec -T db sh -lc "mysql -N -B -uroot -p\"\$MYSQL_ROOT_PASSWORD\" \"\$MYSQL_DATABASE\" -e \"
+SELECT COUNT(*)
+FROM identity_audit_log
+WHERE event_type = '$event_type'
+  AND outcome = '$outcome'
+  AND actor_user_id = $user_id
+  AND target_user_id = $user_id
+  AND detail = '$detail'
+  AND created_at >= NOW() - INTERVAL 10 MINUTE;
+\"")" || fail "$label query failed"
+    count="$(printf '%s' "$count" | tr -d '\r' | tail -n 1 | tr -d '[:space:]')"
+
+    if [[ -z "$count" || "$count" -lt 1 ]]; then
+        fail "$label was not found in recent identity audit rows"
+    fi
+
+    ok "$label"
+}
+
 curl_json_or_fail() {
     local label="$1"
     shift
@@ -296,6 +323,7 @@ EXTRA_SESSION_ID="$(jwt_number_claim "identity temporary session token" "$EXTRA_
 if [[ -z "$EXTRA_SESSION_ID" ]]; then
     fail "identity temporary session token did not contain a session id"
 fi
+REVOKED_SESSION_AUDIT_DETAIL="session_revoke:$EXTRA_SESSION_ID"
 ok "identity temporary session issued session $EXTRA_SESSION_ID"
 unset extra_login_response
 
@@ -393,6 +421,13 @@ expect_status "logout invalidates refresh token" 401 \
 if [[ "$SKIP_AUDIT_CHECK" == "true" ]]; then
     printf '[SKIP] identity audit log check\n'
 else
+    expect_recent_audit_event \
+        "identity session revoke audit event recorded" \
+        "SESSION_REVOKE" \
+        "SUCCESS" \
+        "$USER_ID" \
+        "$REVOKED_SESSION_AUDIT_DETAIL"
+
     printf '\nLatest identity audit rows:\n'
     compose exec -T db sh -lc 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE" -e "
 SELECT id, event_type, outcome, actor_user_id, target_user_id, identifier, created_at

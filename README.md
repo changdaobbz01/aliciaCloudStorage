@@ -214,7 +214,7 @@ bash deploy/scripts/update-rag-production.sh
 
 脚本会拒绝覆盖服务端已有的 tracked 改动，确认 `.env` 已配置 DeepSeek，快进拉取 `main`，重建 `rag` 与 `frontend`，最后同时检查 `127.0.0.1:8091/api/health` 和公网 `/rag/api/health`。密钥只保留在服务器 `.env`，不会输出到日志。
 
-生产更新 `api`、`identity` 或前端路由后，可以使用统一回归脚本检查主域路径边界、登录续签、JWT `iss/aud/kid` 元数据、刷新会话查询和指定撤销、云盘聚合资料、存储概览、管理员云盘用户入口、Identity 审计日志查询、Identity Flyway 迁移历史、旧身份路径 404、注销失效和审计日志最新行：
+生产更新 `api`、`identity` 或前端路由后，可以使用统一回归脚本检查主域路径边界、登录续签、JWT `iss/aud/kid` 元数据、刷新会话查询和指定撤销、云盘聚合资料、存储概览、管理员云盘用户入口、Identity 审计日志查询、会话撤销审计事件写入、Identity Flyway 迁移历史、旧身份路径 404、注销失效和审计日志最新行：
 
 ```bash
 bash deploy/scripts/verify-identity-cloud-routes.sh
