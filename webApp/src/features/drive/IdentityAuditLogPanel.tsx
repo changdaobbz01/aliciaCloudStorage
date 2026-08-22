@@ -27,6 +27,7 @@ const eventOptions: Array<{ value: IdentityAuditEventType; label: string }> = [
   { value: 'LOGIN', label: '登录' },
   { value: 'TOKEN_REFRESH', label: 'Token 续签' },
   { value: 'LOGOUT', label: '退出登录' },
+  { value: 'SESSION_REVOKE', label: '会话撤销' },
   { value: 'PROFILE_UPDATE', label: '资料更新' },
   { value: 'PASSWORD_CHANGE', label: '修改密码' },
   { value: 'ADMIN_USER_CREATE', label: '管理员建号' },

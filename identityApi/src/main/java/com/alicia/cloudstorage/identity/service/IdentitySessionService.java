@@ -45,7 +45,7 @@ public class IdentitySessionService {
             validateSessionId(sessionId);
             identityRefreshTokenService.revokeUserSession(user.getId(), sessionId, "user_revoke_session");
             identityAuditLogService.record(
-                    IdentityAuditEventType.LOGOUT,
+                    IdentityAuditEventType.SESSION_REVOKE,
                     IdentityAuditOutcome.SUCCESS,
                     user.getId(),
                     user.getId(),
@@ -54,7 +54,7 @@ public class IdentitySessionService {
             );
         } catch (RuntimeException ex) {
             identityAuditLogService.record(
-                    IdentityAuditEventType.LOGOUT,
+                    IdentityAuditEventType.SESSION_REVOKE,
                     IdentityAuditOutcome.FAILURE,
                     user == null ? null : user.getId(),
                     user == null ? null : user.getId(),

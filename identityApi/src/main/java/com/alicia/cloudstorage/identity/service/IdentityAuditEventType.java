@@ -4,6 +4,7 @@ public enum IdentityAuditEventType {
     LOGIN,
     TOKEN_REFRESH,
     LOGOUT,
+    SESSION_REVOKE,
     PROFILE_UPDATE,
     PASSWORD_CHANGE,
     ADMIN_USER_CREATE,

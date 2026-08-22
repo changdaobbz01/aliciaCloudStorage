@@ -73,7 +73,7 @@ class IdentitySessionServiceTest {
 
         verify(identityRefreshTokenService).revokeUserSession(18L, 52L, "user_revoke_session");
         verify(identityAuditLogService).record(
-                IdentityAuditEventType.LOGOUT,
+                IdentityAuditEventType.SESSION_REVOKE,
                 IdentityAuditOutcome.SUCCESS,
                 18L,
                 18L,
@@ -96,7 +96,7 @@ class IdentitySessionServiceTest {
 
         verifyNoInteractions(identityRefreshTokenService);
         verify(identityAuditLogService).record(
-                IdentityAuditEventType.LOGOUT,
+                IdentityAuditEventType.SESSION_REVOKE,
                 IdentityAuditOutcome.FAILURE,
                 18L,
                 18L,
@@ -120,7 +120,7 @@ class IdentitySessionServiceTest {
                 .hasMessage("登录会话不存在。");
 
         verify(identityAuditLogService).record(
-                IdentityAuditEventType.LOGOUT,
+                IdentityAuditEventType.SESSION_REVOKE,
                 IdentityAuditOutcome.FAILURE,
                 18L,
                 18L,
