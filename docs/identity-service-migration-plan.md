@@ -467,6 +467,7 @@ v3:userId:tokenVersion:refreshSessionId:expiresAt
 
 - 当前生产签发已切到 RS256；后续需要在旧 HS256 access token 过期后移除 `ALICIA_AUTH_TOKEN_PREVIOUS_KEYS` 中的历史 HS256 key。
 - CloudStorageApi 现在通过 HTTP 调 Identity 校验 token，后续如果流量增大，需要短缓存、introspection 或 JWKS 本地验签方案。
+- 当前不直接把 CloudStorageApi 切为纯本地 JWKS 验签，因为 access token 暂不写入角色和账号状态；管理员权限、禁用账号、`tokenVersion` 失效仍由 Identity 强一致校验。后续可以先做短缓存或本地验签 + Identity 状态快照组合，再评估是否减少 `/api/identity/auth/me` 同步调用。
 
 ### 7.2 后续目标
 
@@ -1022,6 +1023,8 @@ bash deploy/scripts/check-identity-route-boundary.sh
 
 该脚本检查源码和部署配置中是否重新出现旧 `/api/auth/**` 或旧 `/api/admin/users` 引用，并排除运行验证脚本里的旧路由 404 断言；优先使用 `rg`，服务器未安装 `rg` 时自动降级到 `grep`。
 
+同一边界也由 `CloudStorageApi` 的 `IdentityRouteBoundaryTest` 纳入 Maven 测试，避免只依赖部署脚本人工执行。
+
 脚本覆盖：
 
 - 直连与前端 Nginx health。
@@ -1051,6 +1054,7 @@ CloudStorageApi：
 - `CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/service/CloudUserProfileProvisioningService.java`
 - `CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/service/CloudUserProfileService.java`
 - `CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/service/StorageQuotaService.java`
+- `CloudStorageApi/src/test/java/com/alicia/cloudstorage/api/architecture/IdentityRouteBoundaryTest.java`
 
 Web 和 Android：
 

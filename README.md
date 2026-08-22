@@ -264,6 +264,8 @@ bash deploy/scripts/check-identity-route-boundary.sh
 
 该脚本优先使用 `rg`，服务器未安装 `rg` 时会自动降级到 `grep`。
 
+同一边界也已纳入 Maven 测试：`CloudStorageApi` 的 `IdentityRouteBoundaryTest` 会扫描 Web、Android、CloudStorageApi、identityApi、RAG 和 deploy 源码目录，防止旧身份路径回流。
+
 生产服务器建议把 `origin` 指向 Gitee，以减少 GitHub 连接失败造成的更新中断：
 
 ```bash
