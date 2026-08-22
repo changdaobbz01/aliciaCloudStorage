@@ -144,6 +144,20 @@ require_jwt_metadata() {
     ok "$label metadata matches expected iss/aud/kid"
 }
 
+jwt_number_claim() {
+    local label="$1"
+    local token="$2"
+    local claim="$3"
+    local encoded_header
+    local encoded_payload
+    local signature
+    local payload_json
+
+    IFS='.' read -r encoded_header encoded_payload signature <<< "$token"
+    payload_json="$(base64url_decode "$label payload" "$encoded_payload")"
+    printf '%s' "$payload_json" | extract_json_number "$claim"
+}
+
 curl_ok() {
     local label="$1"
     shift
@@ -248,6 +262,11 @@ login_response="$(curl_json_or_fail "identity login" \
     -X POST "$IDENTITY_BASE_URL/api/identity/auth/login" \
     -H "Content-Type: application/json" \
     --data-binary "$login_payload")"
+
+extra_login_response="$(curl_json_or_fail "identity temporary session login" \
+    -X POST "$IDENTITY_BASE_URL/api/identity/auth/login" \
+    -H "Content-Type: application/json" \
+    --data-binary "$login_payload")"
 unset PASSWORD login_payload
 
 TOKEN="$(printf '%s' "$login_response" | tr -d '\n' | extract_json_string token)"
@@ -262,6 +281,23 @@ if [[ -z "$REFRESH_TOKEN" ]]; then
     fail "identity login did not return a refresh token"
 fi
 ok "identity login issued refresh token (${#REFRESH_TOKEN} chars)"
+
+EXTRA_TOKEN="$(printf '%s' "$extra_login_response" | tr -d '\n' | extract_json_string token)"
+if [[ -z "$EXTRA_TOKEN" ]]; then
+    fail "identity temporary session login did not return a token"
+fi
+require_jwt_token "identity temporary session token" "$EXTRA_TOKEN"
+require_jwt_metadata "identity temporary session token" "$EXTRA_TOKEN"
+EXTRA_REFRESH_TOKEN="$(printf '%s' "$extra_login_response" | tr -d '\n' | extract_json_string refreshToken)"
+if [[ -z "$EXTRA_REFRESH_TOKEN" ]]; then
+    fail "identity temporary session login did not return a refresh token"
+fi
+EXTRA_SESSION_ID="$(jwt_number_claim "identity temporary session token" "$EXTRA_TOKEN" sid)"
+if [[ -z "$EXTRA_SESSION_ID" ]]; then
+    fail "identity temporary session token did not contain a session id"
+fi
+ok "identity temporary session issued session $EXTRA_SESSION_ID"
+unset extra_login_response
 
 refresh_payload="$(printf '{"refreshToken":"%s"}' "$(json_escape "$REFRESH_TOKEN")")"
 refresh_response="$(curl_json_or_fail "identity token refresh" \
@@ -292,6 +328,19 @@ if [[ -z "$SESSION_ID" ]]; then
     fail "identity session list did not return a session id"
 fi
 ok "identity session list returned session $SESSION_ID"
+
+curl_ok "identity session revoke succeeds" \
+    -X DELETE "$PUBLIC_BASE_URL/api/identity/auth/sessions/$EXTRA_SESSION_ID" \
+    -H "Authorization: Bearer $TOKEN"
+expect_status "session revoke invalidates revoked access token" 401 \
+    "$IDENTITY_BASE_URL/api/identity/auth/me" \
+    -H "Authorization: Bearer $EXTRA_TOKEN"
+expect_status "session revoke invalidates revoked refresh token" 401 \
+    -X POST "$IDENTITY_BASE_URL/api/identity/auth/token/refresh" \
+    -H "Authorization: Bearer $EXTRA_TOKEN" \
+    -H "Content-Type: application/json" \
+    --data-binary "$(printf '{"refreshToken":"%s"}' "$(json_escape "$EXTRA_REFRESH_TOKEN")")"
+unset EXTRA_TOKEN EXTRA_REFRESH_TOKEN EXTRA_SESSION_ID
 
 profile_response="$(curl_json_or_fail "cloud profile aggregation" \
     "$CLOUD_BASE_URL/api/cloud-profile/me" \
