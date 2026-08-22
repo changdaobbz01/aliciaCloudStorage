@@ -148,7 +148,7 @@ docker compose up -d --build
 - RAG（仅本机回环）：`http://127.0.0.1:8091`
 - 同域 RAG 入口：`http://localhost/rag/api/health`
 - Identity API（仅本机回环）：`http://127.0.0.1:8093`
-- 同域 Identity 公开入口：`http://localhost/api/identity/health`
+- 同域 Identity 公开入口：`http://localhost/api/identity/health`、`http://localhost/api/identity/health/dependencies`
 - MySQL（仅本机回环）：`127.0.0.1:3310`
 
 查看运行状态：
@@ -238,7 +238,7 @@ curl -X POST http://127.0.0.1:8093/api/identity/auth/register/verify `
 docker compose -f compose.yaml -f compose.https.yaml up -d --build frontend
 ```
 
-这样会额外开放 `443`，并将 `http://` 请求自动跳转到 `https://`。统一登录入口为 `https://windwindwind-alicia.cn/login`，云盘 Web 入口为 `https://windwindwind-alicia.cn/cloudPan/`，正式 RAG 入口为 `https://windwindwind-alicia.cn/rag`，SSE 请求由 Nginx 直通 `rag` 容器；Identity 公开入口为 `https://windwindwind-alicia.cn/api/identity/health`、`/api/identity/.well-known/jwks.json`、`/api/identity/auth/**` 和 `/api/identity/admin/**`。`/rag/internal/` 与 `/api/identity/internal/**` 不对公网开放。
+这样会额外开放 `443`，并将 `http://` 请求自动跳转到 `https://`。统一登录入口为 `https://windwindwind-alicia.cn/login`，云盘 Web 入口为 `https://windwindwind-alicia.cn/cloudPan/`，正式 RAG 入口为 `https://windwindwind-alicia.cn/rag`，SSE 请求由 Nginx 直通 `rag` 容器；Identity 公开入口为 `https://windwindwind-alicia.cn/api/identity/health`、`/api/identity/health/dependencies`、`/api/identity/.well-known/jwks.json`、`/api/identity/auth/**` 和 `/api/identity/admin/**`。`/rag/internal/` 与 `/api/identity/internal/**` 不对公网开放。
 
 生产服务器更新 RAG 与 Nginx 时，在仓库内执行：
 
@@ -248,7 +248,7 @@ bash deploy/scripts/update-rag-production.sh
 
 脚本会拒绝覆盖服务端已有的 tracked 改动，确认 `.env` 已配置 DeepSeek，快进拉取 `main`，重建 `rag` 与 `frontend`，最后同时检查 `127.0.0.1:8091/api/health` 和公网 `/rag/api/health`。密钥只保留在服务器 `.env`，不会输出到日志。
 
-生产更新 `api`、`identity` 或前端路由后，可以使用统一回归脚本检查主域路径边界、CloudStorageApi 到 Identity 的依赖健康、登录续签、JWT `alg/iss/aud/kid` 元数据、JWKS 入口、刷新会话查询和指定撤销、云盘聚合资料、存储概览、管理员云盘用户入口、Identity 审计日志查询、会话撤销审计事件写入、Identity Flyway 迁移历史、旧身份路径 404、注销失效和审计日志最新行：
+生产更新 `api`、`identity` 或前端路由后，可以使用统一回归脚本检查主域路径边界、CloudStorageApi 到 Identity 的依赖健康、Identity 数据库/Flyway 依赖健康、登录续签、JWT `alg/iss/aud/kid` 元数据、JWKS 入口、刷新会话查询和指定撤销、云盘聚合资料、存储概览、管理员云盘用户入口、Identity 审计日志查询、会话撤销审计事件写入、Identity Flyway 迁移历史、旧身份路径 404、注销失效和审计日志最新行：
 
 ```bash
 bash deploy/scripts/verify-identity-cloud-routes.sh

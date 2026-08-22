@@ -1028,7 +1028,7 @@ bash deploy/scripts/check-identity-route-boundary.sh
 
 脚本覆盖：
 
-- 直连与前端 Nginx health，并检查 CloudStorageApi 到 Identity 的依赖健康端点。
+- 直连与前端 Nginx health，并检查 CloudStorageApi 到 Identity 的依赖健康端点、Identity 数据库/Flyway 依赖健康端点。
 - Identity 登录、refresh token 下发与轮换、JWT `alg/iss/aud/kid` 元数据、JWKS 入口、刷新会话查询、指定刷新会话撤销、会话撤销审计事件写入、logout 后 refresh token 和当前 access token 失效。
 - `/api/cloud-profile/me` 和 `/api/storage/overview` 使用 identity token。
 - `/api/admin/cloud-users` 管理员入口。

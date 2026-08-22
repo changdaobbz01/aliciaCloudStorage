@@ -17,6 +17,7 @@ Current status:
 Local endpoints:
 
 - `GET /api/identity/health`
+- `GET /api/identity/health/dependencies`
 - `GET /api/identity/.well-known/jwks.json`
 - `GET /api/identity/internal/users/{userId}`
 - `POST /api/identity/auth/login`
