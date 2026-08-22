@@ -409,6 +409,7 @@ cloud_user_profile.home_background_url = sys_user.home_background_url
 当前 token 由 `identityApi` 的 `IdentityTokenService` 统一签发。新签发的 access token 已是标准 JWT，当前第一期仍使用 HS256 对称签名，payload 包含：
 
 ```text
+header.kid: alicia-hs256-v1
 iss: https://windwindwind-alicia.cn
 sub: 用户 ID
 aud: alicia-tools
@@ -416,6 +417,14 @@ iat: 签发时间
 exp: 过期时间
 ver: token version
 sid: refresh session id，可选
+```
+
+`iss`、`aud` 和 `kid` 已配置化，默认分别来自：
+
+```text
+ALICIA_AUTH_TOKEN_ISSUER=https://windwindwind-alicia.cn
+ALICIA_AUTH_TOKEN_AUDIENCE=alicia-tools
+ALICIA_AUTH_TOKEN_KEY_ID=alicia-hs256-v1
 ```
 
 为保证平滑升级，`IdentityTokenService` 仍兼容解析旧两段式 token。旧 v2 payload 中包含：
@@ -434,6 +443,7 @@ v3:userId:tokenVersion:refreshSessionId:expiresAt
 
 - payload 不再依赖手机号，兼容邮箱登录用户。
 - 新签发 access token 已迁移为标准 JWT；旧 v2/v3 和更早期 payload 只保留解析兼容，不再新签发。
+- JWT 的 `iss`、`aud` 和 `kid` 会按配置校验，生产验证脚本会检查登录和续签返回的是三段式 JWT。
 - `tokenVersion` 已用于密码修改、管理员重置密码和全设备 logout 后的登录态失效。
 - `identity_refresh_token` 保存刷新令牌摘要、用户、tokenVersion、过期时间、撤销时间、客户端 IP 和 User-Agent。
 - 登录和邮箱注册验证返回 `token` 与 `refreshToken`；续签优先使用 refresh token 轮换，Authorization-only 续签作为兼容路径保留并会补发刷新会话。
@@ -450,6 +460,7 @@ v3:userId:tokenVersion:refreshSessionId:expiresAt
 Identity Service 中期切换非对称 JWT/JWKS：
 
 ```text
+header.kid: 当前签名密钥 ID
 iss: https://windwindwind-alicia.cn
 sub: 用户 ID
 aud: alicia-tools
@@ -460,7 +471,7 @@ exp: 过期时间
 
 推荐：
 
-- 第一期继续使用对称签名，降低改造成本；该阶段已落地。
+- 第一期继续使用对称签名，降低改造成本；HS256 JWT 签发、旧 token 解析兼容、JWT 元数据配置化和基础校验已落地。
 - 中期切换到非对称签名和 JWKS，让 CloudStorageApi、RAG 或后续服务只持有公钥。
 - 保留 token version，用于密码修改和管理员重置密码后的登录态失效。
 - 角色和状态暂不写入 access token，仍由 Identity 校验时读取数据库，避免角色/状态变更后出现过期授权信息。

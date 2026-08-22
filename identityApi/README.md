@@ -9,7 +9,7 @@ Current status:
 - It owns login, token refresh/logout, current-user identity reads, refresh-session reads/revocation, profile writes, password changes, email-code registration, and administrator identity management.
 - It exposes a read-only administrator audit-log query endpoint for identity security review.
 - It persists refresh-token sessions in `identity_refresh_token`; login/registration return both `token` and `refreshToken`.
-- It issues HS256 JWT access tokens with `iss`, `sub`, `aud`, `iat`, `exp`, `ver`, and optional `sid`; legacy two-part access tokens remain accepted during the transition.
+- It issues HS256 JWT access tokens with configurable `iss`, `aud`, and `kid`, plus `sub`, `iat`, `exp`, `ver`, and optional `sid`; legacy two-part access tokens remain accepted during the transition.
 - It owns identity Flyway migrations under `src/main/resources/db/identity-migration` and records them in `identity_flyway_schema_history`.
 - It still reads and writes the existing `sys_user` table during the migration period.
 - `CloudStorageApi` consumes identity tokens and only adds cloud-drive profile data such as quota and home background.
@@ -33,6 +33,8 @@ Local endpoints:
 
 The internal user endpoint is read-only and does not return `password_hash`.
 The auth endpoints are the production identity boundary. `POST /api/identity/auth/token/refresh` prefers a JSON body containing `refreshToken` and rotates it; Authorization-only refresh remains as a compatibility path. `GET /api/identity/auth/sessions` lists the current user's refresh sessions without exposing token material, and `DELETE /api/identity/auth/sessions/{sessionId}` revokes one of that user's sessions. `POST /api/identity/auth/logout` revokes the current refresh session by default, while `{"allDevices":true}` increments `token_version` and revokes all refresh sessions for the user. Email registration in this module creates only the identity user; cloud-drive profile provisioning remains owned by `CloudStorageApi`.
+
+JWT metadata is configured through `ALICIA_AUTH_TOKEN_ISSUER`, `ALICIA_AUTH_TOKEN_AUDIENCE`, and `ALICIA_AUTH_TOKEN_KEY_ID`; the default compose stack passes production-compatible defaults for the shared-domain deployment.
 
 Schema migrations:
 

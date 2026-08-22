@@ -23,17 +23,20 @@ public class IdentityTokenService {
     private static final String SESSION_TOKEN_PAYLOAD_VERSION = "v3";
     private static final String JWT_ALGORITHM = "HS256";
     private static final String JWT_TYPE = "JWT";
-    private static final String JWT_KEY_ID = "alicia-hs256-v1";
-    private static final String JWT_ISSUER = "https://windwindwind-alicia.cn";
-    private static final String JWT_AUDIENCE = "alicia-tools";
 
     private final String secret;
     private final long expireSeconds;
+    private final String issuer;
+    private final String audience;
+    private final String keyId;
     private final JsonMapper jsonMapper = JsonMapper.builder().build();
 
     public IdentityTokenService(
             @Value("${alicia.auth.token-secret}") String secret,
-            @Value("${alicia.auth.token-expire-seconds}") long expireSeconds
+            @Value("${alicia.auth.token-expire-seconds}") long expireSeconds,
+            @Value("${alicia.auth.token-issuer}") String issuer,
+            @Value("${alicia.auth.token-audience}") String audience,
+            @Value("${alicia.auth.token-key-id}") String keyId
     ) {
         if (secret == null || secret.isBlank()) {
             throw new IllegalStateException("Token secret must not be blank.");
@@ -45,6 +48,9 @@ public class IdentityTokenService {
 
         this.secret = secret;
         this.expireSeconds = expireSeconds;
+        this.issuer = requireText(issuer, "Token issuer must not be blank.");
+        this.audience = requireText(audience, "Token audience must not be blank.");
+        this.keyId = requireText(keyId, "Token key id must not be blank.");
     }
 
     public String createToken(IdentityUser user) {
@@ -58,12 +64,12 @@ public class IdentityTokenService {
         Map<String, Object> header = new LinkedHashMap<>();
         header.put("alg", JWT_ALGORITHM);
         header.put("typ", JWT_TYPE);
-        header.put("kid", JWT_KEY_ID);
+        header.put("kid", keyId);
 
         Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("iss", JWT_ISSUER);
+        payload.put("iss", issuer);
         payload.put("sub", String.valueOf(user.getId()));
-        payload.put("aud", JWT_AUDIENCE);
+        payload.put("aud", audience);
         payload.put("iat", issuedAt);
         payload.put("exp", expiresAt);
         payload.put("ver", tokenVersion);
@@ -113,9 +119,12 @@ public class IdentityTokenService {
         if (!JWT_ALGORITHM.equals(algorithm)) {
             throw new IdentityAuthException("Token 签名算法不正确。");
         }
+        if (!keyId.equals(header.get("kid"))) {
+            throw new IdentityAuthException("Token 密钥标识不正确。");
+        }
 
         Map<String, Object> payload = readJsonObject(encodedPayload);
-        if (!JWT_ISSUER.equals(payload.get("iss"))) {
+        if (!issuer.equals(payload.get("iss"))) {
             throw new IdentityAuthException("Token 签发方不正确。");
         }
         requireAudience(payload);
@@ -200,6 +209,14 @@ public class IdentityTokenService {
         }
     }
 
+    private String requireText(String value, String errorMessage) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalStateException(errorMessage);
+        }
+
+        return value.trim();
+    }
+
     private String base64UrlEncodeJson(Map<String, Object> value) {
         try {
             return base64UrlEncode(jsonMapper.writeValueAsString(value));
@@ -246,13 +263,13 @@ public class IdentityTokenService {
 
     private void requireAudience(Map<String, Object> payload) {
         Object audience = payload.get("aud");
-        if (JWT_AUDIENCE.equals(audience)) {
+        if (this.audience.equals(audience)) {
             return;
         }
 
         if (audience instanceof Iterable<?> values) {
             for (Object value : values) {
-                if (Objects.equals(JWT_AUDIENCE, value)) {
+                if (Objects.equals(this.audience, value)) {
                     return;
                 }
             }

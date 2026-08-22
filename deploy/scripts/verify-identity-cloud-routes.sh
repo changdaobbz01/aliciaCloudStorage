@@ -50,6 +50,19 @@ extract_json_number() {
     sed -n "s/.*\"$key\"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p" | head -n 1
 }
 
+require_jwt_token() {
+    local label="$1"
+    local token="$2"
+    local without_dots="${token//./}"
+    local dot_count=$((${#token} - ${#without_dots}))
+
+    if [[ "$dot_count" -ne 2 ]]; then
+        fail "$label is not a JWT access token"
+    fi
+
+    ok "$label is JWT-shaped"
+}
+
 curl_ok() {
     local label="$1"
     shift
@@ -134,6 +147,7 @@ if [[ -z "$TOKEN" ]]; then
     fail "identity login did not return a token"
 fi
 ok "identity login issued token (${#TOKEN} chars)"
+require_jwt_token "identity login token" "$TOKEN"
 REFRESH_TOKEN="$(printf '%s' "$login_response" | tr -d '\n' | extract_json_string refreshToken)"
 if [[ -z "$REFRESH_TOKEN" ]]; then
     fail "identity login did not return a refresh token"
@@ -158,6 +172,7 @@ fi
 TOKEN="$REFRESHED_TOKEN"
 REFRESH_TOKEN="$REFRESHED_REFRESH_TOKEN"
 ok "identity token refresh issued replacement token (${#TOKEN} chars) and refresh token (${#REFRESH_TOKEN} chars)"
+require_jwt_token "identity refreshed token" "$TOKEN"
 
 sessions_response="$(curl -fsS "${CURL_ARGS[@]}" \
     "$PUBLIC_BASE_URL/api/identity/auth/sessions" \
