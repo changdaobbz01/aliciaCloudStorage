@@ -223,7 +223,7 @@ curl_ok "identity logout succeeds" \
     -H "Content-Type: application/json" \
     --data-binary "$(printf '{"refreshToken":"%s"}' "$(json_escape "$REFRESH_TOKEN")")"
 expect_status "logout invalidates refreshed token" 401 \
-    -X POST "$IDENTITY_BASE_URL/api/identity/auth/token/refresh" \
+    "$IDENTITY_BASE_URL/api/identity/auth/me" \
     -H "Authorization: Bearer $TOKEN"
 expect_status "logout invalidates refresh token" 401 \
     -X POST "$IDENTITY_BASE_URL/api/identity/auth/token/refresh" \
