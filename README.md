@@ -262,6 +262,8 @@ bash deploy/scripts/verify-identity-cloud-routes.sh
 bash deploy/scripts/check-identity-route-boundary.sh
 ```
 
+该脚本优先使用 `rg`，服务器未安装 `rg` 时会自动降级到 `grep`。
+
 生产服务器建议把 `origin` 指向 Gitee，以减少 GitHub 连接失败造成的更新中断：
 
 ```bash
