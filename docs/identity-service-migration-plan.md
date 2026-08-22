@@ -1009,7 +1009,7 @@ bash deploy/scripts/verify-identity-cloud-routes.sh
 - Identity 登录、refresh token 下发与轮换、JWT `iss/aud/kid` 元数据、刷新会话查询、指定刷新会话撤销、会话撤销审计事件写入、logout 后 refresh token 和当前 access token 失效。
 - `/api/cloud-profile/me` 和 `/api/storage/overview` 使用 identity token。
 - `/api/admin/cloud-users` 管理员入口。
-- `/api/identity/admin/audit-logs` 管理员审计日志查询入口。
+- `/api/identity/admin/audit-logs` 管理员审计日志查询入口和 `SESSION_REVOKE` 筛选。
 - 旧 `/api/auth/me`、`/api/auth/avatar/{userId}`、`/api/admin/users` 保持 404。
 - `identity_audit_log` 最新记录查询。
 

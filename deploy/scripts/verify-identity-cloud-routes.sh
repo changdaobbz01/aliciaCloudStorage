@@ -234,6 +234,35 @@ curl_json_or_fail() {
     rm -f "$body_file"
 }
 
+expect_audit_log_filter() {
+    local label="$1"
+    local event_type="$2"
+    local outcome="$3"
+    local target_user_id="$4"
+    local response
+    local total_items
+    local returned_event_type
+    local returned_outcome
+    local returned_target_user_id
+
+    response="$(curl_json_or_fail "$label" \
+        "$PUBLIC_BASE_URL/api/identity/admin/audit-logs?eventType=$event_type&outcome=$outcome&targetUserId=$target_user_id&size=5" \
+        -H "Authorization: Bearer $TOKEN")"
+    total_items="$(printf '%s' "$response" | tr -d '\n' | extract_json_number totalItems)"
+    returned_event_type="$(printf '%s' "$response" | tr -d '\n' | extract_json_string eventType)"
+    returned_outcome="$(printf '%s' "$response" | tr -d '\n' | extract_json_string outcome)"
+    returned_target_user_id="$(printf '%s' "$response" | tr -d '\n' | extract_json_number targetUserId)"
+
+    if [[ -z "$total_items" || "$total_items" -lt 1 ]]; then
+        fail "$label returned no matching audit rows"
+    fi
+    [[ "$returned_event_type" == "$event_type" ]] || fail "$label eventType expected $event_type, got ${returned_event_type:-<missing>}"
+    [[ "$returned_outcome" == "$outcome" ]] || fail "$label outcome expected $outcome, got ${returned_outcome:-<missing>}"
+    [[ "$returned_target_user_id" == "$target_user_id" ]] || fail "$label targetUserId expected $target_user_id, got ${returned_target_user_id:-<missing>}"
+
+    ok "$label"
+}
+
 compose() {
     local command=(docker compose)
 
@@ -392,6 +421,11 @@ else
     curl_ok "identity audit logs admin route accepts admin identity token" \
         "$PUBLIC_BASE_URL/api/identity/admin/audit-logs?size=5" \
         -H "Authorization: Bearer $TOKEN"
+    expect_audit_log_filter \
+        "identity audit logs filter session revoke event" \
+        "SESSION_REVOKE" \
+        "SUCCESS" \
+        "$USER_ID"
 
     expect_status "legacy /api/admin/users remains removed" 404 \
         "$CLOUD_BASE_URL/api/admin/users" \
