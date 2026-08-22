@@ -1014,6 +1014,14 @@ Android：
 bash deploy/scripts/verify-identity-cloud-routes.sh
 ```
 
+提交或部署前可先执行静态边界扫描：
+
+```bash
+bash deploy/scripts/check-identity-route-boundary.sh
+```
+
+该脚本检查源码和部署配置中是否重新出现旧 `/api/auth/**` 或旧 `/api/admin/users` 引用，并排除运行验证脚本里的旧路由 404 断言。
+
 脚本覆盖：
 
 - 直连与前端 Nginx health。

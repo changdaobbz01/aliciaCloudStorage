@@ -256,6 +256,12 @@ bash deploy/scripts/verify-identity-cloud-routes.sh
 
 脚本默认验证 `http://127.0.0.1:8090`、`http://127.0.0.1:8093` 和 `https://127.0.0.1`；如需改为域名验证，可设置 `ALICIA_PUBLIC_BASE_URL=https://windwindwind-alicia.cn`。完整管理员检查需要使用管理员账号；普通账号可临时设置 `ALICIA_VERIFY_SKIP_ADMIN_CHECK=true`。
 
+提交或部署前也可以先做一次静态路径边界检查，防止源码和部署配置重新引入旧 `/api/auth/**` 或旧 `/api/admin/users`：
+
+```bash
+bash deploy/scripts/check-identity-route-boundary.sh
+```
+
 生产服务器建议把 `origin` 指向 Gitee，以减少 GitHub 连接失败造成的更新中断：
 
 ```bash
