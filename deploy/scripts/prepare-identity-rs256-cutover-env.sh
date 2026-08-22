@@ -82,12 +82,36 @@ RS256_KEY_ID="$(dotenv_value "$SNIPPET_FILE" ALICIA_AUTH_TOKEN_KEY_ID)"
 RS256_PRIVATE_KEY="$(dotenv_value "$SNIPPET_FILE" ALICIA_AUTH_TOKEN_RSA_PRIVATE_KEY)"
 RS256_PUBLIC_KEY="$(dotenv_value "$SNIPPET_FILE" ALICIA_AUTH_TOKEN_RSA_PUBLIC_KEY)"
 RS256_PREVIOUS_KEYS="$(dotenv_value "$SNIPPET_FILE" ALICIA_AUTH_TOKEN_PREVIOUS_KEYS)"
+BASE_HS256_KEY_ID="$(dotenv_value "$ENV_FILE" ALICIA_AUTH_TOKEN_KEY_ID)"
+BASE_HS256_KEY_ID="${BASE_HS256_KEY_ID:-alicia-hs256-v1}"
+BASE_HS256_SECRET="$(dotenv_value "$ENV_FILE" ALICIA_AUTH_TOKEN_SECRET)"
+BASE_PREVIOUS_KEYS="$(dotenv_value "$ENV_FILE" ALICIA_AUTH_TOKEN_PREVIOUS_KEYS)"
+PREVIOUS_KEYS_SOURCE="snippet"
 
 [[ "$RS256_ALGORITHM" == "RS256" ]] || fail "Snippet must set ALICIA_AUTH_TOKEN_ALGORITHM=RS256."
 [[ -n "$RS256_KEY_ID" ]] || fail "Snippet is missing ALICIA_AUTH_TOKEN_KEY_ID."
 [[ -n "$RS256_PRIVATE_KEY" ]] || fail "Snippet is missing ALICIA_AUTH_TOKEN_RSA_PRIVATE_KEY."
 [[ -n "$RS256_PUBLIC_KEY" ]] || fail "Snippet is missing ALICIA_AUTH_TOKEN_RSA_PUBLIC_KEY."
-[[ -n "$RS256_PREVIOUS_KEYS" ]] || fail "Snippet is missing ALICIA_AUTH_TOKEN_PREVIOUS_KEYS for HS256 compatibility."
+if [[ -z "$RS256_PREVIOUS_KEYS" ]]; then
+    [[ -n "$BASE_HS256_SECRET" ]] || fail "Snippet is missing ALICIA_AUTH_TOKEN_PREVIOUS_KEYS and base env is missing ALICIA_AUTH_TOKEN_SECRET."
+    if [[ -n "$BASE_PREVIOUS_KEYS" ]]; then
+        RS256_PREVIOUS_KEYS="$BASE_HS256_KEY_ID=$BASE_HS256_SECRET;$BASE_PREVIOUS_KEYS"
+    else
+        RS256_PREVIOUS_KEYS="$BASE_HS256_KEY_ID=$BASE_HS256_SECRET"
+    fi
+    PREVIOUS_KEYS_SOURCE="derived"
+fi
+
+token_key_value() {
+    local key="$1"
+
+    if [[ "$key" == "ALICIA_AUTH_TOKEN_PREVIOUS_KEYS" ]]; then
+        printf '%s' "$RS256_PREVIOUS_KEYS"
+        return
+    fi
+
+    dotenv_value "$SNIPPET_FILE" "$key"
+}
 
 umask 077
 mkdir -p "$OUTPUT_DIR"
@@ -100,7 +124,7 @@ NEXT_FILE="$CANDIDATE_FILE.next"
 
 cp "$ENV_FILE" "$TEMP_FILE"
 for key in "${TOKEN_KEYS[@]}"; do
-    value="$(dotenv_value "$SNIPPET_FILE" "$key")"
+    value="$(token_key_value "$key")"
     replace_or_append_env "$TEMP_FILE" "$NEXT_FILE" "$key" "$value"
     mv "$NEXT_FILE" "$TEMP_FILE"
 done
@@ -113,6 +137,11 @@ printf '  snippet:       %s\n' "$SNIPPET_FILE"
 printf '  candidate env: %s\n' "$CANDIDATE_FILE"
 printf '  backup path:   %s\n' "$BACKUP_FILE"
 printf '  alg/kid:       %s/%s\n' "$RS256_ALGORITHM" "$RS256_KEY_ID"
+if [[ "$PREVIOUS_KEYS_SOURCE" == "derived" ]]; then
+    printf '  previous HS:   derived from %s using kid %s\n' "$ENV_FILE" "$BASE_HS256_KEY_ID"
+else
+    printf '  previous HS:   loaded from snippet\n'
+fi
 printf '\nSensitive key values are written only to the candidate file and are not printed here.\n'
 printf '\nWhen you are ready to cut over, run:\n'
 printf '  cp %s %s\n' "$ENV_FILE" "$BACKUP_FILE"

@@ -83,7 +83,7 @@ JWT access token 默认仍使用 `ALICIA_AUTH_TOKEN_ALGORITHM=HS256`，元数据
 bash deploy/scripts/generate-identity-rs256-env.sh
 ```
 
-脚本会把私钥、公钥和 `.env` 片段写入 `deploy/generated/identity-rs256/`，该目录已被 git 忽略。切换时把生成的 `.env` 片段合并到生产 `.env`，保留当前 HS256 secret 到 `ALICIA_AUTH_TOKEN_PREVIOUS_KEYS`，再重建 `identity` 并运行统一验证脚本。
+脚本会把私钥、公钥和 `.env` 片段写入 `deploy/generated/identity-rs256/`，该目录已被 git 忽略。生成脚本会读取当前 `.env` 的 `ALICIA_AUTH_TOKEN_SECRET`，并在未显式配置 `ALICIA_AUTH_TOKEN_KEY_ID` 时按 compose 默认 `alicia-hs256-v1` 写入 `ALICIA_AUTH_TOKEN_PREVIOUS_KEYS`；切换后旧 HS256 access token 过期前仍可验签。
 
 正式合并 `.env` 前，可以先做一次不改 `.env` 的 RS256 dry-run：
 
@@ -99,7 +99,7 @@ dry-run 通过后，可先生成正式切换用的候选 `.env` 文件：
 bash deploy/scripts/prepare-identity-rs256-cutover-env.sh
 ```
 
-该脚本会在 `deploy/generated/identity-rs256/` 写入 `*.candidate.env`，并打印备份、切换和回滚命令；它不会直接覆盖生产 `.env`。
+该脚本会在 `deploy/generated/identity-rs256/` 写入 `*.candidate.env`，并打印备份、切换和回滚命令；它不会直接覆盖生产 `.env`。如果历史 snippet 未包含 `ALICIA_AUTH_TOKEN_PREVIOUS_KEYS`，脚本会从当前 `.env` 推导旧 HS256 兼容项。
 
 如果配置了 COS 自定义源站域名，可以额外填写：
 
