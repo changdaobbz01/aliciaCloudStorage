@@ -77,6 +77,14 @@ cp .env.example .env
 
 JWT access token 默认仍使用 `ALICIA_AUTH_TOKEN_ALGORITHM=HS256`，元数据默认使用生产主域配置：`ALICIA_AUTH_TOKEN_ISSUER=https://windwindwind-alicia.cn`、`ALICIA_AUTH_TOKEN_AUDIENCE=alicia-tools`、`ALICIA_AUTH_TOKEN_KEY_ID=alicia-hs256-v1`。如果部署到 staging、临时域名或未来做密钥轮换，需要在 `.env` 中显式调整这些值，并同步重建 `identity` 容器。轮换 HS256 密钥时，新密钥写入 `ALICIA_AUTH_TOKEN_SECRET` 和 `ALICIA_AUTH_TOKEN_KEY_ID`，旧密钥按 `old-kid=old-secret;older-kid=older-secret` 格式放入 `ALICIA_AUTH_TOKEN_PREVIOUS_KEYS`；旧 access token 过期后再移除历史 key。需要切换非对称签名时，将 `ALICIA_AUTH_TOKEN_ALGORITHM` 改为 `RS256`，并配置 PKCS#8 私钥、X.509 公钥和新的 `kid`，公钥会通过 `/api/identity/.well-known/jwks.json` 发布。
 
+生成 RS256 签名配置可在服务器仓库执行：
+
+```bash
+bash deploy/scripts/generate-identity-rs256-env.sh
+```
+
+脚本会把私钥、公钥和 `.env` 片段写入 `deploy/generated/identity-rs256/`，该目录已被 git 忽略。切换时把生成的 `.env` 片段合并到生产 `.env`，保留当前 HS256 secret 到 `ALICIA_AUTH_TOKEN_PREVIOUS_KEYS`，再重建 `identity` 并运行统一验证脚本。
+
 如果配置了 COS 自定义源站域名，可以额外填写：
 
 - `ALICIA_COS_CUSTOM_DOMAIN`：预览/下载的预签名 URL 会使用该域名，例如 `files.windwindwind-alicia.cn`。

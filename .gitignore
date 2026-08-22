@@ -12,6 +12,7 @@
 /webApp/vite.config.d.ts
 /.env
 /deploy/certs/*.pem
+/deploy/generated/
 /tmp/
 /_tmp/
 /接力.md
