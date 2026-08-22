@@ -103,6 +103,14 @@ bash deploy/scripts/prepare-identity-rs256-cutover-env.sh
 
 生产已完成 RS256 切换并通过统一验证：登录和续签 token 均为 `RS256/alicia-rs256-20260822035821`，JWKS 暴露当前 RSA 公钥，云盘聚合、存储概览、云盘管理员、审计查询、会话撤销、logout 和旧路由移除检查均通过。
 
+旧 HS256 access token 观察期结束后，可以先生成移除历史 HS256 key 的候选 `.env`：
+
+```bash
+bash deploy/scripts/prepare-identity-hs256-key-removal-env.sh
+```
+
+该脚本默认准备移除 `alicia-hs256-v1`，也可以把其他历史 `kid` 作为第一个参数传入。它只生成候选 `.env` 和回滚命令，不直接改生产 `.env`。
+
 如果配置了 COS 自定义源站域名，可以额外填写：
 
 - `ALICIA_COS_CUSTOM_DOMAIN`：预览/下载的预签名 URL 会使用该域名，例如 `files.windwindwind-alicia.cn`。
