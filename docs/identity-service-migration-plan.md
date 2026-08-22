@@ -1022,7 +1022,7 @@ bash deploy/scripts/verify-identity-cloud-routes.sh
 bash deploy/scripts/check-identity-route-boundary.sh
 ```
 
-该脚本检查源码和部署配置中是否重新出现旧 `/api/auth/**` 或旧 `/api/admin/users` 引用，并排除运行验证脚本里的旧路由 404 断言；优先使用 `rg`，服务器未安装 `rg` 时自动降级到 `grep`。
+该脚本检查源码和部署配置中是否重新出现旧 `/api/auth/**` 或旧 `/api/admin/users` 引用，并检查 Identity 源码/迁移是否重新引用云盘画像字段；同时排除运行验证脚本里的旧路由 404 断言。优先使用 `rg`，服务器未安装 `rg` 时自动降级到 `grep`。
 
 同一边界也由 `CloudStorageApi` 的 `IdentityRouteBoundaryTest` 纳入 Maven 测试，避免只依赖部署脚本人工执行。
 

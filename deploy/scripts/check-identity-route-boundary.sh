@@ -11,6 +11,10 @@ TARGETS=(
     identityApi/src/main
     deploy
 )
+IDENTITY_BOUNDARY_TARGETS=(
+    identityApi/src/main/java
+    identityApi/src/main/resources/db/identity-migration
+)
 
 fail() {
     printf '[FAIL] %s\n' "$1" >&2
@@ -24,14 +28,22 @@ ok() {
 cd "$ROOT_DIR"
 
 PATTERN='(/api/auth|api/auth|/api/admin/users|api/admin/users)'
+CLOUD_PROFILE_PATTERN='(storageQuotaBytes|homeBackgroundUrl|storage_quota_bytes|home_background_url|cloud_user_profile)'
 EXISTING_TARGETS=()
 for target in "${TARGETS[@]}"; do
     if [[ -e "$target" ]]; then
         EXISTING_TARGETS+=("$target")
     fi
 done
+EXISTING_IDENTITY_BOUNDARY_TARGETS=()
+for target in "${IDENTITY_BOUNDARY_TARGETS[@]}"; do
+    if [[ -e "$target" ]]; then
+        EXISTING_IDENTITY_BOUNDARY_TARGETS+=("$target")
+    fi
+done
 
 [[ "${#EXISTING_TARGETS[@]}" -gt 0 ]] || fail "No route boundary scan targets exist."
+[[ "${#EXISTING_IDENTITY_BOUNDARY_TARGETS[@]}" -gt 0 ]] || fail "No identity boundary scan targets exist."
 
 if command -v rg >/dev/null 2>&1; then
     matches="$(
@@ -40,6 +52,10 @@ if command -v rg >/dev/null 2>&1; then
             --glob '!deploy/scripts/check-identity-route-boundary.sh' \
             --glob '!deploy/scripts/verify-identity-cloud-routes.sh' \
             --glob '!**/dist/**' \
+            --glob '!**/target/**' || true
+    )"
+    cloud_profile_matches="$(
+        rg -n "$CLOUD_PROFILE_PATTERN" "${EXISTING_IDENTITY_BOUNDARY_TARGETS[@]}" \
             --glob '!**/target/**' || true
     )"
 else
@@ -53,6 +69,11 @@ else
             --exclude-dir='target' \
             "$PATTERN" "${EXISTING_TARGETS[@]}" || true
     )"
+    cloud_profile_matches="$(
+        grep -RInE \
+            --exclude-dir='target' \
+            "$CLOUD_PROFILE_PATTERN" "${EXISTING_IDENTITY_BOUNDARY_TARGETS[@]}" || true
+    )"
 fi
 
 if [[ -n "$matches" ]]; then
@@ -60,4 +81,10 @@ if [[ -n "$matches" ]]; then
     fail "Legacy identity route references remain in source or deploy files."
 fi
 
+if [[ -n "$cloud_profile_matches" ]]; then
+    printf '%s\n' "$cloud_profile_matches" >&2
+    fail "Cloud-owned profile fields remain in identity source or migrations."
+fi
+
 ok "no legacy /api/auth/** or /api/admin/users references in source/deploy boundary"
+ok "no cloud-owned profile fields in identity source/migration boundary"
