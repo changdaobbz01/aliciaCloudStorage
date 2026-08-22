@@ -39,6 +39,7 @@ JWT signing is configured through `ALICIA_AUTH_TOKEN_ALGORITHM`, `ALICIA_AUTH_TO
 
 Use `deploy/scripts/generate-identity-rs256-env.sh` to generate an RS256 key pair and a git-ignored `.env` snippet. When switching from HS256 to RS256, keep the previous HS256 signing secret in `ALICIA_AUTH_TOKEN_PREVIOUS_KEYS` until older access tokens expire.
 Before editing production `.env`, use `deploy/scripts/verify-identity-rs256-dry-run.sh` to temporarily start identity with the generated RS256 snippet, run the shared route verification, and restore the container from `.env`.
+After the dry run passes, use `deploy/scripts/prepare-identity-rs256-cutover-env.sh` to create a git-ignored candidate `.env` and print explicit cutover and rollback commands without exposing private key material in the terminal.
 
 Schema migrations:
 

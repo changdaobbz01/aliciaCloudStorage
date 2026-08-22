@@ -93,6 +93,14 @@ bash deploy/scripts/verify-identity-rs256-dry-run.sh
 
 dry-run 会临时用最新生成的 RS256 env 片段重建 `identity`，运行统一路由验证，并默认恢复回 `.env` 中的当前配置。
 
+dry-run 通过后，可先生成正式切换用的候选 `.env` 文件：
+
+```bash
+bash deploy/scripts/prepare-identity-rs256-cutover-env.sh
+```
+
+该脚本会在 `deploy/generated/identity-rs256/` 写入 `*.candidate.env`，并打印备份、切换和回滚命令；它不会直接覆盖生产 `.env`。
+
 如果配置了 COS 自定义源站域名，可以额外填写：
 
 - `ALICIA_COS_CUSTOM_DOMAIN`：预览/下载的预签名 URL 会使用该域名，例如 `files.windwindwind-alicia.cn`。

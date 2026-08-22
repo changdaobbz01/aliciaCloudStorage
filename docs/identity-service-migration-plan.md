@@ -454,6 +454,7 @@ v3:userId:tokenVersion:refreshSessionId:expiresAt
 - RS256/JWKS 支撑已落地，公钥发布在 `/api/identity/.well-known/jwks.json`；默认生产配置仍是 HS256，正式切换需要先生成 RSA key pair 并更新环境变量。
 - `deploy/scripts/generate-identity-rs256-env.sh` 可生成 PKCS#8 私钥、X.509 公钥和 `.env` 片段，输出目录 `deploy/generated/` 已被 git 忽略。
 - `deploy/scripts/verify-identity-rs256-dry-run.sh` 可在不修改生产 `.env` 的前提下临时启动 RS256 identity，完成统一验证后默认恢复当前配置。
+- `deploy/scripts/prepare-identity-rs256-cutover-env.sh` 可生成正式切换用的候选 `.env`，并输出备份、切换和回滚命令，默认不直接覆盖生产 `.env`。
 - `tokenVersion` 已用于密码修改、管理员重置密码和全设备 logout 后的登录态失效。
 - `identity_refresh_token` 保存刷新令牌摘要、用户、tokenVersion、过期时间、撤销时间、客户端 IP 和 User-Agent。
 - 登录和邮箱注册验证返回 `token` 与 `refreshToken`；续签优先使用 refresh token 轮换，Authorization-only 续签作为兼容路径保留并会补发刷新会话。
@@ -1065,7 +1066,7 @@ Web 和 Android：
 2. 继续观察 Identity 审计日志写入、查询接口和 Web 管理页筛选结果。
 3. 观察 `identity_refresh_token` 的生产写入、轮换、会话查询和指定会话撤销结果。
 4. 继续观察 `identity_flyway_schema_history`，确认后续身份 schema 变更只进入 `identityApi` 迁移目录，并保持双向迁移边界测试通过。
-5. 使用 `deploy/scripts/generate-identity-rs256-env.sh` 在生产生成 RSA key pair，先通过 `deploy/scripts/verify-identity-rs256-dry-run.sh` 演练，再将签发配置从 HS256 切到 RS256 并观察 JWKS 公钥发布结果。
+5. 使用 `deploy/scripts/generate-identity-rs256-env.sh` 在生产生成 RSA key pair，先通过 `deploy/scripts/verify-identity-rs256-dry-run.sh` 演练，再用 `deploy/scripts/prepare-identity-rs256-cutover-env.sh` 准备候选 `.env`，最后将签发配置从 HS256 切到 RS256 并观察 JWKS 公钥发布结果。
 6. 评估 `sys_user` 是否继续作为 identity 表名，或迁移到独立 schema / `identity_user`。
 
 这一步完成后，当前文档基线已经与生产架构对齐：Identity 负责身份，CloudStorageApi 负责云盘，主站负责统一入口。后续新增工具只需要接入 Identity，不应该再直接复用或写入云盘的用户资料表。
