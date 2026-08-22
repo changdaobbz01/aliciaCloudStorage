@@ -3,6 +3,7 @@ package com.alicia.cloudstorage.api.identity;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import java.net.URI;
 import java.time.Duration;
 
 @Component
@@ -45,7 +46,26 @@ public class IdentityApiClientProperties {
         while (normalized.endsWith("/")) {
             normalized = normalized.substring(0, normalized.length() - 1);
         }
+        validateBaseUrl(normalized);
         return normalized;
+    }
+
+    private static void validateBaseUrl(String normalized) {
+        URI uri;
+        try {
+            uri = URI.create(normalized);
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalArgumentException("Identity API base URL must be an absolute http(s) URL.", ex);
+        }
+
+        String scheme = uri.getScheme();
+        if (!"http".equalsIgnoreCase(scheme) && !"https".equalsIgnoreCase(scheme)) {
+            throw new IllegalArgumentException("Identity API base URL must use http or https.");
+        }
+
+        if (uri.getHost() == null || uri.getHost().isBlank()) {
+            throw new IllegalArgumentException("Identity API base URL must include a host.");
+        }
     }
 
     private static long normalizeTimeoutMs(long timeoutMs) {

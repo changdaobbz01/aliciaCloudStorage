@@ -21,6 +21,17 @@ class IdentityApiClientPropertiesTest {
     }
 
     @Test
+    void acceptsHttpsBaseUrl() {
+        IdentityApiClientProperties properties = new IdentityApiClientProperties(
+                "https://windwindwind-alicia.cn",
+                2000L,
+                5000L
+        );
+
+        assertThat(properties.baseUrl()).isEqualTo("https://windwindwind-alicia.cn");
+    }
+
+    @Test
     void normalizesTimeoutsToAtLeastOneMillisecond() {
         IdentityApiClientProperties properties = new IdentityApiClientProperties(
                 "http://identity.test",
@@ -37,5 +48,26 @@ class IdentityApiClientPropertiesTest {
         assertThatThrownBy(() -> new IdentityApiClientProperties(" ", 2000L, 5000L))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Identity API base URL must be configured.");
+    }
+
+    @Test
+    void rejectsRelativeBaseUrl() {
+        assertThatThrownBy(() -> new IdentityApiClientProperties("identity:8082", 2000L, 5000L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Identity API base URL must use http or https.");
+    }
+
+    @Test
+    void rejectsNonHttpBaseUrl() {
+        assertThatThrownBy(() -> new IdentityApiClientProperties("file:///tmp/identity", 2000L, 5000L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Identity API base URL must use http or https.");
+    }
+
+    @Test
+    void rejectsBaseUrlWithoutHost() {
+        assertThatThrownBy(() -> new IdentityApiClientProperties("http://", 2000L, 5000L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Identity API base URL must be an absolute http(s) URL.");
     }
 }
