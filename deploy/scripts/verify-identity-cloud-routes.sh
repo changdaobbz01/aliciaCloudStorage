@@ -92,6 +92,26 @@ expect_status() {
     ok "$label"
 }
 
+curl_json_or_fail() {
+    local label="$1"
+    shift
+
+    local body_file
+    local status
+    body_file="$(mktemp)"
+    status="$(curl "${CURL_ARGS[@]}" -o "$body_file" -w '%{http_code}' "$@" || true)"
+
+    if [[ ! "$status" =~ ^2[0-9][0-9]$ ]]; then
+        printf '[FAIL] %s: expected HTTP 2xx, got %s\n' "$label" "$status" >&2
+        sed -n '1,20p' "$body_file" >&2 || true
+        rm -f "$body_file"
+        exit 1
+    fi
+
+    cat "$body_file"
+    rm -f "$body_file"
+}
+
 compose() {
     local command=(docker compose)
 
@@ -136,10 +156,10 @@ curl_ok "rag health through frontend" "$RAG_HEALTH_URL"
 curl_ok "cloudPan frontend entry" -I "$PUBLIC_BASE_URL/cloudPan/"
 
 login_payload="$(printf '{"identifier":"%s","password":"%s"}' "$(json_escape "$ACCOUNT")" "$(json_escape "$PASSWORD")")"
-login_response="$(printf '%s' "$login_payload" | curl -fsS "${CURL_ARGS[@]}" \
+login_response="$(curl_json_or_fail "identity login" \
     -X POST "$IDENTITY_BASE_URL/api/identity/auth/login" \
     -H "Content-Type: application/json" \
-    --data-binary @-)"
+    --data-binary "$login_payload")"
 unset PASSWORD login_payload
 
 TOKEN="$(printf '%s' "$login_response" | tr -d '\n' | extract_json_string token)"
@@ -155,7 +175,7 @@ fi
 ok "identity login issued refresh token (${#REFRESH_TOKEN} chars)"
 
 refresh_payload="$(printf '{"refreshToken":"%s"}' "$(json_escape "$REFRESH_TOKEN")")"
-refresh_response="$(curl -fsS "${CURL_ARGS[@]}" \
+refresh_response="$(curl_json_or_fail "identity token refresh" \
     -X POST "$IDENTITY_BASE_URL/api/identity/auth/token/refresh" \
     -H "Authorization: Bearer $TOKEN" \
     -H "Content-Type: application/json" \
@@ -174,7 +194,7 @@ REFRESH_TOKEN="$REFRESHED_REFRESH_TOKEN"
 ok "identity token refresh issued replacement token (${#TOKEN} chars) and refresh token (${#REFRESH_TOKEN} chars)"
 require_jwt_token "identity refreshed token" "$TOKEN"
 
-sessions_response="$(curl -fsS "${CURL_ARGS[@]}" \
+sessions_response="$(curl_json_or_fail "identity session list" \
     "$PUBLIC_BASE_URL/api/identity/auth/sessions" \
     -H "Authorization: Bearer $TOKEN")"
 SESSION_ID="$(printf '%s' "$sessions_response" | tr -d '\n' | extract_json_number id)"
@@ -183,7 +203,7 @@ if [[ -z "$SESSION_ID" ]]; then
 fi
 ok "identity session list returned session $SESSION_ID"
 
-profile_response="$(curl -fsS "${CURL_ARGS[@]}" \
+profile_response="$(curl_json_or_fail "cloud profile aggregation" \
     "$CLOUD_BASE_URL/api/cloud-profile/me" \
     -H "Authorization: Bearer $TOKEN")"
 USER_ID="$(printf '%s' "$profile_response" | tr -d '\n' | extract_json_number id)"
