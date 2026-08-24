@@ -27,7 +27,21 @@ trim() {
 extract_output_field() {
     local label="$1"
     local value
-    value="$(printf '%s\n' "$PREPARE_OUTPUT" | sed -n "s/^[[:space:]]*$label:[[:space:]]*//p" | tail -n 1)"
+    value="$(printf '%s\n' "$PREPARE_OUTPUT" | awk -v label="$label" '
+        {
+            line = $0
+            sub(/\r$/, "", line)
+            sub(/^[[:space:]]+/, "", line)
+            prefix = label ":"
+            if (index(line, prefix) == 1) {
+                value = substr(line, length(prefix) + 1)
+                sub(/^[[:space:]]+/, "", value)
+                sub(/[[:space:]]+$/, "", value)
+                result = value
+            }
+        }
+        END { print result }
+    ')"
     trim "$value"
 }
 
