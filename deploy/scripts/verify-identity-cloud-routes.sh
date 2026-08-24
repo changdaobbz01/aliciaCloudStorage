@@ -242,15 +242,20 @@ verify_identity_user_table_boundary() {
     local counts
     local identity_user_count
     local sys_user_count
+    local table_boundary_sql
 
-    counts="$(compose exec -T db sh -lc 'mysql -N -B -uroot -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE" -e "
+    table_boundary_sql="$(cat <<'SQL'
 SELECT
-  SUM(table_name = '\''identity_user'\'') AS identity_user_count,
-  SUM(table_name = '\''sys_user'\'') AS sys_user_count
+  SUM(table_name = 'identity_user') AS identity_user_count,
+  SUM(table_name = 'sys_user') AS sys_user_count
 FROM information_schema.tables
 WHERE table_schema = DATABASE()
-  AND table_name IN ('\''identity_user'\'', '\''sys_user'\'');
-"'")" || fail "identity user table boundary query failed"
+  AND table_name IN ('identity_user', 'sys_user');
+SQL
+)"
+
+    counts="$(compose exec -T db sh -lc 'mysql -N -B -uroot -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE" -e "$1"' sh "$table_boundary_sql")" \
+        || fail "identity user table boundary query failed"
     counts="$(printf '%s' "$counts" | tr -d '\r' | tail -n 1)"
     identity_user_count="$(printf '%s' "$counts" | awk '{print $1}')"
     sys_user_count="$(printf '%s' "$counts" | awk '{print $2}')"
