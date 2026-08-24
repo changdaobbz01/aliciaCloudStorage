@@ -12,7 +12,7 @@ Current status:
 - It issues JWT access tokens with configurable `alg`, `iss`, `aud`, and `kid`, plus `sub`, `iat`, `exp`, `ver`, and optional `sid`; HS256 remains the default, RS256/JWKS can be enabled by configuration, verification accepts configured previous HS256/RSA JWT keys, and legacy two-part access tokens are no longer accepted.
 - It owns identity Flyway migrations under `src/main/resources/db/identity-migration` and records them in `identity_flyway_schema_history`.
 - It still reads and writes the existing `sys_user` table during the migration period.
-- `CloudStorageApi` consumes identity tokens and only adds cloud-drive profile data such as quota and home background.
+- `CloudStorageApi` preflights RS256 access tokens with the Identity JWKS, then calls Identity for strongly consistent role, status, token-version, and refresh-session validation before adding cloud-drive profile data such as quota and home background.
 
 Local endpoints:
 
@@ -47,7 +47,7 @@ Schema migrations:
 
 - New identity-owned migrations go in `src/main/resources/db/identity-migration`.
 - Flyway uses the dedicated table `identity_flyway_schema_history`, separate from CloudStorageApi's historical `flyway_schema_history`.
-- During the shared-database transition, CloudStorageApi keeps its already-applied V1-V14 migration files for compatibility. Do not add new identity table changes there.
+- During the shared-database transition, CloudStorageApi keeps its already-applied V1-V15 migration files for compatibility. Do not add new identity table changes there.
 - CloudStorageApi has a migration boundary test that fails when new identity-owned schema fragments are added to its migration directory.
 - identityApi has the matching boundary test that fails when cloud-drive schema fragments are added to Identity migrations.
 

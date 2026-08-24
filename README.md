@@ -215,7 +215,7 @@ curl -X POST http://127.0.0.1:8093/api/identity/auth/register/verify `
   -d "{\"email\":\"你的邮箱\",\"code\":\"邮箱验证码\",\"nickname\":\"昵称\",\"password\":\"密码\"}"
 ```
 
-当前公网身份入口为 `/api/identity/auth/**` 和 `/api/identity/admin/**`；登录、注册、Token 校验、续签、注销、刷新会话查询/撤销、密码和账号资料写入已经由 `identityApi` 执行。登录和邮箱注册验证会返回 `token` 与 `refreshToken`，其中新签发的 access token 是标准 JWT；代码默认 HS256，当前生产已通过 `.env` 切换为 RS256。`iss`、`aud`、`kid` 和算法由 `ALICIA_AUTH_TOKEN_ISSUER`、`ALICIA_AUTH_TOKEN_AUDIENCE`、`ALICIA_AUTH_TOKEN_KEY_ID`、`ALICIA_AUTH_TOKEN_ALGORITHM` 配置，RS256 公钥发布在 `/api/identity/.well-known/jwks.json`。验签支持当前 key 和配置的历史 HS256/RSA JWT key；旧两段式 access token 已不再接受。续签接口必须使用 JSON 请求体中的 `refreshToken` 轮换会话，不再支持 Authorization-only 续签。`CloudStorageApi` 负责补齐云盘资料，并通过 `/api/cloud-profile/**` 返回云盘聚合资料、头像和主页背景；CloudStorageApi 调用 Identity 的默认连接超时为 2 秒，读取超时为 5 秒，可用 `ALICIA_IDENTITY_API_CONNECT_TIMEOUT_MS` 和 `ALICIA_IDENTITY_API_READ_TIMEOUT_MS` 调整。
+当前公网身份入口为 `/api/identity/auth/**` 和 `/api/identity/admin/**`；登录、注册、Token 校验、续签、注销、刷新会话查询/撤销、密码和账号资料写入已经由 `identityApi` 执行。登录和邮箱注册验证会返回 `token` 与 `refreshToken`，其中新签发的 access token 是标准 JWT；代码默认 HS256，当前生产已通过 `.env` 切换为 RS256。`iss`、`aud`、`kid` 和算法由 `ALICIA_AUTH_TOKEN_ISSUER`、`ALICIA_AUTH_TOKEN_AUDIENCE`、`ALICIA_AUTH_TOKEN_KEY_ID`、`ALICIA_AUTH_TOKEN_ALGORITHM` 配置，RS256 公钥发布在 `/api/identity/.well-known/jwks.json`。验签支持当前 key 和配置的历史 HS256/RSA JWT key；旧两段式 access token 已不再接受。续签接口必须使用 JSON 请求体中的 `refreshToken` 轮换会话，不再支持 Authorization-only 续签。`CloudStorageApi` 负责补齐云盘资料，并通过 `/api/cloud-profile/**` 返回云盘聚合资料、头像和主页背景；CloudStorageApi 会对 RS256 access token 做本地 JWKS 预验签，默认缓存 JWKS 300 秒，可用 `ALICIA_IDENTITY_TOKEN_PREFLIGHT_ENABLED` 和 `ALICIA_IDENTITY_TOKEN_JWKS_CACHE_SECONDS` 调整。角色、账号状态、`tokenVersion` 和 refresh session 仍由 Identity 的 `/api/identity/auth/me` 做强一致确认。CloudStorageApi 调用 Identity 的默认连接超时为 2 秒，读取超时为 5 秒，可用 `ALICIA_IDENTITY_API_CONNECT_TIMEOUT_MS` 和 `ALICIA_IDENTITY_API_READ_TIMEOUT_MS` 调整。
 
 `identityApi` 已启用独立 Flyway，迁移文件位于 `identityApi/src/main/resources/db/identity-migration`，迁移历史表为 `identity_flyway_schema_history`。当前仍共用同一个 MySQL 数据库，CloudStorageApi 早期 V1-V15 历史迁移继续保留，其中 V15 删除 `sys_user` 上旧云盘画像字段；后续身份表结构变更应新增到 `identityApi`。CloudStorageApi 和 identityApi 测试中已有双向迁移边界检查，防止新的身份结构变更写回云盘迁移目录，也防止云盘业务结构进入 Identity 迁移目录。
 
@@ -248,7 +248,7 @@ bash deploy/scripts/update-rag-production.sh
 
 脚本会拒绝覆盖服务端已有的 tracked 改动，确认 `.env` 已配置 DeepSeek，快进拉取 `main`，重建 `rag` 与 `frontend`，最后同时检查 `127.0.0.1:8091/api/health` 和公网 `/rag/api/health`。密钥只保留在服务器 `.env`，不会输出到日志。
 
-生产更新 `api`、`identity` 或前端路由后，可以使用统一回归脚本检查主域路径边界、CloudStorageApi 到 Identity 的依赖健康、Identity 数据库/Flyway 依赖健康、登录续签、JWT `alg/iss/aud/kid` 元数据、JWKS 入口、刷新会话查询和指定撤销、云盘聚合资料、存储概览、管理员云盘用户入口、Identity 审计日志查询、会话撤销审计事件写入、Identity Flyway 迁移历史、旧身份路径 404、注销失效和审计日志最新行：
+生产更新 `api`、`identity` 或前端路由后，可以使用统一回归脚本检查主域路径边界、CloudStorageApi 到 Identity 的依赖健康、Identity 数据库/Flyway 依赖健康、登录续签、JWT `alg/iss/aud/kid` 元数据、JWKS 入口、刷新会话查询和指定撤销、云盘聚合资料、存储概览、管理员云盘用户入口、Identity 审计日志查询、会话撤销审计事件写入、Identity Flyway 迁移历史、旧身份路径 404、注销失效和审计日志最新行；生产 RS256 模式下，CloudStorageApi 会先用 Identity JWKS 对 access token 做本地预验签，再调用 Identity 做强一致状态确认：
 
 ```bash
 bash deploy/scripts/verify-identity-cloud-routes.sh
@@ -298,6 +298,8 @@ $env:SPRING_DATASOURCE_PASSWORD="123456"
 $env:ALICIA_IDENTITY_API_BASE_URL="http://localhost:8093"
 $env:ALICIA_IDENTITY_API_CONNECT_TIMEOUT_MS="2000"
 $env:ALICIA_IDENTITY_API_READ_TIMEOUT_MS="5000"
+$env:ALICIA_IDENTITY_TOKEN_PREFLIGHT_ENABLED="true"
+$env:ALICIA_IDENTITY_TOKEN_JWKS_CACHE_SECONDS="300"
 $env:ALICIA_SHARE_ACCESS_TOKEN_SECRET="replace-this-with-a-long-random-secret"
 $env:ALICIA_COS_SECRET_ID="your-secret-id"
 $env:ALICIA_COS_SECRET_KEY="your-secret-key"

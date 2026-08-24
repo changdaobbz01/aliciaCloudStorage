@@ -455,8 +455,8 @@ ALICIA_AUTH_TOKEN_PREVIOUS_RSA_PUBLIC_KEYS=old-rsa-kid=old-public-key
 剩余问题：
 
 - 当前生产签发已切到 RS256；项目未正式上线，确认当前客户端均使用新 JWT 后即可移除 `ALICIA_AUTH_TOKEN_PREVIOUS_KEYS` 中的历史 HS256 key。
-- CloudStorageApi 现在通过 HTTP 调 Identity 校验 token，并已为 Identity HTTP 客户端设置可配置连接/读取超时；后续如果流量增大，需要短缓存、introspection 或 JWKS 本地验签方案。
-- 当前不直接把 CloudStorageApi 切为纯本地 JWKS 验签，因为 access token 暂不写入角色和账号状态；管理员权限、禁用账号、`tokenVersion` 失效仍由 Identity 强一致校验。后续可以先做短缓存或本地验签 + Identity 状态快照组合，再评估是否减少 `/api/identity/auth/me` 同步调用。
+- CloudStorageApi 现在会对 RS256 access token 做 JWKS 本地预验签，并已为 Identity HTTP 客户端设置可配置连接/读取超时；默认 JWKS 缓存 300 秒，可通过 `ALICIA_IDENTITY_TOKEN_PREFLIGHT_ENABLED` 和 `ALICIA_IDENTITY_TOKEN_JWKS_CACHE_SECONDS` 调整。
+- 当前不把 CloudStorageApi 切为纯本地 JWKS 鉴权，因为 access token 暂不写入角色和账号状态；管理员权限、禁用账号、`tokenVersion` 失效和 refresh session 撤销仍由 Identity 的 `/api/identity/auth/me` 强一致校验。后续可以在此基础上增加 Identity 状态快照或短缓存，再评估是否减少同步调用。
 
 ### 7.2 后续目标
 
@@ -475,7 +475,7 @@ exp: 过期时间
 推荐：
 
 - 第一期对称签名阶段已完成；HS256 JWT 签发、旧 token 解析兼容、JWT 元数据配置化、基础校验和历史 key 验签窗口已落地。
-- 生产非对称签名和 JWKS 切换已完成；后续重点是让 CloudStorageApi、RAG 或后续服务逐步使用 JWKS 本地验签，只持有公钥。
+- 生产非对称签名和 JWKS 切换已完成；CloudStorageApi 已先落地 RS256/JWKS 预验签，只持有公钥并继续调用 Identity 做状态强一致校验。
 - 保留 token version，用于密码修改和管理员重置密码后的登录态失效。
 - 角色和状态暂不写入 access token，仍由 Identity 校验时读取数据库，避免角色/状态变更后出现过期授权信息。
 
@@ -1065,7 +1065,7 @@ Web 和 Android：
 2. 继续观察 Identity 审计日志写入、查询接口和 Web 管理页筛选结果。
 3. 继续观察 `identity_refresh_token` 的生产写入、轮换、会话查询和指定会话撤销结果。
 4. 继续观察 `identity_flyway_schema_history`，确认后续身份 schema 变更只进入 `identityApi` 迁移目录，并保持双向迁移边界测试通过。
-5. 评估 CloudStorageApi / RAG 后续是否改为 JWKS 本地验签，减少对 Identity `/auth/me` 的同步依赖。
+5. 继续评估 CloudStorageApi / RAG 是否加入 Identity 状态快照或短缓存，在不牺牲禁用账号、角色变更和 session 撤销强一致性的前提下减少 `/auth/me` 同步依赖。
 6. 评估 `sys_user` 是否继续作为 identity 表名，或迁移到独立 schema / `identity_user`。
 
 这一步完成后，当前文档基线已经与生产架构对齐：Identity 负责身份，CloudStorageApi 负责云盘，主站负责统一入口。后续新增工具只需要接入 Identity，不应该再直接复用或写入云盘的用户资料表。

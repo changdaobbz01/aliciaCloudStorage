@@ -12,17 +12,22 @@ public class HttpIdentityAuthGateway implements IdentityAuthGateway {
 
     private final RestClient restClient;
     private final JsonMapper objectMapper;
+    private final IdentityAccessTokenPreflightVerifier preflightVerifier;
 
     public HttpIdentityAuthGateway(
             @Qualifier("identityRestClient") RestClient restClient,
-            JsonMapper objectMapper
+            JsonMapper objectMapper,
+            IdentityAccessTokenPreflightVerifier preflightVerifier
     ) {
         this.restClient = restClient;
         this.objectMapper = objectMapper;
+        this.preflightVerifier = preflightVerifier;
     }
 
     @Override
     public IdentityUserSnapshot me(String authorization) {
+        preflightVerifier.verify(authorization);
+
         IdentityUserResponsePayload response = IdentityGatewaySupport.exchange(() -> restClient.get()
                 .uri("/api/identity/auth/me")
                 .header(HttpHeaders.AUTHORIZATION, authorization)

@@ -56,6 +56,19 @@ class HttpIdentityAuthGatewayTest {
     }
 
     @Test
+    void meStopsBeforeIdentityWhenTokenPreflightFails() {
+        TestGatewayContext context = newContext(authorization -> {
+            throw new PrincipalAccessException("Token 签名校验失败。");
+        });
+
+        assertThatThrownBy(() -> context.gateway().me("Bearer bad-token"))
+                .isInstanceOf(PrincipalAccessException.class)
+                .hasMessage("Token 签名校验失败。");
+
+        context.server().verify();
+    }
+
+    @Test
     void meAuthFailureBecomesCloudPrincipalAccessException() {
         TestGatewayContext context = newContext();
         context.server().expect(requestTo("http://identity.test/api/identity/auth/me"))
@@ -159,10 +172,15 @@ class HttpIdentityAuthGatewayTest {
     }
 
     private TestGatewayContext newContext() {
+        return newContext(authorization -> {
+        });
+    }
+
+    private TestGatewayContext newContext(IdentityAccessTokenPreflightVerifier preflightVerifier) {
         RestClient.Builder restClientBuilder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(restClientBuilder).build();
         RestClient restClient = restClientBuilder.baseUrl("http://identity.test").build();
-        HttpIdentityAuthGateway gateway = new HttpIdentityAuthGateway(restClient, objectMapper);
+        HttpIdentityAuthGateway gateway = new HttpIdentityAuthGateway(restClient, objectMapper, preflightVerifier);
         return new TestGatewayContext(server, gateway);
     }
 

@@ -3,6 +3,7 @@ package com.alicia.cloudstorage.api.config;
 import com.alicia.cloudstorage.api.identity.HttpIdentityAdminGateway;
 import com.alicia.cloudstorage.api.identity.HttpIdentityAuthGateway;
 import com.alicia.cloudstorage.api.identity.HttpIdentityUserGateway;
+import com.alicia.cloudstorage.api.identity.IdentityAccessTokenPreflightVerifier;
 import com.alicia.cloudstorage.api.identity.IdentityApiClientProperties;
 import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.Test;
@@ -95,6 +96,8 @@ class HttpClientConfigTest {
             context.register(IdentityApiClientProperties.class);
             context.register(HttpClientConfig.class);
             context.registerBean(JsonMapper.class, () -> JsonMapper.builder().build());
+            context.registerBean(IdentityAccessTokenPreflightVerifier.class, () -> authorization -> {
+            });
             context.register(HttpIdentityAdminGateway.class, HttpIdentityAuthGateway.class, HttpIdentityUserGateway.class);
 
             context.refresh();
