@@ -191,6 +191,42 @@ curl_ok() {
     ok "$label"
 }
 
+expect_redirect_location() {
+    local label="$1"
+    local expected_status="$2"
+    local expected_location="$3"
+    local url="$4"
+
+    local header_file
+    local status
+    local location
+    local absolute_expected_location
+    header_file="$(mktemp)"
+    status="$(curl "${CURL_ARGS[@]}" -I -o /dev/null -D "$header_file" -w '%{http_code}' "$url" || true)"
+    location="$(awk 'BEGIN { IGNORECASE = 1 } /^location:/ { sub(/^[^:]+:[[:space:]]*/, ""); sub(/\r$/, ""); print; exit }' "$header_file")"
+    absolute_expected_location="$expected_location"
+    if [[ "$expected_location" == /* ]]; then
+        absolute_expected_location="${PUBLIC_BASE_URL}${expected_location}"
+    fi
+
+    if [[ "$status" != "$expected_status" ]]; then
+        printf '[FAIL] %s: expected HTTP %s, got %s\n' "$label" "$expected_status" "$status" >&2
+        sed -n '1,20p' "$header_file" >&2 || true
+        rm -f "$header_file"
+        exit 1
+    fi
+
+    if [[ "$location" != "$expected_location" && "$location" != "$absolute_expected_location" ]]; then
+        printf '[FAIL] %s: expected Location %s, got %s\n' "$label" "$expected_location" "${location:-<missing>}" >&2
+        sed -n '1,20p' "$header_file" >&2 || true
+        rm -f "$header_file"
+        exit 1
+    fi
+
+    rm -f "$header_file"
+    ok "$label"
+}
+
 expect_status() {
     local label="$1"
     local expected="$2"
@@ -487,6 +523,9 @@ else
 fi
 unset jwks_response
 curl_ok "rag health through frontend" "$RAG_HEALTH_URL"
+curl_ok "main site login entry" -I "$PUBLIC_BASE_URL/login"
+expect_redirect_location "cloudPan bare path redirects to canonical slash" 308 "/cloudPan/" "$PUBLIC_BASE_URL/cloudPan"
+expect_redirect_location "cloudPan legacy login redirects to unified login" 308 "/login?returnTo=/cloudPan/" "$PUBLIC_BASE_URL/cloudPan/login"
 curl_ok "cloudPan frontend entry" -I "$PUBLIC_BASE_URL/cloudPan/"
 
 login_payload="$(printf '{"identifier":"%s","password":"%s"}' "$(json_escape "$ACCOUNT")" "$(json_escape "$PASSWORD")")"
