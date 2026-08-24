@@ -824,7 +824,7 @@ identityApi
 
 说明：
 
-- Identity 当前映射 `identity_user` 表；compose 已支持通过 `ALICIA_IDENTITY_MYSQL_DATABASE` 切换到独立 MySQL database。
+- Identity 当前映射 `identity_user` 表；compose 已支持通过 `ALICIA_IDENTITY_MYSQL_DATABASE` 切换到独立 MySQL database，生产可切到 `alicia_identity`。
 - 头像文件上传仍由 CloudStorageApi 承担，Identity 只保存公共 `avatarUrl` 字段。
 - 不要把 `StorageQuotaService` 带进 Identity。
 
@@ -1066,7 +1066,7 @@ Web 和 Android：
 
 下一步按架构收益从高到低推进：
 
-1. 使用 `deploy/scripts/apply-identity-database-split.sh alicia_identity` 将 Identity 运行库切到独立 MySQL database，并用统一脚本验证。
+1. 使用 `deploy/scripts/drop-cloud-identity-residue.sh` 备份并删除云盘库中拆库后残留的身份表。
 2. 继续观察 Identity 审计日志写入、查询接口和 Web 管理页筛选结果。
 3. 继续观察 `identity_refresh_token` 的生产写入、轮换、会话查询和指定会话撤销结果。
 4. 继续观察 `identity_flyway_schema_history`，确认后续身份 schema 变更只进入 `identityApi` 迁移目录，并保持双向迁移边界测试通过。

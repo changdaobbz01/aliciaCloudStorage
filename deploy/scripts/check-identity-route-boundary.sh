@@ -67,6 +67,7 @@ if command -v rg >/dev/null 2>&1; then
         rg -n "$PATTERN" "${EXISTING_TARGETS[@]}" \
             --glob '!deploy/generated/**' \
             --glob '!deploy/scripts/check-identity-route-boundary.sh' \
+            --glob '!deploy/scripts/drop-cloud-identity-residue.sh' \
             --glob '!deploy/scripts/verify-identity-cloud-routes.sh' \
             --glob '!**/dist/**' \
             --glob '!**/target/**' || true
@@ -79,6 +80,7 @@ if command -v rg >/dev/null 2>&1; then
         rg -n "$SYS_USER_TABLE_PATTERN" "${EXISTING_RUNTIME_IDENTITY_TABLE_TARGETS[@]}" \
             --glob '!deploy/generated/**' \
             --glob '!deploy/scripts/check-identity-route-boundary.sh' \
+            --glob '!deploy/scripts/drop-cloud-identity-residue.sh' \
             --glob '!deploy/scripts/verify-identity-cloud-routes.sh' \
             --glob '!**/dist/**' \
             --glob '!**/target/**' || true
@@ -88,6 +90,7 @@ else
     matches="$(
         grep -RInE \
             --exclude='check-identity-route-boundary.sh' \
+            --exclude='drop-cloud-identity-residue.sh' \
             --exclude='verify-identity-cloud-routes.sh' \
             --exclude-dir='generated' \
             --exclude-dir='dist' \
@@ -102,6 +105,7 @@ else
     sys_user_table_matches="$(
         grep -RInE \
             --exclude='check-identity-route-boundary.sh' \
+            --exclude='drop-cloud-identity-residue.sh' \
             --exclude='verify-identity-cloud-routes.sh' \
             --exclude-dir='generated' \
             --exclude-dir='dist' \

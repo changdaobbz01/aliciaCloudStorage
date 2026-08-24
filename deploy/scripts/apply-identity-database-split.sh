@@ -138,7 +138,9 @@ restart_identity() {
 }
 
 run_verification() {
-    ALICIA_VERIFY_ENV_FILE="$ENV_FILE" bash "$VERIFY_SCRIPT"
+    ALICIA_VERIFY_ENV_FILE="$ENV_FILE" \
+    ALICIA_VERIFY_REQUIRE_CLOUD_IDENTITY_TABLES_REMOVED=false \
+    bash "$VERIFY_SCRIPT"
 }
 
 rollback_env() {

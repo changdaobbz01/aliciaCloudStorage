@@ -13,6 +13,7 @@ SKIP_IDENTITY_FLYWAY_CHECK="${ALICIA_VERIFY_SKIP_IDENTITY_FLYWAY_CHECK:-false}"
 COMPOSE_FILES="${ALICIA_COMPOSE_FILES:-compose.yaml compose.https.yaml}"
 ENV_FILE="${ALICIA_VERIFY_ENV_FILE:-.env}"
 FORBID_PREVIOUS_KEY_ID="${ALICIA_VERIFY_FORBID_PREVIOUS_KEY_ID:-}"
+REQUIRE_CLOUD_IDENTITY_TABLES_REMOVED="${ALICIA_VERIFY_REQUIRE_CLOUD_IDENTITY_TABLES_REMOVED:-}"
 
 CLOUD_BASE_URL="${CLOUD_BASE_URL%/}"
 IDENTITY_BASE_URL="${IDENTITY_BASE_URL%/}"
@@ -291,6 +292,39 @@ SQL
     ok "identity table foreign key boundary finalized"
 }
 
+verify_cloud_identity_tables_removed() {
+    local residue
+    local table_residue_sql
+
+    if [[ "$CLOUD_MYSQL_DATABASE" == "$IDENTITY_MYSQL_DATABASE" ]]; then
+        printf '[SKIP] cloud identity residue table check; identity database is not split\n'
+        return 0
+    fi
+
+    table_residue_sql="$(cat <<'SQL'
+SELECT COALESCE(GROUP_CONCAT(table_name ORDER BY table_name SEPARATOR ','), '')
+FROM information_schema.tables
+WHERE table_schema = DATABASE()
+  AND table_name IN (
+      'sys_user',
+      'identity_user',
+      'email_verification_code',
+      'identity_refresh_token',
+      'identity_audit_log',
+      'identity_flyway_schema_history'
+  );
+SQL
+)"
+
+    residue="$(mysql_query "$CLOUD_MYSQL_DATABASE" "$table_residue_sql")" \
+        || fail "cloud identity residue table query failed"
+    residue="$(printf '%s' "$residue" | tr -d '\r' | tail -n 1 | tr -d '[:space:]')"
+
+    [[ -z "$residue" ]] || fail "cloud database still contains identity-owned table(s): $residue"
+
+    ok "cloud database identity residue removed"
+}
+
 curl_json_or_fail() {
     local label="$1"
     shift
@@ -389,6 +423,13 @@ EXPECTED_TOKEN_ALGORITHM="$(printf '%s' "$EXPECTED_TOKEN_ALGORITHM" | tr '[:lowe
 DOTENV_PREVIOUS_KEYS="$(dotenv_value ALICIA_AUTH_TOKEN_PREVIOUS_KEYS)"
 CLOUD_MYSQL_DATABASE="${ALICIA_VERIFY_CLOUD_MYSQL_DATABASE:-${DOTENV_MYSQL_DATABASE:-alicia_cloud_storage}}"
 IDENTITY_MYSQL_DATABASE="${ALICIA_VERIFY_IDENTITY_MYSQL_DATABASE:-${DOTENV_IDENTITY_MYSQL_DATABASE:-$CLOUD_MYSQL_DATABASE}}"
+if [[ -z "$REQUIRE_CLOUD_IDENTITY_TABLES_REMOVED" ]]; then
+    if [[ "$CLOUD_MYSQL_DATABASE" == "$IDENTITY_MYSQL_DATABASE" ]]; then
+        REQUIRE_CLOUD_IDENTITY_TABLES_REMOVED=false
+    else
+        REQUIRE_CLOUD_IDENTITY_TABLES_REMOVED=true
+    fi
+fi
 
 if [[ -z "$ACCOUNT" ]]; then
     read -r -p "Identity account/email/phone: " ACCOUNT
@@ -613,6 +654,11 @@ LIMIT 5;
     ok "identity Flyway history query completed"
     verify_identity_user_table_boundary
     verify_no_identity_table_foreign_keys
+    if [[ "$REQUIRE_CLOUD_IDENTITY_TABLES_REMOVED" == "true" ]]; then
+        verify_cloud_identity_tables_removed
+    else
+        printf '[SKIP] cloud identity residue table check\n'
+    fi
 fi
 
 printf '\nAlicia identity/cloud route verification passed.\n'
