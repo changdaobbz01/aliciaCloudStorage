@@ -49,7 +49,7 @@ import {
   resolveHomeBackgroundSrc,
   storageFileCategoryDescriptions,
 } from '../features/drive/driveShared';
-import type { StorageNode, StorageViewMode } from '../types';
+import { isCloudAdmin, type StorageNode, type StorageViewMode } from '../types';
 
 const LazyDriveAccountsView = lazy(() => import('../features/drive/DriveAccountsView'));
 const LazyDriveAppPackageView = lazy(() => import('../features/drive/DriveAppPackageView'));
@@ -88,7 +88,7 @@ export function DrivePage() {
   const isAppPackageView = activeView === 'appPackage';
   const isTrashView = activeView === 'trash';
   const isListView = isDriveView || isTrashView;
-  const isAdmin = currentUser?.role === 'ADMIN';
+  const isAdmin = isCloudAdmin(currentUser);
   const homeBackgroundImage = resolveHomeBackgroundSrc(currentUser);
   const dashboard = useDriveDashboard({ authToken, isHomeView, homeBackgroundImage });
   const explorer = useDriveExplorer({
@@ -522,7 +522,7 @@ export function DrivePage() {
                 {currentUser?.nickname ?? '未登录用户'}
               </Typography.Title>
               <div className="sider-profile-meta">
-                <span className="sider-role-pill">{isAdmin ? '管理员账号' : '个人空间'}</span>
+                <span className="sider-role-pill">{isAdmin ? '云盘管理员' : '个人空间'}</span>
                 <span>{currentUser?.email ?? currentUser?.phoneNumber}</span>
               </div>
             </div>

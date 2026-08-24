@@ -1,6 +1,7 @@
 package com.alicia.cloudstorage.identity.service;
 
 import com.alicia.cloudstorage.identity.dto.VerifyEmailRegistrationRequest;
+import com.alicia.cloudstorage.identity.dto.IdentityUserResponse;
 import com.alicia.cloudstorage.identity.entity.EmailVerificationCode;
 import com.alicia.cloudstorage.identity.entity.IdentityUser;
 import com.alicia.cloudstorage.identity.repository.IdentityUserRepository;
@@ -42,6 +43,9 @@ class IdentityEmailRegistrationServiceTest {
     @Mock
     private IdentityRefreshTokenService identityRefreshTokenService;
 
+    @Mock
+    private IdentityUserResponseAssembler identityUserResponseAssembler;
+
     private IdentityUserInputNormalizer identityUserInputNormalizer;
 
     private IdentityEmailRegistrationService service;
@@ -56,7 +60,8 @@ class IdentityEmailRegistrationServiceTest {
                 identityUserCreationService,
                 identityTokenService,
                 identityAuditLogService,
-                identityRefreshTokenService
+                identityRefreshTokenService,
+                identityUserResponseAssembler
         );
     }
 
@@ -83,6 +88,7 @@ class IdentityEmailRegistrationServiceTest {
     @Test
     void verifyRegistrationConsumesCodeCreatesIdentityUserAndReturnsToken() {
         EmailVerificationCodeService.VerifiedEmailCode verifiedCode = verifiedCode();
+        IdentityUser createdUser = identityUser(88L);
 
         when(emailVerificationCodeService.verifyRegistrationCode("newuser@example.com", "123456"))
                 .thenReturn(verifiedCode);
@@ -92,10 +98,11 @@ class IdentityEmailRegistrationServiceTest {
                 "New User",
                 "Passw0rd",
                 VERIFIED_AT
-        )).thenReturn(identityUser(88L));
+        )).thenReturn(createdUser);
         when(identityRefreshTokenService.issue(org.mockito.ArgumentMatchers.any(IdentityUser.class), org.mockito.ArgumentMatchers.eq("203.0.113.8"), org.mockito.ArgumentMatchers.eq("JUnit")))
                 .thenReturn(new IdentityRefreshTokenService.IssuedRefreshToken(51L, "refresh-token", LocalDateTime.now()));
         when(identityTokenService.createToken(org.mockito.ArgumentMatchers.any(IdentityUser.class), org.mockito.ArgumentMatchers.eq(51L))).thenReturn("token");
+        when(identityUserResponseAssembler.toResponse(createdUser)).thenReturn(IdentityUserResponse.from(createdUser));
 
         var response = service.verifyRegistration(
                 new VerifyEmailRegistrationRequest("NewUser@Example.COM", "123456", "New User", "Passw0rd"),

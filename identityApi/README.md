@@ -7,6 +7,7 @@ Current status:
 - The module is buildable and runs as the identity service in the default compose stack.
 - It exposes an independent health endpoint for deployment checks.
 - It owns login, token refresh/logout, current-user identity reads, refresh-session reads/revocation, profile writes, password changes, email-code registration, and administrator identity management.
+- It owns application-level role assignments; current cloud-drive administrator authorization is represented as `appRoles.cloud=CLOUD_ADMIN`, while global `ADMIN` remains an identity super-admin fallback.
 - It exposes a read-only administrator audit-log query endpoint for identity security review.
 - It persists refresh-token sessions in `identity_refresh_token`; login/registration return both `token` and `refreshToken`.
 - It issues JWT access tokens with configurable `alg`, `iss`, `aud`, and `kid`, plus `sub`, `iat`, `exp`, `ver`, and optional `sid`; HS256 remains the compose default for local development, production uses `RS256/alicia-rs256-20260822035821`, verification accepts configured previous HS256/RSA JWT keys during rotation windows, and legacy two-part access tokens are no longer accepted.
@@ -31,10 +32,14 @@ Local endpoints:
 - `GET /api/identity/admin/users`
 - `POST /api/identity/admin/users`
 - `PUT /api/identity/admin/users/{userId}/password`
+- `GET /api/identity/admin/users/{userId}/app-roles`
+- `PUT /api/identity/admin/users/{userId}/app-roles/{appCode}`
 - `GET /api/identity/admin/audit-logs`
 
 The internal user endpoint is read-only and does not return `password_hash`.
 The auth endpoints are the production identity boundary. `POST /api/identity/auth/token/refresh` requires a JSON body containing `refreshToken` and rotates it; Authorization-only refresh is no longer accepted. `GET /api/identity/auth/sessions` lists the current user's refresh sessions without exposing token material, and `DELETE /api/identity/auth/sessions/{sessionId}` revokes one of that user's sessions and records `SESSION_REVOKE` audit events. `POST /api/identity/auth/logout` revokes the current refresh session by default, while `{"allDevices":true}` increments `token_version` and revokes all refresh sessions for the user. Email registration in this module creates only the identity user; cloud-drive profile provisioning remains owned by `CloudStorageApi`.
+
+Application roles are stored in `identity_user_app_role` and returned in `IdentityUserResponse.appRoles`. Role codes are currently constrained to `<APP>_USER` and `<APP>_ADMIN`; app codes are lowercase identifiers such as `cloud`. Existing global administrators are seeded as `cloud/CLOUD_ADMIN`, and global `ADMIN` users always remain effective cloud administrators even if an explicit lower application role is present.
 
 JWT signing is configured through `ALICIA_AUTH_TOKEN_ALGORITHM`, `ALICIA_AUTH_TOKEN_ISSUER`, `ALICIA_AUTH_TOKEN_AUDIENCE`, and `ALICIA_AUTH_TOKEN_KEY_ID`; the default compose stack keeps `HS256` and production-compatible metadata for local development, while the current production `.env` signs with `RS256/alicia-rs256-20260822035821` and no longer keeps the historical HS256 verification key. For HS256 key rotation, put the new signing key in `ALICIA_AUTH_TOKEN_SECRET` and `ALICIA_AUTH_TOKEN_KEY_ID`, then keep old verification keys in `ALICIA_AUTH_TOKEN_PREVIOUS_KEYS` using `old-kid=old-secret;older-kid=older-secret` until older access tokens expire. For RS256, configure `ALICIA_AUTH_TOKEN_ALGORITHM=RS256`, a PKCS#8 private key in `ALICIA_AUTH_TOKEN_RSA_PRIVATE_KEY`, its X.509 public key in `ALICIA_AUTH_TOKEN_RSA_PUBLIC_KEY`, and any historical public keys in `ALICIA_AUTH_TOKEN_PREVIOUS_RSA_PUBLIC_KEYS` using `old-kid=public-key;older-kid=public-key`.
 
@@ -50,6 +55,7 @@ Schema migrations:
 - New identity-owned migrations go in `src/main/resources/db/identity-migration`.
 - Flyway uses the dedicated table `identity_flyway_schema_history`, separate from CloudStorageApi's historical `flyway_schema_history`.
 - `V2__rename_sys_user_to_identity_user.sql` finalizes the identity table name as `identity_user`.
+- `V3__create_identity_user_app_role.sql` adds identity-owned application roles and seeds cloud administrator roles for existing global admins.
 - During the shared-database transition, CloudStorageApi keeps its already-applied V1-V17 migration files for compatibility; V16 removes cloud-table foreign keys that pointed at the identity table, and V17 removes identity-owned residue from the cloud database. Do not add new identity table changes there.
 - CloudStorageApi has a migration boundary test that fails when new identity-owned schema fragments are added to its migration directory.
 - identityApi has the matching boundary test that fails when cloud-drive schema fragments are added to Identity migrations.
@@ -60,4 +66,5 @@ Current boundary:
 2. Keep cloud-drive aggregate profile reads and media uploads on `/api/cloud-profile/**`.
 3. Keep identity schema changes in `identityApi/src/main/resources/db/identity-migration`.
 4. Keep cloud-drive schema changes in `CloudStorageApi/src/main/resources/db/migration`.
-5. Do not reintroduce direct identity-table access from `CloudStorageApi`.
+5. Keep cloud-drive administrator authorization consuming `appRoles.cloud`, not a cloud-owned user-role table.
+6. Do not reintroduce direct identity-table access from `CloudStorageApi`.

@@ -12,13 +12,18 @@ import java.util.Optional;
 public class IdentityUserQueryService {
 
     private final IdentityUserRepository identityUserRepository;
+    private final IdentityUserResponseAssembler identityUserResponseAssembler;
 
-    public IdentityUserQueryService(IdentityUserRepository identityUserRepository) {
+    public IdentityUserQueryService(
+            IdentityUserRepository identityUserRepository,
+            IdentityUserResponseAssembler identityUserResponseAssembler
+    ) {
         this.identityUserRepository = identityUserRepository;
+        this.identityUserResponseAssembler = identityUserResponseAssembler;
     }
 
     public Optional<IdentityUserResponse> findUser(Long userId) {
         return identityUserRepository.findById(userId)
-                .map(IdentityUserResponse::from);
+                .map(identityUserResponseAssembler::toResponse);
     }
 }

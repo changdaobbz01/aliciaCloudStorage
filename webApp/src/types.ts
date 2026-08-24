@@ -6,6 +6,7 @@ export type HealthResponse = {
 
 export type UserRole = 'ADMIN' | 'USER';
 export type UserStatus = 'ACTIVE' | 'DISABLED';
+export type ApplicationRoles = Record<string, string>;
 export type IdentityAuditEventType =
   | 'LOGIN'
   | 'TOKEN_REFRESH'
@@ -14,6 +15,7 @@ export type IdentityAuditEventType =
   | 'PROFILE_UPDATE'
   | 'PASSWORD_CHANGE'
   | 'ADMIN_USER_CREATE'
+  | 'ADMIN_APP_ROLE_UPDATE'
   | 'ADMIN_PASSWORD_RESET'
   | 'EMAIL_REGISTRATION_CODE_REQUEST'
   | 'EMAIL_REGISTRATION_VERIFY';
@@ -40,6 +42,7 @@ export type User = {
   storageQuotaBytes: number | null;
   usedBytes: number;
   remainingBytes: number | null;
+  appRoles: ApplicationRoles;
 };
 
 export type IdentityUser = {
@@ -53,7 +56,14 @@ export type IdentityUser = {
   role: UserRole;
   status: UserStatus;
   createdAt: string;
+  appRoles: ApplicationRoles;
 };
+
+export function isCloudAdmin(
+  user: Pick<User, 'role' | 'appRoles'> | Pick<IdentityUser, 'role' | 'appRoles'> | null | undefined,
+) {
+  return user?.role === 'ADMIN' || user?.appRoles?.cloud === 'CLOUD_ADMIN';
+}
 
 export type IdentityLoginResponse = {
   token: string;

@@ -22,6 +22,7 @@ public class IdentityAuthService {
     private final IdentityUserInputNormalizer identityUserInputNormalizer;
     private final IdentityAuditLogService identityAuditLogService;
     private final IdentityRefreshTokenService identityRefreshTokenService;
+    private final IdentityUserResponseAssembler identityUserResponseAssembler;
 
     public IdentityAuthService(
             IdentityUserRepository identityUserRepository,
@@ -30,7 +31,8 @@ public class IdentityAuthService {
             IdentityPrincipalService identityPrincipalService,
             IdentityUserInputNormalizer identityUserInputNormalizer,
             IdentityAuditLogService identityAuditLogService,
-            IdentityRefreshTokenService identityRefreshTokenService
+            IdentityRefreshTokenService identityRefreshTokenService,
+            IdentityUserResponseAssembler identityUserResponseAssembler
     ) {
         this.identityUserRepository = identityUserRepository;
         this.identityCredentialService = identityCredentialService;
@@ -39,6 +41,7 @@ public class IdentityAuthService {
         this.identityUserInputNormalizer = identityUserInputNormalizer;
         this.identityAuditLogService = identityAuditLogService;
         this.identityRefreshTokenService = identityRefreshTokenService;
+        this.identityUserResponseAssembler = identityUserResponseAssembler;
     }
 
     @Transactional
@@ -85,7 +88,7 @@ public class IdentityAuthService {
     }
 
     public IdentityUserResponse me(String authorizationHeader) {
-        return IdentityUserResponse.from(identityPrincipalService.requireActiveUser(authorizationHeader));
+        return identityUserResponseAssembler.toResponse(identityPrincipalService.requireActiveUser(authorizationHeader));
     }
 
     @Transactional
@@ -176,7 +179,7 @@ public class IdentityAuthService {
         return new IdentityLoginResponse(
                 identityTokenService.createToken(user, refreshSessionId),
                 refreshToken,
-                IdentityUserResponse.from(user)
+                identityUserResponseAssembler.toResponse(user)
         );
     }
 

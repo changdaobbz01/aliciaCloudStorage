@@ -48,6 +48,8 @@
 - `GET /api/identity/admin/users`
 - `POST /api/identity/admin/users`
 - `PUT /api/identity/admin/users/{userId}/password`
+- `GET /api/identity/admin/users/{userId}/app-roles`
+- `PUT /api/identity/admin/users/{userId}/app-roles/{appCode}`
 - `GET /api/identity/admin/audit-logs`
 
 当前云盘资料入口：
@@ -75,6 +77,7 @@
 - `identityApi/src/main/java/com/alicia/cloudstorage/identity/service/IdentityProfileService.java`
 - `identityApi/src/main/java/com/alicia/cloudstorage/identity/service/IdentityAdminUserService.java`
 - `identityApi/src/main/java/com/alicia/cloudstorage/identity/service/IdentityTokenService.java`
+- `identityApi/src/main/java/com/alicia/cloudstorage/identity/service/IdentityApplicationRoleService.java`
 
 当前 CloudStorageApi 身份消费服务：
 
@@ -90,7 +93,7 @@
 - 邮箱和手机号登录、邮箱验证码注册、密码哈希和密码修改、Token 生成和校验、账号状态、公共昵称头像已由 Identity 承担。
 - CloudStorageApi 通过 Identity Gateway 校验 token 和读取身份快照，不再直接写密码、邮箱验证码或账号状态。
 - 云盘容量额度、主页背景、文件、分享、应用包和 RAG 仍归云盘业务。
-- 旧 `sys_user` 表名已由 Identity V2 迁移重命名为 `identity_user`；云盘资料落在 `cloud_user_profile`。
+- 旧 `sys_user` 表名已由 Identity V2 迁移重命名为 `identity_user`；应用级角色落在 Identity 的 `identity_user_app_role`；云盘资料落在 `cloud_user_profile`。
 
 ### 3.3 管理员用户管理
 
@@ -142,7 +145,7 @@
 | `avatar_url` | 公共头像 | Identity |
 | `password_hash` | 密码哈希 | Identity |
 | `token_version` | 登录态失效版本 | Identity |
-| `role` | 当前全局角色 | Identity；后续可在此基础上扩展多应用角色/权限 |
+| `role` | 当前全局角色 | Identity；保留为身份超管/普通用户的全局角色 |
 | `status` | 账号状态 | Identity |
 | `created_at` | 创建时间 | Identity |
 | `updated_at` | 更新时间 | Identity |
@@ -291,6 +294,7 @@ Identity Service 负责：
 - 用户昵称、头像、邮箱、手机号。
 - 账号状态：启用、停用。
 - 全局角色：至少保留 `ADMIN`、`USER`。
+- 应用级角色：例如 `cloud/CLOUD_ADMIN`、`cloud/CLOUD_USER`。
 - 管理员账号创建。
 
 Identity Service 不负责：
@@ -344,6 +348,7 @@ Identity Service 拥有：
 
 ```text
 identity_user
+identity_user_app_role
 email_verification_code
 identity_refresh_token
 identity_audit_log
@@ -382,6 +387,7 @@ cloud_user_profile.home_background_url = sys_user.home_background_url
 - `V15__drop_legacy_cloud_profile_columns_from_sys_user.sql` 删除 `sys_user` 上旧云盘画像字段。
 - `identityApi/src/main/resources/db/identity-migration/V1__identity_schema_baseline.sql` 建立 Identity 自己的 Flyway 基线，迁移历史写入 `identity_flyway_schema_history`。
 - `identityApi/src/main/resources/db/identity-migration/V2__rename_sys_user_to_identity_user.sql` 将身份表重命名为 `identity_user`。
+- `identityApi/src/main/resources/db/identity-migration/V3__create_identity_user_app_role.sql` 创建 `identity_user_app_role`，用于保存应用级角色，并把既有全局管理员初始化为 `cloud/CLOUD_ADMIN`。
 - `V16__drop_identity_table_foreign_keys.sql` 删除云盘业务表到身份表的数据库外键，保留逻辑 identity user ID。
 - `V17__drop_cloud_identity_residue.sql` 删除云盘库中早期历史迁移留下的身份表残留。
 - 首次迁移时从 `sys_user.storage_quota_bytes` 和 `sys_user.home_background_url` 回填老用户云盘资料。
@@ -487,7 +493,7 @@ exp: 过期时间
 - HS256 JWT 签发、JWT 元数据配置化、基础校验和历史 key 验签窗口能力已落地；旧 token 解析兼容已经在未上线阶段移除。
 - 生产非对称签名和 JWKS 切换已完成，历史 HS256 验签 key 已移除；CloudStorageApi 已落地 RS256/JWKS 预验签，只持有公钥并继续调用 Identity 做状态强一致校验。
 - 保留 token version，用于密码修改和管理员重置密码后的登录态失效。
-- 角色和状态暂不写入 access token，仍由 Identity 校验时读取数据库，避免角色/状态变更后出现过期授权信息。
+- 全局角色、应用角色和状态暂不写入 access token，仍由 Identity 校验时读取数据库，避免角色/状态变更后出现过期授权信息。
 - 后续如果要减少 Identity 同步调用，优先设计短缓存或状态快照，而不是直接把 CloudStorageApi 改成完全信任本地 JWT。
 
 ### 7.3 CloudStorageApi 鉴权改造
@@ -495,8 +501,8 @@ exp: 过期时间
 已落地：
 
 - `CurrentPrincipalInterceptor` 通过 `CurrentPrincipalService` 调 Identity 校验 token，并写入 `CurrentPrincipal`。
-- `AdminPrincipalInterceptor` 基于 `CurrentPrincipal.role` 校验管理员接口。
-- `CurrentPrincipal` 当前只在云盘服务内保存 `userId` 和 `role`，账号状态和 token version 由 Identity 在校验时处理。
+- `AdminPrincipalInterceptor` 基于 `CurrentPrincipal.isCloudAdmin()` 校验云盘管理员接口，兼容全局 `ADMIN` 和 `appRoles.cloud=CLOUD_ADMIN`。
+- `CurrentPrincipal` 当前只在云盘服务内保存 `userId`、全局 `role` 和应用级 `appRoles`，账号状态和 token version 由 Identity 在校验时处理。
 - 普通业务接口只接收当前主体或用户 ID，不再接收完整身份实体。
 - CloudStorageApi 到 Identity 的 HTTP 调用已设置 `ALICIA_IDENTITY_API_CONNECT_TIMEOUT_MS` 和 `ALICIA_IDENTITY_API_READ_TIMEOUT_MS`，避免上游身份服务慢响应拖住云盘请求。
 
@@ -526,6 +532,8 @@ exp: 过期时间
 | `GET` | `/api/identity/admin/users` | Identity |
 | `POST` | `/api/identity/admin/users` | Identity |
 | `PUT` | `/api/identity/admin/users/{userId}/password` | Identity |
+| `GET` | `/api/identity/admin/users/{userId}/app-roles` | Identity |
+| `PUT` | `/api/identity/admin/users/{userId}/app-roles/{appCode}` | Identity |
 | `GET` | `/api/identity/admin/audit-logs` | Identity |
 
 后续建议：
@@ -573,6 +581,7 @@ Identity 管理：
 - 停用用户。
 - 重置密码。
 - 修改全局角色。
+- 分配应用级角色。
 - 查看用户基础资料。
 
 Cloud 管理：
@@ -584,6 +593,7 @@ Cloud 管理：
 前端可以继续一个“用户管理”面板，但数据来源拆成两块：
 
 - Identity 用户列表。
+- Identity 应用级角色。
 - Cloud 用户容量和使用量。
 
 ## 9. 前端整改位置
@@ -1029,6 +1039,7 @@ bash deploy/scripts/check-identity-route-boundary.sh
 - 直连与前端 Nginx health，并检查 CloudStorageApi 到 Identity 的依赖健康端点、Identity 数据库/Flyway 依赖健康端点。
 - 主站 `/login`、云盘 `/cloudPan` 补斜杠跳转、`/cloudPan/login` 到 `/login?returnTo=/cloudPan/` 的统一登录交接。
 - Identity 登录、refresh token 下发与轮换、JWT `alg/iss/aud/kid` 元数据、JWKS 入口、刷新会话查询、指定刷新会话撤销、会话撤销审计事件写入、logout 后 refresh token 和当前 access token 失效。
+- Identity 登录、续签、Cloud 聚合响应中的 `appRoles.cloud`，以及 `/api/identity/admin/users/{userId}/app-roles` 管理员查询入口。
 - `/api/cloud-profile/me` 和 `/api/storage/overview` 使用 identity token。
 - `/api/admin/cloud-users` 管理员入口。
 - `/api/identity/admin/audit-logs` 管理员审计日志查询入口和 `SESSION_REVOKE` 筛选。
@@ -1044,7 +1055,9 @@ Identity：
 - `identityApi/src/main/java/com/alicia/cloudstorage/identity/service/IdentityTokenService.java`
 - `identityApi/src/main/java/com/alicia/cloudstorage/identity/service/IdentityPrincipalService.java`
 - `identityApi/src/main/java/com/alicia/cloudstorage/identity/service/IdentityRefreshTokenService.java`
+- `identityApi/src/main/java/com/alicia/cloudstorage/identity/service/IdentityApplicationRoleService.java`
 - `identityApi/src/main/java/com/alicia/cloudstorage/identity/controller/IdentityAuthController.java`
+- `identityApi/src/main/java/com/alicia/cloudstorage/identity/controller/IdentityAdminApplicationRoleController.java`
 - 后续如果做后台密钥管理，再新增密钥实体和 Repository；当前 RS256/JWKS 先由环境变量驱动。
 
 CloudStorageApi：
@@ -1075,10 +1088,11 @@ Web 和 Android：
 
 下一步按架构收益从高到低推进，尽量以“大节点”合并和验证：
 
-1. 设计并落地多应用权限模型：保留 Identity 全局角色，同时为云盘、主站和后续工具预留应用级角色/权限，不让业务服务直接扩写身份表。
-2. 基于 CloudStorageApi 的 Identity gateway telemetry 评估 `/auth/me`、JWKS、管理员用户接口的调用量、失败类型和耗时，再决定是否引入短缓存或 Identity 状态快照。
-3. 把主站统一登录体验继续产品化：账号面板、跨标签页登录态、退出/切换账号、returnTo 安全边界和云盘入口状态保持一致。
-4. 将 RS256 密钥轮换沉淀为正式运维流程；后续如需要后台密钥管理，再新增密钥实体、查询接口和管理界面。
-5. 保持迁移边界测试、静态路径扫描和统一生产验证脚本常态化，防止旧 `/api/auth/**`、旧 `/api/admin/users`、旧 `sys_user` 或云盘画像字段回流。
+1. 把多应用权限模型接到主站和 RAG：主站用于展示工具入口状态，RAG 后续按自己的 `rag/RAG_*` 角色判断管理能力。
+2. 产品化应用角色管理 UI：在管理员用户面板里展示和调整 `cloud` 应用角色，同时保持云盘容量和身份角色的职责分离。
+3. 基于 CloudStorageApi 的 Identity gateway telemetry 评估 `/auth/me`、JWKS、管理员用户接口的调用量、失败类型和耗时，再决定是否引入短缓存或 Identity 状态快照。
+4. 把主站统一登录体验继续产品化：账号面板、跨标签页登录态、退出/切换账号、returnTo 安全边界和云盘入口状态保持一致。
+5. 将 RS256 密钥轮换沉淀为正式运维流程；后续如需要后台密钥管理，再新增密钥实体、查询接口和管理界面。
+6. 保持迁移边界测试、静态路径扫描和统一生产验证脚本常态化，防止旧 `/api/auth/**`、旧 `/api/admin/users`、旧 `sys_user` 或云盘画像字段回流。
 
 当前文档基线已经与生产架构对齐：Identity 负责身份，CloudStorageApi 负责云盘，主站负责统一入口。后续新增工具只需要接入 Identity，不应该再直接复用或写入云盘的用户资料表。

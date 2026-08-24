@@ -15,6 +15,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -79,7 +80,17 @@ class CloudUserProfileServiceTest {
 
         assertThatThrownBy(() -> cloudUserProfileService.updateUserStorageQuota(91L, new AdminUpdateUserQuotaRequest(4096L)))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("管理员账号不限制存储额度，无需修改。");
+                .hasMessage("云盘管理员账号不限制存储额度，无需修改。");
+    }
+
+    @Test
+    void updateUserQuotaRejectsCloudApplicationAdminAccounts() {
+        when(identityUserGateway.getUser(91L))
+                .thenReturn(identityUserSnapshot(91L, UserRole.USER, Map.of("cloud", "CLOUD_ADMIN")));
+
+        assertThatThrownBy(() -> cloudUserProfileService.updateUserStorageQuota(91L, new AdminUpdateUserQuotaRequest(4096L)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("云盘管理员账号不限制存储额度，无需修改。");
     }
 
     @Test
@@ -196,7 +207,36 @@ class CloudUserProfileServiceTest {
         assertThat(response.remainingBytes()).isEqualTo(2560L);
     }
 
+    @Test
+    void toUserProfileTreatsCloudApplicationAdminAsQuotaUnlimited() {
+        IdentityUserSnapshot account = new IdentityUserSnapshot(
+                23L,
+                null,
+                "user@example.com",
+                "Alicia",
+                "cos:user-avatars/23/avatar.webp",
+                UserRole.USER,
+                UserStatus.ACTIVE,
+                LocalDateTime.of(2026, 4, 29, 15, 30),
+                Map.of("cloud", "CLOUD_ADMIN")
+        );
+        CloudUserProfileService.CloudUserProfile cloudProfile =
+                new CloudUserProfileService.CloudUserProfile(23L, null, 4096L);
+
+        when(storageQuotaService.getUsedBytes(23L)).thenReturn(1536L);
+
+        var response = cloudUserProfileService.toUserProfile(account, cloudProfile);
+
+        assertThat(response.storageQuotaBytes()).isNull();
+        assertThat(response.remainingBytes()).isNull();
+        assertThat(response.appRoles()).containsEntry("cloud", "CLOUD_ADMIN");
+    }
+
     private IdentityUserSnapshot identityUserSnapshot(Long id, UserRole role) {
+        return identityUserSnapshot(id, role, Map.of());
+    }
+
+    private IdentityUserSnapshot identityUserSnapshot(Long id, UserRole role, Map<String, String> appRoles) {
         return new IdentityUserSnapshot(
                 id,
                 "13900000000",
@@ -205,7 +245,8 @@ class CloudUserProfileServiceTest {
                 null,
                 role,
                 UserStatus.ACTIVE,
-                LocalDateTime.of(2026, 4, 29, 15, 30)
+                LocalDateTime.of(2026, 4, 29, 15, 30),
+                appRoles
         );
     }
 

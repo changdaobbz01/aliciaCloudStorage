@@ -31,6 +31,7 @@ const eventOptions: Array<{ value: IdentityAuditEventType; label: string }> = [
   { value: 'PROFILE_UPDATE', label: '资料更新' },
   { value: 'PASSWORD_CHANGE', label: '修改密码' },
   { value: 'ADMIN_USER_CREATE', label: '管理员建号' },
+  { value: 'ADMIN_APP_ROLE_UPDATE', label: '应用角色调整' },
   { value: 'ADMIN_PASSWORD_RESET', label: '管理员重置密码' },
   { value: 'EMAIL_REGISTRATION_CODE_REQUEST', label: '注册验证码' },
   { value: 'EMAIL_REGISTRATION_VERIFY', label: '邮箱注册验证' },

@@ -90,8 +90,8 @@ public class CloudUserProfileService {
     public CloudUserProfile updateUserStorageQuota(Long userId, AdminUpdateUserQuotaRequest request) {
         IdentityUserSnapshot user = requireUser(userId);
 
-        if (user.role() == UserRole.ADMIN) {
-            throw new IllegalArgumentException("管理员账号不限制存储额度，无需修改。");
+        if (user.isCloudAdmin()) {
+            throw new IllegalArgumentException("云盘管理员账号不限制存储额度，无需修改。");
         }
 
         CloudUserProfileEntity profile =
@@ -146,7 +146,7 @@ public class CloudUserProfileService {
         long quotaBytes = cloudProfile.storageQuotaBytes() == null
                 ? storageQuotaService.getDefaultUserQuotaBytes()
                 : cloudProfile.storageQuotaBytes();
-        boolean admin = account.role() == UserRole.ADMIN;
+        boolean admin = account.isCloudAdmin();
         Long storageQuotaBytes = admin ? null : quotaBytes;
         Long remainingBytes = admin ? null : Math.max(0L, quotaBytes - usedBytes);
 
@@ -162,7 +162,8 @@ public class CloudUserProfileService {
                 account.createdAt(),
                 storageQuotaBytes,
                 usedBytes,
-                remainingBytes
+                remainingBytes,
+                account.appRoles()
         );
     }
 

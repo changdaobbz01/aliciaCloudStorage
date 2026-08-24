@@ -3,6 +3,7 @@ package com.alicia.cloudstorage.identity.service;
 import com.alicia.cloudstorage.identity.dto.IdentityLoginRequest;
 import com.alicia.cloudstorage.identity.dto.IdentityLogoutRequest;
 import com.alicia.cloudstorage.identity.dto.IdentityRefreshTokenRequest;
+import com.alicia.cloudstorage.identity.dto.IdentityUserResponse;
 import com.alicia.cloudstorage.identity.entity.IdentityUser;
 import com.alicia.cloudstorage.identity.entity.IdentityUserRole;
 import com.alicia.cloudstorage.identity.entity.IdentityUserStatus;
@@ -48,6 +49,9 @@ class IdentityAuthServiceTest {
     @Mock
     private IdentityRefreshTokenService identityRefreshTokenService;
 
+    @Mock
+    private IdentityUserResponseAssembler identityUserResponseAssembler;
+
     @InjectMocks
     private IdentityAuthService identityAuthService;
 
@@ -60,6 +64,7 @@ class IdentityAuthServiceTest {
         when(identityRefreshTokenService.issue(user, "203.0.113.8", "JUnit"))
                 .thenReturn(new IdentityRefreshTokenService.IssuedRefreshToken(51L, "refresh-token", LocalDateTime.now()));
         when(identityTokenService.createToken(user, 51L)).thenReturn("token");
+        when(identityUserResponseAssembler.toResponse(user)).thenReturn(IdentityUserResponse.from(user));
 
         var response = identityAuthService.login(
                 new IdentityLoginRequest("Email-User@Example.COM", null, null, "Passw0rd"),
@@ -108,6 +113,7 @@ class IdentityAuthServiceTest {
         IdentityUser user = identityUser(18L, IdentityUserStatus.ACTIVE);
 
         when(identityPrincipalService.requireActiveUser("Bearer token")).thenReturn(user);
+        when(identityUserResponseAssembler.toResponse(user)).thenReturn(IdentityUserResponse.from(user));
 
         var response = identityAuthService.me("Bearer token");
 
@@ -147,6 +153,7 @@ class IdentityAuthServiceTest {
                         LocalDateTime.now()
                 ));
         when(identityTokenService.createToken(user, 51L)).thenReturn("new-token");
+        when(identityUserResponseAssembler.toResponse(user)).thenReturn(IdentityUserResponse.from(user));
 
         var response = identityAuthService.refreshToken(
                 new IdentityRefreshTokenRequest("refresh-token"),

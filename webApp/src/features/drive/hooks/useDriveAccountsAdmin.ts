@@ -2,7 +2,7 @@ import { Form } from 'antd';
 import type { MessageInstance } from 'antd/es/message/interface';
 import { useEffect, useState } from 'react';
 import { createUser, fetchIdentityAuditLogs, fetchUsers, resetUserPassword, updateUserStorageQuota } from '../../../lib/api';
-import type { IdentityAuditLogPage, IdentityAuditLogQuery, User } from '../../../types';
+import { isCloudAdmin, type IdentityAuditLogPage, type IdentityAuditLogQuery, type User } from '../../../types';
 import { DEFAULT_NEW_USER_QUOTA_GB, bytesToGigabytes, gigabytesToBytes } from '../driveShared';
 import type {
   CreateUserFormValues,
@@ -116,8 +116,8 @@ export function useDriveAccountsAdmin({
   }
 
   function openEditUserQuotaModal(user: User) {
-    if (user.role === 'ADMIN' || user.storageQuotaBytes === null) {
-      message.info('管理员账号不限制存储额度。');
+    if (isCloudAdmin(user) || user.storageQuotaBytes === null) {
+      message.info('云盘管理员账号不限制存储额度。');
       return;
     }
 
@@ -175,9 +175,9 @@ export function useDriveAccountsAdmin({
       return false;
     }
 
-    if (editQuotaTarget.role === 'ADMIN') {
+    if (isCloudAdmin(editQuotaTarget)) {
       setEditQuotaTarget(null);
-      message.info('管理员账号不限制存储额度。');
+      message.info('云盘管理员账号不限制存储额度。');
       return false;
     }
 

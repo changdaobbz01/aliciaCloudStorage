@@ -19,6 +19,7 @@ public class IdentityEmailRegistrationService {
     private final IdentityTokenService identityTokenService;
     private final IdentityAuditLogService identityAuditLogService;
     private final IdentityRefreshTokenService identityRefreshTokenService;
+    private final IdentityUserResponseAssembler identityUserResponseAssembler;
 
     public IdentityEmailRegistrationService(
             IdentityUserRepository identityUserRepository,
@@ -27,7 +28,8 @@ public class IdentityEmailRegistrationService {
             IdentityUserCreationService identityUserCreationService,
             IdentityTokenService identityTokenService,
             IdentityAuditLogService identityAuditLogService,
-            IdentityRefreshTokenService identityRefreshTokenService
+            IdentityRefreshTokenService identityRefreshTokenService,
+            IdentityUserResponseAssembler identityUserResponseAssembler
     ) {
         this.identityUserRepository = identityUserRepository;
         this.identityUserInputNormalizer = identityUserInputNormalizer;
@@ -36,6 +38,7 @@ public class IdentityEmailRegistrationService {
         this.identityTokenService = identityTokenService;
         this.identityAuditLogService = identityAuditLogService;
         this.identityRefreshTokenService = identityRefreshTokenService;
+        this.identityUserResponseAssembler = identityUserResponseAssembler;
     }
 
     public void requestRegistrationCode(String rawEmail, String requestIp, String userAgent) {
@@ -106,7 +109,7 @@ public class IdentityEmailRegistrationService {
             IdentityLoginResponse response = new IdentityLoginResponse(
                     identityTokenService.createToken(user, refreshToken.sessionId()),
                     refreshToken.token(),
-                    IdentityUserResponse.from(user)
+                    identityUserResponseAssembler.toResponse(user)
             );
             identityAuditLogService.record(
                     IdentityAuditEventType.EMAIL_REGISTRATION_VERIFY,

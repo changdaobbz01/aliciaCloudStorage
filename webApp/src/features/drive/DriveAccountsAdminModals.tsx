@@ -105,7 +105,7 @@ export function DriveAccountsAdminModals({
             />
           </Form.Item>
           {createUserRole === 'ADMIN' ? (
-            <Typography.Text className="muted-text">管理员账号不受个人配额限制。</Typography.Text>
+            <Typography.Text className="muted-text">身份管理员默认具备云盘管理员权限，不受个人配额限制。</Typography.Text>
           ) : (
             <Form.Item
               name="storageQuotaGb"

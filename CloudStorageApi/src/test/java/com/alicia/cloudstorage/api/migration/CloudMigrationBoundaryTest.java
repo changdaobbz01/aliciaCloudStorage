@@ -46,6 +46,7 @@ class CloudMigrationBoundaryTest {
             new RestrictedIdentityPattern("email_verification_code", "email verification table"),
             new RestrictedIdentityPattern("identity_audit_log", "identity audit table"),
             new RestrictedIdentityPattern("identity_refresh_token", "identity refresh token table"),
+            new RestrictedIdentityPattern("identity_user_app_role", "identity application role table"),
             new RestrictedIdentityPattern("token_version", "identity token version column"),
             new RestrictedIdentityPattern("email_verified_at", "identity email verification column"),
             new RestrictedIdentityPattern("uk_sys_user_email", "legacy identity email unique index"),

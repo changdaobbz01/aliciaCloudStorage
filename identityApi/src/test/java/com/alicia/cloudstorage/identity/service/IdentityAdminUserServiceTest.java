@@ -1,6 +1,7 @@
 package com.alicia.cloudstorage.identity.service;
 
 import com.alicia.cloudstorage.identity.dto.AdminCreateIdentityUserRequest;
+import com.alicia.cloudstorage.identity.dto.IdentityUserResponse;
 import com.alicia.cloudstorage.identity.entity.IdentityUser;
 import com.alicia.cloudstorage.identity.entity.IdentityUserRole;
 import com.alicia.cloudstorage.identity.entity.IdentityUserStatus;
@@ -35,6 +36,9 @@ class IdentityAdminUserServiceTest {
     @Mock
     private IdentityAuditLogService identityAuditLogService;
 
+    @Mock
+    private IdentityUserResponseAssembler identityUserResponseAssembler;
+
     @InjectMocks
     private IdentityAdminUserService identityAdminUserService;
 
@@ -48,6 +52,8 @@ class IdentityAdminUserServiceTest {
 
         when(identityPrincipalService.requireAdminUser("Bearer admin-token")).thenReturn(admin);
         when(identityUserRepository.findAllByOrderByIdAsc()).thenReturn(List.of(firstUser, secondUser));
+        when(identityUserResponseAssembler.toResponse(firstUser)).thenReturn(IdentityUserResponse.from(firstUser));
+        when(identityUserResponseAssembler.toResponse(secondUser)).thenReturn(IdentityUserResponse.from(secondUser));
 
         var response = identityAdminUserService.listUsers("Bearer admin-token");
 
@@ -77,6 +83,7 @@ class IdentityAdminUserServiceTest {
 
         when(identityPrincipalService.requireAdminUser("Bearer admin-token")).thenReturn(admin);
         when(identityUserCreationService.createAdminManagedUser(request)).thenReturn(createdUser);
+        when(identityUserResponseAssembler.toResponse(createdUser)).thenReturn(IdentityUserResponse.from(createdUser));
 
         var response = identityAdminUserService.createUser("Bearer admin-token", request);
 

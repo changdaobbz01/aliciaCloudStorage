@@ -18,7 +18,7 @@ public class CurrentPrincipalService {
      */
     public AuthenticatedPrincipal requireAuthenticatedPrincipal(String authorization) {
         IdentityUserSnapshot account = identityAuthGateway.me(authorization);
-        CurrentPrincipal principal = new CurrentPrincipal(account.id(), account.role());
+        CurrentPrincipal principal = new CurrentPrincipal(account.id(), account.role(), account.appRoles());
         return new AuthenticatedPrincipal(principal, account);
     }
 

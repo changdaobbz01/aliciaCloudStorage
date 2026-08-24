@@ -1,6 +1,7 @@
 package com.alicia.cloudstorage.identity.service;
 
 import com.alicia.cloudstorage.identity.dto.UpdateIdentityProfileRequest;
+import com.alicia.cloudstorage.identity.dto.IdentityUserResponse;
 import com.alicia.cloudstorage.identity.entity.IdentityUser;
 import com.alicia.cloudstorage.identity.entity.IdentityUserRole;
 import com.alicia.cloudstorage.identity.entity.IdentityUserStatus;
@@ -36,6 +37,9 @@ class IdentityProfileServiceTest {
     @Mock
     private IdentityAuditLogService identityAuditLogService;
 
+    @Mock
+    private IdentityUserResponseAssembler identityUserResponseAssembler;
+
     private IdentityProfileService identityProfileService;
 
     @BeforeEach
@@ -44,7 +48,8 @@ class IdentityProfileServiceTest {
                 identityPrincipalService,
                 identityUserRepository,
                 identityUserInputNormalizer,
-                identityAuditLogService
+                identityAuditLogService,
+                identityUserResponseAssembler
         );
     }
 
@@ -55,6 +60,8 @@ class IdentityProfileServiceTest {
         when(identityPrincipalService.requireActiveUser("Bearer token")).thenReturn(user);
         when(identityUserRepository.existsByPhoneNumberAndIdNot("13900000000", 18L)).thenReturn(false);
         when(identityUserRepository.save(user)).thenReturn(user);
+        when(identityUserResponseAssembler.toResponse(user))
+                .thenAnswer(invocation -> IdentityUserResponse.from(invocation.getArgument(0)));
 
         var response = identityProfileService.updateProfile(
                 "Bearer token",
@@ -78,6 +85,8 @@ class IdentityProfileServiceTest {
 
         when(identityPrincipalService.requireActiveUser("Bearer token")).thenReturn(user);
         when(identityUserRepository.save(user)).thenReturn(user);
+        when(identityUserResponseAssembler.toResponse(user))
+                .thenAnswer(invocation -> IdentityUserResponse.from(invocation.getArgument(0)));
 
         var response = identityProfileService.updateProfile(
                 "Bearer token",

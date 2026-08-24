@@ -17,24 +17,27 @@ public class IdentityAdminUserService {
     private final IdentityUserRepository identityUserRepository;
     private final IdentityUserCreationService identityUserCreationService;
     private final IdentityAuditLogService identityAuditLogService;
+    private final IdentityUserResponseAssembler identityUserResponseAssembler;
 
     public IdentityAdminUserService(
             IdentityPrincipalService identityPrincipalService,
             IdentityUserRepository identityUserRepository,
             IdentityUserCreationService identityUserCreationService,
-            IdentityAuditLogService identityAuditLogService
+            IdentityAuditLogService identityAuditLogService,
+            IdentityUserResponseAssembler identityUserResponseAssembler
     ) {
         this.identityPrincipalService = identityPrincipalService;
         this.identityUserRepository = identityUserRepository;
         this.identityUserCreationService = identityUserCreationService;
         this.identityAuditLogService = identityAuditLogService;
+        this.identityUserResponseAssembler = identityUserResponseAssembler;
     }
 
     @Transactional(readOnly = true)
     public List<IdentityUserResponse> listUsers(String authorizationHeader) {
         identityPrincipalService.requireAdminUser(authorizationHeader);
         return identityUserRepository.findAllByOrderByIdAsc().stream()
-                .map(IdentityUserResponse::from)
+                .map(identityUserResponseAssembler::toResponse)
                 .toList();
     }
 
@@ -54,7 +57,7 @@ public class IdentityAdminUserService {
                     requestIdentifier(request),
                     null
             );
-            return IdentityUserResponse.from(createdUser);
+            return identityUserResponseAssembler.toResponse(createdUser);
         } catch (RuntimeException ex) {
             identityAuditLogService.record(
                     IdentityAuditEventType.ADMIN_USER_CREATE,

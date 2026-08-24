@@ -11,6 +11,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -62,6 +63,18 @@ class CurrentPrincipalServiceTest {
     }
 
     @Test
+    void requireAdminPrincipalAcceptsCloudApplicationAdmins() {
+        when(identityAuthGateway.me("Bearer token"))
+                .thenReturn(account(28L, UserRole.USER, Map.of("cloud", "CLOUD_ADMIN")));
+
+        CurrentPrincipal principal = currentPrincipalService.requireAdminPrincipal("Bearer token");
+
+        assertThat(principal.userId()).isEqualTo(28L);
+        assertThat(principal.role()).isEqualTo(UserRole.USER);
+        assertThat(principal.isAdmin()).isTrue();
+    }
+
+    @Test
     void requireAdminPrincipalAcceptsAdminUsers() {
         when(identityAuthGateway.me("Bearer token")).thenReturn(account(1L, UserRole.ADMIN));
 
@@ -93,6 +106,10 @@ class CurrentPrincipalServiceTest {
     }
 
     private IdentityUserSnapshot account(Long id, UserRole role) {
+        return account(id, role, Map.of());
+    }
+
+    private IdentityUserSnapshot account(Long id, UserRole role, Map<String, String> appRoles) {
         return new IdentityUserSnapshot(
                 id,
                 "13900000000",
@@ -101,7 +118,8 @@ class CurrentPrincipalServiceTest {
                 null,
                 role,
                 UserStatus.ACTIVE,
-                LocalDateTime.of(2026, 4, 29, 15, 30)
+                LocalDateTime.of(2026, 4, 29, 15, 30),
+                appRoles
         );
     }
 }

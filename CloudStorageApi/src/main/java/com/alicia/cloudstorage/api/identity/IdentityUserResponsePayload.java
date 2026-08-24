@@ -1,6 +1,7 @@
 package com.alicia.cloudstorage.api.identity;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 
 record IdentityUserResponsePayload(
         Long id,
@@ -12,7 +13,8 @@ record IdentityUserResponsePayload(
         Long tokenVersion,
         String role,
         String status,
-        String createdAt
+        String createdAt,
+        Map<String, String> appRoles
 ) {
 
     IdentityUserSnapshot toSnapshot() {
@@ -24,7 +26,8 @@ record IdentityUserResponsePayload(
                 avatarUrl,
                 UserRole.valueOf(role),
                 UserStatus.valueOf(status),
-                LocalDateTime.parse(createdAt)
+                LocalDateTime.parse(createdAt),
+                appRoles
         );
     }
 }

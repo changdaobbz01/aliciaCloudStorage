@@ -1,7 +1,7 @@
 import { EditOutlined, LockOutlined, PlusOutlined } from '@ant-design/icons';
 import { Avatar, Button, Space, Table, Tag, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import type { User } from '../types';
+import { isCloudAdmin, type User } from '../types';
 
 function resolveAvatarSrc(user: User) {
   if (!user.avatarUrl) {
@@ -59,7 +59,7 @@ export function UserManagementPanel({
 }: UserManagementPanelProps) {
   const totalUsers = users.length;
   const activeUsers = users.filter((user) => user.status === 'ACTIVE').length;
-  const adminUsers = users.filter((user) => user.role === 'ADMIN').length;
+  const adminUsers = users.filter((user) => isCloudAdmin(user)).length;
   const assignedQuotaBytes = users.reduce((sum, user) => sum + (user.storageQuotaBytes ?? 0), 0);
 
   const columns: ColumnsType<User> = [
@@ -84,11 +84,13 @@ export function UserManagementPanel({
     },
     {
       title: '角色',
-      dataIndex: 'role',
       key: 'role',
-      width: 120,
-      render: (role: User['role']) => (
-        <Tag color={role === 'ADMIN' ? 'gold' : 'blue'}>{role === 'ADMIN' ? '管理员' : '普通用户'}</Tag>
+      width: 180,
+      render: (_, user) => (
+        <Space size={4} wrap>
+          {user.role === 'ADMIN' ? <Tag color="gold">身份管理员</Tag> : null}
+          {isCloudAdmin(user) ? <Tag color="purple">云盘管理员</Tag> : <Tag color="blue">普通用户</Tag>}
+        </Space>
       ),
     },
     {
@@ -143,7 +145,7 @@ export function UserManagementPanel({
             <Button type="link" icon={<LockOutlined />} onClick={() => onResetUserPassword(user)}>
               重置密码
             </Button>
-            {user.role === 'ADMIN' ? null : (
+            {isCloudAdmin(user) ? null : (
               <Button type="link" icon={<EditOutlined />} onClick={() => onEditUserQuota(user)}>
                 修改额度
               </Button>
@@ -160,7 +162,7 @@ export function UserManagementPanel({
         <div className="panel-title-copy">
           <Typography.Title level={4}>账号管理</Typography.Title>
           <Typography.Paragraph className="panel-subtitle">
-            在这里集中查看账号状态、已用空间、剩余额度和个人配额；管理员账号默认不受个人额度限制。
+            在这里集中查看账号状态、已用空间、剩余额度和个人配额；云盘管理员账号默认不受个人额度限制。
           </Typography.Paragraph>
         </div>
 
@@ -181,7 +183,7 @@ export function UserManagementPanel({
           <div className="management-summary-value">{activeUsers}</div>
         </div>
         <div className="management-summary-card">
-          <div className="management-summary-label">管理员</div>
+          <div className="management-summary-label">云盘管理员</div>
           <div className="management-summary-value">{adminUsers}</div>
         </div>
         <div className="management-summary-card">

@@ -15,17 +15,20 @@ public class IdentityProfileService {
     private final IdentityUserRepository identityUserRepository;
     private final IdentityUserInputNormalizer identityUserInputNormalizer;
     private final IdentityAuditLogService identityAuditLogService;
+    private final IdentityUserResponseAssembler identityUserResponseAssembler;
 
     public IdentityProfileService(
             IdentityPrincipalService identityPrincipalService,
             IdentityUserRepository identityUserRepository,
             IdentityUserInputNormalizer identityUserInputNormalizer,
-            IdentityAuditLogService identityAuditLogService
+            IdentityAuditLogService identityAuditLogService,
+            IdentityUserResponseAssembler identityUserResponseAssembler
     ) {
         this.identityPrincipalService = identityPrincipalService;
         this.identityUserRepository = identityUserRepository;
         this.identityUserInputNormalizer = identityUserInputNormalizer;
         this.identityAuditLogService = identityAuditLogService;
+        this.identityUserResponseAssembler = identityUserResponseAssembler;
     }
 
     @Transactional
@@ -58,7 +61,7 @@ public class IdentityProfileService {
                     userIdentifier(savedUser),
                     null
             );
-            return IdentityUserResponse.from(savedUser);
+            return identityUserResponseAssembler.toResponse(savedUser);
         } catch (RuntimeException ex) {
             identityAuditLogService.record(
                     IdentityAuditEventType.PROFILE_UPDATE,
