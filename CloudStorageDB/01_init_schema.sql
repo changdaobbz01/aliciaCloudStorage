@@ -31,7 +31,6 @@ CREATE TABLE IF NOT EXISTS storage_node (
     is_deleted TINYINT(1) NOT NULL DEFAULT 0,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    CONSTRAINT fk_storage_node_owner FOREIGN KEY (owner_id) REFERENCES identity_user(id),
     CONSTRAINT fk_storage_node_parent FOREIGN KEY (parent_id) REFERENCES storage_node(id) ON DELETE SET NULL
 );
 

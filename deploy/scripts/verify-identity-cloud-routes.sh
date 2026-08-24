@@ -268,6 +268,27 @@ SQL
     ok "identity user table boundary finalized"
 }
 
+verify_no_identity_table_foreign_keys() {
+    local count
+    local foreign_key_boundary_sql
+
+    foreign_key_boundary_sql="$(cat <<'SQL'
+SELECT COUNT(*)
+FROM information_schema.referential_constraints
+WHERE constraint_schema = DATABASE()
+  AND referenced_table_name IN ('identity_user', 'sys_user');
+SQL
+)"
+
+    count="$(compose exec -T db sh -lc 'mysql -N -B -uroot -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE" -e "$1"' sh "$foreign_key_boundary_sql")" \
+        || fail "identity foreign key boundary query failed"
+    count="$(printf '%s' "$count" | tr -d '\r' | tail -n 1 | tr -d '[:space:]')"
+
+    [[ "${count:-0}" == "0" ]] || fail "identity table is still referenced by $count database foreign key(s)"
+
+    ok "identity table foreign key boundary finalized"
+}
+
 curl_json_or_fail() {
     local label="$1"
     shift
@@ -569,6 +590,7 @@ LIMIT 5;
 "' || fail "identity Flyway history query failed"
     ok "identity Flyway history query completed"
     verify_identity_user_table_boundary
+    verify_no_identity_table_foreign_keys
 fi
 
 printf '\nAlicia identity/cloud route verification passed.\n'

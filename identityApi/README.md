@@ -48,7 +48,7 @@ Schema migrations:
 - New identity-owned migrations go in `src/main/resources/db/identity-migration`.
 - Flyway uses the dedicated table `identity_flyway_schema_history`, separate from CloudStorageApi's historical `flyway_schema_history`.
 - `V2__rename_sys_user_to_identity_user.sql` finalizes the identity table name as `identity_user`.
-- During the shared-database transition, CloudStorageApi keeps its already-applied V1-V15 migration files for compatibility. Do not add new identity table changes there.
+- During the shared-database transition, CloudStorageApi keeps its already-applied V1-V16 migration files for compatibility; V16 removes cloud-table foreign keys that pointed at the identity table. Do not add new identity table changes there.
 - CloudStorageApi has a migration boundary test that fails when new identity-owned schema fragments are added to its migration directory.
 - identityApi has the matching boundary test that fails when cloud-drive schema fragments are added to Identity migrations.
 

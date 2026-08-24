@@ -382,6 +382,7 @@ cloud_user_profile.home_background_url = sys_user.home_background_url
 - `V15__drop_legacy_cloud_profile_columns_from_sys_user.sql` 删除 `sys_user` 上旧云盘画像字段。
 - `identityApi/src/main/resources/db/identity-migration/V1__identity_schema_baseline.sql` 建立 Identity 自己的 Flyway 基线，迁移历史写入 `identity_flyway_schema_history`。
 - `identityApi/src/main/resources/db/identity-migration/V2__rename_sys_user_to_identity_user.sql` 将身份表重命名为 `identity_user`。
+- `V16__drop_identity_table_foreign_keys.sql` 删除云盘业务表到身份表的数据库外键，保留逻辑 identity user ID。
 - 首次迁移时从 `sys_user.storage_quota_bytes` 和 `sys_user.home_background_url` 回填老用户云盘资料。
 - `CloudUserProfileService` 通过 `CloudUserProfileRepository` 读写云盘额度和主页背景。
 - `StorageQuotaService` 通过云盘资料读取器从 `cloud_user_profile` 获取容量。
@@ -390,9 +391,10 @@ cloud_user_profile.home_background_url = sys_user.home_background_url
 
 ### 6.2 第二期表结构清理
 
-旧云盘画像字段和旧身份表名已清理；后续只保留更大的物理拆库议题：
+旧云盘画像字段、旧身份表名、以及云盘业务表到身份表的数据库强 FK 已清理；后续只保留更大的物理拆库议题：
 
-- 业务表外键从数据库强 FK 改为逻辑约束，或者继续保留同库 FK。选择取决于后续是否要把 Identity 单独数据库化。
+- 业务表继续保存 `owner_id` / `identity_user_id` 等逻辑 identity user ID。
+- 账号存在性、状态、角色、tokenVersion 和 refresh session 有效性继续由 Identity API / Identity token 校验保证。
 
 ### 6.3 不建议的做法
 
