@@ -17,23 +17,38 @@ class CloudMigrationBoundaryTest {
     private static final Path CLOUD_MIGRATION_DIR = Path.of("src", "main", "resources", "db", "migration");
     private static final Set<String> LEGACY_IDENTITY_MIGRATIONS = Set.of(
             "V1__init_schema.sql",
+            "V2__add_trash_metadata.sql",
+            "V4__add_multipart_upload_sessions.sql",
             "V5__add_user_storage_quota.sql",
             "V6__add_user_home_background.sql",
             "V7__add_user_token_version.sql",
+            "V8__add_share_links.sql",
+            "V9__add_app_package_releases.sql",
             "V11__add_email_registration.sql",
+            "V12__create_cloud_user_profile.sql",
             "V13__create_identity_audit_log.sql",
-            "V14__create_identity_refresh_token.sql"
+            "V14__create_identity_refresh_token.sql",
+            "V15__drop_legacy_cloud_profile_columns_from_sys_user.sql"
     );
     private static final List<RestrictedIdentityPattern> RESTRICTED_IDENTITY_PATTERNS = List.of(
             new RestrictedIdentityPattern("create table if not exists sys_user", "sys_user table creation"),
             new RestrictedIdentityPattern("create table sys_user", "sys_user table creation"),
             new RestrictedIdentityPattern("alter table sys_user", "sys_user table alteration"),
+            new RestrictedIdentityPattern("references sys_user", "sys_user foreign key reference"),
+            new RestrictedIdentityPattern("'sys_user'", "legacy identity table literal"),
+            new RestrictedIdentityPattern("create table if not exists identity_user", "identity_user table creation"),
+            new RestrictedIdentityPattern("create table identity_user", "identity_user table creation"),
+            new RestrictedIdentityPattern("alter table identity_user", "identity_user table alteration"),
+            new RestrictedIdentityPattern("references identity_user", "identity_user foreign key reference"),
+            new RestrictedIdentityPattern("rename table sys_user to identity_user", "identity table rename"),
+            new RestrictedIdentityPattern("'identity_user'", "identity table literal"),
             new RestrictedIdentityPattern("email_verification_code", "email verification table"),
             new RestrictedIdentityPattern("identity_audit_log", "identity audit table"),
             new RestrictedIdentityPattern("identity_refresh_token", "identity refresh token table"),
             new RestrictedIdentityPattern("token_version", "identity token version column"),
             new RestrictedIdentityPattern("email_verified_at", "identity email verification column"),
-            new RestrictedIdentityPattern("uk_sys_user_email", "identity email unique index")
+            new RestrictedIdentityPattern("uk_sys_user_email", "legacy identity email unique index"),
+            new RestrictedIdentityPattern("uk_identity_user_email", "identity email unique index")
     );
 
     @Test

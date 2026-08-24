@@ -90,7 +90,7 @@
 - 邮箱和手机号登录、邮箱验证码注册、密码哈希和密码修改、Token 生成和校验、账号状态、公共昵称头像已由 Identity 承担。
 - CloudStorageApi 通过 Identity Gateway 校验 token 和读取身份快照，不再直接写密码、邮箱验证码或账号状态。
 - 云盘容量额度、主页背景、文件、分享、应用包和 RAG 仍归云盘业务。
-- `sys_user` 表名暂时保留，但写入边界已经收敛到 Identity；云盘资料落在 `cloud_user_profile`。
+- 旧 `sys_user` 表名已由 Identity V2 迁移重命名为 `identity_user`；云盘资料落在 `cloud_user_profile`。
 
 ### 3.3 管理员用户管理
 
@@ -117,19 +117,20 @@
 
 ### 3.4 数据表
 
-当前核心用户表：
+当前核心身份表：
 
-- `sys_user`
+- `identity_user`
 
-当前字段来源：
+历史字段来源：
 
 - 初始表：`CloudStorageApi/src/main/resources/db/migration/V1__init_schema.sql`
 - 容量字段：`V5__add_user_storage_quota.sql`
 - 主页背景字段：`V6__add_user_home_background.sql`
 - token 版本字段：`V7__add_user_token_version.sql`
 - 邮箱注册字段：`V11__add_email_registration.sql`
+- 表名收口：`identityApi/src/main/resources/db/identity-migration/V2__rename_sys_user_to_identity_user.sql`
 
-当前 `sys_user` 字段归属判断：
+当前 `identity_user` 字段归属判断：
 
 | 字段 | 当前含义 | 目标归属 |
 | --- | --- | --- |
@@ -143,10 +144,10 @@
 | `token_version` | 登录态失效版本 | Identity |
 | `role` | 当前全局角色 | Identity 第一期保留，后续可拆服务角色 |
 | `status` | 账号状态 | Identity |
-| `storage_quota_bytes` | 云盘容量 | CloudStorageApi |
-| `home_background_url` | 云盘主页背景 | CloudStorageApi |
 | `created_at` | 创建时间 | Identity |
 | `updated_at` | 更新时间 | Identity |
+
+旧 `storage_quota_bytes` 和 `home_background_url` 已迁出身份表，当前只保留在 `cloud_user_profile`。
 
 当前验证码表：
 
@@ -337,12 +338,12 @@ mainSite 不直接写用户表。
 
 ### 6.1 第一期推荐表结构
 
-为了降低迁移风险，第一期可以保留当前 `sys_user` 表名，由 Identity Service 接管它。这样已有 `owner_id` 引用不需要立刻改动。
+项目尚未正式上线，当前不再保留旧 `sys_user` 表名；Identity V2 将身份表收口为 `identity_user`，由 Identity Service 接管。已有 `owner_id` 业务列先保持名称不变，但语义已经是 identity user ID。
 
 Identity Service 拥有：
 
 ```text
-sys_user
+identity_user
 email_verification_code
 identity_refresh_token
 identity_audit_log
@@ -358,7 +359,7 @@ cloud_user_profile
 
 | 字段 | 说明 |
 | --- | --- |
-| `identity_user_id` | 对应 `sys_user.id`，主键 |
+| `identity_user_id` | 对应 `identity_user.id`，主键 |
 | `storage_quota_bytes` | 云盘容量 |
 | `home_background_url` | 云盘主页背景 |
 | `created_at` | 创建时间 |
@@ -372,7 +373,7 @@ cloud_user_profile.storage_quota_bytes = sys_user.storage_quota_bytes
 cloud_user_profile.home_background_url = sys_user.home_background_url
 ```
 
-项目尚未正式上线，当前按最终边界硬收口：云盘资料只保留在 `cloud_user_profile`，`sys_user.storage_quota_bytes` 和 `sys_user.home_background_url` 已通过清理迁移删除。
+这段迁移只描述历史回填路径。当前按最终边界硬收口：云盘资料只保留在 `cloud_user_profile`，旧身份表上的 `storage_quota_bytes` 和 `home_background_url` 已通过清理迁移删除。
 
 当前已落地：
 
@@ -380,6 +381,7 @@ cloud_user_profile.home_background_url = sys_user.home_background_url
 - `V14__create_identity_refresh_token.sql` 创建 `identity_refresh_token`，用于记录刷新令牌会话。
 - `V15__drop_legacy_cloud_profile_columns_from_sys_user.sql` 删除 `sys_user` 上旧云盘画像字段。
 - `identityApi/src/main/resources/db/identity-migration/V1__identity_schema_baseline.sql` 建立 Identity 自己的 Flyway 基线，迁移历史写入 `identity_flyway_schema_history`。
+- `identityApi/src/main/resources/db/identity-migration/V2__rename_sys_user_to_identity_user.sql` 将身份表重命名为 `identity_user`。
 - 首次迁移时从 `sys_user.storage_quota_bytes` 和 `sys_user.home_background_url` 回填老用户云盘资料。
 - `CloudUserProfileService` 通过 `CloudUserProfileRepository` 读写云盘额度和主页背景。
 - `StorageQuotaService` 通过云盘资料读取器从 `cloud_user_profile` 获取容量。
@@ -388,16 +390,15 @@ cloud_user_profile.home_background_url = sys_user.home_background_url
 
 ### 6.2 第二期表结构清理
 
-旧云盘画像字段已清理；后续只保留更大的物理拆库/重命名议题：
+旧云盘画像字段和旧身份表名已清理；后续只保留更大的物理拆库议题：
 
-- `sys_user` 重命名为 `identity_user`。
 - 业务表外键从数据库强 FK 改为逻辑约束，或者继续保留同库 FK。选择取决于后续是否要把 Identity 单独数据库化。
 
 ### 6.3 不建议的做法
 
 不建议：
 
-- 主站、云盘、未来工具都直接连 MySQL 写 `sys_user`。
+- 主站、云盘、未来工具都直接连 MySQL 写 `identity_user`。
 - 复制一份用户表到主站。
 - 让 CloudStorageApi 调 Identity 数据库，而不是调用 Identity API 或校验 Identity token。
 - 一次性重命名所有 `owner_id` 列，风险高且收益不大。
@@ -673,7 +674,7 @@ main-site-frontend（独立仓库/独立 compose）
 其中：
 
 - `identity` 连接同一个 MySQL。
-- `api` 不再直接管理 `sys_user`，只管理云盘业务。
+- `api` 不再直接管理 `identity_user`，只管理云盘业务。
 - `frontend-gateway` 继续占用 80/443，负责路由。
 - `main-site-frontend` 内网端口暴露给 gateway，后续可再评估是否合并到同一个 compose。
 
@@ -755,7 +756,7 @@ main-site-frontend（独立仓库/独立 compose）
 目标：
 
 - 新增独立 Spring Boot 服务。
-- 先接管当前 `sys_user` 和 `email_verification_code` 表。
+- 接管 `identity_user` 和 `email_verification_code` 表。
 - 对外路径使用 `/api/identity/auth/**` 和 `/api/identity/admin/**`。
 
 当前已落地骨架：
@@ -769,7 +770,7 @@ AliciaCloudStorage/identityApi
 - Maven 子模块：`identity-api`。
 - 应用入口：`IdentityApiApplication`。
 - 独立健康检查：`GET /api/identity/health`。
-- 只读身份模型：`IdentityUser`，映射现有 `sys_user` 身份字段。
+- 身份模型：`IdentityUser`，映射 `identity_user` 身份字段。
 - 身份 Repository：`IdentityUserRepository`，当前支持读取用户和创建邮箱注册用户。
 - 内部只读查询接口：`GET /api/identity/internal/users/{userId}`。
 - 内部登录验证接口：`POST /api/identity/auth/login`。
@@ -821,7 +822,7 @@ identityApi
 
 说明：
 
-- Identity 当前仍映射既有 `sys_user` 表，后续再决定是否迁移到独立库或重命名为 `identity_user`。
+- Identity 当前映射 `identity_user` 表；后续再决定是否迁移到独立库或独立 schema。
 - 头像文件上传仍由 CloudStorageApi 承担，Identity 只保存公共 `avatarUrl` 字段。
 - 不要把 `StorageQuotaService` 带进 Identity。
 
@@ -922,6 +923,7 @@ identityApi
 
 - `sys_user.storage_quota_bytes`。
 - `sys_user.home_background_url`。
+- 旧 `sys_user` 表名。
 - 旧两段式 access token 解析兼容。
 - Authorization-only refresh 兼容。
 - 文档和部署脚本中残留的过渡期说明。
@@ -932,7 +934,7 @@ identityApi
 
 | 阶段 | 回滚方式 |
 | --- | --- |
-| 阶段 1 | 回退代码即可；新增 `cloud_user_profile` 表保留不影响旧代码，回滚时不要删除旧 `sys_user` 字段 |
+| 阶段 1 | 回退代码即可；新增 `cloud_user_profile` 表保留不影响旧代码，回滚时需注意身份表已收口到 `identity_user` |
 | 阶段 2 | 当前 identity 已接生产身份流量，回滚需要同时回退前端路径、Nginx 路由和 CloudStorageApi Identity Gateway |
 | 阶段 3 | 当前 CloudStorageApi 已消费 Identity token，回滚需要恢复旧身份实现和旧前端路径，不建议作为常规回滚手段 |
 | 阶段 4 | 当前客户端已迁移到新路径，回滚需同步回退 Web 和 Android |
@@ -1062,11 +1064,10 @@ Web 和 Android：
 
 下一步按架构收益从高到低推进：
 
-1. 用 `deploy/scripts/apply-identity-hs256-key-removal-env.sh` 移除历史 HS256 key，并用统一脚本验证 RS256/JWKS；需要手动审查 `.env` 时仍可先使用 prepare helper。
-2. 继续观察 Identity 审计日志写入、查询接口和 Web 管理页筛选结果。
-3. 继续观察 `identity_refresh_token` 的生产写入、轮换、会话查询和指定会话撤销结果。
-4. 继续观察 `identity_flyway_schema_history`，确认后续身份 schema 变更只进入 `identityApi` 迁移目录，并保持双向迁移边界测试通过。
-5. 继续评估 CloudStorageApi / RAG 是否加入 Identity 状态快照或短缓存，在不牺牲禁用账号、角色变更和 session 撤销强一致性的前提下减少 `/auth/me` 同步依赖。
-6. 评估 `sys_user` 是否继续作为 identity 表名，或迁移到独立 schema / `identity_user`。
+1. 继续观察 Identity 审计日志写入、查询接口和 Web 管理页筛选结果。
+2. 继续观察 `identity_refresh_token` 的生产写入、轮换、会话查询和指定会话撤销结果。
+3. 继续观察 `identity_flyway_schema_history`，确认后续身份 schema 变更只进入 `identityApi` 迁移目录，并保持双向迁移边界测试通过。
+4. 继续评估 CloudStorageApi / RAG 是否加入 Identity 状态快照或短缓存，在不牺牲禁用账号、角色变更和 session 撤销强一致性的前提下减少 `/auth/me` 同步依赖。
+5. 评估 `identity_user` 迁移到独立 schema / database 的时机。
 
 这一步完成后，当前文档基线已经与生产架构对齐：Identity 负责身份，CloudStorageApi 负责云盘，主站负责统一入口。后续新增工具只需要接入 Identity，不应该再直接复用或写入云盘的用户资料表。

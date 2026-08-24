@@ -6,7 +6,7 @@ COLLATE utf8mb4_unicode_ci;
 
 USE alicia_cloud_storage;
 
-CREATE TABLE IF NOT EXISTS sys_user (
+CREATE TABLE IF NOT EXISTS identity_user (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     phone_number VARCHAR(20) NOT NULL UNIQUE,
     nickname VARCHAR(100) NOT NULL,
@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS storage_node (
     is_deleted TINYINT(1) NOT NULL DEFAULT 0,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    CONSTRAINT fk_storage_node_owner FOREIGN KEY (owner_id) REFERENCES sys_user(id),
+    CONSTRAINT fk_storage_node_owner FOREIGN KEY (owner_id) REFERENCES identity_user(id),
     CONSTRAINT fk_storage_node_parent FOREIGN KEY (parent_id) REFERENCES storage_node(id) ON DELETE SET NULL
 );
 

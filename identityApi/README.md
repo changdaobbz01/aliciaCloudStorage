@@ -11,7 +11,7 @@ Current status:
 - It persists refresh-token sessions in `identity_refresh_token`; login/registration return both `token` and `refreshToken`.
 - It issues JWT access tokens with configurable `alg`, `iss`, `aud`, and `kid`, plus `sub`, `iat`, `exp`, `ver`, and optional `sid`; HS256 remains the default, RS256/JWKS can be enabled by configuration, verification accepts configured previous HS256/RSA JWT keys, and legacy two-part access tokens are no longer accepted.
 - It owns identity Flyway migrations under `src/main/resources/db/identity-migration` and records them in `identity_flyway_schema_history`.
-- It still reads and writes the existing `sys_user` table during the migration period.
+- It reads and writes the identity-owned `identity_user` table; older `sys_user` naming is finalized by the Identity V2 migration.
 - `CloudStorageApi` preflights RS256 access tokens with the Identity JWKS, then calls Identity for strongly consistent role, status, token-version, and refresh-session validation before adding cloud-drive profile data such as quota and home background.
 
 Local endpoints:
@@ -47,6 +47,7 @@ Schema migrations:
 
 - New identity-owned migrations go in `src/main/resources/db/identity-migration`.
 - Flyway uses the dedicated table `identity_flyway_schema_history`, separate from CloudStorageApi's historical `flyway_schema_history`.
+- `V2__rename_sys_user_to_identity_user.sql` finalizes the identity table name as `identity_user`.
 - During the shared-database transition, CloudStorageApi keeps its already-applied V1-V15 migration files for compatibility. Do not add new identity table changes there.
 - CloudStorageApi has a migration boundary test that fails when new identity-owned schema fragments are added to its migration directory.
 - identityApi has the matching boundary test that fails when cloud-drive schema fragments are added to Identity migrations.
@@ -55,5 +56,5 @@ Planned migration order:
 
 1. Keep public identity writes on `/api/identity/auth/**` and `/api/identity/admin/**`.
 2. Keep cloud-drive aggregate profile reads and media uploads on `/api/cloud-profile/**`.
-3. Continue reducing direct `sys_user` coupling from `CloudStorageApi`.
+3. Continue reducing direct identity-table coupling from `CloudStorageApi`.
 4. Move to a dedicated identity-owned database/schema once the service boundary is stable.

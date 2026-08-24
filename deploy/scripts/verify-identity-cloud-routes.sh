@@ -238,6 +238,31 @@ WHERE event_type = '$event_type'
     ok "$label"
 }
 
+verify_identity_user_table_boundary() {
+    local counts
+    local identity_user_count
+    local sys_user_count
+
+    counts="$(compose exec -T db sh -lc 'mysql -N -B -uroot -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE" -e "
+SELECT
+  SUM(table_name = '\''identity_user'\'') AS identity_user_count,
+  SUM(table_name = '\''sys_user'\'') AS sys_user_count
+FROM information_schema.tables
+WHERE table_schema = DATABASE()
+  AND table_name IN ('\''identity_user'\'', '\''sys_user'\'');
+"'")" || fail "identity user table boundary query failed"
+    counts="$(printf '%s' "$counts" | tr -d '\r' | tail -n 1)"
+    identity_user_count="$(printf '%s' "$counts" | awk '{print $1}')"
+    sys_user_count="$(printf '%s' "$counts" | awk '{print $2}')"
+    identity_user_count="${identity_user_count:-0}"
+    sys_user_count="${sys_user_count:-0}"
+
+    [[ "$identity_user_count" == "1" ]] || fail "identity_user table is missing"
+    [[ "$sys_user_count" == "0" ]] || fail "legacy sys_user table is still present"
+
+    ok "identity user table boundary finalized"
+}
+
 curl_json_or_fail() {
     local label="$1"
     shift
@@ -538,6 +563,7 @@ ORDER BY installed_rank DESC
 LIMIT 5;
 "' || fail "identity Flyway history query failed"
     ok "identity Flyway history query completed"
+    verify_identity_user_table_boundary
 fi
 
 printf '\nAlicia identity/cloud route verification passed.\n'
