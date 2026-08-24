@@ -630,9 +630,10 @@ Cloud 管理：
 3. 头像上传和头像展示直接调用 `/api/cloud-profile/avatar`。
 4. 云盘容量、背景等由 CloudStorageApi 获取。
 5. SessionStore 保存 access token 和 refresh token，保存前要求两个 token 都非空；启动恢复时先调用 `/api/identity/auth/token/refresh` 续签。
-6. 主动退出登录时调用 `/api/identity/auth/logout`，然后清理本地 token 和 refresh token。
-7. 修改密码成功后立即清理本地 token，引导用户使用新密码重新登录。
-8. SessionStore 存储 token 的 key 可以后续改名，第一期不强制。
+6. Web 与主站复用同一组浏览器 session key，并通过 storage 事件同步跨标签页登录、续签和退出状态。
+7. 主动退出登录时调用 `/api/identity/auth/logout`，然后清理本地 token 和 refresh token。
+8. 修改密码成功后立即清理本地 token，引导用户使用新密码重新登录。
+9. SessionStore 存储 token 的 key 可以后续改名，第一期不强制。
 
 ### 9.3 主站 mainSite
 

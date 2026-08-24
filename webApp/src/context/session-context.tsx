@@ -5,6 +5,7 @@ import { AUTH_EXPIRED_EVENT, fetchCurrentUser, logoutAuthToken, refreshAuthSessi
 import {
   clearCurrentSession as clearStoredSession,
   hasStoredSessionTokens,
+  isSessionStorageKey,
   loadAuthToken,
   loadCurrentUser,
   loadRefreshToken,
@@ -39,6 +40,50 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   );
   const [authToken, setAuthToken] = useState<string | null>(() => loadAuthToken());
   const [isSessionChecking, setIsSessionChecking] = useState(() => hasStoredSessionTokens());
+  const authTokenRef = useRef(authToken);
+
+  useEffect(() => {
+    authTokenRef.current = authToken;
+  }, [authToken]);
+
+  async function restoreStoredSession(isCancelled: () => boolean = () => false) {
+    const token = loadAuthToken();
+    const refreshToken = loadRefreshToken();
+
+    if (!token && !refreshToken) {
+      resetSessionState();
+      return;
+    }
+
+    if (!token || !refreshToken) {
+      resetSessionState();
+      return;
+    }
+
+    setIsSessionChecking(true);
+
+    try {
+      const refreshedSession = await refreshAuthSession(token, refreshToken);
+      const user = await fetchCurrentUser(refreshedSession.token);
+
+      if (isCancelled()) {
+        return;
+      }
+
+      saveIdentityTokenSession(refreshedSession);
+      saveCurrentUser(user);
+      setCurrentUser(user);
+      setAuthToken(refreshedSession.token);
+    } catch {
+      if (!isCancelled()) {
+        resetSessionState();
+      }
+    } finally {
+      if (!isCancelled()) {
+        setIsSessionChecking(false);
+      }
+    }
+  }
 
   useEffect(() => {
     /**
@@ -65,54 +110,51 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [location.hash, location.pathname, location.search, message]);
 
   useEffect(() => {
-    const token = loadAuthToken();
-    const refreshToken = loadRefreshToken();
-
-    if (!token && !refreshToken) {
-      resetSessionState();
-      setIsSessionChecking(false);
-      return;
-    }
-
-    if (!token || !refreshToken) {
-      resetSessionState();
-      setIsSessionChecking(false);
-      return;
-    }
-
-    const storedToken = token;
-    const storedRefreshToken = refreshToken;
     let cancelled = false;
 
-    /**
-     * 在页面刷新后先向 Identity 续签，再用新令牌确认云盘资料。
-     */
-    async function verifyStoredToken() {
-      try {
-        const refreshedSession = await refreshAuthSession(storedToken, storedRefreshToken);
-        const user = await fetchCurrentUser(refreshedSession.token);
+    void restoreStoredSession(() => cancelled);
 
-        if (!cancelled) {
-          saveIdentityTokenSession(refreshedSession);
-          saveCurrentUser(user);
-          setCurrentUser(user);
-          setAuthToken(refreshedSession.token);
-        }
-      } catch {
-        if (!cancelled) {
-          resetSessionState();
-        }
-      } finally {
-        if (!cancelled) {
-          setIsSessionChecking(false);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    function handleSessionStorageChange(event: StorageEvent) {
+      if (!isSessionStorageKey(event.key)) {
+        return;
+      }
+
+      const token = loadAuthToken();
+      const refreshToken = loadRefreshToken();
+
+      if (!token || !refreshToken) {
+        resetSessionState();
+        return;
+      }
+
+      const cachedUser = loadCurrentUser();
+      if (cachedUser) {
+        setCurrentUser(cachedUser);
+      }
+
+      if (!authTokenRef.current) {
+        void restoreStoredSession();
+        return;
+      }
+
+      if (token !== authTokenRef.current) {
+        setAuthToken(token);
+        if (!cachedUser) {
+          void fetchCurrentUser(token).then(setCurrentUser).catch(() => undefined);
         }
       }
     }
 
-    void verifyStoredToken();
+    window.addEventListener('storage', handleSessionStorageChange);
 
     return () => {
-      cancelled = true;
+      window.removeEventListener('storage', handleSessionStorageChange);
     };
   }, []);
 

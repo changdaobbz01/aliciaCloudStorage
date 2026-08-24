@@ -3,6 +3,7 @@ import type { User } from '../types';
 const USER_STORAGE_KEY = 'alicia-cloud-storage.current-user';
 const TOKEN_STORAGE_KEY = 'alicia-cloud-storage.auth-token';
 const REFRESH_TOKEN_STORAGE_KEY = 'alicia-cloud-storage.refresh-token';
+const SESSION_STORAGE_KEYS = new Set([USER_STORAGE_KEY, TOKEN_STORAGE_KEY, REFRESH_TOKEN_STORAGE_KEY]);
 
 type IdentityTokenSession = {
   token?: string | null;
@@ -48,6 +49,10 @@ export function loadRefreshToken() {
 
 export function hasStoredSessionTokens() {
   return Boolean(loadAuthToken() || loadRefreshToken());
+}
+
+export function isSessionStorageKey(key: string | null) {
+  return key !== null && SESSION_STORAGE_KEYS.has(key);
 }
 
 /**
