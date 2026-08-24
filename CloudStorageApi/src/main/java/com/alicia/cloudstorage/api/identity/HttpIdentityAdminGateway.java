@@ -14,55 +14,62 @@ public class HttpIdentityAdminGateway implements IdentityAdminGateway {
 
     private final RestClient restClient;
     private final JsonMapper objectMapper;
+    private final IdentityGatewayTelemetry telemetry;
 
     public HttpIdentityAdminGateway(
             @Qualifier("identityRestClient") RestClient restClient,
-            JsonMapper objectMapper
+            JsonMapper objectMapper,
+            IdentityGatewayTelemetry telemetry
     ) {
         this.restClient = restClient;
         this.objectMapper = objectMapper;
+        this.telemetry = telemetry;
     }
 
     @Override
     public List<IdentityUserSnapshot> listUsers(String authorization) {
-        IdentityUserResponsePayload[] response = IdentityGatewaySupport.exchange(() -> restClient.get()
-                .uri("/api/identity/admin/users")
-                .header(HttpHeaders.AUTHORIZATION, authorization)
-                .retrieve()
-                .body(IdentityUserResponsePayload[].class), objectMapper);
+        return telemetry.observe("admin.listUsers", () -> {
+            IdentityUserResponsePayload[] response = IdentityGatewaySupport.exchange(() -> restClient.get()
+                    .uri("/api/identity/admin/users")
+                    .header(HttpHeaders.AUTHORIZATION, authorization)
+                    .retrieve()
+                    .body(IdentityUserResponsePayload[].class), objectMapper);
 
-        return IdentityGatewaySupport.mapRequiredArrayBody(
-                response,
-                "身份服务管理员用户列表响应为空。",
-                "身份服务管理员用户列表响应格式异常。",
-                IdentityUserResponsePayload::toSnapshot
-        );
+            return IdentityGatewaySupport.mapRequiredArrayBody(
+                    response,
+                    "身份服务管理员用户列表响应为空。",
+                    "身份服务管理员用户列表响应格式异常。",
+                    IdentityUserResponsePayload::toSnapshot
+            );
+        });
     }
 
     @Override
     public IdentityUserSnapshot createUser(String authorization, AdminCreateUserRequest request) {
-        IdentityCreateUserRequest payload = new IdentityCreateUserRequest(
-                request.phoneNumber(),
-                null,
-                request.nickname(),
-                request.avatarUrl(),
-                request.password(),
-                request.role()
-        );
+        return telemetry.observe("admin.createUser", () -> {
+            IdentityCreateUserRequest payload = new IdentityCreateUserRequest(
+                    request.phoneNumber(),
+                    null,
+                    request.nickname(),
+                    request.avatarUrl(),
+                    request.password(),
+                    request.role()
+            );
 
-        IdentityUserResponsePayload response = IdentityGatewaySupport.exchange(() -> restClient.post()
-                .uri("/api/identity/admin/users")
-                .header(HttpHeaders.AUTHORIZATION, authorization)
-                .body(payload)
-                .retrieve()
-                .body(IdentityUserResponsePayload.class), objectMapper);
+            IdentityUserResponsePayload response = IdentityGatewaySupport.exchange(() -> restClient.post()
+                    .uri("/api/identity/admin/users")
+                    .header(HttpHeaders.AUTHORIZATION, authorization)
+                    .body(payload)
+                    .retrieve()
+                    .body(IdentityUserResponsePayload.class), objectMapper);
 
-        return IdentityGatewaySupport.mapRequiredBody(
-                response,
-                "身份服务创建用户响应为空。",
-                "身份服务创建用户响应格式异常。",
-                IdentityUserResponsePayload::toSnapshot
-        );
+            return IdentityGatewaySupport.mapRequiredBody(
+                    response,
+                    "身份服务创建用户响应为空。",
+                    "身份服务创建用户响应格式异常。",
+                    IdentityUserResponsePayload::toSnapshot
+            );
+        });
     }
 
     private record IdentityCreateUserRequest(

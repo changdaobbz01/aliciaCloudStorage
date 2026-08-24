@@ -132,7 +132,8 @@ class IdentityJwtPreflightVerifierTest {
         IdentityJwtPreflightVerifier verifier = new IdentityJwtPreflightVerifier(
                 restClient,
                 objectMapper,
-                new IdentityTokenVerificationProperties(enabled, ISSUER, AUDIENCE, cacheSeconds)
+                new IdentityTokenVerificationProperties(enabled, ISSUER, AUDIENCE, cacheSeconds),
+                new IdentityGatewayTelemetry()
         );
         return new TestVerifierContext(server, verifier);
     }

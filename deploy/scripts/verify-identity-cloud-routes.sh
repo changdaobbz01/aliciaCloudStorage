@@ -374,6 +374,18 @@ expect_audit_log_filter() {
     ok "$label"
 }
 
+expect_cloud_identity_gateway_telemetry() {
+    local response
+
+    response="$(curl_json_or_fail "cloud dependency health identity gateway telemetry" \
+        "$CLOUD_BASE_URL/api/health/dependencies")"
+
+    printf '%s' "$response" | tr -d '\n' | grep -q '"operation"[[:space:]]*:[[:space:]]*"auth.me"[^}]*"successCount"[[:space:]]*:[[:space:]]*[1-9][0-9]*' \
+        || fail "cloud dependency health did not expose auth.me identity gateway success count"
+
+    ok "cloud dependency health exposes identity gateway telemetry"
+}
+
 compose() {
     local command=(docker compose)
 
@@ -620,6 +632,7 @@ expect_status "logout invalidates refresh token" 401 \
     -H "Authorization: Bearer $TOKEN" \
     -H "Content-Type: application/json" \
     --data-binary "$(printf '{"refreshToken":"%s"}' "$(json_escape "$REFRESH_TOKEN")")"
+expect_cloud_identity_gateway_telemetry
 
 if [[ "$SKIP_AUDIT_CHECK" == "true" ]]; then
     printf '[SKIP] identity audit log check\n'

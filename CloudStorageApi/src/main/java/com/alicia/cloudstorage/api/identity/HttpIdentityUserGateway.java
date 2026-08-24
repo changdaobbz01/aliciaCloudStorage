@@ -10,27 +10,32 @@ public class HttpIdentityUserGateway implements IdentityUserGateway {
 
     private final RestClient restClient;
     private final JsonMapper objectMapper;
+    private final IdentityGatewayTelemetry telemetry;
 
     public HttpIdentityUserGateway(
             @Qualifier("identityRestClient") RestClient restClient,
-            JsonMapper objectMapper
+            JsonMapper objectMapper,
+            IdentityGatewayTelemetry telemetry
     ) {
         this.restClient = restClient;
         this.objectMapper = objectMapper;
+        this.telemetry = telemetry;
     }
 
     @Override
     public IdentityUserSnapshot getUser(Long userId) {
-        IdentityUserResponsePayload response = IdentityGatewaySupport.exchange(() -> restClient.get()
-                .uri("/api/identity/internal/users/{userId}", userId)
-                .retrieve()
-                .body(IdentityUserResponsePayload.class), objectMapper);
+        return telemetry.observe("internal.getUser", () -> {
+            IdentityUserResponsePayload response = IdentityGatewaySupport.exchange(() -> restClient.get()
+                    .uri("/api/identity/internal/users/{userId}", userId)
+                    .retrieve()
+                    .body(IdentityUserResponsePayload.class), objectMapper);
 
-        return IdentityGatewaySupport.mapRequiredBody(
-                response,
-                "身份服务用户查询响应为空。",
-                "身份服务用户查询响应格式异常。",
-                IdentityUserResponsePayload::toSnapshot
-        );
+            return IdentityGatewaySupport.mapRequiredBody(
+                    response,
+                    "身份服务用户查询响应为空。",
+                    "身份服务用户查询响应格式异常。",
+                    IdentityUserResponsePayload::toSnapshot
+            );
+        });
     }
 }

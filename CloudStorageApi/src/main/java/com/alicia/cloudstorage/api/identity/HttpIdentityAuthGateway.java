@@ -13,49 +13,56 @@ public class HttpIdentityAuthGateway implements IdentityAuthGateway {
     private final RestClient restClient;
     private final JsonMapper objectMapper;
     private final IdentityAccessTokenPreflightVerifier preflightVerifier;
+    private final IdentityGatewayTelemetry telemetry;
 
     public HttpIdentityAuthGateway(
             @Qualifier("identityRestClient") RestClient restClient,
             JsonMapper objectMapper,
-            IdentityAccessTokenPreflightVerifier preflightVerifier
+            IdentityAccessTokenPreflightVerifier preflightVerifier,
+            IdentityGatewayTelemetry telemetry
     ) {
         this.restClient = restClient;
         this.objectMapper = objectMapper;
         this.preflightVerifier = preflightVerifier;
+        this.telemetry = telemetry;
     }
 
     @Override
     public IdentityUserSnapshot me(String authorization) {
-        preflightVerifier.verify(authorization);
+        return telemetry.observe("auth.me", () -> {
+            preflightVerifier.verify(authorization);
 
-        IdentityUserResponsePayload response = IdentityGatewaySupport.exchange(() -> restClient.get()
-                .uri("/api/identity/auth/me")
-                .header(HttpHeaders.AUTHORIZATION, authorization)
-                .retrieve()
-                .body(IdentityUserResponsePayload.class), objectMapper);
+            IdentityUserResponsePayload response = IdentityGatewaySupport.exchange(() -> restClient.get()
+                    .uri("/api/identity/auth/me")
+                    .header(HttpHeaders.AUTHORIZATION, authorization)
+                    .retrieve()
+                    .body(IdentityUserResponsePayload.class), objectMapper);
 
-        return IdentityGatewaySupport.mapRequiredBody(
-                response,
-                "身份服务当前用户响应为空。",
-                "身份服务当前用户响应格式异常。",
-                IdentityUserResponsePayload::toSnapshot
-        );
+            return IdentityGatewaySupport.mapRequiredBody(
+                    response,
+                    "身份服务当前用户响应为空。",
+                    "身份服务当前用户响应格式异常。",
+                    IdentityUserResponsePayload::toSnapshot
+            );
+        });
     }
 
     @Override
     public IdentityUserSnapshot updateProfile(String authorization, UpdateProfileRequest request) {
-        IdentityUserResponsePayload response = IdentityGatewaySupport.exchange(() -> restClient.put()
-                .uri("/api/identity/auth/profile")
-                .header(HttpHeaders.AUTHORIZATION, authorization)
-                .body(request)
-                .retrieve()
-                .body(IdentityUserResponsePayload.class), objectMapper);
+        return telemetry.observe("auth.updateProfile", () -> {
+            IdentityUserResponsePayload response = IdentityGatewaySupport.exchange(() -> restClient.put()
+                    .uri("/api/identity/auth/profile")
+                    .header(HttpHeaders.AUTHORIZATION, authorization)
+                    .body(request)
+                    .retrieve()
+                    .body(IdentityUserResponsePayload.class), objectMapper);
 
-        return IdentityGatewaySupport.mapRequiredBody(
-                response,
-                "身份服务资料更新响应为空。",
-                "身份服务资料更新响应格式异常。",
-                IdentityUserResponsePayload::toSnapshot
-        );
+            return IdentityGatewaySupport.mapRequiredBody(
+                    response,
+                    "身份服务资料更新响应为空。",
+                    "身份服务资料更新响应格式异常。",
+                    IdentityUserResponsePayload::toSnapshot
+            );
+        });
     }
 }

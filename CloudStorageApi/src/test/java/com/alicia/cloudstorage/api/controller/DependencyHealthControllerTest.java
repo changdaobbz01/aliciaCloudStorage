@@ -2,6 +2,7 @@ package com.alicia.cloudstorage.api.controller;
 
 import com.alicia.cloudstorage.api.config.JacksonConfiguration;
 import com.alicia.cloudstorage.api.identity.IdentityDependencyHealth;
+import com.alicia.cloudstorage.api.identity.IdentityGatewayOperationSnapshot;
 import com.alicia.cloudstorage.api.identity.IdentityDependencyHealthService;
 import com.alicia.cloudstorage.api.principal.CurrentPrincipalService;
 import org.junit.jupiter.api.Test;
@@ -10,6 +11,9 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+
+import java.time.LocalDateTime;
+import java.util.List;
 
 import static org.hamcrest.Matchers.matchesPattern;
 import static org.mockito.Mockito.when;
@@ -33,7 +37,18 @@ class DependencyHealthControllerTest {
     @Test
     void dependenciesReturnsOkWhenIdentityIsAvailable() throws Exception {
         when(identityHealthService.check())
-                .thenReturn(IdentityDependencyHealth.available("alicia-identity-api"));
+                .thenReturn(IdentityDependencyHealth.available(
+                        "alicia-identity-api",
+                        List.of(new IdentityGatewayOperationSnapshot(
+                                "auth.me",
+                                12L,
+                                1L,
+                                "success",
+                                null,
+                                18L,
+                                LocalDateTime.of(2026, 8, 24, 13, 30)
+                        ))
+                ));
 
         mockMvc.perform(get("/api/health/dependencies"))
                 .andExpect(status().isOk())
@@ -42,6 +57,11 @@ class DependencyHealthControllerTest {
                 .andExpect(jsonPath("$.dependencies.identity.available").value(true))
                 .andExpect(jsonPath("$.dependencies.identity.status").value("ok"))
                 .andExpect(jsonPath("$.dependencies.identity.service").value("alicia-identity-api"))
+                .andExpect(jsonPath("$.dependencies.identity.operations[0].operation").value("auth.me"))
+                .andExpect(jsonPath("$.dependencies.identity.operations[0].successCount").value(12))
+                .andExpect(jsonPath("$.dependencies.identity.operations[0].failureCount").value(1))
+                .andExpect(jsonPath("$.dependencies.identity.operations[0].lastOutcome").value("success"))
+                .andExpect(jsonPath("$.dependencies.identity.operations[0].lastDurationMs").value(18))
                 .andExpect(jsonPath("$.timestamp", matchesPattern(
                         "^\\d{4}-\\d{2}-\\d{2}T.*(?:Z|[+-]\\d{2}:\\d{2})$"
                 )));

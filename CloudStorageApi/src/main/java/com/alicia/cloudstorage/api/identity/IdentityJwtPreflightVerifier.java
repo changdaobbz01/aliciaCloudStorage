@@ -31,16 +31,19 @@ public class IdentityJwtPreflightVerifier implements IdentityAccessTokenPrefligh
     private final RestClient restClient;
     private final JsonMapper objectMapper;
     private final IdentityTokenVerificationProperties properties;
+    private final IdentityGatewayTelemetry telemetry;
     private volatile CachedJwks cachedJwks;
 
     public IdentityJwtPreflightVerifier(
             @Qualifier("identityRestClient") RestClient restClient,
             JsonMapper objectMapper,
-            IdentityTokenVerificationProperties properties
+            IdentityTokenVerificationProperties properties,
+            IdentityGatewayTelemetry telemetry
     ) {
         this.restClient = restClient;
         this.objectMapper = objectMapper;
         this.properties = properties;
+        this.telemetry = telemetry;
     }
 
     @Override
@@ -119,11 +122,13 @@ public class IdentityJwtPreflightVerifier implements IdentityAccessTokenPrefligh
     }
 
     private CachedJwks fetchJwks() {
-        IdentityJwksResponse response = IdentityGatewaySupport.exchange(() -> restClient.get()
-                .uri("/api/identity/.well-known/jwks.json")
-                .accept(MediaType.APPLICATION_JSON)
-                .retrieve()
-                .body(IdentityJwksResponse.class), objectMapper);
+        IdentityJwksResponse response = telemetry.observe("jwks.fetch", () ->
+                IdentityGatewaySupport.exchange(() -> restClient.get()
+                        .uri("/api/identity/.well-known/jwks.json")
+                        .accept(MediaType.APPLICATION_JSON)
+                        .retrieve()
+                        .body(IdentityJwksResponse.class), objectMapper)
+        );
 
         if (response == null || response.keys() == null) {
             throw new IdentityServiceUnavailableException("身份服务 JWKS 响应为空。");

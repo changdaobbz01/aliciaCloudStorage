@@ -52,6 +52,13 @@ class HttpIdentityAuthGatewayTest {
         assertThat(account.email()).isEqualTo("user@example.com");
         assertThat(account.role()).isEqualTo(UserRole.USER);
         assertThat(account.status()).isEqualTo(UserStatus.ACTIVE);
+        assertThat(context.telemetry().snapshots())
+                .singleElement()
+                .satisfies(snapshot -> {
+                    assertThat(snapshot.operation()).isEqualTo("auth.me");
+                    assertThat(snapshot.successCount()).isEqualTo(1L);
+                    assertThat(snapshot.failureCount()).isZero();
+                });
         context.server().verify();
     }
 
@@ -65,6 +72,14 @@ class HttpIdentityAuthGatewayTest {
                 .isInstanceOf(PrincipalAccessException.class)
                 .hasMessage("Token 签名校验失败。");
 
+        assertThat(context.telemetry().snapshots())
+                .singleElement()
+                .satisfies(snapshot -> {
+                    assertThat(snapshot.operation()).isEqualTo("auth.me");
+                    assertThat(snapshot.successCount()).isZero();
+                    assertThat(snapshot.failureCount()).isEqualTo(1L);
+                    assertThat(snapshot.lastError()).isEqualTo("PrincipalAccessException");
+                });
         context.server().verify();
     }
 
@@ -180,13 +195,20 @@ class HttpIdentityAuthGatewayTest {
         RestClient.Builder restClientBuilder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(restClientBuilder).build();
         RestClient restClient = restClientBuilder.baseUrl("http://identity.test").build();
-        HttpIdentityAuthGateway gateway = new HttpIdentityAuthGateway(restClient, objectMapper, preflightVerifier);
-        return new TestGatewayContext(server, gateway);
+        IdentityGatewayTelemetry telemetry = new IdentityGatewayTelemetry();
+        HttpIdentityAuthGateway gateway = new HttpIdentityAuthGateway(
+                restClient,
+                objectMapper,
+                preflightVerifier,
+                telemetry
+        );
+        return new TestGatewayContext(server, gateway, telemetry);
     }
 
     private record TestGatewayContext(
             MockRestServiceServer server,
-            HttpIdentityAuthGateway gateway
+            HttpIdentityAuthGateway gateway,
+            IdentityGatewayTelemetry telemetry
     ) {
     }
 }

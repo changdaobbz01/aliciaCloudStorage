@@ -68,7 +68,11 @@ class HttpIdentityUserGatewayTest {
         RestClient.Builder restClientBuilder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(restClientBuilder).build();
         RestClient restClient = restClientBuilder.baseUrl("http://identity.test").build();
-        HttpIdentityUserGateway gateway = new HttpIdentityUserGateway(restClient, objectMapper);
+        HttpIdentityUserGateway gateway = new HttpIdentityUserGateway(
+                restClient,
+                objectMapper,
+                new IdentityGatewayTelemetry()
+        );
         return new TestGatewayContext(server, gateway);
     }
 

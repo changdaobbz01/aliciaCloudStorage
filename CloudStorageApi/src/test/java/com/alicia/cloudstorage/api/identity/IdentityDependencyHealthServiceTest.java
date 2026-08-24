@@ -29,6 +29,12 @@ class IdentityDependencyHealthServiceTest {
         assertThat(health.available()).isTrue();
         assertThat(health.status()).isEqualTo("ok");
         assertThat(health.service()).isEqualTo("alicia-identity-api");
+        assertThat(health.operations())
+                .singleElement()
+                .satisfies(snapshot -> {
+                    assertThat(snapshot.operation()).isEqualTo("auth.me");
+                    assertThat(snapshot.successCount()).isEqualTo(1L);
+                });
         context.server().verify();
     }
 
@@ -47,6 +53,7 @@ class IdentityDependencyHealthServiceTest {
 
         assertThat(health.available()).isFalse();
         assertThat(health.status()).isEqualTo("unavailable");
+        assertThat(health.operations()).isNotEmpty();
         context.server().verify();
     }
 
@@ -60,6 +67,7 @@ class IdentityDependencyHealthServiceTest {
 
         assertThat(health.available()).isFalse();
         assertThat(health.status()).isEqualTo("unavailable");
+        assertThat(health.operations()).isNotEmpty();
         context.server().verify();
     }
 
@@ -67,7 +75,9 @@ class IdentityDependencyHealthServiceTest {
         RestClient.Builder restClientBuilder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(restClientBuilder).build();
         RestClient restClient = restClientBuilder.baseUrl("http://identity.test").build();
-        return new TestGatewayContext(server, new IdentityDependencyHealthService(restClient));
+        IdentityGatewayTelemetry telemetry = new IdentityGatewayTelemetry();
+        telemetry.observe("auth.me", () -> "ok");
+        return new TestGatewayContext(server, new IdentityDependencyHealthService(restClient, telemetry));
     }
 
     private record TestGatewayContext(

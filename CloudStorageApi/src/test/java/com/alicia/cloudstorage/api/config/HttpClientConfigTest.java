@@ -5,6 +5,7 @@ import com.alicia.cloudstorage.api.identity.HttpIdentityAuthGateway;
 import com.alicia.cloudstorage.api.identity.HttpIdentityUserGateway;
 import com.alicia.cloudstorage.api.identity.IdentityAccessTokenPreflightVerifier;
 import com.alicia.cloudstorage.api.identity.IdentityApiClientProperties;
+import com.alicia.cloudstorage.api.identity.IdentityGatewayTelemetry;
 import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.util.TestPropertyValues;
@@ -98,6 +99,7 @@ class HttpClientConfigTest {
             context.registerBean(JsonMapper.class, () -> JsonMapper.builder().build());
             context.registerBean(IdentityAccessTokenPreflightVerifier.class, () -> authorization -> {
             });
+            context.registerBean(IdentityGatewayTelemetry.class, IdentityGatewayTelemetry::new);
             context.register(HttpIdentityAdminGateway.class, HttpIdentityAuthGateway.class, HttpIdentityUserGateway.class);
 
             context.refresh();
