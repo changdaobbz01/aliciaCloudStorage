@@ -1,10 +1,4 @@
-import {
-  AndroidOutlined,
-  FileOutlined,
-  FolderOpenFilled,
-  LoginOutlined,
-  SaveOutlined,
-} from '@ant-design/icons';
+import { File, FolderOpen, LogIn, Save, Smartphone } from 'lucide-react';
 import { Alert, App as AntApp, Button, Card, Form, Input, Modal, Result, Space, Spin, Table, TreeSelect, Typography } from 'antd';
 import type { TableProps } from 'antd';
 import type { Key } from 'react';
@@ -14,6 +8,7 @@ import { AliciaModalTitle } from '../components/AliciaModalTitle';
 import { RegulatoryFooter } from '../components/RegulatoryFooter';
 import { publicAssetPath } from '../lib/appPaths';
 import { useSession } from '../context/session-context';
+import { Icon } from '../components/Icon';
 import {
   fetchStorageFolders,
   fetchPublicShareStatus,
@@ -398,7 +393,7 @@ export function SharePage() {
         return (
           <div className="storage-name-cell">
             <span className={`storage-icon-shell${item.type === 'FOLDER' ? ' storage-folder-icon' : ''}`}>
-              {item.type === 'FOLDER' ? <FolderOpenFilled /> : <FileOutlined />}
+              {item.type === 'FOLDER' ? <Icon icon={FolderOpen} /> : <Icon icon={File} />}
             </span>
             <div className="storage-name-copy">
               <Typography.Text strong={item.type === 'FOLDER'} ellipsis={{ tooltip: item.name }} className="storage-name-title">
@@ -468,7 +463,7 @@ export function SharePage() {
         <Typography.Paragraph className="panel-subtitle">
           Alicia 云盘需要确认访问账号后，才能展示文件详情并执行保存或下载。
         </Typography.Paragraph>
-        <Button type="primary" icon={<LoginOutlined />} onClick={goLogin}>
+        <Button type="primary" icon={<Icon icon={LogIn} />} onClick={goLogin}>
           去登录
         </Button>
       </Card>
@@ -494,7 +489,7 @@ export function SharePage() {
             {detail.allowSave ? (
               <Button
                 type="primary"
-                icon={<SaveOutlined />}
+                icon={<Icon icon={Save} />}
                 loading={saving}
                 disabled={selectedShareRootNodeIds.length === 0}
                 onClick={openSaveTargetModal}
@@ -561,14 +556,14 @@ export function SharePage() {
       {showMobileOpenHint ? (
         <section className="share-mobile-open-banner" aria-label="移动端打开方式">
           <div className="share-mobile-open-copy">
-            <AndroidOutlined />
+            <Icon icon={Smartphone} />
             <div>
               <Typography.Text strong>Alicia 云盘 App</Typography.Text>
               <Typography.Text className="muted-text">已安装可直接打开；未安装可下载安装包。</Typography.Text>
             </div>
           </div>
           <Space className="share-mobile-open-actions" wrap>
-            <Button type="primary" size="small" icon={<AndroidOutlined />} onClick={openInAndroidApp}>
+            <Button type="primary" size="small" icon={<Icon icon={Smartphone} />} onClick={openInAndroidApp}>
               打开 App
             </Button>
             <Button size="small" onClick={openAppDownloadPage}>

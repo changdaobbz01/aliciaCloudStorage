@@ -494,9 +494,10 @@ select {
   white-space: nowrap;
 }
 
-.header-title .anticon {
+.header-title .lucide {
   color: #2563eb;
-  font-size: 24px;
+  width: 24px;
+  height: 24px;
 }
 
 .header-title .ant-typography {
@@ -644,7 +645,7 @@ select {
   white-space: nowrap;
 }
 
-.app-main-shell-with-background .header-title .anticon,
+.app-main-shell-with-background .header-title .lucide,
 .app-main-shell-with-background .header-title .ant-typography {
   color: #ffffff;
   text-shadow: 0 3px 18px rgba(15, 23, 42, 0.5);
@@ -1598,7 +1599,7 @@ select {
   gap: 10px;
 }
 
-.share-mobile-open-copy > .anticon {
+.share-mobile-open-copy > .lucide {
   display: grid;
   place-items: center;
   width: 34px;
@@ -1607,7 +1608,6 @@ select {
   border-radius: 8px;
   color: #2563eb;
   background: #eff4ff;
-  font-size: 18px;
 }
 
 .share-mobile-open-copy > div {
@@ -1737,7 +1737,7 @@ select {
   line-height: 1.6;
 }
 
-.app-download-safety .anticon {
+.app-download-safety .lucide {
   margin-top: 2px;
   color: #2563eb;
 }
@@ -2179,7 +2179,7 @@ body,
 .download-task-icon,
 .upload-floating-icon,
 .app-download-icon-badge,
-.share-mobile-open-copy > .anticon {
+.share-mobile-open-copy > .lucide {
   border-radius: 8px;
   color: var(--alicia-blue);
   background: var(--alicia-blue-soft);
@@ -2253,7 +2253,7 @@ body,
   font-weight: 800;
 }
 
-.header-title .anticon {
+.header-title .lucide {
   color: var(--alicia-blue);
 }
 
@@ -2701,7 +2701,7 @@ body,
 .brand-icon,
 .sider-download-icon,
 .app-download-icon-badge,
-.share-mobile-open-copy > .anticon,
+.share-mobile-open-copy > .lucide,
 .home-stat-icon,
 .drive-category-icon {
   border: 1px solid #dbeafe;
@@ -3010,11 +3010,10 @@ body,
   min-width: 0;
 }
 
-.avatar-account-dropdown .ant-dropdown-menu-item .anticon {
+.avatar-account-dropdown .ant-dropdown-menu-item .lucide {
   width: 18px;
-  margin-right: 9px;
+  height: 18px;
   color: currentColor;
-  font-size: 16px;
 }
 
 .avatar-account-dropdown .ant-dropdown-menu-item-divider {
@@ -3318,4 +3317,118 @@ body,
   .share-switch-row {
     grid-template-columns: 1fr;
   }
+}
+
+/* Alicia icon and weight baseline: keep CloudPan aligned with the main site. */
+:where(.lucide) {
+  display: block;
+  flex: 0 0 auto;
+  color: currentColor;
+  stroke-width: 2.35;
+}
+
+:where(.ant-btn-icon .lucide),
+:where(.ant-input-prefix .lucide),
+:where(.ant-menu-item-icon .lucide),
+:where(.ant-dropdown-menu-item-icon .lucide),
+:where(.storage-icon-shell .lucide),
+:where(.home-stat-icon .lucide),
+:where(.drive-category-icon .lucide),
+:where(.download-task-icon .lucide),
+:where(.share-mobile-open-copy .lucide),
+:where(.app-download-safety .lucide) {
+  width: 17px;
+  height: 17px;
+}
+
+:where(.ant-btn-icon),
+:where(.ant-input-prefix),
+:where(.ant-menu-item-icon),
+:where(.ant-dropdown-menu-item-icon) {
+  display: inline-grid;
+  place-items: center;
+}
+
+:where(.ant-btn-icon) {
+  margin-inline-end: 7px;
+}
+
+.sider-menu .ant-menu-item,
+.sider-menu .ant-menu-title-content {
+  color: #334155;
+  font-weight: 850;
+}
+
+.sider-menu .ant-menu-item-selected,
+.sider-menu .ant-menu-item-selected .ant-menu-title-content {
+  color: var(--alicia-blue);
+  font-weight: 900;
+}
+
+.avatar-account-dropdown .ant-dropdown-menu {
+  width: 214px;
+  padding: 10px;
+}
+
+.avatar-account-dropdown .ant-dropdown-menu-item {
+  min-height: 46px;
+  padding: 0 12px !important;
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.avatar-account-dropdown .ant-dropdown-menu-item .ant-dropdown-menu-item-icon {
+  margin-inline-end: 12px;
+  color: currentColor;
+}
+
+.avatar-account-dropdown .ant-dropdown-menu-item .lucide {
+  width: 20px;
+  height: 20px;
+}
+
+.avatar-account-dropdown .ant-dropdown-menu-title-content {
+  color: currentColor;
+}
+
+.avatar-account-dropdown .ant-dropdown-menu-item-divider {
+  margin: 8px 0;
+}
+
+.panel-title-copy .ant-typography,
+.header-title .ant-typography,
+.home-card-header .ant-typography,
+.download-section-head .ant-typography,
+.storage-name-title,
+.table-primary-text,
+.download-task-title,
+.share-title-cell,
+.user-cell-copy .ant-typography:first-child,
+.management-summary-value,
+.home-stat-value,
+.app-download-meta-card .ant-typography {
+  color: var(--alicia-text);
+  font-weight: 900 !important;
+}
+
+.storage-data-table .ant-table,
+.management-table .ant-table,
+.storage-data-table .ant-table-tbody > tr > td,
+.management-table .ant-table-tbody > tr > td {
+  color: #26364d;
+  font-weight: 650;
+}
+
+.storage-data-table .ant-table-thead > tr > th,
+.management-table .ant-table-thead > tr > th {
+  color: var(--alicia-text) !important;
+  font-weight: 900 !important;
+}
+
+.status-icon-success {
+  color: var(--alicia-blue);
+}
+
+.status-icon-warning {
+  color: #f59e0b;
 }

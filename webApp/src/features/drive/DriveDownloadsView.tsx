@@ -1,15 +1,8 @@
-import {
-  CheckCircleOutlined,
-  CloseCircleOutlined,
-  CloudDownloadOutlined,
-  DeleteOutlined,
-  FileZipOutlined,
-  FolderOpenOutlined,
-  ReloadOutlined,
-} from '@ant-design/icons';
+import { CircleCheck, CircleX, CloudDownload, FileArchive, FolderOpen, RefreshCw, Trash2 } from 'lucide-react';
 import { Button, Empty, Popover, Progress, Space, Tag, Typography } from 'antd';
 import { formatFileSize } from './driveShared';
 import type { DriveDownloadTask, DriveDownloadTaskStatus } from './types';
+import { Icon } from '../../components/Icon';
 
 type DriveDownloadsViewProps = {
   tasks: DriveDownloadTask[];
@@ -120,7 +113,7 @@ function renderTaskRow(
     <div key={task.id} className="download-task-row">
       <div className="download-task-main">
         <span className={`download-task-icon${task.sourceType === 'archive' ? ' download-task-icon-archive' : ''}`}>
-          {task.sourceType === 'archive' ? <FileZipOutlined /> : <CloudDownloadOutlined />}
+          {task.sourceType === 'archive' ? <Icon icon={FileArchive} /> : <Icon icon={CloudDownload} />}
         </span>
 
         <div className="download-task-copy">
@@ -141,13 +134,13 @@ function renderTaskRow(
 
       <Space size="small" className="download-task-actions">
         {active ? (
-          <Button size="small" danger icon={<CloseCircleOutlined />} onClick={() => onCancelTask(task.id)}>
+          <Button size="small" danger icon={<Icon icon={CircleX} />} onClick={() => onCancelTask(task.id)}>
             取消
           </Button>
         ) : null}
 
         {task.status === 'error' ? (
-          <Button size="small" icon={<ReloadOutlined />} onClick={() => onRetryTask(task.id)}>
+          <Button size="small" icon={<Icon icon={RefreshCw} />} onClick={() => onRetryTask(task.id)}>
             重新下载
           </Button>
         ) : null}
@@ -197,12 +190,12 @@ export default function DriveDownloadsView({
 
         <div className="panel-actions">
           <Popover placement="bottomRight" trigger="click" content={downloadLocationContent}>
-            <Button icon={<FolderOpenOutlined />}>查看下载位置</Button>
+            <Button icon={<Icon icon={FolderOpen} />}>查看下载位置</Button>
           </Popover>
-          <Button icon={<CheckCircleOutlined />} disabled={clearFinishedDisabled} onClick={onClearFinished}>
+          <Button icon={<Icon icon={CircleCheck} />} disabled={clearFinishedDisabled} onClick={onClearFinished}>
             清除已完成
           </Button>
-          <Button danger icon={<DeleteOutlined />} disabled={clearHistoryDisabled} onClick={onClearHistory}>
+          <Button danger icon={<Icon icon={Trash2} />} disabled={clearHistoryDisabled} onClick={onClearHistory}>
             清除历史
           </Button>
         </div>

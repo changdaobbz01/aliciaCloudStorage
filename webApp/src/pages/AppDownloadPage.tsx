@@ -1,8 +1,4 @@
-import {
-  AndroidOutlined,
-  CloudDownloadOutlined,
-  SafetyCertificateOutlined,
-} from '@ant-design/icons';
+import { CloudDownload, ShieldCheck, Smartphone } from 'lucide-react';
 import { App as AntApp, Button, Card, Result, Space, Spin, Typography } from 'antd';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -11,6 +7,7 @@ import { publicAssetPath } from '../lib/appPaths';
 import type { AppPackageInfo } from '../types';
 import { formatFileSize, resolveAppDownloadUrl } from '../features/drive/driveShared';
 import { buildShareIntentUrl } from '../lib/mobileApp';
+import { Icon } from '../components/Icon';
 
 export function AppDownloadPage() {
   const { message } = AntApp.useApp();
@@ -102,7 +99,7 @@ export function AppDownloadPage() {
           <Card className="app-download-panel" bordered={false}>
             <div className="app-download-hero">
               <span className="app-download-icon-badge">
-                <AndroidOutlined />
+                <Icon icon={Smartphone} />
               </span>
               <div>
                 <Typography.Text className="header-eyebrow">ANDROID APP</Typography.Text>
@@ -138,13 +135,13 @@ export function AppDownloadPage() {
 
             <Space className="app-download-actions" wrap>
               {shareCode ? (
-                <Button type="primary" size="large" icon={<AndroidOutlined />} onClick={openShareInApp}>
+                <Button type="primary" size="large" icon={<Icon icon={Smartphone} />} onClick={openShareInApp}>
                   打开 App 查看分享
                 </Button>
               ) : null}
               <Button
                 size="large"
-                icon={<CloudDownloadOutlined />}
+                icon={<Icon icon={CloudDownload} />}
                 disabled={!canDownload}
                 onClick={handleDownload}
               >
@@ -158,7 +155,7 @@ export function AppDownloadPage() {
             </Space>
 
             <div className="app-download-safety">
-              <SafetyCertificateOutlined />
+              <Icon icon={ShieldCheck} />
               <Typography.Text>请只通过 Alicia 云盘站点下载安装包，安装前确认来源域名为 windwindwind-alicia.cn。</Typography.Text>
             </div>
           </Card>

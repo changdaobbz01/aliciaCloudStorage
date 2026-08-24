@@ -1,8 +1,9 @@
-import { CopyOutlined, DeleteOutlined, LinkOutlined, ReloadOutlined } from '@ant-design/icons';
+import { Copy, Link, RefreshCw, Trash2 } from 'lucide-react';
 import { App as AntApp, Button, Popconfirm, Space, Table, Tag, Typography } from 'antd';
 import type { TableProps } from 'antd';
 import type { ShareLinkSummary } from '../../types';
 import { resolveShareUrl } from './driveShared';
+import { Icon } from '../../components/Icon';
 
 type DriveSharesViewProps = {
   shareLinks: ShareLinkSummary[];
@@ -64,7 +65,7 @@ export default function DriveSharesView({ shareLinks, loading, onRefresh, onRevo
       render: (_, share) => (
         <div className="share-title-cell">
           <span className="storage-icon-shell storage-folder-icon">
-            <LinkOutlined />
+            <Icon icon={Link} />
           </span>
           <div className="storage-name-copy">
             <Typography.Text strong ellipsis={{ tooltip: share.title }} className="storage-name-title">
@@ -120,7 +121,7 @@ export default function DriveSharesView({ shareLinks, loading, onRefresh, onRevo
       width: 220,
       render: (_, share) => (
         <Space size="small" wrap>
-          <Button type="link" icon={<CopyOutlined />} onClick={() => void handleCopy(resolveShareUrl(share.shareCode))}>
+          <Button type="link" icon={<Icon icon={Copy} />} onClick={() => void handleCopy(resolveShareUrl(share.shareCode))}>
             复制链接
           </Button>
           {share.status === 'ACTIVE' ? (
@@ -132,7 +133,7 @@ export default function DriveSharesView({ shareLinks, loading, onRefresh, onRevo
               okButtonProps={{ danger: true }}
               onConfirm={() => onRevokeShare(share.id)}
             >
-              <Button type="link" danger icon={<DeleteOutlined />}>
+              <Button type="link" danger icon={<Icon icon={Trash2} />}>
                 取消
               </Button>
             </Popconfirm>
@@ -152,7 +153,7 @@ export default function DriveSharesView({ shareLinks, loading, onRefresh, onRevo
           </Typography.Paragraph>
         </div>
         <div className="panel-actions">
-          <Button icon={<ReloadOutlined />} onClick={onRefresh}>
+          <Button icon={<Icon icon={RefreshCw} />} onClick={onRefresh}>
             刷新
           </Button>
         </div>

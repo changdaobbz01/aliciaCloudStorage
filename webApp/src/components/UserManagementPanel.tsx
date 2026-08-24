@@ -1,7 +1,8 @@
-import { EditOutlined, LockOutlined, PlusOutlined } from '@ant-design/icons';
+import { Lock, Pencil, Plus } from 'lucide-react';
 import { Avatar, Button, Space, Table, Tag, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { isCloudAdmin, type User } from '../types';
+import { Icon } from './Icon';
 
 function resolveAvatarSrc(user: User) {
   if (!user.avatarUrl) {
@@ -142,11 +143,11 @@ export function UserManagementPanel({
 
         return (
           <Space size={0} wrap>
-            <Button type="link" icon={<LockOutlined />} onClick={() => onResetUserPassword(user)}>
+            <Button type="link" icon={<Icon icon={Lock} />} onClick={() => onResetUserPassword(user)}>
               重置密码
             </Button>
             {isCloudAdmin(user) ? null : (
-              <Button type="link" icon={<EditOutlined />} onClick={() => onEditUserQuota(user)}>
+              <Button type="link" icon={<Icon icon={Pencil} />} onClick={() => onEditUserQuota(user)}>
                 修改额度
               </Button>
             )}
@@ -167,7 +168,7 @@ export function UserManagementPanel({
         </div>
 
         <div className="panel-actions">
-          <Button type="primary" icon={<PlusOutlined />} onClick={onCreateUser}>
+          <Button type="primary" icon={<Icon icon={Plus} />} onClick={onCreateUser}>
             新增账号
           </Button>
         </div>

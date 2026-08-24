@@ -1,19 +1,10 @@
-import {
-  DeleteOutlined,
-  DownloadOutlined,
-  EditOutlined,
-  EyeOutlined,
-  FileOutlined,
-  FolderOpenFilled,
-  RollbackOutlined,
-  ShareAltOutlined,
-  SwapOutlined,
-} from '@ant-design/icons';
+import { Download, Eye, File, FolderOpen, Move, Pencil, Share2, Trash2, Undo2 } from 'lucide-react';
 import { Button, Popconfirm, Space, Table, Typography } from 'antd';
 import type { TablePaginationConfig, TableProps } from 'antd';
 import type { SorterResult } from 'antd/es/table/interface';
 import type { SortDirection, StorageNode, StorageNodeSortField, StorageViewMode } from '../types';
 import type { DriveDownloadButtonState } from '../features/drive/types';
+import { Icon } from './Icon';
 
 type StorageTableProps = {
   mode: StorageViewMode;
@@ -153,9 +144,9 @@ export function StorageTable({
           <>
             <span className={`storage-icon-shell${item.type === 'FOLDER' ? ' storage-folder-icon' : ''}`}>
               {item.type === 'FOLDER' ? (
-                <FolderOpenFilled style={{ fontSize: 18 }} />
+                <Icon icon={FolderOpen} size={18} />
               ) : (
-                <FileOutlined style={{ fontSize: 18 }} />
+                <Icon icon={File} size={18} />
               )}
             </span>
 
@@ -211,7 +202,7 @@ export function StorageTable({
 
         return isTrashMode ? (
           <Space size="small" wrap>
-            <Button type="link" icon={<RollbackOutlined />} onClick={() => onRestoreNode(item)}>
+            <Button type="link" icon={<Icon icon={Undo2} />} onClick={() => onRestoreNode(item)}>
               恢复
             </Button>
             <Popconfirm
@@ -222,7 +213,7 @@ export function StorageTable({
               okButtonProps={{ danger: true }}
               onConfirm={() => onPermanentlyDeleteNode(item)}
             >
-              <Button type="link" danger icon={<DeleteOutlined />}>
+              <Button type="link" danger icon={<Icon icon={Trash2} />}>
                 彻底删除
               </Button>
             </Popconfirm>
@@ -232,7 +223,7 @@ export function StorageTable({
             {item.type === 'FILE' ? (
               <Button
                 type="link"
-                icon={<EyeOutlined />}
+                icon={<Icon icon={Eye} />}
                 loading={previewingFileId === item.id}
                 onClick={() => onPreviewFile(item)}
               >
@@ -241,19 +232,19 @@ export function StorageTable({
             ) : null}
             <Button
               type="link"
-              icon={<DownloadOutlined />}
+              icon={<Icon icon={Download} />}
               disabled={downloadState.busy}
               onClick={() => onDownloadNode(item)}
             >
               {downloadState.label}
             </Button>
-            <Button type="link" icon={<ShareAltOutlined />} onClick={() => onShareNode(item)}>
+            <Button type="link" icon={<Icon icon={Share2} />} onClick={() => onShareNode(item)}>
               分享
             </Button>
-            <Button type="link" icon={<EditOutlined />} onClick={() => onRenameNode(item)}>
+            <Button type="link" icon={<Icon icon={Pencil} />} onClick={() => onRenameNode(item)}>
               重命名
             </Button>
-            <Button type="link" icon={<SwapOutlined />} onClick={() => onMoveNode(item)}>
+            <Button type="link" icon={<Icon icon={Move} />} onClick={() => onMoveNode(item)}>
               移动
             </Button>
             <Popconfirm
@@ -264,7 +255,7 @@ export function StorageTable({
               okButtonProps={{ danger: true }}
               onConfirm={() => onDeleteNode(item)}
             >
-              <Button type="link" danger icon={<DeleteOutlined />}>
+              <Button type="link" danger icon={<Icon icon={Trash2} />}>
                 删除
               </Button>
             </Popconfirm>

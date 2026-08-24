@@ -1,6 +1,7 @@
-import { DeleteOutlined, DownloadOutlined, UploadOutlined } from '@ant-design/icons';
+import { Download, Trash2, Upload } from 'lucide-react';
 import { Alert, Button, Popconfirm, Space, Spin, Typography } from 'antd';
 import type { AppPackageInfo } from '../types';
+import { Icon } from './Icon';
 
 type AppPackagePanelProps = {
   packageInfo: AppPackageInfo | null;
@@ -54,7 +55,7 @@ export function AppPackagePanel({
         </div>
 
         <div className="panel-actions">
-          <Button type="primary" icon={<UploadOutlined />} loading={uploading} onClick={onUploadClick}>
+          <Button type="primary" icon={<Icon icon={Upload} />} loading={uploading} onClick={onUploadClick}>
             上传新版本
           </Button>
           {packageAvailable ? (
@@ -66,7 +67,7 @@ export function AppPackagePanel({
               okButtonProps={{ danger: true }}
               onConfirm={onDeletePackage}
             >
-              <Button danger icon={<DeleteOutlined />} disabled={uploading}>
+              <Button danger icon={<Icon icon={Trash2} />} disabled={uploading}>
                 移除当前包
               </Button>
             </Popconfirm>
@@ -123,7 +124,7 @@ export function AppPackagePanel({
                   {downloadUrl}
                 </Typography.Paragraph>
                 <a href={downloadUrl} target="_blank" rel="noreferrer" className="sider-download-link app-package-link">
-                  <DownloadOutlined />
+                  <Icon icon={Download} />
                   下载当前 APK
                 </a>
               </Space>

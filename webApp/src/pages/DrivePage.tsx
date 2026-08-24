@@ -1,23 +1,10 @@
-﻿import {
-  AndroidOutlined,
-  DeleteOutlined,
-  DesktopOutlined,
-  DownloadOutlined,
-  EditOutlined,
-  FolderOpenOutlined,
-  HomeOutlined,
-  LockOutlined,
-  LogoutOutlined,
-  SearchOutlined,
-  ShareAltOutlined,
-  TeamOutlined,
-  UploadOutlined,
-} from '@ant-design/icons';
-import { App as AntApp, Avatar, Badge, Dropdown, Input, Layout, Menu, Progress, QRCode, Spin, Typography } from 'antd';
+﻿import { App as AntApp, Avatar, Badge, Dropdown, Input, Layout, Menu, Progress, QRCode, Spin, Typography } from 'antd';
+import { Download, FolderOpen, Home, KeyRound, LogOut, Monitor, Search, Share2, Smartphone, Trash2, UserCog, UsersRound } from 'lucide-react';
 import type { MenuProps } from 'antd';
 import type { CSSProperties, ChangeEvent } from 'react';
 import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Icon } from '../components/Icon';
 import { LazyChunkErrorBoundary } from '../components/lazy-chunk-error-boundary';
 import { publicAssetPath } from '../lib/appPaths';
 import { redirectToUnifiedLogin } from '../lib/unifiedLogin';
@@ -61,13 +48,13 @@ const { Header, Sider, Content } = Layout;
 const MAX_HOME_BACKGROUND_BYTES = 10 * 1024 * 1024;
 
 const baseMenuItems = [
-  { key: 'home', icon: <HomeOutlined />, label: '主页' },
-  { key: 'drive', icon: <FolderOpenOutlined />, label: '我的文件' },
-  { key: 'downloads', icon: <DownloadOutlined />, label: '下载管理' },
-  { key: 'shares', icon: <ShareAltOutlined />, label: '我的分享' },
-  { key: 'accounts', icon: <TeamOutlined />, label: '账号管理' },
-  { key: 'appPackage', icon: <AndroidOutlined />, label: 'APP 上传' },
-  { key: 'trash', icon: <DeleteOutlined />, label: '回收站' },
+  { key: 'home', icon: <Icon icon={Home} />, label: '主页' },
+  { key: 'drive', icon: <Icon icon={FolderOpen} />, label: '我的文件' },
+  { key: 'downloads', icon: <Icon icon={Download} />, label: '下载管理' },
+  { key: 'shares', icon: <Icon icon={Share2} />, label: '我的分享' },
+  { key: 'accounts', icon: <Icon icon={UsersRound} />, label: '账号管理' },
+  { key: 'appPackage', icon: <Icon icon={Smartphone} />, label: 'APP 上传' },
+  { key: 'trash', icon: <Icon icon={Trash2} />, label: '回收站' },
 ];
 
 /**
@@ -205,19 +192,19 @@ export function DrivePage() {
     );
   }, [downloads.activeDownloadCount, isAdmin]);
   const currentViewIcon = isHomeView ? (
-    <HomeOutlined />
+    <Icon icon={Home} />
   ) : isDownloadsView ? (
-    <DownloadOutlined />
+    <Icon icon={Download} />
   ) : isSharesView ? (
-    <ShareAltOutlined />
+    <Icon icon={Share2} />
   ) : isAccountsView ? (
-    <TeamOutlined />
+    <Icon icon={UsersRound} />
   ) : isAppPackageView ? (
-    <AndroidOutlined />
+    <Icon icon={Smartphone} />
   ) : isTrashView ? (
-    <DeleteOutlined />
+    <Icon icon={Trash2} />
   ) : (
-    <FolderOpenOutlined />
+    <Icon icon={FolderOpen} />
   );
   const headerEyebrow = isHomeView
     ? '系统概览'
@@ -375,11 +362,11 @@ export function DrivePage() {
   }
 
   const avatarMenuItems: MenuProps['items'] = [
-    { key: 'profile', icon: <EditOutlined />, label: '个人资料' },
-    { key: 'password', icon: <LockOutlined />, label: '修改密码' },
-    { key: 'sessions', icon: <DesktopOutlined />, label: '登录会话' },
+    { key: 'profile', icon: <Icon icon={UserCog} />, label: '个人资料' },
+    { key: 'password', icon: <Icon icon={KeyRound} />, label: '修改密码' },
+    { key: 'sessions', icon: <Icon icon={Monitor} />, label: '登录会话' },
     { type: 'divider' },
-    { key: 'logout', icon: <LogoutOutlined />, label: '退出登录', danger: true },
+    { key: 'logout', icon: <Icon icon={LogOut} />, label: '退出登录', danger: true },
   ];
 
   const viewLoadingFallback = (
@@ -615,7 +602,7 @@ export function DrivePage() {
                 onChange={handleKeywordInputChange}
                 onPressEnter={() => handleSearch(keywordInput)}
                 placeholder={headerSearchPlaceholder}
-                prefix={<SearchOutlined />}
+                prefix={<Icon icon={Search} />}
                 className="header-search"
               />
             ) : null}

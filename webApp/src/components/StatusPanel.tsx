@@ -1,15 +1,8 @@
-import {
-  CheckCircleTwoTone,
-  DatabaseOutlined,
-  DeleteOutlined,
-  FileTextOutlined,
-  FolderOpenOutlined,
-  HddOutlined,
-  PictureOutlined,
-} from '@ant-design/icons';
+import { CircleCheck, Database, FileText, FolderOpen, HardDrive, Image, Trash2 } from 'lucide-react';
 import { Button, Progress, Space, Typography } from 'antd';
 import type { ReactNode } from 'react';
 import type { DriveOverview, HealthResponse, UsageHistoryPoint } from '../types';
+import { Icon } from './Icon';
 
 type StatusPanelProps = {
   health: HealthResponse | null;
@@ -153,12 +146,12 @@ export function StatusPanel({
     {
       label: '服务状态',
       value: serviceOnline ? '在线' : '待检查',
-      icon: <CheckCircleTwoTone twoToneColor={serviceOnline ? '#2563eb' : '#f59e0b'} />,
+      icon: <Icon icon={CircleCheck} className={serviceOnline ? 'status-icon-success' : 'status-icon-warning'} />,
     },
-    { label: '总项目数', value: overview?.totalItems ?? 0, icon: <DatabaseOutlined /> },
-    { label: '文件夹数', value: overview?.totalFolders ?? 0, icon: <FolderOpenOutlined /> },
-    { label: usedLabel, value: formatBytes(usedBytes), icon: <FileTextOutlined /> },
-    { label: totalLabel, value: formatStorageLimit(totalSpaceBytes), icon: <HddOutlined /> },
+    { label: '总项目数', value: overview?.totalItems ?? 0, icon: <Icon icon={Database} /> },
+    { label: '文件夹数', value: overview?.totalFolders ?? 0, icon: <Icon icon={FolderOpen} /> },
+    { label: usedLabel, value: formatBytes(usedBytes), icon: <Icon icon={FileText} /> },
+    { label: totalLabel, value: formatStorageLimit(totalSpaceBytes), icon: <Icon icon={HardDrive} /> },
   ];
 
   return (
@@ -171,11 +164,11 @@ export function StatusPanel({
           </div>
 
           <Space wrap className="home-card-actions">
-            <Button icon={<PictureOutlined />} onClick={onChooseBackground}>
+            <Button icon={<Icon icon={Image} />} onClick={onChooseBackground}>
               设置背景图
             </Button>
             {backgroundImage ? (
-              <Button icon={<DeleteOutlined />} onClick={onClearBackground}>
+              <Button icon={<Icon icon={Trash2} />} onClick={onClearBackground}>
                 移除背景
               </Button>
             ) : null}

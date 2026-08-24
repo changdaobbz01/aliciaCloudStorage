@@ -1,10 +1,11 @@
-import { LogoutOutlined, ReloadOutlined, UploadOutlined } from '@ant-design/icons';
+import { LogOut, RefreshCw, Upload } from 'lucide-react';
 import { Avatar, Button, Form, Input, Modal, Popconfirm, Space, Switch, Table, Tag, Typography } from 'antd';
 import type { TableProps } from 'antd';
 import type { FormInstance } from 'antd/es/form';
 import type { MutableRefObject, ChangeEvent } from 'react';
 import { AliciaModalTitle } from '../../components/AliciaModalTitle';
 import type { ChangePasswordPayload, IdentitySession, UpdateProfilePayload, User } from '../../types';
+import { Icon } from '../../components/Icon';
 
 type PasswordFormValues = ChangePasswordPayload & {
   confirmPassword: string;
@@ -147,7 +148,7 @@ export function DriveProfileModals({
             <Button
               danger
               size="small"
-              icon={<LogoutOutlined />}
+              icon={<Icon icon={LogOut} />}
               loading={identitySessionRevokingId === session.id}
             >
               撤销
@@ -176,7 +177,7 @@ export function DriveProfileModals({
               {currentUser?.nickname?.slice(0, 1).toUpperCase() ?? 'U'}
             </Avatar>
             <Space wrap>
-              <Button icon={<UploadOutlined />} loading={avatarUploading} onClick={onAvatarButtonClick}>
+              <Button icon={<Icon icon={Upload} />} loading={avatarUploading} onClick={onAvatarButtonClick}>
                 上传本地头像
               </Button>
               <input
@@ -275,7 +276,7 @@ export function DriveProfileModals({
             <Typography.Text>显示已撤销</Typography.Text>
           </Space>
           <Button
-            icon={<ReloadOutlined />}
+            icon={<Icon icon={RefreshCw} />}
             loading={identitySessionsLoading}
             onClick={() => void onRefreshSessions()}
           >

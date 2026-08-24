@@ -1,10 +1,11 @@
-import { UploadOutlined } from '@ant-design/icons';
+import { Upload } from 'lucide-react';
 import { Button, Form, Input, Modal, Space, Typography } from 'antd';
 import type { FormInstance } from 'antd/es/form';
 import type { MutableRefObject, ChangeEvent } from 'react';
 import { AliciaModalTitle } from '../../components/AliciaModalTitle';
 import { formatFileSize } from './driveShared';
 import type { AppPackageUploadFormValues } from './types';
+import { Icon } from '../../components/Icon';
 
 type DriveAppPackageUploadModalProps = {
   open: boolean;
@@ -47,7 +48,7 @@ export function DriveAppPackageUploadModal({
       <Form form={form} layout="vertical" onFinish={(values) => void onSubmit(values)}>
         <Form.Item label="安装包文件" required>
           <Space direction="vertical" size={8} style={{ display: 'flex' }}>
-            <Button icon={<UploadOutlined />} onClick={onPickFile} disabled={uploading}>
+            <Button icon={<Icon icon={Upload} />} onClick={onPickFile} disabled={uploading}>
               选择 APK
             </Button>
             <input

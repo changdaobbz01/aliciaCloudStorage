@@ -1,15 +1,4 @@
-import {
-  AudioOutlined,
-  CopyOutlined,
-  FileImageOutlined,
-  FileOutlined,
-  FileTextOutlined,
-  FileZipOutlined,
-  FolderFilled,
-  LinkOutlined,
-  LockOutlined,
-  VideoCameraOutlined,
-} from '@ant-design/icons';
+import { Copy, File, FileArchive, FileImage, FileText, FolderOpen, Link, Lock, Music, Video } from 'lucide-react';
 import { Alert, App as AntApp, Button, Form, Input, Modal, Select, Space, Switch, Typography } from 'antd';
 import type { FormInstance } from 'antd/es/form';
 import { useEffect, useMemo, useState } from 'react';
@@ -18,6 +7,7 @@ import { fetchStorageFileAccessUrl } from '../../lib/api';
 import type { ShareLinkSummary, StorageNode } from '../../types';
 import { formatFileSize, resolveShareUrl } from './driveShared';
 import type { CreateShareFormValues } from './types';
+import { Icon } from '../../components/Icon';
 
 type DriveShareCreateModalProps = {
   targets: StorageNode[];
@@ -71,19 +61,19 @@ function ShareTargetThumbnail({ target, authToken }: { target: StorageNode; auth
   }
 
   const extension = normalizedExtension(target);
-  let icon = <FileOutlined />;
+  let icon = <Icon icon={File} />;
   if (target.type === 'FOLDER') {
-    icon = <FolderFilled />;
+    icon = <Icon icon={FolderOpen} />;
   } else if (isImageTarget(target)) {
-    icon = <FileImageOutlined />;
+    icon = <Icon icon={FileImage} />;
   } else if (target.mimeType?.startsWith('video/') || videoExtensions.has(extension)) {
-    icon = <VideoCameraOutlined />;
+    icon = <Icon icon={Video} />;
   } else if (target.mimeType?.startsWith('audio/') || audioExtensions.has(extension)) {
-    icon = <AudioOutlined />;
+    icon = <Icon icon={Music} />;
   } else if (archiveExtensions.has(extension)) {
-    icon = <FileZipOutlined />;
+    icon = <Icon icon={FileArchive} />;
   } else if (target.mimeType?.startsWith('text/') || ['txt', 'pdf', 'doc', 'docx', 'xls', 'xlsx'].includes(extension)) {
-    icon = <FileTextOutlined />;
+    icon = <Icon icon={FileText} />;
   }
 
   return <span className={`share-target-icon share-target-icon-${target.type.toLowerCase()}`}>{icon}</span>;
@@ -176,8 +166,8 @@ export function DriveShareCreateModal({
 
           <div className="share-copy-row">
             <Typography.Text className="share-copy-label">分享链接</Typography.Text>
-            <Input readOnly value={shareUrl} prefix={<LinkOutlined />} />
-            <Button icon={<CopyOutlined />} onClick={() => void handleCopy(shareUrl, '分享链接已复制。')}>
+            <Input readOnly value={shareUrl} prefix={<Icon icon={Link} />} />
+            <Button icon={<Icon icon={Copy} />} onClick={() => void handleCopy(shareUrl, '分享链接已复制。')}>
               复制链接
             </Button>
           </div>
@@ -185,8 +175,8 @@ export function DriveShareCreateModal({
           {lastCreatedPassword ? (
             <div className="share-copy-row">
               <Typography.Text className="share-copy-label">提取码</Typography.Text>
-              <Input readOnly value={lastCreatedPassword} prefix={<LockOutlined />} />
-              <Button icon={<CopyOutlined />} onClick={() => void handleCopy(lastCreatedPassword, '提取码已复制。')}>
+              <Input readOnly value={lastCreatedPassword} prefix={<Icon icon={Lock} />} />
+              <Button icon={<Icon icon={Copy} />} onClick={() => void handleCopy(lastCreatedPassword, '提取码已复制。')}>
                 复制提取码
               </Button>
             </div>

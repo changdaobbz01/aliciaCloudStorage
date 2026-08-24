@@ -1,7 +1,8 @@
-import { CloseCircleOutlined, DownOutlined, ReloadOutlined, UploadOutlined } from '@ant-design/icons';
+import { ChevronDown, CircleX, RefreshCw, Upload } from 'lucide-react';
 import { Button, Progress, Space, Typography } from 'antd';
 import { useState } from 'react';
 import type { DriveUploadTask } from './types';
+import { Icon } from '../../components/Icon';
 
 type DriveUploadFloatingPanelProps = {
   uploading: boolean;
@@ -59,7 +60,7 @@ export function DriveUploadFloatingPanel({
   if (collapsed) {
     return (
       <button type="button" className="upload-floating-chip" onClick={() => setCollapsed(false)}>
-        <UploadOutlined />
+        <Icon icon={Upload} />
         <span>上传队列</span>
         <strong>{overallUploadProgress}%</strong>
       </button>
@@ -71,7 +72,7 @@ export function DriveUploadFloatingPanel({
       <div className="upload-floating-header">
         <div className="upload-floating-title">
           <span className="upload-floating-icon">
-            <UploadOutlined />
+            <Icon icon={Upload} />
           </span>
           <div>
             <Typography.Title level={5}>上传队列</Typography.Title>
@@ -85,19 +86,19 @@ export function DriveUploadFloatingPanel({
 
         <Space size="small" wrap className="upload-floating-actions">
           {uploading ? (
-            <Button size="small" danger icon={<CloseCircleOutlined />} onClick={onCancelActiveUploads}>
+            <Button size="small" danger icon={<Icon icon={CircleX} />} onClick={onCancelActiveUploads}>
               取消上传
             </Button>
           ) : null}
           {uploadFailedCount > 0 ? (
-            <Button size="small" icon={<ReloadOutlined />} onClick={onRetryFailedUploads} disabled={uploading}>
+            <Button size="small" icon={<Icon icon={RefreshCw} />} onClick={onRetryFailedUploads} disabled={uploading}>
               继续失败项
             </Button>
           ) : null}
           <Button size="small" onClick={onClearUploadHistory} disabled={uploading}>
             清除记录
           </Button>
-          <Button size="small" icon={<DownOutlined />} onClick={() => setCollapsed(true)} aria-label="收起上传队列" />
+          <Button size="small" icon={<Icon icon={ChevronDown} />} onClick={() => setCollapsed(true)} aria-label="收起上传队列" />
         </Space>
       </div>
 

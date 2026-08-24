@@ -1,4 +1,4 @@
-import { ReloadOutlined, SearchOutlined, StopOutlined } from '@ant-design/icons';
+import { Ban, RefreshCw, Search } from 'lucide-react';
 import { Button, DatePicker, Form, Input, InputNumber, Select, Space, Table, Tag, Typography } from 'antd';
 import type { TableProps } from 'antd';
 import type { Dayjs } from 'dayjs';
@@ -11,6 +11,7 @@ import type {
   IdentityAuditLogQuery,
   IdentityAuditOutcome,
 } from '../../types';
+import { Icon } from '../../components/Icon';
 
 const { RangePicker } = DatePicker;
 
@@ -192,7 +193,7 @@ export function IdentityAuditLogPanel({
           </Typography.Paragraph>
         </div>
         <div className="panel-actions">
-          <Button icon={<ReloadOutlined />} onClick={onRefresh} loading={loading}>
+          <Button icon={<Icon icon={RefreshCw} />} onClick={onRefresh} loading={loading}>
             刷新
           </Button>
         </div>
@@ -249,10 +250,10 @@ export function IdentityAuditLogPanel({
         </Form.Item>
         <Form.Item label=" ">
           <Space size="small" wrap>
-            <Button type="primary" icon={<SearchOutlined />} onClick={handleSearch}>
+            <Button type="primary" icon={<Icon icon={Search} />} onClick={handleSearch}>
               查询
             </Button>
-            <Button icon={<StopOutlined />} onClick={handleReset}>
+            <Button icon={<Icon icon={Ban} />} onClick={handleReset}>
               重置
             </Button>
           </Space>

@@ -1,23 +1,9 @@
-import {
-  AppstoreOutlined,
-  AudioOutlined,
-  CloudDownloadOutlined,
-  DeleteOutlined,
-  FileImageOutlined,
-  FileTextOutlined,
-  FileZipOutlined,
-  FolderAddOutlined,
-  ReloadOutlined,
-  RollbackOutlined,
-  ShareAltOutlined,
-  SwapOutlined,
-  UploadOutlined,
-  VideoCameraOutlined,
-} from '@ant-design/icons';
+import { CloudDownload, FileArchive, FileImage, FileText, FolderPlus, LayoutGrid, Move, Music, RefreshCw, Share2, Trash2, Undo2, Upload, Video } from 'lucide-react';
 import { Alert, Breadcrumb, Button, Popconfirm, Segmented, Spin, Typography } from 'antd';
 import { StorageTable } from '../../components/StorageTable';
 import type { SortDirection, StorageFileCategory, StorageNode, StorageNodeFilter, StorageNodeSortField } from '../../types';
 import type { DriveDownloadButtonState, DriveListState, FolderCrumb } from './types';
+import { Icon } from '../../components/Icon';
 
 type DriveExplorerViewProps = {
   mode: 'drive' | 'trash';
@@ -67,12 +53,12 @@ type DriveExplorerViewProps = {
 };
 
 const fileCategoryOptions = [
-  { value: null, label: '全部', icon: <AppstoreOutlined /> },
-  { value: 'IMAGE' as const, label: '相册', icon: <FileImageOutlined /> },
-  { value: 'VIDEO' as const, label: '视频', icon: <VideoCameraOutlined /> },
-  { value: 'DOCUMENT' as const, label: '文档', icon: <FileTextOutlined /> },
-  { value: 'AUDIO' as const, label: '音频', icon: <AudioOutlined /> },
-  { value: 'ARCHIVE' as const, label: '压缩包', icon: <FileZipOutlined /> },
+  { value: null, label: '全部', icon: <Icon icon={LayoutGrid} /> },
+  { value: 'IMAGE' as const, label: '相册', icon: <Icon icon={FileImage} /> },
+  { value: 'VIDEO' as const, label: '视频', icon: <Icon icon={Video} /> },
+  { value: 'DOCUMENT' as const, label: '文档', icon: <Icon icon={FileText} /> },
+  { value: 'AUDIO' as const, label: '音频', icon: <Icon icon={Music} /> },
+  { value: 'ARCHIVE' as const, label: '压缩包', icon: <Icon icon={FileArchive} /> },
 ];
 
 export default function DriveExplorerView({
@@ -131,22 +117,22 @@ export default function DriveExplorerView({
         <div className="panel-actions">
           {!isTrashMode && !activeCategory ? (
             <>
-              <Button type="primary" icon={<UploadOutlined />} loading={uploading} onClick={onUploadClick}>
+              <Button type="primary" icon={<Icon icon={Upload} />} loading={uploading} onClick={onUploadClick}>
                 上传文件
               </Button>
-              <Button icon={<FolderAddOutlined />} onClick={onCreateFolderClick}>
+              <Button icon={<Icon icon={FolderPlus} />} onClick={onCreateFolderClick}>
                 新建文件夹
               </Button>
             </>
           ) : null}
 
-          <Button icon={<ReloadOutlined />} onClick={onRefresh}>
+          <Button icon={<Icon icon={RefreshCw} />} onClick={onRefresh}>
             刷新
           </Button>
 
           {isTrashMode ? (
             <>
-              <Button icon={<RollbackOutlined />} disabled={selectedCount === 0} onClick={onRestoreSelection}>
+              <Button icon={<Icon icon={Undo2} />} disabled={selectedCount === 0} onClick={onRestoreSelection}>
                 恢复所选
               </Button>
               <Popconfirm
@@ -158,7 +144,7 @@ export default function DriveExplorerView({
                 disabled={selectedCount === 0}
                 onConfirm={onPermanentDeleteSelection}
               >
-                <Button danger icon={<DeleteOutlined />} disabled={selectedCount === 0}>
+                <Button danger icon={<Icon icon={Trash2} />} disabled={selectedCount === 0}>
                   彻底删除所选
                 </Button>
               </Popconfirm>
@@ -166,21 +152,21 @@ export default function DriveExplorerView({
           ) : (
             <>
               <Button
-                icon={<CloudDownloadOutlined />}
+                icon={<Icon icon={CloudDownload} />}
                 disabled={selectedCount === 0 || downloadSelectionState.busy}
                 onClick={onDownloadSelection}
               >
                 {downloadSelectionState.label}
               </Button>
               <Button
-                icon={<ShareAltOutlined />}
+                icon={<Icon icon={Share2} />}
                 disabled={selectedCount === 0}
                 title={selectedCount > 20 ? '单个分享最多包含 20 个项目' : undefined}
                 onClick={onShareSelection}
               >
                 分享所选
               </Button>
-              <Button icon={<SwapOutlined />} disabled={selectedCount === 0} onClick={onOpenBatchMove}>
+              <Button icon={<Icon icon={Move} />} disabled={selectedCount === 0} onClick={onOpenBatchMove}>
                 移动所选
               </Button>
               <Popconfirm
@@ -192,7 +178,7 @@ export default function DriveExplorerView({
                 disabled={selectedCount === 0}
                 onConfirm={onDeleteSelection}
               >
-                <Button danger icon={<DeleteOutlined />} disabled={selectedCount === 0}>
+                <Button danger icon={<Icon icon={Trash2} />} disabled={selectedCount === 0}>
                   删除所选
                 </Button>
               </Popconfirm>
