@@ -446,6 +446,21 @@ expect_cloud_application_role() {
     ok "$label exposes cloud application role $cloud_role"
 }
 
+expect_application_role_entry() {
+    local label="$1"
+    local response="$2"
+    local app_code="$3"
+    local expected_role="$4"
+    local compact_response
+
+    compact_response="$(printf '%s' "$response" | tr -d '\n')"
+    printf '%s' "$compact_response" \
+        | grep -q "\"appCode\"[[:space:]]*:[[:space:]]*\"$app_code\"[^}]*\"roleCode\"[[:space:]]*:[[:space:]]*\"$expected_role\"" \
+        || fail "$label did not return $app_code application role $expected_role"
+
+    ok "$label returns $app_code application role $expected_role"
+}
+
 compose() {
     local command=(docker compose)
 
@@ -675,7 +690,7 @@ else
     app_roles_response="$(curl_json_or_fail "identity app roles admin route" \
         "$PUBLIC_BASE_URL/api/identity/admin/users/$USER_ID/app-roles" \
         -H "Authorization: Bearer $TOKEN")"
-    expect_cloud_application_role "identity app roles admin route" "$app_roles_response" "CLOUD_ADMIN"
+    expect_application_role_entry "identity app roles admin route" "$app_roles_response" "cloud" "CLOUD_ADMIN"
     expect_audit_log_filter \
         "identity audit logs filter session revoke event" \
         "SESSION_REVOKE" \
