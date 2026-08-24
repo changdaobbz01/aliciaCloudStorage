@@ -603,7 +603,7 @@ Cloud 管理：
 改造方向：
 
 1. 登录和注册由 mainSite `/login` 承载，云盘 Web 不再拥有独立登录页面。
-2. 云盘未登录或 token 过期时跳转 `/login?returnTo=/cloudPan/`。
+2. 云盘未登录或 token 过期时跳转 `/login?returnTo=/cloudPan/...`，returnTo 由云盘侧规范化为当前云盘路径，并规避回到登录页造成的跳转环。
 3. 云盘 Web 启动时先调用 `/api/identity/auth/token/refresh`，优先使用本地 refresh token 续签，再读取 `/api/cloud-profile/me`。
 4. 云盘 Web 运行中定时续签 token，主动退出登录时调用 `/api/identity/auth/logout` 撤销当前 refresh 会话后再清理本地会话。
 5. 云盘 Web 头像菜单已接入“登录会话”，可读取当前账号 refresh 会话并撤销非当前有效会话。
@@ -648,7 +648,7 @@ Cloud 管理：
 
 1. 主站从工具入口升级为统一入口。
 2. `/login` 页面调用 Identity 的 `/api/identity/auth/login`。
-3. 登录成功后根据 `returnTo` 跳转，例如 `/cloudPan/`。
+3. 登录成功后根据同源安全 `returnTo` 跳转，例如 `/cloudPan/`。
 4. 工具卡片进入云盘时带当前登录态，由同域 localStorage 或 cookie 读取。
 5. 如果使用同域路径部署，云盘地址改成 `/cloudPan/`，不再强依赖 `pan` 子域名。
 
@@ -908,7 +908,7 @@ identityApi
 
 1. mainSite 作为 `/` 和 `/login` 的统一入口。
 2. mainSite 调 `/api/identity/auth/login` 和 `/api/identity/auth/me`。
-3. 云盘未登录跳转主站 `/login?returnTo=/cloudPan/`。
+3. 云盘未登录跳转主站 `/login?returnTo=/cloudPan/...`，主站会校验 returnTo 为同源路径。
 4. 工具卡片按登录状态展示进入、未登录、即将上线等状态。
 
 验证：
