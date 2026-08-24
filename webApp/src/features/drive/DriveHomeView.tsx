@@ -1,4 +1,3 @@
-import { RegulatoryFooter } from '../../components/RegulatoryFooter';
 import { StatusPanel } from '../../components/StatusPanel';
 import type { DriveOverview, HealthResponse, UsageHistoryPoint } from '../../types';
 
@@ -29,10 +28,6 @@ export default function DriveHomeView({
         onChooseBackground={onChooseBackground}
         onClearBackground={onClearBackground}
       />
-
-      <div className="app-footer app-footer-home">
-        <RegulatoryFooter className="regulatory-footer-home" />
-      </div>
     </div>
   );
 }

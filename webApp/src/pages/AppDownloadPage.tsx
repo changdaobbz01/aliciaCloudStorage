@@ -1,14 +1,13 @@
 import {
   AndroidOutlined,
   CloudDownloadOutlined,
-  CloudServerOutlined,
   SafetyCertificateOutlined,
 } from '@ant-design/icons';
 import { App as AntApp, Button, Card, Result, Space, Spin, Typography } from 'antd';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { RegulatoryFooter } from '../components/RegulatoryFooter';
 import { fetchPublicAppPackage } from '../lib/api';
+import { publicAssetPath } from '../lib/appPaths';
 import type { AppPackageInfo } from '../types';
 import { formatFileSize, resolveAppDownloadUrl } from '../features/drive/driveShared';
 import { buildShareIntentUrl } from '../lib/mobileApp';
@@ -84,7 +83,7 @@ export function AppDownloadPage() {
           aria-label="进入 Alicia 云盘主页"
           onClick={() => void navigate('/')}
         >
-          <CloudServerOutlined className="brand-icon" />
+          <img src={publicAssetPath('/apple-touch-icon.png')} alt="" className="brand-icon brand-icon-image" />
           <div>
             <Typography.Title level={4}>Alicia 云盘</Typography.Title>
             <Typography.Text>移动客户端</Typography.Text>
@@ -165,10 +164,6 @@ export function AppDownloadPage() {
           </Card>
         )}
       </main>
-
-      <footer className="share-page-footer">
-        <RegulatoryFooter />
-      </footer>
     </div>
   );
 }

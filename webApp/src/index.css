@@ -143,6 +143,15 @@ select {
   background: #eff4ff;
 }
 
+.brand-icon-image {
+  display: block;
+  object-fit: cover;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: 0 10px 24px rgba(37, 99, 235, 0.18);
+}
+
 .sider-profile-card {
   display: grid;
   gap: 14px;
@@ -2698,6 +2707,12 @@ body,
   border: 1px solid #dbeafe;
   color: var(--alicia-blue);
   background: var(--alicia-blue-soft);
+}
+
+.brand-icon-image {
+  border: 0;
+  color: inherit;
+  background: transparent;
 }
 
 .share-page-shell,

@@ -1,6 +1,5 @@
 ﻿import {
   AndroidOutlined,
-  CloudServerOutlined,
   DeleteOutlined,
   DesktopOutlined,
   DownloadOutlined,
@@ -20,7 +19,6 @@ import type { CSSProperties, ChangeEvent } from 'react';
 import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LazyChunkErrorBoundary } from '../components/lazy-chunk-error-boundary';
-import { RegulatoryFooter } from '../components/RegulatoryFooter';
 import { publicAssetPath } from '../lib/appPaths';
 import { redirectToUnifiedLogin } from '../lib/unifiedLogin';
 import { DriveAccountsAdminModals } from '../features/drive/DriveAccountsAdminModals';
@@ -504,7 +502,7 @@ export function DrivePage() {
     <Layout className="app-shell">
       <Sider width={276} className="app-sider">
         <div className="brand-block">
-          <CloudServerOutlined className="brand-icon" />
+          <img src={publicAssetPath('/apple-touch-icon.png')} alt="" className="brand-icon brand-icon-image" />
           <div>
             <Typography.Title level={4}>Alicia 云盘</Typography.Title>
             <Typography.Text>腾讯 COS 文件工作台</Typography.Text>
@@ -655,12 +653,6 @@ export function DrivePage() {
           />
 
           {activeViewContent}
-
-          {!isHomeView ? (
-            <div className="app-footer">
-              <RegulatoryFooter />
-            </div>
-          ) : null}
         </Content>
       </Layout>
 

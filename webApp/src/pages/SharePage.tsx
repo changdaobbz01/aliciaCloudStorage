@@ -1,6 +1,5 @@
 import {
   AndroidOutlined,
-  CloudServerOutlined,
   FileOutlined,
   FolderOpenFilled,
   LoginOutlined,
@@ -13,6 +12,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { AliciaModalTitle } from '../components/AliciaModalTitle';
 import { RegulatoryFooter } from '../components/RegulatoryFooter';
+import { publicAssetPath } from '../lib/appPaths';
 import { useSession } from '../context/session-context';
 import {
   fetchStorageFolders,
@@ -550,7 +550,7 @@ export function SharePage() {
           aria-label="进入 Alicia 云盘主页"
           onClick={() => void navigate('/')}
         >
-          <CloudServerOutlined className="brand-icon" />
+          <img src={publicAssetPath('/apple-touch-icon.png')} alt="" className="brand-icon brand-icon-image" />
           <div>
             <Typography.Title level={4}>Alicia 云盘</Typography.Title>
             <Typography.Text>文件分享</Typography.Text>
