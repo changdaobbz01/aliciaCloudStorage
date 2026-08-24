@@ -1,18 +1,18 @@
-# Alicia 统一身份服务整改方案
+# Alicia 统一身份服务当前基线与后续规划
 
-本文档用于拆分现有云盘账号体系，把“用户身份”抽成可被主站、云盘和后续工具共同使用的独立 Identity Service。目标是稳定、高效、安全、干净地演进，不做只靠路由转发或复制用户表的临时方案。
+本文档记录 Alicia 身份体系从 CloudStorageApi 拆分后的当前架构基线，以及后续继续增强 Identity Service 的方向。当前主线已经从“迁移方案”进入“边界固化 + 能力增强”阶段：身份由 `identityApi` 拥有，云盘只消费身份结果并维护云盘业务资料，主站负责统一入口。
 
 ## 1. 目标
 
-迁移前 `CloudStorageApi` 同时承担了登录注册、用户资料、管理员账号管理、云盘额度、头像和主页背景等职责。当前登录、注册、Token、密码、公共资料和管理员身份管理已经迁入 `identityApi`；`CloudStorageApi` 只消费身份结果，并继续负责云盘资料、文件、分享、传输、容量和背景。
+迁移前 `CloudStorageApi` 同时承担了登录注册、用户资料、管理员账号管理、云盘额度、头像和主页背景等职责。当前登录、注册、Token、密码、公共资料、管理员身份管理、刷新会话和身份审计已经迁入 `identityApi`；`CloudStorageApi` 只消费身份结果，并继续负责云盘资料、文件、分享、传输、容量和背景。
 
-最终目标：
+当前基线目标：
 
 - 主站、云盘、后续工具共享同一套用户身份。
 - 用户表只由 Identity Service 写入和维护。
 - 云盘只保存云盘业务资料，例如容量、主页背景、文件、分享、传输等。
 - 前端和移动端使用清晰分离后的路径，不再继续保留未发布阶段的旧 `/api/auth/**` 和旧 `/api/admin/users` 兼容入口。
-- 生产部署能分阶段上线，每一步都有验证和回滚方式。
+- 生产部署有统一验证和回滚脚本，避免身份边界、登录交接和旧路径在后续迭代中回流。
 
 ## 2. 核心原则
 
@@ -20,7 +20,7 @@
 2. Identity Service 是用户表、密码、邮箱验证码、登录令牌、刷新令牌、账号状态的唯一所有者。
 3. CloudStorageApi 只消费身份结果，不能再直接修改密码、验证码、邮箱、账号状态。
 4. 业务数据继续归业务服务所有。云盘的 `storage_node`、`share_link`、`multipart_upload_session` 等仍归云盘服务。
-5. 第一期迁移优先保留现有用户 ID，避免文件归属和分享归属大规模重写。
+5. 继续保留现有用户 ID 作为全局 identity user ID，避免文件归属和分享归属大规模重写。
 6. 对外接口按职责分层：`/api/identity/**` 归 Identity，`/api/cloud-profile/**` 和 `/api/admin/cloud-users/**` 归云盘，`/api/storage/**`、`/api/share-links/**` 继续归云盘业务。
 
 ## 3. 当前结构复核
@@ -142,7 +142,7 @@
 | `avatar_url` | 公共头像 | Identity |
 | `password_hash` | 密码哈希 | Identity |
 | `token_version` | 登录态失效版本 | Identity |
-| `role` | 当前全局角色 | Identity 第一期保留，后续可拆服务角色 |
+| `role` | 当前全局角色 | Identity；后续可在此基础上扩展多应用角色/权限 |
 | `status` | 账号状态 | Identity |
 | `created_at` | 创建时间 | Identity |
 | `updated_at` | 更新时间 | Identity |
@@ -166,8 +166,8 @@
 目标语义：
 
 - 这些字段继续表示文件、上传会话、分享的拥有者。
-- 第一期不强制改列名，避免大规模迁移。
-- 代码层逐步把概念从 `ownerId` 明确为 `identityUserId`。
+- 当前不强制改列名，避免对文件、上传和分享表做低收益的大规模迁移。
+- 代码层语义统一按 identity user ID 理解；后续只在确有必要时再评估列名调整。
 
 ## 4. 目标结构
 
@@ -336,7 +336,7 @@ mainSite 不直接写用户表。
 
 ## 6. 数据模型整改
 
-### 6.1 第一期推荐表结构
+### 6.1 当前生产表结构
 
 项目尚未正式上线，当前不再保留旧 `sys_user` 表名；Identity V2 将身份表收口为 `identity_user`，由 Identity Service 接管。已有 `owner_id` 业务列先保持名称不变，但语义已经是 identity user ID。
 
@@ -349,13 +349,13 @@ identity_refresh_token
 identity_audit_log
 ```
 
-CloudStorageApi 新增：
+CloudStorageApi 拥有：
 
 ```text
 cloud_user_profile
 ```
 
-建议 `cloud_user_profile` 字段：
+`cloud_user_profile` 字段：
 
 | 字段 | 说明 |
 | --- | --- |
@@ -365,7 +365,7 @@ cloud_user_profile
 | `created_at` | 创建时间 |
 | `updated_at` | 更新时间 |
 
-第一期数据迁移：
+历史数据回填路径：
 
 ```text
 cloud_user_profile.identity_user_id = sys_user.id
@@ -390,12 +390,14 @@ cloud_user_profile.home_background_url = sys_user.home_background_url
 - 旧 `sys_user` 云盘字段不再作为兼容兜底；缺失 profile 由 CloudStorageApi 按默认额度补建。
 - `CloudMigrationBoundaryTest` 会阻止新的身份结构变更继续进入 CloudStorageApi 的 Flyway 目录，`IdentityMigrationBoundaryTest` 会阻止云盘业务结构进入 Identity Flyway 目录。
 
-### 6.2 第二期表结构清理
+### 6.2 已完成表结构清理
 
-旧云盘画像字段、旧身份表名、以及云盘业务表到身份表的数据库强 FK 已清理；后续只保留更大的物理拆库议题：
+旧云盘画像字段、旧身份表名、云盘业务表到身份表的数据库强 FK、云盘库中的身份表残留均已清理；Identity 已拥有独立 Flyway 历史表和独立 MySQL database：
 
 - 业务表继续保存 `owner_id` / `identity_user_id` 等逻辑 identity user ID。
 - 账号存在性、状态、角色、tokenVersion 和 refresh session 有效性继续由 Identity API / Identity token 校验保证。
+- 后续身份 schema 变更只进入 `identityApi/src/main/resources/db/identity-migration`。
+- 后续云盘 schema 变更只进入 `CloudStorageApi/src/main/resources/db/migration`。
 
 ### 6.3 不建议的做法
 
@@ -410,10 +412,11 @@ cloud_user_profile.home_background_url = sys_user.home_background_url
 
 ### 7.1 当前状态
 
-当前 token 由 `identityApi` 的 `IdentityTokenService` 统一签发。新签发的 access token 已是标准 JWT，默认仍使用 HS256 对称签名，也可通过配置切换为 RS256 非对称签名，payload 包含：
+当前 token 由 `identityApi` 的 `IdentityTokenService` 统一签发。新签发的 access token 已是标准 JWT；本地 compose 默认仍可使用 HS256，生产 `.env` 当前使用 `RS256/alicia-rs256-20260822035821`，payload 包含：
 
 ```text
-header.kid: alicia-hs256-v1
+header.alg: RS256
+header.kid: alicia-rs256-20260822035821
 iss: https://windwindwind-alicia.cn
 sub: 用户 ID
 aud: alicia-tools
@@ -423,7 +426,7 @@ ver: token version
 sid: refresh session id，可选
 ```
 
-`iss`、`aud` 和 `kid` 已配置化，默认分别来自：
+`iss`、`aud`、`kid`、算法和历史验签 key 已配置化，主要配置项为：
 
 ```text
 ALICIA_AUTH_TOKEN_ISSUER=https://windwindwind-alicia.cn
@@ -457,7 +460,7 @@ ALICIA_AUTH_TOKEN_PREVIOUS_RSA_PUBLIC_KEYS=old-rsa-kid=old-public-key
 - 指定刷新会话撤销会单独记录 `SESSION_REVOKE` 审计事件，避免和普通 logout 混在一起。
 - CloudStorageApi 不再本地解析旧 token 或查询本地用户表，而是通过 Identity 当前用户接口校验。
 
-剩余问题：
+当前运行边界：
 
 - 当前生产签发已切到 RS256；项目未正式上线，历史 HS256 key 已从 `ALICIA_AUTH_TOKEN_PREVIOUS_KEYS` 移除。
 - CloudStorageApi 现在会对 RS256 access token 做 JWKS 本地预验签，并已为 Identity HTTP 客户端设置可配置连接/读取超时；默认 JWKS 缓存 300 秒，可通过 `ALICIA_IDENTITY_TOKEN_PREFLIGHT_ENABLED` 和 `ALICIA_IDENTITY_TOKEN_JWKS_CACHE_SECONDS` 调整。
@@ -465,9 +468,9 @@ ALICIA_AUTH_TOKEN_PREVIOUS_RSA_PUBLIC_KEYS=old-rsa-kid=old-public-key
 - CloudStorageApi 入口拦截器会把 `/auth/me` 返回的身份快照放入 request context，`/api/cloud-profile/me` 和头像上传复用该快照，不再在同一请求里重复调用 Identity。
 - CloudStorageApi 的 `/api/health/dependencies` 会暴露固定 Identity gateway 操作观测，例如 `auth.me`、`jwks.fetch`、`admin.listUsers` 的成功/失败计数和最近耗时；该观测不记录 token、账号或用户标识，用于后续评估是否引入短缓存或状态快照。
 
-### 7.2 后续目标
+### 7.2 已完成与后续增强
 
-Identity Service 中期切换非对称 JWT/JWKS：
+Identity Service 已完成非对称 JWT/JWKS 生产切换：
 
 ```text
 header.kid: 当前签名密钥 ID
@@ -479,12 +482,13 @@ iat: 签发时间
 exp: 过期时间
 ```
 
-推荐：
+当前结论：
 
-- 第一期对称签名阶段已完成；HS256 JWT 签发、旧 token 解析兼容、JWT 元数据配置化、基础校验和历史 key 验签窗口已落地。
-- 生产非对称签名和 JWKS 切换已完成；CloudStorageApi 已先落地 RS256/JWKS 预验签，只持有公钥并继续调用 Identity 做状态强一致校验。
+- HS256 JWT 签发、JWT 元数据配置化、基础校验和历史 key 验签窗口能力已落地；旧 token 解析兼容已经在未上线阶段移除。
+- 生产非对称签名和 JWKS 切换已完成，历史 HS256 验签 key 已移除；CloudStorageApi 已落地 RS256/JWKS 预验签，只持有公钥并继续调用 Identity 做状态强一致校验。
 - 保留 token version，用于密码修改和管理员重置密码后的登录态失效。
 - 角色和状态暂不写入 access token，仍由 Identity 校验时读取数据库，避免角色/状态变更后出现过期授权信息。
+- 后续如果要减少 Identity 同步调用，优先设计短缓存或状态快照，而不是直接把 CloudStorageApi 改成完全信任本地 JWT。
 
 ### 7.3 CloudStorageApi 鉴权改造
 
@@ -499,7 +503,7 @@ exp: 过期时间
 后续可增强：
 
 - 在已消除单请求重复 `/auth/me` 的基础上，继续评估是否为 Identity 当前用户校验增加短缓存，降低 CloudStorageApi 到 Identity 的频繁往返。
-- 切换 JWT/JWKS 后，CloudStorageApi 可本地验签，只在需要强一致状态时调用 Identity。
+- 继续完善 Identity gateway telemetry 的展示和阈值告警，帮助判断短缓存或状态快照是否值得引入。
 
 ## 8. 接口整改清单
 
@@ -633,7 +637,7 @@ Cloud 管理：
 6. Web 与主站复用同一组浏览器 session key，并通过 storage 事件同步跨标签页登录、续签和退出状态。
 7. 主动退出登录时调用 `/api/identity/auth/logout`，然后清理本地 token 和 refresh token。
 8. 修改密码成功后立即清理本地 token，引导用户使用新密码重新登录。
-9. SessionStore 存储 token 的 key 可以后续改名，第一期不强制。
+9. SessionStore 存储 token 的 key 暂保持兼容；后续只有在统一账号中心需要更清晰命名时再改。
 
 ### 9.3 主站 mainSite
 
@@ -925,7 +929,7 @@ identityApi
 - 删除旧字段。
 - 减少重复数据来源。
 
-当前项目尚未正式上线，阶段 6 可直接按最终架构收口。已清理：
+当前项目尚未正式上线，阶段 6 已直接按最终架构收口。已清理：
 
 - `sys_user.storage_quota_bytes`。
 - `sys_user.home_background_url`。
@@ -1031,9 +1035,9 @@ bash deploy/scripts/check-identity-route-boundary.sh
 - 旧 `/api/auth/me`、`/api/auth/avatar/{userId}`、`/api/admin/users` 保持 404。
 - `identity_audit_log` 最新记录查询。
 
-## 14. 当前优先整改位置
+## 14. 后续重点位置
 
-当前第一轮身份拆分已经落地，后续重点转为增强 Identity 独立性和清理历史字段。
+身份拆分主线已经落地，后续重点转为增强 Identity 的权限模型、运行效率、密钥运维和跨应用登录体验。
 
 Identity：
 
@@ -1069,12 +1073,12 @@ Web 和 Android：
 
 ## 15. 推荐下一步
 
-下一步按架构收益从高到低推进：
+下一步按架构收益从高到低推进，尽量以“大节点”合并和验证：
 
-1. 继续观察 Identity 审计日志写入、查询接口和 Web 管理页筛选结果。
-2. 继续观察 `identity_refresh_token` 的生产写入、轮换、会话查询和指定会话撤销结果。
-3. 继续观察 `identity_flyway_schema_history`，确认后续身份 schema 变更只进入 `identityApi` 迁移目录，并保持双向迁移边界测试通过。
-4. 基于 CloudStorageApi 的 Identity gateway telemetry 观察 `/auth/me`、JWKS、管理员用户接口的调用量、失败类型和耗时，再决定是否引入短缓存或状态快照。
-5. 继续梳理主站统一登录 UI 和跨应用登录态产品化。
+1. 设计并落地多应用权限模型：保留 Identity 全局角色，同时为云盘、主站和后续工具预留应用级角色/权限，不让业务服务直接扩写身份表。
+2. 基于 CloudStorageApi 的 Identity gateway telemetry 评估 `/auth/me`、JWKS、管理员用户接口的调用量、失败类型和耗时，再决定是否引入短缓存或 Identity 状态快照。
+3. 把主站统一登录体验继续产品化：账号面板、跨标签页登录态、退出/切换账号、returnTo 安全边界和云盘入口状态保持一致。
+4. 将 RS256 密钥轮换沉淀为正式运维流程；后续如需要后台密钥管理，再新增密钥实体、查询接口和管理界面。
+5. 保持迁移边界测试、静态路径扫描和统一生产验证脚本常态化，防止旧 `/api/auth/**`、旧 `/api/admin/users`、旧 `sys_user` 或云盘画像字段回流。
 
-这一步完成后，当前文档基线已经与生产架构对齐：Identity 负责身份，CloudStorageApi 负责云盘，主站负责统一入口。后续新增工具只需要接入 Identity，不应该再直接复用或写入云盘的用户资料表。
+当前文档基线已经与生产架构对齐：Identity 负责身份，CloudStorageApi 负责云盘，主站负责统一入口。后续新增工具只需要接入 Identity，不应该再直接复用或写入云盘的用户资料表。
