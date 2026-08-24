@@ -282,12 +282,20 @@ class AliciaRepository(
             )
             .requireBody(fallback = "重置用户密码失败。")
 
-    private suspend fun IdentityLoginResponse.toCloudLoginResponse(baseUrl: String): LoginResponse =
-        LoginResponse(
-            token = token,
-            refreshToken = refreshToken,
-            user = fetchCurrentUser(baseUrl, token),
+    private suspend fun IdentityLoginResponse.toCloudLoginResponse(baseUrl: String): LoginResponse {
+        val accessToken = token.trim()
+        val nextRefreshToken = refreshToken?.trim()
+
+        if (accessToken.isBlank() || nextRefreshToken.isNullOrBlank()) {
+            throw ApiException("身份服务响应缺少登录令牌，请重新登录。", 502)
+        }
+
+        return LoginResponse(
+            token = accessToken,
+            refreshToken = nextRefreshToken,
+            user = fetchCurrentUser(baseUrl, accessToken),
         )
+    }
 
     suspend fun createFolder(
         baseUrl: String,

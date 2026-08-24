@@ -4,6 +4,16 @@ const USER_STORAGE_KEY = 'alicia-cloud-storage.current-user';
 const TOKEN_STORAGE_KEY = 'alicia-cloud-storage.auth-token';
 const REFRESH_TOKEN_STORAGE_KEY = 'alicia-cloud-storage.refresh-token';
 
+type IdentityTokenSession = {
+  token?: string | null;
+  refreshToken?: string | null;
+};
+
+function normalizeToken(value: string | null | undefined) {
+  const token = value?.trim();
+  return token || null;
+}
+
 /**
  * 从本地存储中读取当前登录用户信息。
  */
@@ -26,28 +36,51 @@ export function loadCurrentUser() {
  * 从本地存储中读取当前登录令牌。
  */
 export function loadAuthToken() {
-  return localStorage.getItem(TOKEN_STORAGE_KEY);
+  return normalizeToken(localStorage.getItem(TOKEN_STORAGE_KEY));
 }
 
 /**
  * 从本地存储中读取当前刷新令牌。
  */
 export function loadRefreshToken() {
-  return localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY);
+  return normalizeToken(localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY));
+}
+
+export function hasStoredSessionTokens() {
+  return Boolean(loadAuthToken() || loadRefreshToken());
 }
 
 /**
  * 单独更新本地保存的身份令牌。
  */
 export function saveAuthToken(token: string) {
-  localStorage.setItem(TOKEN_STORAGE_KEY, token);
+  const normalizedToken = normalizeToken(token);
+
+  if (!normalizedToken) {
+    clearCurrentSession();
+    throw new Error('身份服务响应缺少 access token。');
+  }
+
+  localStorage.setItem(TOKEN_STORAGE_KEY, normalizedToken);
 }
 
 /**
  * 单独更新本地保存的刷新令牌。
  */
 export function saveRefreshToken(refreshToken: string) {
-  localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, refreshToken);
+  const normalizedRefreshToken = normalizeToken(refreshToken);
+
+  if (!normalizedRefreshToken) {
+    clearCurrentSession();
+    throw new Error('身份服务响应缺少 refresh token。');
+  }
+
+  localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, normalizedRefreshToken);
+}
+
+export function saveIdentityTokenSession(session: IdentityTokenSession) {
+  saveAuthToken(session.token ?? '');
+  saveRefreshToken(session.refreshToken ?? '');
 }
 
 /**

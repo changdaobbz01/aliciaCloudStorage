@@ -161,6 +161,16 @@ function toErrorMessage(payload: unknown, status?: number, fallback = '请求失
   return readableStatusError ?? fallback;
 }
 
+function requireToken(value: string | null | undefined, fallback: string) {
+  const token = value?.trim();
+
+  if (!token) {
+    throw new Error(fallback);
+  }
+
+  return token;
+}
+
 /**
  * 在登录态过期时向全局派发事件，交给会话上下文统一处理。
  */
@@ -592,32 +602,34 @@ export function changePassword(payload: ChangePasswordPayload, token: string) {
 }
 
 export function refreshAuthSession(token: string, refreshToken: string) {
+  const accessToken = requireToken(token, '登录状态缺少 access token，请重新登录。');
+  const nextRefreshToken = requireToken(refreshToken, '登录状态缺少 refresh token，请重新登录。');
+
   return requestJson<IdentityLoginResponse>(
     '/api/identity/auth/token/refresh',
-    withToken(token, {
+    withToken(accessToken, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ refreshToken: refreshToken.trim() }),
+      body: JSON.stringify({ refreshToken: nextRefreshToken }),
     }),
   );
 }
 
 export function logoutAuthToken(token: string, refreshToken?: string | null) {
-  const init = refreshToken?.trim()
-    ? withToken(token, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ refreshToken: refreshToken.trim() }),
-      })
-    : withToken(token, { method: 'POST' });
+  const accessToken = requireToken(token, '退出登录失败。');
+  const nextRefreshToken = refreshToken?.trim();
 
   return requestJson<ApiMessageResponse>(
     '/api/identity/auth/logout',
-    init,
+    withToken(accessToken, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(nextRefreshToken ? { refreshToken: nextRefreshToken } : {}),
+    }),
     { dispatchAuthExpired: false },
   );
 }

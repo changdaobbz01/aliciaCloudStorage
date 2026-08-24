@@ -4,12 +4,12 @@ import { useLocation } from 'react-router-dom';
 import { AUTH_EXPIRED_EVENT, fetchCurrentUser, logoutAuthToken, refreshAuthSession } from '../lib/api';
 import {
   clearCurrentSession as clearStoredSession,
+  hasStoredSessionTokens,
   loadAuthToken,
   loadCurrentUser,
   loadRefreshToken,
-  saveAuthToken,
   saveCurrentUser,
-  saveRefreshToken,
+  saveIdentityTokenSession,
 } from '../lib/session';
 import { cloudReturnTo, redirectToUnifiedLogin } from '../lib/unifiedLogin';
 import type { User } from '../types';
@@ -35,10 +35,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const location = useLocation();
   const lastAuthExpiredMessageAt = useRef(0);
   const [currentUser, setCurrentUser] = useState<User | null>(() =>
-    loadAuthToken() ? loadCurrentUser() : null,
+    loadAuthToken() && loadRefreshToken() ? loadCurrentUser() : null,
   );
   const [authToken, setAuthToken] = useState<string | null>(() => loadAuthToken());
-  const [isSessionChecking, setIsSessionChecking] = useState(() => Boolean(loadAuthToken()));
+  const [isSessionChecking, setIsSessionChecking] = useState(() => hasStoredSessionTokens());
 
   useEffect(() => {
     /**
@@ -66,14 +66,22 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const token = loadAuthToken();
+    const refreshToken = loadRefreshToken();
 
-    if (!token) {
+    if (!token && !refreshToken) {
+      resetSessionState();
+      setIsSessionChecking(false);
+      return;
+    }
+
+    if (!token || !refreshToken) {
       resetSessionState();
       setIsSessionChecking(false);
       return;
     }
 
     const storedToken = token;
+    const storedRefreshToken = refreshToken;
     let cancelled = false;
 
     /**
@@ -81,19 +89,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
      */
     async function verifyStoredToken() {
       try {
-        const storedRefreshToken = loadRefreshToken();
-        if (!storedRefreshToken) {
-          throw new Error('Missing refresh token.');
-        }
-
         const refreshedSession = await refreshAuthSession(storedToken, storedRefreshToken);
         const user = await fetchCurrentUser(refreshedSession.token);
 
         if (!cancelled) {
-          saveAuthToken(refreshedSession.token);
-          if (refreshedSession.refreshToken) {
-            saveRefreshToken(refreshedSession.refreshToken);
-          }
+          saveIdentityTokenSession(refreshedSession);
           saveCurrentUser(user);
           setCurrentUser(user);
           setAuthToken(refreshedSession.token);
@@ -127,11 +127,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       const storedToken = loadAuthToken();
       const storedRefreshToken = loadRefreshToken();
 
-      if (!storedToken) {
-        return;
-      }
-
-      if (!storedRefreshToken) {
+      if (!storedToken || !storedRefreshToken) {
         resetSessionState();
         return;
       }
@@ -140,14 +136,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         const refreshedSession = await refreshAuthSession(storedToken, storedRefreshToken);
 
         if (!cancelled && loadAuthToken()) {
-          saveAuthToken(refreshedSession.token);
-          if (refreshedSession.refreshToken) {
-            saveRefreshToken(refreshedSession.refreshToken);
-          }
+          saveIdentityTokenSession(refreshedSession);
           setAuthToken(refreshedSession.token);
         }
       } catch {
-        // 401 会由全局鉴权过期事件处理，其他短暂失败等下一轮续签。
+        if (!cancelled && !loadAuthToken()) {
+          resetSessionState();
+        }
       }
     }
 

@@ -444,7 +444,7 @@ ALICIA_AUTH_TOKEN_PREVIOUS_RSA_PUBLIC_KEYS=old-rsa-kid=old-public-key
 - 新签发 access token 已迁移为标准 JWT；旧 v2/v3 和更早期两段式 payload 不再接受。
 - JWT 的 `alg`、`iss`、`aud` 和 `kid` 会按配置校验，生产验证脚本会检查登录和续签返回的是三段式 JWT，并检查 JWKS 入口。
 - JWT 新签发始终使用当前 key；验签支持当前 key 和配置的历史 HS256/RSA JWT key。
-- RS256/JWKS 支撑已落地，公钥发布在 `/api/identity/.well-known/jwks.json`；生产已于 2026-08-22 切换到 `RS256/alicia-rs256-20260822035821`，并保留 `alicia-hs256-v1` 作为历史 HS256 验签 key。
+- RS256/JWKS 支撑已落地，公钥发布在 `/api/identity/.well-known/jwks.json`；生产已于 2026-08-22 切换到 `RS256/alicia-rs256-20260822035821`。当前项目未正式上线，历史 `alicia-hs256-v1` 验签 key 已从生产 `.env` 移除。
 - `deploy/scripts/generate-identity-rs256-env.sh` 可生成 PKCS#8 私钥、X.509 公钥和 `.env` 片段，输出目录 `deploy/generated/` 已被 git 忽略；从 HS256 切到 RS256 时，如果 `.env` 未显式配置 `ALICIA_AUTH_TOKEN_KEY_ID`，脚本按 compose 默认 `alicia-hs256-v1` 保留当前 HS256 secret 到历史验签 key。
 - `deploy/scripts/verify-identity-rs256-dry-run.sh` 可在不修改生产 `.env` 的前提下临时启动 RS256 identity，完成统一验证后默认恢复当前配置。
 - `deploy/scripts/prepare-identity-rs256-cutover-env.sh` 可生成正式切换用的候选 `.env`，并输出备份、切换和回滚命令，默认不直接覆盖生产 `.env`；旧 snippet 缺少 `ALICIA_AUTH_TOKEN_PREVIOUS_KEYS` 时会从当前 `.env` 推导旧 HS256 兼容项。
@@ -459,7 +459,7 @@ ALICIA_AUTH_TOKEN_PREVIOUS_RSA_PUBLIC_KEYS=old-rsa-kid=old-public-key
 
 剩余问题：
 
-- 当前生产签发已切到 RS256；项目未正式上线，确认当前客户端均使用新 JWT 后即可移除 `ALICIA_AUTH_TOKEN_PREVIOUS_KEYS` 中的历史 HS256 key。
+- 当前生产签发已切到 RS256；项目未正式上线，历史 HS256 key 已从 `ALICIA_AUTH_TOKEN_PREVIOUS_KEYS` 移除。
 - CloudStorageApi 现在会对 RS256 access token 做 JWKS 本地预验签，并已为 Identity HTTP 客户端设置可配置连接/读取超时；默认 JWKS 缓存 300 秒，可通过 `ALICIA_IDENTITY_TOKEN_PREFLIGHT_ENABLED` 和 `ALICIA_IDENTITY_TOKEN_JWKS_CACHE_SECONDS` 调整。
 - 当前不把 CloudStorageApi 切为纯本地 JWKS 鉴权，因为 access token 暂不写入角色和账号状态；管理员权限、禁用账号、`tokenVersion` 失效和 refresh session 撤销仍由 Identity 的 `/api/identity/auth/me` 强一致校验。后续可以在此基础上增加 Identity 状态快照或短缓存，再评估是否减少同步调用。
 - CloudStorageApi 入口拦截器会把 `/auth/me` 返回的身份快照放入 request context，`/api/cloud-profile/me` 和头像上传复用该快照，不再在同一请求里重复调用 Identity。
@@ -629,7 +629,7 @@ Cloud 管理：
 2. 当前用户云盘聚合资料直接调用 `/api/cloud-profile/me`。
 3. 头像上传和头像展示直接调用 `/api/cloud-profile/avatar`。
 4. 云盘容量、背景等由 CloudStorageApi 获取。
-5. SessionStore 保存 access token 和 refresh token，启动恢复时先调用 `/api/identity/auth/token/refresh` 续签。
+5. SessionStore 保存 access token 和 refresh token，保存前要求两个 token 都非空；启动恢复时先调用 `/api/identity/auth/token/refresh` 续签。
 6. 主动退出登录时调用 `/api/identity/auth/logout`，然后清理本地 token 和 refresh token。
 7. 修改密码成功后立即清理本地 token，引导用户使用新密码重新登录。
 8. SessionStore 存储 token 的 key 可以后续改名，第一期不强制。

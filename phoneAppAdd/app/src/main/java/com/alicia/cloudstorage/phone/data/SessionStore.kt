@@ -74,14 +74,16 @@ class SessionStore(private val context: Context) {
         }
     }
 
-    suspend fun saveSession(token: String, refreshToken: String?, baseUrl: String) {
+    suspend fun saveSession(token: String, refreshToken: String, baseUrl: String) {
+        val accessToken = token.trim()
+        val nextRefreshToken = refreshToken.trim()
+
+        require(accessToken.isNotBlank()) { "Access token cannot be blank." }
+        require(nextRefreshToken.isNotBlank()) { "Refresh token cannot be blank." }
+
         context.sessionDataStore.edit { preferences ->
-            preferences[tokenKey] = token
-            if (refreshToken.isNullOrBlank()) {
-                preferences.remove(refreshTokenKey)
-            } else {
-                preferences[refreshTokenKey] = refreshToken
-            }
+            preferences[tokenKey] = accessToken
+            preferences[refreshTokenKey] = nextRefreshToken
             preferences[baseUrlKey] = baseUrl
         }
     }

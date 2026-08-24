@@ -75,7 +75,7 @@ cp .env.example .env
 - `ALICIA_COS_REGION`
 - `ALICIA_COS_BUCKET`
 
-JWT access token 代码默认仍使用 `ALICIA_AUTH_TOKEN_ALGORITHM=HS256`，元数据默认使用生产主域配置：`ALICIA_AUTH_TOKEN_ISSUER=https://windwindwind-alicia.cn`、`ALICIA_AUTH_TOKEN_AUDIENCE=alicia-tools`、`ALICIA_AUTH_TOKEN_KEY_ID=alicia-hs256-v1`。当前生产 `.env` 已在 2026-08-22 切换为 `RS256/alicia-rs256-20260822035821`，并保留 `alicia-hs256-v1` 到 `ALICIA_AUTH_TOKEN_PREVIOUS_KEYS` 作为历史 JWT 验签 key。部署到 staging、临时域名或未来做密钥轮换时，需要在 `.env` 中显式调整这些值，并同步重建 `identity` 容器。轮换 HS256 密钥时，新密钥写入 `ALICIA_AUTH_TOKEN_SECRET` 和 `ALICIA_AUTH_TOKEN_KEY_ID`，旧密钥按 `old-kid=old-secret;older-kid=older-secret` 格式放入 `ALICIA_AUTH_TOKEN_PREVIOUS_KEYS`；未正式上线环境可在确认客户端均使用新 JWT 后直接移除历史 key。需要切换非对称签名时，将 `ALICIA_AUTH_TOKEN_ALGORITHM` 改为 `RS256`，并配置 PKCS#8 私钥、X.509 公钥和新的 `kid`，公钥会通过 `/api/identity/.well-known/jwks.json` 发布。
+JWT access token 代码默认仍使用 `ALICIA_AUTH_TOKEN_ALGORITHM=HS256`，元数据默认使用生产主域配置：`ALICIA_AUTH_TOKEN_ISSUER=https://windwindwind-alicia.cn`、`ALICIA_AUTH_TOKEN_AUDIENCE=alicia-tools`、`ALICIA_AUTH_TOKEN_KEY_ID=alicia-hs256-v1`。当前生产 `.env` 已在 2026-08-22 切换为 `RS256/alicia-rs256-20260822035821`，且未正式上线环境已经移除历史 HS256 验签 key。部署到 staging、临时域名或未来做密钥轮换时，需要在 `.env` 中显式调整这些值，并同步重建 `identity` 容器。轮换 HS256 密钥时，新密钥写入 `ALICIA_AUTH_TOKEN_SECRET` 和 `ALICIA_AUTH_TOKEN_KEY_ID`，旧密钥按 `old-kid=old-secret;older-kid=older-secret` 格式放入 `ALICIA_AUTH_TOKEN_PREVIOUS_KEYS`；未正式上线环境可在确认客户端均使用新 JWT 后直接移除历史 key。需要切换非对称签名时，将 `ALICIA_AUTH_TOKEN_ALGORITHM` 改为 `RS256`，并配置 PKCS#8 私钥、X.509 公钥和新的 `kid`，公钥会通过 `/api/identity/.well-known/jwks.json` 发布。
 
 生成 RS256 签名配置可在服务器仓库执行：
 
@@ -83,7 +83,7 @@ JWT access token 代码默认仍使用 `ALICIA_AUTH_TOKEN_ALGORITHM=HS256`，元
 bash deploy/scripts/generate-identity-rs256-env.sh
 ```
 
-脚本会把私钥、公钥和 `.env` 片段写入 `deploy/generated/identity-rs256/`，该目录已被 git 忽略。生成脚本会读取当前 `.env` 的 `ALICIA_AUTH_TOKEN_SECRET`，并在未显式配置 `ALICIA_AUTH_TOKEN_KEY_ID` 时按 compose 默认 `alicia-hs256-v1` 写入 `ALICIA_AUTH_TOKEN_PREVIOUS_KEYS`；切换后旧 HS256 access token 过期前仍可验签。
+脚本会把私钥、公钥和 `.env` 片段写入 `deploy/generated/identity-rs256/`，该目录已被 git 忽略。生成脚本会读取当前 `.env` 的 `ALICIA_AUTH_TOKEN_SECRET`，并在未显式配置 `ALICIA_AUTH_TOKEN_KEY_ID` 时按 compose 默认 `alicia-hs256-v1` 写入 `ALICIA_AUTH_TOKEN_PREVIOUS_KEYS`；已正式切到 RS256 且无需旧客户端兼容后，可使用后续清理脚本移除该历史 key。
 
 正式合并 `.env` 前，可以先做一次不改 `.env` 的 RS256 dry-run：
 
@@ -229,7 +229,7 @@ curl -X POST http://127.0.0.1:8093/api/identity/auth/register/verify `
 
 云盘 Web 的纯身份写操作走同域 Identity 公开入口，例如 `/api/identity/auth/profile`、`/api/identity/auth/password` 和 `/api/identity/admin/users/{userId}/password`；Identity 管理员审计日志只读查询和筛选走 `/api/identity/admin/audit-logs`。头像上传、头像访问、当前用户云盘聚合资料由 `CloudStorageApi` 的 `/api/cloud-profile/me`、`/api/cloud-profile/avatar` 和 `/api/cloud-profile/avatar/{userId}` 提供。管理员云盘聚合用户列表和创建入口统一为 `/api/admin/cloud-users`，云盘容量调整为 `/api/admin/cloud-users/{userId}/quota`。
 
-云盘 Web 会在启动和运行中通过 `/api/identity/auth/token/refresh` 续签登录态，主动退出登录时调用 `/api/identity/auth/logout` 后再清理本地 token 和 refresh token；Android 客户端恢复会话和退出登录也使用同一套 Identity 接口。默认 logout 只撤销当前刷新会话；需要全设备退出时请求体传 `{"allDevices":true}`。`GET /api/identity/auth/sessions` 返回当前账号刷新会话元数据，不暴露 refresh token 或 token hash；`DELETE /api/identity/auth/sessions/{sessionId}` 只允许撤销当前账号自己的会话。云盘 Web 头像菜单已提供“登录会话”入口，可查看会话并撤销非当前有效会话。
+云盘 Web 会在启动和运行中通过 `/api/identity/auth/token/refresh` 续签登录态，续签和本地 session 保存都要求同时存在 access token 与 refresh token；主动退出登录时调用 `/api/identity/auth/logout` 后再清理本地 token 和 refresh token。Android 客户端恢复会话、保存会话和退出登录也使用同一套 Identity 接口与 token 契约。默认 logout 只撤销当前刷新会话；需要全设备退出时请求体传 `{"allDevices":true}`。`GET /api/identity/auth/sessions` 返回当前账号刷新会话元数据，不暴露 refresh token 或 token hash；`DELETE /api/identity/auth/sessions/{sessionId}` 只允许撤销当前账号自己的会话。云盘 Web 头像菜单已提供“登录会话”入口，可查看会话并撤销非当前有效会话。
 
 `identityApi` 新注册用户首次携带 identity token 访问 CloudStorageApi 受保护接口时，CloudStorageApi 会自动补建对应的 `cloud_user_profile`，云盘默认额度取 `ALICIA_STORAGE_DEFAULT_USER_QUOTA_BYTES`。
 

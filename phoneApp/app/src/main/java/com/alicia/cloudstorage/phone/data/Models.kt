@@ -50,7 +50,7 @@ data class LoginPayload(
 
 data class LoginResponse(
     val token: String,
-    val refreshToken: String?,
+    val refreshToken: String,
     val user: User,
 )
 
@@ -61,7 +61,7 @@ data class IdentityLoginResponse(
 )
 
 data class RefreshTokenPayload(
-    val refreshToken: String?,
+    val refreshToken: String,
 )
 
 data class LogoutPayload(
