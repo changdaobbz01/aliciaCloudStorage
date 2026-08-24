@@ -7,10 +7,12 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: ${MYSQL_DATABASE}
+      ALICIA_IDENTITY_MYSQL_DATABASE: ${ALICIA_IDENTITY_MYSQL_DATABASE:-}
     ports:
       - "127.0.0.1:3310:3306"
     volumes:
       - alicia_cloud_storage_mysql_data:/var/lib/mysql
+      - ./deploy/mysql/init-identity-database.sh:/docker-entrypoint-initdb.d/10-init-identity-database.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -uroot -p${MYSQL_ROOT_PASSWORD} --silent"]
       interval: 10s

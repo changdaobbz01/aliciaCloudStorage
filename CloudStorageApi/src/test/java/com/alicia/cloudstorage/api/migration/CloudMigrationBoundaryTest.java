@@ -28,7 +28,8 @@ class CloudMigrationBoundaryTest {
             "V12__create_cloud_user_profile.sql",
             "V13__create_identity_audit_log.sql",
             "V14__create_identity_refresh_token.sql",
-            "V15__drop_legacy_cloud_profile_columns_from_sys_user.sql"
+            "V15__drop_legacy_cloud_profile_columns_from_sys_user.sql",
+            "V17__drop_cloud_identity_residue.sql"
     );
     private static final List<RestrictedIdentityPattern> RESTRICTED_IDENTITY_PATTERNS = List.of(
             new RestrictedIdentityPattern("create table if not exists sys_user", "sys_user table creation"),
@@ -61,7 +62,7 @@ class CloudMigrationBoundaryTest {
                     .toList();
 
             assertThat(violations)
-                    .as("New identity-owned schema changes belong in identityApi/src/main/resources/db/identity-migration; CloudStorageApi keeps only legacy applied identity migrations.")
+                    .as("New identity-owned schema changes belong in identityApi/src/main/resources/db/identity-migration; CloudStorageApi keeps only legacy identity migrations and cleanup migrations.")
                     .isEmpty();
         }
     }

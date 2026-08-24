@@ -383,6 +383,7 @@ cloud_user_profile.home_background_url = sys_user.home_background_url
 - `identityApi/src/main/resources/db/identity-migration/V1__identity_schema_baseline.sql` 建立 Identity 自己的 Flyway 基线，迁移历史写入 `identity_flyway_schema_history`。
 - `identityApi/src/main/resources/db/identity-migration/V2__rename_sys_user_to_identity_user.sql` 将身份表重命名为 `identity_user`。
 - `V16__drop_identity_table_foreign_keys.sql` 删除云盘业务表到身份表的数据库外键，保留逻辑 identity user ID。
+- `V17__drop_cloud_identity_residue.sql` 删除云盘库中早期历史迁移留下的身份表残留。
 - 首次迁移时从 `sys_user.storage_quota_bytes` 和 `sys_user.home_background_url` 回填老用户云盘资料。
 - `CloudUserProfileService` 通过 `CloudUserProfileRepository` 读写云盘额度和主页背景。
 - `StorageQuotaService` 通过云盘资料读取器从 `cloud_user_profile` 获取容量。
@@ -824,7 +825,7 @@ identityApi
 
 说明：
 
-- Identity 当前映射 `identity_user` 表；compose 已支持通过 `ALICIA_IDENTITY_MYSQL_DATABASE` 切换到独立 MySQL database，生产可切到 `alicia_identity`。
+- Identity 当前映射 `identity_user` 表；compose 已支持通过 `ALICIA_IDENTITY_MYSQL_DATABASE` 切换到独立 MySQL database，`.env.example` 默认使用 `alicia_identity`。
 - 头像文件上传仍由 CloudStorageApi 承担，Identity 只保存公共 `avatarUrl` 字段。
 - 不要把 `StorageQuotaService` 带进 Identity。
 
@@ -1066,10 +1067,10 @@ Web 和 Android：
 
 下一步按架构收益从高到低推进：
 
-1. 使用 `deploy/scripts/drop-cloud-identity-residue.sh` 备份并删除云盘库中拆库后残留的身份表。
-2. 继续观察 Identity 审计日志写入、查询接口和 Web 管理页筛选结果。
-3. 继续观察 `identity_refresh_token` 的生产写入、轮换、会话查询和指定会话撤销结果。
-4. 继续观察 `identity_flyway_schema_history`，确认后续身份 schema 变更只进入 `identityApi` 迁移目录，并保持双向迁移边界测试通过。
-5. 继续评估 CloudStorageApi / RAG 是否加入 Identity 状态快照或短缓存，在不牺牲禁用账号、角色变更和 session 撤销强一致性的前提下减少 `/auth/me` 同步依赖。
+1. 继续观察 Identity 审计日志写入、查询接口和 Web 管理页筛选结果。
+2. 继续观察 `identity_refresh_token` 的生产写入、轮换、会话查询和指定会话撤销结果。
+3. 继续观察 `identity_flyway_schema_history`，确认后续身份 schema 变更只进入 `identityApi` 迁移目录，并保持双向迁移边界测试通过。
+4. 继续评估 CloudStorageApi / RAG 是否加入 Identity 状态快照或短缓存，在不牺牲禁用账号、角色变更和 session 撤销强一致性的前提下减少 `/auth/me` 同步依赖。
+5. 继续梳理主站统一登录 UI 和跨应用登录态产品化。
 
 这一步完成后，当前文档基线已经与生产架构对齐：Identity 负责身份，CloudStorageApi 负责云盘，主站负责统一入口。后续新增工具只需要接入 Identity，不应该再直接复用或写入云盘的用户资料表。
