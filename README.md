@@ -225,6 +225,8 @@ curl -X POST http://127.0.0.1:8093/api/identity/auth/register/verify `
 
 `identityApi` 已启用独立 Flyway，迁移文件位于 `identityApi/src/main/resources/db/identity-migration`，迁移历史表为 `identity_flyway_schema_history`。当前仍共用同一个 MySQL 数据库，CloudStorageApi 早期 V1-V16 历史迁移继续保留，其中 V15 删除 `sys_user` 上旧云盘画像字段，V16 删除云盘业务表到身份表的数据库外键；Identity V2 将身份表重命名为 `identity_user`，后续身份表结构变更应新增到 `identityApi`。CloudStorageApi 和 identityApi 测试中已有双向迁移边界检查，防止新的身份结构变更写回云盘迁移目录，也防止云盘业务结构进入 Identity 迁移目录；`deploy/scripts/check-identity-route-boundary.sh` 同时检查运行时代码不再引用旧 `sys_user` 表。
 
+`identityApi` 可通过 `ALICIA_IDENTITY_MYSQL_DATABASE` 指向独立 MySQL database；未设置时默认继续使用 `MYSQL_DATABASE`，保持当前同库部署。`deploy/scripts/apply-identity-database-split.sh` 会复制身份表和 `identity_flyway_schema_history` 到目标库、备份并更新 `.env`、重启 identity 并运行统一验证；该脚本默认不删除云盘库中的旧身份表，以保留回滚余地。
+
 云盘 Web 的纯身份写操作走同域 Identity 公开入口，例如 `/api/identity/auth/profile`、`/api/identity/auth/password` 和 `/api/identity/admin/users/{userId}/password`；Identity 管理员审计日志只读查询和筛选走 `/api/identity/admin/audit-logs`。头像上传、头像访问、当前用户云盘聚合资料由 `CloudStorageApi` 的 `/api/cloud-profile/me`、`/api/cloud-profile/avatar` 和 `/api/cloud-profile/avatar/{userId}` 提供。管理员云盘聚合用户列表和创建入口统一为 `/api/admin/cloud-users`，云盘容量调整为 `/api/admin/cloud-users/{userId}/quota`。
 
 云盘 Web 会在启动和运行中通过 `/api/identity/auth/token/refresh` 续签登录态，主动退出登录时调用 `/api/identity/auth/logout` 后再清理本地 token 和 refresh token；Android 客户端恢复会话和退出登录也使用同一套 Identity 接口。默认 logout 只撤销当前刷新会话；需要全设备退出时请求体传 `{"allDevices":true}`。`GET /api/identity/auth/sessions` 返回当前账号刷新会话元数据，不暴露 refresh token 或 token hash；`DELETE /api/identity/auth/sessions/{sessionId}` 只允许撤销当前账号自己的会话。云盘 Web 头像菜单已提供“登录会话”入口，可查看会话并撤销非当前有效会话。

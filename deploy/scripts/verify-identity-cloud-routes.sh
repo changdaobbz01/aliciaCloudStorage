@@ -218,8 +218,9 @@ expect_recent_audit_event() {
     local user_id="$4"
     local detail="$5"
     local count
+    local audit_sql
 
-    count="$(compose exec -T db sh -lc "mysql -N -B -uroot -p\"\$MYSQL_ROOT_PASSWORD\" \"\$MYSQL_DATABASE\" -e \"
+    audit_sql="
 SELECT COUNT(*)
 FROM identity_audit_log
 WHERE event_type = '$event_type'
@@ -228,7 +229,8 @@ WHERE event_type = '$event_type'
   AND target_user_id = $user_id
   AND detail = '$detail'
   AND created_at >= NOW() - INTERVAL 10 MINUTE;
-\"")" || fail "$label query failed"
+"
+    count="$(mysql_query "$IDENTITY_MYSQL_DATABASE" "$audit_sql")" || fail "$label query failed"
     count="$(printf '%s' "$count" | tr -d '\r' | tail -n 1 | tr -d '[:space:]')"
 
     if [[ -z "$count" || "$count" -lt 1 ]]; then
@@ -254,7 +256,7 @@ WHERE table_schema = DATABASE()
 SQL
 )"
 
-    counts="$(compose exec -T db sh -lc 'mysql -N -B -uroot -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE" -e "$1"' sh "$table_boundary_sql")" \
+    counts="$(mysql_query "$IDENTITY_MYSQL_DATABASE" "$table_boundary_sql")" \
         || fail "identity user table boundary query failed"
     counts="$(printf '%s' "$counts" | tr -d '\r' | tail -n 1)"
     identity_user_count="$(printf '%s' "$counts" | awk '{print $1}')"
@@ -280,7 +282,7 @@ WHERE constraint_schema = DATABASE()
 SQL
 )"
 
-    count="$(compose exec -T db sh -lc 'mysql -N -B -uroot -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE" -e "$1"' sh "$foreign_key_boundary_sql")" \
+    count="$(mysql_query "$CLOUD_MYSQL_DATABASE" "$foreign_key_boundary_sql")" \
         || fail "identity foreign key boundary query failed"
     count="$(printf '%s' "$count" | tr -d '\r' | tail -n 1 | tr -d '[:space:]')"
 
@@ -357,8 +359,24 @@ compose() {
     "${command[@]}" "$@"
 }
 
+mysql_query() {
+    local database="$1"
+    local sql="$2"
+
+    compose exec -T db sh -lc 'mysql -N -B -uroot -p"$MYSQL_ROOT_PASSWORD" "$1" -e "$2"' sh "$database" "$sql"
+}
+
+mysql_exec() {
+    local database="$1"
+    local sql="$2"
+
+    compose exec -T db sh -lc 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" "$1" -e "$2"' sh "$database" "$sql"
+}
+
 ACCOUNT="${ALICIA_VERIFY_ACCOUNT:-}"
 PASSWORD="${ALICIA_VERIFY_PASSWORD:-}"
+DOTENV_MYSQL_DATABASE="$(dotenv_value MYSQL_DATABASE)"
+DOTENV_IDENTITY_MYSQL_DATABASE="$(dotenv_value ALICIA_IDENTITY_MYSQL_DATABASE)"
 DOTENV_TOKEN_ISSUER="$(dotenv_value ALICIA_AUTH_TOKEN_ISSUER)"
 DOTENV_TOKEN_AUDIENCE="$(dotenv_value ALICIA_AUTH_TOKEN_AUDIENCE)"
 DOTENV_TOKEN_KEY_ID="$(dotenv_value ALICIA_AUTH_TOKEN_KEY_ID)"
@@ -369,6 +387,8 @@ EXPECTED_TOKEN_KEY_ID="${ALICIA_VERIFY_TOKEN_KEY_ID:-${DOTENV_TOKEN_KEY_ID:-alic
 EXPECTED_TOKEN_ALGORITHM="${ALICIA_VERIFY_TOKEN_ALGORITHM:-${DOTENV_TOKEN_ALGORITHM:-HS256}}"
 EXPECTED_TOKEN_ALGORITHM="$(printf '%s' "$EXPECTED_TOKEN_ALGORITHM" | tr '[:lower:]' '[:upper:]')"
 DOTENV_PREVIOUS_KEYS="$(dotenv_value ALICIA_AUTH_TOKEN_PREVIOUS_KEYS)"
+CLOUD_MYSQL_DATABASE="${ALICIA_VERIFY_CLOUD_MYSQL_DATABASE:-${DOTENV_MYSQL_DATABASE:-alicia_cloud_storage}}"
+IDENTITY_MYSQL_DATABASE="${ALICIA_VERIFY_IDENTITY_MYSQL_DATABASE:-${DOTENV_IDENTITY_MYSQL_DATABASE:-$CLOUD_MYSQL_DATABASE}}"
 
 if [[ -z "$ACCOUNT" ]]; then
     read -r -p "Identity account/email/phone: " ACCOUNT
@@ -383,6 +403,8 @@ printf 'Verifying Alicia identity/cloud route boundary...\n'
 printf 'Cloud API: %s\n' "$CLOUD_BASE_URL"
 printf 'Identity API: %s\n' "$IDENTITY_BASE_URL"
 printf 'Public base: %s\n' "$PUBLIC_BASE_URL"
+printf 'Cloud MySQL database: %s\n' "$CLOUD_MYSQL_DATABASE"
+printf 'Identity MySQL database: %s\n' "$IDENTITY_MYSQL_DATABASE"
 printf 'Expected JWT: alg=%s iss=%s aud=%s kid=%s\n' "$EXPECTED_TOKEN_ALGORITHM" "$EXPECTED_TOKEN_ISSUER" "$EXPECTED_TOKEN_AUDIENCE" "$EXPECTED_TOKEN_KEY_ID"
 
 if [[ -n "$FORBID_PREVIOUS_KEY_ID" ]]; then
@@ -569,12 +591,12 @@ else
         "$REVOKED_SESSION_AUDIT_DETAIL"
 
     printf '\nLatest identity audit rows:\n'
-    compose exec -T db sh -lc 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE" -e "
+    mysql_exec "$IDENTITY_MYSQL_DATABASE" "
 SELECT id, event_type, outcome, actor_user_id, target_user_id, identifier, created_at
 FROM identity_audit_log
 ORDER BY id DESC
 LIMIT 10;
-"' || fail "identity audit log query failed"
+" || fail "identity audit log query failed"
     ok "identity audit log query completed"
 fi
 
@@ -582,12 +604,12 @@ if [[ "$SKIP_IDENTITY_FLYWAY_CHECK" == "true" ]]; then
     printf '[SKIP] identity Flyway history check\n'
 else
     printf '\nLatest identity Flyway migrations:\n'
-    compose exec -T db sh -lc 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE" -e "
+    mysql_exec "$IDENTITY_MYSQL_DATABASE" "
 SELECT installed_rank, version, description, success, installed_on
 FROM identity_flyway_schema_history
 ORDER BY installed_rank DESC
 LIMIT 5;
-"' || fail "identity Flyway history query failed"
+" || fail "identity Flyway history query failed"
     ok "identity Flyway history query completed"
     verify_identity_user_table_boundary
     verify_no_identity_table_foreign_keys
