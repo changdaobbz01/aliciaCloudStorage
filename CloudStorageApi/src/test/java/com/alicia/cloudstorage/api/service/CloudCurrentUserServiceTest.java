@@ -1,7 +1,6 @@
 package com.alicia.cloudstorage.api.service;
 
 import com.alicia.cloudstorage.api.dto.UserProfileResponse;
-import com.alicia.cloudstorage.api.identity.IdentityAuthGateway;
 import com.alicia.cloudstorage.api.identity.IdentityUserSnapshot;
 import com.alicia.cloudstorage.api.identity.UserRole;
 import com.alicia.cloudstorage.api.identity.UserStatus;
@@ -14,14 +13,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class CloudCurrentUserServiceTest {
-
-    @Mock
-    private IdentityAuthGateway identityAuthGateway;
 
     @Mock
     private CloudUserProfileService cloudUserProfileService;
@@ -34,13 +29,11 @@ class CloudCurrentUserServiceTest {
         IdentityUserSnapshot account = regularIdentityUserSnapshot(18L);
         UserProfileResponse profile = profile(account, 4096L, 1024L, 3072L);
 
-        when(identityAuthGateway.me("Bearer token")).thenReturn(account);
         when(cloudUserProfileService.getCurrentUser(account)).thenReturn(profile);
 
-        var response = cloudCurrentUserService.getCurrentUser("Bearer token");
+        var response = cloudCurrentUserService.getCurrentUser(account);
 
         assertThat(response).isSameAs(profile);
-        verify(identityAuthGateway).me("Bearer token");
     }
 
     private IdentityUserSnapshot regularIdentityUserSnapshot(Long id) {

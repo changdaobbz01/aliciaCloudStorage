@@ -62,20 +62,20 @@ class CloudUserAvatarServiceTest {
         UserProfileResponse profile = profile(updatedAccount, 4096L, 1024L, 3072L);
         MockMultipartFile file = new MockMultipartFile("file", "avatar.webp", "image/webp", new byte[]{1, 2, 3});
 
-        when(identityAuthGateway.me("Bearer token")).thenReturn(currentAccount);
         when(cosFileStorageService.uploadUserAvatar(18L, file))
                 .thenReturn(new CosFileStorageService.StoredCosFile("user-avatars/18/new.webp", "image/webp", 3L));
         when(identityAuthGateway.updateProfile(eq("Bearer token"), any(UpdateProfileRequest.class)))
                 .thenReturn(updatedAccount);
         when(cloudUserProfileService.toUserProfile(updatedAccount)).thenReturn(profile);
 
-        var response = cloudUserAvatarService.uploadCurrentUserAvatar("Bearer token", file);
+        var response = cloudUserAvatarService.uploadCurrentUserAvatar(currentAccount, "Bearer token", file);
 
         ArgumentCaptor<UpdateProfileRequest> requestCaptor = ArgumentCaptor.forClass(UpdateProfileRequest.class);
         verify(identityAuthGateway).updateProfile(eq("Bearer token"), requestCaptor.capture());
         assertThat(requestCaptor.getValue().phoneNumber()).isEqualTo("13900000000");
         assertThat(requestCaptor.getValue().nickname()).isEqualTo("Alicia");
         assertThat(requestCaptor.getValue().avatarUrl()).isEqualTo("cos:user-avatars/18/new.webp");
+        verify(identityAuthGateway, never()).me(any());
         verify(cosFileStorageService).deleteObjectQuietly("user-avatars/18/old.webp");
         assertThat(response).isSameAs(profile);
     }
@@ -91,16 +91,16 @@ class CloudUserAvatarServiceTest {
         );
         MockMultipartFile file = new MockMultipartFile("file", "avatar.webp", "image/webp", new byte[]{1, 2, 3});
 
-        when(identityAuthGateway.me("Bearer token")).thenReturn(currentAccount);
         when(cosFileStorageService.uploadUserAvatar(18L, file))
                 .thenReturn(new CosFileStorageService.StoredCosFile("user-avatars/18/new.webp", "image/webp", 3L));
         when(identityAuthGateway.updateProfile(eq("Bearer token"), any(UpdateProfileRequest.class)))
                 .thenThrow(new IllegalArgumentException("昵称不能为空。"));
 
-        assertThatThrownBy(() -> cloudUserAvatarService.uploadCurrentUserAvatar("Bearer token", file))
+        assertThatThrownBy(() -> cloudUserAvatarService.uploadCurrentUserAvatar(currentAccount, "Bearer token", file))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("昵称不能为空。");
 
+        verify(identityAuthGateway, never()).me(any());
         verify(cosFileStorageService).deleteObjectQuietly("user-avatars/18/new.webp");
         verify(cosFileStorageService, never()).deleteObjectQuietly("user-avatars/18/old.webp");
     }

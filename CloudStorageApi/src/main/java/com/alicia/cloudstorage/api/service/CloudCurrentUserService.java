@@ -1,7 +1,7 @@
 package com.alicia.cloudstorage.api.service;
 
 import com.alicia.cloudstorage.api.dto.UserProfileResponse;
-import com.alicia.cloudstorage.api.identity.IdentityAuthGateway;
+import com.alicia.cloudstorage.api.identity.IdentityUserSnapshot;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -9,18 +9,13 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class CloudCurrentUserService {
 
-    private final IdentityAuthGateway identityAuthGateway;
     private final CloudUserProfileService cloudUserProfileService;
 
-    public CloudCurrentUserService(
-            IdentityAuthGateway identityAuthGateway,
-            CloudUserProfileService cloudUserProfileService
-    ) {
-        this.identityAuthGateway = identityAuthGateway;
+    public CloudCurrentUserService(CloudUserProfileService cloudUserProfileService) {
         this.cloudUserProfileService = cloudUserProfileService;
     }
 
-    public UserProfileResponse getCurrentUser(String authorization) {
-        return cloudUserProfileService.getCurrentUser(identityAuthGateway.me(authorization));
+    public UserProfileResponse getCurrentUser(IdentityUserSnapshot account) {
+        return cloudUserProfileService.getCurrentUser(account);
     }
 }

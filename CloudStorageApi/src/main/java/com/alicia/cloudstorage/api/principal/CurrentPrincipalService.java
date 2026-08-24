@@ -14,24 +14,39 @@ public class CurrentPrincipalService {
     }
 
     /**
+     * 通过 Identity 校验普通用户令牌，并返回身份快照与轻量当前登录主体。
+     */
+    public AuthenticatedPrincipal requireAuthenticatedPrincipal(String authorization) {
+        IdentityUserSnapshot account = identityAuthGateway.me(authorization);
+        CurrentPrincipal principal = new CurrentPrincipal(account.id(), account.role());
+        return new AuthenticatedPrincipal(principal, account);
+    }
+
+    /**
      * 通过 Identity 校验普通用户令牌，并返回轻量当前登录主体。
      */
     public CurrentPrincipal requirePrincipal(String authorization) {
-        IdentityUserSnapshot account = identityAuthGateway.me(authorization);
-        return new CurrentPrincipal(account.id(), account.role());
+        return requireAuthenticatedPrincipal(authorization).principal();
+    }
+
+    /**
+     * 通过 Identity 校验管理员令牌，并返回身份快照与轻量当前登录主体。
+     */
+    public AuthenticatedPrincipal requireAdminAuthenticatedPrincipal(String authorization) {
+        AuthenticatedPrincipal authenticated = requireAuthenticatedPrincipal(authorization);
+
+        if (!authenticated.principal().isAdmin()) {
+            throw new PrincipalAccessException("当前接口仅允许管理员访问。");
+        }
+
+        return authenticated;
     }
 
     /**
      * 通过 Identity 校验管理员令牌，并返回轻量当前登录主体。
      */
     public CurrentPrincipal requireAdminPrincipal(String authorization) {
-        CurrentPrincipal principal = requirePrincipal(authorization);
-
-        if (!principal.isAdmin()) {
-            throw new PrincipalAccessException("当前接口仅允许管理员访问。");
-        }
-
-        return principal;
+        return requireAdminAuthenticatedPrincipal(authorization).principal();
     }
 
 }

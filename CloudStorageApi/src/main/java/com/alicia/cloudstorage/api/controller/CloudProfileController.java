@@ -3,6 +3,7 @@ package com.alicia.cloudstorage.api.controller;
 import com.alicia.cloudstorage.api.principal.PrincipalRequestAttributes;
 import com.alicia.cloudstorage.api.principal.CurrentPrincipal;
 import com.alicia.cloudstorage.api.dto.UserProfileResponse;
+import com.alicia.cloudstorage.api.identity.IdentityUserSnapshot;
 import com.alicia.cloudstorage.api.service.CloudCurrentUserService;
 import com.alicia.cloudstorage.api.service.CloudProfileManagementService;
 import com.alicia.cloudstorage.api.service.CloudUserAvatarService;
@@ -49,10 +50,9 @@ public class CloudProfileController {
      */
     @GetMapping("/me")
     public UserProfileResponse me(
-            @RequestAttribute(PrincipalRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
-            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization
+            @RequestAttribute(PrincipalRequestAttributes.CURRENT_IDENTITY_USER) IdentityUserSnapshot identityUser
     ) {
-        return cloudCurrentUserService.getCurrentUser(authorization);
+        return cloudCurrentUserService.getCurrentUser(identityUser);
     }
 
     /**
@@ -61,10 +61,11 @@ public class CloudProfileController {
     @PostMapping(value = "/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public UserProfileResponse uploadAvatar(
             @RequestAttribute(PrincipalRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
+            @RequestAttribute(PrincipalRequestAttributes.CURRENT_IDENTITY_USER) IdentityUserSnapshot identityUser,
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
             @RequestPart("file") MultipartFile file
     ) {
-        return cloudUserAvatarService.uploadCurrentUserAvatar(authorization, file);
+        return cloudUserAvatarService.uploadCurrentUserAvatar(identityUser, authorization, file);
     }
 
     /**

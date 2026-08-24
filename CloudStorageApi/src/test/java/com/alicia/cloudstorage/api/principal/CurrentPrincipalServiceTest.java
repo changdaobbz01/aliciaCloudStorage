@@ -40,6 +40,19 @@ class CurrentPrincipalServiceTest {
     }
 
     @Test
+    void requireAuthenticatedPrincipalCarriesIdentityUserSnapshot() {
+        IdentityUserSnapshot account = account(22L, UserRole.ADMIN);
+
+        when(identityAuthGateway.me("Bearer token")).thenReturn(account);
+
+        AuthenticatedPrincipal authenticated = currentPrincipalService.requireAuthenticatedPrincipal("Bearer token");
+
+        assertThat(authenticated.principal().userId()).isEqualTo(22L);
+        assertThat(authenticated.principal().isAdmin()).isTrue();
+        assertThat(authenticated.identityUser()).isSameAs(account);
+    }
+
+    @Test
     void requireAdminPrincipalRejectsRegularUsers() {
         when(identityAuthGateway.me("Bearer token")).thenReturn(account(28L, UserRole.USER));
 
@@ -56,6 +69,17 @@ class CurrentPrincipalServiceTest {
 
         assertThat(principal.userId()).isEqualTo(1L);
         assertThat(principal.isAdmin()).isTrue();
+    }
+
+    @Test
+    void requireAdminAuthenticatedPrincipalCarriesIdentityUserSnapshot() {
+        IdentityUserSnapshot account = account(1L, UserRole.ADMIN);
+        when(identityAuthGateway.me("Bearer token")).thenReturn(account);
+
+        AuthenticatedPrincipal authenticated = currentPrincipalService.requireAdminAuthenticatedPrincipal("Bearer token");
+
+        assertThat(authenticated.principal().userId()).isEqualTo(1L);
+        assertThat(authenticated.identityUser()).isSameAs(account);
     }
 
     @Test

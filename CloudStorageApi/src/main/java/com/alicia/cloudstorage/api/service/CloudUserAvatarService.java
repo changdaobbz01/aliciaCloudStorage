@@ -30,8 +30,11 @@ public class CloudUserAvatarService {
         this.cosFileStorageService = cosFileStorageService;
     }
 
-    public UserProfileResponse uploadCurrentUserAvatar(String authorization, MultipartFile file) {
-        IdentityUserSnapshot currentAccount = identityAuthGateway.me(authorization);
+    public UserProfileResponse uploadCurrentUserAvatar(
+            IdentityUserSnapshot currentAccount,
+            String authorization,
+            MultipartFile file
+    ) {
         CosFileStorageService.StoredCosFile avatarFile =
                 cosFileStorageService.uploadUserAvatar(currentAccount.id(), file);
         String avatarUrl = toLocalAvatarReference(avatarFile.objectKey());

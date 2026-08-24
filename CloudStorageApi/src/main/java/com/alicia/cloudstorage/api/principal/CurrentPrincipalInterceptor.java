@@ -22,9 +22,11 @@ public class CurrentPrincipalInterceptor implements HandlerInterceptor {
      */
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
-        CurrentPrincipal principal = currentPrincipalService.requirePrincipal(request.getHeader("Authorization"));
-        request.setAttribute(PrincipalRequestAttributes.CURRENT_PRINCIPAL, principal);
-        request.setAttribute(PrincipalRequestAttributes.CURRENT_USER_ID, principal.userId());
+        AuthenticatedPrincipal authenticated =
+                currentPrincipalService.requireAuthenticatedPrincipal(request.getHeader("Authorization"));
+        request.setAttribute(PrincipalRequestAttributes.CURRENT_PRINCIPAL, authenticated.principal());
+        request.setAttribute(PrincipalRequestAttributes.CURRENT_USER_ID, authenticated.principal().userId());
+        request.setAttribute(PrincipalRequestAttributes.CURRENT_IDENTITY_USER, authenticated.identityUser());
         return true;
     }
 }
