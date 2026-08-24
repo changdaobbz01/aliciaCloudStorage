@@ -90,29 +90,17 @@ public class IdentityAuthService {
 
     @Transactional
     public IdentityLoginResponse refreshToken(
-            String authorizationHeader,
             IdentityRefreshTokenRequest request,
             String clientAddress,
             String userAgent
     ) {
         IdentityUser user = null;
         try {
-            IdentityLoginResponse response;
-            if (hasRefreshToken(request)) {
-                IdentityRefreshTokenService.RefreshedIdentitySession session =
-                        identityRefreshTokenService.rotate(request.refreshToken(), clientAddress, userAgent);
-                user = session.user();
-                response = createSessionResponse(user, session.sessionId(), session.refreshToken());
-            } else {
-                IdentityPrincipalService.IdentityPrincipal principal =
-                        identityPrincipalService.requireActivePrincipal(authorizationHeader);
-                user = principal.user();
-                Long legacySessionId = principal.tokenClaims().refreshSessionId();
-                if (legacySessionId != null) {
-                    identityRefreshTokenService.revokeSession(legacySessionId, "legacy_refresh_replaced");
-                }
-                response = createSessionResponse(user, clientAddress, userAgent);
-            }
+            String refreshToken = requireRefreshToken(request);
+            IdentityRefreshTokenService.RefreshedIdentitySession session =
+                    identityRefreshTokenService.rotate(refreshToken, clientAddress, userAgent);
+            user = session.user();
+            IdentityLoginResponse response = createSessionResponse(user, session.sessionId(), session.refreshToken());
             identityAuditLogService.record(
                     IdentityAuditEventType.TOKEN_REFRESH,
                     IdentityAuditOutcome.SUCCESS,
@@ -154,7 +142,7 @@ public class IdentityAuthService {
             } else {
                 user.incrementTokenVersion();
                 identityUserRepository.save(user);
-                detail = "legacy_all_devices";
+                detail = "token_without_session";
             }
 
             identityAuditLogService.record(
@@ -192,8 +180,12 @@ public class IdentityAuthService {
         );
     }
 
-    private boolean hasRefreshToken(IdentityRefreshTokenRequest request) {
-        return request != null && request.refreshToken() != null && !request.refreshToken().isBlank();
+    private String requireRefreshToken(IdentityRefreshTokenRequest request) {
+        if (request == null || request.refreshToken() == null || request.refreshToken().isBlank()) {
+            throw new IdentityAuthException("刷新令牌不能为空。");
+        }
+
+        return request.refreshToken().trim();
     }
 
     private String rawLoginIdentifier(IdentityLoginRequest request) {

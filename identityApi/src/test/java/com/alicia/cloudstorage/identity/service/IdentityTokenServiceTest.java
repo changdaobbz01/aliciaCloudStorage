@@ -183,57 +183,25 @@ class IdentityTokenServiceTest {
     }
 
     @Test
-    void parseTokenSupportsLegacyVersionTwoPayload() throws Exception {
+    void parseTokenRejectsLegacyVersionTwoPayload() throws Exception {
         IdentityTokenService tokenService = tokenService("legacy-secret", 3600L);
         long expiresAt = Instant.now().getEpochSecond() + 3600L;
         String token = legacyToken("v2:44:9:" + expiresAt, "legacy-secret");
 
-        IdentityTokenService.TokenClaims claims = tokenService.parseToken(token);
-
-        assertThat(claims.userId()).isEqualTo(44L);
-        assertThat(claims.tokenVersion()).isEqualTo(9L);
-        assertThat(claims.refreshSessionId()).isNull();
-        assertThat(claims.expiresAt()).isEqualTo(expiresAt);
+        assertThatThrownBy(() -> tokenService.parseToken(token))
+                .isInstanceOf(IdentityAuthException.class)
+                .hasMessage("Token 格式不正确。");
     }
 
     @Test
-    void parseTokenSupportsLegacyVersionThreePayload() throws Exception {
+    void parseTokenRejectsLegacyVersionThreePayload() throws Exception {
         IdentityTokenService tokenService = tokenService("legacy-secret", 3600L);
         long expiresAt = Instant.now().getEpochSecond() + 3600L;
         String token = legacyToken("v3:44:9:52:" + expiresAt, "legacy-secret");
 
-        IdentityTokenService.TokenClaims claims = tokenService.parseToken(token);
-
-        assertThat(claims.userId()).isEqualTo(44L);
-        assertThat(claims.tokenVersion()).isEqualTo(9L);
-        assertThat(claims.refreshSessionId()).isEqualTo(52L);
-        assertThat(claims.expiresAt()).isEqualTo(expiresAt);
-    }
-
-    @Test
-    void parseTokenSupportsLegacyThreePartPayload() throws Exception {
-        IdentityTokenService tokenService = tokenService("legacy-secret", 3600L);
-        long expiresAt = Instant.now().getEpochSecond() + 3600L;
-        String token = legacyToken("44:13800000044:" + expiresAt, "legacy-secret");
-
-        IdentityTokenService.TokenClaims claims = tokenService.parseToken(token);
-
-        assertThat(claims.userId()).isEqualTo(44L);
-        assertThat(claims.tokenVersion()).isZero();
-        assertThat(claims.expiresAt()).isEqualTo(expiresAt);
-    }
-
-    @Test
-    void parseTokenSupportsLegacyFourPartPayloadWithTokenVersion() throws Exception {
-        IdentityTokenService tokenService = tokenService("legacy-secret", 3600L);
-        long expiresAt = Instant.now().getEpochSecond() + 3600L;
-        String token = legacyToken("44:13800000044:9:" + expiresAt, "legacy-secret");
-
-        IdentityTokenService.TokenClaims claims = tokenService.parseToken(token);
-
-        assertThat(claims.userId()).isEqualTo(44L);
-        assertThat(claims.tokenVersion()).isEqualTo(9L);
-        assertThat(claims.expiresAt()).isEqualTo(expiresAt);
+        assertThatThrownBy(() -> tokenService.parseToken(token))
+                .isInstanceOf(IdentityAuthException.class)
+                .hasMessage("Token 格式不正确。");
     }
 
     @Test
@@ -242,7 +210,7 @@ class IdentityTokenServiceTest {
 
         assertThatThrownBy(() -> tokenService.parseToken("payload.signature"))
                 .isInstanceOf(IdentityAuthException.class)
-                .hasMessage("Token 签名校验失败。");
+                .hasMessage("Token 格式不正确。");
     }
 
     @Test
@@ -304,26 +272,6 @@ class IdentityTokenServiceTest {
 
         assertThat(claims.userId()).isEqualTo(44L);
         assertThat(claims.tokenVersion()).isEqualTo(9L);
-    }
-
-    @Test
-    void parseTokenAcceptsLegacyPayloadSignedWithPreviousSecret() throws Exception {
-        IdentityTokenService tokenService = tokenService(
-                "current-secret",
-                3600L,
-                "https://windwindwind-alicia.cn",
-                "alicia-tools",
-                "current-key",
-                "old-key=old-secret"
-        );
-        long expiresAt = Instant.now().getEpochSecond() + 3600L;
-        String token = legacyToken("v2:44:9:" + expiresAt, "old-secret");
-
-        IdentityTokenService.TokenClaims claims = tokenService.parseToken(token);
-
-        assertThat(claims.userId()).isEqualTo(44L);
-        assertThat(claims.tokenVersion()).isEqualTo(9L);
-        assertThat(claims.expiresAt()).isEqualTo(expiresAt);
     }
 
     @Test

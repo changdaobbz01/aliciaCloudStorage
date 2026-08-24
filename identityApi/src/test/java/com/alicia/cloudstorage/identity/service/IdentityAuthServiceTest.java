@@ -149,7 +149,6 @@ class IdentityAuthServiceTest {
         when(identityTokenService.createToken(user, 51L)).thenReturn("new-token");
 
         var response = identityAuthService.refreshToken(
-                "Bearer token",
                 new IdentityRefreshTokenRequest("refresh-token"),
                 "203.0.113.8",
                 "JUnit"
@@ -162,21 +161,10 @@ class IdentityAuthServiceTest {
     }
 
     @Test
-    void legacyRefreshTokenCreatesSessionAndRevokesPreviousSessionWhenPresent() {
-        IdentityUser user = identityUser(18L, IdentityUserStatus.ACTIVE);
-        IdentityTokenService.TokenClaims claims = new IdentityTokenService.TokenClaims(18L, 2L, 51L, 4_200_000_000L);
-
-        when(identityPrincipalService.requireActivePrincipal("Bearer token"))
-                .thenReturn(new IdentityPrincipalService.IdentityPrincipal(user, claims));
-        when(identityRefreshTokenService.issue(user, "203.0.113.8", "JUnit"))
-                .thenReturn(new IdentityRefreshTokenService.IssuedRefreshToken(52L, "refresh-token", LocalDateTime.now()));
-        when(identityTokenService.createToken(user, 52L)).thenReturn("new-token");
-
-        var response = identityAuthService.refreshToken("Bearer token", null, "203.0.113.8", "JUnit");
-
-        assertThat(response.token()).isEqualTo("new-token");
-        assertThat(response.refreshToken()).isEqualTo("refresh-token");
-        verify(identityRefreshTokenService).revokeSession(51L, "legacy_refresh_replaced");
+    void refreshTokenRejectsMissingRefreshToken() {
+        assertThatThrownBy(() -> identityAuthService.refreshToken(null, "203.0.113.8", "JUnit"))
+                .isInstanceOf(IdentityAuthException.class)
+                .hasMessage("刷新令牌不能为空。");
     }
 
     @Test

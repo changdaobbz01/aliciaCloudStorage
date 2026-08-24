@@ -75,7 +75,7 @@ cp .env.example .env
 - `ALICIA_COS_REGION`
 - `ALICIA_COS_BUCKET`
 
-JWT access token 代码默认仍使用 `ALICIA_AUTH_TOKEN_ALGORITHM=HS256`，元数据默认使用生产主域配置：`ALICIA_AUTH_TOKEN_ISSUER=https://windwindwind-alicia.cn`、`ALICIA_AUTH_TOKEN_AUDIENCE=alicia-tools`、`ALICIA_AUTH_TOKEN_KEY_ID=alicia-hs256-v1`。当前生产 `.env` 已在 2026-08-22 切换为 `RS256/alicia-rs256-20260822035821`，并保留 `alicia-hs256-v1` 到 `ALICIA_AUTH_TOKEN_PREVIOUS_KEYS` 作为历史验签 key。部署到 staging、临时域名或未来做密钥轮换时，需要在 `.env` 中显式调整这些值，并同步重建 `identity` 容器。轮换 HS256 密钥时，新密钥写入 `ALICIA_AUTH_TOKEN_SECRET` 和 `ALICIA_AUTH_TOKEN_KEY_ID`，旧密钥按 `old-kid=old-secret;older-kid=older-secret` 格式放入 `ALICIA_AUTH_TOKEN_PREVIOUS_KEYS`；旧 access token 过期后再移除历史 key。需要切换非对称签名时，将 `ALICIA_AUTH_TOKEN_ALGORITHM` 改为 `RS256`，并配置 PKCS#8 私钥、X.509 公钥和新的 `kid`，公钥会通过 `/api/identity/.well-known/jwks.json` 发布。
+JWT access token 代码默认仍使用 `ALICIA_AUTH_TOKEN_ALGORITHM=HS256`，元数据默认使用生产主域配置：`ALICIA_AUTH_TOKEN_ISSUER=https://windwindwind-alicia.cn`、`ALICIA_AUTH_TOKEN_AUDIENCE=alicia-tools`、`ALICIA_AUTH_TOKEN_KEY_ID=alicia-hs256-v1`。当前生产 `.env` 已在 2026-08-22 切换为 `RS256/alicia-rs256-20260822035821`，并保留 `alicia-hs256-v1` 到 `ALICIA_AUTH_TOKEN_PREVIOUS_KEYS` 作为历史 JWT 验签 key。部署到 staging、临时域名或未来做密钥轮换时，需要在 `.env` 中显式调整这些值，并同步重建 `identity` 容器。轮换 HS256 密钥时，新密钥写入 `ALICIA_AUTH_TOKEN_SECRET` 和 `ALICIA_AUTH_TOKEN_KEY_ID`，旧密钥按 `old-kid=old-secret;older-kid=older-secret` 格式放入 `ALICIA_AUTH_TOKEN_PREVIOUS_KEYS`；未正式上线环境可在确认客户端均使用新 JWT 后直接移除历史 key。需要切换非对称签名时，将 `ALICIA_AUTH_TOKEN_ALGORITHM` 改为 `RS256`，并配置 PKCS#8 私钥、X.509 公钥和新的 `kid`，公钥会通过 `/api/identity/.well-known/jwks.json` 发布。
 
 生成 RS256 签名配置可在服务器仓库执行：
 
@@ -103,7 +103,7 @@ bash deploy/scripts/prepare-identity-rs256-cutover-env.sh
 
 生产已完成 RS256 切换并通过统一验证：登录和续签 token 均为 `RS256/alicia-rs256-20260822035821`，JWKS 暴露当前 RSA 公钥，云盘聚合、存储概览、云盘管理员、审计查询、会话撤销、logout 和旧路由移除检查均通过。
 
-旧 HS256 access token 观察期结束后，可以先生成移除历史 HS256 key 的候选 `.env`：
+需要移除历史 HS256 key 时，可以先生成候选 `.env`：
 
 ```bash
 bash deploy/scripts/prepare-identity-hs256-key-removal-env.sh
@@ -215,9 +215,9 @@ curl -X POST http://127.0.0.1:8093/api/identity/auth/register/verify `
   -d "{\"email\":\"你的邮箱\",\"code\":\"邮箱验证码\",\"nickname\":\"昵称\",\"password\":\"密码\"}"
 ```
 
-当前公网身份入口为 `/api/identity/auth/**` 和 `/api/identity/admin/**`；登录、注册、Token 校验、续签、注销、刷新会话查询/撤销、密码和账号资料写入已经由 `identityApi` 执行。登录和邮箱注册验证会返回 `token` 与 `refreshToken`，其中新签发的 access token 是标准 JWT；代码默认 HS256，当前生产已通过 `.env` 切换为 RS256。`iss`、`aud`、`kid` 和算法由 `ALICIA_AUTH_TOKEN_ISSUER`、`ALICIA_AUTH_TOKEN_AUDIENCE`、`ALICIA_AUTH_TOKEN_KEY_ID`、`ALICIA_AUTH_TOKEN_ALGORITHM` 配置，RS256 公钥发布在 `/api/identity/.well-known/jwks.json`。验签支持当前 key 和历史 HS256/RSA key；旧两段式 token 只保留解析兼容，也可用历史 secret 验签。续签接口优先使用 `refreshToken` 轮换会话，未携带 `refreshToken` 时仍兼容 Authorization 续签并补发新刷新会话。`CloudStorageApi` 负责补齐云盘资料，并通过 `/api/cloud-profile/**` 返回云盘聚合资料、头像和主页背景；CloudStorageApi 调用 Identity 的默认连接超时为 2 秒，读取超时为 5 秒，可用 `ALICIA_IDENTITY_API_CONNECT_TIMEOUT_MS` 和 `ALICIA_IDENTITY_API_READ_TIMEOUT_MS` 调整。
+当前公网身份入口为 `/api/identity/auth/**` 和 `/api/identity/admin/**`；登录、注册、Token 校验、续签、注销、刷新会话查询/撤销、密码和账号资料写入已经由 `identityApi` 执行。登录和邮箱注册验证会返回 `token` 与 `refreshToken`，其中新签发的 access token 是标准 JWT；代码默认 HS256，当前生产已通过 `.env` 切换为 RS256。`iss`、`aud`、`kid` 和算法由 `ALICIA_AUTH_TOKEN_ISSUER`、`ALICIA_AUTH_TOKEN_AUDIENCE`、`ALICIA_AUTH_TOKEN_KEY_ID`、`ALICIA_AUTH_TOKEN_ALGORITHM` 配置，RS256 公钥发布在 `/api/identity/.well-known/jwks.json`。验签支持当前 key 和配置的历史 HS256/RSA JWT key；旧两段式 access token 已不再接受。续签接口必须使用 JSON 请求体中的 `refreshToken` 轮换会话，不再支持 Authorization-only 续签。`CloudStorageApi` 负责补齐云盘资料，并通过 `/api/cloud-profile/**` 返回云盘聚合资料、头像和主页背景；CloudStorageApi 调用 Identity 的默认连接超时为 2 秒，读取超时为 5 秒，可用 `ALICIA_IDENTITY_API_CONNECT_TIMEOUT_MS` 和 `ALICIA_IDENTITY_API_READ_TIMEOUT_MS` 调整。
 
-`identityApi` 已启用独立 Flyway，迁移文件位于 `identityApi/src/main/resources/db/identity-migration`，迁移历史表为 `identity_flyway_schema_history`。当前仍共用同一个 MySQL 数据库，CloudStorageApi 早期 V1-V14 历史迁移继续保留，后续身份表结构变更应新增到 `identityApi`。CloudStorageApi 和 identityApi 测试中已有双向迁移边界检查，防止新的身份结构变更写回云盘迁移目录，也防止云盘业务结构进入 Identity 迁移目录。
+`identityApi` 已启用独立 Flyway，迁移文件位于 `identityApi/src/main/resources/db/identity-migration`，迁移历史表为 `identity_flyway_schema_history`。当前仍共用同一个 MySQL 数据库，CloudStorageApi 早期 V1-V15 历史迁移继续保留，其中 V15 删除 `sys_user` 上旧云盘画像字段；后续身份表结构变更应新增到 `identityApi`。CloudStorageApi 和 identityApi 测试中已有双向迁移边界检查，防止新的身份结构变更写回云盘迁移目录，也防止云盘业务结构进入 Identity 迁移目录。
 
 云盘 Web 的纯身份写操作走同域 Identity 公开入口，例如 `/api/identity/auth/profile`、`/api/identity/auth/password` 和 `/api/identity/admin/users/{userId}/password`；Identity 管理员审计日志只读查询和筛选走 `/api/identity/admin/audit-logs`。头像上传、头像访问、当前用户云盘聚合资料由 `CloudStorageApi` 的 `/api/cloud-profile/me`、`/api/cloud-profile/avatar` 和 `/api/cloud-profile/avatar/{userId}` 提供。管理员云盘聚合用户列表和创建入口统一为 `/api/admin/cloud-users`，云盘容量调整为 `/api/admin/cloud-users/{userId}/quota`。
 

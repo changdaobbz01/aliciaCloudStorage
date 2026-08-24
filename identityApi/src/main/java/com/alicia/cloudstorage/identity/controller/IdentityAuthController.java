@@ -78,13 +78,11 @@ public class IdentityAuthController {
 
     @PostMapping("/token/refresh")
     public IdentityLoginResponse refreshToken(
-            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
-            @RequestBody(required = false) IdentityRefreshTokenRequest request,
+            @RequestBody IdentityRefreshTokenRequest request,
             HttpServletRequest servletRequest,
             @RequestHeader(value = FORWARDED_FOR_HEADER, required = false) String forwardedFor
     ) {
         return identityAuthService.refreshToken(
-                authorization,
                 request,
                 resolveClientAddress(servletRequest, forwardedFor),
                 servletRequest.getHeader(HttpHeaders.USER_AGENT)

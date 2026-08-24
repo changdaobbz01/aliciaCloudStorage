@@ -372,26 +372,25 @@ cloud_user_profile.storage_quota_bytes = sys_user.storage_quota_bytes
 cloud_user_profile.home_background_url = sys_user.home_background_url
 ```
 
-第一期暂时不删除 `sys_user.storage_quota_bytes` 和 `sys_user.home_background_url`，只停止新代码写入。等生产稳定后再做清理迁移。
+项目尚未正式上线，当前按最终边界硬收口：云盘资料只保留在 `cloud_user_profile`，`sys_user.storage_quota_bytes` 和 `sys_user.home_background_url` 已通过清理迁移删除。
 
 当前已落地：
 
 - `V12__create_cloud_user_profile.sql` 创建 `cloud_user_profile`。
 - `V14__create_identity_refresh_token.sql` 创建 `identity_refresh_token`，用于记录刷新令牌会话。
+- `V15__drop_legacy_cloud_profile_columns_from_sys_user.sql` 删除 `sys_user` 上旧云盘画像字段。
 - `identityApi/src/main/resources/db/identity-migration/V1__identity_schema_baseline.sql` 建立 Identity 自己的 Flyway 基线，迁移历史写入 `identity_flyway_schema_history`。
 - 首次迁移时从 `sys_user.storage_quota_bytes` 和 `sys_user.home_background_url` 回填老用户云盘资料。
 - `CloudUserProfileService` 通过 `CloudUserProfileRepository` 读写云盘额度和主页背景。
 - `StorageQuotaService` 通过云盘资料读取器从 `cloud_user_profile` 获取容量。
-- 旧 `sys_user` 字段暂时保留，只作为缺失 profile 时的兼容兜底。
+- 旧 `sys_user` 云盘字段不再作为兼容兜底；缺失 profile 由 CloudStorageApi 按默认额度补建。
 - `CloudMigrationBoundaryTest` 会阻止新的身份结构变更继续进入 CloudStorageApi 的 Flyway 目录，`IdentityMigrationBoundaryTest` 会阻止云盘业务结构进入 Identity Flyway 目录。
 
 ### 6.2 第二期表结构清理
 
-生产稳定后再考虑：
+旧云盘画像字段已清理；后续只保留更大的物理拆库/重命名议题：
 
 - `sys_user` 重命名为 `identity_user`。
-- 删除 `sys_user.storage_quota_bytes`。
-- 删除 `sys_user.home_background_url`。
 - 业务表外键从数据库强 FK 改为逻辑约束，或者继续保留同库 FK。选择取决于后续是否要把 Identity 单独数据库化。
 
 ### 6.3 不建议的做法
@@ -433,39 +432,29 @@ ALICIA_AUTH_TOKEN_RSA_PUBLIC_KEY=
 ALICIA_AUTH_TOKEN_PREVIOUS_RSA_PUBLIC_KEYS=old-rsa-kid=old-public-key
 ```
 
-为保证平滑升级，`IdentityTokenService` 仍兼容解析旧两段式 token。旧 v2 payload 中包含：
-
-```text
-v2:userId:tokenVersion:expiresAt
-```
-
-旧 v3 access token 绑定 refresh 会话：
-
-```text
-v3:userId:tokenVersion:refreshSessionId:expiresAt
-```
+当前 access token 只接受标准 JWT。旧两段式 access token 已在未上线阶段硬收口，不再解析。
 
 已改进：
 
 - payload 不再依赖手机号，兼容邮箱登录用户。
-- 新签发 access token 已迁移为标准 JWT；旧 v2/v3 和更早期 payload 只保留解析兼容，不再新签发。
+- 新签发 access token 已迁移为标准 JWT；旧 v2/v3 和更早期两段式 payload 不再接受。
 - JWT 的 `alg`、`iss`、`aud` 和 `kid` 会按配置校验，生产验证脚本会检查登录和续签返回的是三段式 JWT，并检查 JWKS 入口。
-- JWT 新签发始终使用当前 key；验签支持当前 key 和配置的历史 HS256/RSA key，旧两段式 token 也可用历史 secret 验签。
+- JWT 新签发始终使用当前 key；验签支持当前 key 和配置的历史 HS256/RSA JWT key。
 - RS256/JWKS 支撑已落地，公钥发布在 `/api/identity/.well-known/jwks.json`；生产已于 2026-08-22 切换到 `RS256/alicia-rs256-20260822035821`，并保留 `alicia-hs256-v1` 作为历史 HS256 验签 key。
 - `deploy/scripts/generate-identity-rs256-env.sh` 可生成 PKCS#8 私钥、X.509 公钥和 `.env` 片段，输出目录 `deploy/generated/` 已被 git 忽略；从 HS256 切到 RS256 时，如果 `.env` 未显式配置 `ALICIA_AUTH_TOKEN_KEY_ID`，脚本按 compose 默认 `alicia-hs256-v1` 保留当前 HS256 secret 到历史验签 key。
 - `deploy/scripts/verify-identity-rs256-dry-run.sh` 可在不修改生产 `.env` 的前提下临时启动 RS256 identity，完成统一验证后默认恢复当前配置。
 - `deploy/scripts/prepare-identity-rs256-cutover-env.sh` 可生成正式切换用的候选 `.env`，并输出备份、切换和回滚命令，默认不直接覆盖生产 `.env`；旧 snippet 缺少 `ALICIA_AUTH_TOKEN_PREVIOUS_KEYS` 时会从当前 `.env` 推导旧 HS256 兼容项。
-- `deploy/scripts/prepare-identity-hs256-key-removal-env.sh` 可在旧 HS256 access token 观察期结束后生成候选 `.env`，从 `ALICIA_AUTH_TOKEN_PREVIOUS_KEYS` 中移除指定历史 `kid`，默认目标是 `alicia-hs256-v1`，并输出切换与回滚命令；生成目录下的 `.env`、candidate 和 backup 都按敏感文件处理，保持 `600` 权限。
+- `deploy/scripts/prepare-identity-hs256-key-removal-env.sh` 可生成候选 `.env`，从 `ALICIA_AUTH_TOKEN_PREVIOUS_KEYS` 中移除指定历史 `kid`，默认目标是 `alicia-hs256-v1`，并输出切换与回滚命令；生成目录下的 `.env`、candidate 和 backup 都按敏感文件处理，保持 `600` 权限。
 - `tokenVersion` 已用于密码修改、管理员重置密码和全设备 logout 后的登录态失效。
 - `identity_refresh_token` 保存刷新令牌摘要、用户、tokenVersion、过期时间、撤销时间、客户端 IP 和 User-Agent。
-- 登录和邮箱注册验证返回 `token` 与 `refreshToken`；续签优先使用 refresh token 轮换，Authorization-only 续签作为兼容路径保留并会补发刷新会话。
+- 登录和邮箱注册验证返回 `token` 与 `refreshToken`；续签必须使用 refresh token 请求体轮换，Authorization-only 续签不再接受。
 - 默认 logout 只撤销当前 refresh 会话；传 `{"allDevices":true}` 时撤销该用户全部 refresh 会话并递增 `token_version`。
 - 指定刷新会话撤销会单独记录 `SESSION_REVOKE` 审计事件，避免和普通 logout 混在一起。
 - CloudStorageApi 不再本地解析旧 token 或查询本地用户表，而是通过 Identity 当前用户接口校验。
 
 剩余问题：
 
-- 当前生产签发已切到 RS256；后续需要在旧 HS256 access token 过期后移除 `ALICIA_AUTH_TOKEN_PREVIOUS_KEYS` 中的历史 HS256 key。
+- 当前生产签发已切到 RS256；项目未正式上线，确认当前客户端均使用新 JWT 后即可移除 `ALICIA_AUTH_TOKEN_PREVIOUS_KEYS` 中的历史 HS256 key。
 - CloudStorageApi 现在通过 HTTP 调 Identity 校验 token，并已为 Identity HTTP 客户端设置可配置连接/读取超时；后续如果流量增大，需要短缓存、introspection 或 JWKS 本地验签方案。
 - 当前不直接把 CloudStorageApi 切为纯本地 JWKS 验签，因为 access token 暂不写入角色和账号状态；管理员权限、禁用账号、`tokenVersion` 失效仍由 Identity 强一致校验。后续可以先做短缓存或本地验签 + Identity 状态快照组合，再评估是否减少 `/api/identity/auth/me` 同步调用。
 
@@ -752,7 +741,7 @@ main-site-frontend（独立仓库/独立 compose）
 5. `StorageQuotaService` 通过 `StorageQuotaAccountReader` 读取身份角色和云盘容量，不再把完整用户实体作为业务依赖。
 6. 新增 `cloud_user_profile` 表，老用户从 `sys_user` 回填云盘额度和主页背景。
 7. `CloudUserProfileService` 写入 `cloud_user_profile`，不再把云盘背景和额度写回 `sys_user`。
-8. `StorageQuotaService` 通过 `cloud_user_profile` 读取容量，旧 `sys_user` 字段只保留为清理前的历史字段。
+8. `StorageQuotaService` 通过 `cloud_user_profile` 读取容量，旧 `sys_user` 云盘字段已清理。
 
 验证：
 
@@ -795,7 +784,7 @@ AliciaCloudStorage/identityApi
 - CloudStorageApi 已新增 `CloudUserProfileProvisioningService`，鉴权通过后会确保当前身份用户存在云盘 profile。
 - identity 新用户的云盘 profile 默认额度取 `alicia.storage.default-user-quota-bytes`，不再误用 `sys_user.storage_quota_bytes` 的旧数据库默认值。
 - `IdentityRefreshTokenService` 使用 `JdbcTemplate` 读写 `identity_refresh_token`，避免把刷新会话表暴露为额外 JPA 实体；该表已纳入 `identityApi` 独立 Flyway 基线。
-- `IdentityTokenService` 已签发标准 JWT，并保留旧两段式 token 解析兼容；代码默认 HS256，生产 `.env` 已切到 RS256/JWKS。
+- `IdentityTokenService` 已签发并只接受标准 JWT；代码默认 HS256，生产 `.env` 已切到 RS256/JWKS。
 - Compose 中注入同一个 MySQL 连接；共享库过渡期由 `api` 先完成 CloudStorageApi 历史迁移，再启动 `identity` 执行自己的 Flyway 与 JPA validate。
 - Dockerfile：`identityApi/Dockerfile`。
 - README：`identityApi/README.md`。
@@ -928,17 +917,13 @@ identityApi
 - 删除旧字段。
 - 减少重复数据来源。
 
-清理条件：
-
-- 生产至少稳定一个版本周期。
-- Web 和 Android 都已发布并验证。
-- 后端日志无旧接口依赖。
-
-可清理：
+当前项目尚未正式上线，阶段 6 可直接按最终架构收口。已清理：
 
 - `sys_user.storage_quota_bytes`。
 - `sys_user.home_background_url`。
-- 文档和部署脚本中残留的旧 `/api/auth/**` 说明。
+- 旧两段式 access token 解析兼容。
+- Authorization-only refresh 兼容。
+- 文档和部署脚本中残留的过渡期说明。
 
 ## 12. 回滚策略
 
@@ -1074,14 +1059,13 @@ Web 和 Android：
 
 ## 15. 推荐下一步
 
-下一步按风险从低到高推进：
+下一步按架构收益从高到低推进：
 
-1. 保持旧 `sys_user.storage_quota_bytes` 和 `sys_user.home_background_url` 一个版本周期不删，只观察不写入。
+1. 用 `deploy/scripts/prepare-identity-hs256-key-removal-env.sh` 准备候选 `.env`，移除历史 HS256 key，并用统一脚本验证 RS256/JWKS。
 2. 继续观察 Identity 审计日志写入、查询接口和 Web 管理页筛选结果。
-3. 观察 `identity_refresh_token` 的生产写入、轮换、会话查询和指定会话撤销结果。
+3. 继续观察 `identity_refresh_token` 的生产写入、轮换、会话查询和指定会话撤销结果。
 4. 继续观察 `identity_flyway_schema_history`，确认后续身份 schema 变更只进入 `identityApi` 迁移目录，并保持双向迁移边界测试通过。
-5. 观察 RS256 生产签发、JWKS 公钥发布和历史 HS256 验签窗口，旧 access token 过期后用 `deploy/scripts/prepare-identity-hs256-key-removal-env.sh` 准备候选 `.env` 并移除历史 HS256 key。
-6. 评估 CloudStorageApi / RAG 后续是否改为 JWKS 本地验签，减少对 Identity `/auth/me` 的同步依赖。
-7. 评估 `sys_user` 是否继续作为 identity 表名，或迁移到独立 schema / `identity_user`。
+5. 评估 CloudStorageApi / RAG 后续是否改为 JWKS 本地验签，减少对 Identity `/auth/me` 的同步依赖。
+6. 评估 `sys_user` 是否继续作为 identity 表名，或迁移到独立 schema / `identity_user`。
 
 这一步完成后，当前文档基线已经与生产架构对齐：Identity 负责身份，CloudStorageApi 负责云盘，主站负责统一入口。后续新增工具只需要接入 Identity，不应该再直接复用或写入云盘的用户资料表。

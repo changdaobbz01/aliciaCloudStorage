@@ -81,7 +81,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
      */
     async function verifyStoredToken() {
       try {
-        const refreshedSession = await refreshAuthSession(storedToken, loadRefreshToken());
+        const storedRefreshToken = loadRefreshToken();
+        if (!storedRefreshToken) {
+          throw new Error('Missing refresh token.');
+        }
+
+        const refreshedSession = await refreshAuthSession(storedToken, storedRefreshToken);
         const user = await fetchCurrentUser(refreshedSession.token);
 
         if (!cancelled) {
@@ -120,13 +125,19 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
     async function refreshStoredToken() {
       const storedToken = loadAuthToken();
+      const storedRefreshToken = loadRefreshToken();
 
       if (!storedToken) {
         return;
       }
 
+      if (!storedRefreshToken) {
+        resetSessionState();
+        return;
+      }
+
       try {
-        const refreshedSession = await refreshAuthSession(storedToken, loadRefreshToken());
+        const refreshedSession = await refreshAuthSession(storedToken, storedRefreshToken);
 
         if (!cancelled && loadAuthToken()) {
           saveAuthToken(refreshedSession.token);

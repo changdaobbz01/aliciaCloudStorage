@@ -125,11 +125,12 @@ class IdentityAuthControllerTest {
                 LocalDateTime.of(2026, 4, 29, 15, 30)
         );
 
-        when(identityAuthService.refreshToken(eq("Bearer token"), any(), eq("127.0.0.1"), isNull()))
+        when(identityAuthService.refreshToken(any(), eq("127.0.0.1"), isNull()))
                 .thenReturn(new IdentityLoginResponse("new-token", "new-refresh-token", user));
 
         mockMvc.perform(post("/api/identity/auth/token/refresh")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer token"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"refreshToken\":\"refresh-token\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.token").value("new-token"))
                 .andExpect(jsonPath("$.refreshToken").value("new-refresh-token"))
@@ -137,7 +138,7 @@ class IdentityAuthControllerTest {
                 .andExpect(jsonPath("$.user.email").value("user@example.com"))
                 .andExpect(jsonPath("$.user.passwordHash").doesNotExist());
 
-        verify(identityAuthService).refreshToken(eq("Bearer token"), any(), eq("127.0.0.1"), isNull());
+        verify(identityAuthService).refreshToken(any(), eq("127.0.0.1"), isNull());
     }
 
     @Test

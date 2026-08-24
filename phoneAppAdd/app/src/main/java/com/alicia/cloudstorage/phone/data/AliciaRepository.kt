@@ -93,7 +93,11 @@ class AliciaRepository(
         return identitySession.toCloudLoginResponse(baseUrl)
     }
 
-    suspend fun refreshToken(baseUrl: String, token: String, refreshToken: String?): LoginResponse {
+    suspend fun refreshToken(baseUrl: String, token: String, refreshToken: String): LoginResponse {
+        if (refreshToken.isBlank()) {
+            throw ApiException("刷新令牌不能为空，请重新登录。", 401)
+        }
+
         val identitySession = serviceFactory.serviceFor(baseUrl)
             .refreshToken(authorization(token), RefreshTokenPayload(refreshToken))
             .requireBody(fallback = "刷新登录状态失败，请重新登录。")

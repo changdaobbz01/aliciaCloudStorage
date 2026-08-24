@@ -18,7 +18,6 @@ import java.security.interfaces.RSAPublicKey;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.HashSet;
@@ -32,8 +31,6 @@ import java.util.Set;
 @Service
 public class IdentityTokenService {
 
-    private static final String TOKEN_PAYLOAD_VERSION = "v2";
-    private static final String SESSION_TOKEN_PAYLOAD_VERSION = "v3";
     private static final String JWT_ALGORITHM_HS256 = "HS256";
     private static final String JWT_ALGORITHM_RS256 = "RS256";
     private static final String JWT_TYPE = "JWT";
@@ -45,7 +42,6 @@ public class IdentityTokenService {
     private final String keyId;
     private final String tokenAlgorithm;
     private final Map<String, String> secretsByKeyId;
-    private final List<String> verificationSecrets;
     private final PrivateKey rsaPrivateKey;
     private final Map<String, RSAPublicKey> rsaPublicKeysByKeyId;
     private final JsonMapper jsonMapper = JsonMapper.builder().build();
@@ -77,7 +73,6 @@ public class IdentityTokenService {
         this.keyId = requireText(keyId, "Token key id must not be blank.");
         this.tokenAlgorithm = normalizeTokenAlgorithm(tokenAlgorithm);
         this.secretsByKeyId = buildSecretsByKeyId(this.tokenAlgorithm, this.keyId, this.secret, previousKeys);
-        this.verificationSecrets = buildLegacyVerificationSecrets(this.secret, this.secretsByKeyId);
         this.rsaPrivateKey = JWT_ALGORITHM_RS256.equals(this.tokenAlgorithm)
                 ? parseRsaPrivateKey(requireText(rsaPrivateKey, "RSA private key must not be blank when RS256 is enabled."))
                 : null;
@@ -135,14 +130,10 @@ public class IdentityTokenService {
         }
 
         String[] parts = token.split("\\.", -1);
-        TokenClaims tokenClaims;
-        if (parts.length == 3) {
-            tokenClaims = parseJwtToken(parts);
-        } else if (parts.length == 2) {
-            tokenClaims = parseLegacyToken(parts);
-        } else {
+        if (parts.length != 3) {
             throw new IdentityAuthException("Token 格式不正确。");
         }
+        TokenClaims tokenClaims = parseJwtToken(parts);
 
         long expiresAt = tokenClaims.expiresAt();
         if (Instant.now().getEpochSecond() >= expiresAt) {
@@ -175,66 +166,6 @@ public class IdentityTokenService {
         long expiresAt = longClaim(payload, "exp", "Token 过期时间不合法。");
 
         return new TokenClaims(userId, tokenVersion, refreshSessionId, expiresAt);
-    }
-
-    private TokenClaims parseLegacyToken(String[] parts) {
-        String encodedPayload = parts[0];
-        String signature = parts[1];
-        assertSignatureWithAnyKnownSecret(encodedPayload, signature);
-
-        String payload = base64UrlDecode(encodedPayload);
-        String[] payloadParts = payload.split(":");
-        return parsePayloadParts(payloadParts);
-    }
-
-    private TokenClaims parsePayloadParts(String[] payloadParts) {
-        if (payloadParts.length == 5 && SESSION_TOKEN_PAYLOAD_VERSION.equals(payloadParts[0])) {
-            return new TokenClaims(
-                    parseUserId(payloadParts[1]),
-                    parseTokenVersion(payloadParts[2]),
-                    parseRefreshSessionId(payloadParts[3]),
-                    parseExpiresAt(payloadParts[4])
-            );
-        }
-
-        if (payloadParts.length == 4 && TOKEN_PAYLOAD_VERSION.equals(payloadParts[0])) {
-            return new TokenClaims(
-                    parseUserId(payloadParts[1]),
-                    parseTokenVersion(payloadParts[2]),
-                    null,
-                    parseExpiresAt(payloadParts[3])
-            );
-        }
-
-        if (payloadParts.length == 4) {
-            return new TokenClaims(
-                    parseUserId(payloadParts[0]),
-                    parseTokenVersion(payloadParts[2]),
-                    null,
-                    parseExpiresAt(payloadParts[3])
-            );
-        }
-
-        if (payloadParts.length == 3) {
-            return new TokenClaims(
-                    parseUserId(payloadParts[0]),
-                    0L,
-                    null,
-                    parseExpiresAt(payloadParts[2])
-            );
-        }
-
-        throw new IdentityAuthException("Token 载荷不正确。");
-    }
-
-    private void assertSignatureWithAnyKnownSecret(String signedValue, String signature) {
-        for (String knownSecret : verificationSecrets) {
-            if (signatureMatches(signedValue, signature, knownSecret)) {
-                return;
-            }
-        }
-
-        throw new IdentityAuthException("Token 签名校验失败。");
     }
 
     private void assertSignature(String signedValue, String signature, String verificationSecret) {
@@ -375,13 +306,6 @@ public class IdentityTokenService {
         }
 
         return Collections.unmodifiableMap(result);
-    }
-
-    private List<String> buildLegacyVerificationSecrets(String currentSecret, Map<String, String> keyedSecrets) {
-        List<String> result = new ArrayList<>();
-        result.add(currentSecret);
-        result.addAll(keyedSecrets.values());
-        return result.stream().distinct().toList();
     }
 
     private Map<String, RSAPublicKey> buildRsaPublicKeysByKeyId(
@@ -596,34 +520,6 @@ public class IdentityTokenService {
             return Long.parseLong(value);
         } catch (NumberFormatException ex) {
             throw new IdentityAuthException("Token 用户编号不合法。");
-        }
-    }
-
-    private long parseTokenVersion(String value) {
-        try {
-            return Long.parseLong(value);
-        } catch (NumberFormatException ex) {
-            throw new IdentityAuthException("Token 版本号不合法。");
-        }
-    }
-
-    private Long parseRefreshSessionId(String value) {
-        try {
-            long sessionId = Long.parseLong(value);
-            if (sessionId <= 0L) {
-                throw new NumberFormatException("session id must be positive");
-            }
-            return sessionId;
-        } catch (NumberFormatException ex) {
-            throw new IdentityAuthException("Token 会话编号不合法。");
-        }
-    }
-
-    private long parseExpiresAt(String value) {
-        try {
-            return Long.parseLong(value);
-        } catch (NumberFormatException ex) {
-            throw new IdentityAuthException("Token 过期时间不合法。");
         }
     }
 

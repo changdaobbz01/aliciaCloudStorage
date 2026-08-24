@@ -591,20 +591,16 @@ export function changePassword(payload: ChangePasswordPayload, token: string) {
   );
 }
 
-export function refreshAuthSession(token: string, refreshToken?: string | null) {
-  const init = refreshToken?.trim()
-    ? withToken(token, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ refreshToken: refreshToken.trim() }),
-      })
-    : withToken(token, { method: 'POST' });
-
+export function refreshAuthSession(token: string, refreshToken: string) {
   return requestJson<IdentityLoginResponse>(
     '/api/identity/auth/token/refresh',
-    init,
+    withToken(token, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ refreshToken: refreshToken.trim() }),
+    }),
   );
 }
 

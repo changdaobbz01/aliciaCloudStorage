@@ -142,7 +142,7 @@ printf '  removed HS256 kid:  %s\n' "$TARGET_KEY_ID"
 printf '  removed entries:    %s\n' "$REMOVED_COUNT"
 printf '  remaining HS keys:  %s\n' "$REMAINING_COUNT"
 printf '  access token ttl:   %s seconds\n' "$TOKEN_EXPIRE_SECONDS"
-printf '\nApply this only after the old HS256 access-token window has expired, plus your chosen grace period.\n'
+printf '\nApply this after confirming active clients no longer need the historical HS256 JWT key.\n'
 printf 'Sensitive key values are written only to the candidate file and are not printed here.\n'
 printf '\nWhen you are ready to remove the historical HS256 key, run:\n'
 printf '  install -m 600 %s %s\n' "$ENV_FILE" "$BACKUP_FILE"

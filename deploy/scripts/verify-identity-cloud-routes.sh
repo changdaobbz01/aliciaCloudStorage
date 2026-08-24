@@ -394,6 +394,11 @@ REFRESH_TOKEN="$REFRESHED_REFRESH_TOKEN"
 ok "identity token refresh issued replacement token (${#TOKEN} chars) and refresh token (${#REFRESH_TOKEN} chars)"
 require_jwt_token "identity refreshed token" "$TOKEN"
 require_jwt_metadata "identity refreshed token" "$TOKEN"
+expect_status "identity token refresh requires refresh token" 401 \
+    -X POST "$IDENTITY_BASE_URL/api/identity/auth/token/refresh" \
+    -H "Authorization: Bearer $TOKEN" \
+    -H "Content-Type: application/json" \
+    --data-binary '{}'
 
 sessions_response="$(curl_json_or_fail "identity session list" \
     "$PUBLIC_BASE_URL/api/identity/auth/sessions" \

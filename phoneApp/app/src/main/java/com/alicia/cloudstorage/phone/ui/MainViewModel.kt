@@ -2277,6 +2277,15 @@ class MainViewModel(
                 checkForAppUpdate(session.baseUrl)
                 return@launch
             }
+            if (session.refreshToken.isNullOrBlank()) {
+                sessionStore.clearToken(session.baseUrl)
+                clearPreviewArtifacts()
+                _uiState.update { state ->
+                    state.copy(isBooting = false, authToken = null, refreshToken = null, currentUser = null)
+                }
+                checkForAppUpdate(session.baseUrl)
+                return@launch
+            }
 
             runCatching {
                 val refreshedSession = repository.refreshToken(session.baseUrl, session.token, session.refreshToken)
