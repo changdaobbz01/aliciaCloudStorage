@@ -111,6 +111,12 @@ bash deploy/scripts/prepare-identity-hs256-key-removal-env.sh
 
 该脚本默认准备移除 `alicia-hs256-v1`，也可以把其他历史 `kid` 作为第一个参数传入。它只生成候选 `.env` 和回滚命令，不直接改生产 `.env`。`deploy/generated/identity-rs256/` 下的 `.env`、candidate 和 backup 都按敏感文件处理，应保持 `600` 权限。
 
+未正式上线环境可以直接使用一键 apply 脚本。它会生成候选 `.env`、备份当前 `.env`、替换配置、重启 identity、运行统一验证，并在失败时自动回滚：
+
+```bash
+bash deploy/scripts/apply-identity-hs256-key-removal-env.sh
+```
+
 如果配置了 COS 自定义源站域名，可以额外填写：
 
 - `ALICIA_COS_CUSTOM_DOMAIN`：预览/下载的预签名 URL 会使用该域名，例如 `files.windwindwind-alicia.cn`。

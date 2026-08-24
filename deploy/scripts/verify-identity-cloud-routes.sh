@@ -12,6 +12,7 @@ SKIP_AUDIT_CHECK="${ALICIA_VERIFY_SKIP_AUDIT_CHECK:-false}"
 SKIP_IDENTITY_FLYWAY_CHECK="${ALICIA_VERIFY_SKIP_IDENTITY_FLYWAY_CHECK:-false}"
 COMPOSE_FILES="${ALICIA_COMPOSE_FILES:-compose.yaml compose.https.yaml}"
 ENV_FILE="${ALICIA_VERIFY_ENV_FILE:-.env}"
+FORBID_PREVIOUS_KEY_ID="${ALICIA_VERIFY_FORBID_PREVIOUS_KEY_ID:-}"
 
 CLOUD_BASE_URL="${CLOUD_BASE_URL%/}"
 IDENTITY_BASE_URL="${IDENTITY_BASE_URL%/}"
@@ -71,6 +72,29 @@ dotenv_value() {
     fi
 
     printf '%s' "$line"
+}
+
+previous_key_id_present() {
+    local previous_keys="$1"
+    local target_key_id="$2"
+    local entry
+    local entry_key_id
+    local -a entries=()
+
+    IFS=';' read -r -a entries <<< "$previous_keys"
+    for entry in "${entries[@]}"; do
+        entry="${entry#"${entry%%[![:space:]]*}"}"
+        entry="${entry%"${entry##*[![:space:]]}"}"
+        [[ "$entry" == *"="* ]] || continue
+        entry_key_id="${entry%%=*}"
+        entry_key_id="${entry_key_id#"${entry_key_id%%[![:space:]]*}"}"
+        entry_key_id="${entry_key_id%"${entry_key_id##*[![:space:]]}"}"
+        if [[ "$entry_key_id" == "$target_key_id" ]]; then
+            return 0
+        fi
+    done
+
+    return 1
 }
 
 base64url_decode() {
@@ -293,6 +317,7 @@ EXPECTED_TOKEN_AUDIENCE="${ALICIA_VERIFY_TOKEN_AUDIENCE:-${DOTENV_TOKEN_AUDIENCE
 EXPECTED_TOKEN_KEY_ID="${ALICIA_VERIFY_TOKEN_KEY_ID:-${DOTENV_TOKEN_KEY_ID:-alicia-hs256-v1}}"
 EXPECTED_TOKEN_ALGORITHM="${ALICIA_VERIFY_TOKEN_ALGORITHM:-${DOTENV_TOKEN_ALGORITHM:-HS256}}"
 EXPECTED_TOKEN_ALGORITHM="$(printf '%s' "$EXPECTED_TOKEN_ALGORITHM" | tr '[:lower:]' '[:upper:]')"
+DOTENV_PREVIOUS_KEYS="$(dotenv_value ALICIA_AUTH_TOKEN_PREVIOUS_KEYS)"
 
 if [[ -z "$ACCOUNT" ]]; then
     read -r -p "Identity account/email/phone: " ACCOUNT
@@ -308,6 +333,13 @@ printf 'Cloud API: %s\n' "$CLOUD_BASE_URL"
 printf 'Identity API: %s\n' "$IDENTITY_BASE_URL"
 printf 'Public base: %s\n' "$PUBLIC_BASE_URL"
 printf 'Expected JWT: alg=%s iss=%s aud=%s kid=%s\n' "$EXPECTED_TOKEN_ALGORITHM" "$EXPECTED_TOKEN_ISSUER" "$EXPECTED_TOKEN_AUDIENCE" "$EXPECTED_TOKEN_KEY_ID"
+
+if [[ -n "$FORBID_PREVIOUS_KEY_ID" ]]; then
+    if previous_key_id_present "$DOTENV_PREVIOUS_KEYS" "$FORBID_PREVIOUS_KEY_ID"; then
+        fail "forbidden previous JWT key id is still present in $ENV_FILE: $FORBID_PREVIOUS_KEY_ID"
+    fi
+    ok "forbidden previous JWT key id is absent from env"
+fi
 
 curl_ok "cloud health direct" "$CLOUD_BASE_URL/api/health"
 curl_ok "identity health direct" "$IDENTITY_BASE_URL/api/identity/health"

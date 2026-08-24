@@ -445,6 +445,7 @@ ALICIA_AUTH_TOKEN_PREVIOUS_RSA_PUBLIC_KEYS=old-rsa-kid=old-public-key
 - `deploy/scripts/verify-identity-rs256-dry-run.sh` 可在不修改生产 `.env` 的前提下临时启动 RS256 identity，完成统一验证后默认恢复当前配置。
 - `deploy/scripts/prepare-identity-rs256-cutover-env.sh` 可生成正式切换用的候选 `.env`，并输出备份、切换和回滚命令，默认不直接覆盖生产 `.env`；旧 snippet 缺少 `ALICIA_AUTH_TOKEN_PREVIOUS_KEYS` 时会从当前 `.env` 推导旧 HS256 兼容项。
 - `deploy/scripts/prepare-identity-hs256-key-removal-env.sh` 可生成候选 `.env`，从 `ALICIA_AUTH_TOKEN_PREVIOUS_KEYS` 中移除指定历史 `kid`，默认目标是 `alicia-hs256-v1`，并输出切换与回滚命令；生成目录下的 `.env`、candidate 和 backup 都按敏感文件处理，保持 `600` 权限。
+- `deploy/scripts/apply-identity-hs256-key-removal-env.sh` 可在未正式上线或确认无旧客户端后直接执行：它会调用 prepare helper、备份 `.env`、应用候选 `.env`、重启 identity、运行统一验证，并在失败时恢复备份。
 - `tokenVersion` 已用于密码修改、管理员重置密码和全设备 logout 后的登录态失效。
 - `identity_refresh_token` 保存刷新令牌摘要、用户、tokenVersion、过期时间、撤销时间、客户端 IP 和 User-Agent。
 - 登录和邮箱注册验证返回 `token` 与 `refreshToken`；续签必须使用 refresh token 请求体轮换，Authorization-only 续签不再接受。
@@ -1061,7 +1062,7 @@ Web 和 Android：
 
 下一步按架构收益从高到低推进：
 
-1. 用 `deploy/scripts/prepare-identity-hs256-key-removal-env.sh` 准备候选 `.env`，移除历史 HS256 key，并用统一脚本验证 RS256/JWKS。
+1. 用 `deploy/scripts/apply-identity-hs256-key-removal-env.sh` 移除历史 HS256 key，并用统一脚本验证 RS256/JWKS；需要手动审查 `.env` 时仍可先使用 prepare helper。
 2. 继续观察 Identity 审计日志写入、查询接口和 Web 管理页筛选结果。
 3. 继续观察 `identity_refresh_token` 的生产写入、轮换、会话查询和指定会话撤销结果。
 4. 继续观察 `identity_flyway_schema_history`，确认后续身份 schema 变更只进入 `identityApi` 迁移目录，并保持双向迁移边界测试通过。
