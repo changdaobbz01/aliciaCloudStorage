@@ -3,6 +3,7 @@ import { Avatar, Button, Form, Input, Modal, Popconfirm, Space, Switch, Table, T
 import type { TableProps } from 'antd';
 import type { FormInstance } from 'antd/es/form';
 import type { MutableRefObject, ChangeEvent } from 'react';
+import { AliciaModalTitle } from '../../components/AliciaModalTitle';
 import type { ChangePasswordPayload, IdentitySession, UpdateProfilePayload, User } from '../../types';
 
 type PasswordFormValues = ChangePasswordPayload & {
@@ -160,10 +161,13 @@ export function DriveProfileModals({
   return (
     <>
       <Modal
-        title="修改个人资料"
+        title={<AliciaModalTitle eyebrow="Account">个人资料</AliciaModalTitle>}
+        rootClassName="alicia-modal alicia-account-modal"
         open={profileOpen}
         onCancel={onCloseProfile}
         onOk={() => void profileForm.submit()}
+        okText="保存资料"
+        cancelText="取消"
         destroyOnHidden
       >
         <Form form={profileForm} layout="vertical" onFinish={(values) => void onSubmitProfile(values)}>
@@ -204,10 +208,13 @@ export function DriveProfileModals({
       </Modal>
 
       <Modal
-        title="修改密码"
+        title={<AliciaModalTitle eyebrow="Account">修改密码</AliciaModalTitle>}
+        rootClassName="alicia-modal alicia-account-modal"
         open={passwordOpen}
         onCancel={onClosePassword}
         onOk={() => void passwordForm.submit()}
+        okText="确认修改"
+        cancelText="取消"
         destroyOnHidden
       >
         <Form form={passwordForm} layout="vertical" onFinish={(values) => void onSubmitPassword(values)}>
@@ -251,7 +258,8 @@ export function DriveProfileModals({
       </Modal>
 
       <Modal
-        title="登录会话"
+        title={<AliciaModalTitle eyebrow="Account">登录会话</AliciaModalTitle>}
+        rootClassName="alicia-modal alicia-account-modal alicia-session-modal"
         open={sessionsOpen}
         onCancel={onCloseSessions}
         footer={null}

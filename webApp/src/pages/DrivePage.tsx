@@ -626,6 +626,7 @@ export function DrivePage() {
               menu={{ items: avatarMenuItems, onClick: profileSettings.handleAvatarMenuClick }}
               trigger={['click']}
               placement="bottomRight"
+              overlayClassName="avatar-account-dropdown"
             >
               <button type="button" className="avatar-menu-button" aria-label="打开用户菜单">
                 <Avatar size={44} src={currentAvatarSrc}>

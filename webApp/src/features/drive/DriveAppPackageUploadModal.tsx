@@ -2,6 +2,7 @@ import { UploadOutlined } from '@ant-design/icons';
 import { Button, Form, Input, Modal, Space, Typography } from 'antd';
 import type { FormInstance } from 'antd/es/form';
 import type { MutableRefObject, ChangeEvent } from 'react';
+import { AliciaModalTitle } from '../../components/AliciaModalTitle';
 import { formatFileSize } from './driveShared';
 import type { AppPackageUploadFormValues } from './types';
 
@@ -30,7 +31,8 @@ export function DriveAppPackageUploadModal({
 }: DriveAppPackageUploadModalProps) {
   return (
     <Modal
-      title="上传 APP 更新"
+      title={<AliciaModalTitle eyebrow="Release">上传 APP 更新</AliciaModalTitle>}
+      rootClassName="alicia-modal alicia-release-modal"
       open={open}
       onCancel={onClose}
       onOk={() => void form.submit()}

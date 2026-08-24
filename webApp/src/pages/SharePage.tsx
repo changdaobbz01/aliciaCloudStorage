@@ -11,6 +11,7 @@ import type { TableProps } from 'antd';
 import type { Key } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { AliciaModalTitle } from '../components/AliciaModalTitle';
 import { RegulatoryFooter } from '../components/RegulatoryFooter';
 import { useSession } from '../context/session-context';
 import {
@@ -583,7 +584,8 @@ export function SharePage() {
       <main className="share-page-main">{content}</main>
 
       <Modal
-        title="选择保存位置"
+        title={<AliciaModalTitle eyebrow="Share">选择保存位置</AliciaModalTitle>}
+        rootClassName="alicia-modal alicia-share-modal"
         open={saveTargetOpen}
         onCancel={() => setSaveTargetOpen(false)}
         onOk={() => void handleSaveShare()}

@@ -1,4 +1,5 @@
 import { Alert, Button, Modal, Spin } from 'antd';
+import { AliciaModalTitle } from '../../components/AliciaModalTitle';
 import type { StorageNode } from '../../types';
 import type { DriveDownloadButtonState, DrivePreviewState } from './types';
 
@@ -96,7 +97,12 @@ export function DrivePreviewModal({
 
   return (
     <Modal
-      title={previewTarget ? `预览：${previewTarget.name}` : '文件预览'}
+      title={(
+        <AliciaModalTitle eyebrow="Preview">
+          {previewTarget ? `预览：${previewTarget.name}` : '文件预览'}
+        </AliciaModalTitle>
+      )}
+      rootClassName="alicia-modal alicia-preview-modal"
       open={previewTarget !== null}
       width={960}
       onCancel={onClose}

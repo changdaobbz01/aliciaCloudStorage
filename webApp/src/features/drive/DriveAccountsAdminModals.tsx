@@ -1,5 +1,6 @@
 import { Checkbox, Form, Input, InputNumber, Modal, Select, Space, Typography } from 'antd';
 import type { FormInstance } from 'antd/es/form';
+import { AliciaModalTitle } from '../../components/AliciaModalTitle';
 import { formatFileSize, formatNullableBytes } from './driveShared';
 import type {
   CreateUserFormValues,
@@ -44,10 +45,13 @@ export function DriveAccountsAdminModals({
   return (
     <>
       <Modal
-        title="新增账号"
+        title={<AliciaModalTitle eyebrow="Admin">新增账号</AliciaModalTitle>}
+        rootClassName="alicia-modal alicia-admin-modal"
         open={createUserOpen}
         onCancel={onCloseCreateUser}
         onOk={() => void createUserForm.submit()}
+        okText="创建账号"
+        cancelText="取消"
         destroyOnHidden
       >
         <Form form={createUserForm} layout="vertical" onFinish={(values) => void onSubmitCreateUser(values)}>
@@ -131,10 +135,17 @@ export function DriveAccountsAdminModals({
       </Modal>
 
       <Modal
-        title={resetPasswordTarget ? `重置密码：${resetPasswordTarget.nickname}` : '重置密码'}
+        title={(
+          <AliciaModalTitle eyebrow="Admin">
+            {resetPasswordTarget ? `重置密码：${resetPasswordTarget.nickname}` : '重置密码'}
+          </AliciaModalTitle>
+        )}
+        rootClassName="alicia-modal alicia-admin-modal"
         open={resetPasswordTarget !== null}
         onCancel={onCloseResetPassword}
         onOk={() => void resetUserPasswordForm.submit()}
+        okText="重置密码"
+        cancelText="取消"
         destroyOnHidden
       >
         <Form
@@ -175,10 +186,17 @@ export function DriveAccountsAdminModals({
       </Modal>
 
       <Modal
-        title={editQuotaTarget ? `修改额度：${editQuotaTarget.nickname}` : '修改额度'}
+        title={(
+          <AliciaModalTitle eyebrow="Admin">
+            {editQuotaTarget ? `修改额度：${editQuotaTarget.nickname}` : '修改额度'}
+          </AliciaModalTitle>
+        )}
+        rootClassName="alicia-modal alicia-admin-modal"
         open={editQuotaTarget !== null}
         onCancel={onCloseEditQuota}
         onOk={() => void quotaForm.submit()}
+        okText="保存额度"
+        cancelText="取消"
         destroyOnHidden
       >
         <Form form={quotaForm} layout="vertical" onFinish={(values) => void onSubmitUserQuota(values)}>

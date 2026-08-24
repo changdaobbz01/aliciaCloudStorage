@@ -13,6 +13,7 @@ import {
 import { Alert, App as AntApp, Button, Form, Input, Modal, Select, Space, Switch, Typography } from 'antd';
 import type { FormInstance } from 'antd/es/form';
 import { useEffect, useMemo, useState } from 'react';
+import { AliciaModalTitle } from '../../components/AliciaModalTitle';
 import { fetchStorageFileAccessUrl } from '../../lib/api';
 import type { ShareLinkSummary, StorageNode } from '../../types';
 import { formatFileSize, resolveShareUrl } from './driveShared';
@@ -136,7 +137,12 @@ export function DriveShareCreateModal({
 
   return (
     <Modal
-      title={lastCreatedShare ? '分享链接已创建' : '创建分享'}
+      title={(
+        <AliciaModalTitle eyebrow="Share">
+          {lastCreatedShare ? '分享链接已创建' : '创建分享'}
+        </AliciaModalTitle>
+      )}
+      rootClassName="alicia-modal alicia-share-modal"
       open={targets.length > 0}
       onCancel={onClose}
       onOk={() => void form.submit()}

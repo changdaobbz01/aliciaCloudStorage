@@ -1,5 +1,6 @@
 import { Form, Input, Modal, TreeSelect } from 'antd';
 import type { FormInstance } from 'antd/es/form';
+import { AliciaModalTitle } from '../../components/AliciaModalTitle';
 import type { CreateFolderPayload, RenameNodePayload, StorageNode } from '../../types';
 import type { FolderTreeNode } from './types';
 
@@ -45,10 +46,13 @@ export function DriveStorageActionModals({
   return (
     <>
       <Modal
-        title="新建文件夹"
+        title={<AliciaModalTitle eyebrow="Storage">新建文件夹</AliciaModalTitle>}
+        rootClassName="alicia-modal alicia-storage-modal"
         open={createFolderOpen}
         onCancel={onCloseCreateFolder}
         onOk={() => void createFolderForm.submit()}
+        okText="创建"
+        cancelText="取消"
         destroyOnHidden
       >
         <Form form={createFolderForm} layout="vertical" onFinish={(values) => void onSubmitCreateFolder(values)}>
@@ -63,10 +67,13 @@ export function DriveStorageActionModals({
       </Modal>
 
       <Modal
-        title="重命名"
+        title={<AliciaModalTitle eyebrow="Storage">重命名</AliciaModalTitle>}
+        rootClassName="alicia-modal alicia-storage-modal"
         open={renameTarget !== null}
         onCancel={onCloseRename}
         onOk={() => void renameForm.submit()}
+        okText="保存"
+        cancelText="取消"
         destroyOnHidden
       >
         <Form form={renameForm} layout="vertical" onFinish={(values) => void onSubmitRename(values)}>
@@ -84,10 +91,13 @@ export function DriveStorageActionModals({
       </Modal>
 
       <Modal
-        title={moveDialogTitle}
+        title={<AliciaModalTitle eyebrow="Storage">{moveDialogTitle}</AliciaModalTitle>}
+        rootClassName="alicia-modal alicia-storage-modal"
         open={moveTargetsCount > 0}
         onCancel={onCloseMove}
         onOk={() => void moveForm.submit()}
+        okText="移动"
+        cancelText="取消"
         destroyOnHidden
       >
         <Form form={moveForm} layout="vertical" onFinish={(values) => void onSubmitMove(values)}>
