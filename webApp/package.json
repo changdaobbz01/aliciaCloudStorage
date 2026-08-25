@@ -5,8 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "audit:high": "npm audit --audit-level=high",
     "verify:session-sync": "node scripts/verify-session-sync.mjs",
-    "build": "npm run verify:session-sync && tsc -b && vite build",
+    "verify:bundle-size": "node scripts/verify-bundle-size.mjs",
+    "build": "npm run verify:session-sync && tsc -b && vite build && npm run verify:bundle-size",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -14,7 +16,7 @@
     "lucide-react": "^0.468.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
-    "react-router-dom": "^7.14.1"
+    "react-router-dom": "^7.18.2"
   },
   "devDependencies": {
     "@types/node": "^24.12.2",
@@ -22,6 +24,6 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
     "typescript": "~6.0.2",
-    "vite": "^8.0.4"
+    "vite": "^8.2.2"
   }
 }

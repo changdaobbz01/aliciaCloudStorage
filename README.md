@@ -404,8 +404,11 @@ git push origin main
 
 ```powershell
 Set-Location webApp
+npm run audit:high
 npm run build
 ```
+
+`npm run build` 会先检查浏览器统一会话同步约定，再执行 TypeScript 与 Vite 生产构建，最后校验单个 JS chunk 不超过 500 KiB，避免前端依赖升级后重新出现大包警告。
 
 停止容器：
 
