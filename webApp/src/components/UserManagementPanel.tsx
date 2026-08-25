@@ -1,4 +1,4 @@
-import { Lock, Pencil, Plus } from 'lucide-react';
+import { Lock, Pencil, Plus, ShieldCheck } from 'lucide-react';
 import { Avatar, Button, Space, Table, Tag, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { isCloudAdmin, type User } from '../types';
@@ -47,6 +47,7 @@ type UserManagementPanelProps = {
   loading: boolean;
   onCreateUser: () => void;
   onEditUserQuota: (user: User) => void;
+  onEditUserAppRole: (user: User) => void;
   onResetUserPassword: (user: User) => void;
 };
 
@@ -56,6 +57,7 @@ export function UserManagementPanel({
   loading,
   onCreateUser,
   onEditUserQuota,
+  onEditUserAppRole,
   onResetUserPassword,
 }: UserManagementPanelProps) {
   const totalUsers = users.length;
@@ -135,7 +137,7 @@ export function UserManagementPanel({
       title: '操作',
       key: 'actions',
       fixed: 'right',
-      width: 220,
+      width: 300,
       render: (_, user) => {
         if (user.id === currentUserId) {
           return <Typography.Text className="table-secondary-text">当前登录账号</Typography.Text>;
@@ -143,6 +145,11 @@ export function UserManagementPanel({
 
         return (
           <Space size={0} wrap>
+            {user.role === 'ADMIN' ? null : (
+              <Button type="link" icon={<Icon icon={ShieldCheck} />} onClick={() => onEditUserAppRole(user)}>
+                应用权限
+              </Button>
+            )}
             <Button type="link" icon={<Icon icon={Lock} />} onClick={() => onResetUserPassword(user)}>
               重置密码
             </Button>
@@ -200,7 +207,7 @@ export function UserManagementPanel({
         columns={columns}
         dataSource={users}
         pagination={false}
-        scroll={{ x: 1360 }}
+        scroll={{ x: 1460 }}
         locale={{ emptyText: '暂无账号记录。' }}
       />
     </>

@@ -464,6 +464,7 @@ export function DrivePage() {
           auditLogsLoading={accounts.auditLogsLoading}
           onCreateUser={accounts.openCreateUserModal}
           onEditUserQuota={accounts.openEditUserQuotaModal}
+          onEditUserAppRole={accounts.openEditUserAppRoleModal}
           onResetUserPassword={accounts.openResetUserPasswordModal}
           onApplyAuditLogQuery={accounts.applyAuditLogQuery}
           onAuditLogPageChange={accounts.changeAuditLogPage}
@@ -693,9 +694,11 @@ export function DrivePage() {
         createUserOpen={accounts.createUserOpen}
         createUserRole={accounts.createUserRole}
         editQuotaTarget={accounts.editQuotaTarget}
+        editAppRoleTarget={accounts.editAppRoleTarget}
         resetPasswordTarget={accounts.resetPasswordTarget}
         createUserForm={accounts.createUserForm}
         quotaForm={accounts.quotaForm}
+        appRoleForm={accounts.appRoleForm}
         resetUserPasswordForm={accounts.resetUserPasswordForm}
         onCloseCreateUser={accounts.closeCreateUserModal}
         onSubmitCreateUser={accounts.submitCreateUser}
@@ -703,6 +706,8 @@ export function DrivePage() {
         onSubmitResetPassword={accounts.submitResetUserPassword}
         onCloseEditQuota={accounts.closeEditUserQuotaModal}
         onSubmitUserQuota={accounts.submitUserQuota}
+        onCloseEditAppRole={accounts.closeEditUserAppRoleModal}
+        onSubmitUserAppRole={accounts.submitUserAppRole}
       />
 
       <DriveAppPackageUploadModal

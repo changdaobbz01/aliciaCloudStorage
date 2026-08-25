@@ -12,6 +12,7 @@ import type {
   HealthResponse,
   IdentityAuditLogPage,
   IdentityAuditLogQuery,
+  IdentityApplicationRole,
   IdentityLoginResponse,
   IdentitySession,
   MoveNodePayload,
@@ -29,6 +30,7 @@ import type {
   StorageNodePage,
   StorageNodeQuery,
   UpdateUserStorageQuotaPayload,
+  UpdateIdentityApplicationRolePayload,
   UpdateProfilePayload,
   UsageHistoryPoint,
   User,
@@ -1196,6 +1198,24 @@ export function updateUserStorageQuota(userId: number, payload: UpdateUserStorag
 export function resetUserPassword(userId: number, payload: ResetUserPasswordPayload, token: string) {
   return requestJson<ApiMessageResponse>(
     `/api/identity/admin/users/${userId}/password`,
+    withToken(token, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    }),
+  );
+}
+
+export function updateIdentityApplicationRole(
+  userId: number,
+  appCode: string,
+  payload: UpdateIdentityApplicationRolePayload,
+  token: string,
+) {
+  return requestJson<IdentityApplicationRole>(
+    `/api/identity/admin/users/${userId}/app-roles/${encodeURIComponent(appCode)}`,
     withToken(token, {
       method: 'PUT',
       headers: {

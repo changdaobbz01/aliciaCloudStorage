@@ -5,6 +5,7 @@ import { formatFileSize, formatNullableBytes } from './driveShared';
 import type {
   CreateUserFormValues,
   ResetUserPasswordFormValues,
+  UpdateCloudAppRoleFormValues,
   UpdateUserQuotaFormValues,
 } from './types';
 import type { User } from '../../types';
@@ -14,9 +15,11 @@ type DriveAccountsAdminModalsProps = {
   createUserOpen: boolean;
   createUserRole: User['role'];
   editQuotaTarget: User | null;
+  editAppRoleTarget: User | null;
   resetPasswordTarget: User | null;
   createUserForm: FormInstance<CreateUserFormValues>;
   quotaForm: FormInstance<UpdateUserQuotaFormValues>;
+  appRoleForm: FormInstance<UpdateCloudAppRoleFormValues>;
   resetUserPasswordForm: FormInstance<ResetUserPasswordFormValues>;
   onCloseCreateUser: () => void;
   onSubmitCreateUser: (values: CreateUserFormValues) => Promise<unknown> | void;
@@ -24,6 +27,8 @@ type DriveAccountsAdminModalsProps = {
   onSubmitResetPassword: (values: ResetUserPasswordFormValues) => Promise<unknown> | void;
   onCloseEditQuota: () => void;
   onSubmitUserQuota: (values: UpdateUserQuotaFormValues) => Promise<unknown> | void;
+  onCloseEditAppRole: () => void;
+  onSubmitUserAppRole: (values: UpdateCloudAppRoleFormValues) => Promise<unknown> | void;
 };
 
 export function DriveAccountsAdminModals({
@@ -31,9 +36,11 @@ export function DriveAccountsAdminModals({
   createUserOpen,
   createUserRole,
   editQuotaTarget,
+  editAppRoleTarget,
   resetPasswordTarget,
   createUserForm,
   quotaForm,
+  appRoleForm,
   resetUserPasswordForm,
   onCloseCreateUser,
   onSubmitCreateUser,
@@ -41,6 +48,8 @@ export function DriveAccountsAdminModals({
   onSubmitResetPassword,
   onCloseEditQuota,
   onSubmitUserQuota,
+  onCloseEditAppRole,
+  onSubmitUserAppRole,
 }: DriveAccountsAdminModalsProps) {
   return (
     <>
@@ -131,6 +140,47 @@ export function DriveAccountsAdminModals({
               <InputNumber min={0.1} step={0.25} precision={2} style={{ width: '100%' }} />
             </Form.Item>
           )}
+        </Form>
+      </Modal>
+
+      <Modal
+        title={(
+          <AliciaModalTitle eyebrow="Application">
+            {editAppRoleTarget ? `应用权限：${editAppRoleTarget.nickname}` : '应用权限'}
+          </AliciaModalTitle>
+        )}
+        rootClassName="alicia-modal alicia-admin-modal"
+        open={editAppRoleTarget !== null}
+        onCancel={onCloseEditAppRole}
+        onOk={() => void appRoleForm.submit()}
+        okText="保存权限"
+        cancelText="取消"
+        destroyOnHidden
+      >
+        <Form form={appRoleForm} layout="vertical" onFinish={(values) => void onSubmitUserAppRole(values)}>
+          {editAppRoleTarget ? (
+            <Space direction="vertical" size={4} style={{ display: 'flex', marginBottom: 16 }}>
+              <Typography.Text className="muted-text">
+                当前账号：{editAppRoleTarget.email ?? editAppRoleTarget.phoneNumber}
+              </Typography.Text>
+              <Typography.Text className="muted-text">
+                应用范围：Alicia 云盘
+              </Typography.Text>
+            </Space>
+          ) : null}
+          <Form.Item
+            name="roleCode"
+            label="云盘应用角色"
+            rules={[{ required: true, message: '请选择云盘应用角色。' }]}
+            extra="云盘管理员可以进入账号管理、应用包管理并查看全局云盘统计；普通用户只管理自己的文件和分享。"
+          >
+            <Select
+              options={[
+                { value: 'CLOUD_USER', label: '普通云盘用户' },
+                { value: 'CLOUD_ADMIN', label: '云盘管理员' },
+              ]}
+            />
+          </Form.Item>
         </Form>
       </Modal>
 

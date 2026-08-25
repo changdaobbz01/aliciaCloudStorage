@@ -7,6 +7,14 @@ export type HealthResponse = {
 export type UserRole = 'ADMIN' | 'USER';
 export type UserStatus = 'ACTIVE' | 'DISABLED';
 export type ApplicationRoles = Record<string, string>;
+export type CloudApplicationRoleCode = 'CLOUD_USER' | 'CLOUD_ADMIN';
+export type IdentityApplicationRole = {
+  appCode: string;
+  roleCode: string;
+};
+export type UpdateIdentityApplicationRolePayload = {
+  roleCode: CloudApplicationRoleCode;
+};
 export type IdentityAuditEventType =
   | 'LOGIN'
   | 'TOKEN_REFRESH'

@@ -13,6 +13,7 @@ type DriveAccountsViewProps = {
   auditLogsLoading: boolean;
   onCreateUser: () => void;
   onEditUserQuota: (user: User) => void;
+  onEditUserAppRole: (user: User) => void;
   onResetUserPassword: (user: User) => void;
   onApplyAuditLogQuery: (query: IdentityAuditLogQuery) => void;
   onAuditLogPageChange: (page: number, size: number) => void;
@@ -29,6 +30,7 @@ export default function DriveAccountsView({
   auditLogsLoading,
   onCreateUser,
   onEditUserQuota,
+  onEditUserAppRole,
   onResetUserPassword,
   onApplyAuditLogQuery,
   onAuditLogPageChange,
@@ -62,6 +64,7 @@ export default function DriveAccountsView({
                 loading={loading}
                 onCreateUser={onCreateUser}
                 onEditUserQuota={onEditUserQuota}
+                onEditUserAppRole={onEditUserAppRole}
                 onResetUserPassword={onResetUserPassword}
               />
             ),

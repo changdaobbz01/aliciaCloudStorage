@@ -1,12 +1,20 @@
 import { Form } from 'antd';
 import type { MessageInstance } from 'antd/es/message/interface';
 import { useEffect, useState } from 'react';
-import { createUser, fetchIdentityAuditLogs, fetchUsers, resetUserPassword, updateUserStorageQuota } from '../../../lib/api';
+import {
+  createUser,
+  fetchIdentityAuditLogs,
+  fetchUsers,
+  resetUserPassword,
+  updateIdentityApplicationRole,
+  updateUserStorageQuota,
+} from '../../../lib/api';
 import { isCloudAdmin, type IdentityAuditLogPage, type IdentityAuditLogQuery, type User } from '../../../types';
 import { DEFAULT_NEW_USER_QUOTA_GB, bytesToGigabytes, gigabytesToBytes } from '../driveShared';
 import type {
   CreateUserFormValues,
   ResetUserPasswordFormValues,
+  UpdateCloudAppRoleFormValues,
   UpdateUserQuotaFormValues,
 } from '../types';
 
@@ -34,10 +42,12 @@ export function useDriveAccountsAdmin({
   const [auditLogsLoading, setAuditLogsLoading] = useState(false);
   const [createUserOpen, setCreateUserOpen] = useState(false);
   const [editQuotaTarget, setEditQuotaTarget] = useState<User | null>(null);
+  const [editAppRoleTarget, setEditAppRoleTarget] = useState<User | null>(null);
   const [resetPasswordTarget, setResetPasswordTarget] = useState<User | null>(null);
 
   const [createUserForm] = Form.useForm<CreateUserFormValues>();
   const [quotaForm] = Form.useForm<UpdateUserQuotaFormValues>();
+  const [appRoleForm] = Form.useForm<UpdateCloudAppRoleFormValues>();
   const [resetUserPasswordForm] = Form.useForm<ResetUserPasswordFormValues>();
   const createUserRole = Form.useWatch('role', createUserForm) ?? 'USER';
 
@@ -131,6 +141,27 @@ export function useDriveAccountsAdmin({
     setEditQuotaTarget(null);
   }
 
+  function openEditUserAppRoleModal(user: User) {
+    if (user.id === currentUser?.id) {
+      message.info('当前登录账号不能在这里调整自身应用权限。');
+      return;
+    }
+
+    if (user.role === 'ADMIN') {
+      message.info('身份管理员始终具备云盘管理员权限，无需单独调整。');
+      return;
+    }
+
+    appRoleForm.setFieldsValue({
+      roleCode: isCloudAdmin(user) ? 'CLOUD_ADMIN' : 'CLOUD_USER',
+    });
+    setEditAppRoleTarget(user);
+  }
+
+  function closeEditUserAppRoleModal() {
+    setEditAppRoleTarget(null);
+  }
+
   function openResetUserPasswordModal(user: User) {
     if (user.id === currentUser?.id) {
       message.info('当前登录账号请使用右上角的修改密码。');
@@ -199,6 +230,33 @@ export function useDriveAccountsAdmin({
     return true;
   }
 
+  async function submitUserAppRole(values: UpdateCloudAppRoleFormValues) {
+    if (!authToken || !editAppRoleTarget) {
+      return false;
+    }
+
+    if (editAppRoleTarget.role === 'ADMIN') {
+      setEditAppRoleTarget(null);
+      message.info('身份管理员始终具备云盘管理员权限。');
+      return false;
+    }
+
+    await updateIdentityApplicationRole(
+      editAppRoleTarget.id,
+      'cloud',
+      {
+        roleCode: values.roleCode,
+      },
+      authToken,
+    );
+
+    setEditAppRoleTarget(null);
+    await loadUsers();
+    await loadAuditLogs();
+    message.success(values.roleCode === 'CLOUD_ADMIN' ? '已授予云盘管理员权限。' : '已调整为普通云盘用户。');
+    return true;
+  }
+
   async function submitResetUserPassword(values: ResetUserPasswordFormValues) {
     if (!authToken || !resetPasswordTarget) {
       return false;
@@ -235,9 +293,11 @@ export function useDriveAccountsAdmin({
     auditLogsLoading,
     createUserOpen,
     editQuotaTarget,
+    editAppRoleTarget,
     resetPasswordTarget,
     createUserForm,
     quotaForm,
+    appRoleForm,
     resetUserPasswordForm,
     createUserRole,
     loadUsers,
@@ -248,10 +308,13 @@ export function useDriveAccountsAdmin({
     closeCreateUserModal,
     openEditUserQuotaModal,
     closeEditUserQuotaModal,
+    openEditUserAppRoleModal,
+    closeEditUserAppRoleModal,
     openResetUserPasswordModal,
     closeResetUserPasswordModal,
     submitCreateUser,
     submitUserQuota,
+    submitUserAppRole,
     submitResetUserPassword,
   };
 }

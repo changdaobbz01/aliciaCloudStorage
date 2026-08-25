@@ -1,4 +1,11 @@
-import type { ResetUserPasswordPayload, SortDirection, StorageNode, StorageNodeSortField, User } from '../../types';
+import type {
+  CloudApplicationRoleCode,
+  ResetUserPasswordPayload,
+  SortDirection,
+  StorageNode,
+  StorageNodeSortField,
+  User,
+} from '../../types';
 
 export type FolderCrumb = {
   id: number | null;
@@ -92,6 +99,10 @@ export type CreateUserFormValues = {
 
 export type UpdateUserQuotaFormValues = {
   storageQuotaGb: number;
+};
+
+export type UpdateCloudAppRoleFormValues = {
+  roleCode: CloudApplicationRoleCode;
 };
 
 export type AppPackageUploadFormValues = {
