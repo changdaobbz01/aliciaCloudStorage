@@ -1056,6 +1056,7 @@ bash deploy/scripts/check-identity-route-boundary.sh
 - `/api/identity/admin/audit-logs` 管理员审计日志查询入口和 `SESSION_REVOKE` 筛选。
 - 旧 `/api/auth/me`、`/api/auth/avatar/{userId}`、`/api/admin/users` 保持 404。
 - `identity_audit_log` 最新记录查询。
+- `deploy/scripts/collect-production-status.sh` 可非交互式汇总 Git 版本、容器、容量、Cloud/Identity/RAG 健康、依赖健康 JSON、Identity 审计脱敏摘要、Identity Flyway 和云盘库身份残留边界；完整登录链路仍由 `verify-identity-cloud-routes.sh` 执行。
 
 ## 14. 后续重点位置
 
@@ -1102,9 +1103,9 @@ Web 和 Android：
 
 下一步按架构收益从高到低推进，尽量以“大节点”合并和验证：
 
-1. 基于 CloudStorageApi 的 Identity gateway telemetry 连续观察 `/auth/me`、JWKS、管理员用户接口的调用量、失败类型和耗时；在出现明确热点或抖动前，暂不扩大短缓存或 Identity 状态快照。
+1. 基于 `deploy/scripts/collect-production-status.sh` 和 CloudStorageApi 的 Identity gateway telemetry 连续观察 `/auth/me`、JWKS、管理员用户接口的调用量、失败类型和耗时；在出现明确热点或抖动前，暂不扩大短缓存或 Identity 状态快照。
 2. RAG 普通执行入口已经按 `rag/RAG_USER` / `rag/RAG_ADMIN` 授权，内部契约接口已按 `rag/RAG_ADMIN` 收口，RAG 到 Identity/Storage 的依赖健康和 telemetry 已落地；后续如新增独立管理接口，继续按 `rag/RAG_ADMIN` 做管理权限判断。
 3. RS256 密钥轮换已经沉淀为候选 `.env` 生成、回滚命令和历史 RSA 公钥清理脚本；后续如需要后台密钥管理，再新增密钥实体、查询接口和管理界面。
-4. 保持迁移边界测试、静态路径扫描和统一生产验证脚本常态化，防止旧 `/api/auth/**`、旧 `/api/admin/users`、旧 `sys_user` 或云盘画像字段回流。
+4. 保持迁移边界测试、静态路径扫描、生产状态快照和统一生产验证脚本常态化，防止旧 `/api/auth/**`、旧 `/api/admin/users`、旧 `sys_user` 或云盘画像字段回流。
 
 当前文档基线已经与生产架构对齐：Identity 负责身份，CloudStorageApi 负责云盘，主站负责统一入口。后续新增工具只需要接入 Identity，不应该再直接复用或写入云盘的用户资料表。

@@ -14,6 +14,7 @@ GATEWAY_NETWORK="${ALICIA_GATEWAY_NETWORK:-alicia_gateway}"
 SKIP_GIT_PULL="${ALICIA_SKIP_GIT_PULL:-false}"
 SKIP_ROUTE_VERIFY="${ALICIA_SKIP_ROUTE_VERIFY:-false}"
 SKIP_BOUNDARY_CHECK="${ALICIA_SKIP_BOUNDARY_CHECK:-false}"
+COLLECT_STATUS="${ALICIA_COLLECT_STATUS_AFTER_UPDATE:-false}"
 
 if [[ $# -gt 0 ]]; then
     SERVICES=("$@")
@@ -101,6 +102,10 @@ fi
 
 if [[ "$SKIP_BOUNDARY_CHECK" != "true" ]]; then
     bash deploy/scripts/check-identity-route-boundary.sh
+fi
+
+if [[ "$COLLECT_STATUS" == "true" ]]; then
+    bash deploy/scripts/collect-production-status.sh
 fi
 
 compose ps

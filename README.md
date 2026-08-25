@@ -293,6 +293,14 @@ bash deploy/scripts/update-main-and-cloud-production.sh
 
 该脚本会先更新 `~/mainSite` 并运行主站路由验证，再更新云盘仓库并运行云盘/Identity/RAG 统一验证。可用 `ALICIA_SKIP_MAIN_SITE_UPDATE=true` 或 `ALICIA_SKIP_CLOUD_UPDATE=true` 临时跳过其中一侧。
 
+日常巡检或发布后复核可使用非交互式生产状态快照脚本：
+
+```bash
+bash deploy/scripts/collect-production-status.sh
+```
+
+该脚本会汇总当前 Git 版本、tracked 文件状态、Compose 容器、磁盘与 Docker 占用、Cloud/Identity/RAG 直连与前端健康、三侧依赖健康 JSON、Identity 审计日志脱敏摘要、Identity Flyway 历史和云盘库身份残留边界。默认不要求输入账号密码；如需在快照中追加完整登录链路验证，可设置 `ALICIA_STATUS_RUN_ROUTE_VERIFY=true`，如需追加静态边界检查可设置 `ALICIA_STATUS_RUN_BOUNDARY_CHECK=true`。生产更新脚本也支持 `ALICIA_COLLECT_STATUS_AFTER_UPDATE=true bash deploy/scripts/update-cloud-production.sh` 在更新后自动生成快照。
+
 生产更新 `api`、`identity`、`rag` 或前端路由后，可以使用统一回归脚本检查主域路径边界、主站 `/login`、云盘 `/cloudPan` 规范化跳转、`/cloudPan/login` 到统一登录的交接、CloudStorageApi 到 Identity 的依赖健康、Identity 数据库/Flyway 依赖健康、RAG 到 Identity/Storage 的依赖健康和 telemetry、登录续签、JWT `alg/iss/aud/kid` 元数据、JWKS 入口、应用级 `cloud` 与 `rag` 角色、RAG 访问权探针、RAG 内部契约 `RAG_ADMIN` 边界、刷新会话查询和指定撤销、云盘聚合资料、存储概览、管理员云盘用户入口、Identity 应用角色与审计日志查询、会话撤销审计事件写入、Identity Flyway 迁移历史、旧身份路径 404、注销失效和审计日志最新行；生产 RS256 模式下，CloudStorageApi 会先用 Identity JWKS 对 access token 做本地预验签，再调用 Identity 做强一致状态确认：
 
 ```bash
