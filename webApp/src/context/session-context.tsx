@@ -5,12 +5,16 @@ import { AUTH_EXPIRED_EVENT, fetchCurrentUser, logoutAuthToken, refreshAuthSessi
 import {
   clearCurrentSession as clearStoredSession,
   hasStoredSessionTokens,
+  isSessionRevisionStorageKey,
   isSessionStorageKey,
   loadAuthToken,
   loadCurrentUser,
   loadRefreshToken,
+  notifySessionChanged,
   saveCurrentUser,
   saveIdentityTokenSession,
+  SESSION_CHANGE_EVENT,
+  SESSION_REVISION_STORAGE_KEY,
 } from '../lib/session';
 import { cloudReturnTo, redirectToUnifiedLogin } from '../lib/unifiedLogin';
 import type { User } from '../types';
@@ -120,8 +124,17 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    function handleSessionStorageChange(event: StorageEvent) {
-      if (!isSessionStorageKey(event.key)) {
+    function refreshCurrentUserFromToken(token: string) {
+      void fetchCurrentUser(token)
+        .then((user) => {
+          saveCurrentUser(user);
+          setCurrentUser(user);
+        })
+        .catch(() => undefined);
+    }
+
+    function handleSessionChange(key: string | null) {
+      if (!isSessionStorageKey(key)) {
         return;
       }
 
@@ -138,6 +151,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         setCurrentUser(cachedUser);
       }
 
+      if (isSessionRevisionStorageKey(key)) {
+        setAuthToken(token);
+        refreshCurrentUserFromToken(token);
+        return;
+      }
+
       if (!authTokenRef.current) {
         void restoreStoredSession();
         return;
@@ -146,15 +165,25 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       if (token !== authTokenRef.current) {
         setAuthToken(token);
         if (!cachedUser) {
-          void fetchCurrentUser(token).then(setCurrentUser).catch(() => undefined);
+          refreshCurrentUserFromToken(token);
         }
       }
     }
 
+    function handleSessionStorageChange(event: StorageEvent) {
+      handleSessionChange(event.key);
+    }
+
+    function handleLocalSessionChange() {
+      handleSessionChange(SESSION_REVISION_STORAGE_KEY);
+    }
+
     window.addEventListener('storage', handleSessionStorageChange);
+    window.addEventListener(SESSION_CHANGE_EVENT, handleLocalSessionChange);
 
     return () => {
       window.removeEventListener('storage', handleSessionStorageChange);
+      window.removeEventListener(SESSION_CHANGE_EVENT, handleLocalSessionChange);
     };
   }, []);
 
@@ -204,6 +233,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   function updateCurrentUser(user: User) {
     saveCurrentUser(user);
     setCurrentUser(user);
+    notifySessionChanged('profile');
   }
 
   /**
@@ -221,6 +251,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
    */
   function clearCurrentSession() {
     resetSessionState();
+    notifySessionChanged('logout');
   }
 
   async function logoutCurrentSession() {
@@ -236,6 +267,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }
 
     resetSessionState();
+    notifySessionChanged('logout');
   }
 
   return (

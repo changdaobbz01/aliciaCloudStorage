@@ -652,7 +652,7 @@ Cloud 管理：
 3. 头像上传和头像展示直接调用 `/api/cloud-profile/avatar`。
 4. 云盘容量、背景等由 CloudStorageApi 获取。
 5. SessionStore 保存 access token 和 refresh token，保存前要求两个 token 都非空；启动恢复时先调用 `/api/identity/auth/token/refresh` 续签。
-6. Web 与主站复用同一组浏览器 session key，并通过 storage 事件同步跨标签页登录、续签和退出状态。
+6. Web 与主站复用同一组浏览器 session key，通过 storage 事件同步跨标签页登录、续签和退出，并通过共享 session revision 事件同步昵称、头像和云盘背景等资料变更。
 7. 主动退出登录时调用 `/api/identity/auth/logout`，然后清理本地 token 和 refresh token。
 8. 修改密码成功后立即清理本地 token，引导用户使用新密码重新登录。
 9. SessionStore 存储 token 的 key 暂保持兼容；后续只有在统一账号中心需要更清晰命名时再改。
@@ -1102,10 +1102,9 @@ Web 和 Android：
 
 下一步按架构收益从高到低推进，尽量以“大节点”合并和验证：
 
-1. 把主站统一登录体验继续产品化：账号面板、跨标签页登录态、退出/切换账号、returnTo 安全边界和云盘入口状态保持一致。
-2. 基于 CloudStorageApi 的 Identity gateway telemetry 连续观察 `/auth/me`、JWKS、管理员用户接口的调用量、失败类型和耗时；在出现明确热点或抖动前，暂不引入短缓存或 Identity 状态快照。
-3. RAG 普通执行入口已经按 `rag/RAG_USER` / `rag/RAG_ADMIN` 授权，内部契约接口已按 `rag/RAG_ADMIN` 收口，RAG 到 Identity/Storage 的依赖健康和 telemetry 已落地；后续如新增独立管理接口，继续按 `rag/RAG_ADMIN` 做管理权限判断。
-4. RS256 密钥轮换已经沉淀为候选 `.env` 生成、回滚命令和历史 RSA 公钥清理脚本；后续如需要后台密钥管理，再新增密钥实体、查询接口和管理界面。
-5. 保持迁移边界测试、静态路径扫描和统一生产验证脚本常态化，防止旧 `/api/auth/**`、旧 `/api/admin/users`、旧 `sys_user` 或云盘画像字段回流。
+1. 基于 CloudStorageApi 的 Identity gateway telemetry 连续观察 `/auth/me`、JWKS、管理员用户接口的调用量、失败类型和耗时；在出现明确热点或抖动前，暂不扩大短缓存或 Identity 状态快照。
+2. RAG 普通执行入口已经按 `rag/RAG_USER` / `rag/RAG_ADMIN` 授权，内部契约接口已按 `rag/RAG_ADMIN` 收口，RAG 到 Identity/Storage 的依赖健康和 telemetry 已落地；后续如新增独立管理接口，继续按 `rag/RAG_ADMIN` 做管理权限判断。
+3. RS256 密钥轮换已经沉淀为候选 `.env` 生成、回滚命令和历史 RSA 公钥清理脚本；后续如需要后台密钥管理，再新增密钥实体、查询接口和管理界面。
+4. 保持迁移边界测试、静态路径扫描和统一生产验证脚本常态化，防止旧 `/api/auth/**`、旧 `/api/admin/users`、旧 `sys_user` 或云盘画像字段回流。
 
 当前文档基线已经与生产架构对齐：Identity 负责身份，CloudStorageApi 负责云盘，主站负责统一入口。后续新增工具只需要接入 Identity，不应该再直接复用或写入云盘的用户资料表。

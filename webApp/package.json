@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "verify:session-sync": "node scripts/verify-session-sync.mjs",
+    "build": "npm run verify:session-sync && tsc -b && vite build",
     "preview": "vite preview"
   },
   "dependencies": {

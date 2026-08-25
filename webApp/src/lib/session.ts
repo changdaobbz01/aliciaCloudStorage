@@ -3,7 +3,14 @@ import type { User } from '../types';
 const USER_STORAGE_KEY = 'alicia-cloud-storage.current-user';
 const TOKEN_STORAGE_KEY = 'alicia-cloud-storage.auth-token';
 const REFRESH_TOKEN_STORAGE_KEY = 'alicia-cloud-storage.refresh-token';
-const SESSION_STORAGE_KEYS = new Set([USER_STORAGE_KEY, TOKEN_STORAGE_KEY, REFRESH_TOKEN_STORAGE_KEY]);
+export const SESSION_REVISION_STORAGE_KEY = 'alicia-cloud-storage.session-revision';
+export const SESSION_CHANGE_EVENT = 'alicia-cloud-storage:session-change';
+const SESSION_STORAGE_KEYS = new Set([
+  USER_STORAGE_KEY,
+  TOKEN_STORAGE_KEY,
+  REFRESH_TOKEN_STORAGE_KEY,
+  SESSION_REVISION_STORAGE_KEY,
+]);
 
 type IdentityTokenSession = {
   token?: string | null;
@@ -53,6 +60,27 @@ export function hasStoredSessionTokens() {
 
 export function isSessionStorageKey(key: string | null) {
   return key !== null && SESSION_STORAGE_KEYS.has(key);
+}
+
+export function isSessionRevisionStorageKey(key: string | null) {
+  return key === SESSION_REVISION_STORAGE_KEY;
+}
+
+export function notifySessionChanged(reason = 'session-updated') {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  const revision = `${Date.now()}:${Math.random().toString(36).slice(2)}:${reason}`;
+  localStorage.setItem(SESSION_REVISION_STORAGE_KEY, revision);
+  window.dispatchEvent(
+    new CustomEvent(SESSION_CHANGE_EVENT, {
+      detail: {
+        reason,
+        revision,
+      },
+    }),
+  );
 }
 
 /**
