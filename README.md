@@ -285,6 +285,13 @@ bash deploy/scripts/update-cloud-production.sh
 bash deploy/scripts/update-cloud-production.sh api identity frontend
 ```
 
+大版本发布推荐把备份和发布后巡检一起打开：
+
+```bash
+ALICIA_BACKUP_BEFORE_UPDATE=true ALICIA_COLLECT_STATUS_AFTER_UPDATE=true \
+  bash deploy/scripts/update-cloud-production.sh api identity rag frontend
+```
+
 如果主站和云盘都要一起更新，可在 `~/aliciaCloudStorage` 内执行：
 
 ```bash
@@ -307,7 +314,7 @@ bash deploy/scripts/collect-production-status.sh
 bash deploy/scripts/backup-production-data.sh
 ```
 
-备份脚本会用 `mysqldump --single-transaction` 分别导出云盘库和 Identity 库，并把 `.env`、TLS 证书和 `deploy/generated/identity-rs256/` 下的签名密钥材料打包到 `deploy/generated/production-backups/<timestamp>/`。该目录被 git 忽略，脚本只打印文件路径，不输出密钥或配置内容。可用 `ALICIA_BACKUP_INCLUDE_ENV=false`、`ALICIA_BACKUP_INCLUDE_CERTS=false` 或 `ALICIA_BACKUP_INCLUDE_GENERATED_KEYS=false` 跳过对应敏感配置包。
+备份脚本会用 `mysqldump --single-transaction` 分别导出云盘库和 Identity 库，并把 `.env`、TLS 证书和 `deploy/generated/identity-rs256/` 下的签名密钥材料打包到 `deploy/generated/production-backups/<timestamp>/`。该目录被 git 忽略，脚本只打印文件路径，不输出密钥或配置内容。可用 `ALICIA_BACKUP_INCLUDE_ENV=false`、`ALICIA_BACKUP_INCLUDE_CERTS=false` 或 `ALICIA_BACKUP_INCLUDE_GENERATED_KEYS=false` 跳过对应敏感配置包。`update-cloud-production.sh` 设置 `ALICIA_BACKUP_BEFORE_UPDATE=true` 时，会在重建容器前自动执行该备份脚本。
 
 生产更新 `api`、`identity`、`rag` 或前端路由后，可以使用统一回归脚本检查主域路径边界、主站 `/login`、云盘 `/cloudPan` 规范化跳转、`/cloudPan/login` 到统一登录的交接、CloudStorageApi 到 Identity 的依赖健康、Identity 数据库/Flyway 依赖健康、RAG 到 Identity/Storage 的依赖健康和 telemetry、登录续签、JWT `alg/iss/aud/kid` 元数据、JWKS 入口、应用级 `cloud` 与 `rag` 角色、RAG 访问权探针、RAG 内部契约 `RAG_ADMIN` 边界、刷新会话查询和指定撤销、云盘聚合资料、存储概览、管理员云盘用户入口、Identity 应用角色与审计日志查询、会话撤销审计事件写入、Identity Flyway 迁移历史、旧身份路径 404、注销失效和审计日志最新行；生产 RS256 模式下，CloudStorageApi 会先用 Identity JWKS 对 access token 做本地预验签，再调用 Identity 做强一致状态确认：
 

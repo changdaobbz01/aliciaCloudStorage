@@ -14,6 +14,7 @@ GATEWAY_NETWORK="${ALICIA_GATEWAY_NETWORK:-alicia_gateway}"
 SKIP_GIT_PULL="${ALICIA_SKIP_GIT_PULL:-false}"
 SKIP_ROUTE_VERIFY="${ALICIA_SKIP_ROUTE_VERIFY:-false}"
 SKIP_BOUNDARY_CHECK="${ALICIA_SKIP_BOUNDARY_CHECK:-false}"
+BACKUP_BEFORE_UPDATE="${ALICIA_BACKUP_BEFORE_UPDATE:-false}"
 COLLECT_STATUS="${ALICIA_COLLECT_STATUS_AFTER_UPDATE:-false}"
 
 if [[ $# -gt 0 ]]; then
@@ -84,6 +85,14 @@ done
     printf 'Missing %s/deploy/scripts/check-identity-route-boundary.sh\n' "$PROJECT_DIR" >&2
     exit 1
 }
+[[ "$BACKUP_BEFORE_UPDATE" != "true" || -f deploy/scripts/backup-production-data.sh ]] || {
+    printf 'Missing %s/deploy/scripts/backup-production-data.sh\n' "$PROJECT_DIR" >&2
+    exit 1
+}
+[[ "$COLLECT_STATUS" != "true" || -f deploy/scripts/collect-production-status.sh ]] || {
+    printf 'Missing %s/deploy/scripts/collect-production-status.sh\n' "$PROJECT_DIR" >&2
+    exit 1
+}
 
 fail_if_tracked_changes
 ensure_gateway_network
@@ -94,6 +103,11 @@ if [[ "$SKIP_GIT_PULL" != "true" ]]; then
 fi
 
 git log --oneline -3
+
+if [[ "$BACKUP_BEFORE_UPDATE" == "true" ]]; then
+    bash deploy/scripts/backup-production-data.sh
+fi
+
 compose up -d --build "${SERVICES[@]}"
 
 if [[ "$SKIP_ROUTE_VERIFY" != "true" ]]; then

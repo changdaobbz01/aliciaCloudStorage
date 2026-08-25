@@ -1057,7 +1057,7 @@ bash deploy/scripts/check-identity-route-boundary.sh
 - 旧 `/api/auth/me`、`/api/auth/avatar/{userId}`、`/api/admin/users` 保持 404。
 - `identity_audit_log` 最新记录查询。
 - `deploy/scripts/collect-production-status.sh` 可非交互式汇总 Git 版本、容器、容量、Cloud/Identity/RAG 健康、依赖健康 JSON、Identity 审计脱敏摘要、Identity Flyway 和云盘库身份残留边界；完整登录链路仍由 `verify-identity-cloud-routes.sh` 执行。
-- `deploy/scripts/backup-production-data.sh` 可在大更新或迁移前只读导出 Cloud/Identity MySQL 数据库，并打包 `.env`、TLS 证书和 RS256 签名密钥材料到 git 忽略目录；脚本不输出敏感内容。
+- `deploy/scripts/backup-production-data.sh` 可在大更新或迁移前只读导出 Cloud/Identity MySQL 数据库，并打包 `.env`、TLS 证书和 RS256 签名密钥材料到 git 忽略目录；脚本不输出敏感内容。`update-cloud-production.sh` 支持 `ALICIA_BACKUP_BEFORE_UPDATE=true` 在容器重建前自动备份，支持 `ALICIA_COLLECT_STATUS_AFTER_UPDATE=true` 在验证后自动生成生产状态快照。
 
 ## 14. 后续重点位置
 
