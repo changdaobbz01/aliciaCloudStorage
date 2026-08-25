@@ -6,6 +6,8 @@ IDENTITY_BASE_URL="${ALICIA_IDENTITY_BASE_URL:-http://127.0.0.1:8093}"
 PUBLIC_BASE_URL="${ALICIA_PUBLIC_BASE_URL:-https://127.0.0.1}"
 RAG_HEALTH_URL="${ALICIA_RAG_HEALTH_URL:-${PUBLIC_BASE_URL%/}/rag/api/health}"
 CURL_TIMEOUT="${ALICIA_VERIFY_CURL_TIMEOUT_SECONDS:-12}"
+STARTUP_WAIT_SECONDS="${ALICIA_VERIFY_STARTUP_WAIT_SECONDS:-90}"
+STARTUP_WAIT_INTERVAL_SECONDS="${ALICIA_VERIFY_STARTUP_WAIT_INTERVAL_SECONDS:-2}"
 INSECURE_TLS="${ALICIA_VERIFY_INSECURE_TLS:-true}"
 SKIP_ADMIN_CHECK="${ALICIA_VERIFY_SKIP_ADMIN_CHECK:-false}"
 SKIP_AUDIT_CHECK="${ALICIA_VERIFY_SKIP_AUDIT_CHECK:-false}"
@@ -196,6 +198,42 @@ curl_ok() {
 
     curl -fsS "${CURL_ARGS[@]}" "$@" >/dev/null
     ok "$label"
+}
+
+curl_ok_with_wait() {
+    local label="$1"
+    shift
+
+    local wait_seconds="$STARTUP_WAIT_SECONDS"
+    local interval_seconds="$STARTUP_WAIT_INTERVAL_SECONDS"
+    local deadline
+    local output=""
+    local announced=false
+
+    [[ "$wait_seconds" =~ ^[0-9]+$ ]] || fail "ALICIA_VERIFY_STARTUP_WAIT_SECONDS must be a non-negative integer."
+    [[ "$interval_seconds" =~ ^[0-9]+$ ]] || fail "ALICIA_VERIFY_STARTUP_WAIT_INTERVAL_SECONDS must be a non-negative integer."
+    [[ "$interval_seconds" -gt 0 ]] || interval_seconds=1
+
+    deadline=$((SECONDS + wait_seconds))
+
+    while true; do
+        if output="$(curl -fsS "${CURL_ARGS[@]}" "$@" 2>&1 >/dev/null)"; then
+            ok "$label"
+            return 0
+        fi
+
+        if [[ "$SECONDS" -ge "$deadline" ]]; then
+            printf '[FAIL] %s did not become available within %s seconds\n' "$label" "$wait_seconds" >&2
+            [[ -z "$output" ]] || printf '%s\n' "$output" >&2
+            exit 1
+        fi
+
+        if [[ "$announced" == "false" ]]; then
+            printf 'Waiting for %s...\n' "$label" >&2
+            announced=true
+        fi
+        sleep "$interval_seconds"
+    done
 }
 
 expect_redirect_location() {
@@ -559,15 +597,6 @@ if [[ -z "$REQUIRE_CLOUD_IDENTITY_TABLES_REMOVED" ]]; then
     fi
 fi
 
-if [[ -z "$ACCOUNT" ]]; then
-    read -r -p "Identity account/email/phone: " ACCOUNT
-fi
-
-if [[ -z "$PASSWORD" ]]; then
-    read -r -s -p "Identity password: " PASSWORD
-    printf '\n'
-fi
-
 printf 'Verifying Alicia identity/cloud route boundary...\n'
 printf 'Cloud API: %s\n' "$CLOUD_BASE_URL"
 printf 'Identity API: %s\n' "$IDENTITY_BASE_URL"
@@ -590,12 +619,12 @@ if [[ -n "$FORBID_PREVIOUS_RSA_KEY_ID" ]]; then
     ok "forbidden previous RSA JWT key id is absent from env"
 fi
 
-curl_ok "cloud health direct" "$CLOUD_BASE_URL/api/health"
-curl_ok "identity health direct" "$IDENTITY_BASE_URL/api/identity/health"
+curl_ok_with_wait "cloud health direct" "$CLOUD_BASE_URL/api/health"
+curl_ok_with_wait "identity health direct" "$IDENTITY_BASE_URL/api/identity/health"
 curl_ok "cloud dependency health direct" "$CLOUD_BASE_URL/api/health/dependencies"
 curl_ok "identity dependency health direct" "$IDENTITY_BASE_URL/api/identity/health/dependencies"
-curl_ok "cloud health through frontend" "$PUBLIC_BASE_URL/api/health"
-curl_ok "identity health through frontend" "$PUBLIC_BASE_URL/api/identity/health"
+curl_ok_with_wait "cloud health through frontend" "$PUBLIC_BASE_URL/api/health"
+curl_ok_with_wait "identity health through frontend" "$PUBLIC_BASE_URL/api/identity/health"
 curl_ok "cloud dependency health through frontend" "$PUBLIC_BASE_URL/api/health/dependencies"
 curl_ok "identity dependency health through frontend" "$PUBLIC_BASE_URL/api/identity/health/dependencies"
 jwks_response="$(curl_json_or_fail "identity jwks endpoint" "$PUBLIC_BASE_URL/api/identity/.well-known/jwks.json")"
@@ -614,6 +643,15 @@ curl_ok "main site login entry" -I "$PUBLIC_BASE_URL/login"
 expect_redirect_location "cloudPan bare path redirects to canonical slash" 308 "/cloudPan/" "$PUBLIC_BASE_URL/cloudPan"
 expect_redirect_location "cloudPan legacy login redirects to unified login" 308 "/login?returnTo=/cloudPan/" "$PUBLIC_BASE_URL/cloudPan/login"
 curl_ok "cloudPan frontend entry" -I "$PUBLIC_BASE_URL/cloudPan/"
+
+if [[ -z "$ACCOUNT" ]]; then
+    read -r -p "Identity account/email/phone: " ACCOUNT
+fi
+
+if [[ -z "$PASSWORD" ]]; then
+    read -r -s -p "Identity password: " PASSWORD
+    printf '\n'
+fi
 
 login_payload="$(printf '{"identifier":"%s","password":"%s"}' "$(json_escape "$ACCOUNT")" "$(json_escape "$PASSWORD")")"
 login_response="$(curl_json_or_fail "identity login" \
