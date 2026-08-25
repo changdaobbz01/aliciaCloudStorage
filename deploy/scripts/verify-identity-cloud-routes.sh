@@ -6,6 +6,7 @@ IDENTITY_BASE_URL="${ALICIA_IDENTITY_BASE_URL:-http://127.0.0.1:8093}"
 PUBLIC_BASE_URL="${ALICIA_PUBLIC_BASE_URL:-https://127.0.0.1}"
 RAG_HEALTH_URL="${ALICIA_RAG_HEALTH_URL:-${PUBLIC_BASE_URL%/}/rag/api/health}"
 RAG_DEPENDENCY_HEALTH_URL="${ALICIA_RAG_DEPENDENCY_HEALTH_URL:-${PUBLIC_BASE_URL%/}/rag/api/health/dependencies}"
+RAG_ACTION_PLAN_CONTRACT_URL="${ALICIA_RAG_ACTION_PLAN_CONTRACT_URL:-${PUBLIC_BASE_URL%/}/rag/api/assistant/contracts/action-plan}"
 CURL_TIMEOUT="${ALICIA_VERIFY_CURL_TIMEOUT_SECONDS:-12}"
 STARTUP_WAIT_SECONDS="${ALICIA_VERIFY_STARTUP_WAIT_SECONDS:-90}"
 STARTUP_WAIT_INTERVAL_SECONDS="${ALICIA_VERIFY_STARTUP_WAIT_INTERVAL_SECONDS:-2}"
@@ -675,6 +676,8 @@ curl_ok "rag health through frontend" "$RAG_HEALTH_URL"
 curl_ok "rag dependency health through frontend" "$RAG_DEPENDENCY_HEALTH_URL"
 expect_status "rag assistant access requires identity token" 401 \
     "$PUBLIC_BASE_URL/rag/api/assistant/auth/access"
+expect_status "rag assistant contract requires identity token" 401 \
+    "$RAG_ACTION_PLAN_CONTRACT_URL"
 curl_ok "main site login entry" -I "$PUBLIC_BASE_URL/login"
 expect_redirect_location "cloudPan bare path redirects to canonical slash" 308 "/cloudPan/" "$PUBLIC_BASE_URL/cloudPan"
 expect_redirect_location "cloudPan legacy login redirects to unified login" 308 "/login?returnTo=/cloudPan/" "$PUBLIC_BASE_URL/cloudPan/login"
@@ -821,6 +824,16 @@ else
     curl_ok "identity audit logs admin route accepts admin identity token" \
         "$PUBLIC_BASE_URL/api/identity/admin/audit-logs?size=5" \
         -H "Authorization: Bearer $TOKEN"
+    rag_contract_response="$(curl_json_or_fail "rag assistant contract admin route" \
+        "$RAG_ACTION_PLAN_CONTRACT_URL" \
+        -H "Authorization: Bearer $TOKEN")"
+    rag_contract_compact="$(printf '%s' "$rag_contract_response" | tr -d '\n')"
+    printf '%s' "$rag_contract_compact" | grep -q '"schema"[[:space:]]*:[[:space:]]*{' \
+        || fail "rag assistant contract admin route did not expose schema"
+    printf '%s' "$rag_contract_compact" | grep -q '"actions"[[:space:]]*:[[:space:]]*{' \
+        || fail "rag assistant contract admin route did not expose actions"
+    ok "rag assistant contract admin route accepts rag admin token"
+    unset rag_contract_response rag_contract_compact
     app_roles_response="$(curl_json_or_fail "identity app roles admin route" \
         "$PUBLIC_BASE_URL/api/identity/admin/users/$USER_ID/app-roles" \
         -H "Authorization: Bearer $TOKEN")"

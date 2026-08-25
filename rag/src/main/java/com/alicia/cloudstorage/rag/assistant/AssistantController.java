@@ -87,27 +87,42 @@ public class AssistantController {
     }
 
     @GetMapping("/api/assistant/contracts/action-bridge")
-    public Map<String, Object> actionBridgeContract() {
+    public Map<String, Object> actionBridgeContract(
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader
+    ) {
+        ragAccessAuthorizer.requireRagAdminAccess(authorizationHeader);
         return configLoader.loadJsonMap("rag/conversation/action_bridge.json");
     }
 
     @GetMapping("/api/assistant/contracts/mobile")
-    public Map<String, Object> mobileContract() {
+    public Map<String, Object> mobileContract(
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader
+    ) {
+        ragAccessAuthorizer.requireRagAdminAccess(authorizationHeader);
         return configLoader.loadJsonMap("rag/conversation/mobile_contract.json");
     }
 
     @GetMapping("/api/assistant/contracts/capabilities")
-    public Map<String, Object> capabilities() {
+    public Map<String, Object> capabilities(
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader
+    ) {
+        ragAccessAuthorizer.requireRagAdminAccess(authorizationHeader);
         return configLoader.loadJsonMap("rag/conversation/capabilities.json");
     }
 
     @GetMapping("/api/assistant/contracts/acceptance-scenarios")
-    public Map<String, Object> acceptanceScenarios() {
+    public Map<String, Object> acceptanceScenarios(
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader
+    ) {
+        ragAccessAuthorizer.requireRagAdminAccess(authorizationHeader);
         return configLoader.loadJsonMap("rag/conversation/acceptance_scenarios.json");
     }
 
     @GetMapping("/api/assistant/contracts/action-plan")
-    public Map<String, Object> actionPlanContract() {
+    public Map<String, Object> actionPlanContract(
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader
+    ) {
+        ragAccessAuthorizer.requireRagAdminAccess(authorizationHeader);
         Map<String, Object> contract = new LinkedHashMap<>();
         contract.put("schema", configLoader.loadJsonMap("rag/conversation/action_plan_schema.json"));
         contract.put("actions", configLoader.loadJsonMap("rag/conversation/action_templates.json"));

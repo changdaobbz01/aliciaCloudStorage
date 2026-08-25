@@ -21,7 +21,7 @@
 
 调用方必须至少校验：
 
-- `actionType` 存在于 `GET /api/assistant/contracts/action-bridge` 返回的 `actions`。
+- `actionType` 存在于客户端内置的版本化 allowlist；`GET /api/assistant/contracts/action-bridge` 是 `RAG_ADMIN` 诊断接口，不作为普通用户运行时依赖。
 - `method` 等于契约配置中的 `method`。
 - `pathTemplate` 等于契约配置中的 `path_template`。
 - `nextAction` 等于契约配置中的 `next_action`。

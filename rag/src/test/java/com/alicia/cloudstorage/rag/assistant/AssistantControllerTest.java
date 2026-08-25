@@ -31,10 +31,12 @@ class AssistantControllerTest {
         AssistantController controller = new AssistantController(
                 null,
                 new RagConfigLoader(new ObjectMapper()),
-                new ObjectMapper().findAndRegisterModules()
+                new ObjectMapper().findAndRegisterModules(),
+                3_000L,
+                RagAccessAuthorizer.allowAdmin()
         );
 
-        Map<String, Object> contract = controller.actionBridgeContract();
+        Map<String, Object> contract = controller.actionBridgeContract("Bearer token");
         Map<?, ?> actions = (Map<?, ?>) contract.get("actions");
         List<String> actionKeys = actions.keySet().stream().map(String::valueOf).toList();
 
@@ -55,11 +57,13 @@ class AssistantControllerTest {
         AssistantController controller = new AssistantController(
                 null,
                 new RagConfigLoader(new ObjectMapper()),
-                new ObjectMapper().findAndRegisterModules()
+                new ObjectMapper().findAndRegisterModules(),
+                3_000L,
+                RagAccessAuthorizer.allowAdmin()
         );
 
-        Map<String, Object> mobile = controller.mobileContract();
-        Map<String, Object> acceptance = controller.acceptanceScenarios();
+        Map<String, Object> mobile = controller.mobileContract("Bearer token");
+        Map<String, Object> acceptance = controller.acceptanceScenarios("Bearer token");
 
         assertThat(mobile).containsEntry("version", "mobile_contract_v1");
         assertThat(map(mobile.get("actionHandlers"))).containsKeys(
@@ -82,10 +86,12 @@ class AssistantControllerTest {
         AssistantController controller = new AssistantController(
                 null,
                 new RagConfigLoader(new ObjectMapper()),
-                new ObjectMapper().findAndRegisterModules()
+                new ObjectMapper().findAndRegisterModules(),
+                3_000L,
+                RagAccessAuthorizer.allowAdmin()
         );
 
-        Map<String, Object> contract = controller.actionPlanContract();
+        Map<String, Object> contract = controller.actionPlanContract("Bearer token");
 
         assertThat(contract).containsKeys(
                 "schema",
@@ -131,10 +137,12 @@ class AssistantControllerTest {
         AssistantController controller = new AssistantController(
                 null,
                 new RagConfigLoader(new ObjectMapper()),
-                new ObjectMapper().findAndRegisterModules()
+                new ObjectMapper().findAndRegisterModules(),
+                3_000L,
+                RagAccessAuthorizer.allowAdmin()
         );
 
-        Map<String, Object> capabilities = controller.capabilities();
+        Map<String, Object> capabilities = controller.capabilities("Bearer token");
 
         assertThat(capabilities)
                 .containsEntry("protocolVersion", "assistant_protocol_v2")
@@ -142,6 +150,27 @@ class AssistantControllerTest {
         assertThat((List<?>) capabilities.get("operations"))
                 .extracting(String::valueOf)
                 .contains("NAVIGATE", "OPEN_FILE");
+    }
+
+    @Test
+    void contractsRequireRagAdminAccess() {
+        RagAccessAuthorizer authorizer = mock(RagAccessAuthorizer.class);
+        doThrow(new ResponseStatusException(HttpStatus.FORBIDDEN, "RAG admin access is required."))
+                .when(authorizer)
+                .requireRagAdminAccess("Bearer token");
+        AssistantController controller = new AssistantController(
+                null,
+                new RagConfigLoader(new ObjectMapper()),
+                new ObjectMapper().findAndRegisterModules(),
+                3_000L,
+                authorizer
+        );
+
+        assertThatThrownBy(() -> controller.actionPlanContract("Bearer token"))
+                .isInstanceOfSatisfying(ResponseStatusException.class, error ->
+                        assertThat(error.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN)
+                );
+        verify(authorizer).requireRagAdminAccess("Bearer token");
     }
 
     @Test

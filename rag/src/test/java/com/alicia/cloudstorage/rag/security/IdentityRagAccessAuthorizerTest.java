@@ -42,6 +42,52 @@ class IdentityRagAccessAuthorizerTest {
     }
 
     @Test
+    void rejectsRagUserForAdminAccess() {
+        TestGatewayContext context = newContext();
+        context.server().expect(requestTo("http://identity.test/api/identity/auth/me"))
+                .andExpect(header(HttpHeaders.AUTHORIZATION, "Bearer token"))
+                .andRespond(withSuccess("""
+                        {
+                          "id": 7,
+                          "status": "ACTIVE",
+                          "role": "USER",
+                          "appRoles": {
+                            "rag": "RAG_USER"
+                          }
+                        }
+                        """, MediaType.APPLICATION_JSON));
+
+        assertThatThrownBy(() -> context.authorizer().requireRagAdminAccess("Bearer token"))
+                .isInstanceOfSatisfying(ResponseStatusException.class, error ->
+                        assertThat(error.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN)
+                );
+        context.server().verify();
+    }
+
+    @Test
+    void allowsRagAdminForAdminAccess() {
+        TestGatewayContext context = newContext();
+        context.server().expect(requestTo("http://identity.test/api/identity/auth/me"))
+                .andExpect(header(HttpHeaders.AUTHORIZATION, "Bearer token"))
+                .andRespond(withSuccess("""
+                        {
+                          "id": 9,
+                          "status": "ACTIVE",
+                          "role": "USER",
+                          "appRoles": {
+                            "rag": "RAG_ADMIN"
+                          }
+                        }
+                        """, MediaType.APPLICATION_JSON));
+
+        RagAccessPrincipal principal = context.authorizer().requireRagAdminAccess("Bearer token");
+
+        assertThat(principal.userId()).isEqualTo(9L);
+        assertThat(principal.isRagAdmin()).isTrue();
+        context.server().verify();
+    }
+
+    @Test
     void rejectsMissingAuthorizationBeforeCallingIdentity() {
         TestGatewayContext context = newContext();
 

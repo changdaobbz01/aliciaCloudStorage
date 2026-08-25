@@ -306,7 +306,7 @@ Identity Service 不负责：
 - RAG 对文件的语义操作。
 - 工具模块自己的业务权限细节。
 
-说明：RAG Service 自身会通过 Identity `/api/identity/auth/me` 校验 `appRoles.rag`，普通语义执行入口允许 `RAG_USER` 和 `RAG_ADMIN`；RAG 具体文件操作仍通过 CloudStorageApi 的云盘业务接口完成。
+说明：RAG Service 自身会通过 Identity `/api/identity/auth/me` 校验 `appRoles.rag`，普通语义执行入口允许 `RAG_USER` 和 `RAG_ADMIN`；`/rag/api/assistant/contracts/**` 暴露内部动作契约和能力配置，仅允许 `RAG_ADMIN` 访问。RAG 具体文件操作仍通过 CloudStorageApi 的云盘业务接口完成。
 
 RAG 已提供 `/rag/api/health/dependencies`，用于展示到 Identity 和 CloudStorageApi 的基础可达性，以及 `identity.health`、`identity.auth.me`、`storage.health`、`storage.nodes`、`storage.folders` 等脱敏操作观测。该接口只记录操作名、结果、耗时和失败分类，不记录 token、账号或文件名。
 
@@ -1049,6 +1049,7 @@ bash deploy/scripts/check-identity-route-boundary.sh
 - Identity 登录、refresh token 下发与轮换、JWT `alg/iss/aud/kid` 元数据、JWKS 入口、刷新会话查询、指定刷新会话撤销、会话撤销审计事件写入、logout 后 refresh token 和当前 access token 失效。
 - Identity 登录、续签、Cloud 聚合响应中的 `appRoles.cloud` 与 `appRoles.rag`，以及 `/api/identity/admin/users/{userId}/app-roles` 管理员查询入口。
 - RAG 访问权探针 `/rag/api/assistant/auth/access`，未带 Identity token 返回 401，携带有效 token 时返回 `appCode=rag` 和有效 `appRoles.rag`。
+- RAG 内部契约 `/rag/api/assistant/contracts/action-plan`，未带 Identity token 返回 401，携带 `RAG_ADMIN` token 时可返回动作 schema/actions。
 - RAG 依赖健康 `/rag/api/health/dependencies`，确认 Identity、Storage 依赖可用，并暴露 `identity.health`、`identity.auth.me`、`storage.health` 的成功计数。
 - `/api/cloud-profile/me` 和 `/api/storage/overview` 使用 identity token。
 - `/api/admin/cloud-users` 管理员入口。
@@ -1087,7 +1088,7 @@ Web 和 Android：
 - 管理员面板中身份信息、云盘应用角色和云盘容量信息的展示边界。
 - Web 管理员账号面板已支持调整 `cloud/CLOUD_USER` 与 `cloud/CLOUD_ADMIN`，全局 `ADMIN` 仍始终等效云盘管理员。
 - 主站首页已消费 `appRoles.cloud` 展示 Alicia 云盘入口的登录态、普通用户和云盘管理员状态；RAG 执行入口已消费 `appRoles.rag`，后续 RAG 管理接口继续按 `rag/RAG_ADMIN` 收口。
-- RAG dependency health 已覆盖 Identity 和 Storage 可达性与调用观测，后续如果引入更多下游能力，也应继续加入该依赖健康面板。
+- RAG dependency health 已覆盖 Identity 和 Storage 可达性与调用观测，内部契约接口已按 `rag/RAG_ADMIN` 收口；后续如果引入更多下游能力，也应继续加入该依赖健康面板。
 - Web 管理员身份审计日志筛选体验。
 
 部署：
@@ -1103,7 +1104,7 @@ Web 和 Android：
 
 1. 把主站统一登录体验继续产品化：账号面板、跨标签页登录态、退出/切换账号、returnTo 安全边界和云盘入口状态保持一致。
 2. 基于 CloudStorageApi 的 Identity gateway telemetry 连续观察 `/auth/me`、JWKS、管理员用户接口的调用量、失败类型和耗时；在出现明确热点或抖动前，暂不引入短缓存或 Identity 状态快照。
-3. RAG 普通执行入口已经按 `rag/RAG_USER` / `rag/RAG_ADMIN` 授权，RAG 到 Identity/Storage 的依赖健康和 telemetry 已落地；后续如新增独立管理接口，继续按 `rag/RAG_ADMIN` 做管理权限判断。
+3. RAG 普通执行入口已经按 `rag/RAG_USER` / `rag/RAG_ADMIN` 授权，内部契约接口已按 `rag/RAG_ADMIN` 收口，RAG 到 Identity/Storage 的依赖健康和 telemetry 已落地；后续如新增独立管理接口，继续按 `rag/RAG_ADMIN` 做管理权限判断。
 4. RS256 密钥轮换已经沉淀为候选 `.env` 生成、回滚命令和历史 RSA 公钥清理脚本；后续如需要后台密钥管理，再新增密钥实体、查询接口和管理界面。
 5. 保持迁移边界测试、静态路径扫描和统一生产验证脚本常态化，防止旧 `/api/auth/**`、旧 `/api/admin/users`、旧 `sys_user` 或云盘画像字段回流。
 

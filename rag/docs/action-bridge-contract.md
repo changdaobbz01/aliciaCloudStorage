@@ -5,9 +5,11 @@
 ## 接口入口
 
 - `POST /api/assistant/plan`：提交用户自然语言和可选 `conversationId`，返回意图模板。
-- `GET /api/assistant/contracts/action-bridge`：返回当前生效的动作桥接配置。
+- `GET /api/assistant/contracts/action-bridge`：返回当前生效的动作桥接配置，仅允许 `RAG_ADMIN` 访问。
 
 调用 `POST /api/assistant/plan` 时，可携带用户自己的 `Authorization` 请求头。该请求头只用于 RAG 服务向 CloudStorageApi 做只读候选查询，不写入会话状态，也不会出现在响应体。
+
+正式客户端不应让普通用户运行时读取 `/api/assistant/contracts/**` 内部契约；移动端和 Web 应内置经过版本确认的 allowlist，契约接口保留给管理员诊断、部署验证和开发联调。
 
 移动端还可通过 `clientContext.availableClientInputs` 只提交客户端已具备的输入数量，例如 `{ "files": 3, "folders": 1 }`。RAG 只用这些计数判断 `requiredClientFields` 是否已满足；本地 URI、路径和文件名不得发给 RAG。
 

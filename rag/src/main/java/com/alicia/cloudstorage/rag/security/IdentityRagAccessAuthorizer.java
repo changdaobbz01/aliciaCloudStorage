@@ -22,7 +22,10 @@ import java.util.Set;
 public class IdentityRagAccessAuthorizer implements RagAccessAuthorizer {
 
     private static final Logger log = LoggerFactory.getLogger(IdentityRagAccessAuthorizer.class);
-    private static final Set<String> ALLOWED_RAG_ROLES = Set.of("RAG_USER", "RAG_ADMIN");
+    private static final Set<String> ALLOWED_RAG_ROLES = Set.of(
+            RagAccessPrincipal.ROLE_USER,
+            RagAccessPrincipal.ROLE_ADMIN
+    );
 
     private final RestClient restClient;
     private final RagDependencyTelemetry telemetry;
@@ -69,7 +72,7 @@ public class IdentityRagAccessAuthorizer implements RagAccessAuthorizer {
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN, "RAG access is not enabled for this account.");
             }
 
-            return new RagAccessPrincipal(user.id(), "rag", ragRole);
+            return new RagAccessPrincipal(user.id(), RagAccessPrincipal.APP_CODE, ragRole);
         } catch (ResponseStatusException ex) {
             throw ex;
         } catch (RestClientResponseException ex) {
