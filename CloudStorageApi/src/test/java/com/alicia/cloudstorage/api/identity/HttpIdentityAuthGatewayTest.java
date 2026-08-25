@@ -11,6 +11,10 @@ import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.time.Duration;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.hamcrest.Matchers.containsString;
@@ -59,6 +63,71 @@ class HttpIdentityAuthGatewayTest {
                     assertThat(snapshot.successCount()).isEqualTo(1L);
                     assertThat(snapshot.failureCount()).isZero();
                 });
+        context.server().verify();
+    }
+
+    @Test
+    void meUsesCachedSnapshotWithinShortTtlAndStillRunsPreflight() {
+        AtomicInteger preflightCalls = new AtomicInteger();
+        TestGatewayContext context = newContext(authorization -> preflightCalls.incrementAndGet());
+        expectMeResponse(context, "Bearer user-token", "Alicia");
+
+        var first = context.gateway().me("Bearer user-token");
+        var second = context.gateway().me("Bearer user-token");
+
+        assertThat(second).isSameAs(first);
+        assertThat(preflightCalls).hasValue(2);
+        assertThat(context.telemetry().snapshots())
+                .extracting(IdentityGatewayOperationSnapshot::operation)
+                .containsExactly("auth.me", "auth.me.cacheHit");
+        context.server().verify();
+    }
+
+    @Test
+    void meRefreshesSnapshotAfterCacheEntryExpires() {
+        AtomicLong now = new AtomicLong(1000L);
+        IdentityCurrentUserCache cache = new IdentityCurrentUserCache(
+                true,
+                Duration.ofMillis(50L),
+                128,
+                now::get
+        );
+        TestGatewayContext context = newContext(authorization -> {
+        }, cache);
+        expectMeResponse(context, "Bearer user-token", "Alicia");
+        expectMeResponse(context, "Bearer user-token", "Updated Alicia");
+
+        var first = context.gateway().me("Bearer user-token");
+        now.set(1100L);
+        var second = context.gateway().me("Bearer user-token");
+
+        assertThat(first.nickname()).isEqualTo("Alicia");
+        assertThat(second.nickname()).isEqualTo("Updated Alicia");
+        assertThat(context.telemetry().snapshots())
+                .singleElement()
+                .satisfies(snapshot -> {
+                    assertThat(snapshot.operation()).isEqualTo("auth.me");
+                    assertThat(snapshot.successCount()).isEqualTo(2L);
+                });
+        context.server().verify();
+    }
+
+    @Test
+    void meEvictsCachedSnapshotWhenCacheHitPreflightFails() {
+        AtomicInteger preflightCalls = new AtomicInteger();
+        TestGatewayContext context = newContext(authorization -> {
+            if (preflightCalls.incrementAndGet() == 2) {
+                throw new PrincipalAccessException("Token 签名校验失败。");
+            }
+        });
+        expectMeResponse(context, "Bearer user-token", "Alicia");
+
+        context.gateway().me("Bearer user-token");
+
+        assertThatThrownBy(() -> context.gateway().me("Bearer user-token"))
+                .isInstanceOf(PrincipalAccessException.class)
+                .hasMessage("Token 签名校验失败。");
+        assertThat(context.cache().size()).isZero();
         context.server().verify();
     }
 
@@ -168,6 +237,40 @@ class HttpIdentityAuthGatewayTest {
     }
 
     @Test
+    void updateProfileRefreshesCachedCurrentUserSnapshot() {
+        TestGatewayContext context = newContext();
+        expectMeResponse(context, "Bearer user-token", "Alicia");
+        context.server().expect(requestTo("http://identity.test/api/identity/auth/profile"))
+                .andExpect(method(HttpMethod.PUT))
+                .andExpect(header(HttpHeaders.AUTHORIZATION, "Bearer user-token"))
+                .andRespond(withSuccess("""
+                        {
+                          "id": 6,
+                          "phoneNumber": "13900000000",
+                          "email": "user@example.com",
+                          "emailVerifiedAt": "2026-08-17T07:22:18",
+                          "nickname": "Updated Alicia",
+                          "avatarUrl": "cos:user-avatars/6/new.png",
+                          "tokenVersion": 1,
+                          "role": "USER",
+                          "status": "ACTIVE",
+                          "createdAt": "2026-08-17T07:22:18"
+                        }
+                        """, MediaType.APPLICATION_JSON));
+
+        var before = context.gateway().me("Bearer user-token");
+        context.gateway().updateProfile(
+                "Bearer user-token",
+                new UpdateProfileRequest("13900000000", "Updated Alicia", "cos:user-avatars/6/new.png")
+        );
+        var after = context.gateway().me("Bearer user-token");
+
+        assertThat(before.nickname()).isEqualTo("Alicia");
+        assertThat(after.nickname()).isEqualTo("Updated Alicia");
+        context.server().verify();
+    }
+
+    @Test
     void updateProfileAuthFailureBecomesCloudPrincipalAccessException() {
         TestGatewayContext context = newContext();
         context.server().expect(requestTo("http://identity.test/api/identity/auth/profile"))
@@ -192,6 +295,16 @@ class HttpIdentityAuthGatewayTest {
     }
 
     private TestGatewayContext newContext(IdentityAccessTokenPreflightVerifier preflightVerifier) {
+        return newContext(
+                preflightVerifier,
+                new IdentityCurrentUserCache(true, Duration.ofSeconds(5L), 128, System::currentTimeMillis)
+        );
+    }
+
+    private TestGatewayContext newContext(
+            IdentityAccessTokenPreflightVerifier preflightVerifier,
+            IdentityCurrentUserCache cache
+    ) {
         RestClient.Builder restClientBuilder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(restClientBuilder).build();
         RestClient restClient = restClientBuilder.baseUrl("http://identity.test").build();
@@ -200,15 +313,37 @@ class HttpIdentityAuthGatewayTest {
                 restClient,
                 objectMapper,
                 preflightVerifier,
-                telemetry
+                telemetry,
+                cache
         );
-        return new TestGatewayContext(server, gateway, telemetry);
+        return new TestGatewayContext(server, gateway, telemetry, cache);
+    }
+
+    private void expectMeResponse(TestGatewayContext context, String authorization, String nickname) {
+        context.server().expect(requestTo("http://identity.test/api/identity/auth/me"))
+                .andExpect(method(HttpMethod.GET))
+                .andExpect(header(HttpHeaders.AUTHORIZATION, authorization))
+                .andRespond(withSuccess("""
+                        {
+                          "id": 6,
+                          "phoneNumber": null,
+                          "email": "user@example.com",
+                          "emailVerifiedAt": "2026-08-17T07:22:18",
+                          "nickname": "%s",
+                          "avatarUrl": "cos:user-avatars/6/avatar.png",
+                          "tokenVersion": 1,
+                          "role": "USER",
+                          "status": "ACTIVE",
+                          "createdAt": "2026-08-17T07:22:18"
+                        }
+                        """.formatted(nickname), MediaType.APPLICATION_JSON));
     }
 
     private record TestGatewayContext(
             MockRestServiceServer server,
             HttpIdentityAuthGateway gateway,
-            IdentityGatewayTelemetry telemetry
+            IdentityGatewayTelemetry telemetry,
+            IdentityCurrentUserCache cache
     ) {
     }
 }

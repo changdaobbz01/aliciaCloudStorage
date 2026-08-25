@@ -472,9 +472,10 @@ ALICIA_AUTH_TOKEN_PREVIOUS_RSA_PUBLIC_KEYS=old-rsa-kid=old-public-key
 
 - 当前生产签发已切到 RS256；项目未正式上线，历史 HS256 key 已从 `ALICIA_AUTH_TOKEN_PREVIOUS_KEYS` 移除。
 - CloudStorageApi 现在会对 RS256 access token 做 JWKS 本地预验签，并已为 Identity HTTP 客户端设置可配置连接/读取超时；默认 JWKS 缓存 300 秒，可通过 `ALICIA_IDENTITY_TOKEN_PREFLIGHT_ENABLED` 和 `ALICIA_IDENTITY_TOKEN_JWKS_CACHE_SECONDS` 调整。
-- 当前不把 CloudStorageApi 切为纯本地 JWKS 鉴权，因为 access token 暂不写入角色和账号状态；管理员权限、禁用账号、`tokenVersion` 失效和 refresh session 撤销仍由 Identity 的 `/api/identity/auth/me` 强一致校验。后续可以在此基础上增加 Identity 状态快照或短缓存，再评估是否减少同步调用。
+- 当前不把 CloudStorageApi 切为纯本地 JWKS 鉴权，因为 access token 暂不写入角色和账号状态；管理员权限、禁用账号、`tokenVersion` 失效和 refresh session 撤销仍由 Identity 的 `/api/identity/auth/me` 校验。
 - CloudStorageApi 入口拦截器会把 `/auth/me` 返回的身份快照放入 request context，`/api/cloud-profile/me` 和头像上传复用该快照，不再在同一请求里重复调用 Identity。
-- CloudStorageApi 的 `/api/health/dependencies` 会暴露固定 Identity gateway 操作观测，例如 `auth.me`、`jwks.fetch`、`admin.listUsers` 的成功/失败/总计数、连续失败数、最近成功/失败时间、最近/平均/最大耗时和脱敏失败分类；该观测不记录 token、账号或用户标识，用于后续评估是否引入短缓存或状态快照。
+- CloudStorageApi 已引入当前用户快照短缓存，默认 `ALICIA_IDENTITY_CURRENT_USER_CACHE_ENABLED=true`、`ALICIA_IDENTITY_CURRENT_USER_CACHE_TTL_SECONDS=3`、`ALICIA_IDENTITY_CURRENT_USER_CACHE_MAX_ENTRIES=1024`，TTL 在代码中最多限制为 30 秒；缓存按 access token 指纹存储，命中时仍执行本地 JWT 预验签，资料更新成功后会刷新当前 token 的缓存，预验签失败或 Identity 校验失败会失效对应缓存。
+- CloudStorageApi 的 `/api/health/dependencies` 会暴露固定 Identity gateway 操作观测，例如 `auth.me`、`auth.me.cacheHit`、`jwks.fetch`、`admin.listUsers` 的成功/失败/总计数、连续失败数、最近成功/失败时间、最近/平均/最大耗时和脱敏失败分类；该观测不记录 token、账号或用户标识，用于后续评估是否继续引入更完整的状态快照。
 
 ### 7.2 已完成与后续增强
 
@@ -510,7 +511,7 @@ exp: 过期时间
 
 后续可增强：
 
-- 基于 Identity gateway telemetry 持续观察 `/auth/me`、JWKS 和管理员接口的调用量、失败类型与耗时；在出现明确热点或抖动前，暂不为当前用户校验增加短缓存。
+- 基于 Identity gateway telemetry 持续观察 `/auth/me`、`auth.me.cacheHit`、JWKS 和管理员接口的调用量、失败类型与耗时；如果短缓存仍不足，再评估 Identity 状态快照或更细的失效通知机制。
 - 如生产需要告警，再基于现有成功/失败/总计数、连续失败数和耗时字段增加阈值告警，不直接在业务接口里做隐式降级。
 
 ## 8. 接口整改清单
