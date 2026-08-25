@@ -6,9 +6,16 @@ public record IdentityGatewayOperationSnapshot(
         String operation,
         long successCount,
         long failureCount,
+        long totalCount,
+        long consecutiveFailureCount,
         String lastOutcome,
         String lastError,
+        String lastErrorCategory,
         long lastDurationMs,
-        LocalDateTime lastObservedAt
+        long averageDurationMs,
+        long maxDurationMs,
+        LocalDateTime lastObservedAt,
+        LocalDateTime lastSuccessAt,
+        LocalDateTime lastFailureAt
 ) {
 }

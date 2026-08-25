@@ -418,12 +418,26 @@ expect_audit_log_filter() {
 
 expect_cloud_identity_gateway_telemetry() {
     local response
+    local compact
 
     response="$(curl_json_or_fail "cloud dependency health identity gateway telemetry" \
         "$CLOUD_BASE_URL/api/health/dependencies")"
+    compact="$(printf '%s' "$response" | tr -d '\n')"
 
-    printf '%s' "$response" | tr -d '\n' | grep -q '"operation"[[:space:]]*:[[:space:]]*"auth.me"[^}]*"successCount"[[:space:]]*:[[:space:]]*[1-9][0-9]*' \
+    printf '%s' "$compact" | grep -q '"operation"[[:space:]]*:[[:space:]]*"auth.me"[^}]*"successCount"[[:space:]]*:[[:space:]]*[1-9][0-9]*' \
         || fail "cloud dependency health did not expose auth.me identity gateway success count"
+    printf '%s' "$compact" | grep -q '"operation"[[:space:]]*:[[:space:]]*"auth.me"[^}]*"totalCount"[[:space:]]*:[[:space:]]*[1-9][0-9]*' \
+        || fail "cloud dependency health did not expose auth.me identity gateway total count"
+    printf '%s' "$compact" | grep -q '"operation"[[:space:]]*:[[:space:]]*"auth.me"[^}]*"consecutiveFailureCount"[[:space:]]*:[[:space:]]*[0-9][0-9]*' \
+        || fail "cloud dependency health did not expose auth.me identity gateway consecutive failure count"
+    printf '%s' "$compact" | grep -q '"operation"[[:space:]]*:[[:space:]]*"auth.me"[^}]*"averageDurationMs"[[:space:]]*:[[:space:]]*[0-9][0-9]*' \
+        || fail "cloud dependency health did not expose auth.me identity gateway average duration"
+    printf '%s' "$compact" | grep -q '"operation"[[:space:]]*:[[:space:]]*"auth.me"[^}]*"maxDurationMs"[[:space:]]*:[[:space:]]*[0-9][0-9]*' \
+        || fail "cloud dependency health did not expose auth.me identity gateway max duration"
+    printf '%s' "$compact" | grep -q '"operation"[[:space:]]*:[[:space:]]*"auth.me"[^}]*"lastObservedAt"[[:space:]]*:[[:space:]]*"' \
+        || fail "cloud dependency health did not expose auth.me identity gateway last observed timestamp"
+    printf '%s' "$compact" | grep -q '"operation"[[:space:]]*:[[:space:]]*"auth.me"[^}]*"lastSuccessAt"[[:space:]]*:[[:space:]]*"' \
+        || fail "cloud dependency health did not expose auth.me identity gateway last success timestamp"
 
     ok "cloud dependency health exposes identity gateway telemetry"
 }

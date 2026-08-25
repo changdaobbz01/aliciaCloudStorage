@@ -472,7 +472,7 @@ ALICIA_AUTH_TOKEN_PREVIOUS_RSA_PUBLIC_KEYS=old-rsa-kid=old-public-key
 - CloudStorageApi 现在会对 RS256 access token 做 JWKS 本地预验签，并已为 Identity HTTP 客户端设置可配置连接/读取超时；默认 JWKS 缓存 300 秒，可通过 `ALICIA_IDENTITY_TOKEN_PREFLIGHT_ENABLED` 和 `ALICIA_IDENTITY_TOKEN_JWKS_CACHE_SECONDS` 调整。
 - 当前不把 CloudStorageApi 切为纯本地 JWKS 鉴权，因为 access token 暂不写入角色和账号状态；管理员权限、禁用账号、`tokenVersion` 失效和 refresh session 撤销仍由 Identity 的 `/api/identity/auth/me` 强一致校验。后续可以在此基础上增加 Identity 状态快照或短缓存，再评估是否减少同步调用。
 - CloudStorageApi 入口拦截器会把 `/auth/me` 返回的身份快照放入 request context，`/api/cloud-profile/me` 和头像上传复用该快照，不再在同一请求里重复调用 Identity。
-- CloudStorageApi 的 `/api/health/dependencies` 会暴露固定 Identity gateway 操作观测，例如 `auth.me`、`jwks.fetch`、`admin.listUsers` 的成功/失败计数和最近耗时；该观测不记录 token、账号或用户标识，用于后续评估是否引入短缓存或状态快照。
+- CloudStorageApi 的 `/api/health/dependencies` 会暴露固定 Identity gateway 操作观测，例如 `auth.me`、`jwks.fetch`、`admin.listUsers` 的成功/失败/总计数、连续失败数、最近成功/失败时间、最近/平均/最大耗时和脱敏失败分类；该观测不记录 token、账号或用户标识，用于后续评估是否引入短缓存或状态快照。
 
 ### 7.2 已完成与后续增强
 
@@ -508,8 +508,8 @@ exp: 过期时间
 
 后续可增强：
 
-- 在已消除单请求重复 `/auth/me` 的基础上，继续评估是否为 Identity 当前用户校验增加短缓存，降低 CloudStorageApi 到 Identity 的频繁往返。
-- 继续完善 Identity gateway telemetry 的展示和阈值告警，帮助判断短缓存或状态快照是否值得引入。
+- 基于 Identity gateway telemetry 持续观察 `/auth/me`、JWKS 和管理员接口的调用量、失败类型与耗时；在出现明确热点或抖动前，暂不为当前用户校验增加短缓存。
+- 如生产需要告警，再基于现有成功/失败/总计数、连续失败数和耗时字段增加阈值告警，不直接在业务接口里做隐式降级。
 
 ## 8. 接口整改清单
 
@@ -1090,8 +1090,8 @@ Web 和 Android：
 
 下一步按架构收益从高到低推进，尽量以“大节点”合并和验证：
 
-1. 基于 CloudStorageApi 的 Identity gateway telemetry 评估 `/auth/me`、JWKS、管理员用户接口的调用量、失败类型和耗时，再决定是否引入短缓存或 Identity 状态快照。
-2. 把主站统一登录体验继续产品化：账号面板、跨标签页登录态、退出/切换账号、returnTo 安全边界和云盘入口状态保持一致。
+1. 把主站统一登录体验继续产品化：账号面板、跨标签页登录态、退出/切换账号、returnTo 安全边界和云盘入口状态保持一致。
+2. 基于 CloudStorageApi 的 Identity gateway telemetry 连续观察 `/auth/me`、JWKS、管理员用户接口的调用量、失败类型和耗时；在出现明确热点或抖动前，暂不引入短缓存或 Identity 状态快照。
 3. RAG 后续如新增独立管理接口，按 `rag/RAG_ADMIN` 做管理权限判断；普通 RAG 用户能力按 `rag/RAG_USER` 表达。
 4. 将 RS256 密钥轮换沉淀为正式运维流程；后续如需要后台密钥管理，再新增密钥实体、查询接口和管理界面。
 5. 保持迁移边界测试、静态路径扫描和统一生产验证脚本常态化，防止旧 `/api/auth/**`、旧 `/api/admin/users`、旧 `sys_user` 或云盘画像字段回流。

@@ -1,6 +1,10 @@
 package com.alicia.cloudstorage.api.identity;
 
+import com.alicia.cloudstorage.api.principal.PrincipalAccessException;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.ResourceAccessException;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 
 import java.time.LocalDateTime;
 import java.util.Comparator;
@@ -43,35 +47,88 @@ public class IdentityGatewayTelemetry {
 
         private long successCount;
         private long failureCount;
+        private long consecutiveFailureCount;
+        private long totalDurationMs;
+        private long maxDurationMs;
         private String lastOutcome = "none";
         private String lastError;
+        private String lastErrorCategory;
         private long lastDurationMs;
         private LocalDateTime lastObservedAt;
+        private LocalDateTime lastSuccessAt;
+        private LocalDateTime lastFailureAt;
 
         synchronized void record(boolean success, RuntimeException error, long durationMs) {
+            LocalDateTime observedAt = LocalDateTime.now();
             if (success) {
                 successCount++;
+                consecutiveFailureCount = 0L;
                 lastOutcome = "success";
                 lastError = null;
+                lastErrorCategory = null;
+                lastSuccessAt = observedAt;
             } else {
                 failureCount++;
+                consecutiveFailureCount++;
                 lastOutcome = "failure";
                 lastError = error.getClass().getSimpleName();
+                lastErrorCategory = categorize(error);
+                lastFailureAt = observedAt;
             }
             lastDurationMs = durationMs;
-            lastObservedAt = LocalDateTime.now();
+            totalDurationMs += durationMs;
+            maxDurationMs = Math.max(maxDurationMs, durationMs);
+            lastObservedAt = observedAt;
         }
 
         synchronized IdentityGatewayOperationSnapshot snapshot(String operation) {
+            long totalCount = successCount + failureCount;
+            long averageDurationMs = totalCount == 0L ? 0L : totalDurationMs / totalCount;
             return new IdentityGatewayOperationSnapshot(
                     operation,
                     successCount,
                     failureCount,
+                    totalCount,
+                    consecutiveFailureCount,
                     lastOutcome,
                     lastError,
+                    lastErrorCategory,
                     lastDurationMs,
-                    lastObservedAt
+                    averageDurationMs,
+                    maxDurationMs,
+                    lastObservedAt,
+                    lastSuccessAt,
+                    lastFailureAt
             );
+        }
+
+        private static String categorize(RuntimeException error) {
+            if (error instanceof PrincipalAccessException) {
+                return "access_denied";
+            }
+            if (error instanceof IdentityServiceUnavailableException) {
+                return "identity_unavailable";
+            }
+            if (error instanceof ResourceAccessException) {
+                return "network_error";
+            }
+            if (error instanceof RestClientResponseException responseException) {
+                if (responseException.getStatusCode().is5xxServerError()) {
+                    return "identity_server_error";
+                }
+                if (responseException.getStatusCode().is4xxClientError()) {
+                    return "identity_client_error";
+                }
+                return "identity_http_error";
+            }
+            if (error instanceof RestClientException) {
+                return "identity_client_error";
+            }
+            if (error instanceof IllegalArgumentException) {
+                return "data_error";
+            }
+
+            return "runtime_error";
         }
     }
 }

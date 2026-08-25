@@ -43,10 +43,17 @@ class DependencyHealthControllerTest {
                                 "auth.me",
                                 12L,
                                 1L,
+                                13L,
+                                0L,
                                 "success",
                                 null,
+                                null,
                                 18L,
-                                LocalDateTime.of(2026, 8, 24, 13, 30)
+                                21L,
+                                90L,
+                                LocalDateTime.of(2026, 8, 24, 13, 30),
+                                LocalDateTime.of(2026, 8, 24, 13, 30),
+                                LocalDateTime.of(2026, 8, 24, 13, 25)
                         ))
                 ));
 
@@ -60,8 +67,12 @@ class DependencyHealthControllerTest {
                 .andExpect(jsonPath("$.dependencies.identity.operations[0].operation").value("auth.me"))
                 .andExpect(jsonPath("$.dependencies.identity.operations[0].successCount").value(12))
                 .andExpect(jsonPath("$.dependencies.identity.operations[0].failureCount").value(1))
+                .andExpect(jsonPath("$.dependencies.identity.operations[0].totalCount").value(13))
+                .andExpect(jsonPath("$.dependencies.identity.operations[0].consecutiveFailureCount").value(0))
                 .andExpect(jsonPath("$.dependencies.identity.operations[0].lastOutcome").value("success"))
                 .andExpect(jsonPath("$.dependencies.identity.operations[0].lastDurationMs").value(18))
+                .andExpect(jsonPath("$.dependencies.identity.operations[0].averageDurationMs").value(21))
+                .andExpect(jsonPath("$.dependencies.identity.operations[0].maxDurationMs").value(90))
                 .andExpect(jsonPath("$.timestamp", matchesPattern(
                         "^\\d{4}-\\d{2}-\\d{2}T.*(?:Z|[+-]\\d{2}:\\d{2})$"
                 )));
