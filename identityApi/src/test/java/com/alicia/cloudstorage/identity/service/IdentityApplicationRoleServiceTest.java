@@ -51,13 +51,27 @@ class IdentityApplicationRoleServiceTest {
     }
 
     @Test
-    void effectiveRolesDefaultCloudAdminForGlobalAdmin() {
+    void effectiveRolesDefaultKnownAppAdminsForGlobalAdmin() {
         IdentityUser admin = identityUser(1L, IdentityUserRole.ADMIN);
         when(identityUserAppRoleRepository.findByUser_IdOrderByAppCodeAsc(1L)).thenReturn(List.of());
 
         var roles = service.effectiveRolesForUser(admin);
 
-        assertThat(roles).containsEntry("cloud", "CLOUD_ADMIN");
+        assertThat(roles)
+                .containsEntry("cloud", "CLOUD_ADMIN")
+                .containsEntry("rag", "RAG_ADMIN");
+    }
+
+    @Test
+    void effectiveRolesDefaultKnownAppUsersForRegularUser() {
+        IdentityUser user = identityUser(2L, IdentityUserRole.USER);
+        when(identityUserAppRoleRepository.findByUser_IdOrderByAppCodeAsc(2L)).thenReturn(List.of());
+
+        var roles = service.effectiveRolesForUser(user);
+
+        assertThat(roles)
+                .containsEntry("cloud", "CLOUD_USER")
+                .containsEntry("rag", "RAG_USER");
     }
 
     @Test
@@ -72,14 +86,14 @@ class IdentityApplicationRoleServiceTest {
     }
 
     @Test
-    void effectiveRolesUseExplicitCloudRoleForRegularUser() {
+    void effectiveRolesUseExplicitKnownAppRoleForRegularUser() {
         IdentityUser user = identityUser(2L, IdentityUserRole.USER);
-        IdentityUserAppRole appRole = appRole(user, "cloud", "CLOUD_ADMIN");
+        IdentityUserAppRole appRole = appRole(user, "rag", "RAG_ADMIN");
         when(identityUserAppRoleRepository.findByUser_IdOrderByAppCodeAsc(2L)).thenReturn(List.of(appRole));
 
         var roles = service.effectiveRolesForUser(user);
 
-        assertThat(roles).containsEntry("cloud", "CLOUD_ADMIN");
+        assertThat(roles).containsEntry("rag", "RAG_ADMIN");
     }
 
     @Test
@@ -89,32 +103,32 @@ class IdentityApplicationRoleServiceTest {
 
         when(identityPrincipalService.requireAdminUser("Bearer admin")).thenReturn(admin);
         when(identityUserRepository.findById(2L)).thenReturn(Optional.of(target));
-        when(identityUserAppRoleRepository.findByUser_IdAndAppCode(2L, "cloud")).thenReturn(Optional.empty());
+        when(identityUserAppRoleRepository.findByUser_IdAndAppCode(2L, "rag")).thenReturn(Optional.empty());
         when(identityUserAppRoleRepository.save(any(IdentityUserAppRole.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
         var response = service.updateUserRole(
                 "Bearer admin",
                 2L,
-                "cloud",
-                new UpdateIdentityApplicationRoleRequest("cloud_admin")
+                "rag",
+                new UpdateIdentityApplicationRoleRequest("rag_admin")
         );
 
         ArgumentCaptor<IdentityUserAppRole> appRoleCaptor = ArgumentCaptor.forClass(IdentityUserAppRole.class);
         verify(identityUserAppRoleRepository).save(appRoleCaptor.capture());
 
-        assertThat(response.appCode()).isEqualTo("cloud");
-        assertThat(response.roleCode()).isEqualTo("CLOUD_ADMIN");
+        assertThat(response.appCode()).isEqualTo("rag");
+        assertThat(response.roleCode()).isEqualTo("RAG_ADMIN");
         assertThat(appRoleCaptor.getValue().getUser()).isSameAs(target);
-        assertThat(appRoleCaptor.getValue().getAppCode()).isEqualTo("cloud");
-        assertThat(appRoleCaptor.getValue().getRoleCode()).isEqualTo("CLOUD_ADMIN");
+        assertThat(appRoleCaptor.getValue().getAppCode()).isEqualTo("rag");
+        assertThat(appRoleCaptor.getValue().getRoleCode()).isEqualTo("RAG_ADMIN");
         verify(identityAuditLogService).record(
                 IdentityAuditEventType.ADMIN_APP_ROLE_UPDATE,
                 IdentityAuditOutcome.SUCCESS,
                 1L,
                 2L,
-                "cloud",
-                "CLOUD_ADMIN"
+                "rag",
+                "RAG_ADMIN"
         );
     }
 
@@ -129,8 +143,8 @@ class IdentityApplicationRoleServiceTest {
         assertThatThrownBy(() -> service.updateUserRole(
                 "Bearer admin",
                 2L,
-                "cloud",
-                new UpdateIdentityApplicationRoleRequest("CLOUD_USER")
+                "rag",
+                new UpdateIdentityApplicationRoleRequest("RAG_USER")
         )).isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("全局管理员始终拥有应用管理员权限。");
     }

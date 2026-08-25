@@ -294,7 +294,7 @@ Identity Service 负责：
 - 用户昵称、头像、邮箱、手机号。
 - 账号状态：启用、停用。
 - 全局角色：至少保留 `ADMIN`、`USER`。
-- 应用级角色：例如 `cloud/CLOUD_ADMIN`、`cloud/CLOUD_USER`。
+- 应用级角色：例如 `cloud/CLOUD_ADMIN`、`cloud/CLOUD_USER`、`rag/RAG_ADMIN`、`rag/RAG_USER`。
 - 管理员账号创建。
 
 Identity Service 不负责：
@@ -387,7 +387,7 @@ cloud_user_profile.home_background_url = sys_user.home_background_url
 - `V15__drop_legacy_cloud_profile_columns_from_sys_user.sql` 删除 `sys_user` 上旧云盘画像字段。
 - `identityApi/src/main/resources/db/identity-migration/V1__identity_schema_baseline.sql` 建立 Identity 自己的 Flyway 基线，迁移历史写入 `identity_flyway_schema_history`。
 - `identityApi/src/main/resources/db/identity-migration/V2__rename_sys_user_to_identity_user.sql` 将身份表重命名为 `identity_user`。
-- `identityApi/src/main/resources/db/identity-migration/V3__create_identity_user_app_role.sql` 创建 `identity_user_app_role`，用于保存应用级角色，并把既有全局管理员初始化为 `cloud/CLOUD_ADMIN`。
+- `identityApi/src/main/resources/db/identity-migration/V3__create_identity_user_app_role.sql` 创建 `identity_user_app_role`，用于保存应用级角色，并把既有全局管理员初始化为 `cloud/CLOUD_ADMIN`。Identity 当前有效角色响应会为普通用户补齐 `cloud/CLOUD_USER` 与 `rag/RAG_USER`，为全局 `ADMIN` 补齐 `cloud/CLOUD_ADMIN` 与 `rag/RAG_ADMIN`。
 - `V16__drop_identity_table_foreign_keys.sql` 删除云盘业务表到身份表的数据库外键，保留逻辑 identity user ID。
 - `V17__drop_cloud_identity_residue.sql` 删除云盘库中早期历史迁移留下的身份表残留。
 - 首次迁移时从 `sys_user.storage_quota_bytes` 和 `sys_user.home_background_url` 回填老用户云盘资料。
@@ -1039,7 +1039,7 @@ bash deploy/scripts/check-identity-route-boundary.sh
 - 直连与前端 Nginx health，并检查 CloudStorageApi 到 Identity 的依赖健康端点、Identity 数据库/Flyway 依赖健康端点。
 - 主站 `/login`、云盘 `/cloudPan` 补斜杠跳转、`/cloudPan/login` 到 `/login?returnTo=/cloudPan/` 的统一登录交接。
 - Identity 登录、refresh token 下发与轮换、JWT `alg/iss/aud/kid` 元数据、JWKS 入口、刷新会话查询、指定刷新会话撤销、会话撤销审计事件写入、logout 后 refresh token 和当前 access token 失效。
-- Identity 登录、续签、Cloud 聚合响应中的 `appRoles.cloud`，以及 `/api/identity/admin/users/{userId}/app-roles` 管理员查询入口。
+- Identity 登录、续签、Cloud 聚合响应中的 `appRoles.cloud` 与 `appRoles.rag`，以及 `/api/identity/admin/users/{userId}/app-roles` 管理员查询入口。
 - `/api/cloud-profile/me` 和 `/api/storage/overview` 使用 identity token。
 - `/api/admin/cloud-users` 管理员入口。
 - `/api/identity/admin/audit-logs` 管理员审计日志查询入口和 `SESSION_REVOKE` 筛选。
@@ -1076,6 +1076,7 @@ Web 和 Android：
 - Web 和 Android 的 token 过期提示和重新登录体验。
 - 管理员面板中身份信息、云盘应用角色和云盘容量信息的展示边界。
 - Web 管理员账号面板已支持调整 `cloud/CLOUD_USER` 与 `cloud/CLOUD_ADMIN`，全局 `ADMIN` 仍始终等效云盘管理员。
+- 主站首页已消费 `appRoles.cloud` 展示 Alicia 云盘入口的登录态、普通用户和云盘管理员状态；Identity 已在有效角色中补齐 `rag/RAG_USER` 与 `rag/RAG_ADMIN`，供后续 RAG 独立管理接口使用。
 - Web 管理员身份审计日志筛选体验。
 
 部署：
@@ -1089,9 +1090,9 @@ Web 和 Android：
 
 下一步按架构收益从高到低推进，尽量以“大节点”合并和验证：
 
-1. 把多应用权限模型接到主站和 RAG：主站用于展示工具入口状态，RAG 后续按自己的 `rag/RAG_*` 角色判断管理能力。
-2. 基于 CloudStorageApi 的 Identity gateway telemetry 评估 `/auth/me`、JWKS、管理员用户接口的调用量、失败类型和耗时，再决定是否引入短缓存或 Identity 状态快照。
-3. 把主站统一登录体验继续产品化：账号面板、跨标签页登录态、退出/切换账号、returnTo 安全边界和云盘入口状态保持一致。
+1. 基于 CloudStorageApi 的 Identity gateway telemetry 评估 `/auth/me`、JWKS、管理员用户接口的调用量、失败类型和耗时，再决定是否引入短缓存或 Identity 状态快照。
+2. 把主站统一登录体验继续产品化：账号面板、跨标签页登录态、退出/切换账号、returnTo 安全边界和云盘入口状态保持一致。
+3. RAG 后续如新增独立管理接口，按 `rag/RAG_ADMIN` 做管理权限判断；普通 RAG 用户能力按 `rag/RAG_USER` 表达。
 4. 将 RS256 密钥轮换沉淀为正式运维流程；后续如需要后台密钥管理，再新增密钥实体、查询接口和管理界面。
 5. 保持迁移边界测试、静态路径扫描和统一生产验证脚本常态化，防止旧 `/api/auth/**`、旧 `/api/admin/users`、旧 `sys_user` 或云盘画像字段回流。
 

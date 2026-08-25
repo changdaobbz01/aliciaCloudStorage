@@ -22,9 +22,20 @@ public class IdentityApplicationRoleService {
     public static final String CLOUD_APP_CODE = "cloud";
     public static final String CLOUD_ADMIN_ROLE = "CLOUD_ADMIN";
     public static final String CLOUD_USER_ROLE = "CLOUD_USER";
+    public static final String RAG_APP_CODE = "rag";
+    public static final String RAG_ADMIN_ROLE = "RAG_ADMIN";
+    public static final String RAG_USER_ROLE = "RAG_USER";
 
     private static final int MAX_APP_CODE_LENGTH = 64;
     private static final int MAX_ROLE_CODE_LENGTH = 64;
+    private static final Map<String, String> DEFAULT_USER_APP_ROLES = Map.of(
+            CLOUD_APP_CODE, CLOUD_USER_ROLE,
+            RAG_APP_CODE, RAG_USER_ROLE
+    );
+    private static final Map<String, String> DEFAULT_ADMIN_APP_ROLES = Map.of(
+            CLOUD_APP_CODE, CLOUD_ADMIN_ROLE,
+            RAG_APP_CODE, RAG_ADMIN_ROLE
+    );
 
     private final IdentityPrincipalService identityPrincipalService;
     private final IdentityUserRepository identityUserRepository;
@@ -51,10 +62,9 @@ public class IdentityApplicationRoleService {
         Map<String, String> roles = new LinkedHashMap<>();
         identityUserAppRoleRepository.findByUser_IdOrderByAppCodeAsc(user.getId())
                 .forEach(role -> roles.put(role.getAppCode(), role.getRoleCode()));
+        DEFAULT_USER_APP_ROLES.forEach(roles::putIfAbsent);
         if (user.getRole() == IdentityUserRole.ADMIN) {
-            roles.put(CLOUD_APP_CODE, CLOUD_ADMIN_ROLE);
-        } else {
-            roles.putIfAbsent(CLOUD_APP_CODE, CLOUD_USER_ROLE);
+            DEFAULT_ADMIN_APP_ROLES.forEach(roles::put);
         }
 
         return Map.copyOf(roles);

@@ -432,18 +432,35 @@ expect_cloud_application_role() {
     local label="$1"
     local response="$2"
     local expected_role="${3:-}"
-    local cloud_role
 
-    cloud_role="$(printf '%s' "$response" | tr -d '\n' | extract_json_object_string appRoles cloud)"
-    if [[ -z "$cloud_role" ]]; then
-        fail "$label did not expose appRoles.cloud"
+    expect_identity_response_application_role "$label" "$response" "cloud" "$expected_role"
+}
+
+expect_rag_application_role() {
+    local label="$1"
+    local response="$2"
+    local expected_role="${3:-}"
+
+    expect_identity_response_application_role "$label" "$response" "rag" "$expected_role"
+}
+
+expect_identity_response_application_role() {
+    local label="$1"
+    local response="$2"
+    local app_code="$3"
+    local expected_role="${4:-}"
+    local role
+
+    role="$(printf '%s' "$response" | tr -d '\n' | extract_json_object_string appRoles "$app_code")"
+    if [[ -z "$role" ]]; then
+        fail "$label did not expose appRoles.$app_code"
     fi
 
-    if [[ -n "$expected_role" && "$cloud_role" != "$expected_role" ]]; then
-        fail "$label appRoles.cloud expected $expected_role, got $cloud_role"
+    if [[ -n "$expected_role" && "$role" != "$expected_role" ]]; then
+        fail "$label appRoles.$app_code expected $expected_role, got $role"
     fi
 
-    ok "$label exposes cloud application role $cloud_role"
+    ok "$label exposes $app_code application role $role"
 }
 
 expect_application_role_entry() {
@@ -513,6 +530,10 @@ IDENTITY_MYSQL_DATABASE="${ALICIA_VERIFY_IDENTITY_MYSQL_DATABASE:-${DOTENV_IDENT
 EXPECTED_CLOUD_APP_ROLE="${ALICIA_VERIFY_CLOUD_APP_ROLE:-}"
 if [[ -z "$EXPECTED_CLOUD_APP_ROLE" && "$SKIP_ADMIN_CHECK" != "true" ]]; then
     EXPECTED_CLOUD_APP_ROLE="CLOUD_ADMIN"
+fi
+EXPECTED_RAG_APP_ROLE="${ALICIA_VERIFY_RAG_APP_ROLE:-}"
+if [[ -z "$EXPECTED_RAG_APP_ROLE" && "$SKIP_ADMIN_CHECK" != "true" ]]; then
+    EXPECTED_RAG_APP_ROLE="RAG_ADMIN"
 fi
 if [[ -z "$REQUIRE_CLOUD_IDENTITY_TABLES_REMOVED" ]]; then
     if [[ "$CLOUD_MYSQL_DATABASE" == "$IDENTITY_MYSQL_DATABASE" ]]; then
@@ -596,6 +617,7 @@ if [[ -z "$REFRESH_TOKEN" ]]; then
 fi
 ok "identity login issued refresh token (${#REFRESH_TOKEN} chars)"
 expect_cloud_application_role "identity login user" "$login_response" "$EXPECTED_CLOUD_APP_ROLE"
+expect_rag_application_role "identity login user" "$login_response" "$EXPECTED_RAG_APP_ROLE"
 
 EXTRA_TOKEN="$(printf '%s' "$extra_login_response" | tr -d '\n' | extract_json_string token)"
 if [[ -z "$EXTRA_TOKEN" ]]; then
@@ -636,6 +658,7 @@ ok "identity token refresh issued replacement token (${#TOKEN} chars) and refres
 require_jwt_token "identity refreshed token" "$TOKEN"
 require_jwt_metadata "identity refreshed token" "$TOKEN"
 expect_cloud_application_role "identity refreshed user" "$refresh_response" "$EXPECTED_CLOUD_APP_ROLE"
+expect_rag_application_role "identity refreshed user" "$refresh_response" "$EXPECTED_RAG_APP_ROLE"
 expect_status "identity token refresh requires refresh token" 401 \
     -X POST "$IDENTITY_BASE_URL/api/identity/auth/token/refresh" \
     -H "Authorization: Bearer $TOKEN" \
@@ -673,6 +696,7 @@ if [[ -z "$USER_ID" ]]; then
 fi
 ok "cloud profile aggregation returned user $USER_ID"
 expect_cloud_application_role "cloud profile aggregation" "$profile_response" "$EXPECTED_CLOUD_APP_ROLE"
+expect_rag_application_role "cloud profile aggregation" "$profile_response" "$EXPECTED_RAG_APP_ROLE"
 
 curl_ok "storage overview accepts identity token" \
     "$CLOUD_BASE_URL/api/storage/overview" \
@@ -691,6 +715,7 @@ else
         "$PUBLIC_BASE_URL/api/identity/admin/users/$USER_ID/app-roles" \
         -H "Authorization: Bearer $TOKEN")"
     expect_application_role_entry "identity app roles admin route" "$app_roles_response" "cloud" "CLOUD_ADMIN"
+    expect_application_role_entry "identity app roles admin route" "$app_roles_response" "rag" "RAG_ADMIN"
     expect_audit_log_filter \
         "identity audit logs filter session revoke event" \
         "SESSION_REVOKE" \
