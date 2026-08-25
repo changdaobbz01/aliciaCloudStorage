@@ -273,6 +273,26 @@ bash deploy/scripts/update-rag-production.sh
 
 脚本会拒绝覆盖服务端已有的 tracked 改动，确认 `.env` 已配置 DeepSeek，快进拉取 `main`，重建 `rag` 与 `frontend`，最后同时检查 `127.0.0.1:8091/api/health` 和公网 `/rag/api/health`。密钥只保留在服务器 `.env`，不会输出到日志。
 
+常规生产更新推荐使用标准发布脚本，减少手动复制多段命令：
+
+```bash
+bash deploy/scripts/update-cloud-production.sh
+```
+
+默认会在 `~/aliciaCloudStorage` 内拒绝覆盖 tracked 本地改动，快进拉取 `gitee/main`，确保 `alicia_gateway` 网络存在，重建 `frontend` 及其依赖服务，并连续运行统一路由验证和静态边界检查。需要指定服务时可追加服务名，例如：
+
+```bash
+bash deploy/scripts/update-cloud-production.sh api identity frontend
+```
+
+如果主站和云盘都要一起更新，可在 `~/aliciaCloudStorage` 内执行：
+
+```bash
+bash deploy/scripts/update-main-and-cloud-production.sh
+```
+
+该脚本会先更新 `~/mainSite` 并运行主站路由验证，再更新云盘仓库并运行云盘/Identity/RAG 统一验证。可用 `ALICIA_SKIP_MAIN_SITE_UPDATE=true` 或 `ALICIA_SKIP_CLOUD_UPDATE=true` 临时跳过其中一侧。
+
 生产更新 `api`、`identity`、`rag` 或前端路由后，可以使用统一回归脚本检查主域路径边界、主站 `/login`、云盘 `/cloudPan` 规范化跳转、`/cloudPan/login` 到统一登录的交接、CloudStorageApi 到 Identity 的依赖健康、Identity 数据库/Flyway 依赖健康、RAG 到 Identity/Storage 的依赖健康和 telemetry、登录续签、JWT `alg/iss/aud/kid` 元数据、JWKS 入口、应用级 `cloud` 与 `rag` 角色、RAG 访问权探针、RAG 内部契约 `RAG_ADMIN` 边界、刷新会话查询和指定撤销、云盘聚合资料、存储概览、管理员云盘用户入口、Identity 应用角色与审计日志查询、会话撤销审计事件写入、Identity Flyway 迁移历史、旧身份路径 404、注销失效和审计日志最新行；生产 RS256 模式下，CloudStorageApi 会先用 Identity JWKS 对 access token 做本地预验签，再调用 Identity 做强一致状态确认：
 
 ```bash

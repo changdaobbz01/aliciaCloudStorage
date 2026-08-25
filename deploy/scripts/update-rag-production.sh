@@ -2,6 +2,8 @@
 set -Eeuo pipefail
 
 PROJECT_DIR="${1:-$HOME/aliciaCloudStorage}"
+GIT_REMOTE="${ALICIA_CLOUD_GIT_REMOTE:-gitee}"
+GIT_BRANCH="${ALICIA_CLOUD_GIT_BRANCH:-main}"
 COMPOSE=(sudo docker compose -f compose.yaml -f compose.https.yaml)
 PUBLIC_RAG_HEALTH_URL="${ALICIA_PUBLIC_RAG_HEALTH_URL:-https://windwindwind-alicia.cn/rag/api/health}"
 
@@ -32,7 +34,8 @@ if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
     exit 1
 fi
 
-git pull --ff-only origin main
+git fetch "$GIT_REMOTE" "$GIT_BRANCH"
+git pull --ff-only "$GIT_REMOTE" "$GIT_BRANCH"
 "${COMPOSE[@]}" up -d --build rag frontend
 
 for attempt in {1..30}; do
