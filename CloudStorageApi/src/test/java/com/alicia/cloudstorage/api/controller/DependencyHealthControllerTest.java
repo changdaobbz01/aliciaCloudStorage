@@ -1,6 +1,7 @@
 package com.alicia.cloudstorage.api.controller;
 
 import com.alicia.cloudstorage.api.config.JacksonConfiguration;
+import com.alicia.cloudstorage.api.identity.IdentityCurrentUserCacheSnapshot;
 import com.alicia.cloudstorage.api.identity.IdentityDependencyHealth;
 import com.alicia.cloudstorage.api.identity.IdentityGatewayOperationSnapshot;
 import com.alicia.cloudstorage.api.identity.IdentityDependencyHealthService;
@@ -39,6 +40,7 @@ class DependencyHealthControllerTest {
         when(identityHealthService.check())
                 .thenReturn(IdentityDependencyHealth.available(
                         "alicia-identity-api",
+                        new IdentityCurrentUserCacheSnapshot(true, 3000L, 1024, 2),
                         List.of(new IdentityGatewayOperationSnapshot(
                                 "auth.me",
                                 12L,
@@ -64,6 +66,10 @@ class DependencyHealthControllerTest {
                 .andExpect(jsonPath("$.dependencies.identity.available").value(true))
                 .andExpect(jsonPath("$.dependencies.identity.status").value("ok"))
                 .andExpect(jsonPath("$.dependencies.identity.service").value("alicia-identity-api"))
+                .andExpect(jsonPath("$.dependencies.identity.currentUserCache.enabled").value(true))
+                .andExpect(jsonPath("$.dependencies.identity.currentUserCache.ttlMillis").value(3000))
+                .andExpect(jsonPath("$.dependencies.identity.currentUserCache.maxEntries").value(1024))
+                .andExpect(jsonPath("$.dependencies.identity.currentUserCache.size").value(2))
                 .andExpect(jsonPath("$.dependencies.identity.operations[0].operation").value("auth.me"))
                 .andExpect(jsonPath("$.dependencies.identity.operations[0].successCount").value(12))
                 .andExpect(jsonPath("$.dependencies.identity.operations[0].failureCount").value(1))

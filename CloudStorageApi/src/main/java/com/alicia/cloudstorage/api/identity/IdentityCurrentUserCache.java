@@ -80,6 +80,13 @@ public class IdentityCurrentUserCache {
         entries.remove(fingerprint(authorization));
     }
 
+    public IdentityCurrentUserCacheSnapshot snapshot() {
+        if (enabled) {
+            pruneExpired();
+        }
+        return new IdentityCurrentUserCacheSnapshot(enabled, ttlMillis, maxEntries, entries.size());
+    }
+
     int size() {
         return entries.size();
     }
@@ -103,6 +110,15 @@ public class IdentityCurrentUserCache {
 
         if (entries.size() >= maxEntries && oldestKey != null) {
             entries.remove(oldestKey);
+        }
+    }
+
+    private void pruneExpired() {
+        long now = clockMillis.getAsLong();
+        for (var entry : entries.entrySet()) {
+            if (entry.getValue().expiresAtMillis() <= now) {
+                entries.remove(entry.getKey(), entry.getValue());
+            }
         }
     }
 

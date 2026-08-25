@@ -29,6 +29,12 @@ class IdentityDependencyHealthServiceTest {
         assertThat(health.available()).isTrue();
         assertThat(health.status()).isEqualTo("ok");
         assertThat(health.service()).isEqualTo("alicia-identity-api");
+        assertThat(health.currentUserCache())
+                .satisfies(cache -> {
+                    assertThat(cache.enabled()).isTrue();
+                    assertThat(cache.ttlMillis()).isEqualTo(3000L);
+                    assertThat(cache.maxEntries()).isEqualTo(128);
+                });
         assertThat(health.operations())
                 .singleElement()
                 .satisfies(snapshot -> {
@@ -77,7 +83,13 @@ class IdentityDependencyHealthServiceTest {
         RestClient restClient = restClientBuilder.baseUrl("http://identity.test").build();
         IdentityGatewayTelemetry telemetry = new IdentityGatewayTelemetry();
         telemetry.observe("auth.me", () -> "ok");
-        return new TestGatewayContext(server, new IdentityDependencyHealthService(restClient, telemetry));
+        IdentityCurrentUserCache cache = new IdentityCurrentUserCache(
+                true,
+                java.time.Duration.ofSeconds(3L),
+                128,
+                System::currentTimeMillis
+        );
+        return new TestGatewayContext(server, new IdentityDependencyHealthService(restClient, telemetry, cache));
     }
 
     private record TestGatewayContext(

@@ -44,6 +44,23 @@ class IdentityCurrentUserCacheTest {
     }
 
     @Test
+    void snapshotPrunesExpiredEntries() {
+        AtomicLong now = new AtomicLong(1000L);
+        IdentityCurrentUserCache cache = new IdentityCurrentUserCache(
+                true,
+                Duration.ofMillis(50L),
+                128,
+                now::get
+        );
+
+        cache.put("Bearer token", account(1L));
+        now.set(1100L);
+
+        assertThat(cache.snapshot().size()).isZero();
+        assertThat(cache.size()).isZero();
+    }
+
+    @Test
     void evictsOldestEntryWhenCapacityIsReached() {
         AtomicLong now = new AtomicLong(1000L);
         IdentityCurrentUserCache cache = new IdentityCurrentUserCache(

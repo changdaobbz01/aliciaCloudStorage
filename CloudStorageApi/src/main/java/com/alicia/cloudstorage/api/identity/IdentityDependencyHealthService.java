@@ -14,13 +14,16 @@ public class IdentityDependencyHealthService {
 
     private final RestClient restClient;
     private final IdentityGatewayTelemetry telemetry;
+    private final IdentityCurrentUserCache currentUserCache;
 
     public IdentityDependencyHealthService(
             @Qualifier("identityRestClient") RestClient restClient,
-            IdentityGatewayTelemetry telemetry
+            IdentityGatewayTelemetry telemetry,
+            IdentityCurrentUserCache currentUserCache
     ) {
         this.restClient = restClient;
         this.telemetry = telemetry;
+        this.currentUserCache = currentUserCache;
     }
 
     public IdentityDependencyHealth check() {
@@ -31,13 +34,17 @@ public class IdentityDependencyHealthService {
                     .body(IdentityHealthPayload.class);
 
             if (response != null && "ok".equalsIgnoreCase(response.status())) {
-                return IdentityDependencyHealth.available(response.service(), telemetry.snapshots());
+                return IdentityDependencyHealth.available(
+                        response.service(),
+                        currentUserCache.snapshot(),
+                        telemetry.snapshots()
+                );
             }
         } catch (RestClientException | IllegalArgumentException ex) {
             log.warn("Identity dependency health check failed: {}", ex.getMessage());
         }
 
-        return IdentityDependencyHealth.unavailable(telemetry.snapshots());
+        return IdentityDependencyHealth.unavailable(currentUserCache.snapshot(), telemetry.snapshots());
     }
 
     private record IdentityHealthPayload(

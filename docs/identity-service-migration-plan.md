@@ -475,7 +475,7 @@ ALICIA_AUTH_TOKEN_PREVIOUS_RSA_PUBLIC_KEYS=old-rsa-kid=old-public-key
 - 当前不把 CloudStorageApi 切为纯本地 JWKS 鉴权，因为 access token 暂不写入角色和账号状态；管理员权限、禁用账号、`tokenVersion` 失效和 refresh session 撤销仍由 Identity 的 `/api/identity/auth/me` 校验。
 - CloudStorageApi 入口拦截器会把 `/auth/me` 返回的身份快照放入 request context，`/api/cloud-profile/me` 和头像上传复用该快照，不再在同一请求里重复调用 Identity。
 - CloudStorageApi 已引入当前用户快照短缓存，默认 `ALICIA_IDENTITY_CURRENT_USER_CACHE_ENABLED=true`、`ALICIA_IDENTITY_CURRENT_USER_CACHE_TTL_SECONDS=3`、`ALICIA_IDENTITY_CURRENT_USER_CACHE_MAX_ENTRIES=1024`，TTL 在代码中最多限制为 30 秒；缓存按 access token 指纹存储，命中时仍执行本地 JWT 预验签，资料更新成功后会刷新当前 token 的缓存，预验签失败或 Identity 校验失败会失效对应缓存。
-- CloudStorageApi 的 `/api/health/dependencies` 会暴露固定 Identity gateway 操作观测，例如 `auth.me`、`auth.me.cacheHit`、`jwks.fetch`、`admin.listUsers` 的成功/失败/总计数、连续失败数、最近成功/失败时间、最近/平均/最大耗时和脱敏失败分类；该观测不记录 token、账号或用户标识，用于后续评估是否继续引入更完整的状态快照。
+- CloudStorageApi 的 `/api/health/dependencies` 会暴露固定 Identity gateway 操作观测，例如 `auth.me`、`auth.me.cacheHit`、`jwks.fetch`、`admin.listUsers` 的成功/失败/总计数、连续失败数、最近成功/失败时间、最近/平均/最大耗时和脱敏失败分类；同时暴露 `currentUserCache.enabled/ttlMillis/maxEntries/size`，不记录 token、账号或用户标识，用于后续评估是否继续引入更完整的状态快照。
 
 ### 7.2 已完成与后续增强
 

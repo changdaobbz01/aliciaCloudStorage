@@ -477,6 +477,14 @@ expect_cloud_identity_gateway_telemetry() {
         || fail "cloud dependency health did not expose auth.me identity gateway last observed timestamp"
     printf '%s' "$compact" | grep -q '"operation"[[:space:]]*:[[:space:]]*"auth.me"[^}]*"lastSuccessAt"[[:space:]]*:[[:space:]]*"' \
         || fail "cloud dependency health did not expose auth.me identity gateway last success timestamp"
+    printf '%s' "$compact" | grep -q '"currentUserCache"[[:space:]]*:[[:space:]]*{[^}]*"enabled"[[:space:]]*:[[:space:]]*\(true\|false\)' \
+        || fail "cloud dependency health did not expose identity current-user cache enabled flag"
+    printf '%s' "$compact" | grep -q '"currentUserCache"[[:space:]]*:[[:space:]]*{[^}]*"ttlMillis"[[:space:]]*:[[:space:]]*[0-9][0-9]*' \
+        || fail "cloud dependency health did not expose identity current-user cache ttl"
+    printf '%s' "$compact" | grep -q '"currentUserCache"[[:space:]]*:[[:space:]]*{[^}]*"maxEntries"[[:space:]]*:[[:space:]]*[0-9][0-9]*' \
+        || fail "cloud dependency health did not expose identity current-user cache max entries"
+    printf '%s' "$compact" | grep -q '"currentUserCache"[[:space:]]*:[[:space:]]*{[^}]*"size"[[:space:]]*:[[:space:]]*[0-9][0-9]*' \
+        || fail "cloud dependency health did not expose identity current-user cache size"
 
     ok "cloud dependency health exposes identity gateway telemetry"
 }
