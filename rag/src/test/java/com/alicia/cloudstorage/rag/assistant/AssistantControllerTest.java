@@ -1,7 +1,11 @@
 package com.alicia.cloudstorage.rag.assistant;
 
+import com.alicia.cloudstorage.rag.security.RagAccessAuthorizer;
+import com.alicia.cloudstorage.rag.security.RagAccessPrincipal;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
@@ -12,9 +16,12 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 class AssistantControllerTest {
@@ -166,6 +173,75 @@ class AssistantControllerTest {
                 eq(new AssistantPlanRequest("选择第1个", "conversation-1", context, event)),
                 eq("Bearer token")
         );
+    }
+
+    @Test
+    void exposesCurrentRagAccessPrincipal() {
+        RagAccessAuthorizer authorizer = mock(RagAccessAuthorizer.class);
+        when(authorizer.requireRagAccess("Bearer token"))
+                .thenReturn(new RagAccessPrincipal(9L, "rag", "RAG_ADMIN"));
+        AssistantController controller = new AssistantController(
+                null,
+                new RagConfigLoader(new ObjectMapper()),
+                new ObjectMapper().findAndRegisterModules(),
+                3_000L,
+                authorizer
+        );
+
+        Map<String, Object> access = controller.access("Bearer token");
+
+        assertThat(access)
+                .containsEntry("status", "ok")
+                .containsEntry("appCode", "rag")
+                .containsEntry("role", "RAG_ADMIN")
+                .containsEntry("userId", 9L);
+    }
+
+    @Test
+    void planRequiresRagAccessBeforeDelegating() {
+        AssistantConversationService service = mock(AssistantConversationService.class);
+        RagAccessAuthorizer authorizer = mock(RagAccessAuthorizer.class);
+        AssistantPlanRequest request = new AssistantPlanRequest("  你是谁  ", "conversation-1");
+        AssistantPlanRequest sanitized = new AssistantPlanRequest("你是谁", "conversation-1", null, null);
+        IntentRecognitionResponse response = responseWithNextAction("安安身份介绍", "respond_only");
+        when(authorizer.requireRagAccess("Bearer token"))
+                .thenReturn(new RagAccessPrincipal(6L, "rag", "RAG_USER"));
+        when(service.plan(eq(sanitized), eq("Bearer token"))).thenReturn(response);
+        AssistantController controller = new AssistantController(
+                service,
+                new RagConfigLoader(new ObjectMapper()),
+                new ObjectMapper().findAndRegisterModules(),
+                3_000L,
+                authorizer
+        );
+
+        IntentRecognitionResponse actual = controller.plan(request, "Bearer token");
+
+        assertThat(actual).isSameAs(response);
+        verify(authorizer).requireRagAccess("Bearer token");
+        verify(service).plan(eq(sanitized), eq("Bearer token"));
+    }
+
+    @Test
+    void planStopsWhenRagAccessIsRejected() {
+        AssistantConversationService service = mock(AssistantConversationService.class);
+        RagAccessAuthorizer authorizer = mock(RagAccessAuthorizer.class);
+        doThrow(new ResponseStatusException(HttpStatus.FORBIDDEN, "RAG access denied"))
+                .when(authorizer)
+                .requireRagAccess("Bearer token");
+        AssistantController controller = new AssistantController(
+                service,
+                new RagConfigLoader(new ObjectMapper()),
+                new ObjectMapper().findAndRegisterModules(),
+                3_000L,
+                authorizer
+        );
+
+        assertThatThrownBy(() -> controller.plan(new AssistantPlanRequest("你是谁", "conversation-1"), "Bearer token"))
+                .isInstanceOfSatisfying(ResponseStatusException.class, error ->
+                        assertThat(error.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN)
+                );
+        verifyNoInteractions(service);
     }
 
     @Test

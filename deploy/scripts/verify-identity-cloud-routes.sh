@@ -647,6 +647,8 @@ else
 fi
 unset jwks_response
 curl_ok "rag health through frontend" "$RAG_HEALTH_URL"
+expect_status "rag assistant access requires identity token" 401 \
+    "$PUBLIC_BASE_URL/rag/api/assistant/auth/access"
 curl_ok "main site login entry" -I "$PUBLIC_BASE_URL/login"
 expect_redirect_location "cloudPan bare path redirects to canonical slash" 308 "/cloudPan/" "$PUBLIC_BASE_URL/cloudPan"
 expect_redirect_location "cloudPan legacy login redirects to unified login" 308 "/login?returnTo=/cloudPan/" "$PUBLIC_BASE_URL/cloudPan/login"
@@ -728,6 +730,18 @@ require_jwt_token "identity refreshed token" "$TOKEN"
 require_jwt_metadata "identity refreshed token" "$TOKEN"
 expect_cloud_application_role "identity refreshed user" "$refresh_response" "$EXPECTED_CLOUD_APP_ROLE"
 expect_rag_application_role "identity refreshed user" "$refresh_response" "$EXPECTED_RAG_APP_ROLE"
+rag_access_response="$(curl_json_or_fail "rag assistant access route" \
+    "$PUBLIC_BASE_URL/rag/api/assistant/auth/access" \
+    -H "Authorization: Bearer $TOKEN")"
+rag_access_app="$(printf '%s' "$rag_access_response" | tr -d '\n' | extract_json_string appCode)"
+rag_access_role="$(printf '%s' "$rag_access_response" | tr -d '\n' | extract_json_string role)"
+[[ "$rag_access_app" == "rag" ]] || fail "rag assistant access route appCode expected rag, got ${rag_access_app:-<missing>}"
+if [[ -n "$EXPECTED_RAG_APP_ROLE" && "$rag_access_role" != "$EXPECTED_RAG_APP_ROLE" ]]; then
+    fail "rag assistant access route role expected $EXPECTED_RAG_APP_ROLE, got ${rag_access_role:-<missing>}"
+fi
+[[ -n "$rag_access_role" ]] || fail "rag assistant access route did not return a role"
+ok "rag assistant access route returns rag application role $rag_access_role"
+unset rag_access_response rag_access_app rag_access_role
 expect_status "identity token refresh requires refresh token" 401 \
     -X POST "$IDENTITY_BASE_URL/api/identity/auth/token/refresh" \
     -H "Authorization: Bearer $TOKEN" \

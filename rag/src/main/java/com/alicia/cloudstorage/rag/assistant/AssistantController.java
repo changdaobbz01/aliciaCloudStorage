@@ -1,5 +1,7 @@
 package com.alicia.cloudstorage.rag.assistant;
 
+import com.alicia.cloudstorage.rag.security.RagAccessAuthorizer;
+import com.alicia.cloudstorage.rag.security.RagAccessPrincipal;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -25,17 +27,20 @@ public class AssistantController {
     private final AssistantConversationService assistantConversationService;
     private final AssistantPlanStreamService streamService;
     private final RagConfigLoader configLoader;
+    private final RagAccessAuthorizer ragAccessAuthorizer;
 
     @Autowired
     public AssistantController(
             AssistantConversationService assistantConversationService,
             AssistantPlanStreamService streamService,
             RagConfigLoader configLoader,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            RagAccessAuthorizer ragAccessAuthorizer
     ) {
         this.assistantConversationService = assistantConversationService;
         this.streamService = streamService;
         this.configLoader = configLoader;
+        this.ragAccessAuthorizer = ragAccessAuthorizer;
     }
 
     AssistantController(
@@ -52,11 +57,28 @@ public class AssistantController {
             ObjectMapper objectMapper,
             long streamHeartbeatMillis
     ) {
+        this(
+                assistantConversationService,
+                configLoader,
+                objectMapper,
+                streamHeartbeatMillis,
+                RagAccessAuthorizer.allowAll()
+        );
+    }
+
+    AssistantController(
+            AssistantConversationService assistantConversationService,
+            RagConfigLoader configLoader,
+            ObjectMapper objectMapper,
+            long streamHeartbeatMillis,
+            RagAccessAuthorizer ragAccessAuthorizer
+    ) {
         this.assistantConversationService = assistantConversationService;
         this.streamService = assistantConversationService == null
                 ? null
                 : new AssistantPlanStreamService(assistantConversationService, streamHeartbeatMillis);
         this.configLoader = configLoader;
+        this.ragAccessAuthorizer = ragAccessAuthorizer;
     }
 
     @GetMapping("/api/config/client")
@@ -101,6 +123,19 @@ public class AssistantController {
         return contract;
     }
 
+    @GetMapping("/api/assistant/auth/access")
+    public Map<String, Object> access(
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader
+    ) {
+        RagAccessPrincipal principal = ragAccessAuthorizer.requireRagAccess(authorizationHeader);
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("status", "ok");
+        response.put("appCode", principal.appCode());
+        response.put("role", principal.role());
+        response.put("userId", principal.userId());
+        return Map.copyOf(response);
+    }
+
     @PostMapping("/api/assistant/plan")
     public IntentRecognitionResponse plan(
             @RequestBody AssistantPlanRequest request,
@@ -110,6 +145,7 @@ public class AssistantController {
         if (message == null || message.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "message is required");
         }
+        ragAccessAuthorizer.requireRagAccess(authorizationHeader);
         String conversationId = request == null ? "" : request.conversationId();
         return assistantConversationService.plan(
                 new AssistantPlanRequest(message.trim(), conversationId, request.clientContext(), request.clientEvent()),
@@ -126,6 +162,7 @@ public class AssistantController {
         if (message == null || message.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "message is required");
         }
+        ragAccessAuthorizer.requireRagAccess(authorizationHeader);
 
         String conversationId = request == null ? "" : request.conversationId();
         AssistantPlanRequest sanitizedRequest = new AssistantPlanRequest(

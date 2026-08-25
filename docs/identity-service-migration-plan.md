@@ -272,6 +272,7 @@ flowchart TD
     Identity --> IdentityTables["Identity 用户表和验证码表"]
     CloudApi --> CloudTables["云盘业务表"]
     CloudApi --> Cos["COS 文件存储"]
+    Rag --> Identity
     Rag --> CloudApi
 
     CloudWeb --> Identity
@@ -304,6 +305,8 @@ Identity Service 不负责：
 - 文件、目录、分享、回收站。
 - RAG 对文件的语义操作。
 - 工具模块自己的业务权限细节。
+
+说明：RAG Service 自身会通过 Identity `/api/identity/auth/me` 校验 `appRoles.rag`，普通语义执行入口允许 `RAG_USER` 和 `RAG_ADMIN`；RAG 具体文件操作仍通过 CloudStorageApi 的云盘业务接口完成。
 
 ### 5.2 CloudStorageApi 保留的能力
 
@@ -1043,6 +1046,7 @@ bash deploy/scripts/check-identity-route-boundary.sh
 - 主站 `/login`、云盘 `/cloudPan` 补斜杠跳转、`/cloudPan/login` 到 `/login?returnTo=/cloudPan/` 的统一登录交接。
 - Identity 登录、refresh token 下发与轮换、JWT `alg/iss/aud/kid` 元数据、JWKS 入口、刷新会话查询、指定刷新会话撤销、会话撤销审计事件写入、logout 后 refresh token 和当前 access token 失效。
 - Identity 登录、续签、Cloud 聚合响应中的 `appRoles.cloud` 与 `appRoles.rag`，以及 `/api/identity/admin/users/{userId}/app-roles` 管理员查询入口。
+- RAG 访问权探针 `/rag/api/assistant/auth/access`，未带 Identity token 返回 401，携带有效 token 时返回 `appCode=rag` 和有效 `appRoles.rag`。
 - `/api/cloud-profile/me` 和 `/api/storage/overview` 使用 identity token。
 - `/api/admin/cloud-users` 管理员入口。
 - `/api/identity/admin/audit-logs` 管理员审计日志查询入口和 `SESSION_REVOKE` 筛选。
@@ -1079,7 +1083,7 @@ Web 和 Android：
 - Web 和 Android 的 token 过期提示和重新登录体验。
 - 管理员面板中身份信息、云盘应用角色和云盘容量信息的展示边界。
 - Web 管理员账号面板已支持调整 `cloud/CLOUD_USER` 与 `cloud/CLOUD_ADMIN`，全局 `ADMIN` 仍始终等效云盘管理员。
-- 主站首页已消费 `appRoles.cloud` 展示 Alicia 云盘入口的登录态、普通用户和云盘管理员状态；Identity 已在有效角色中补齐 `rag/RAG_USER` 与 `rag/RAG_ADMIN`，供后续 RAG 独立管理接口使用。
+- 主站首页已消费 `appRoles.cloud` 展示 Alicia 云盘入口的登录态、普通用户和云盘管理员状态；RAG 执行入口已消费 `appRoles.rag`，后续 RAG 管理接口继续按 `rag/RAG_ADMIN` 收口。
 - Web 管理员身份审计日志筛选体验。
 
 部署：
@@ -1095,7 +1099,7 @@ Web 和 Android：
 
 1. 把主站统一登录体验继续产品化：账号面板、跨标签页登录态、退出/切换账号、returnTo 安全边界和云盘入口状态保持一致。
 2. 基于 CloudStorageApi 的 Identity gateway telemetry 连续观察 `/auth/me`、JWKS、管理员用户接口的调用量、失败类型和耗时；在出现明确热点或抖动前，暂不引入短缓存或 Identity 状态快照。
-3. RAG 后续如新增独立管理接口，按 `rag/RAG_ADMIN` 做管理权限判断；普通 RAG 用户能力按 `rag/RAG_USER` 表达。
+3. RAG 普通执行入口已经按 `rag/RAG_USER` / `rag/RAG_ADMIN` 授权；后续如新增独立管理接口，继续按 `rag/RAG_ADMIN` 做管理权限判断。
 4. RS256 密钥轮换已经沉淀为候选 `.env` 生成、回滚命令和历史 RSA 公钥清理脚本；后续如需要后台密钥管理，再新增密钥实体、查询接口和管理界面。
 5. 保持迁移边界测试、静态路径扫描和统一生产验证脚本常态化，防止旧 `/api/auth/**`、旧 `/api/admin/users`、旧 `sys_user` 或云盘画像字段回流。
 
