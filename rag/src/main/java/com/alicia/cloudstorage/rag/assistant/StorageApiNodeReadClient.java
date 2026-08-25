@@ -1,7 +1,11 @@
 package com.alicia.cloudstorage.rag.assistant;
 
+import com.alicia.cloudstorage.rag.health.RagDependencyOperationSnapshot;
+import com.alicia.cloudstorage.rag.health.RagDependencyTelemetry;
+import com.alicia.cloudstorage.rag.health.StorageApiHealthProbe;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -26,11 +30,14 @@ public class StorageApiNodeReadClient {
     private final HttpClient httpClient;
     private final String baseUrl;
     private final int timeoutSeconds;
+    private final RagDependencyTelemetry telemetry;
 
+    @Autowired
     public StorageApiNodeReadClient(
             ObjectMapper objectMapper,
             @Value("${alicia.rag.storage-api.base-url:}") String baseUrl,
-            @Value("${alicia.rag.storage-api.timeout-seconds:4}") int timeoutSeconds
+            @Value("${alicia.rag.storage-api.timeout-seconds:4}") int timeoutSeconds,
+            RagDependencyTelemetry telemetry
     ) {
         this.objectMapper = objectMapper;
         this.httpClient = HttpClient.newBuilder()
@@ -38,10 +45,39 @@ public class StorageApiNodeReadClient {
                 .build();
         this.baseUrl = baseUrl == null ? "" : baseUrl.trim().replaceAll("/+$", "");
         this.timeoutSeconds = Math.max(1, timeoutSeconds);
+        this.telemetry = telemetry;
+    }
+
+    protected StorageApiNodeReadClient(
+            ObjectMapper objectMapper,
+            String baseUrl,
+            int timeoutSeconds
+    ) {
+        this(objectMapper, baseUrl, timeoutSeconds, new RagDependencyTelemetry());
     }
 
     public boolean isConfigured() {
         return !baseUrl.isBlank();
+    }
+
+    public StorageApiHealthProbe checkHealth() {
+        if (!isConfigured()) {
+            return StorageApiHealthProbe.notConfigured();
+        }
+
+        URI uri = UriComponentsBuilder.fromUriString(baseUrl + "/api/health")
+                .build()
+                .encode()
+                .toUri();
+        JsonNode root = send("storage.health", uri, "");
+        if ("ok".equalsIgnoreCase(root.path("status").asText(""))) {
+            return StorageApiHealthProbe.available(root.path("service").asText(""));
+        }
+        return StorageApiHealthProbe.unavailable(root.path("service").asText(""));
+    }
+
+    public List<RagDependencyOperationSnapshot> dependencyOperations() {
+        return telemetry.snapshots("storage.");
     }
 
     public StorageApiNodePage searchNodes(StorageApiNodeQuery query, String authorizationHeader) {
@@ -65,7 +101,7 @@ public class StorageApiNodeReadClient {
             builder.queryParam("category", query.category());
         }
 
-        JsonNode root = send(builder.build().encode().toUri(), authorizationHeader);
+        JsonNode root = send("storage.nodes", builder.build().encode().toUri(), authorizationHeader);
         List<CandidateItem> items = parseNodeItems(root.path("items"));
         return new StorageApiNodePage(
                 items,
@@ -81,7 +117,7 @@ public class StorageApiNodeReadClient {
                 .build()
                 .encode()
                 .toUri();
-        return parseNodeItems(send(uri, authorizationHeader));
+        return parseNodeItems(send("storage.folders", uri, authorizationHeader));
     }
 
     public StorageApiScopedTrashPreview previewScopedTrash(
@@ -97,7 +133,7 @@ public class StorageApiNodeReadClient {
             builder.queryParam("sourceParentId", sourceParentId);
         }
         nodeTypes.forEach(type -> builder.queryParam("nodeTypes", type));
-        JsonNode response = send(builder.build().encode().toUri(), authorizationHeader);
+        JsonNode response = send("storage.trash.preview", builder.build().encode().toUri(), authorizationHeader);
         return new StorageApiScopedTrashPreview(
                 parseNodeItems(response.path("items")),
                 response.path("selectedFileCount").asInt(0),
@@ -136,14 +172,21 @@ public class StorageApiNodeReadClient {
                 .toList();
     }
 
-    private JsonNode send(URI uri, String authorizationHeader) {
+    private JsonNode send(String operation, URI uri, String authorizationHeader) {
+        return telemetry.observe(operation, () -> sendUnobserved(uri, authorizationHeader));
+    }
+
+    private JsonNode sendUnobserved(URI uri, String authorizationHeader) {
         try {
-            HttpRequest request = HttpRequest.newBuilder(uri)
+            HttpRequest.Builder requestBuilder = HttpRequest.newBuilder(uri)
                     .timeout(Duration.ofSeconds(timeoutSeconds))
                     .header("Accept", "application/json")
-                    .header("Authorization", authorizationHeader)
-                    .GET()
-                    .build();
+                    .GET();
+            String authorization = authorizationHeader == null ? "" : authorizationHeader.trim();
+            if (!authorization.isBlank()) {
+                requestBuilder.header("Authorization", authorization);
+            }
+            HttpRequest request = requestBuilder.build();
             HttpResponse<String> response = httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
                     .orTimeout(timeoutSeconds, TimeUnit.SECONDS)
                     .join();

@@ -238,6 +238,8 @@ curl -X POST http://127.0.0.1:8093/api/identity/auth/register/verify `
 
 RAG 执行入口已经消费 Identity 应用角色：`/rag/api/assistant/plan`、`/rag/api/assistant/plan/stream` 和旧兼容入口 `/rag/api/intent/recognize` 会先调用 Identity `/api/identity/auth/me` 校验 `appRoles.rag`，只允许 `RAG_USER` 或 `RAG_ADMIN` 继续执行语义规划；`/rag/api/assistant/auth/access` 是轻量访问权探针，用于部署验证，不触发模型调用。RAG 调用 Identity 的默认连接超时为 2 秒，读取超时为 5 秒，可用 `ALICIA_RAG_IDENTITY_API_BASE_URL`、`ALICIA_RAG_IDENTITY_API_CONNECT_TIMEOUT_MS` 和 `ALICIA_RAG_IDENTITY_API_READ_TIMEOUT_MS` 调整。
 
+RAG 依赖健康入口为 `/rag/api/health/dependencies`，会探测 Identity `/api/identity/health` 和 CloudStorageApi `/api/health`，并暴露 RAG 到 Identity/Storage 的脱敏操作观测，例如 `identity.health`、`identity.auth.me`、`storage.health`、`storage.nodes`、`storage.folders` 的成功/失败次数、连续失败数、最近耗时和脱敏失败分类；不记录 token、账号或文件名。
+
 `identityApi` 已启用独立 Flyway，迁移文件位于 `identityApi/src/main/resources/db/identity-migration`，迁移历史表为 `identity_flyway_schema_history`。CloudStorageApi 早期 V1-V17 历史迁移继续保留，其中 V15 删除 `sys_user` 上旧云盘画像字段，V16 删除云盘业务表到身份表的数据库外键，V17 删除云盘库中的身份表残留；Identity V2 将身份表重命名为 `identity_user`，Identity V3 新增 `identity_user_app_role`，用于保存应用级角色。后续身份表结构变更应新增到 `identityApi`。CloudStorageApi 和 identityApi 测试中已有双向迁移边界检查，防止新的身份结构变更写回云盘迁移目录，也防止云盘业务结构进入 Identity 迁移目录；`deploy/scripts/check-identity-route-boundary.sh` 同时检查运行时代码不再引用旧 `sys_user` 表。
 
 `identityApi` 通过 `ALICIA_IDENTITY_MYSQL_DATABASE` 指向独立 MySQL database，`.env.example` 默认使用 `alicia_identity`；MySQL 首次初始化会通过 `deploy/mysql/init-identity-database.sh` 创建该库。生产已完成身份库拆分，当前云盘库不再包含 `sys_user`、`identity_user`、身份验证码、refresh token、审计和 Identity Flyway 历史表。老环境可使用 `deploy/scripts/apply-identity-database-split.sh` 复制身份表和 `identity_flyway_schema_history` 到目标库、备份并更新 `.env`、重启 identity 并运行统一验证；拆库验证通过后，可运行 `deploy/scripts/drop-cloud-identity-residue.sh` 备份并删除云盘库中残留的身份表。
@@ -271,7 +273,7 @@ bash deploy/scripts/update-rag-production.sh
 
 脚本会拒绝覆盖服务端已有的 tracked 改动，确认 `.env` 已配置 DeepSeek，快进拉取 `main`，重建 `rag` 与 `frontend`，最后同时检查 `127.0.0.1:8091/api/health` 和公网 `/rag/api/health`。密钥只保留在服务器 `.env`，不会输出到日志。
 
-生产更新 `api`、`identity`、`rag` 或前端路由后，可以使用统一回归脚本检查主域路径边界、主站 `/login`、云盘 `/cloudPan` 规范化跳转、`/cloudPan/login` 到统一登录的交接、CloudStorageApi 到 Identity 的依赖健康、Identity 数据库/Flyway 依赖健康、登录续签、JWT `alg/iss/aud/kid` 元数据、JWKS 入口、应用级 `cloud` 与 `rag` 角色、RAG 访问权探针、刷新会话查询和指定撤销、云盘聚合资料、存储概览、管理员云盘用户入口、Identity 应用角色与审计日志查询、会话撤销审计事件写入、Identity Flyway 迁移历史、旧身份路径 404、注销失效和审计日志最新行；生产 RS256 模式下，CloudStorageApi 会先用 Identity JWKS 对 access token 做本地预验签，再调用 Identity 做强一致状态确认：
+生产更新 `api`、`identity`、`rag` 或前端路由后，可以使用统一回归脚本检查主域路径边界、主站 `/login`、云盘 `/cloudPan` 规范化跳转、`/cloudPan/login` 到统一登录的交接、CloudStorageApi 到 Identity 的依赖健康、Identity 数据库/Flyway 依赖健康、RAG 到 Identity/Storage 的依赖健康和 telemetry、登录续签、JWT `alg/iss/aud/kid` 元数据、JWKS 入口、应用级 `cloud` 与 `rag` 角色、RAG 访问权探针、刷新会话查询和指定撤销、云盘聚合资料、存储概览、管理员云盘用户入口、Identity 应用角色与审计日志查询、会话撤销审计事件写入、Identity Flyway 迁移历史、旧身份路径 404、注销失效和审计日志最新行；生产 RS256 模式下，CloudStorageApi 会先用 Identity JWKS 对 access token 做本地预验签，再调用 Identity 做强一致状态确认：
 
 ```bash
 bash deploy/scripts/verify-identity-cloud-routes.sh

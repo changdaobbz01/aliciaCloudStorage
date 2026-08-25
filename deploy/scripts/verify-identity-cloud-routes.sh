@@ -5,6 +5,7 @@ CLOUD_BASE_URL="${ALICIA_CLOUD_BASE_URL:-http://127.0.0.1:8090}"
 IDENTITY_BASE_URL="${ALICIA_IDENTITY_BASE_URL:-http://127.0.0.1:8093}"
 PUBLIC_BASE_URL="${ALICIA_PUBLIC_BASE_URL:-https://127.0.0.1}"
 RAG_HEALTH_URL="${ALICIA_RAG_HEALTH_URL:-${PUBLIC_BASE_URL%/}/rag/api/health}"
+RAG_DEPENDENCY_HEALTH_URL="${ALICIA_RAG_DEPENDENCY_HEALTH_URL:-${PUBLIC_BASE_URL%/}/rag/api/health/dependencies}"
 CURL_TIMEOUT="${ALICIA_VERIFY_CURL_TIMEOUT_SECONDS:-12}"
 STARTUP_WAIT_SECONDS="${ALICIA_VERIFY_STARTUP_WAIT_SECONDS:-90}"
 STARTUP_WAIT_INTERVAL_SECONDS="${ALICIA_VERIFY_STARTUP_WAIT_INTERVAL_SECONDS:-2}"
@@ -489,6 +490,30 @@ expect_cloud_identity_gateway_telemetry() {
     ok "cloud dependency health exposes identity gateway telemetry"
 }
 
+expect_rag_dependency_health_telemetry() {
+    local response
+    local compact
+
+    response="$(curl_json_or_fail "rag dependency health telemetry" \
+        "$RAG_DEPENDENCY_HEALTH_URL")"
+    compact="$(printf '%s' "$response" | tr -d '\n')"
+
+    printf '%s' "$compact" | grep -q '"service"[[:space:]]*:[[:space:]]*"rag-service"' \
+        || fail "rag dependency health did not expose rag-service"
+    printf '%s' "$compact" | grep -q '"identity"[[:space:]]*:[[:space:]]*{[^}]*"available"[[:space:]]*:[[:space:]]*true' \
+        || fail "rag dependency health did not report identity as available"
+    printf '%s' "$compact" | grep -q '"storage"[[:space:]]*:[[:space:]]*{[^}]*"available"[[:space:]]*:[[:space:]]*true' \
+        || fail "rag dependency health did not report storage as available"
+    printf '%s' "$compact" | grep -q '"operation"[[:space:]]*:[[:space:]]*"identity.health"[^}]*"successCount"[[:space:]]*:[[:space:]]*[1-9][0-9]*' \
+        || fail "rag dependency health did not expose identity.health success count"
+    printf '%s' "$compact" | grep -q '"operation"[[:space:]]*:[[:space:]]*"identity.auth.me"[^}]*"successCount"[[:space:]]*:[[:space:]]*[1-9][0-9]*' \
+        || fail "rag dependency health did not expose identity.auth.me success count"
+    printf '%s' "$compact" | grep -q '"operation"[[:space:]]*:[[:space:]]*"storage.health"[^}]*"successCount"[[:space:]]*:[[:space:]]*[1-9][0-9]*' \
+        || fail "rag dependency health did not expose storage.health success count"
+
+    ok "rag dependency health exposes identity and storage telemetry"
+}
+
 expect_cloud_application_role() {
     local label="$1"
     local response="$2"
@@ -647,6 +672,7 @@ else
 fi
 unset jwks_response
 curl_ok "rag health through frontend" "$RAG_HEALTH_URL"
+curl_ok "rag dependency health through frontend" "$RAG_DEPENDENCY_HEALTH_URL"
 expect_status "rag assistant access requires identity token" 401 \
     "$PUBLIC_BASE_URL/rag/api/assistant/auth/access"
 curl_ok "main site login entry" -I "$PUBLIC_BASE_URL/login"
@@ -742,6 +768,7 @@ fi
 [[ -n "$rag_access_role" ]] || fail "rag assistant access route did not return a role"
 ok "rag assistant access route returns rag application role $rag_access_role"
 unset rag_access_response rag_access_app rag_access_role
+expect_rag_dependency_health_telemetry
 expect_status "identity token refresh requires refresh token" 401 \
     -X POST "$IDENTITY_BASE_URL/api/identity/auth/token/refresh" \
     -H "Authorization: Bearer $TOKEN" \

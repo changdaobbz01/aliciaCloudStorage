@@ -1,6 +1,7 @@
 package com.alicia.cloudstorage.rag.security;
 
 import com.alicia.cloudstorage.rag.config.RagIdentityApiProperties;
+import com.alicia.cloudstorage.rag.health.RagDependencyTelemetry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,28 +25,40 @@ public class IdentityRagAccessAuthorizer implements RagAccessAuthorizer {
     private static final Set<String> ALLOWED_RAG_ROLES = Set.of("RAG_USER", "RAG_ADMIN");
 
     private final RestClient restClient;
+    private final RagDependencyTelemetry telemetry;
 
     @Autowired
-    public IdentityRagAccessAuthorizer(RagIdentityApiProperties properties) {
+    public IdentityRagAccessAuthorizer(
+            RagIdentityApiProperties properties,
+            RagDependencyTelemetry telemetry
+    ) {
         this(RestClient.builder()
                 .baseUrl(properties.baseUrl())
                 .requestFactory(identityRequestFactory(properties))
-                .build());
+                .build(), telemetry);
     }
 
     IdentityRagAccessAuthorizer(RestClient restClient) {
+        this(restClient, new RagDependencyTelemetry());
+    }
+
+    IdentityRagAccessAuthorizer(
+            RestClient restClient,
+            RagDependencyTelemetry telemetry
+    ) {
         this.restClient = restClient;
+        this.telemetry = telemetry;
     }
 
     @Override
     public RagAccessPrincipal requireRagAccess(String authorizationHeader) {
         String authorization = normalizeAuthorization(authorizationHeader);
         try {
-            IdentityUserPayload user = restClient.get()
-                    .uri("/api/identity/auth/me")
-                    .header(HttpHeaders.AUTHORIZATION, authorization)
-                    .retrieve()
-                    .body(IdentityUserPayload.class);
+            IdentityUserPayload user = telemetry.observe("identity.auth.me", () -> restClient.get()
+                            .uri("/api/identity/auth/me")
+                            .header(HttpHeaders.AUTHORIZATION, authorization)
+                            .retrieve()
+                            .body(IdentityUserPayload.class));
 
             if (user == null || user.id() == null) {
                 throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Identity user is unavailable.");
