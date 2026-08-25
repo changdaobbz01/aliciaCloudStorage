@@ -41,6 +41,7 @@ data class User(
     val storageQuotaBytes: Long?,
     val usedBytes: Long,
     val remainingBytes: Long?,
+    val appRoles: Map<String, String> = emptyMap(),
 )
 
 data class LoginPayload(
@@ -80,6 +81,7 @@ data class IdentityUser(
     val role: UserRole,
     val status: UserStatus,
     val createdAt: String,
+    val appRoles: Map<String, String> = emptyMap(),
 )
 
 data class ApiMessageResponse(
@@ -263,4 +265,4 @@ data class SaveShareLinkPayload(
 )
 
 val User.isAdmin: Boolean
-    get() = role == UserRole.ADMIN
+    get() = role == UserRole.ADMIN || appRoles["cloud"] == "CLOUD_ADMIN"

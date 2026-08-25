@@ -8,6 +8,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.Map;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
@@ -43,6 +45,14 @@ class StorageQuotaServiceTest {
     }
 
     @Test
+    void isAdminAcceptsCloudApplicationAdminRole() {
+        when(storageQuotaAccountReader.requireAccount(7L))
+                .thenReturn(new StorageQuotaAccount(7L, UserRole.USER, Map.of("cloud", "CLOUD_ADMIN"), 2_048L));
+
+        assertThat(storageQuotaService.isAdmin(7L)).isTrue();
+    }
+
+    @Test
     void getUserQuotaBytesUsesDefaultWhenAccountQuotaIsMissing() {
         when(storageQuotaAccountReader.requireAccount(7L))
                 .thenReturn(new StorageQuotaAccount(7L, UserRole.USER, null));
@@ -59,6 +69,14 @@ class StorageQuotaServiceTest {
         assertThatThrownBy(() -> storageQuotaService.validateUploadFits(7L, 1_024L))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("剩余空间不足");
+    }
+
+    @Test
+    void validateUploadFitsSkipsQuotaForCloudApplicationAdmin() {
+        when(storageQuotaAccountReader.requireAccount(7L))
+                .thenReturn(new StorageQuotaAccount(7L, UserRole.USER, Map.of("cloud", "CLOUD_ADMIN"), 4_096L));
+
+        storageQuotaService.validateUploadFits(7L, 8_192L);
     }
 
     @Test

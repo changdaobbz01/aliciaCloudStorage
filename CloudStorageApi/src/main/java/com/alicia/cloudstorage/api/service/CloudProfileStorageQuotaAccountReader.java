@@ -32,7 +32,7 @@ public class CloudProfileStorageQuotaAccountReader implements StorageQuotaAccoun
                 .map(CloudUserProfileEntity::getStorageQuotaBytes)
                 .orElse(null);
 
-        return new StorageQuotaAccount(account.id(), account.role(), storageQuotaBytes);
+        return new StorageQuotaAccount(account.id(), account.role(), account.appRoles(), storageQuotaBytes);
     }
 
     @Override

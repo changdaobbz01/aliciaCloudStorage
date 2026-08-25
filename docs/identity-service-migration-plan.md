@@ -392,7 +392,7 @@ cloud_user_profile.home_background_url = sys_user.home_background_url
 - `V17__drop_cloud_identity_residue.sql` 删除云盘库中早期历史迁移留下的身份表残留。
 - 首次迁移时从 `sys_user.storage_quota_bytes` 和 `sys_user.home_background_url` 回填老用户云盘资料。
 - `CloudUserProfileService` 通过 `CloudUserProfileRepository` 读写云盘额度和主页背景。
-- `StorageQuotaService` 通过云盘资料读取器从 `cloud_user_profile` 获取容量。
+- `StorageQuotaService` 通过云盘资料读取器从 Identity 获取全局角色和 `appRoles.cloud`，从 `cloud_user_profile` 获取容量。
 - 旧 `sys_user` 云盘字段不再作为兼容兜底；缺失 profile 由 CloudStorageApi 按默认额度补建。
 - `CloudMigrationBoundaryTest` 会阻止新的身份结构变更继续进入 CloudStorageApi 的 Flyway 目录，`IdentityMigrationBoundaryTest` 会阻止云盘业务结构进入 Identity Flyway 目录。
 
@@ -760,7 +760,7 @@ main-site-frontend（独立仓库/独立 compose）
 2. 新增 `CloudUserProfileService`、`CloudCurrentUserService`、`CloudUserAvatarService`，将云盘资料、头像文件处理、容量和主页背景从身份职责中拆出。
 3. 新增 `CloudUserProfileProvisioningService`，Identity 新用户首次访问云盘受保护接口时自动补建 `cloud_user_profile`。
 4. 管理员云盘聚合入口统一到 `AdminCloudUserController` 和 `AdminCloudUserProfileController`。
-5. `StorageQuotaService` 通过 `StorageQuotaAccountReader` 读取身份角色和云盘容量，不再把完整用户实体作为业务依赖。
+5. `StorageQuotaService` 通过 `StorageQuotaAccountReader` 读取 Identity 全局角色、`appRoles.cloud` 和云盘容量，不再把完整用户实体作为业务依赖。
 6. 新增 `cloud_user_profile` 表，老用户从 `sys_user` 回填云盘额度和主页背景。
 7. `CloudUserProfileService` 写入 `cloud_user_profile`，不再把云盘背景和额度写回 `sys_user`。
 8. `StorageQuotaService` 通过 `cloud_user_profile` 读取容量，旧 `sys_user` 云盘字段已清理。

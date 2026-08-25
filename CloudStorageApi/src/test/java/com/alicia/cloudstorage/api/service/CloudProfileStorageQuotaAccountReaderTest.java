@@ -13,6 +13,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -47,6 +48,22 @@ class CloudProfileStorageQuotaAccountReaderTest {
     }
 
     @Test
+    void requireAccountCarriesIdentityApplicationRoles() {
+        CloudUserProfileEntity profile = new CloudUserProfileEntity();
+        profile.setIdentityUserId(7L);
+        profile.setStorageQuotaBytes(4096L);
+
+        when(identityUserGateway.getUser(7L))
+                .thenReturn(account(7L, UserRole.USER, Map.of("cloud", "CLOUD_ADMIN")));
+        when(cloudUserProfileRepository.findById(7L)).thenReturn(Optional.of(profile));
+
+        StorageQuotaAccount account = storageQuotaAccountReader.requireAccount(7L);
+
+        assertThat(account.appRoles()).containsEntry("cloud", "CLOUD_ADMIN");
+        assertThat(account.isAdmin()).isTrue();
+    }
+
+    @Test
     void requireAccountLeavesQuotaEmptyWhenCloudProfileIsMissing() {
         when(identityUserGateway.getUser(7L)).thenReturn(account(7L, UserRole.USER));
         when(cloudUserProfileRepository.findById(7L)).thenReturn(Optional.empty());
@@ -64,6 +81,10 @@ class CloudProfileStorageQuotaAccountReaderTest {
     }
 
     private IdentityUserSnapshot account(Long id, UserRole role) {
+        return account(id, role, Map.of());
+    }
+
+    private IdentityUserSnapshot account(Long id, UserRole role, Map<String, String> appRoles) {
         return new IdentityUserSnapshot(
                 id,
                 "13900000000",
@@ -72,7 +93,8 @@ class CloudProfileStorageQuotaAccountReaderTest {
                 null,
                 role,
                 UserStatus.ACTIVE,
-                LocalDateTime.of(2026, 4, 29, 15, 30)
+                LocalDateTime.of(2026, 4, 29, 15, 30),
+                appRoles
         );
     }
 }
