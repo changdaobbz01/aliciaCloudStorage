@@ -1,5 +1,6 @@
 package com.alicia.cloudstorage.api.identity;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
@@ -21,6 +22,7 @@ public class IdentityCurrentUserCache {
     private final LongSupplier clockMillis;
     private final ConcurrentMap<String, CacheEntry> entries = new ConcurrentHashMap<>();
 
+    @Autowired
     public IdentityCurrentUserCache(IdentityCurrentUserCacheProperties properties) {
         this(properties.enabled(), properties.ttl(), properties.maxEntries(), System::currentTimeMillis);
     }

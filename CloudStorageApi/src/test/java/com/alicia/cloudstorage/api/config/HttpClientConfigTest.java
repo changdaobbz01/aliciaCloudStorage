@@ -102,13 +102,13 @@ class HttpClientConfigTest {
             context.registerBean(IdentityAccessTokenPreflightVerifier.class, () -> authorization -> {
             });
             context.registerBean(IdentityGatewayTelemetry.class, IdentityGatewayTelemetry::new);
-            context.registerBean(
+            context.register(
+                    IdentityCurrentUserCacheProperties.class,
                     IdentityCurrentUserCache.class,
-                    () -> new IdentityCurrentUserCache(
-                            new IdentityCurrentUserCacheProperties(true, 3L, 1024)
-                    )
+                    HttpIdentityAdminGateway.class,
+                    HttpIdentityAuthGateway.class,
+                    HttpIdentityUserGateway.class
             );
-            context.register(HttpIdentityAdminGateway.class, HttpIdentityAuthGateway.class, HttpIdentityUserGateway.class);
 
             context.refresh();
 
