@@ -862,6 +862,88 @@ select {
   width: 100%;
 }
 
+.audit-quick-filters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: -4px 0 14px;
+}
+
+.audit-quick-label {
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.audit-quick-filters .ant-btn {
+  min-height: 34px;
+  padding: 0 12px;
+  border-color: #dbeafe;
+  color: #1d4ed8;
+  background: #ffffff;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.audit-filter-summary {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin: -4px 0 14px;
+  padding: 12px 14px;
+  border: 1px solid #e5ebf3;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.audit-filter-token-list {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.audit-filter-token.ant-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 28px;
+  margin: 0;
+  padding: 0 8px;
+  border-color: #dbeafe;
+  color: #1d4ed8;
+  background: #eff6ff;
+  font-weight: 800;
+}
+
+.audit-filter-token-danger.ant-tag {
+  border-color: #fecaca;
+  color: #dc2626;
+  background: #fff1f2;
+}
+
+.audit-filter-token-label,
+.audit-filter-empty,
+.audit-result-count {
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.audit-result-count {
+  flex: none;
+  white-space: nowrap;
+}
+
+.audit-result-count strong {
+  color: #0f172a;
+  font-weight: 900;
+}
+
 .selection-pill {
   display: inline-flex;
   align-items: center;
@@ -2112,6 +2194,14 @@ select {
 
   .audit-filter-bar {
     grid-template-columns: 1fr;
+  }
+
+  .audit-filter-summary {
+    flex-direction: column;
+  }
+
+  .audit-result-count {
+    white-space: normal;
   }
 
   .app-package-summary-grid {

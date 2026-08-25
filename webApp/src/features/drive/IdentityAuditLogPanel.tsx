@@ -1,4 +1,5 @@
-import { Ban, RefreshCw, Search } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import { Clock, LogIn, RefreshCw, RotateCcw, Search, ShieldCheck, ShieldX, UserCog } from 'lucide-react';
 import { Button, DatePicker, Form, Input, InputNumber, Select, Space, Table, Tag, Typography } from 'antd';
 import type { TableProps } from 'antd';
 import type { Dayjs } from 'dayjs';
@@ -14,6 +15,7 @@ import type {
 import { Icon } from '../../components/Icon';
 
 const { RangePicker } = DatePicker;
+const DEFAULT_PAGE_SIZE = 20;
 
 type IdentityAuditLogPanelProps = {
   page: IdentityAuditLogPage | null;
@@ -49,6 +51,67 @@ const outcomeOptions: Array<{ value: IdentityAuditOutcome; label: string }> = [
 ];
 
 type DateRangeValue = [Dayjs | null, Dayjs | null] | null;
+type QuickFilter = {
+  key: string;
+  label: string;
+  icon: LucideIcon;
+  createPatch: () => Partial<IdentityAuditLogQuery>;
+};
+type FilterToken = {
+  key: string;
+  label: string;
+  value: string;
+  clearPatch: Partial<IdentityAuditLogQuery>;
+  danger?: boolean;
+};
+
+const detailLabels: Record<string, string> = {
+  already_registered: '邮箱已注册，未重复发送',
+  all_devices: '退出全部设备',
+  CLOUD_ADMIN: '授予云盘管理员',
+  CLOUD_USER: '调整为普通云盘用户',
+  current_session: '退出当前会话',
+  RAG_ADMIN: '授予 RAG 管理员',
+  RAG_USER: '调整为普通 RAG 用户',
+  sent: '验证码已发送',
+  token_without_session: 'Token 缺少会话信息，已提升版本',
+};
+
+const quickFilters: QuickFilter[] = [
+  {
+    key: 'recent24h',
+    label: '最近 24 小时',
+    icon: Clock,
+    createPatch: () => ({
+      createdFrom: dayjs().subtract(24, 'hour').format('YYYY-MM-DDTHH:mm:ss'),
+      createdTo: dayjs().format('YYYY-MM-DDTHH:mm:ss'),
+    }),
+  },
+  {
+    key: 'failures',
+    label: '失败事件',
+    icon: ShieldX,
+    createPatch: () => ({ eventType: null, outcome: 'FAILURE' }),
+  },
+  {
+    key: 'loginFailures',
+    label: '登录失败',
+    icon: LogIn,
+    createPatch: () => ({ eventType: 'LOGIN', outcome: 'FAILURE' }),
+  },
+  {
+    key: 'sessionRevoke',
+    label: '会话撤销',
+    icon: UserCog,
+    createPatch: () => ({ eventType: 'SESSION_REVOKE', outcome: null }),
+  },
+  {
+    key: 'appRole',
+    label: '权限调整',
+    icon: ShieldCheck,
+    createPatch: () => ({ eventType: 'ADMIN_APP_ROLE_UPDATE', outcome: null }),
+  },
+];
 
 function formatTimestamp(value: string | null) {
   return value ? new Date(value).toLocaleString('zh-CN') : '-';
@@ -56,6 +119,47 @@ function formatTimestamp(value: string | null) {
 
 function formatNullable(value: string | number | null) {
   return value === null ? '-' : String(value);
+}
+
+function formatDetail(value: string | null) {
+  if (!value) {
+    return '-';
+  }
+
+  if (value.startsWith('session_revoke:')) {
+    const sessionId = value.replace('session_revoke:', '').trim();
+    return sessionId ? `撤销会话 #${sessionId}` : '撤销会话';
+  }
+
+  return detailLabels[value] ?? value;
+}
+
+function formatQueryDate(value: string | null | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = dayjs(value);
+  return parsed.isValid() ? parsed.format('YYYY-MM-DD HH:mm') : value;
+}
+
+function formatDateRange(query: IdentityAuditLogQuery) {
+  const from = formatQueryDate(query.createdFrom);
+  const to = formatQueryDate(query.createdTo);
+
+  if (from && to) {
+    return `${from} - ${to}`;
+  }
+
+  if (from) {
+    return `${from} 之后`;
+  }
+
+  if (to) {
+    return `${to} 之前`;
+  }
+
+  return null;
 }
 
 function toDateRange(query: IdentityAuditLogQuery): DateRangeValue {
@@ -77,6 +181,84 @@ function toQueryDate(value: Dayjs | null | undefined, endOfDay = false) {
   return (endOfDay ? value.endOf('day') : value.startOf('day')).format('YYYY-MM-DDTHH:mm:ss');
 }
 
+function normalizeQuery(query: IdentityAuditLogQuery, fallbackSize = DEFAULT_PAGE_SIZE): IdentityAuditLogQuery {
+  const identifier = query.identifier?.trim();
+
+  return {
+    eventType: query.eventType ?? null,
+    outcome: query.outcome ?? null,
+    actorUserId: query.actorUserId ?? null,
+    targetUserId: query.targetUserId ?? null,
+    identifier: identifier || null,
+    createdFrom: query.createdFrom ?? null,
+    createdTo: query.createdTo ?? null,
+    page: query.page ?? 1,
+    size: query.size ?? fallbackSize,
+  };
+}
+
+function buildFilterTokens(query: IdentityAuditLogQuery): FilterToken[] {
+  const tokens: FilterToken[] = [];
+
+  if (query.eventType) {
+    tokens.push({
+      key: 'eventType',
+      label: '事件',
+      value: eventLabels[query.eventType] ?? query.eventType,
+      clearPatch: { eventType: null },
+    });
+  }
+
+  if (query.outcome) {
+    tokens.push({
+      key: 'outcome',
+      label: '结果',
+      value: query.outcome === 'SUCCESS' ? '成功' : '失败',
+      clearPatch: { outcome: null },
+      danger: query.outcome === 'FAILURE',
+    });
+  }
+
+  if (query.actorUserId !== undefined && query.actorUserId !== null) {
+    tokens.push({
+      key: 'actorUserId',
+      label: '操作者',
+      value: String(query.actorUserId),
+      clearPatch: { actorUserId: null },
+    });
+  }
+
+  if (query.targetUserId !== undefined && query.targetUserId !== null) {
+    tokens.push({
+      key: 'targetUserId',
+      label: '目标用户',
+      value: String(query.targetUserId),
+      clearPatch: { targetUserId: null },
+    });
+  }
+
+  if (query.identifier?.trim()) {
+    tokens.push({
+      key: 'identifier',
+      label: '标识符',
+      value: query.identifier.trim(),
+      clearPatch: { identifier: null },
+    });
+  }
+
+  const dateRange = formatDateRange(query);
+  if (dateRange) {
+    tokens.push({
+      key: 'createdAt',
+      label: '时间',
+      value: dateRange,
+      clearPatch: { createdFrom: null, createdTo: null },
+    });
+  }
+
+  return tokens;
+}
+
 export function IdentityAuditLogPanel({
   page,
   query,
@@ -93,8 +275,11 @@ export function IdentityAuditLogPanel({
 
   const auditLogs = page?.items ?? [];
   const currentPage = page?.page ?? query.page ?? 1;
-  const pageSize = page?.size ?? query.size ?? 20;
+  const pageSize = page?.size ?? query.size ?? DEFAULT_PAGE_SIZE;
   const totalItems = page?.totalItems ?? 0;
+  const rangeStart = totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const rangeEnd = totalItems === 0 ? 0 : Math.min(totalItems, currentPage * pageSize);
+  const activeFilters = buildFilterTokens(query);
 
   const columns: TableProps<IdentityAuditLog>['columns'] = [
     {
@@ -143,11 +328,14 @@ export function IdentityAuditLogPanel({
       dataIndex: 'detail',
       key: 'detail',
       width: 280,
-      render: (value: string | null) => (
-        <Typography.Text ellipsis={{ tooltip: value ?? undefined }} className="table-secondary-text">
-          {formatNullable(value)}
-        </Typography.Text>
-      ),
+      render: (value: string | null) => {
+        const detail = formatDetail(value);
+        return (
+          <Typography.Text ellipsis={{ tooltip: detail === '-' ? undefined : detail }} className="table-secondary-text">
+            {detail}
+          </Typography.Text>
+        );
+      },
     },
     {
       title: '时间',
@@ -169,8 +357,14 @@ export function IdentityAuditLogPanel({
     });
   }
 
+  function applyQuery(nextQuery: IdentityAuditLogQuery) {
+    const normalizedQuery = normalizeQuery(nextQuery, pageSize);
+    setDraftQuery(normalizedQuery);
+    onApplyQuery(normalizedQuery);
+  }
+
   function handleSearch() {
-    onApplyQuery({
+    applyQuery({
       ...draftQuery,
       page: 1,
       size: pageSize,
@@ -178,9 +372,25 @@ export function IdentityAuditLogPanel({
   }
 
   function handleReset() {
-    const nextQuery = { page: 1, size: pageSize };
-    setDraftQuery(nextQuery);
-    onApplyQuery(nextQuery);
+    applyQuery({ page: 1, size: pageSize });
+  }
+
+  function applyQuickFilter(filter: QuickFilter) {
+    applyQuery({
+      ...draftQuery,
+      ...filter.createPatch(),
+      page: 1,
+      size: pageSize,
+    });
+  }
+
+  function clearFilter(token: FilterToken) {
+    applyQuery({
+      ...query,
+      ...token.clearPatch,
+      page: 1,
+      size: pageSize,
+    });
   }
 
   return (
@@ -199,7 +409,20 @@ export function IdentityAuditLogPanel({
         </div>
       </div>
 
-      <Form className="audit-filter-bar" layout="vertical">
+      <div className="audit-quick-filters" aria-label="常用审计筛选">
+        <span className="audit-quick-label">快捷筛选</span>
+        {quickFilters.map((filter) => (
+          <Button
+            key={filter.key}
+            icon={<Icon icon={filter.icon} />}
+            onClick={() => applyQuickFilter(filter)}
+          >
+            {filter.label}
+          </Button>
+        ))}
+      </div>
+
+      <Form className="audit-filter-bar" layout="vertical" onFinish={handleSearch}>
         <Form.Item label="事件类型">
           <Select
             allowClear
@@ -241,7 +464,7 @@ export function IdentityAuditLogPanel({
             allowClear
             value={draftQuery.identifier ?? ''}
             placeholder="手机号或邮箱"
-            onChange={(event) => updateDraft({ identifier: event.target.value })}
+            onChange={(event) => updateDraft({ identifier: event.target.value.trim() || null })}
             onPressEnter={handleSearch}
           />
         </Form.Item>
@@ -250,15 +473,41 @@ export function IdentityAuditLogPanel({
         </Form.Item>
         <Form.Item label=" ">
           <Space size="small" wrap>
-            <Button type="primary" icon={<Icon icon={Search} />} onClick={handleSearch}>
+            <Button type="primary" htmlType="submit" icon={<Icon icon={Search} />}>
               查询
             </Button>
-            <Button icon={<Icon icon={Ban} />} onClick={handleReset}>
+            <Button icon={<Icon icon={RotateCcw} />} onClick={handleReset}>
               重置
             </Button>
           </Space>
         </Form.Item>
       </Form>
+
+      <div className="audit-filter-summary">
+        <div className="audit-filter-token-list" aria-label="当前审计筛选条件">
+          {activeFilters.length > 0 ? (
+            activeFilters.map((token) => (
+              <Tag
+                key={token.key}
+                closable
+                className={token.danger ? 'audit-filter-token audit-filter-token-danger' : 'audit-filter-token'}
+                onClose={(event) => {
+                  event.preventDefault();
+                  clearFilter(token);
+                }}
+              >
+                <span className="audit-filter-token-label">{token.label}</span>
+                {token.value}
+              </Tag>
+            ))
+          ) : (
+            <span className="audit-filter-empty">当前显示全部审计记录</span>
+          )}
+        </div>
+        <Typography.Text className="audit-result-count">
+          共 <strong>{totalItems}</strong> 条，当前显示 {rangeStart}-{rangeEnd}
+        </Typography.Text>
+      </div>
 
       <Table
         rowKey="id"
