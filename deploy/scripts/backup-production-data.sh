@@ -13,6 +13,7 @@ COMPOSE_FILES="${ALICIA_COMPOSE_FILES:-compose.yaml compose.https.yaml}"
 INCLUDE_ENV="${ALICIA_BACKUP_INCLUDE_ENV:-true}"
 INCLUDE_CERTS="${ALICIA_BACKUP_INCLUDE_CERTS:-true}"
 INCLUDE_GENERATED_KEYS="${ALICIA_BACKUP_INCLUDE_GENERATED_KEYS:-true}"
+VALIDATE_AFTER_BACKUP="${ALICIA_VALIDATE_BACKUP_AFTER_CREATE:-true}"
 
 fail() {
     printf '[FAIL] %s\n' "$1" >&2
@@ -245,6 +246,10 @@ fi
 archive_sensitive_config "$BACKUP_DIR/sensitive-config.tar.gz"
 write_manifest "$BACKUP_DIR/manifest.txt"
 write_checksums
+
+if [[ "$VALIDATE_AFTER_BACKUP" == "true" ]]; then
+    bash deploy/scripts/validate-production-backup.sh "$BACKUP_DIR"
+fi
 
 printf '\nAlicia production backup completed.\n'
 printf 'Backup directory:\n'
