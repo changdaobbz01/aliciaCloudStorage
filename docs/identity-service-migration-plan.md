@@ -1086,7 +1086,7 @@ Web 和 Android：
 
 - 主站 `/login` 与云盘 `/cloudPan/` 的共享登录态体验。
 - 主站登录页保存 `refreshToken`，和云盘 Web/Android 使用同一套 refresh 会话。
-- Web 和 Android 的 token 过期提示和重新登录体验。
+- 云盘 Web 的 token 过期提示和重新登录体验已通过 `reason=session-expired` 接入主站统一登录页；Android 仍按同一 Identity token 契约继续收口。
 - 管理员面板中身份信息、云盘应用角色和云盘容量信息的展示边界。
 - Web 管理员账号面板已支持调整 `cloud/CLOUD_USER` 与 `cloud/CLOUD_ADMIN`，全局 `ADMIN` 仍始终等效云盘管理员。
 - 主站首页已消费 `appRoles.cloud` 展示 Alicia 云盘入口的登录态、普通用户和云盘管理员状态；RAG 执行入口已消费 `appRoles.rag`，后续 RAG 管理接口继续按 `rag/RAG_ADMIN` 收口。

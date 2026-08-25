@@ -3,6 +3,8 @@ import { readFileSync } from 'node:fs';
 
 const session = readFileSync(new URL('../src/lib/session.ts', import.meta.url), 'utf8');
 const sessionContext = readFileSync(new URL('../src/context/session-context.tsx', import.meta.url), 'utf8');
+const protectedRoute = readFileSync(new URL('../src/components/protected-route.tsx', import.meta.url), 'utf8');
+const unifiedLogin = readFileSync(new URL('../src/lib/unifiedLogin.ts', import.meta.url), 'utf8');
 
 assert.match(
   session,
@@ -25,7 +27,23 @@ for (const token of ['SESSION_CHANGE_EVENT', 'SESSION_REVISION_STORAGE_KEY', 'is
   assert.match(sessionContext, new RegExp(token), `SessionProvider must use ${token}`);
 }
 
-for (const reason of ['profile', 'logout']) {
+assert.match(
+  unifiedLogin,
+  /reason=session-expired|searchParams\.set\('reason'/,
+  'unified login redirect must preserve a safe redirect reason',
+);
+assert.match(
+  sessionContext,
+  /loginRedirectReason/,
+  'SessionProvider must keep the login redirect reason after session expiry',
+);
+assert.match(
+  protectedRoute,
+  /loginRedirectReason/,
+  'ProtectedRoute must pass the session expiry reason to unified login',
+);
+
+for (const reason of ['profile', 'logout', 'expired']) {
   assert.match(
     sessionContext,
     new RegExp(`notifySessionChanged\\('${reason}'\\)`),

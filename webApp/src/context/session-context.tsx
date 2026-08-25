@@ -1,4 +1,3 @@
-import { App as AntApp } from 'antd';
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
 import { AUTH_EXPIRED_EVENT, fetchCurrentUser, logoutAuthToken, refreshAuthSession } from '../lib/api';
@@ -16,7 +15,7 @@ import {
   SESSION_CHANGE_EVENT,
   SESSION_REVISION_STORAGE_KEY,
 } from '../lib/session';
-import { cloudReturnTo, redirectToUnifiedLogin } from '../lib/unifiedLogin';
+import { cloudReturnTo, redirectToUnifiedLogin, type LoginRedirectReason } from '../lib/unifiedLogin';
 import type { User } from '../types';
 
 const TOKEN_REFRESH_INTERVAL_MS = 30 * 60 * 1000;
@@ -25,6 +24,7 @@ type SessionContextValue = {
   currentUser: User | null;
   authToken: string | null;
   isSessionChecking: boolean;
+  loginRedirectReason: LoginRedirectReason | null;
   clearCurrentSession: () => void;
   logoutCurrentSession: () => Promise<void>;
   updateCurrentUser: (user: User) => void;
@@ -32,18 +32,27 @@ type SessionContextValue = {
 
 const SessionContext = createContext<SessionContextValue | null>(null);
 
+function toLoginRedirectReason(reason: string | null | undefined): LoginRedirectReason | null {
+  return reason === 'expired' ? 'session-expired' : null;
+}
+
+function parseSessionChangeReason(revision: string | null | undefined) {
+  const parts = revision?.split(':') ?? [];
+  return parts.length >= 3 ? parts[2] : null;
+}
+
 /**
  * 提供全局会话状态，统一管理登录态、资料刷新和令牌过期处理。
  */
 export function SessionProvider({ children }: { children: ReactNode }) {
-  const { message } = AntApp.useApp();
   const location = useLocation();
-  const lastAuthExpiredMessageAt = useRef(0);
+  const loginRedirectingRef = useRef(false);
   const [currentUser, setCurrentUser] = useState<User | null>(() =>
     loadAuthToken() && loadRefreshToken() ? loadCurrentUser() : null,
   );
   const [authToken, setAuthToken] = useState<string | null>(() => loadAuthToken());
   const [isSessionChecking, setIsSessionChecking] = useState(() => hasStoredSessionTokens());
+  const [loginRedirectReason, setLoginRedirectReason] = useState<LoginRedirectReason | null>(null);
   const authTokenRef = useRef(authToken);
 
   useEffect(() => {
@@ -60,7 +69,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }
 
     if (!token || !refreshToken) {
-      resetSessionState();
+      expireCurrentSession();
       return;
     }
 
@@ -78,9 +87,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       saveCurrentUser(user);
       setCurrentUser(user);
       setAuthToken(refreshedSession.token);
+      setLoginRedirectReason(null);
     } catch {
       if (!isCancelled()) {
-        resetSessionState();
+        expireCurrentSession();
       }
     } finally {
       if (!isCancelled()) {
@@ -93,17 +103,19 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     /**
      * 监听全局鉴权过期事件，并将用户带回登录页。
      */
-    function handleAuthExpired(event: Event) {
-      resetSessionState();
+    function handleAuthExpired() {
+      expireCurrentSession();
 
-      const now = Date.now();
-      if (now - lastAuthExpiredMessageAt.current > 1500) {
-        const detail = (event as CustomEvent<{ message?: string }>).detail;
-        message.warning(detail?.message || '登录状态已失效，请重新登录。');
-        lastAuthExpiredMessageAt.current = now;
+      if (loginRedirectingRef.current) {
+        return;
       }
 
-      redirectToUnifiedLogin(cloudReturnTo(location.pathname, location.search, location.hash));
+      loginRedirectingRef.current = true;
+      redirectToUnifiedLogin(
+        cloudReturnTo(location.pathname, location.search, location.hash),
+        true,
+        'session-expired',
+      );
     }
 
     window.addEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
@@ -111,7 +123,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     return () => {
       window.removeEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
     };
-  }, [location.hash, location.pathname, location.search, message]);
+  }, [location.hash, location.pathname, location.search]);
 
   useEffect(() => {
     let cancelled = false;
@@ -133,7 +145,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         .catch(() => undefined);
     }
 
-    function handleSessionChange(key: string | null) {
+    function handleSessionChange(key: string | null, reason?: string | null) {
       if (!isSessionStorageKey(key)) {
         return;
       }
@@ -142,7 +154,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       const refreshToken = loadRefreshToken();
 
       if (!token || !refreshToken) {
-        resetSessionState();
+        resetSessionState(toLoginRedirectReason(reason));
         return;
       }
 
@@ -171,11 +183,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }
 
     function handleSessionStorageChange(event: StorageEvent) {
-      handleSessionChange(event.key);
+      handleSessionChange(event.key, parseSessionChangeReason(event.newValue));
     }
 
-    function handleLocalSessionChange() {
-      handleSessionChange(SESSION_REVISION_STORAGE_KEY);
+    function handleLocalSessionChange(event: Event) {
+      const reason = (event as CustomEvent<{ reason?: string }>).detail?.reason;
+      handleSessionChange(SESSION_REVISION_STORAGE_KEY, reason);
     }
 
     window.addEventListener('storage', handleSessionStorageChange);
@@ -209,10 +222,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         if (!cancelled && loadAuthToken()) {
           saveIdentityTokenSession(refreshedSession);
           setAuthToken(refreshedSession.token);
+          setLoginRedirectReason(null);
         }
       } catch {
         if (!cancelled && !loadAuthToken()) {
-          resetSessionState();
+          expireCurrentSession();
         }
       }
     }
@@ -239,11 +253,17 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   /**
    * 清空当前会话在内存和本地缓存中的全部状态。
    */
-  function resetSessionState() {
+  function resetSessionState(reason: LoginRedirectReason | null = null) {
     clearStoredSession();
     setCurrentUser(null);
     setAuthToken(null);
     setIsSessionChecking(false);
+    setLoginRedirectReason(reason);
+  }
+
+  function expireCurrentSession() {
+    resetSessionState('session-expired');
+    notifySessionChanged('expired');
   }
 
   /**
@@ -276,6 +296,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         currentUser,
         authToken,
         isSessionChecking,
+        loginRedirectReason,
         clearCurrentSession,
         logoutCurrentSession,
         updateCurrentUser,

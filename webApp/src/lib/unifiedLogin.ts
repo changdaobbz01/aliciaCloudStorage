@@ -2,6 +2,9 @@ import { appPath } from './appPaths';
 
 const UNIFIED_LOGIN_PATH = '/login';
 const DEFAULT_RETURN_TO = appPath('/');
+const LOGIN_REDIRECT_REASONS = new Set(['session-expired', 'login-required']);
+
+export type LoginRedirectReason = 'session-expired' | 'login-required';
 
 function normalizeReturnTo(returnTo: string) {
   const trimmed = returnTo.trim();
@@ -16,6 +19,10 @@ function normalizeReturnTo(returnTo: string) {
 function safeSuffix(value: string, expectedPrefix: '?' | '#') {
   const trimmed = value.trim();
   return trimmed.startsWith(expectedPrefix) ? trimmed : '';
+}
+
+function normalizeReason(reason: LoginRedirectReason | null | undefined) {
+  return reason && LOGIN_REDIRECT_REASONS.has(reason) ? reason : null;
 }
 
 function isLoginPath(pathname: string) {
@@ -48,24 +55,33 @@ export function cloudReturnTo(pathname: string, search = '', hash = '') {
   return `${normalizeCloudPath(pathname)}${safeSuffix(search, '?')}${safeSuffix(hash, '#')}`;
 }
 
-export function buildUnifiedLoginUrl(returnTo = DEFAULT_RETURN_TO) {
+export function buildUnifiedLoginUrl(returnTo = DEFAULT_RETURN_TO, reason?: LoginRedirectReason | null) {
   const safeReturnTo = normalizeReturnTo(returnTo);
+  const safeReason = normalizeReason(reason);
 
   if (typeof window === 'undefined') {
-    return `${UNIFIED_LOGIN_PATH}?returnTo=${encodeURIComponent(safeReturnTo)}`;
+    const reasonSuffix = safeReason ? `&reason=${encodeURIComponent(safeReason)}` : '';
+    return `${UNIFIED_LOGIN_PATH}?returnTo=${encodeURIComponent(safeReturnTo)}${reasonSuffix}`;
   }
 
   const url = new URL(UNIFIED_LOGIN_PATH, window.location.origin);
   url.searchParams.set('returnTo', safeReturnTo);
+  if (safeReason) {
+    url.searchParams.set('reason', safeReason);
+  }
   return url.toString();
 }
 
-export function redirectToUnifiedLogin(returnTo = DEFAULT_RETURN_TO, replace = true) {
+export function redirectToUnifiedLogin(
+  returnTo = DEFAULT_RETURN_TO,
+  replace = true,
+  reason?: LoginRedirectReason | null,
+) {
   if (typeof window === 'undefined') {
     return;
   }
 
-  const loginUrl = buildUnifiedLoginUrl(returnTo);
+  const loginUrl = buildUnifiedLoginUrl(returnTo, reason);
 
   if (replace) {
     window.location.replace(loginUrl);

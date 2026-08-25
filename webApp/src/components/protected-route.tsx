@@ -4,11 +4,12 @@ import type { ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useSession } from '../context/session-context';
 import { cloudReturnTo, redirectToUnifiedLogin } from '../lib/unifiedLogin';
+import type { LoginRedirectReason } from '../lib/unifiedLogin';
 
-function UnifiedLoginRedirect({ returnTo }: { returnTo: string }) {
+function UnifiedLoginRedirect({ returnTo, reason }: { returnTo: string; reason: LoginRedirectReason | null }) {
   useEffect(() => {
-    redirectToUnifiedLogin(returnTo);
-  }, [returnTo]);
+    redirectToUnifiedLogin(returnTo, true, reason);
+  }, [reason, returnTo]);
 
   return (
     <div className="route-pending">
@@ -22,7 +23,7 @@ function UnifiedLoginRedirect({ returnTo }: { returnTo: string }) {
  */
 export function ProtectedRoute({ children }: { children: ReactNode }) {
   const location = useLocation();
-  const { authToken, currentUser, isSessionChecking } = useSession();
+  const { authToken, currentUser, isSessionChecking, loginRedirectReason } = useSession();
 
   if (isSessionChecking) {
     return (
@@ -33,7 +34,12 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
   }
 
   if (!authToken || !currentUser) {
-    return <UnifiedLoginRedirect returnTo={cloudReturnTo(location.pathname, location.search, location.hash)} />;
+    return (
+      <UnifiedLoginRedirect
+        returnTo={cloudReturnTo(location.pathname, location.search, location.hash)}
+        reason={loginRedirectReason}
+      />
+    );
   }
 
   if (currentUser.status !== 'ACTIVE') {
