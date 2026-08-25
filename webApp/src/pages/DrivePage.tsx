@@ -543,13 +543,13 @@ export function DrivePage() {
           <div className="sider-download-head">
             <img
               src={publicAssetPath('/apple-touch-icon.png')}
-              alt="Alicia云盘"
+              alt="Alicia 云盘"
               className="sider-download-icon"
             />
             <div className="sider-download-copy">
               <Typography.Text className="sider-download-eyebrow">Android App</Typography.Text>
               <Typography.Title level={5} className="sider-download-title">
-                Alicia云盘 APK
+                Alicia 云盘 APK
               </Typography.Title>
             </div>
           </div>
