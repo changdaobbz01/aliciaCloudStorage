@@ -457,6 +457,8 @@ ALICIA_AUTH_TOKEN_PREVIOUS_RSA_PUBLIC_KEYS=old-rsa-kid=old-public-key
 - `deploy/scripts/generate-identity-rs256-env.sh` 可生成 PKCS#8 私钥、X.509 公钥和 `.env` 片段，输出目录 `deploy/generated/` 已被 git 忽略；从 HS256 切到 RS256 时，如果 `.env` 未显式配置 `ALICIA_AUTH_TOKEN_KEY_ID`，脚本按 compose 默认 `alicia-hs256-v1` 保留当前 HS256 secret 到历史验签 key。
 - `deploy/scripts/verify-identity-rs256-dry-run.sh` 可在不修改生产 `.env` 的前提下临时启动 RS256 identity，完成统一验证后默认恢复当前配置。
 - `deploy/scripts/prepare-identity-rs256-cutover-env.sh` 可生成正式切换用的候选 `.env`，并输出备份、切换和回滚命令，默认不直接覆盖生产 `.env`；旧 snippet 缺少 `ALICIA_AUTH_TOKEN_PREVIOUS_KEYS` 时会从当前 `.env` 推导旧 HS256 兼容项。
+- `deploy/scripts/prepare-identity-rs256-rotation-env.sh` 可在生产已经处于 RS256 后生成下一次 RSA 签名密钥轮换候选 `.env`：新 snippet 成为当前签名 key，当前 RSA 公钥会自动进入 `ALICIA_AUTH_TOKEN_PREVIOUS_RSA_PUBLIC_KEYS`，并输出备份、切换、验证和回滚命令。
+- `deploy/scripts/prepare-identity-rs256-previous-key-removal-env.sh <old-rs256-kid>` 可在旧 RSA access-token 窗口结束后生成历史 RSA 公钥移除候选 `.env`，统一验证脚本支持用 `ALICIA_VERIFY_FORBID_PREVIOUS_RSA_KEY_ID` 检查目标 `kid` 已从历史 RSA 列表移除。
 - `deploy/scripts/prepare-identity-hs256-key-removal-env.sh` 可生成候选 `.env`，从 `ALICIA_AUTH_TOKEN_PREVIOUS_KEYS` 中移除指定历史 `kid`，默认目标是 `alicia-hs256-v1`，并输出切换与回滚命令；生成目录下的 `.env`、candidate 和 backup 都按敏感文件处理，保持 `600` 权限。
 - `deploy/scripts/apply-identity-hs256-key-removal-env.sh` 可在未正式上线或确认无旧客户端后直接执行：它会调用 prepare helper、备份 `.env`、应用候选 `.env`、重启 identity、运行统一验证，并在失败时恢复备份。
 - `tokenVersion` 已用于密码修改、管理员重置密码和全设备 logout 后的登录态失效。
@@ -1093,7 +1095,7 @@ Web 和 Android：
 1. 把主站统一登录体验继续产品化：账号面板、跨标签页登录态、退出/切换账号、returnTo 安全边界和云盘入口状态保持一致。
 2. 基于 CloudStorageApi 的 Identity gateway telemetry 连续观察 `/auth/me`、JWKS、管理员用户接口的调用量、失败类型和耗时；在出现明确热点或抖动前，暂不引入短缓存或 Identity 状态快照。
 3. RAG 后续如新增独立管理接口，按 `rag/RAG_ADMIN` 做管理权限判断；普通 RAG 用户能力按 `rag/RAG_USER` 表达。
-4. 将 RS256 密钥轮换沉淀为正式运维流程；后续如需要后台密钥管理，再新增密钥实体、查询接口和管理界面。
+4. RS256 密钥轮换已经沉淀为候选 `.env` 生成、回滚命令和历史 RSA 公钥清理脚本；后续如需要后台密钥管理，再新增密钥实体、查询接口和管理界面。
 5. 保持迁移边界测试、静态路径扫描和统一生产验证脚本常态化，防止旧 `/api/auth/**`、旧 `/api/admin/users`、旧 `sys_user` 或云盘画像字段回流。
 
 当前文档基线已经与生产架构对齐：Identity 负责身份，CloudStorageApi 负责云盘，主站负责统一入口。后续新增工具只需要接入 Identity，不应该再直接复用或写入云盘的用户资料表。

@@ -84,7 +84,7 @@ JWT access token 代码默认仍支持 `ALICIA_AUTH_TOKEN_ALGORITHM=HS256`，元
 bash deploy/scripts/generate-identity-rs256-env.sh
 ```
 
-脚本会把私钥、公钥和 `.env` 片段写入 `deploy/generated/identity-rs256/`，该目录已被 git 忽略。生成脚本会读取当前 `.env` 的 `ALICIA_AUTH_TOKEN_SECRET`，并在未显式配置 `ALICIA_AUTH_TOKEN_KEY_ID` 时按 compose 默认 `alicia-hs256-v1` 写入 `ALICIA_AUTH_TOKEN_PREVIOUS_KEYS`，用于有真实旧客户端时的平滑切换；当前生产已经完成 RS256 切换并移除了历史 HS256 key。
+脚本会把私钥、公钥和 `.env` 片段写入 `deploy/generated/identity-rs256/`，该目录已被 git 忽略。生成脚本会读取当前 `.env` 的 `ALICIA_AUTH_TOKEN_SECRET`，并在未显式配置 `ALICIA_AUTH_TOKEN_KEY_ID` 时按 compose 默认 `alicia-hs256-v1` 写入 `ALICIA_AUTH_TOKEN_PREVIOUS_KEYS`，用于有真实旧客户端时的平滑切换；当前生产已经完成 RS256 切换并移除了历史 HS256 key。后续 RS256 密钥轮换也先用该脚本生成新的 RSA key pair 和 snippet。
 
 正式合并 `.env` 前，可以先做一次不改 `.env` 的 RS256 dry-run：
 
@@ -103,6 +103,18 @@ bash deploy/scripts/prepare-identity-rs256-cutover-env.sh
 该脚本会在 `deploy/generated/identity-rs256/` 写入 `*.candidate.env`，并打印备份、切换和回滚命令；它不会直接覆盖生产 `.env`。如果历史 snippet 未包含 `ALICIA_AUTH_TOKEN_PREVIOUS_KEYS`，脚本会从当前 `.env` 推导旧 HS256 兼容项。
 
 生产已完成 RS256 切换并通过统一验证：登录和续签 token 均为 `RS256/alicia-rs256-20260822035821`，JWKS 暴露当前 RSA 公钥，历史 HS256 key 已从生产环境移除，云盘聚合、存储概览、云盘管理员、审计查询、会话撤销、logout 和旧路由移除检查均通过。
+
+生产已经处于 RS256 后，后续轮换新的 RSA 签名密钥使用独立的候选 `.env` 准备脚本：
+
+```bash
+bash deploy/scripts/prepare-identity-rs256-rotation-env.sh
+```
+
+该脚本要求当前 `.env` 已是 RS256，会读取最新生成的 RS256 snippet，把新私钥/公钥设为当前签名 key，并自动把当前 RSA 公钥加入 `ALICIA_AUTH_TOKEN_PREVIOUS_RSA_PUBLIC_KEYS` 作为历史验签 key；同时打印备份、切换、验证和回滚命令，不直接覆盖生产 `.env`。旧 RSA access-token 窗口结束后，可用下面的脚本生成移除候选：
+
+```bash
+bash deploy/scripts/prepare-identity-rs256-previous-key-removal-env.sh <old-rs256-kid>
+```
 
 未来密钥轮换后需要移除历史 HS256 key 时，可以先生成候选 `.env`：
 
