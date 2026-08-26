@@ -42,6 +42,23 @@ json_escape() {
     printf '%s' "$value"
 }
 
+json_number_array() {
+    local count="$1"
+    local start="${2:-1}"
+    local output="["
+    local i
+
+    for ((i = 0; i < count; i += 1)); do
+        if ((i > 0)); then
+            output+=","
+        fi
+        output+="$((start + i))"
+    done
+
+    output+="]"
+    printf '%s' "$output"
+}
+
 extract_json_string() {
     local json="$1"
     local key="$2"
@@ -262,6 +279,14 @@ LOGIN_RESPONSE="$(curl_body "identity login" \
 TOKEN="$(require_json_string "identity login" "$LOGIN_RESPONSE" "token")"
 ok "identity login issued token"
 
+TOO_MANY_SHARE_NODE_IDS="$(json_number_array 21)"
+
+expect_http_status "share create rejects too many items" 400 \
+    -X POST "$CLOUD_BASE_URL/api/share-links" \
+    -H "Authorization: Bearer $TOKEN" \
+    -H "Content-Type: application/json" \
+    -d "{\"nodeIds\":$TOO_MANY_SHARE_NODE_IDS,\"title\":\"too-many-items\",\"password\":\"\",\"expiresInDays\":1,\"allowDownload\":true,\"allowSave\":true}"
+
 SOURCE_FOLDER_RESPONSE="$(curl_body "create source folder" \
     -X POST "$CLOUD_BASE_URL/api/storage/folders" \
     -H "Authorization: Bearer $TOKEN" \
@@ -337,6 +362,23 @@ expect_http_status "share archive rejects empty selection" 400 \
     -H "X-Share-Access-Token: $SHARE_ACCESS_TOKEN" \
     -H "Content-Type: application/json" \
     -d '{"nodeIds":[]}'
+
+TOO_MANY_SHARE_SAVE_NODE_IDS="$(json_number_array 501)"
+TOO_MANY_SHARE_ARCHIVE_NODE_IDS="$(json_number_array 101)"
+
+expect_http_status "share save rejects too many selected items" 400 \
+    -X POST "$PUBLIC_BASE_URL/api/share-links/$SHARE_CODE/save" \
+    -H "Authorization: Bearer $TOKEN" \
+    -H "X-Share-Access-Token: $SHARE_ACCESS_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d "{\"parentId\":null,\"selectedNodeIds\":$TOO_MANY_SHARE_SAVE_NODE_IDS}"
+
+expect_http_status "share archive rejects too many selections" 400 \
+    -X POST "$PUBLIC_BASE_URL/api/share-links/$SHARE_CODE/nodes/archive" \
+    -H "Authorization: Bearer $TOKEN" \
+    -H "X-Share-Access-Token: $SHARE_ACCESS_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d "{\"nodeIds\":$TOO_MANY_SHARE_ARCHIVE_NODE_IDS}"
 
 ACCESS_URL_RESPONSE="$(curl_body "share file access-url" \
     "$PUBLIC_BASE_URL/api/share-links/$SHARE_CODE/files/$FILE_ID/access-url?disposition=attachment" \

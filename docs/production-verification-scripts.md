@@ -105,7 +105,7 @@ ALICIA_STORAGE_VERIFY_KEEP_TEST_DATA=true \
   bash deploy/scripts/verify-cloud-storage-flow.sh
 ```
 
-Web 和 Android 客户端需与服务端保持同一操作边界：批量移动/删除/恢复/彻底删除最多 500 项，ZIP 打包下载最多 100 项。
+Web 和 Android 客户端需与服务端保持同一操作边界：批量移动/删除/恢复/彻底删除最多 500 项，ZIP 打包下载最多 100 项。脚本会同时验证空选择和超量选择都被服务端拒绝，避免客户端放行后造成线上异常。
 
 ## 6. 分享链路专项验证
 
@@ -122,7 +122,7 @@ ALICIA_SHARE_VERIFY_KEEP_TEST_DATA=true \
   bash deploy/scripts/verify-cloud-share-flow.sh
 ```
 
-分享相关客户端边界需与服务端保持一致：单个分享最多 20 项，分享保存最多 500 项，分享 ZIP 打包下载最多 100 项。
+分享相关客户端边界需与服务端保持一致：单个分享最多 20 项，分享保存最多 500 项，分享 ZIP 打包下载最多 100 项。脚本会覆盖分享创建、分享保存、分享打包下载的空选择和超量选择拒绝。
 
 ## 7. 静态边界检查
 

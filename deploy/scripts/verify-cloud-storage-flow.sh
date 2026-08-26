@@ -44,6 +44,23 @@ json_escape() {
     printf '%s' "$value"
 }
 
+json_number_array() {
+    local count="$1"
+    local start="${2:-1}"
+    local output="["
+    local i
+
+    for ((i = 0; i < count; i += 1)); do
+        if ((i > 0)); then
+            output+=","
+        fi
+        output+="$((start + i))"
+    done
+
+    output+="]"
+    printf '%s' "$output"
+}
+
 extract_json_string() {
     local json="$1"
     local key="$2"
@@ -278,6 +295,39 @@ expect_http_status "archive download rejects empty selection" 400 \
     -H "Authorization: Bearer $TOKEN" \
     -H "Content-Type: application/json" \
     -d '{"nodeIds":[]}'
+
+TOO_MANY_BATCH_NODE_IDS="$(json_number_array 501)"
+TOO_MANY_ARCHIVE_NODE_IDS="$(json_number_array 101)"
+
+expect_http_status "batch move rejects too many selections" 400 \
+    -X PUT "$CLOUD_BASE_URL/api/storage/nodes/batch/move" \
+    -H "Authorization: Bearer $TOKEN" \
+    -H "Content-Type: application/json" \
+    -d "{\"nodeIds\":$TOO_MANY_BATCH_NODE_IDS,\"parentId\":null}"
+
+expect_http_status "batch trash rejects too many selections" 400 \
+    -X POST "$CLOUD_BASE_URL/api/storage/nodes/batch/trash" \
+    -H "Authorization: Bearer $TOKEN" \
+    -H "Content-Type: application/json" \
+    -d "{\"nodeIds\":$TOO_MANY_BATCH_NODE_IDS}"
+
+expect_http_status "batch restore rejects too many selections" 400 \
+    -X POST "$CLOUD_BASE_URL/api/storage/trash/batch/restore" \
+    -H "Authorization: Bearer $TOKEN" \
+    -H "Content-Type: application/json" \
+    -d "{\"nodeIds\":$TOO_MANY_BATCH_NODE_IDS}"
+
+expect_http_status "batch permanent delete rejects too many selections" 400 \
+    -X POST "$CLOUD_BASE_URL/api/storage/trash/batch/delete" \
+    -H "Authorization: Bearer $TOKEN" \
+    -H "Content-Type: application/json" \
+    -d "{\"nodeIds\":$TOO_MANY_BATCH_NODE_IDS}"
+
+expect_http_status "archive download rejects too many selections" 400 \
+    -X POST "$PUBLIC_BASE_URL/api/storage/nodes/archive" \
+    -H "Authorization: Bearer $TOKEN" \
+    -H "Content-Type: application/json" \
+    -d "{\"nodeIds\":$TOO_MANY_ARCHIVE_NODE_IDS}"
 
 SOURCE_FOLDER_RESPONSE="$(curl_body "create source folder" \
     -X POST "$CLOUD_BASE_URL/api/storage/folders" \
