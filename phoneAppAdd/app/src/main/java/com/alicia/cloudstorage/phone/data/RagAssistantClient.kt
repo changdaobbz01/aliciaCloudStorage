@@ -1,7 +1,6 @@
 package com.alicia.cloudstorage.phone.data
 
 import com.google.gson.Gson
-import com.google.gson.JsonParser
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -166,55 +165,5 @@ internal data class RagAssistantServiceBundle(
 
 private fun ensureTrailingSlash(baseUrl: String) = "${baseUrl.trim().removeSuffix("/")}/"
 
-private fun <T> Response<T>.requireRagBody(fallback: String): T {
-    if (isSuccessful) {
-        return body() ?: throw ApiException(fallback, status = code())
-    }
-
-    val rawBody = runCatching { errorBody()?.string() }.getOrNull()
-    throw ApiException(
-        message = rawBody.toReadableRagError(code(), fallback),
-        status = code(),
-    )
-}
-
-private fun String?.toReadableRagError(status: Int, fallback: String): String {
-    val body = this?.trim().orEmpty()
-
-    if (body.isNotEmpty() && !body.isHtmlDocument()) {
-        runCatching {
-            JsonParser.parseString(body)
-                .takeIf { it.isJsonObject }
-                ?.asJsonObject
-                ?.let { jsonObject ->
-                    listOf("error", "message", "detail")
-                        .firstNotNullOfOrNull { key ->
-                            jsonObject.get(key)
-                                ?.takeIf { it.isJsonPrimitive }
-                                ?.asString
-                                ?.takeIf { value -> value.isNotBlank() }
-                        }
-                }
-        }.getOrNull()?.let { return it }
-
-        return body
-    }
-
-    return when (status) {
-        400 -> "发送给安安的内容不完整，请重新输入。"
-        401 -> "登录状态已过期，请重新登录后再问安安。"
-        403 -> "当前账号暂时不能使用安安助手。"
-        404 -> "没有找到安安助手服务，请检查 RAG 地址配置。"
-        429 -> "请求太频繁了，请稍后再问安安。"
-        502, 503, 504 -> "这次处理没有及时完成，请再试一次，安安仍然在线。"
-        in 500..599 -> "安安服务处理失败，请稍后再试。"
-        else -> fallback
-    }
-}
-
-private fun String.isHtmlDocument(): Boolean {
-    val normalized = lowercase()
-    return normalized.startsWith("<!doctype html") ||
-        normalized.startsWith("<html") ||
-        normalized.contains("<body")
-}
+private fun <T> Response<T>.requireRagBody(fallback: String): T =
+    requireBodyWithRagError(fallback)

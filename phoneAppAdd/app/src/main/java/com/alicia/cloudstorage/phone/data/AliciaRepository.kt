@@ -6,7 +6,6 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.provider.OpenableColumns
-import com.google.gson.JsonParser
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -653,7 +652,7 @@ class AliciaRepository(
         if (!response.isSuccessful) {
             val payload = runCatching { response.errorBody()?.string() }.getOrNull()
             throw ApiException(
-                message = payload.toReadableError(response.code(), "下载分享内容失败。"),
+                message = payload.toReadableCloudError(response.code(), "下载分享内容失败。"),
                 status = response.code(),
             )
         }
@@ -694,7 +693,7 @@ class AliciaRepository(
         if (!response.isSuccessful) {
             val payload = runCatching { response.errorBody()?.string() }.getOrNull()
             throw ApiException(
-                message = payload.toReadableError(response.code(), "下载选中项目失败。"),
+                message = payload.toReadableCloudError(response.code(), "下载选中项目失败。"),
                 status = response.code(),
             )
         }
@@ -732,7 +731,7 @@ class AliciaRepository(
         if (!response.isSuccessful) {
             val payload = runCatching { response.errorBody()?.string() }.getOrNull()
             throw ApiException(
-                message = payload.toReadableError(response.code(), "下载文件失败。"),
+                message = payload.toReadableCloudError(response.code(), "下载文件失败。"),
                 status = response.code(),
             )
         }
@@ -764,7 +763,7 @@ class AliciaRepository(
         if (!response.isSuccessful) {
             val payload = runCatching { response.errorBody()?.string() }.getOrNull()
             throw ApiException(
-                message = payload.toReadableError(response.code(), "下载文件失败。"),
+                message = payload.toReadableCloudError(response.code(), "下载文件失败。"),
                 status = response.code(),
             )
         }
@@ -843,7 +842,7 @@ class AliciaRepository(
                 fileId = fileId,
                 disposition = disposition,
             )
-            .requireBody(fallback = "获取文件访问地址失败。")
+            .requireBodyWithCloudError(fallback = "获取文件访问地址失败。")
 
     private suspend fun copySignedFileToUri(
         context: Context,
@@ -858,9 +857,7 @@ class AliciaRepository(
             .build()
 
         directDownloadClient.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) {
-                throw ApiException("下载文件失败。", response.code)
-            }
+            response.requireSuccessfulSignedDownload("下载文件失败。")
 
             val body = response.body ?: throw ApiException("下载文件失败。", response.code)
             val resolvedFileName = parseFileName(response.header("content-disposition"))
@@ -892,9 +889,7 @@ class AliciaRepository(
             .build()
 
         directDownloadClient.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) {
-                throw ApiException("下载文件失败。", response.code)
-            }
+            response.requireSuccessfulSignedDownload("下载文件失败。")
 
             val body = response.body ?: throw ApiException("下载文件失败。", response.code)
             val resolvedFileName = parseFileName(response.header("content-disposition"))
@@ -922,9 +917,7 @@ class AliciaRepository(
             .build()
 
         directDownloadClient.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) {
-                throw ApiException("下载文件失败。", response.code)
-            }
+            response.requireSuccessfulSignedDownload("下载文件失败。")
 
             val body = response.body ?: throw ApiException("下载文件失败。", response.code)
             val resolvedFileName = parseFileName(response.header("content-disposition"))
@@ -952,7 +945,6 @@ class AliciaRepository(
 
     private fun authorization(token: String) = "Bearer $token"
 }
-
 private class ProgressRequestBody(
     private val file: File,
     private val contentType: MediaType?,
@@ -1109,50 +1101,8 @@ private fun Bitmap.compressAvatarJpeg(maxBytes: Long): ByteArray? {
     return null
 }
 
-private fun <T> Response<T>.requireBody(fallback: String): T {
-    if (isSuccessful) {
-        return body() ?: throw ApiException(fallback, status = code())
-    }
-
-    val rawBody = runCatching { errorBody()?.string() }.getOrNull()
-    throw ApiException(
-        message = rawBody.toReadableError(code(), fallback),
-        status = code(),
-    )
-}
-
-private fun String?.toReadableError(status: Int, fallback: String): String {
-    val readableStatusError = statusToReadableError(status)
-    val body = this?.trim().orEmpty()
-
-    if (body.isNotEmpty() && !body.isHtmlDocument()) {
-        runCatching {
-            JsonParser.parseString(body)
-                .takeIf { it.isJsonObject }
-                ?.asJsonObject
-                ?.let { jsonObject ->
-                    listOf("error", "message")
-                        .firstNotNullOfOrNull { key ->
-                            jsonObject.get(key)
-                                ?.takeIf { it.isJsonPrimitive }
-                                ?.asString
-                                ?.takeIf { value -> value.isNotBlank() }
-                        }
-                }
-        }.getOrNull()?.let { return it }
-
-        return body
-    }
-
-    return readableStatusError ?: fallback
-}
-
-private fun String.isHtmlDocument(): Boolean {
-    val normalized = lowercase()
-    return normalized.startsWith("<!doctype html") ||
-        normalized.startsWith("<html") ||
-        normalized.contains("<body")
-}
+private fun <T> Response<T>.requireBody(fallback: String): T =
+    requireBodyWithCloudError(fallback)
 
 private fun parseFileName(contentDisposition: String?): String? {
     if (contentDisposition.isNullOrBlank()) {
@@ -1174,17 +1124,3 @@ private fun parseFileName(contentDisposition: String?): String? {
         ?.groupValues
         ?.getOrNull(1)
 }
-
-private fun statusToReadableError(status: Int): String? =
-    when (status) {
-        400 -> "请求内容不正确，请检查填写的信息。"
-        401 -> "登录状态已过期，请重新登录。"
-        403 -> "当前账号没有权限执行这个操作。"
-        404 -> "请求的资源不存在。"
-        413 -> "文件太大，当前最多支持上传 1GB 的文件。请换一个更小的文件后重试。"
-        415 -> "当前文件类型不受支持。"
-        429 -> "请求过于频繁，请稍后再试。"
-        502, 503, 504 -> "服务暂时不可用，请稍后再试。"
-        in 500..599 -> "服务器处理失败，请稍后再试。"
-        else -> null
-    }
