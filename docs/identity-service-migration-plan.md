@@ -1049,6 +1049,14 @@ bash deploy/scripts/verify-cloud-share-flow.sh
 
 该脚本覆盖临时文件创建、分享创建、公开状态、提取码、详情、下载 URL、直连下载、文件夹 ZIP、保存到网盘、撤销和测试数据清理。
 
+云盘文件操作专项回归可执行：
+
+```bash
+bash deploy/scripts/verify-cloud-storage-flow.sh
+```
+
+该脚本覆盖临时文件创建、概览、上传、列表、下载 URL、直连下载、文件夹 ZIP、重命名、移动、批量移入回收站、批量恢复、单项删除到回收站、彻底删除和测试数据清理。
+
 提交或部署前可先执行静态边界扫描：
 
 ```bash
