@@ -100,9 +100,34 @@ class StorageCommandServiceTest {
     void batchNodeOperationsRejectTooManyItemsBeforeLoadingNodes() {
         List<Long> tooManyNodeIds = LongStream.rangeClosed(1, 501).boxed().toList();
 
+        assertThatThrownBy(() -> storageCommandService.moveNodes(7L, new BatchMoveNodeRequest(tooManyNodeIds, null)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("单次最多处理 500 个项目。");
         assertThatThrownBy(() -> storageCommandService.moveNodesToTrash(7L, new BatchNodeRequest(tooManyNodeIds)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("单次最多处理 500 个项目。");
+        assertThatThrownBy(() -> storageCommandService.restoreNodes(7L, new BatchNodeRequest(tooManyNodeIds)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("单次最多处理 500 个项目。");
+        assertThatThrownBy(() -> storageCommandService.permanentlyDeleteNodes(7L, new BatchNodeRequest(tooManyNodeIds)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("单次最多处理 500 个项目。");
+
+        verifyNoInteractions(storageNodeRepository, cosFileStorageService, storageQuotaService, storageNodeEventPublisher);
+    }
+
+    @Test
+    void batchRenameRejectsTooManyItemsBeforeLoadingNodes() {
+        List<BatchRenameNodeItem> tooManyRenameItems = LongStream.rangeClosed(1, 501)
+                .mapToObj(nodeId -> new BatchRenameNodeItem(nodeId, "name-" + nodeId))
+                .toList();
+
+        assertThatThrownBy(() -> storageCommandService.renameNodes(
+                7L,
+                new BatchRenameNodeRequest(tooManyRenameItems)
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("单次最多重命名 500 个项目。");
 
         verifyNoInteractions(storageNodeRepository, cosFileStorageService, storageQuotaService, storageNodeEventPublisher);
     }

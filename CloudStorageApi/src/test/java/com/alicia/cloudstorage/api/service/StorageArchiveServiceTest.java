@@ -18,6 +18,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.LongStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -48,6 +49,18 @@ class StorageArchiveServiceTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("选择的项目不存在或已被删除。");
 
+        verify(cosFileStorageService, never()).openFileStream(anyString());
+    }
+
+    @Test
+    void createArchiveRejectsTooManyItemsBeforeLoadingNodes() {
+        List<Long> tooManyNodeIds = LongStream.rangeClosed(1, 101).boxed().toList();
+
+        assertThatThrownBy(() -> storageArchiveService.createArchive(7L, new BatchNodeRequest(tooManyNodeIds)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("单次最多打包下载 100 个项目。");
+
+        verify(storageNodeRepository, never()).findByOwnerIdAndIdInAndDeletedFalse(7L, tooManyNodeIds);
         verify(cosFileStorageService, never()).openFileStream(anyString());
     }
 

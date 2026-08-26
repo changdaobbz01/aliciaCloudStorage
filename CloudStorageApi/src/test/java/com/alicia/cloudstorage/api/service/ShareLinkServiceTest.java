@@ -29,6 +29,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.LongStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -92,6 +93,21 @@ class ShareLinkServiceTest {
 
         verifyNoInteractions(storageNodeRepository, shareLinkItemRepository, identityUserGateway, passwordEncoder,
                 storageCommandService, storageArchiveService, cosFileStorageService);
+    }
+
+    @Test
+    void createShareRejectsTooManySelectedItemsBeforeLoadingNodes() {
+        List<Long> tooManyNodeIds = LongStream.rangeClosed(1, 21).boxed().toList();
+
+        assertThatThrownBy(() -> shareLinkService.createShareLink(
+                9L,
+                new CreateShareLinkRequest(tooManyNodeIds, null, null, 7, true, true)
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("单个分享最多包含 20 个项目。");
+
+        verifyNoInteractions(storageNodeRepository, shareLinkRepository, shareLinkItemRepository, identityUserGateway,
+                passwordEncoder, storageCommandService, storageArchiveService, cosFileStorageService);
     }
 
     @Test
@@ -431,6 +447,29 @@ class ShareLinkServiceTest {
     }
 
     @Test
+    void createShareArchiveRejectsTooManySelectedItemsBeforeArchiveService() {
+        ShareLink shareLink = activeShare(17L, 9L, "share-code");
+        StorageNode sharedFile = fileNode(171L, 9L, null, "report.pdf", "cos/report.pdf");
+        ShareLinkItem shareItem = shareItem(17L, 171L);
+        List<Long> tooManyNodeIds = LongStream.rangeClosed(1, 101).boxed().toList();
+
+        when(shareLinkRepository.findByShareCode("share-code")).thenReturn(Optional.of(shareLink));
+        when(shareLinkItemRepository.findByShareIdOrderBySortOrderAsc(17L)).thenReturn(List.of(shareItem));
+        when(storageNodeRepository.findByIdAndOwnerIdAndDeletedFalse(171L, 9L)).thenReturn(Optional.of(sharedFile));
+
+        assertThatThrownBy(() -> shareLinkService.createShareArchive(
+                20L,
+                "share-code",
+                null,
+                new BatchNodeRequest(tooManyNodeIds)
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("单次最多打包下载 100 个项目。");
+
+        verifyNoInteractions(storageArchiveService);
+    }
+
+    @Test
     void saveShareDelegatesToStorageCopyService() {
         ShareLink shareLink = activeShare(4L, 9L, "share-code");
         StorageNode sharedFile = fileNode(41L, 9L, null, "report.pdf", "cos/report.pdf");
@@ -476,6 +515,33 @@ class ShareLinkServiceTest {
         ))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("选择的分享内容不存在或已不可用。");
+
+        verify(storageCommandService, never()).copySharedNodesToUser(
+                org.mockito.ArgumentMatchers.anyLong(),
+                org.mockito.ArgumentMatchers.anyList(),
+                org.mockito.ArgumentMatchers.any()
+        );
+    }
+
+    @Test
+    void saveShareRejectsTooManySelectedItemsBeforeCopying() {
+        ShareLink shareLink = activeShare(18L, 9L, "share-code");
+        StorageNode sharedFile = fileNode(181L, 9L, null, "report.pdf", "cos/report.pdf");
+        ShareLinkItem shareItem = shareItem(18L, 181L);
+        List<Long> tooManyNodeIds = LongStream.rangeClosed(1, 501).boxed().toList();
+
+        when(shareLinkRepository.findByShareCode("share-code")).thenReturn(Optional.of(shareLink));
+        when(shareLinkItemRepository.findByShareIdOrderBySortOrderAsc(18L)).thenReturn(List.of(shareItem));
+        when(storageNodeRepository.findByIdAndOwnerIdAndDeletedFalse(181L, 9L)).thenReturn(Optional.of(sharedFile));
+
+        assertThatThrownBy(() -> shareLinkService.saveShare(
+                20L,
+                "share-code",
+                null,
+                new SaveShareLinkRequest(null, tooManyNodeIds)
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("单次最多保存 500 个分享项目。");
 
         verify(storageCommandService, never()).copySharedNodesToUser(
                 org.mockito.ArgumentMatchers.anyLong(),
