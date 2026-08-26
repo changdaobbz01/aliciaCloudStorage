@@ -21,6 +21,7 @@ import {
 } from '../lib/api';
 import type { ShareLinkDetail, ShareLinkStatus, StorageNode, VerifySharePasswordPayload } from '../types';
 import { ROOT_PARENT_KEY } from '../features/drive/driveShared';
+import { parseFolderParentKey, validateArchiveNodeIds, validateShareSaveNodeIds } from '../features/drive/cloudOperationPolicy';
 import { collapseSelectedShareNodeIds } from '../features/drive/shareTreeSelection';
 import type { FolderTreeNode } from '../features/drive/types';
 import { buildAppDownloadUrl, buildShareIntentUrl } from '../lib/mobileApp';
@@ -36,7 +37,6 @@ type StoredShareAccess = {
 };
 
 const SHARE_CODE_PATTERN = /^[A-Za-z0-9_-]{4,40}$/;
-const MAX_SHARE_ARCHIVE_ROOTS = 100;
 
 function isLikelyMobileClient() {
   if (typeof window === 'undefined') {
@@ -394,8 +394,9 @@ export function SharePage() {
       return;
     }
 
-    if (selectedShareRootNodeIds.length === 0) {
-      message.warning('请先选择要保存的分享内容。');
+    const saveSelection = validateShareSaveNodeIds(selectedShareRootNodeIds);
+    if (!saveSelection.valid) {
+      message.warning(saveSelection.message);
       return;
     }
 
@@ -409,17 +410,28 @@ export function SharePage() {
       return;
     }
 
+    const saveSelection = validateShareSaveNodeIds(selectedShareRootNodeIds);
+    if (!saveSelection.valid) {
+      message.warning(saveSelection.message);
+      return;
+    }
+
+    const parent = parseFolderParentKey(saveParentKey, ROOT_PARENT_KEY);
+    if (!parent.valid) {
+      message.warning(parent.message);
+      return;
+    }
+
     setSaving(true);
 
     try {
-      const parentId = saveParentKey === ROOT_PARENT_KEY ? null : Number(saveParentKey);
       await saveShareToDrive(
         detail.shareCode,
-        { parentId, selectedNodeIds: selectedShareRootNodeIds },
+        { parentId: parent.value, selectedNodeIds: saveSelection.value },
         authToken,
         shareAccessToken,
       );
-      message.success(parentId === null ? '已保存到你的网盘根目录。' : '已保存到选定文件夹。');
+      message.success(parent.value === null ? '已保存到你的网盘根目录。' : '已保存到选定文件夹。');
       setSaveTargetOpen(false);
       setSelectedShareRowKeys([]);
       void navigate('/');
@@ -478,13 +490,9 @@ export function SharePage() {
       return;
     }
 
-    if (nodeIds.length === 0) {
-      message.warning('请先选择要下载的分享内容。');
-      return;
-    }
-
-    if (nodeIds.length > MAX_SHARE_ARCHIVE_ROOTS) {
-      message.warning('单次最多打包下载 100 个项目，请减少选择后重试。');
+    const archiveSelection = validateArchiveNodeIds(nodeIds, '请先选择要下载的分享内容。');
+    if (!archiveSelection.valid) {
+      message.warning(archiveSelection.message);
       return;
     }
 
@@ -497,7 +505,7 @@ export function SharePage() {
     try {
       const { blob, fileName } = await downloadShareArchive(
         detail.shareCode,
-        { nodeIds },
+        { nodeIds: archiveSelection.value },
         authToken,
         shareAccessToken,
       );

@@ -1496,10 +1496,10 @@ class MainViewModel internal constructor(
         onSuccess: () -> Unit = {},
     ) {
         val session = authenticatedSession() ?: return
-        val trimmedName = folderName.trim()
+        val validation = validateNodeName(folderName)
 
-        if (trimmedName.isBlank()) {
-            emitMessage("请输入文件夹名称。")
+        if (!validation.isValid) {
+            emitMessage(validation.errorMessage ?: "请输入文件夹名称。")
             return
         }
 
@@ -1513,13 +1513,13 @@ class MainViewModel internal constructor(
                     baseUrl = session.baseUrl,
                     token = session.token,
                     parentId = uiState.value.files.currentFolderId,
-                    folderName = trimmedName,
+                    folderName = validation.normalizedName,
                 )
             }.onSuccess {
                 _uiState.update { state ->
                     state.copy(files = state.files.copy(isCreatingFolder = false))
                 }
-                emitMessage("已创建文件夹：$trimmedName")
+                emitMessage("已创建文件夹：${validation.normalizedName}")
                 refreshAfterMutation(refreshFiles = true, refreshTrash = false)
                 onSuccess()
             }.onFailure { error ->
@@ -1825,12 +1825,13 @@ class MainViewModel internal constructor(
 
     fun moveSelectedNodes(parentId: Long?, onSuccess: () -> Unit = {}) {
         val session = authenticatedSession() ?: return
-        val selectedIds = uiState.value.files.selectedNodeIds.toList()
+        val selection = validateBatchNodeIds(uiState.value.files.selectedNodeIds, "请先选择要移动的文件。")
 
-        if (selectedIds.isEmpty()) {
-            emitMessage("请先选择要移动的文件。")
+        if (!selection.isValid) {
+            emitMessage(selection.errorMessage ?: "请先选择要移动的文件。")
             return
         }
+        val selectedIds = selection.nodeIds
 
         viewModelScope.launch {
             _uiState.update { state ->
@@ -1867,12 +1868,13 @@ class MainViewModel internal constructor(
 
     fun moveSelectedNodesToTrash() {
         val session = authenticatedSession() ?: return
-        val selectedIds = uiState.value.files.selectedNodeIds.toList()
+        val selection = validateBatchNodeIds(uiState.value.files.selectedNodeIds, "请先选择要删除的文件。")
 
-        if (selectedIds.isEmpty()) {
-            emitMessage("请先选择要删除的文件。")
+        if (!selection.isValid) {
+            emitMessage(selection.errorMessage ?: "请先选择要删除的文件。")
             return
         }
+        val selectedIds = selection.nodeIds
 
         viewModelScope.launch {
             _uiState.update { state ->
@@ -1907,12 +1909,13 @@ class MainViewModel internal constructor(
 
     fun restoreSelectedNodes() {
         val session = authenticatedSession() ?: return
-        val selectedIds = uiState.value.trash.selectedNodeIds.toList()
+        val selection = validateBatchNodeIds(uiState.value.trash.selectedNodeIds, "请先选择要恢复的文件。")
 
-        if (selectedIds.isEmpty()) {
-            emitMessage("请先选择要恢复的文件。")
+        if (!selection.isValid) {
+            emitMessage(selection.errorMessage ?: "请先选择要恢复的文件。")
             return
         }
+        val selectedIds = selection.nodeIds
 
         viewModelScope.launch {
             _uiState.update { state ->
@@ -1947,12 +1950,13 @@ class MainViewModel internal constructor(
 
     fun permanentlyDeleteSelectedNodes() {
         val session = authenticatedSession() ?: return
-        val selectedIds = uiState.value.trash.selectedNodeIds.toList()
+        val selection = validateBatchNodeIds(uiState.value.trash.selectedNodeIds, "请先选择要彻底删除的文件。")
 
-        if (selectedIds.isEmpty()) {
-            emitMessage("请先选择要彻底删除的文件。")
+        if (!selection.isValid) {
+            emitMessage(selection.errorMessage ?: "请先选择要彻底删除的文件。")
             return
         }
+        val selectedIds = selection.nodeIds
 
         viewModelScope.launch {
             _uiState.update { state ->
@@ -2453,8 +2457,9 @@ class MainViewModel internal constructor(
             items = detail.items,
             selectedNodeIds = incomingShare.selectedNodeIds,
         )
-        if (selectedNodeIds.isEmpty()) {
-            emitMessage("请先选择要保存的分享内容。")
+        val saveSelection = validateShareSaveNodeIds(selectedNodeIds)
+        if (!saveSelection.isValid) {
+            emitMessage(saveSelection.errorMessage ?: "请先选择要保存的分享内容。")
             return
         }
         if (!detail.allowSave) {
@@ -2480,7 +2485,7 @@ class MainViewModel internal constructor(
                     shareCode = detail.shareCode,
                     shareAccessToken = incomingShare.shareAccessToken,
                     parentId = targetParentId,
-                    selectedNodeIds = selectedNodeIds,
+                    selectedNodeIds = saveSelection.nodeIds,
                 )
             }.onSuccess {
                 _uiState.update { state ->
@@ -2737,12 +2742,13 @@ class MainViewModel internal constructor(
 
     fun downloadArchiveToUri(nodeIds: List<Long>, destinationUri: Uri) {
         val session = authenticatedSession() ?: return
-        val uniqueNodeIds = nodeIds.distinct()
+        val selection = validateArchiveNodeIds(nodeIds)
 
-        if (uniqueNodeIds.isEmpty()) {
-            emitMessage("请先选择要下载的项目。")
+        if (!selection.isValid) {
+            emitMessage(selection.errorMessage ?: "请先选择要下载的项目。")
             return
         }
+        val uniqueNodeIds = selection.nodeIds
 
         val taskTitle = resolveArchiveTransferTitle(uniqueNodeIds)
         val taskId = appendTransfer(
@@ -2850,7 +2856,7 @@ class MainViewModel internal constructor(
         }
 
         val destinationUri = task.destinationUri
-        val sourceNodeIds = task.sourceNodeIds
+        val sourceNodeIds = task.sourceNodeIds.filter { it > 0L }.distinct()
         if (destinationUri == null || sourceNodeIds.isEmpty()) {
             emitMessage("无法重新下载，请从文件列表重新选择保存位置。")
             return
@@ -2869,6 +2875,20 @@ class MainViewModel internal constructor(
         if (task.itemKind == TransferItemKind.FILE && sourceNodeIds.size != 1) {
             emitMessage("无法重新下载，请从文件列表重新选择文件。")
             return
+        }
+        if (task.itemKind == TransferItemKind.ARCHIVE) {
+            val archiveSelection = validateArchiveNodeIds(sourceNodeIds)
+            if (!archiveSelection.isValid) {
+                val message = archiveSelection.errorMessage ?: "无法重新下载，请从文件列表重新选择保存位置。"
+                updateTransfer(taskId) { current ->
+                    current.copy(
+                        status = TransferStatus.FAILED,
+                        errorMessage = message,
+                    )
+                }
+                emitMessage(message)
+                return
+            }
         }
 
         val session = authenticatedSession()

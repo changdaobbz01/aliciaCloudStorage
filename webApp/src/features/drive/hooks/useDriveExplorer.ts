@@ -31,6 +31,11 @@ import type {
   StorageNodeSortField,
   StorageViewMode,
 } from '../../../types';
+import {
+  parseFolderParentKey,
+  validateBatchNodeTargets,
+  validateStorageNodeName,
+} from '../cloudOperationPolicy';
 import { ROOT_PARENT_KEY, createDefaultListState } from '../driveShared';
 import type { DriveListState, DrivePreviewKind, DrivePreviewState, DriveUploadTask, FolderCrumb } from '../types';
 
@@ -890,45 +895,67 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
   }
 
   async function deleteNodes(targets: StorageNode[]) {
-    if (!authToken || targets.length === 0) {
+    if (!authToken) {
+      return;
+    }
+
+    const selection = validateBatchNodeTargets(targets, '请先选择要删除的文件。');
+    if (!selection.valid) {
+      message.warning(selection.message);
       return;
     }
 
     try {
-      await deleteStorageNodes({ nodeIds: targets.map((target) => target.id) }, authToken);
+      await deleteStorageNodes({ nodeIds: selection.value.nodeIds }, authToken);
       clearSelection();
       await Promise.all([loadDrive(), onStorageChanged()]);
-      message.success(targets.length === 1 ? '已移入回收站。' : `已将 ${targets.length} 项移入回收站。`);
+      message.success(
+        selection.value.targets.length === 1 ? '已移入回收站。' : `已将 ${selection.value.targets.length} 项移入回收站。`,
+      );
     } catch (deleteError) {
       message.error(deleteError instanceof Error ? deleteError.message : '删除失败。');
     }
   }
 
   async function restoreNodes(targets: StorageNode[]) {
-    if (!authToken || targets.length === 0) {
+    if (!authToken) {
+      return;
+    }
+
+    const selection = validateBatchNodeTargets(targets, '请先选择要恢复的文件。');
+    if (!selection.valid) {
+      message.warning(selection.message);
       return;
     }
 
     try {
-      await restoreStorageNodes({ nodeIds: targets.map((target) => target.id) }, authToken);
+      await restoreStorageNodes({ nodeIds: selection.value.nodeIds }, authToken);
       clearSelection();
       await Promise.all([loadDrive(), onStorageChanged()]);
-      message.success(targets.length === 1 ? '已恢复。' : `已恢复 ${targets.length} 项。`);
+      message.success(selection.value.targets.length === 1 ? '已恢复。' : `已恢复 ${selection.value.targets.length} 项。`);
     } catch (restoreError) {
       message.error(restoreError instanceof Error ? restoreError.message : '恢复失败。');
     }
   }
 
   async function permanentlyDeleteNodes(targets: StorageNode[]) {
-    if (!authToken || targets.length === 0) {
+    if (!authToken) {
+      return;
+    }
+
+    const selection = validateBatchNodeTargets(targets, '请先选择要彻底删除的文件。');
+    if (!selection.valid) {
+      message.warning(selection.message);
       return;
     }
 
     try {
-      await permanentlyDeleteStorageNodes({ nodeIds: targets.map((target) => target.id) }, authToken);
+      await permanentlyDeleteStorageNodes({ nodeIds: selection.value.nodeIds }, authToken);
       clearSelection();
       await Promise.all([loadDrive(), onStorageChanged()]);
-      message.success(targets.length === 1 ? '已彻底删除。' : `已彻底删除 ${targets.length} 项。`);
+      message.success(
+        selection.value.targets.length === 1 ? '已彻底删除。' : `已彻底删除 ${selection.value.targets.length} 项。`,
+      );
     } catch (deleteError) {
       message.error(deleteError instanceof Error ? deleteError.message : '彻底删除失败。');
     }
@@ -939,11 +966,17 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
       return false;
     }
 
+    const nameValidation = validateStorageNodeName(values.folderName);
+    if (!nameValidation.valid) {
+      message.warning(nameValidation.message);
+      return false;
+    }
+
     try {
       await createFolder(
         {
           parentId: currentFolderId,
-          folderName: values.folderName,
+          folderName: nameValidation.value,
         },
         authToken,
       );
@@ -963,8 +996,14 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
       return false;
     }
 
+    const nameValidation = validateStorageNodeName(values.name, target.name);
+    if (!nameValidation.valid) {
+      message.warning(nameValidation.message);
+      return false;
+    }
+
     try {
-      await renameStorageNode(target.id, { name: values.name }, authToken);
+      await renameStorageNode(target.id, { name: nameValidation.value }, authToken);
       clearSelection();
       await loadDrive();
       message.success('重命名成功。');
@@ -976,21 +1015,32 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
   }
 
   async function moveNodes(targets: StorageNode[], parentKey: string) {
-    if (!authToken || targets.length === 0) {
+    if (!authToken) {
       return false;
     }
 
-    const parentId = parentKey === ROOT_PARENT_KEY ? null : Number(parentKey);
+    const selection = validateBatchNodeTargets(targets, '请先选择要移动的文件。');
+    if (!selection.valid) {
+      message.warning(selection.message);
+      return false;
+    }
+
+    const parent = parseFolderParentKey(parentKey, ROOT_PARENT_KEY);
+    if (!parent.valid) {
+      message.warning(parent.message);
+      return false;
+    }
+
     const payload: BatchMoveNodePayload = {
-      nodeIds: targets.map((target) => target.id),
-      parentId,
+      nodeIds: selection.value.nodeIds,
+      parentId: parent.value,
     };
 
     try {
       await moveStorageNodes(payload, authToken);
       clearSelection();
       await loadDrive();
-      message.success(targets.length === 1 ? '移动成功。' : `已移动 ${targets.length} 项。`);
+      message.success(selection.value.targets.length === 1 ? '移动成功。' : `已移动 ${selection.value.targets.length} 项。`);
       return true;
     } catch (moveError) {
       message.error(moveError instanceof Error ? moveError.message : '移动失败。');

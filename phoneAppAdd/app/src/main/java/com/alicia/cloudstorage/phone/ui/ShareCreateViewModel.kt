@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.alicia.cloudstorage.phone.ShareCreateArgs
 import com.alicia.cloudstorage.phone.data.AliciaRepository
+import com.alicia.cloudstorage.phone.data.StorageNode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -50,6 +51,14 @@ class ShareCreateViewModel(
         allowSave: Boolean,
     ) {
         if (creationInFlight) return
+        val selection = validateShareNodes(args.selection.nodes)
+        if (!selection.isValid) {
+            _uiState.update {
+                it.copy(error = selection.errorMessage ?: "请先选择要分享的文件或文件夹。")
+            }
+            return
+        }
+
         val normalizedTitle = title.trim().ifBlank { args.selection.defaultTitle }
         val normalizedPassword = password?.trim()?.takeIf(String::isNotEmpty)
         if (normalizedPassword != null && normalizedPassword.length !in 4..32) {
@@ -64,7 +73,7 @@ class ShareCreateViewModel(
                 repository.createShareLink(
                     baseUrl = args.baseUrl,
                     token = args.authToken,
-                    nodeIds = args.selection.nodeIds,
+                    nodeIds = selection.nodes.map(StorageNode::id),
                     title = normalizedTitle,
                     password = normalizedPassword,
                     expiresInDays = expiresInDays,

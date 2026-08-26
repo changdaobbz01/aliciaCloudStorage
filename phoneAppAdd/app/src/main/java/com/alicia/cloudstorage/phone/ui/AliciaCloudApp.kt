@@ -1027,14 +1027,13 @@ private fun MainShell(
     }
 
     fun openShareSelection(nodes: List<StorageNode>) {
-        val uniqueNodes = nodes.distinctBy(StorageNode::id)
+        val selection = validateShareNodes(nodes)
         when {
-            uniqueNodes.isEmpty() -> onMessage("请先选择要分享的文件或文件夹。")
-            uniqueNodes.size > 20 -> onMessage("单个分享最多包含 20 个项目。")
+            !selection.isValid -> onMessage(selection.errorMessage ?: "请先选择要分享的文件或文件夹。")
             else -> shareCreateLauncher.launch(
                 ShareCreateActivity.createIntent(
                     context = context,
-                    nodes = uniqueNodes,
+                    nodes = selection.nodes,
                     baseUrl = uiState.baseUrl,
                     authToken = uiState.authToken.orEmpty(),
                 ),

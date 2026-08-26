@@ -4,6 +4,7 @@ import { StorageTable } from '../../components/StorageTable';
 import type { SortDirection, StorageFileCategory, StorageNode, StorageNodeFilter, StorageNodeSortField } from '../../types';
 import type { DriveDownloadButtonState, DriveListState, FolderCrumb } from './types';
 import { Icon } from '../../components/Icon';
+import { MAX_SHARE_TARGETS } from './cloudOperationPolicy';
 
 type DriveExplorerViewProps = {
   mode: 'drive' | 'trash';
@@ -161,7 +162,7 @@ export default function DriveExplorerView({
               <Button
                 icon={<Icon icon={Share2} />}
                 disabled={selectedCount === 0}
-                title={selectedCount > 20 ? '单个分享最多包含 20 个项目' : undefined}
+                title={selectedCount > MAX_SHARE_TARGETS ? `单个分享最多包含 ${MAX_SHARE_TARGETS} 个项目` : undefined}
                 onClick={onShareSelection}
               >
                 分享所选

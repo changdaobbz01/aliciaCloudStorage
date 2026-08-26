@@ -67,7 +67,7 @@ private val ShareBackground = Color(0xFFF7F8FD)
 
 data class ShareSelection(val nodes: List<StorageNode>) {
     init {
-        require(nodes.isNotEmpty() && nodes.size <= 20)
+        require(nodes.isNotEmpty() && nodes.size <= MAX_SHARE_TARGETS)
         require(nodes.map(StorageNode::id).distinct().size == nodes.size)
     }
 

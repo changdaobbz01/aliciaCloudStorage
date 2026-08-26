@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { MessageInstance } from 'antd/es/message/interface';
 import { downloadStorageArchive, downloadStorageFile } from '../../../lib/api';
 import type { StorageNode } from '../../../types';
+import { uniqueStorageNodes, validateArchiveNodeIds } from '../cloudOperationPolicy';
 import { formatFileSize } from '../driveShared';
 import type {
   DriveDownloadButtonState,
@@ -299,7 +300,10 @@ export function useDriveDownloads({ authToken, message }: UseDriveDownloadsOptio
   }
 
   function downloadNodes(nodes: StorageNode[]) {
-    if (nodes.length === 0) {
+    const uniqueNodes = uniqueStorageNodes(nodes).filter((node) => Number.isInteger(node.id) && node.id > 0);
+
+    if (uniqueNodes.length === 0) {
+      message.warning('请先选择要下载的项目。');
       return;
     }
 
@@ -308,8 +312,17 @@ export function useDriveDownloads({ authToken, message }: UseDriveDownloadsOptio
       return;
     }
 
-    const sourceType = resolveDownloadSourceType(nodes);
-    const nodeIds = nodes.map((node) => node.id);
+    const sourceType = resolveDownloadSourceType(uniqueNodes);
+    const nodeIds = uniqueNodes.map((node) => node.id);
+
+    if (sourceType === 'archive') {
+      const archiveSelection = validateArchiveNodeIds(nodeIds, '请先选择要下载的项目。');
+      if (!archiveSelection.valid) {
+        message.warning(archiveSelection.message);
+        return;
+      }
+    }
+
     const activeTask = findMatchingTask(sourceType, nodeIds, (task) => isActiveDownloadStatus(task.status));
 
     if (activeTask) {
@@ -323,7 +336,7 @@ export function useDriveDownloads({ authToken, message }: UseDriveDownloadsOptio
       return;
     }
 
-    enqueueDownloadTask(createDownloadTask(nodes));
+    enqueueDownloadTask(createDownloadTask(uniqueNodes));
   }
 
   function downloadNode(node: StorageNode) {

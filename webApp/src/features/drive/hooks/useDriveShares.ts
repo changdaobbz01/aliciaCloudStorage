@@ -3,9 +3,8 @@ import type { MessageInstance } from 'antd/es/message/interface';
 import { useEffect, useRef, useState } from 'react';
 import { createShareLink, fetchMyShareLinks, revokeShareLink } from '../../../lib/api';
 import type { ShareLinkSummary, StorageNode } from '../../../types';
+import { MAX_SHARE_TARGETS, uniqueStorageNodes } from '../cloudOperationPolicy';
 import type { CreateShareFormValues } from '../types';
-
-const MAX_SHARE_TARGETS = 20;
 
 type UseDriveSharesOptions = {
   authToken: string | null;
@@ -42,7 +41,7 @@ export function useDriveShares({ authToken, isSharesView, message }: UseDriveSha
 
   function openCreateShareModal(rawTargets: StorageNode | StorageNode[]) {
     const targets = Array.isArray(rawTargets) ? rawTargets : [rawTargets];
-    const uniqueTargets = [...new Map(targets.map((target) => [target.id, target])).values()];
+    const uniqueTargets = uniqueStorageNodes(targets).filter((target) => Number.isInteger(target.id) && target.id > 0);
     if (uniqueTargets.length === 0) {
       message.warning('请先选择要分享的文件或文件夹。');
       return false;
@@ -80,7 +79,17 @@ export function useDriveShares({ authToken, isSharesView, message }: UseDriveSha
   }
 
   async function submitCreateShare(values: CreateShareFormValues) {
-    if (!authToken || shareCreateTargets.length === 0 || shareCreatingRef.current) {
+    if (!authToken || shareCreatingRef.current) {
+      return false;
+    }
+
+    const uniqueTargets = uniqueStorageNodes(shareCreateTargets).filter((target) => Number.isInteger(target.id) && target.id > 0);
+    if (uniqueTargets.length === 0) {
+      message.warning('请先选择要分享的文件或文件夹。');
+      return false;
+    }
+    if (uniqueTargets.length > MAX_SHARE_TARGETS) {
+      message.warning(`单个分享最多包含 ${MAX_SHARE_TARGETS} 个项目。`);
       return false;
     }
 
@@ -91,9 +100,9 @@ export function useDriveShares({ authToken, isSharesView, message }: UseDriveSha
       const normalizedPassword = values.passwordEnabled ? values.password?.trim() ?? '' : '';
       const shareLink = await createShareLink(
         {
-          nodeIds: shareCreateTargets.map((target) => target.id),
-          title: values.title?.trim() || (shareCreateTargets.length === 1
-            ? shareCreateTargets[0].name
+          nodeIds: uniqueTargets.map((target) => target.id),
+          title: values.title?.trim() || (uniqueTargets.length === 1
+            ? uniqueTargets[0].name
             : '批量分享'),
           password: values.passwordEnabled ? normalizedPassword : null,
           expiresInDays: values.expiresInDays,

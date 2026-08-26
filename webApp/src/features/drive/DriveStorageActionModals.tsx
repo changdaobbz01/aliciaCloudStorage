@@ -2,6 +2,7 @@ import { Form, Input, Modal, TreeSelect } from 'antd';
 import type { FormInstance } from 'antd/es/form';
 import { AliciaModalTitle } from '../../components/AliciaModalTitle';
 import type { CreateFolderPayload, RenameNodePayload, StorageNode } from '../../types';
+import { validateStorageNodeName } from './cloudOperationPolicy';
 import type { FolderTreeNode } from './types';
 
 type MoveNodeFormValues = {
@@ -25,6 +26,17 @@ type DriveStorageActionModalsProps = {
   onCloseMove: () => void;
   onSubmitMove: (values: MoveNodeFormValues) => void | Promise<unknown>;
 };
+
+function storageNodeNameRule(currentName?: string | null) {
+  return {
+    validator: async (_: unknown, value?: string) => {
+      const validation = validateStorageNodeName(value ?? '', currentName);
+      if (!validation.valid) {
+        throw new Error(validation.message);
+      }
+    },
+  };
+}
 
 export function DriveStorageActionModals({
   createFolderOpen,
@@ -59,7 +71,7 @@ export function DriveStorageActionModals({
           <Form.Item
             name="folderName"
             label="文件夹名称"
-            rules={[{ required: true, message: '请输入文件夹名称。' }]}
+            rules={[storageNodeNameRule()]}
           >
             <Input placeholder="例如：项目资料" />
           </Form.Item>
@@ -80,10 +92,7 @@ export function DriveStorageActionModals({
           <Form.Item
             name="name"
             label="名称"
-            rules={[
-              { required: true, message: '请输入名称。' },
-              { max: 255, message: '名称长度不能超过 255 个字符。' },
-            ]}
+            rules={[storageNodeNameRule(renameTarget?.name)]}
           >
             <Input />
           </Form.Item>
