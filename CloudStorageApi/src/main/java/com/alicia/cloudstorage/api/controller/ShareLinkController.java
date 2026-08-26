@@ -126,11 +126,7 @@ public class ShareLinkController {
                 fileId,
                 shareAccessToken
         );
-        MediaType mediaType = MediaType.APPLICATION_OCTET_STREAM;
-
-        if (downloadPayload.contentType() != null && !downloadPayload.contentType().isBlank()) {
-            mediaType = MediaType.parseMediaType(downloadPayload.contentType());
-        }
+        MediaType mediaType = DownloadResponseMediaTypes.resolve(downloadPayload.contentType());
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.CACHE_CONTROL, VERSIONED_PRIVATE_FILE_CACHE_CONTROL)

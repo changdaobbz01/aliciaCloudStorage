@@ -28,6 +28,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -330,6 +332,29 @@ class StorageCommandServiceTest {
     }
 
     @Test
+    void uploadFileDeletesCosObjectWhenMetadataSaveFails() {
+        Long userId = 6L;
+        MockMultipartFile file = new MockMultipartFile(
+                "file",
+                "photo.png",
+                "image/png",
+                new byte[]{1, 2, 3}
+        );
+
+        when(storageNodeRepository.existsActiveSiblingName(userId, null, "photo.png")).thenReturn(false);
+        when(cosFileStorageService.uploadUserFile(userId, file, "photo.png"))
+                .thenReturn(new CosFileStorageService.StoredCosFile("cos/orphan-photo.png", "image/png", 3L));
+        when(storageNodeRepository.save(any(StorageNode.class))).thenThrow(new IllegalStateException("db down"));
+
+        assertThatThrownBy(() -> storageCommandService.uploadFile(userId, null, file))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("db down");
+
+        verify(cosFileStorageService).deleteObjectQuietly("cos/orphan-photo.png");
+        verify(storageNodeEventPublisher, never()).publishUpsert(any(StorageNode.class));
+    }
+
+    @Test
     void createFileAccessUrlRejectsMissingFileWithReadableMessage() {
         Long userId = 6L;
         when(storageNodeRepository.findByIdAndOwnerIdAndDeletedFalse(404L, userId)).thenReturn(Optional.empty());
@@ -475,14 +500,36 @@ class StorageCommandServiceTest {
 
         storageCommandService.permanentlyDeleteNode(userId, 61L);
 
-        verify(cosFileStorageService).deleteObjectQuietly("cos/v1.sketch");
-        verify(cosFileStorageService).deleteObjectQuietly("cos/readme.txt");
-
         ArgumentCaptor<List<StorageNode>> deletedNodesCaptor = ArgumentCaptor.forClass(List.class);
         verify(storageNodeRepository).deleteAll(deletedNodesCaptor.capture());
         assertThat(deletedNodesCaptor.getValue())
                 .extracting(StorageNode::getId)
                 .containsExactly(64L, 63L, 62L, 61L);
+
+        var inOrder = inOrder(storageNodeRepository, storageNodeEventPublisher, cosFileStorageService);
+        inOrder.verify(storageNodeRepository).deleteAll(deletedNodesCaptor.getValue());
+        inOrder.verify(storageNodeEventPublisher).publishRemove(List.of(nestedFile, siblingFile));
+        inOrder.verify(cosFileStorageService).deleteObjectQuietly("cos/v1.sketch");
+        inOrder.verify(cosFileStorageService).deleteObjectQuietly("cos/readme.txt");
+    }
+
+    @Test
+    void permanentlyDeleteNodeDoesNotDeleteCosObjectsWhenMetadataDeleteFails() {
+        Long userId = 12L;
+        StorageNode deletedFile = fileNode(65L, userId, null, "README.txt", "cos/readme.txt");
+        deletedFile.setDeleted(true);
+
+        when(storageNodeRepository.findByOwnerIdAndIdInAndDeletedTrue(userId, List.of(65L)))
+                .thenReturn(List.of(deletedFile));
+        when(storageNodeRepository.findByOwnerIdAndParentId(userId, 65L)).thenReturn(List.of());
+        doThrow(new IllegalStateException("db down")).when(storageNodeRepository).deleteAll(anyList());
+
+        assertThatThrownBy(() -> storageCommandService.permanentlyDeleteNode(userId, 65L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("db down");
+
+        verify(cosFileStorageService, never()).deleteObjectQuietly("cos/readme.txt");
+        verify(storageNodeEventPublisher, never()).publishRemove(anyList());
     }
 
     @Test

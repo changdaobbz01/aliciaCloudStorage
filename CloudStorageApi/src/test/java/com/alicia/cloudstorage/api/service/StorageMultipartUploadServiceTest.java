@@ -272,6 +272,28 @@ class StorageMultipartUploadServiceTest {
         verify(cosFileStorageService).completeMultipartUpload(eq("cos/design.pdf"), eq("cos-upload-105"), any());
     }
 
+    @Test
+    void completeMultipartUploadDeletesMergedCosObjectWhenMetadataSaveFails() {
+        Long userId = 23L;
+        MultipartUploadSession session = uploadSession(106L, userId, null, "token-6", "design.pdf", 8L, 5L, 2);
+        MultipartUploadPart firstPart = uploadPart(106L, 1, 5L, "etag-1");
+        MultipartUploadPart secondPart = uploadPart(106L, 2, 3L, "etag-2");
+
+        when(multipartUploadSessionRepository.findByUploadTokenAndOwnerId("token-6", userId)).thenReturn(Optional.of(session));
+        when(storageNodeRepository.existsActiveSiblingName(userId, null, "design.pdf")).thenReturn(false);
+        when(multipartUploadPartRepository.findBySessionIdOrderByPartNumberAsc(106L)).thenReturn(List.of(firstPart, secondPart));
+        when(storageNodeRepository.save(any(StorageNode.class))).thenThrow(new IllegalStateException("db down"));
+
+        assertThatThrownBy(() -> storageMultipartUploadService.completeMultipartUpload(userId, "token-6"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("db down");
+
+        verify(cosFileStorageService).completeMultipartUpload(eq("cos/design.pdf"), eq("cos-upload-106"), any());
+        verify(cosFileStorageService).deleteObjectQuietly("cos/design.pdf");
+        verify(multipartUploadSessionRepository, never()).save(session);
+        verify(storageNodeEventPublisher, never()).publishUpsert(any(StorageNode.class));
+    }
+
     private MultipartUploadSession uploadSession(
             Long id,
             Long ownerId,

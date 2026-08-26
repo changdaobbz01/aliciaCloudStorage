@@ -582,14 +582,15 @@ public class StorageCommandService {
         }
 
         List<StorageNode> removedFileNodes = filterFileNodes(subtreeNodes);
-        removedFileNodes.stream()
+        List<String> removedObjectKeys = removedFileNodes.stream()
                 .map(StorageNode::getStoragePath)
                 .filter(storagePath -> storagePath != null && !storagePath.isBlank())
-                .forEach(cosFileStorageService::deleteObjectQuietly);
+                .toList();
 
         Collections.reverse(subtreeNodes);
         storageNodeRepository.deleteAll(subtreeNodes);
         storageNodeEventPublisher.publishRemove(removedFileNodes);
+        removedObjectKeys.forEach(cosFileStorageService::deleteObjectQuietly);
         return rootNodes.size();
     }
 
