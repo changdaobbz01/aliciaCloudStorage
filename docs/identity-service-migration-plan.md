@@ -1029,6 +1029,7 @@ Android：
 - `/api/cloud-profile/me`
 - `/api/admin/cloud-users`
 - `/api/storage/overview`
+- `/api/share-links/**`
 - `/rag/api/health`
 - `/`
 - `/login`
@@ -1039,6 +1040,14 @@ Android：
 ```bash
 bash deploy/scripts/verify-identity-cloud-routes.sh
 ```
+
+分享链路专项回归可执行：
+
+```bash
+bash deploy/scripts/verify-cloud-share-flow.sh
+```
+
+该脚本覆盖临时文件创建、分享创建、公开状态、提取码、详情、下载 URL、直连下载、文件夹 ZIP、保存到网盘、撤销和测试数据清理。
 
 提交或部署前可先执行静态边界扫描：
 
