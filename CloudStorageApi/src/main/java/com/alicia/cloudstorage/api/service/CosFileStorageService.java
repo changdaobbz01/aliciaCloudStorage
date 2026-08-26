@@ -383,9 +383,6 @@ public class CosFileStorageService {
         }
     }
 
-    /**
-     * 当元数据入库失败时，尝试删除已经上传到 COS 的孤立对象。
-     */
     public PresignedCosUrl createInlineDownloadUrl(String objectKey, String contentType, String fileName) {
         return createPresignedGetUrl(objectKey, contentType, fileName, false);
     }
@@ -394,19 +391,32 @@ public class CosFileStorageService {
         return createPresignedGetUrl(objectKey, contentType, fileName, true);
     }
 
-    public void deleteObjectQuietly(String objectKey) {
-        if (!hasText(objectKey) || !hasText(secretId) || !hasText(secretKey) || !hasText(region) || !hasText(bucket)) {
-            return;
+    public void deleteObject(String objectKey) {
+        validateCosConfig();
+        if (!hasText(objectKey)) {
+            throw new IllegalArgumentException("Object key is required.");
         }
 
         COSClient cosClient = createCosClient();
 
         try {
             cosClient.deleteObject(bucket.trim(), objectKey.trim());
-        } catch (Exception ignored) {
-            // 清理孤立对象失败时不影响主流程。
+        } catch (CosClientException exception) {
+            throw buildCosStorageException("删除文件", exception);
         } finally {
             cosClient.shutdown();
+        }
+    }
+
+    public void deleteObjectQuietly(String objectKey) {
+        if (!hasText(objectKey) || !hasText(secretId) || !hasText(secretKey) || !hasText(region) || !hasText(bucket)) {
+            return;
+        }
+
+        try {
+            deleteObject(objectKey);
+        } catch (Exception ignored) {
+            // 清理孤立对象失败时不影响主流程。
         }
     }
 

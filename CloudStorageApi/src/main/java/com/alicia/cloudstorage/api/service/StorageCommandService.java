@@ -9,10 +9,13 @@ import com.alicia.cloudstorage.api.dto.CreateFolderRequest;
 import com.alicia.cloudstorage.api.dto.MoveNodeRequest;
 import com.alicia.cloudstorage.api.dto.RenameNodeRequest;
 import com.alicia.cloudstorage.api.dto.StorageNodeSummaryResponse;
+import com.alicia.cloudstorage.api.entity.CloudObjectCleanupSource;
 import com.alicia.cloudstorage.api.entity.NodeType;
 import com.alicia.cloudstorage.api.entity.StorageNode;
 import com.alicia.cloudstorage.api.repository.StorageNodeRepository;
 import com.alicia.cloudstorage.api.storage.StorageNodeEventPublisher;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -34,23 +37,27 @@ import java.util.UUID;
 @Transactional
 public class StorageCommandService {
 
+    private static final Logger log = LoggerFactory.getLogger(StorageCommandService.class);
     private static final int MAX_BATCH_NODE_OPERATION_ITEMS = 500;
 
     private final StorageNodeRepository storageNodeRepository;
     private final CosFileStorageService cosFileStorageService;
     private final StorageQuotaService storageQuotaService;
     private final StorageNodeEventPublisher storageNodeEventPublisher;
+    private final CloudObjectCleanupService cloudObjectCleanupService;
 
     public StorageCommandService(
             StorageNodeRepository storageNodeRepository,
             CosFileStorageService cosFileStorageService,
             StorageQuotaService storageQuotaService,
-            StorageNodeEventPublisher storageNodeEventPublisher
+            StorageNodeEventPublisher storageNodeEventPublisher,
+            CloudObjectCleanupService cloudObjectCleanupService
     ) {
         this.storageNodeRepository = storageNodeRepository;
         this.cosFileStorageService = cosFileStorageService;
         this.storageQuotaService = storageQuotaService;
         this.storageNodeEventPublisher = storageNodeEventPublisher;
+        this.cloudObjectCleanupService = cloudObjectCleanupService;
     }
 
     /**
@@ -109,7 +116,7 @@ public class StorageCommandService {
             storageNodeEventPublisher.publishUpsert(savedFileNode);
             return toSummary(savedFileNode);
         } catch (RuntimeException exception) {
-            cosFileStorageService.deleteObjectQuietly(storedCosFile.objectKey());
+            trackCleanupNow(List.of(storedCosFile.objectKey()), CloudObjectCleanupSource.UPLOAD_METADATA_ROLLBACK);
             throw exception;
         }
     }
@@ -381,7 +388,7 @@ public class StorageCommandService {
             storageNodeEventPublisher.publishUpsert(copiedRoots, true);
             return copiedRoots.stream().map(this::toSummary).toList();
         } catch (RuntimeException exception) {
-            copiedObjectKeys.forEach(cosFileStorageService::deleteObjectQuietly);
+            trackCleanupNow(copiedObjectKeys, CloudObjectCleanupSource.SHARE_SAVE_ROLLBACK);
             throw exception;
         }
     }
@@ -588,10 +595,19 @@ public class StorageCommandService {
                 .toList();
 
         Collections.reverse(subtreeNodes);
+        cloudObjectCleanupService.trackAndDeleteAfterCommit(removedObjectKeys, CloudObjectCleanupSource.PERMANENT_DELETE);
         storageNodeRepository.deleteAll(subtreeNodes);
         storageNodeEventPublisher.publishRemove(removedFileNodes);
-        removedObjectKeys.forEach(cosFileStorageService::deleteObjectQuietly);
         return rootNodes.size();
+    }
+
+    private void trackCleanupNow(List<String> objectKeys, CloudObjectCleanupSource source) {
+        try {
+            cloudObjectCleanupService.trackAndDeleteNow(objectKeys, source);
+        } catch (RuntimeException cleanupException) {
+            log.warn("Failed to register cloud object cleanup for source {}: {}", source, cleanupException.getMessage());
+            objectKeys.forEach(cosFileStorageService::deleteObjectQuietly);
+        }
     }
 
     private List<StorageNode> filterFileNodes(List<StorageNode> nodes) {

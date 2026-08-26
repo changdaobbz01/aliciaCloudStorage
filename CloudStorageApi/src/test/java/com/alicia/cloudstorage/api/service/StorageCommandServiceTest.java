@@ -6,6 +6,7 @@ import com.alicia.cloudstorage.api.dto.BatchRenameNodeItem;
 import com.alicia.cloudstorage.api.dto.BatchRenameNodeRequest;
 import com.alicia.cloudstorage.api.dto.MoveNodeRequest;
 import com.alicia.cloudstorage.api.dto.RenameNodeRequest;
+import com.alicia.cloudstorage.api.entity.CloudObjectCleanupSource;
 import com.alicia.cloudstorage.api.entity.NodeType;
 import com.alicia.cloudstorage.api.entity.StorageNode;
 import com.alicia.cloudstorage.api.repository.StorageNodeRepository;
@@ -50,6 +51,9 @@ class StorageCommandServiceTest {
     @Mock
     private StorageNodeEventPublisher storageNodeEventPublisher;
 
+    @Mock
+    private CloudObjectCleanupService cloudObjectCleanupService;
+
     @InjectMocks
     private StorageCommandService storageCommandService;
 
@@ -59,7 +63,8 @@ class StorageCommandServiceTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("请选择要上传的文件。");
 
-        verifyNoInteractions(storageNodeRepository, cosFileStorageService, storageQuotaService, storageNodeEventPublisher);
+        verifyNoInteractions(storageNodeRepository, cosFileStorageService, storageQuotaService,
+                storageNodeEventPublisher, cloudObjectCleanupService);
     }
 
     @Test
@@ -68,7 +73,8 @@ class StorageCommandServiceTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("请求内容不能为空。");
 
-        verifyNoInteractions(storageNodeRepository, cosFileStorageService, storageQuotaService, storageNodeEventPublisher);
+        verifyNoInteractions(storageNodeRepository, cosFileStorageService, storageQuotaService,
+                storageNodeEventPublisher, cloudObjectCleanupService);
     }
 
     @Test
@@ -77,7 +83,8 @@ class StorageCommandServiceTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("请求内容不能为空。");
 
-        verifyNoInteractions(storageNodeRepository, cosFileStorageService, storageQuotaService, storageNodeEventPublisher);
+        verifyNoInteractions(storageNodeRepository, cosFileStorageService, storageQuotaService,
+                storageNodeEventPublisher, cloudObjectCleanupService);
     }
 
     @Test
@@ -86,7 +93,8 @@ class StorageCommandServiceTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("请求内容不能为空。");
 
-        verifyNoInteractions(storageNodeRepository, cosFileStorageService, storageQuotaService, storageNodeEventPublisher);
+        verifyNoInteractions(storageNodeRepository, cosFileStorageService, storageQuotaService,
+                storageNodeEventPublisher, cloudObjectCleanupService);
     }
 
     @Test
@@ -95,7 +103,8 @@ class StorageCommandServiceTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("请求内容不能为空。");
 
-        verifyNoInteractions(storageNodeRepository, cosFileStorageService, storageQuotaService, storageNodeEventPublisher);
+        verifyNoInteractions(storageNodeRepository, cosFileStorageService, storageQuotaService,
+                storageNodeEventPublisher, cloudObjectCleanupService);
     }
 
     @Test
@@ -115,7 +124,8 @@ class StorageCommandServiceTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("单次最多处理 500 个项目。");
 
-        verifyNoInteractions(storageNodeRepository, cosFileStorageService, storageQuotaService, storageNodeEventPublisher);
+        verifyNoInteractions(storageNodeRepository, cosFileStorageService, storageQuotaService,
+                storageNodeEventPublisher, cloudObjectCleanupService);
     }
 
     @Test
@@ -131,7 +141,8 @@ class StorageCommandServiceTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("单次最多重命名 500 个项目。");
 
-        verifyNoInteractions(storageNodeRepository, cosFileStorageService, storageQuotaService, storageNodeEventPublisher);
+        verifyNoInteractions(storageNodeRepository, cosFileStorageService, storageQuotaService,
+                storageNodeEventPublisher, cloudObjectCleanupService);
     }
 
     @Test
@@ -143,7 +154,8 @@ class StorageCommandServiceTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("项目编号不能为空。");
 
-        verifyNoInteractions(storageNodeRepository, cosFileStorageService, storageQuotaService, storageNodeEventPublisher);
+        verifyNoInteractions(storageNodeRepository, cosFileStorageService, storageQuotaService,
+                storageNodeEventPublisher, cloudObjectCleanupService);
     }
 
     @Test
@@ -155,7 +167,8 @@ class StorageCommandServiceTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("名称不能为空。");
 
-        verifyNoInteractions(storageNodeRepository, cosFileStorageService, storageQuotaService, storageNodeEventPublisher);
+        verifyNoInteractions(storageNodeRepository, cosFileStorageService, storageQuotaService,
+                storageNodeEventPublisher, cloudObjectCleanupService);
     }
 
     @Test
@@ -350,7 +363,11 @@ class StorageCommandServiceTest {
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("db down");
 
-        verify(cosFileStorageService).deleteObjectQuietly("cos/orphan-photo.png");
+        verify(cloudObjectCleanupService).trackAndDeleteNow(
+                List.of("cos/orphan-photo.png"),
+                CloudObjectCleanupSource.UPLOAD_METADATA_ROLLBACK
+        );
+        verify(cosFileStorageService, never()).deleteObjectQuietly("cos/orphan-photo.png");
         verify(storageNodeEventPublisher, never()).publishUpsert(any(StorageNode.class));
     }
 
@@ -506,11 +523,15 @@ class StorageCommandServiceTest {
                 .extracting(StorageNode::getId)
                 .containsExactly(64L, 63L, 62L, 61L);
 
-        var inOrder = inOrder(storageNodeRepository, storageNodeEventPublisher, cosFileStorageService);
+        var inOrder = inOrder(cloudObjectCleanupService, storageNodeRepository, storageNodeEventPublisher);
+        inOrder.verify(cloudObjectCleanupService).trackAndDeleteAfterCommit(
+                List.of("cos/v1.sketch", "cos/readme.txt"),
+                CloudObjectCleanupSource.PERMANENT_DELETE
+        );
         inOrder.verify(storageNodeRepository).deleteAll(deletedNodesCaptor.getValue());
         inOrder.verify(storageNodeEventPublisher).publishRemove(List.of(nestedFile, siblingFile));
-        inOrder.verify(cosFileStorageService).deleteObjectQuietly("cos/v1.sketch");
-        inOrder.verify(cosFileStorageService).deleteObjectQuietly("cos/readme.txt");
+        verify(cosFileStorageService, never()).deleteObjectQuietly("cos/v1.sketch");
+        verify(cosFileStorageService, never()).deleteObjectQuietly("cos/readme.txt");
     }
 
     @Test
@@ -528,6 +549,10 @@ class StorageCommandServiceTest {
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("db down");
 
+        verify(cloudObjectCleanupService).trackAndDeleteAfterCommit(
+                List.of("cos/readme.txt"),
+                CloudObjectCleanupSource.PERMANENT_DELETE
+        );
         verify(cosFileStorageService, never()).deleteObjectQuietly("cos/readme.txt");
         verify(storageNodeEventPublisher, never()).publishRemove(anyList());
     }

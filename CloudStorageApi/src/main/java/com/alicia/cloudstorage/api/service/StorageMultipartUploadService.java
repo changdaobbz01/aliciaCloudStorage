@@ -5,6 +5,7 @@ import com.alicia.cloudstorage.api.dto.CreateMultipartUploadRequest;
 import com.alicia.cloudstorage.api.dto.MultipartUploadPartResponse;
 import com.alicia.cloudstorage.api.dto.MultipartUploadStatusResponse;
 import com.alicia.cloudstorage.api.dto.StorageNodeSummaryResponse;
+import com.alicia.cloudstorage.api.entity.CloudObjectCleanupSource;
 import com.alicia.cloudstorage.api.entity.MultipartUploadPart;
 import com.alicia.cloudstorage.api.entity.MultipartUploadSession;
 import com.alicia.cloudstorage.api.entity.MultipartUploadStatus;
@@ -43,6 +44,7 @@ public class StorageMultipartUploadService {
     private final CosFileStorageService cosFileStorageService;
     private final StorageQuotaService storageQuotaService;
     private final StorageNodeEventPublisher storageNodeEventPublisher;
+    private final CloudObjectCleanupService cloudObjectCleanupService;
     private final boolean cleanupEnabled;
     private final long staleHours;
 
@@ -53,6 +55,7 @@ public class StorageMultipartUploadService {
             CosFileStorageService cosFileStorageService,
             StorageQuotaService storageQuotaService,
             StorageNodeEventPublisher storageNodeEventPublisher,
+            CloudObjectCleanupService cloudObjectCleanupService,
             @Value("${alicia.multipart-upload.cleanup-enabled:true}") boolean cleanupEnabled,
             @Value("${alicia.multipart-upload.stale-hours:24}") long staleHours
     ) {
@@ -62,6 +65,7 @@ public class StorageMultipartUploadService {
         this.cosFileStorageService = cosFileStorageService;
         this.storageQuotaService = storageQuotaService;
         this.storageNodeEventPublisher = storageNodeEventPublisher;
+        this.cloudObjectCleanupService = cloudObjectCleanupService;
         this.cleanupEnabled = cleanupEnabled;
         this.staleHours = staleHours;
     }
@@ -198,7 +202,7 @@ public class StorageMultipartUploadService {
 
             return toSummary(savedNode);
         } catch (RuntimeException exception) {
-            cosFileStorageService.deleteObjectQuietly(session.getObjectKey());
+            trackCleanupNow(List.of(session.getObjectKey()), CloudObjectCleanupSource.MULTIPART_METADATA_ROLLBACK);
             throw exception;
         }
     }
@@ -493,6 +497,15 @@ public class StorageMultipartUploadService {
         node.setDeletedAt(null);
         node.setDeletedBy(null);
         node.setOriginalParentId(null);
+    }
+
+    private void trackCleanupNow(List<String> objectKeys, CloudObjectCleanupSource source) {
+        try {
+            cloudObjectCleanupService.trackAndDeleteNow(objectKeys, source);
+        } catch (RuntimeException cleanupException) {
+            log.warn("Failed to register cloud object cleanup for source {}: {}", source, cleanupException.getMessage());
+            objectKeys.forEach(cosFileStorageService::deleteObjectQuietly);
+        }
     }
 
     private MultipartUploadStatusResponse toStatusResponse(MultipartUploadSession session) {

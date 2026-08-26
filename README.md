@@ -17,6 +17,7 @@
 - Web 和 Android 客户端已对齐服务端文件操作边界：批量移动/删除/恢复/彻底删除最多 500 项，ZIP 打包下载最多 100 项，单个分享最多 20 项，分享保存最多 500 项
 - 支持普通上传和大文件分片上传
 - 支持断点续传、上传队列、总进度、单文件进度、失败继续、取消当前上传
+- 支持 COS 对象清理补偿队列，上传/分片/分享回滚和彻底删除会登记后台重试任务，减少元数据与对象存储不一致
 - 普通用户按个人配额校验上传空间，管理员账号不受个人配额限制
 - 支持用户头像和主页背景图上传，并与账号关联
 - 支持 Android APK 版本发布，安装包存储在 COS，后端保留版本记录和短期签名下载入口
@@ -319,7 +320,7 @@ bash deploy/scripts/update-main-and-cloud-production.sh
 bash deploy/scripts/collect-production-status.sh
 ```
 
-该脚本会汇总当前 Git 版本、tracked 文件状态、Compose 容器、磁盘与 Docker 占用、Cloud/Identity/RAG 直连与前端健康、三侧依赖健康 JSON、Identity 审计日志脱敏摘要、Identity Flyway 历史和云盘库身份残留边界。默认不要求输入账号密码；如需在快照中追加完整登录链路验证，可设置 `ALICIA_STATUS_RUN_ROUTE_VERIFY=true`，如需追加静态边界检查可设置 `ALICIA_STATUS_RUN_BOUNDARY_CHECK=true`。生产更新脚本也支持 `ALICIA_COLLECT_STATUS_AFTER_UPDATE=true bash deploy/scripts/update-cloud-production.sh` 在更新后自动生成快照。
+该脚本会汇总当前 Git 版本、tracked 文件状态、Compose 容器、磁盘与 Docker 占用、Cloud/Identity/RAG 直连与前端健康、三侧依赖健康 JSON、Identity 审计日志脱敏摘要、Identity Flyway 历史、云盘库身份残留边界和 COS 对象清理补偿队列摘要。默认不要求输入账号密码；如需在快照中追加完整登录链路验证，可设置 `ALICIA_STATUS_RUN_ROUTE_VERIFY=true`，如需追加静态边界检查可设置 `ALICIA_STATUS_RUN_BOUNDARY_CHECK=true`。生产更新脚本也支持 `ALICIA_COLLECT_STATUS_AFTER_UPDATE=true bash deploy/scripts/update-cloud-production.sh` 在更新后自动生成快照。
 
 大更新或迁移前建议先生成一次只读生产备份：
 
@@ -329,7 +330,7 @@ bash deploy/scripts/backup-production-data.sh
 
 备份脚本会用 `mysqldump --single-transaction` 分别导出云盘库和 Identity 库，并把 `.env`、TLS 证书和 `deploy/generated/identity-rs256/` 下的签名密钥材料打包到 `deploy/generated/production-backups/<timestamp>/`。该目录被 git 忽略，脚本只打印文件路径，不输出密钥或配置内容。备份生成后默认会运行 `validate-production-backup.sh` 校验 `SHA256SUMS`、gzip dump、敏感配置 tar 和 manifest 关键字段；也可以手动执行 `bash deploy/scripts/validate-production-backup.sh` 校验最新备份。可用 `ALICIA_BACKUP_INCLUDE_ENV=false`、`ALICIA_BACKUP_INCLUDE_CERTS=false`、`ALICIA_BACKUP_INCLUDE_GENERATED_KEYS=false` 或 `ALICIA_VALIDATE_BACKUP_AFTER_CREATE=false` 调整备份/校验行为。`update-cloud-production.sh` 设置 `ALICIA_BACKUP_BEFORE_UPDATE=true` 时，会在重建容器前自动执行该备份脚本。
 
-生产更新 `api`、`identity`、`rag` 或前端路由后，可以使用统一回归脚本检查主域路径边界、主站 `/login`、云盘 `/cloudPan` 规范化跳转、`/cloudPan/login` 到统一登录的交接、CloudStorageApi 到 Identity 的依赖健康、Identity 数据库/Flyway 依赖健康、RAG 到 Identity/Storage 的依赖健康和 telemetry、登录续签、JWT `alg/iss/aud/kid` 元数据、JWKS 入口、应用级 `cloud` 与 `rag` 角色、RAG 访问权探针、RAG 内部契约 `RAG_ADMIN` 边界、刷新会话查询和指定撤销、云盘聚合资料、存储概览、管理员云盘用户入口、管理员云盘运营总览和分享/回收站/用户容量明细、Identity 应用角色与审计日志查询、会话撤销审计事件写入、Identity Flyway 迁移历史、旧身份路径 404、注销失效和审计日志最新行；生产 RS256 模式下，CloudStorageApi 会先用 Identity JWKS 对 access token 做本地预验签，再调用 Identity 做强一致状态确认：
+生产更新 `api`、`identity`、`rag` 或前端路由后，可以使用统一回归脚本检查主域路径边界、主站 `/login`、云盘 `/cloudPan` 规范化跳转、`/cloudPan/login` 到统一登录的交接、CloudStorageApi 到 Identity 的依赖健康、Identity 数据库/Flyway 依赖健康、RAG 到 Identity/Storage 的依赖健康和 telemetry、登录续签、JWT `alg/iss/aud/kid` 元数据、JWKS 入口、应用级 `cloud` 与 `rag` 角色、RAG 访问权探针、RAG 内部契约 `RAG_ADMIN` 边界、刷新会话查询和指定撤销、云盘聚合资料、存储概览、管理员云盘用户入口、管理员云盘运营总览和分享/回收站/用户容量明细、CloudStorageApi COS 对象清理补偿表、Identity 应用角色与审计日志查询、会话撤销审计事件写入、Identity Flyway 迁移历史、旧身份路径 404、注销失效和审计日志最新行；生产 RS256 模式下，CloudStorageApi 会先用 Identity JWKS 对 access token 做本地预验签，再调用 Identity 做强一致状态确认：
 
 ```bash
 bash deploy/scripts/verify-identity-cloud-routes.sh

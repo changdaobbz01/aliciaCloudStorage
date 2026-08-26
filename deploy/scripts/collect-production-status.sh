@@ -243,6 +243,19 @@ WHERE table_schema = DATABASE()
 GROUP BY table_name
 ORDER BY table_name;
 "
+
+    print_section "Cloud Object Cleanup Snapshot"
+    run_optional "cloud object cleanup queue summary" mysql_cloud_query "
+SELECT
+    status,
+    source,
+    COUNT(*) AS tasks,
+    MIN(next_retry_at) AS next_retry_at,
+    MAX(updated_at) AS latest_update
+FROM cloud_object_cleanup_task
+GROUP BY status, source
+ORDER BY status, source;
+"
 fi
 
 if [[ "$RUN_ROUTE_VERIFY" == "true" ]]; then

@@ -1,6 +1,7 @@
 package com.alicia.cloudstorage.api.service;
 
 import com.alicia.cloudstorage.api.dto.CreateMultipartUploadRequest;
+import com.alicia.cloudstorage.api.entity.CloudObjectCleanupSource;
 import com.alicia.cloudstorage.api.entity.MultipartUploadPart;
 import com.alicia.cloudstorage.api.entity.MultipartUploadSession;
 import com.alicia.cloudstorage.api.entity.MultipartUploadStatus;
@@ -52,6 +53,9 @@ class StorageMultipartUploadServiceTest {
     @Mock
     private StorageNodeEventPublisher storageNodeEventPublisher;
 
+    @Mock
+    private CloudObjectCleanupService cloudObjectCleanupService;
+
     private StorageMultipartUploadService storageMultipartUploadService;
 
     @BeforeEach
@@ -63,6 +67,7 @@ class StorageMultipartUploadServiceTest {
                 cosFileStorageService,
                 storageQuotaService,
                 storageNodeEventPublisher,
+                cloudObjectCleanupService,
                 true,
                 24L
         );
@@ -75,7 +80,7 @@ class StorageMultipartUploadServiceTest {
                 .hasMessage("请求内容不能为空。");
 
         verifyNoInteractions(storageNodeRepository, multipartUploadSessionRepository, multipartUploadPartRepository,
-                cosFileStorageService, storageQuotaService, storageNodeEventPublisher);
+                cosFileStorageService, storageQuotaService, storageNodeEventPublisher, cloudObjectCleanupService);
     }
 
     @Test
@@ -90,7 +95,7 @@ class StorageMultipartUploadServiceTest {
                 .hasMessage("文件大小不能为空。");
 
         verifyNoInteractions(multipartUploadSessionRepository, multipartUploadPartRepository,
-                cosFileStorageService, storageQuotaService, storageNodeEventPublisher);
+                cosFileStorageService, storageQuotaService, storageNodeEventPublisher, cloudObjectCleanupService);
     }
 
     @Test
@@ -289,7 +294,11 @@ class StorageMultipartUploadServiceTest {
                 .hasMessage("db down");
 
         verify(cosFileStorageService).completeMultipartUpload(eq("cos/design.pdf"), eq("cos-upload-106"), any());
-        verify(cosFileStorageService).deleteObjectQuietly("cos/design.pdf");
+        verify(cloudObjectCleanupService).trackAndDeleteNow(
+                List.of("cos/design.pdf"),
+                CloudObjectCleanupSource.MULTIPART_METADATA_ROLLBACK
+        );
+        verify(cosFileStorageService, never()).deleteObjectQuietly("cos/design.pdf");
         verify(multipartUploadSessionRepository, never()).save(session);
         verify(storageNodeEventPublisher, never()).publishUpsert(any(StorageNode.class));
     }

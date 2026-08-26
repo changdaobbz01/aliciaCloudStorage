@@ -108,6 +108,19 @@ ALICIA_STORAGE_VERIFY_KEEP_TEST_DATA=true \
 
 Web 和 Android 客户端需与服务端保持同一操作边界：批量移动/删除/恢复/彻底删除最多 500 项，ZIP 打包下载最多 100 项。脚本会同时验证空选择和超量选择都被服务端拒绝，避免客户端放行后造成线上异常。
 
+如需观察 COS 对象清理补偿队列状态，可查看云盘库中的任务摘要：
+
+```bash
+sudo docker compose -f compose.yaml -f compose.https.yaml exec -T db sh -lc 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot "$MYSQL_DATABASE" -e "
+SELECT status, source, COUNT(*) AS tasks, MIN(next_retry_at) AS next_retry_at, MAX(updated_at) AS latest_update
+FROM cloud_object_cleanup_task
+GROUP BY status, source
+ORDER BY status, source;
+"'
+```
+
+该队列由上传/分片/分享回滚和回收站彻底删除自动登记，后台定时重试；生产验证不主动制造 COS 故障。
+
 ## 6. 分享链路专项验证
 
 用于改动分享创建、公开分享页、提取码、分享下载、保存到网盘或分享撤销后：

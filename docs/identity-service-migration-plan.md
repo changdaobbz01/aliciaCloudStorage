@@ -19,7 +19,7 @@
 1. 公共的是身份，不是让所有业务服务直接读写同一张用户表。
 2. Identity Service 是用户表、密码、邮箱验证码、登录令牌、刷新令牌、账号状态的唯一所有者。
 3. CloudStorageApi 只消费身份结果，不能再直接修改密码、验证码、邮箱、账号状态。
-4. 业务数据继续归业务服务所有。云盘的 `storage_node`、`share_link`、`multipart_upload_session` 等仍归云盘服务。
+4. 业务数据继续归业务服务所有。云盘的 `storage_node`、`share_link`、`multipart_upload_session`、`cloud_object_cleanup_task` 等仍归云盘服务。
 5. 继续保留现有用户 ID 作为全局 identity user ID，避免文件归属和分享归属大规模重写。
 6. 对外接口按职责分层：`/api/identity/**` 归 Identity，`/api/cloud-profile/**` 和 `/api/admin/cloud-users/**` 归云盘，`/api/storage/**`、`/api/share-links/**` 继续归云盘业务。
 
@@ -321,6 +321,7 @@ CloudStorageApi 负责：
 - 分享链接业务。
 - 文件下载、预览、访问 URL。
 - 上传任务和分片上传。
+- COS 对象清理补偿队列，用于上传/分片/分享回滚和彻底删除后的对象删除重试。
 - 云盘容量、活跃节点、回收站、分享和上传会话的管理员运营总览与明细查询。
 - 回收站。
 - 云盘使用量统计。

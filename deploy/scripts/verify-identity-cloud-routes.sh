@@ -408,6 +408,27 @@ SQL
     ok "cloud database identity residue removed"
 }
 
+verify_cloud_object_cleanup_table() {
+    local count
+    local cleanup_table_sql
+
+    cleanup_table_sql="$(cat <<'SQL'
+SELECT COUNT(*)
+FROM information_schema.tables
+WHERE table_schema = DATABASE()
+  AND table_name = 'cloud_object_cleanup_task';
+SQL
+)"
+
+    count="$(mysql_query "$CLOUD_MYSQL_DATABASE" "$cleanup_table_sql")" \
+        || fail "cloud object cleanup table query failed"
+    count="$(printf '%s' "$count" | tr -d '\r' | tail -n 1 | tr -d '[:space:]')"
+
+    [[ "${count:-0}" == "1" ]] || fail "cloud object cleanup task table is missing"
+
+    ok "cloud object cleanup task table migrated"
+}
+
 curl_json_or_fail() {
     local label="$1"
     shift
@@ -944,6 +965,7 @@ LIMIT 5;
     ok "identity Flyway history query completed"
     verify_identity_user_table_boundary
     verify_no_identity_table_foreign_keys
+    verify_cloud_object_cleanup_table
     if [[ "$REQUIRE_CLOUD_IDENTITY_TABLES_REMOVED" == "true" ]]; then
         verify_cloud_identity_tables_removed
     else
