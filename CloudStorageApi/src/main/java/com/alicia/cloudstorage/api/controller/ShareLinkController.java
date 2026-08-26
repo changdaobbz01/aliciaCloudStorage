@@ -80,7 +80,7 @@ public class ShareLinkController {
             @RequestAttribute(PrincipalRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
             @PathVariable String shareCode,
             @RequestHeader(value = SHARE_ACCESS_HEADER, required = false) String shareAccessToken,
-            @RequestBody(required = false) SaveShareLinkRequest request
+            @Valid @RequestBody(required = false) SaveShareLinkRequest request
     ) {
         return shareLinkService.saveShare(principal.userId(), shareCode, shareAccessToken, request);
     }

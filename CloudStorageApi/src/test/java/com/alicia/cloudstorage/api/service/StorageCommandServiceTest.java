@@ -29,6 +29,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -48,6 +49,15 @@ class StorageCommandServiceTest {
 
     @InjectMocks
     private StorageCommandService storageCommandService;
+
+    @Test
+    void uploadFileRejectsMissingMultipartFileBeforeTouchingStorage() {
+        assertThatThrownBy(() -> storageCommandService.uploadFile(7L, null, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("请选择要上传的文件。");
+
+        verifyNoInteractions(storageNodeRepository, cosFileStorageService, storageQuotaService, storageNodeEventPublisher);
+    }
 
     @Test
     void renameNodeUpdatesFileNameAndExtension() {
@@ -220,6 +230,32 @@ class StorageCommandServiceTest {
         assertThat(nodeCaptor.getValue().getNodeName()).isEqualTo("photo (1).png");
         assertThat(nodeCaptor.getValue().getStoragePath()).isEqualTo("cos/photo-copy.png");
         verify(storageNodeEventPublisher).publishUpsert(nodeCaptor.getValue());
+    }
+
+    @Test
+    void createFileAccessUrlRejectsMissingFileWithReadableMessage() {
+        Long userId = 6L;
+        when(storageNodeRepository.findByIdAndOwnerIdAndDeletedFalse(404L, userId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> storageCommandService.createFileAccessUrl(userId, 404L, true))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("文件不存在。");
+
+        verifyNoInteractions(cosFileStorageService);
+    }
+
+    @Test
+    void createFileAccessUrlRejectsFileWithoutStorageObject() {
+        Long userId = 6L;
+        StorageNode fileNode = fileNode(12L, userId, null, "lost.txt", "   ");
+
+        when(storageNodeRepository.findByIdAndOwnerIdAndDeletedFalse(12L, userId)).thenReturn(Optional.of(fileNode));
+
+        assertThatThrownBy(() -> storageCommandService.createFileAccessUrl(userId, 12L, true))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("文件未关联云端存储对象。");
+
+        verifyNoInteractions(cosFileStorageService);
     }
 
     @Test

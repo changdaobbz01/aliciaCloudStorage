@@ -429,7 +429,7 @@ public class ShareLinkService {
         for (Long selectedNodeId : selectedNodeIds) {
             StorageNode selectedNode = sharedNodeMap.get(selectedNodeId);
             if (selectedNode == null) {
-                throw new IllegalArgumentException("Selected share item is not available.");
+                throw new IllegalArgumentException("选择的分享内容不存在或已不可用。");
             }
             selectedNodes.add(selectedNode);
         }
@@ -439,17 +439,17 @@ public class ShareLinkService {
 
     private List<Long> normalizeSaveSelectedNodeIds(List<Long> rawSelectedNodeIds) {
         if (rawSelectedNodeIds == null || rawSelectedNodeIds.isEmpty()) {
-            throw new IllegalArgumentException("Please select at least one share item to save.");
+            throw new IllegalArgumentException("请至少选择一个分享项目。");
         }
 
         if (rawSelectedNodeIds.size() > MAX_SAVE_SELECTED_ITEMS) {
-            throw new IllegalArgumentException("Too many selected share items.");
+            throw new IllegalArgumentException("单次最多保存 500 个分享项目。");
         }
 
         LinkedHashSet<Long> uniqueNodeIds = new LinkedHashSet<>();
         for (Long rawSelectedNodeId : rawSelectedNodeIds) {
             if (rawSelectedNodeId == null) {
-                throw new IllegalArgumentException("Selected share item id must not be null.");
+                throw new IllegalArgumentException("分享项目编号不能为空。");
             }
             uniqueNodeIds.add(rawSelectedNodeId);
         }

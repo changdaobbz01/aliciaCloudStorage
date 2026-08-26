@@ -207,8 +207,20 @@ function throwApiError(response: Response, payload: unknown, options?: ApiReques
 /**
  * 发起一个返回 JSON 的请求，并在失败时抛出统一异常。
  */
+async function fetchWithReadableNetworkError(url: string, init?: RequestInit) {
+  try {
+    return await fetch(url, init);
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw error;
+    }
+
+    throw new Error('网络连接异常，请稍后重试。');
+  }
+}
+
 async function requestJson<T>(url: string, init?: RequestInit, options?: ApiRequestOptions): Promise<T> {
-  const response = await fetch(url, init);
+  const response = await fetchWithReadableNetworkError(url, init);
   const payload = await readBody(response);
 
   if (!response.ok) {
@@ -264,7 +276,7 @@ async function requestBlob(
   init?: RequestInit,
   options?: DownloadRequestOptions,
 ): Promise<{ blob: Blob; fileName: string | null }> {
-  const response = await fetch(url, options?.signal ? { ...init, signal: options.signal } : init);
+  const response = await fetchWithReadableNetworkError(url, options?.signal ? { ...init, signal: options.signal } : init);
 
   if (!response.ok) {
     const payload = await readBody(response);
@@ -902,7 +914,8 @@ export function downloadStorageFile(
 }
 
 /**
- * 鍚戝悗绔敵璇峰綋鍓嶆枃浠剁殑鐭椂鏈夋晥璁块棶鍦板潃锛屼緵鍓嶇鐩磋繛 COS 鍋氫笅杞芥垨棰勮銆? */
+ * 向后端申请当前文件的短时有效访问地址，供前端直连 COS 下载或预览。
+ */
 export function fetchStorageFileAccessUrl(
   fileId: number,
   token: string,

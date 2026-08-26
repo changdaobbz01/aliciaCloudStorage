@@ -73,7 +73,7 @@ public class StorageArchiveService {
         }
 
         if (entries.isEmpty()) {
-            throw new IllegalArgumentException("No available items to archive.");
+            throw new IllegalArgumentException("没有可下载的项目。");
         }
 
         return new ArchivePlan(entries);
@@ -88,7 +88,7 @@ public class StorageArchiveService {
             ArchiveLimitCounter limitCounter
     ) {
         if (depth > MAX_ARCHIVE_DEPTH) {
-            throw new IllegalArgumentException("Folder nesting is too deep to archive safely.");
+            throw new IllegalArgumentException("文件夹层级过深，暂不支持打包下载。");
         }
 
         if (node.getNodeType() == NodeType.FILE) {
@@ -194,7 +194,7 @@ public class StorageArchiveService {
     private List<StorageNode> loadOwnedActiveNodes(Long userId, List<Long> nodeIds) {
         List<StorageNode> foundNodes = storageNodeRepository.findByOwnerIdAndIdInAndDeletedFalse(userId, nodeIds);
         if (foundNodes.size() != nodeIds.size()) {
-            throw new IllegalArgumentException("Selected item does not exist or has been deleted.");
+            throw new IllegalArgumentException("选择的项目不存在或已被删除。");
         }
 
         Map<Long, StorageNode> nodeMap = new HashMap<>();
@@ -204,7 +204,7 @@ public class StorageArchiveService {
         for (Long nodeId : nodeIds) {
             StorageNode node = nodeMap.get(nodeId);
             if (node == null) {
-                throw new IllegalArgumentException("Selected item does not exist or has been deleted.");
+                throw new IllegalArgumentException("选择的项目不存在或已被删除。");
             }
             orderedNodes.add(node);
         }
@@ -214,17 +214,17 @@ public class StorageArchiveService {
 
     private List<Long> normalizeNodeIds(List<Long> rawNodeIds) {
         if (rawNodeIds == null || rawNodeIds.isEmpty()) {
-            throw new IllegalArgumentException("Please select at least one item.");
+            throw new IllegalArgumentException("请至少选择一个要下载的项目。");
         }
 
         if (rawNodeIds.size() > MAX_ARCHIVE_ROOTS) {
-            throw new IllegalArgumentException("Too many selected items for one archive.");
+            throw new IllegalArgumentException("单次最多打包下载 100 个项目。");
         }
 
         LinkedHashSet<Long> uniqueNodeIds = new LinkedHashSet<>();
         for (Long rawNodeId : rawNodeIds) {
             if (rawNodeId == null) {
-                throw new IllegalArgumentException("Selected item id must not be null.");
+                throw new IllegalArgumentException("项目编号不能为空。");
             }
             uniqueNodeIds.add(rawNodeId);
         }
@@ -264,7 +264,7 @@ public class StorageArchiveService {
 
     private void validateDownloadableFile(StorageNode node) {
         if (node.getStoragePath() == null || node.getStoragePath().isBlank()) {
-            throw new IllegalArgumentException("Selected file is not linked to cloud storage.");
+            throw new IllegalArgumentException("文件未关联云端存储对象。");
         }
     }
 
@@ -300,7 +300,7 @@ public class StorageArchiveService {
             }
         }
 
-        throw new IllegalArgumentException("Too many items with the same name in one folder.");
+        throw new IllegalArgumentException("同一目录下同名项目过多，暂无法打包下载。");
     }
 
     private String appendCopySuffix(String segment, int index) {
@@ -355,11 +355,11 @@ public class StorageArchiveService {
         void recordFile(Long rawFileSize) {
             long fileSize = Math.max(0L, rawFileSize == null ? 0L : rawFileSize);
             if (fileCount + 1 > MAX_ARCHIVE_FILES) {
-                throw new IllegalArgumentException("Archive contains too many files.");
+                throw new IllegalArgumentException("压缩包内文件数量过多，请减少选择后重试。");
             }
 
             if (totalBytes > MAX_ARCHIVE_BYTES - fileSize) {
-                throw new IllegalArgumentException("Archive is too large. Please select fewer items.");
+                throw new IllegalArgumentException("压缩包总大小超过 1 GB，请减少选择后重试。");
             }
 
             fileCount += 1;

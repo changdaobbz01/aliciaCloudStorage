@@ -46,9 +46,28 @@ class StorageArchiveServiceTest {
 
         assertThatThrownBy(() -> storageArchiveService.createArchive(7L, new BatchNodeRequest(List.of(99L))))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Selected item does not exist or has been deleted.");
+                .hasMessage("选择的项目不存在或已被删除。");
 
         verify(cosFileStorageService, never()).openFileStream(anyString());
+    }
+
+    @Test
+    void createArchiveDeduplicatesSelectedIdsBeforeLoadingNodes() throws Exception {
+        StorageNode file = fileNode(41L, 7L, null, "report.txt", "cos/report.txt", 5L);
+
+        when(storageNodeRepository.findByOwnerIdAndIdInAndDeletedFalse(7L, List.of(41L))).thenReturn(List.of(file));
+        when(cosFileStorageService.openFileStream("cos/report.txt"))
+                .thenReturn(new CosFileStorageService.DownloadedCosFile(
+                        new ByteArrayInputStream("hello".getBytes(StandardCharsets.UTF_8)),
+                        "text/plain",
+                        5L
+                ));
+
+        StorageArchiveService.StorageArchivePayload payload =
+                storageArchiveService.createArchive(7L, new BatchNodeRequest(List.of(41L, 41L)));
+
+        assertThat(payload.fileName()).isEqualTo("report.txt.zip");
+        verify(storageNodeRepository).findByOwnerIdAndIdInAndDeletedFalse(7L, List.of(41L));
     }
 
     @Test
@@ -109,6 +128,19 @@ class StorageArchiveServiceTest {
         assertThatThrownBy(() -> storageArchiveService.createArchive(7L, new BatchNodeRequest(List.of(31L))))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("COS down");
+    }
+
+    @Test
+    void createArchiveRejectsFileWithoutStorageObject() {
+        StorageNode file = fileNode(42L, 7L, null, "lost.txt", "   ", 6L);
+
+        when(storageNodeRepository.findByOwnerIdAndIdInAndDeletedFalse(7L, List.of(42L))).thenReturn(List.of(file));
+
+        assertThatThrownBy(() -> storageArchiveService.createArchive(7L, new BatchNodeRequest(List.of(42L))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("文件未关联云端存储对象。");
+
+        verify(cosFileStorageService, never()).openFileStream(anyString());
     }
 
     private ZipSnapshot writeAndReadZip(StorageArchiveService.StorageArchivePayload payload) throws Exception {

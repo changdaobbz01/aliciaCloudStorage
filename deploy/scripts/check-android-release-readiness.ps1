@@ -203,12 +203,18 @@ foreach ($app in $Apps) {
     )
 }
 $scanFiles = @(Get-TextFiles $scanRoots)
+$legacyRoutePattern = ((
+    "/api" + "/auth",
+    "api" + "/auth",
+    "/api/admin" + "/users",
+    "api/admin" + "/users"
+) | ForEach-Object { [regex]::Escape($_) }) -join "|"
 
 Assert-NoMatches `
     -Files $scanFiles `
-    -Pattern '(/api/auth|api/auth|/api/admin/users|api/admin/users)' `
+    -Pattern $legacyRoutePattern `
     -Description "Legacy identity/admin API route references remain in Android release files."
-Ok "no legacy /api/auth/** or /api/admin/users references in Android release files"
+Ok "no legacy identity/admin route references in Android release files"
 
 Assert-NoMatches `
     -Files $scanFiles `

@@ -74,6 +74,10 @@ public class StorageCommandService {
      * 接收前端上传文件，将文件写入 COS，并同步保存一条文件元数据记录。
      */
     public StorageNodeSummaryResponse uploadFile(Long userId, Long rawParentId, MultipartFile file) {
+        if (file == null) {
+            throw new IllegalArgumentException("请选择要上传的文件。");
+        }
+
         Long parentId = validateParentFolder(userId, rawParentId);
         String requestedFileName = extractFileName(file.getOriginalFilename());
         String fileName = StorageNodeNameResolver.resolveAvailableSiblingName(
@@ -136,19 +140,19 @@ public class StorageCommandService {
     }
 
     /**
-     * 修改当前用户自己的文件或文件夹名称，并同步维护文件后缀元数据。
+     * 创建文件的短时访问地址，供前端预览或直连下载。
      */
     @Transactional(readOnly = true)
     public StorageAccessUrlPayload createFileAccessUrl(Long userId, Long fileId, boolean attachment) {
         StorageNode fileNode = storageNodeRepository.findByIdAndOwnerIdAndDeletedFalse(fileId, userId)
-                .orElseThrow(() -> new IllegalArgumentException("File not found."));
+                .orElseThrow(() -> new IllegalArgumentException("文件不存在。"));
 
         if (fileNode.getNodeType() != NodeType.FILE) {
-            throw new IllegalArgumentException("The current node is not a file.");
+            throw new IllegalArgumentException("当前节点不是文件，无法下载。");
         }
 
         if (fileNode.getStoragePath() == null || fileNode.getStoragePath().isBlank()) {
-            throw new IllegalArgumentException("The file is not linked to cloud storage.");
+            throw new IllegalArgumentException("文件未关联云端存储对象。");
         }
 
         CosFileStorageService.PresignedCosUrl presignedUrl = attachment

@@ -118,6 +118,32 @@ class ShareLinkServiceTest {
     }
 
     @Test
+    void createShareDeduplicatesSelectedNodeIdsBeforeLoadingNodes() {
+        StorageNode file = fileNode(41L, 9L, null, "report.pdf", "cos/report.pdf");
+
+        when(storageNodeRepository.findByOwnerIdAndIdInAndDeletedFalse(9L, List.of(41L)))
+                .thenReturn(List.of(file));
+        doAnswer(invocation -> {
+            ShareLink shareLink = invocation.getArgument(0);
+            ReflectionTestUtils.setField(shareLink, "id", 102L);
+            ReflectionTestUtils.setField(shareLink, "createdAt", LocalDateTime.now());
+            ReflectionTestUtils.setField(shareLink, "updatedAt", LocalDateTime.now());
+            return shareLink;
+        }).when(shareLinkRepository).save(any(ShareLink.class));
+
+        var response = shareLinkService.createShareLink(
+                9L,
+                new CreateShareLinkRequest(List.of(41L, 41L), null, null, 7, true, true)
+        );
+
+        assertThat(response.itemCount()).isEqualTo(1L);
+        verify(storageNodeRepository).findByOwnerIdAndIdInAndDeletedFalse(9L, List.of(41L));
+        verify(shareLinkItemRepository).saveAll(org.mockito.ArgumentMatchers.argThat(items ->
+                matchesSavedItems(items, List.of(41L))
+        ));
+    }
+
+    @Test
     void createShareRejectsSelectionWhenAnyNodeIsUnavailable() {
         StorageNode available = fileNode(21L, 9L, null, "available.txt", "cos/available.txt");
         when(storageNodeRepository.findByOwnerIdAndIdInAndDeletedFalse(9L, List.of(21L, 22L)))
@@ -310,13 +336,72 @@ class ShareLinkServiceTest {
                 new SaveShareLinkRequest(null, List.of(99L))
         ))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Selected share item is not available.");
+                .hasMessage("选择的分享内容不存在或已不可用。");
 
         verify(storageCommandService, never()).copySharedNodesToUser(
                 org.mockito.ArgumentMatchers.anyLong(),
                 org.mockito.ArgumentMatchers.anyList(),
                 org.mockito.ArgumentMatchers.any()
         );
+    }
+
+    @Test
+    void saveShareRejectsNullSelectedItemIdWithReadableMessage() {
+        ShareLink shareLink = activeShare(10L, 9L, "share-code");
+        StorageNode sharedFile = fileNode(101L, 9L, null, "report.pdf", "cos/report.pdf");
+        ShareLinkItem shareItem = shareItem(10L, 101L);
+
+        when(shareLinkRepository.findByShareCode("share-code")).thenReturn(Optional.of(shareLink));
+        when(shareLinkItemRepository.findByShareIdOrderBySortOrderAsc(10L)).thenReturn(List.of(shareItem));
+        when(storageNodeRepository.findByIdAndOwnerIdAndDeletedFalse(101L, 9L)).thenReturn(Optional.of(sharedFile));
+
+        assertThatThrownBy(() -> shareLinkService.saveShare(
+                20L,
+                "share-code",
+                null,
+                new SaveShareLinkRequest(null, java.util.Arrays.asList(101L, null))
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("分享项目编号不能为空。");
+
+        verify(storageCommandService, never()).copySharedNodesToUser(
+                org.mockito.ArgumentMatchers.anyLong(),
+                org.mockito.ArgumentMatchers.anyList(),
+                org.mockito.ArgumentMatchers.any()
+        );
+    }
+
+    @Test
+    void saveShareDeduplicatesSelectedItemsBeforeCopying() {
+        ShareLink shareLink = activeShare(11L, 9L, "share-code");
+        StorageNode sharedFile = fileNode(111L, 9L, null, "report.pdf", "cos/report.pdf");
+        ShareLinkItem shareItem = shareItem(11L, 111L);
+        StorageNodeSummaryResponse copiedFile = new StorageNodeSummaryResponse(
+                112L,
+                null,
+                "report.pdf",
+                "FILE",
+                1024L,
+                "pdf",
+                "application/pdf",
+                LocalDateTime.now(),
+                null
+        );
+
+        when(shareLinkRepository.findByShareCode("share-code")).thenReturn(Optional.of(shareLink));
+        when(shareLinkItemRepository.findByShareIdOrderBySortOrderAsc(11L)).thenReturn(List.of(shareItem));
+        when(storageNodeRepository.findByIdAndOwnerIdAndDeletedFalse(111L, 9L)).thenReturn(Optional.of(sharedFile));
+        when(storageCommandService.copySharedNodesToUser(20L, List.of(sharedFile), null)).thenReturn(List.of(copiedFile));
+
+        var copiedNodes = shareLinkService.saveShare(
+                20L,
+                "share-code",
+                null,
+                new SaveShareLinkRequest(null, List.of(111L, 111L))
+        );
+
+        assertThat(copiedNodes).containsExactly(copiedFile);
+        verify(storageCommandService).copySharedNodesToUser(20L, List.of(sharedFile), null);
     }
 
     @Test
