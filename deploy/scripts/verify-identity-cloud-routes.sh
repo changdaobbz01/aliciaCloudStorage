@@ -835,6 +835,32 @@ else
         || fail "admin cloud operations overview did not expose multipart upload metrics"
     ok "admin cloud operations overview route accepts admin identity token"
     unset cloud_operations_response cloud_operations_compact
+    cloud_operation_shares_response="$(curl_json_or_fail "admin cloud operations share detail route" \
+        "$CLOUD_BASE_URL/api/admin/cloud-operations/shares?size=1" \
+        -H "Authorization: Bearer $TOKEN")"
+    cloud_operation_shares_compact="$(printf '%s' "$cloud_operation_shares_response" | tr -d '\n')"
+    printf '%s' "$cloud_operation_shares_compact" | grep -q '"items"[[:space:]]*:[[:space:]]*\[' \
+        || fail "admin cloud operations share detail did not expose paged items"
+    ok "admin cloud operations share detail route accepts admin identity token"
+    unset cloud_operation_shares_response cloud_operation_shares_compact
+    cloud_operation_trash_response="$(curl_json_or_fail "admin cloud operations trash detail route" \
+        "$CLOUD_BASE_URL/api/admin/cloud-operations/trash?size=1" \
+        -H "Authorization: Bearer $TOKEN")"
+    cloud_operation_trash_compact="$(printf '%s' "$cloud_operation_trash_response" | tr -d '\n')"
+    printf '%s' "$cloud_operation_trash_compact" | grep -q '"items"[[:space:]]*:[[:space:]]*\[' \
+        || fail "admin cloud operations trash detail did not expose paged items"
+    ok "admin cloud operations trash detail route accepts admin identity token"
+    unset cloud_operation_trash_response cloud_operation_trash_compact
+    cloud_operation_storage_users_response="$(curl_json_or_fail "admin cloud operations storage users route" \
+        "$CLOUD_BASE_URL/api/admin/cloud-operations/users/storage?size=1" \
+        -H "Authorization: Bearer $TOKEN")"
+    cloud_operation_storage_users_compact="$(printf '%s' "$cloud_operation_storage_users_response" | tr -d '\n')"
+    printf '%s' "$cloud_operation_storage_users_compact" | grep -q '"items"[[:space:]]*:[[:space:]]*\[' \
+        || fail "admin cloud operations storage users did not expose paged items"
+    printf '%s' "$cloud_operation_storage_users_compact" | grep -q '"usedBytes"[[:space:]]*:' \
+        || fail "admin cloud operations storage users did not expose usedBytes"
+    ok "admin cloud operations storage users route accepts admin identity token"
+    unset cloud_operation_storage_users_response cloud_operation_storage_users_compact
     curl_ok "identity audit logs admin route accepts admin identity token" \
         "$PUBLIC_BASE_URL/api/identity/admin/audit-logs?size=5" \
         -H "Authorization: Bearer $TOKEN"

@@ -44,7 +44,7 @@ bash deploy/scripts/verify-cloud-production-flows.sh
 
 - Identity / CloudStorageApi / RAG / Nginx 主域路径总回归
 - JWT `alg/iss/aud/kid`、RS256 JWKS、应用级角色、session revoke、logout
-- 云盘管理员运营总览：容量、回收站、分享和分片上传统计分区
+- 云盘管理员运营视图：容量、回收站、分享和分片上传统计总览，以及分享、回收站、用户容量明细接口
 - 云盘文件操作专项：上传、列表、下载、ZIP、重命名、移动、回收站、恢复、彻底删除
 - 分享链路专项：创建分享、提取码、详情、下载 URL、直连下载、ZIP、保存到网盘、撤销
 - 静态边界：旧 `/api/auth/**`、旧 `/api/admin/users`、旧 `sys_user` 引用不回流

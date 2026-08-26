@@ -3,14 +3,16 @@ package com.alicia.cloudstorage.api.repository;
 import com.alicia.cloudstorage.api.entity.ShareLink;
 import com.alicia.cloudstorage.api.entity.ShareLinkStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
-public interface ShareLinkRepository extends JpaRepository<ShareLink, Long> {
+public interface ShareLinkRepository extends JpaRepository<ShareLink, Long>, JpaSpecificationExecutor<ShareLink> {
 
     Optional<ShareLink> findByShareCode(String shareCode);
 
@@ -62,4 +64,20 @@ public interface ShareLinkRepository extends JpaRepository<ShareLink, Long> {
             from ShareLink link
             """)
     LocalDateTime findLatestAccessedAt();
+
+    @Query("""
+            select link.ownerId as ownerId,
+                   count(link.id) as linkCount
+            from ShareLink link
+            where link.ownerId in :ownerIds
+            group by link.ownerId
+            """)
+    List<OwnerShareLinkCountProjection> countShareLinksByOwnerIds(@Param("ownerIds") Collection<Long> ownerIds);
+
+    interface OwnerShareLinkCountProjection {
+
+        Long getOwnerId();
+
+        Long getLinkCount();
+    }
 }

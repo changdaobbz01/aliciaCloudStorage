@@ -173,6 +173,29 @@ public interface StorageNodeRepository extends JpaRepository<StorageNode, Long>,
     LocalDateTime findLatestDeletedAt();
 
     @Query("""
+            select node.ownerId as ownerId,
+                   count(node.id) as totalItems,
+                   coalesce(sum(case when node.nodeType = com.alicia.cloudstorage.api.entity.NodeType.FOLDER then 1 else 0 end), 0) as folderCount,
+                   coalesce(sum(case when node.nodeType = com.alicia.cloudstorage.api.entity.NodeType.FILE then 1 else 0 end), 0) as fileCount,
+                   coalesce(sum(case when node.nodeType = com.alicia.cloudstorage.api.entity.NodeType.FILE then node.fileSize else 0 end), 0) as usedBytes
+            from StorageNode node
+            where node.ownerId in :ownerIds
+              and node.deleted = false
+            group by node.ownerId
+            """)
+    List<OwnerNodeUsageProjection> summarizeActiveNodesByOwnerIds(@Param("ownerIds") Collection<Long> ownerIds);
+
+    @Query("""
+            select node.ownerId as ownerId,
+                   count(node.id) as itemCount
+            from StorageNode node
+            where node.ownerId in :ownerIds
+              and node.deleted = true
+            group by node.ownerId
+            """)
+    List<OwnerTrashCountProjection> countTrashNodesByOwnerIds(@Param("ownerIds") Collection<Long> ownerIds);
+
+    @Query("""
             select coalesce(sum(node.fileSize), 0)
             from StorageNode node
             where node.ownerId = :ownerId
@@ -201,4 +224,24 @@ public interface StorageNodeRepository extends JpaRepository<StorageNode, Long>,
               )
             """)
     Long sumActiveFileSizeAllOwnersAt(@Param("endOfDay") LocalDateTime endOfDay);
+
+    interface OwnerNodeUsageProjection {
+
+        Long getOwnerId();
+
+        Long getTotalItems();
+
+        Long getFolderCount();
+
+        Long getFileCount();
+
+        Long getUsedBytes();
+    }
+
+    interface OwnerTrashCountProjection {
+
+        Long getOwnerId();
+
+        Long getItemCount();
+    }
 }

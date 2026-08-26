@@ -244,7 +244,7 @@ https://windwindwind-alicia.cn/api/admin/cloud-users/**
   CloudStorageApi 管理员云盘用户聚合和容量
 
 https://windwindwind-alicia.cn/api/admin/cloud-operations/**
-  CloudStorageApi 管理员云盘运营总览
+  CloudStorageApi 管理员云盘运营总览、分享明细、回收站明细和用户容量明细
 
 https://windwindwind-alicia.cn/api/storage/**
   CloudStorageApi
@@ -321,7 +321,7 @@ CloudStorageApi 负责：
 - 分享链接业务。
 - 文件下载、预览、访问 URL。
 - 上传任务和分片上传。
-- 云盘容量、活跃节点、回收站、分享和上传会话的管理员运营总览。
+- 云盘容量、活跃节点、回收站、分享和上传会话的管理员运营总览与明细查询。
 - 回收站。
 - 云盘使用量统计。
 - 云盘容量额度。
@@ -1035,6 +1035,9 @@ Android：
 - `/api/cloud-profile/me`
 - `/api/admin/cloud-users`
 - `/api/admin/cloud-operations/overview`
+- `/api/admin/cloud-operations/shares`
+- `/api/admin/cloud-operations/trash`
+- `/api/admin/cloud-operations/users/storage`
 - `/api/storage/overview`
 - `/api/share-links/**`
 - `/rag/api/health`
@@ -1110,7 +1113,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File deploy/scripts/prepare-andro
 - RAG 内部契约 `/rag/api/assistant/contracts/action-plan`，未带 Identity token 返回 401，携带 `RAG_ADMIN` token 时可返回动作 schema/actions。
 - RAG 依赖健康 `/rag/api/health/dependencies`，确认 Identity、Storage 依赖可用，并暴露 `identity.health`、`identity.auth.me`、`storage.health` 的成功计数。
 - `/api/cloud-profile/me` 和 `/api/storage/overview` 使用 identity token。
-- `/api/admin/cloud-users` 和 `/api/admin/cloud-operations/overview` 管理员入口。
+- `/api/admin/cloud-users` 和 `/api/admin/cloud-operations/overview|shares|trash|users/storage` 管理员入口。
 - `/api/identity/admin/audit-logs` 管理员审计日志查询入口和 `SESSION_REVOKE` 筛选。
 - 旧 `/api/auth/me`、`/api/auth/avatar/{userId}`、`/api/admin/users` 保持 404。
 - `identity_audit_log` 最新记录查询。
