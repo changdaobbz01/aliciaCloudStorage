@@ -49,6 +49,14 @@ ALICIA_API_BASE_URL=http://10.0.2.2:8090
 powershell -NoProfile -ExecutionPolicy Bypass -File deploy/scripts/check-android-release-readiness.ps1
 ```
 
+需要准备旧版 `phoneApp` 的 APK 发版包时，在仓库根目录运行：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File deploy/scripts/prepare-android-release-package.ps1 -App phoneApp -ReleaseNotes "填写本次正式更新说明"
+```
+
+脚本会输出到 `deploy/generated/android-release-packages/`，并生成 SHA-256、发布清单和管理员上传 helper。上传前必须确认生成目录内的 `release-notes.txt` 已改为正式更新说明。
+
 ## 后续建议
 
 - 增加重命名、移动、批量操作

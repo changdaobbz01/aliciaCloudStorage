@@ -1057,6 +1057,14 @@ powershell -NoProfile -ExecutionPolicy Bypass -File deploy/scripts/check-android
 
 该脚本覆盖 `phoneApp` 和 `phoneAppAdd`：旧 `/api/auth/**`、旧 `/api/admin/users`、旧测试服入口、旧 IP 暴露、正式主域名默认配置、refresh token 请求体契约、logout 请求体契约、缺失 refresh token 持久化保护、401 本地会话过期清理和两个 Android 工程 Debug 单测。需要快速检查时可追加 `-SkipGradle`。
 
+Android APK 发版包准备使用：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File deploy/scripts/prepare-android-release-package.ps1 -ReleaseNotes "填写本次正式更新说明"
+```
+
+脚本默认构建 `phoneAppAdd` Release 包，输出到 `deploy/generated/android-release-packages/`，并生成 APK、SHA-256、`manifest.json`、`release-notes.txt` 和上传 helper。上传 helper 需要通过 `ALICIA_ADMIN_TOKEN` 传入 Identity 管理员 access token，调用 `/api/admin/app-package` 覆盖当前正式包，随后校验 `/api/app-package/version` 和 `/api/app-package/download/current`。旧 `phoneApp` 可用 `-App phoneApp` 走同一流程。
+
 脚本覆盖：
 
 - 直连与前端 Nginx health，并检查 CloudStorageApi 到 Identity 的依赖健康端点、Identity 数据库/Flyway 依赖健康端点。

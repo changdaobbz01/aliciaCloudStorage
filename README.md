@@ -342,6 +342,14 @@ powershell -NoProfile -ExecutionPolicy Bypass -File deploy/scripts/check-android
 
 只做快速静态检查时可追加 `-SkipGradle`。
 
+生成可上传的 Android APK 发版包时，优先使用仓库级准备脚本。它默认构建当前新视觉 `phoneAppAdd` 的 Release APK，复制到 `deploy/generated/android-release-packages/`，写入 SHA-256、`manifest.json`、`release-notes.txt` 和管理员上传 helper：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File deploy/scripts/prepare-android-release-package.ps1 -ReleaseNotes "填写本次正式更新说明"
+```
+
+生成目录被 git 忽略。上传前确认 `release-notes.txt` 不是 TODO 文案，然后使用目录内的 `upload-current-package.ps1`，并通过 `ALICIA_ADMIN_TOKEN` 传入 Identity 管理员 access token；上传后 helper 会校验 `/api/app-package/version` 和 `/api/app-package/download/current`。
+
 生产服务器建议把 `origin` 指向 Gitee，以减少 GitHub 连接失败造成的更新中断：
 
 ```bash

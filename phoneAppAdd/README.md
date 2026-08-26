@@ -77,6 +77,14 @@ ALICIA_RAG_CONFIRMATION_MESSAGE=确认
 powershell -NoProfile -ExecutionPolicy Bypass -File deploy/scripts/check-android-release-readiness.ps1
 ```
 
+准备新视觉 `phoneAppAdd` 的 APK 发版包时，在仓库根目录运行：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File deploy/scripts/prepare-android-release-package.ps1 -ReleaseNotes "填写本次正式更新说明"
+```
+
+脚本会构建 Release APK，输出到 `deploy/generated/android-release-packages/`，并生成 SHA-256、发布清单、`release-notes.txt` 和管理员上传 helper。上传前必须确认生成目录内的 `release-notes.txt` 已改为正式更新说明。
+
 正式环境的 RAG 健康检查地址是 `https://windwindwind-alicia.cn/rag/api/health`。本地仍使用 `http://127.0.0.1:8081/api/health`，两者互不覆盖。
 
 独立启动 RAG 时，还必须给 RAG 进程配置可信的 CloudStorageApi 地址，否则文件查询和目标目录匹配会被安全地跳过。例如移动端连接线上 API 时：
