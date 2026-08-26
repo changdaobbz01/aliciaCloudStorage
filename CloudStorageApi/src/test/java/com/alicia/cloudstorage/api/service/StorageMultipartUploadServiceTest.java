@@ -22,11 +22,13 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -64,6 +66,31 @@ class StorageMultipartUploadServiceTest {
                 true,
                 24L
         );
+    }
+
+    @Test
+    void createMultipartUploadRejectsMissingRequestBeforeTouchingStorage() {
+        assertThatThrownBy(() -> storageMultipartUploadService.createMultipartUpload(21L, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("请求内容不能为空。");
+
+        verifyNoInteractions(storageNodeRepository, multipartUploadSessionRepository, multipartUploadPartRepository,
+                cosFileStorageService, storageQuotaService, storageNodeEventPublisher);
+    }
+
+    @Test
+    void createMultipartUploadRejectsMissingFileSizeBeforeStartingCosUpload() {
+        long chunkSize = 1024L * 1024L;
+
+        assertThatThrownBy(() -> storageMultipartUploadService.createMultipartUpload(
+                21L,
+                new CreateMultipartUploadRequest(null, "movie.mp4", null, "video/mp4", chunkSize, 1, "fingerprint-1")
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("文件大小不能为空。");
+
+        verifyNoInteractions(multipartUploadSessionRepository, multipartUploadPartRepository,
+                cosFileStorageService, storageQuotaService, storageNodeEventPublisher);
     }
 
     @Test

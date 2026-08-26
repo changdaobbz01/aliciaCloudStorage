@@ -34,6 +34,8 @@ import java.util.UUID;
 @Transactional
 public class StorageCommandService {
 
+    private static final int MAX_BATCH_NODE_OPERATION_ITEMS = 500;
+
     private final StorageNodeRepository storageNodeRepository;
     private final CosFileStorageService cosFileStorageService;
     private final StorageQuotaService storageQuotaService;
@@ -55,6 +57,7 @@ public class StorageCommandService {
      * 在当前目录下创建一个新的文件夹节点。
      */
     public StorageNodeSummaryResponse createFolder(Long userId, CreateFolderRequest request) {
+        requireRequest(request);
         Long parentId = validateParentFolder(userId, request.parentId());
         String folderName = normalizeFolderName(request.folderName());
         validateSiblingNameUnique(userId, parentId, folderName);
@@ -176,6 +179,7 @@ public class StorageCommandService {
     }
 
     public StorageNodeSummaryResponse renameNode(Long userId, Long nodeId, RenameNodeRequest request) {
+        requireRequest(request);
         StorageNode node = storageNodeRepository.findByIdAndOwnerIdAndDeletedFalse(nodeId, userId)
                 .orElseThrow(() -> new IllegalArgumentException("文件或文件夹不存在。"));
         String nextName = normalizeNodeName(request.name(), "名称");
@@ -193,7 +197,8 @@ public class StorageCommandService {
     }
 
     public List<StorageNodeSummaryResponse> renameNodes(Long userId, BatchRenameNodeRequest request) {
-        List<BatchRenameNodeItem> requestedItems = request.items();
+        requireRequest(request);
+        List<BatchRenameNodeItem> requestedItems = normalizeRenameItems(request.items());
         LinkedHashSet<Long> requestedIds = requestedItems.stream()
                 .map(BatchRenameNodeItem::nodeId)
                 .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
@@ -261,6 +266,7 @@ public class StorageCommandService {
      * 将单个文件或文件夹移动到新的父目录，并复用批量移动的校验逻辑。
      */
     public StorageNodeSummaryResponse moveNode(Long userId, Long nodeId, MoveNodeRequest request) {
+        requireRequest(request);
         return moveNodesInternal(userId, List.of(nodeId), request.parentId()).get(0);
     }
 
@@ -268,6 +274,7 @@ public class StorageCommandService {
      * 批量移动文件或文件夹到新的父目录，并阻止形成重名或目录循环。
      */
     public List<StorageNodeSummaryResponse> moveNodes(Long userId, BatchMoveNodeRequest request) {
+        requireRequest(request);
         return moveNodesInternal(userId, request.nodeIds(), request.parentId());
     }
 
@@ -283,6 +290,7 @@ public class StorageCommandService {
      * 批量将文件或文件夹移入回收站。
      */
     public ApiMessageResponse moveNodesToTrash(Long userId, BatchNodeRequest request) {
+        requireRequest(request);
         int movedCount = moveNodesToTrashInternal(userId, request.nodeIds());
         return new ApiMessageResponse(buildTrashMessage(movedCount));
     }
@@ -298,6 +306,7 @@ public class StorageCommandService {
      * 批量从回收站恢复文件或文件夹。
      */
     public List<StorageNodeSummaryResponse> restoreNodes(Long userId, BatchNodeRequest request) {
+        requireRequest(request);
         return restoreNodesInternal(userId, request.nodeIds());
     }
 
@@ -313,6 +322,7 @@ public class StorageCommandService {
      * 批量从回收站彻底删除文件或文件夹，并清理关联的 COS 对象。
      */
     public ApiMessageResponse permanentlyDeleteNodes(Long userId, BatchNodeRequest request) {
+        requireRequest(request);
         int deletedCount = permanentlyDeleteNodesInternal(userId, request.nodeIds());
         return new ApiMessageResponse(buildPermanentDeleteMessage(deletedCount));
     }
@@ -631,6 +641,10 @@ public class StorageCommandService {
             throw new IllegalArgumentException("请至少选择一个项目。");
         }
 
+        if (rawNodeIds.size() > MAX_BATCH_NODE_OPERATION_ITEMS) {
+            throw new IllegalArgumentException("单次最多处理 500 个项目。");
+        }
+
         LinkedHashSet<Long> uniqueNodeIds = new LinkedHashSet<>();
         for (Long rawNodeId : rawNodeIds) {
             if (rawNodeId == null) {
@@ -640,6 +654,31 @@ public class StorageCommandService {
         }
 
         return List.copyOf(uniqueNodeIds);
+    }
+
+    private List<BatchRenameNodeItem> normalizeRenameItems(List<BatchRenameNodeItem> rawItems) {
+        if (rawItems == null || rawItems.isEmpty()) {
+            throw new IllegalArgumentException("请至少选择一个项目。");
+        }
+
+        if (rawItems.size() > MAX_BATCH_NODE_OPERATION_ITEMS) {
+            throw new IllegalArgumentException("单次最多重命名 500 个项目。");
+        }
+
+        for (BatchRenameNodeItem rawItem : rawItems) {
+            if (rawItem == null || rawItem.nodeId() == null) {
+                throw new IllegalArgumentException("项目编号不能为空。");
+            }
+            normalizeNodeName(rawItem.name(), "名称");
+        }
+
+        return List.copyOf(rawItems);
+    }
+
+    private void requireRequest(Object request) {
+        if (request == null) {
+            throw new IllegalArgumentException("请求内容不能为空。");
+        }
     }
 
     /**

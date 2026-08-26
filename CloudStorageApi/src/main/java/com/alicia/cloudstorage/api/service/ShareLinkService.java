@@ -96,6 +96,7 @@ public class ShareLinkService {
     }
 
     public ShareLinkSummaryResponse createShareLink(Long ownerId, CreateShareLinkRequest request) {
+        requireRequest(request);
         List<Long> nodeIds = normalizeNodeIds(request.nodeIds());
         List<StorageNode> rootNodes = collapseSelectedRoots(ownerId, loadOwnedActiveNodes(ownerId, nodeIds));
         collectActiveSharedNodes(rootNodes);
@@ -187,6 +188,7 @@ public class ShareLinkService {
             return new VerifySharePasswordResponse(null, null);
         }
 
+        requireRequest(request);
         String attemptKey = buildPasswordAttemptKey(shareLink, clientAddress);
         validatePasswordAttemptAllowed(attemptKey);
 
@@ -611,6 +613,12 @@ public class ShareLinkService {
         }
 
         return shareCode;
+    }
+
+    private void requireRequest(Object request) {
+        if (request == null) {
+            throw new IllegalArgumentException("请求内容不能为空。");
+        }
     }
 
     private List<Long> normalizeNodeIds(List<Long> rawNodeIds) {

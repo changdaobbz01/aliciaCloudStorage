@@ -261,6 +261,24 @@ OVERVIEW_RESPONSE="$(curl_body "storage overview" \
 require_json_number "storage overview" "$OVERVIEW_RESPONSE" "usedBytes" >/dev/null
 ok "storage overview accepts identity token"
 
+expect_http_status "batch move rejects empty selection" 400 \
+    -X PUT "$CLOUD_BASE_URL/api/storage/nodes/batch/move" \
+    -H "Authorization: Bearer $TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{"nodeIds":[],"parentId":null}'
+
+expect_http_status "batch trash rejects empty selection" 400 \
+    -X POST "$CLOUD_BASE_URL/api/storage/nodes/batch/trash" \
+    -H "Authorization: Bearer $TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{"nodeIds":[]}'
+
+expect_http_status "archive download rejects empty selection" 400 \
+    -X POST "$PUBLIC_BASE_URL/api/storage/nodes/archive" \
+    -H "Authorization: Bearer $TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{"nodeIds":[]}'
+
 SOURCE_FOLDER_RESPONSE="$(curl_body "create source folder" \
     -X POST "$CLOUD_BASE_URL/api/storage/folders" \
     -H "Authorization: Bearer $TOKEN" \

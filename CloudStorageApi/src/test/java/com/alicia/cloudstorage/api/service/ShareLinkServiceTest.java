@@ -85,6 +85,16 @@ class ShareLinkServiceTest {
     }
 
     @Test
+    void createShareRejectsMissingRequestBeforeLoadingNodes() {
+        assertThatThrownBy(() -> shareLinkService.createShareLink(9L, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("请求内容不能为空。");
+
+        verifyNoInteractions(storageNodeRepository, shareLinkItemRepository, identityUserGateway, passwordEncoder,
+                storageCommandService, storageArchiveService, cosFileStorageService);
+    }
+
+    @Test
     void createSharePersistsMultipleRootsAndCollapsesSelectedDescendants() {
         StorageNode folder = folderNode(11L, 9L, null, "docs");
         StorageNode child = fileNode(12L, 9L, 11L, "report.pdf", "cos/report.pdf");
@@ -267,6 +277,20 @@ class ShareLinkServiceTest {
         assertThat(response.ownerNickname()).isEqualTo("Owner Alicia");
         assertThat(response.rootNodeIds()).containsExactly(81L);
         verify(identityUserGateway).getUser(9L);
+    }
+
+    @Test
+    void protectedSharePasswordVerificationRejectsMissingRequestBeforeCheckingPassword() {
+        ShareLink shareLink = activeShare(2L, 9L, "share-code");
+        shareLink.setPasswordHash("encoded-password");
+
+        when(shareLinkRepository.findByShareCode("share-code")).thenReturn(Optional.of(shareLink));
+
+        assertThatThrownBy(() -> shareLinkService.verifyPassword("share-code", null, "127.0.0.1"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("请求内容不能为空。");
+
+        verifyNoInteractions(passwordEncoder, storageCommandService, storageArchiveService, cosFileStorageService);
     }
 
     @Test

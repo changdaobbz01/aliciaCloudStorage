@@ -324,6 +324,20 @@ require_json_contains_id "share detail" "$DETAIL_RESPONSE" "$SOURCE_FOLDER_ID"
 require_json_contains_id "share detail" "$DETAIL_RESPONSE" "$FILE_ID"
 ok "share detail contains shared folder and file"
 
+expect_http_status "share save rejects empty selected set" 400 \
+    -X POST "$PUBLIC_BASE_URL/api/share-links/$SHARE_CODE/save" \
+    -H "Authorization: Bearer $TOKEN" \
+    -H "X-Share-Access-Token: $SHARE_ACCESS_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{"parentId":null,"selectedNodeIds":[]}'
+
+expect_http_status "share archive rejects empty selection" 400 \
+    -X POST "$PUBLIC_BASE_URL/api/share-links/$SHARE_CODE/nodes/archive" \
+    -H "Authorization: Bearer $TOKEN" \
+    -H "X-Share-Access-Token: $SHARE_ACCESS_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{"nodeIds":[]}'
+
 ACCESS_URL_RESPONSE="$(curl_body "share file access-url" \
     "$PUBLIC_BASE_URL/api/share-links/$SHARE_CODE/files/$FILE_ID/access-url?disposition=attachment" \
     -H "Authorization: Bearer $TOKEN" \

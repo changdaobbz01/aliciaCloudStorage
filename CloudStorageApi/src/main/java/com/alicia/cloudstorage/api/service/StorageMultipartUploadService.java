@@ -71,12 +71,13 @@ public class StorageMultipartUploadService {
      */
     @Transactional
     public MultipartUploadStatusResponse createMultipartUpload(Long userId, CreateMultipartUploadRequest request) {
+        requireRequest(request);
         Long parentId = validateParentFolder(userId, request.parentId());
         String fileName = extractFileName(request.fileName());
         String fingerprint = normalizeFingerprint(request.fingerprint());
-        long fileSize = request.fileSize();
-        long chunkSize = request.chunkSize();
-        int totalChunks = request.totalChunks();
+        long fileSize = requirePositiveLong(request.fileSize(), "文件大小不能为空。", "文件大小必须大于 0。");
+        long chunkSize = requirePositiveLong(request.chunkSize(), "分片大小不能为空。", "分片大小必须大于 0。");
+        int totalChunks = requirePositiveInt(request.totalChunks(), "分片数量不能为空。", "分片数量必须大于 0。");
 
         validateChunkPlan(fileSize, chunkSize, totalChunks);
         storageQuotaService.validateUploadFits(userId, fileSize);
@@ -383,6 +384,36 @@ public class StorageMultipartUploadService {
                 throw new IllegalArgumentException("文件分片尚未全部上传完成。");
             }
         }
+    }
+
+    private void requireRequest(Object request) {
+        if (request == null) {
+            throw new IllegalArgumentException("请求内容不能为空。");
+        }
+    }
+
+    private long requirePositiveLong(Long value, String nullMessage, String nonPositiveMessage) {
+        if (value == null) {
+            throw new IllegalArgumentException(nullMessage);
+        }
+
+        if (value <= 0) {
+            throw new IllegalArgumentException(nonPositiveMessage);
+        }
+
+        return value;
+    }
+
+    private int requirePositiveInt(Integer value, String nullMessage, String nonPositiveMessage) {
+        if (value == null) {
+            throw new IllegalArgumentException(nullMessage);
+        }
+
+        if (value <= 0) {
+            throw new IllegalArgumentException(nonPositiveMessage);
+        }
+
+        return value;
     }
 
     private Long validateParentFolder(Long userId, Long parentId) {

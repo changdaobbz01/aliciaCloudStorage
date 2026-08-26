@@ -22,6 +22,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.LongStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -55,6 +56,77 @@ class StorageCommandServiceTest {
         assertThatThrownBy(() -> storageCommandService.uploadFile(7L, null, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("请选择要上传的文件。");
+
+        verifyNoInteractions(storageNodeRepository, cosFileStorageService, storageQuotaService, storageNodeEventPublisher);
+    }
+
+    @Test
+    void createFolderRejectsMissingRequestBeforeTouchingRepository() {
+        assertThatThrownBy(() -> storageCommandService.createFolder(7L, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("请求内容不能为空。");
+
+        verifyNoInteractions(storageNodeRepository, cosFileStorageService, storageQuotaService, storageNodeEventPublisher);
+    }
+
+    @Test
+    void renameNodeRejectsMissingRequestBeforeTouchingRepository() {
+        assertThatThrownBy(() -> storageCommandService.renameNode(7L, 11L, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("请求内容不能为空。");
+
+        verifyNoInteractions(storageNodeRepository, cosFileStorageService, storageQuotaService, storageNodeEventPublisher);
+    }
+
+    @Test
+    void moveNodeRejectsMissingRequestBeforeTouchingRepository() {
+        assertThatThrownBy(() -> storageCommandService.moveNode(7L, 11L, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("请求内容不能为空。");
+
+        verifyNoInteractions(storageNodeRepository, cosFileStorageService, storageQuotaService, storageNodeEventPublisher);
+    }
+
+    @Test
+    void batchTrashRejectsMissingRequestBeforeTouchingRepository() {
+        assertThatThrownBy(() -> storageCommandService.moveNodesToTrash(7L, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("请求内容不能为空。");
+
+        verifyNoInteractions(storageNodeRepository, cosFileStorageService, storageQuotaService, storageNodeEventPublisher);
+    }
+
+    @Test
+    void batchNodeOperationsRejectTooManyItemsBeforeLoadingNodes() {
+        List<Long> tooManyNodeIds = LongStream.rangeClosed(1, 501).boxed().toList();
+
+        assertThatThrownBy(() -> storageCommandService.moveNodesToTrash(7L, new BatchNodeRequest(tooManyNodeIds)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("单次最多处理 500 个项目。");
+
+        verifyNoInteractions(storageNodeRepository, cosFileStorageService, storageQuotaService, storageNodeEventPublisher);
+    }
+
+    @Test
+    void batchRenameRejectsNullItemBeforeLoadingNodes() {
+        assertThatThrownBy(() -> storageCommandService.renameNodes(
+                7L,
+                new BatchRenameNodeRequest(java.util.Collections.singletonList(null))
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("项目编号不能为空。");
+
+        verifyNoInteractions(storageNodeRepository, cosFileStorageService, storageQuotaService, storageNodeEventPublisher);
+    }
+
+    @Test
+    void batchRenameRejectsBlankNameBeforeLoadingNodes() {
+        assertThatThrownBy(() -> storageCommandService.renameNodes(
+                7L,
+                new BatchRenameNodeRequest(List.of(new BatchRenameNodeItem(11L, "   ")))
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("名称不能为空。");
 
         verifyNoInteractions(storageNodeRepository, cosFileStorageService, storageQuotaService, storageNodeEventPublisher);
     }
