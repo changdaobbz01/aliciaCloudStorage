@@ -1049,6 +1049,14 @@ bash deploy/scripts/check-identity-route-boundary.sh
 
 同一边界也由 `CloudStorageApi` 的 `IdentityRouteBoundaryTest` 纳入 Maven 测试，避免只依赖部署脚本人工执行。
 
+Android 发版前执行移动端 readiness 检查：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File deploy/scripts/check-android-release-readiness.ps1
+```
+
+该脚本覆盖 `phoneApp` 和 `phoneAppAdd`：旧 `/api/auth/**`、旧 `/api/admin/users`、旧测试服入口、旧 IP 暴露、正式主域名默认配置、refresh token 请求体契约、logout 请求体契约、缺失 refresh token 持久化保护、401 本地会话过期清理和两个 Android 工程 Debug 单测。需要快速检查时可追加 `-SkipGradle`。
+
 脚本覆盖：
 
 - 直连与前端 Nginx health，并检查 CloudStorageApi 到 Identity 的依赖健康端点、Identity 数据库/Flyway 依赖健康端点。

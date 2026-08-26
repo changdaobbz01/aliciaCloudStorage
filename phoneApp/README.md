@@ -43,6 +43,12 @@ ALICIA_API_BASE_URL=https://windwindwind-alicia.cn
 ALICIA_API_BASE_URL=http://10.0.2.2:8090
 ```
 
+发版前建议在仓库根目录运行统一 readiness 检查，它会同时覆盖 `phoneApp` 与 `phoneAppAdd` 的正式服务入口、Identity refresh/logout 契约和登录态过期处理：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File deploy/scripts/check-android-release-readiness.ps1
+```
+
 ## 后续建议
 
 - 增加重命名、移动、批量操作

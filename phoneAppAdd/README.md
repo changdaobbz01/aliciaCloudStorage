@@ -71,6 +71,12 @@ ALICIA_RAG_CONFIRMATION_MESSAGE=确认
 .\scripts\install-cloud-device.ps1
 ```
 
+发版前建议在仓库根目录运行统一 readiness 检查，它会同时覆盖 `phoneApp` 与 `phoneAppAdd` 的正式服务入口、Identity refresh/logout 契约和登录态过期处理：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File deploy/scripts/check-android-release-readiness.ps1
+```
+
 正式环境的 RAG 健康检查地址是 `https://windwindwind-alicia.cn/rag/api/health`。本地仍使用 `http://127.0.0.1:8081/api/health`，两者互不覆盖。
 
 独立启动 RAG 时，还必须给 RAG 进程配置可信的 CloudStorageApi 地址，否则文件查询和目标目录匹配会被安全地跳过。例如移动端连接线上 API 时：
