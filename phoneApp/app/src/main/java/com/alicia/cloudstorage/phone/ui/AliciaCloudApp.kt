@@ -110,7 +110,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.SubcomposeAsyncImage
-import com.alicia.cloudstorage.phone.HONG_KONG_BASE_URL
 import com.alicia.cloudstorage.phone.MAINLAND_BASE_URL
 import com.alicia.cloudstorage.phone.R
 import com.alicia.cloudstorage.phone.describeAccessEnvironment
@@ -1097,7 +1096,7 @@ private fun MainShell(
     pendingBaseUrlSwitch?.let { targetBaseUrl ->
         val accessLabel = describeAccessEnvironment(normalizeConfiguredBaseUrl(targetBaseUrl))
         AliciaMechaConfirmDialog(
-            title = "切换接入环境",
+            title = "切换到正式服务",
             message = "确认切换到“$accessLabel”吗？切换后会退出当前登录，并需要重新认证。",
             onDismiss = { pendingBaseUrlSwitch = null },
             onConfirm = {
@@ -2378,17 +2377,16 @@ private fun AccountSheet(
                 ) {
                     val normalizedBaseUrl = normalizeConfiguredBaseUrl(baseUrl)
                     val usingMainland = normalizedBaseUrl == MAINLAND_BASE_URL
-                    val usingHongKong = normalizedBaseUrl == HONG_KONG_BASE_URL
 
                     Text(
-                        text = "接入环境",
+                        text = "正式服务接入",
                         color = Color(0xFF101626),
                         fontFamily = AliciaMechaFontFamily,
                         fontWeight = FontWeight.Black,
                         fontSize = 16.sp,
                     )
                     Text(
-                        text = "切换地址后会退出当前登录，请重新认证。",
+                        text = "当前移动端仅保留正式服务入口；旧测试地址会自动迁移。",
                         color = Color(0xFF748094),
                         fontFamily = AliciaMechaFontFamily,
                         fontWeight = FontWeight.Medium,
@@ -2400,17 +2398,10 @@ private fun AccountSheet(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         AliciaMechaActionButton(
-                            label = "内地正式服",
+                            label = "正式服务",
                             onClick = { onSwitchBaseUrl(MAINLAND_BASE_URL) },
                             tone = if (usingMainland) AliciaMechaActionButtonTone.Primary else AliciaMechaActionButtonTone.Secondary,
-                            modifier = Modifier.weight(1f),
-                            height = 46.dp,
-                        )
-                        AliciaMechaActionButton(
-                            label = "香港测试服",
-                            onClick = { onSwitchBaseUrl(HONG_KONG_BASE_URL) },
-                            tone = if (usingHongKong) AliciaMechaActionButtonTone.Primary else AliciaMechaActionButtonTone.Secondary,
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.fillMaxWidth(),
                             height = 46.dp,
                         )
                     }

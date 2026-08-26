@@ -640,10 +640,16 @@ Cloud 管理：
 
 当前相关位置：
 
+- `phoneApp/app/src/main/java/com/alicia/cloudstorage/phone/data/AliciaCloudApi.kt`
+- `phoneApp/app/src/main/java/com/alicia/cloudstorage/phone/data/AliciaRepository.kt`
+- `phoneApp/app/src/main/java/com/alicia/cloudstorage/phone/data/SessionStore.kt`
+- `phoneApp/app/src/main/java/com/alicia/cloudstorage/phone/ui/MainViewModel.kt`
 - `phoneAppAdd/app/src/main/java/com/alicia/cloudstorage/phone/data/AliciaCloudApi.kt`
 - `phoneAppAdd/app/src/main/java/com/alicia/cloudstorage/phone/data/AliciaRepository.kt`
 - `phoneAppAdd/app/src/main/java/com/alicia/cloudstorage/phone/data/SessionStore.kt`
 - `phoneAppAdd/app/src/main/java/com/alicia/cloudstorage/phone/ui/MainViewModel.kt`
+- `phoneApp/app/src/main/java/com/alicia/cloudstorage/phone/ui/MobileSessionPolicy.kt`
+- `phoneAppAdd/app/src/main/java/com/alicia/cloudstorage/phone/ui/MobileSessionPolicy.kt`
 
 改造方向：
 
@@ -655,7 +661,8 @@ Cloud 管理：
 6. Web 与主站复用同一组浏览器 session key，通过 storage 事件同步跨标签页登录、续签和退出，并通过共享 session revision 事件同步昵称、头像和云盘背景等资料变更。
 7. 主动退出登录时调用 `/api/identity/auth/logout`，然后清理本地 token 和 refresh token。
 8. 修改密码成功后立即清理本地 token，引导用户使用新密码重新登录。
-9. SessionStore 存储 token 的 key 暂保持兼容；后续只有在统一账号中心需要更清晰命名时再改。
+9. 启动续签失败、缺失 refresh token 或运行中收到 401 时，只执行本地会话过期清理并提示重新登录，不再混用主动退出登录文案或额外触发 logout。
+10. SessionStore 存储 token 的 key 暂保持兼容；后续只有在统一账号中心需要更清晰命名时再改。
 
 ### 9.3 主站 mainSite
 
@@ -1086,7 +1093,7 @@ Web 和 Android：
 
 - 主站 `/login` 与云盘 `/cloudPan/` 的共享登录态体验。
 - 主站登录页保存 `refreshToken`，和云盘 Web/Android 使用同一套 refresh 会话。
-- 云盘 Web 的 token 过期提示和重新登录体验已通过 `reason=session-expired` 接入主站统一登录页；Android 仍按同一 Identity token 契约继续收口。
+- 云盘 Web 的 token 过期提示和重新登录体验已通过 `reason=session-expired` 接入主站统一登录页；Android 已按同一 Identity token 契约收口本地会话过期清理和正式重新登录提示。
 - 管理员面板中身份信息、云盘应用角色和云盘容量信息的展示边界。
 - Web 管理员账号面板已支持调整 `cloud/CLOUD_USER` 与 `cloud/CLOUD_ADMIN`，全局 `ADMIN` 仍始终等效云盘管理员。
 - 主站首页已消费 `appRoles.cloud` 展示 Alicia 云盘入口的登录态、普通用户和云盘管理员状态；RAG 执行入口已消费 `appRoles.rag`，后续 RAG 管理接口继续按 `rag/RAG_ADMIN` 收口。

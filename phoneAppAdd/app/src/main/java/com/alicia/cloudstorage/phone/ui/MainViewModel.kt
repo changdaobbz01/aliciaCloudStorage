@@ -2979,14 +2979,6 @@ class MainViewModel internal constructor(
         val session = authenticatedSession()
         val baseUrl = session?.baseUrl ?: uiState.value.baseUrl
         viewModelScope.launch {
-            transferJobs.values.forEach { job -> job.cancel() }
-            transferJobs.clear()
-            transferHistoryCoordinator.clearActive()
-            nextTransferId = 1L
-            cancelManualRefreshLoading()
-            cancelCurrentUserSync()
-            cancelExplorerRefreshes()
-            incomingShareRequestGeneration += 1L
             if (session != null) {
                 runCatching {
                     repository.logout(
@@ -2996,15 +2988,41 @@ class MainViewModel internal constructor(
                     )
                 }
             }
-            sessionStore.clearToken(baseUrl)
-            fileDirectoryCache.clear()
-            clearPreviewArtifacts()
-            _uiState.value = AppUiState(
-                isBooting = false,
-                baseUrl = baseUrl,
-            )
+            clearLocalAuthenticatedState(baseUrl)
             emitMessage("你已退出登录。")
         }
+    }
+
+    private fun expireCurrentSession(emitUserMessage: Boolean) {
+        val baseUrl = uiState.value.baseUrl
+        viewModelScope.launch {
+            clearExpiredSession(baseUrl, if (emitUserMessage) MOBILE_SESSION_EXPIRED_MESSAGE else null)
+        }
+    }
+
+    private suspend fun clearExpiredSession(baseUrl: String, message: String?) {
+        clearLocalAuthenticatedState(baseUrl)
+        if (!message.isNullOrBlank()) {
+            emitMessage(message)
+        }
+    }
+
+    private suspend fun clearLocalAuthenticatedState(baseUrl: String) {
+        transferJobs.values.forEach { job -> job.cancel() }
+        transferJobs.clear()
+        transferHistoryCoordinator.clearActive()
+        nextTransferId = 1L
+        cancelManualRefreshLoading()
+        cancelCurrentUserSync()
+        cancelExplorerRefreshes()
+        incomingShareRequestGeneration += 1L
+        sessionStore.clearToken(baseUrl)
+        fileDirectoryCache.clear()
+        clearPreviewArtifacts()
+        _uiState.value = AppUiState(
+            isBooting = false,
+            baseUrl = baseUrl,
+        )
     }
 
     private fun restoreSession() {
@@ -3021,12 +3039,7 @@ class MainViewModel internal constructor(
             }
             if (session.refreshToken.isNullOrBlank()) {
                 awaitMinimumBootSplashDuration()
-                sessionStore.clearToken(session.baseUrl)
-                nextTransferId = 1L
-                clearPreviewArtifacts()
-                _uiState.update { state ->
-                    state.copy(isBooting = false, authToken = null, refreshToken = null, currentUser = null)
-                }
+                clearExpiredSession(session.baseUrl, MOBILE_SESSION_INCOMPLETE_MESSAGE)
                 checkForAppUpdate(session.baseUrl)
                 return@launch
             }
@@ -3055,13 +3068,7 @@ class MainViewModel internal constructor(
                 refreshIncomingShareDetailIfReady()
             }.onFailure { error ->
                 awaitMinimumBootSplashDuration()
-                sessionStore.clearToken(session.baseUrl)
-                nextTransferId = 1L
-                clearPreviewArtifacts()
-                _uiState.update { state ->
-                    state.copy(isBooting = false, authToken = null, refreshToken = null, currentUser = null)
-                }
-                handleError(error)
+                clearExpiredSession(session.baseUrl, error.readableMessage())
                 checkForAppUpdate(session.baseUrl)
             }
         }
@@ -3985,11 +3992,8 @@ class MainViewModel internal constructor(
     private fun handleError(error: Throwable, emitUserMessage: Boolean = true) {
         val message = error.readableMessage()
 
-        if (error is ApiException && error.status == 401) {
-            logout()
-            if (emitUserMessage) {
-                emitMessage("登录状态已过期，请重新登录。")
-            }
+        if (error.isMobileAuthExpired()) {
+            expireCurrentSession(emitUserMessage)
             return
         }
 
@@ -4062,4 +4066,4 @@ private fun Context.canWriteTransferDestination(uri: Uri): Boolean {
 }
 
 private fun Throwable.readableMessage(): String =
-    message?.takeIf { it.isNotBlank() } ?: "请求失败，请稍后再试。"
+    mobileReadableMessage()

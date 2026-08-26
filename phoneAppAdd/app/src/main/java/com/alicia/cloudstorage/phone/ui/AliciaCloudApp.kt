@@ -173,7 +173,6 @@ import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
 import com.alicia.cloudstorage.phone.BuildConfig
 import com.alicia.cloudstorage.phone.FileDetailActivity
-import com.alicia.cloudstorage.phone.HONG_KONG_BASE_URL
 import com.alicia.cloudstorage.phone.MAINLAND_BASE_URL
 import com.alicia.cloudstorage.phone.R
 import com.alicia.cloudstorage.phone.ShareCreateActivity
@@ -3695,7 +3694,7 @@ private fun MeMainPage(
         item {
             MeMenuSection("空间与服务") {
                 if (user.isAdmin) {
-                    MeListRow(ReferenceAsset.EnvironmentSettings, Color(0xFFE5F6FF), "接入环境", baseUrl) { onOpenPage(MePage.ENVIRONMENT) }
+                MeListRow(ReferenceAsset.EnvironmentSettings, Color(0xFFE5F6FF), "正式服务", baseUrl) { onOpenPage(MePage.ENVIRONMENT) }
                 }
                 MeListRow(ReferenceAsset.StorageDetails, Color(0xFFEAF2FF), "空间详情", userUsageLabel(user)) { onOpenPage(MePage.STORAGE) }
                 MeListRow(ReferenceAsset.VersionUpdate, Color(0xFFFFF0E7), "版本更新", "当前 ${BuildConfig.VERSION_NAME}") { onOpenPage(MePage.UPDATES) }
@@ -4005,22 +4004,17 @@ private fun MeEnvironmentPage(
     onBack: () -> Unit,
     onSwitchBaseUrl: (String) -> Unit,
 ) {
-    MePageScaffold(paddingValues, "接入环境", "切换 API 服务", onBack) {
+    MePageScaffold(paddingValues, "正式服务接入", "当前 API 服务", onBack) {
         Text(baseUrl, color = Muted, fontSize = 12.sp)
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-            Button(
-                onClick = { onSwitchBaseUrl(MAINLAND_BASE_URL) },
-                modifier = Modifier.weight(1f).height(50.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = if (baseUrl == MAINLAND_BASE_URL) PrimaryBlueDeep else Color(0xFFEAF2FF), contentColor = if (baseUrl == MAINLAND_BASE_URL) Color.White else PrimaryBlueDeep),
-            ) { Text("国内") }
-            Button(
-                onClick = { onSwitchBaseUrl(HONG_KONG_BASE_URL) },
-                modifier = Modifier.weight(1f).height(50.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = if (baseUrl == HONG_KONG_BASE_URL) PrimaryBlueDeep else Color(0xFFEAF2FF), contentColor = if (baseUrl == HONG_KONG_BASE_URL) Color.White else PrimaryBlueDeep),
-            ) { Text("香港") }
-        }
+        Button(
+            onClick = { onSwitchBaseUrl(MAINLAND_BASE_URL) },
+            modifier = Modifier.fillMaxWidth().height(50.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = if (baseUrl == MAINLAND_BASE_URL) PrimaryBlueDeep else Color(0xFFEAF2FF),
+                contentColor = if (baseUrl == MAINLAND_BASE_URL) Color.White else PrimaryBlueDeep,
+            ),
+        ) { Text("正式服务") }
     }
 }
 
