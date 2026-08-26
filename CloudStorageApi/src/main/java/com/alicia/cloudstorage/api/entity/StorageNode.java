@@ -12,6 +12,7 @@ import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 
 import java.time.LocalDateTime;
+import java.util.Locale;
 
 @Entity
 @Table(name = "storage_node")
@@ -198,6 +199,6 @@ public class StorageNode {
 
     private void syncDerivedFields() {
         parentScopeId = parentId == null ? 0L : parentId;
-        activeNodeName = deleted ? null : nodeName;
+        activeNodeName = deleted || nodeName == null ? null : nodeName.toLowerCase(Locale.ROOT);
     }
 }

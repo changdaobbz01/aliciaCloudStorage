@@ -420,6 +420,32 @@ class StorageCommandServiceTest {
     }
 
     @Test
+    void moveNodesRejectsCaseInsensitiveConflictsInSameTargetDirectoryBeforeMutatingAnything() {
+        Long userId = 15L;
+        StorageNode first = fileNode(91L, userId, 10L, "Report.pdf", "cos/report-a.pdf");
+        StorageNode second = fileNode(92L, userId, 11L, "report.pdf", "cos/report-b.pdf");
+        StorageNode targetFolder = folderNode(93L, userId, null, "归档");
+
+        when(storageNodeRepository.findByOwnerIdAndIdInAndDeletedFalse(userId, List.of(91L, 92L)))
+                .thenReturn(List.of(first, second));
+        when(storageNodeRepository.findByIdAndOwnerId(10L, userId)).thenReturn(Optional.empty());
+        when(storageNodeRepository.findByIdAndOwnerId(11L, userId)).thenReturn(Optional.empty());
+        when(storageNodeRepository.findByIdAndOwnerIdAndDeletedFalse(93L, userId)).thenReturn(Optional.of(targetFolder));
+
+        assertThatThrownBy(() -> storageCommandService.moveNodes(
+                userId,
+                new BatchMoveNodeRequest(List.of(91L, 92L), 93L)
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("目标目录下已存在同名文件或文件夹。");
+
+        assertThat(first.getParentId()).isEqualTo(10L);
+        assertThat(second.getParentId()).isEqualTo(11L);
+        verify(storageNodeRepository, never()).saveAll(anyList());
+        verify(storageNodeRepository, never()).existsActiveSiblingNameExcludingId(userId, 93L, "Report.pdf", 91L);
+    }
+
+    @Test
     void restoreNodesRejectsDuplicateNamesInSameTargetDirectory() {
         Long userId = 14L;
         StorageNode deletedFileA = fileNode(81L, userId, 11L, "合同.pdf", "cos/contract-a.pdf");
@@ -440,6 +466,31 @@ class StorageCommandServiceTest {
         ))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("目标目录下已存在同名文件或文件夹。");
+    }
+
+    @Test
+    void restoreNodesRejectsCaseInsensitiveDuplicateNamesInSameTargetDirectory() {
+        Long userId = 16L;
+        StorageNode deletedFileA = fileNode(101L, userId, 11L, "Report.pdf", "cos/report-a.pdf");
+        deletedFileA.setDeleted(true);
+        deletedFileA.setOriginalParentId(105L);
+        StorageNode deletedFileB = fileNode(102L, userId, 12L, "report.pdf", "cos/report-b.pdf");
+        deletedFileB.setDeleted(true);
+        deletedFileB.setOriginalParentId(105L);
+        StorageNode targetFolder = folderNode(105L, userId, null, "交接");
+
+        when(storageNodeRepository.findByOwnerIdAndIdInAndDeletedTrue(userId, List.of(101L, 102L)))
+                .thenReturn(List.of(deletedFileA, deletedFileB));
+        when(storageNodeRepository.findByIdAndOwnerIdAndDeletedFalse(105L, userId)).thenReturn(Optional.of(targetFolder));
+
+        assertThatThrownBy(() -> storageCommandService.restoreNodes(
+                userId,
+                new BatchNodeRequest(List.of(101L, 102L))
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("目标目录下已存在同名文件或文件夹。");
+
+        verify(storageNodeRepository, never()).saveAll(anyList());
     }
 
     private StorageNode folderNode(Long id, Long ownerId, Long parentId, String name) {

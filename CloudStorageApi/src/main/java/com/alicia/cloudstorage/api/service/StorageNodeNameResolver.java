@@ -3,6 +3,7 @@ package com.alicia.cloudstorage.api.service;
 import com.alicia.cloudstorage.api.repository.StorageNodeRepository;
 
 import java.util.HashSet;
+import java.util.Locale;
 import java.util.Set;
 
 final class StorageNodeNameResolver {
@@ -29,21 +30,36 @@ final class StorageNodeNameResolver {
             Set<String> reservedNames
     ) {
         String normalizedOriginalName = normalizeNodeName(originalName);
+        normalizeReservedNames(reservedNames);
 
         for (int index = 0; index < MAX_NAME_ATTEMPTS; index += 1) {
             String candidate = index == 0 ? normalizedOriginalName : buildCopyName(normalizedOriginalName, index);
+            String reservedKey = candidate.toLowerCase(Locale.ROOT);
 
-            if (reservedNames.contains(candidate)) {
+            if (reservedNames.contains(reservedKey)) {
                 continue;
             }
 
             if (!storageNodeRepository.existsActiveSiblingName(userId, parentId, candidate)) {
-                reservedNames.add(candidate);
+                reservedNames.add(reservedKey);
                 return candidate;
             }
         }
 
         throw new IllegalArgumentException("目标目录下同名项目过多，请先整理后再重试。");
+    }
+
+    private static void normalizeReservedNames(Set<String> reservedNames) {
+        if (reservedNames.isEmpty()) {
+            return;
+        }
+
+        Set<String> normalizedNames = new HashSet<>();
+        for (String reservedName : reservedNames) {
+            normalizedNames.add(reservedName.toLowerCase(Locale.ROOT));
+        }
+        reservedNames.clear();
+        reservedNames.addAll(normalizedNames);
     }
 
     private static String normalizeNodeName(String rawNodeName) {

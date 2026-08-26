@@ -690,7 +690,9 @@ public class StorageCommandService {
         Set<String> placementKeys = new HashSet<>();
 
         for (NodePlacement placement : placements) {
-            String placementKey = (placement.parentId() == null ? "ROOT" : placement.parentId()) + "\u0000" + placement.node().getNodeName();
+            String placementKey = (placement.parentId() == null ? "ROOT" : placement.parentId())
+                    + "\u0000"
+                    + placement.node().getNodeName().toLowerCase(Locale.ROOT);
             if (!placementKeys.add(placementKey)) {
                 throw new IllegalArgumentException(conflictMessage);
             }

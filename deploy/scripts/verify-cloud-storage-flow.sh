@@ -21,7 +21,9 @@ WORK_DIR="$(mktemp -d)"
 TOKEN=""
 SOURCE_FOLDER_ID=""
 TARGET_FOLDER_ID=""
+CASE_CONFLICT_FOLDER_ID=""
 FILE_ID=""
+CASE_CONFLICT_FILE_ID=""
 
 ok() {
     printf '[OK] %s\n' "$1"
@@ -163,11 +165,12 @@ cleanup() {
     set +e
 
     if [[ "$KEEP_TEST_DATA" != "true" && -n "$TOKEN" ]]; then
+        cleanup_node "$CASE_CONFLICT_FOLDER_ID"
         cleanup_node "$TARGET_FOLDER_ID"
         cleanup_node "$SOURCE_FOLDER_ID"
     elif [[ "$KEEP_TEST_DATA" == "true" ]]; then
-        printf 'Keeping verification data: sourceFolderId=%s targetFolderId=%s fileId=%s\n' \
-            "${SOURCE_FOLDER_ID:-}" "${TARGET_FOLDER_ID:-}" "${FILE_ID:-}"
+        printf 'Keeping verification data: sourceFolderId=%s targetFolderId=%s caseConflictFolderId=%s fileId=%s caseConflictFileId=%s\n' \
+            "${SOURCE_FOLDER_ID:-}" "${TARGET_FOLDER_ID:-}" "${CASE_CONFLICT_FOLDER_ID:-}" "${FILE_ID:-}" "${CASE_CONFLICT_FILE_ID:-}"
     fi
 
     rm -rf "$WORK_DIR"
@@ -226,9 +229,12 @@ TIMESTAMP="$(date +%Y%m%d%H%M%S)"
 RANDOM_SUFFIX="${RANDOM}${RANDOM}"
 SOURCE_FOLDER_NAME="alicia-storage-verify-src-$TIMESTAMP-$RANDOM_SUFFIX"
 TARGET_FOLDER_NAME="alicia-storage-verify-target-$TIMESTAMP-$RANDOM_SUFFIX"
+CASE_CONFLICT_FOLDER_NAME="alicia-storage-verify-case-$TIMESTAMP-$RANDOM_SUFFIX"
 VERIFY_FILE_NAME="storage-flow-$TIMESTAMP.txt"
+CASE_CONFLICT_FILE_NAME="Storage-Flow-$TIMESTAMP.TXT"
 RENAMED_FILE_NAME="storage-flow-renamed-$TIMESTAMP.txt"
 VERIFY_FILE="$WORK_DIR/$VERIFY_FILE_NAME"
+CASE_CONFLICT_FILE="$WORK_DIR/$CASE_CONFLICT_FILE_NAME"
 DOWNLOAD_FILE="$WORK_DIR/downloaded-$VERIFY_FILE_NAME"
 ARCHIVE_FILE="$WORK_DIR/storage-archive.zip"
 
@@ -240,6 +246,7 @@ printf 'Public base: %s\n' "$PUBLIC_BASE_URL"
 read_identity_credentials
 
 printf 'Alicia storage verification %s\n' "$TIMESTAMP" > "$VERIFY_FILE"
+printf 'Alicia storage case conflict verification %s\n' "$TIMESTAMP" > "$CASE_CONFLICT_FILE"
 
 LOGIN_RESPONSE="$(curl_body "identity login" \
     -X POST "$IDENTITY_BASE_URL/api/identity/auth/login" \
@@ -270,6 +277,14 @@ TARGET_FOLDER_RESPONSE="$(curl_body "create target folder" \
 TARGET_FOLDER_ID="$(require_json_number "create target folder" "$TARGET_FOLDER_RESPONSE" "id")"
 ok "created target folder $TARGET_FOLDER_ID"
 
+CASE_CONFLICT_FOLDER_RESPONSE="$(curl_body "create case conflict folder" \
+    -X POST "$CLOUD_BASE_URL/api/storage/folders" \
+    -H "Authorization: Bearer $TOKEN" \
+    -H "Content-Type: application/json" \
+    -d "{\"parentId\":null,\"folderName\":\"$(json_escape "$CASE_CONFLICT_FOLDER_NAME")\"}")"
+CASE_CONFLICT_FOLDER_ID="$(require_json_number "create case conflict folder" "$CASE_CONFLICT_FOLDER_RESPONSE" "id")"
+ok "created case conflict folder $CASE_CONFLICT_FOLDER_ID"
+
 UPLOAD_RESPONSE="$(curl_body "upload file" \
     -X POST "$CLOUD_BASE_URL/api/storage/files?parentId=$SOURCE_FOLDER_ID" \
     -H "Authorization: Bearer $TOKEN" \
@@ -279,11 +294,37 @@ UPLOADED_FILE_NAME="$(require_json_string "upload file" "$UPLOAD_RESPONSE" "name
 [[ "$UPLOADED_FILE_NAME" == "$VERIFY_FILE_NAME" ]] || fail "upload returned unexpected file name $UPLOADED_FILE_NAME"
 ok "uploaded file $FILE_ID"
 
+CASE_CONFLICT_UPLOAD_RESPONSE="$(curl_body "upload case conflict file" \
+    -X POST "$CLOUD_BASE_URL/api/storage/files?parentId=$CASE_CONFLICT_FOLDER_ID" \
+    -H "Authorization: Bearer $TOKEN" \
+    -F "file=@$CASE_CONFLICT_FILE;filename=$CASE_CONFLICT_FILE_NAME;type=text/plain")"
+CASE_CONFLICT_FILE_ID="$(require_json_number "upload case conflict file" "$CASE_CONFLICT_UPLOAD_RESPONSE" "id")"
+CASE_CONFLICT_UPLOADED_NAME="$(require_json_string "upload case conflict file" "$CASE_CONFLICT_UPLOAD_RESPONSE" "name")"
+[[ "$CASE_CONFLICT_UPLOADED_NAME" == "$CASE_CONFLICT_FILE_NAME" ]] \
+    || fail "case conflict upload returned unexpected file name $CASE_CONFLICT_UPLOADED_NAME"
+ok "uploaded case conflict file $CASE_CONFLICT_FILE_ID"
+
 SOURCE_LIST_RESPONSE="$(curl_body "list source folder" \
     "$CLOUD_BASE_URL/api/storage/nodes?parentId=$SOURCE_FOLDER_ID" \
     -H "Authorization: Bearer $TOKEN")"
 require_json_contains_id "list source folder" "$SOURCE_LIST_RESPONSE" "$FILE_ID"
 ok "source folder lists uploaded file"
+
+expect_http_status "batch move rejects case-insensitive target name conflict" 400 \
+    -X PUT "$CLOUD_BASE_URL/api/storage/nodes/batch/move" \
+    -H "Authorization: Bearer $TOKEN" \
+    -H "Content-Type: application/json" \
+    -d "{\"nodeIds\":[$FILE_ID,$CASE_CONFLICT_FILE_ID],\"parentId\":$TARGET_FOLDER_ID}"
+
+SOURCE_AFTER_CONFLICT_RESPONSE="$(curl_body "list source folder after rejected case conflict move" \
+    "$CLOUD_BASE_URL/api/storage/nodes?parentId=$SOURCE_FOLDER_ID" \
+    -H "Authorization: Bearer $TOKEN")"
+require_json_contains_id "source folder after rejected case conflict move" "$SOURCE_AFTER_CONFLICT_RESPONSE" "$FILE_ID"
+CASE_FOLDER_AFTER_CONFLICT_RESPONSE="$(curl_body "list case conflict folder after rejected move" \
+    "$CLOUD_BASE_URL/api/storage/nodes?parentId=$CASE_CONFLICT_FOLDER_ID" \
+    -H "Authorization: Bearer $TOKEN")"
+require_json_contains_id "case conflict folder after rejected move" "$CASE_FOLDER_AFTER_CONFLICT_RESPONSE" "$CASE_CONFLICT_FILE_ID"
+ok "rejected case-insensitive move leaves source files in place"
 
 ACCESS_URL_RESPONSE="$(curl_body "file access-url" \
     "$PUBLIC_BASE_URL/api/storage/files/$FILE_ID/access-url?disposition=attachment" \
@@ -365,6 +406,16 @@ ROOT_AFTER_RESTORE_RESPONSE="$(curl_body "list root after restore" \
 require_json_contains_id "root after restore" "$ROOT_AFTER_RESTORE_RESPONSE" "$SOURCE_FOLDER_ID"
 require_json_contains_id "root after restore" "$ROOT_AFTER_RESTORE_RESPONSE" "$TARGET_FOLDER_ID"
 ok "restored folders are visible again"
+
+curl_body "move case conflict folder to trash" \
+    -X DELETE "$CLOUD_BASE_URL/api/storage/nodes/$CASE_CONFLICT_FOLDER_ID" \
+    -H "Authorization: Bearer $TOKEN" >/dev/null
+curl_body "permanently delete case conflict folder" \
+    -X DELETE "$CLOUD_BASE_URL/api/storage/trash/$CASE_CONFLICT_FOLDER_ID" \
+    -H "Authorization: Bearer $TOKEN" >/dev/null
+CASE_CONFLICT_FOLDER_ID=""
+CASE_CONFLICT_FILE_ID=""
+ok "temporary case conflict folder cleaned"
 
 curl_body "move target folder to trash" \
     -X DELETE "$CLOUD_BASE_URL/api/storage/nodes/$TARGET_FOLDER_ID" \

@@ -68,7 +68,7 @@ public interface StorageNodeRepository extends JpaRepository<StorageNode, Long>,
             from StorageNode node
             where node.ownerId = :ownerId
               and node.deleted = false
-              and node.nodeName = :nodeName
+              and lower(node.nodeName) = lower(:nodeName)
               and ((:parentId is null and node.parentId is null) or node.parentId = :parentId)
             """)
     boolean existsActiveSiblingName(
@@ -83,7 +83,7 @@ public interface StorageNodeRepository extends JpaRepository<StorageNode, Long>,
             where node.ownerId = :ownerId
               and node.deleted = false
               and node.id <> :excludedId
-              and node.nodeName = :nodeName
+              and lower(node.nodeName) = lower(:nodeName)
               and ((:parentId is null and node.parentId is null) or node.parentId = :parentId)
             """)
     boolean existsActiveSiblingNameExcludingId(
