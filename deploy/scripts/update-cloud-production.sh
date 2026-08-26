@@ -16,6 +16,7 @@ SKIP_ROUTE_VERIFY="${ALICIA_SKIP_ROUTE_VERIFY:-false}"
 SKIP_BOUNDARY_CHECK="${ALICIA_SKIP_BOUNDARY_CHECK:-false}"
 BACKUP_BEFORE_UPDATE="${ALICIA_BACKUP_BEFORE_UPDATE:-false}"
 COLLECT_STATUS="${ALICIA_COLLECT_STATUS_AFTER_UPDATE:-false}"
+VERIFY_PRODUCTION_FLOWS="${ALICIA_VERIFY_PRODUCTION_FLOWS_AFTER_UPDATE:-false}"
 
 if [[ $# -gt 0 ]]; then
     SERVICES=("$@")
@@ -71,6 +72,27 @@ ensure_gateway_network() {
     fi
 }
 
+read_verification_credentials_if_needed() {
+    [[ "$VERIFY_PRODUCTION_FLOWS" == "true" ]] || return 0
+
+    local account="${ALICIA_VERIFY_ACCOUNT:-${ALICIA_IDENTITY_ACCOUNT:-}}"
+    local password="${ALICIA_VERIFY_PASSWORD:-${ALICIA_IDENTITY_PASSWORD:-}}"
+
+    if [[ -z "$account" ]]; then
+        read -r -p "Identity account/email/phone: " account
+    fi
+
+    if [[ -z "$password" ]]; then
+        read -r -s -p "Identity password: " password
+        printf '\n'
+    fi
+
+    export ALICIA_VERIFY_ACCOUNT="$account"
+    export ALICIA_VERIFY_PASSWORD="$password"
+    export ALICIA_IDENTITY_ACCOUNT="$account"
+    export ALICIA_IDENTITY_PASSWORD="$password"
+}
+
 cd "$PROJECT_DIR"
 
 [[ -f .env ]] || { printf 'Missing %s/.env\n' "$PROJECT_DIR" >&2; exit 1; }
@@ -93,6 +115,10 @@ done
     printf 'Missing %s/deploy/scripts/collect-production-status.sh\n' "$PROJECT_DIR" >&2
     exit 1
 }
+[[ "$VERIFY_PRODUCTION_FLOWS" != "true" || -f deploy/scripts/verify-cloud-production-flows.sh ]] || {
+    printf 'Missing %s/deploy/scripts/verify-cloud-production-flows.sh\n' "$PROJECT_DIR" >&2
+    exit 1
+}
 
 fail_if_tracked_changes
 ensure_gateway_network
@@ -110,12 +136,20 @@ fi
 
 compose up -d --build "${SERVICES[@]}"
 
+read_verification_credentials_if_needed
+
 if [[ "$SKIP_ROUTE_VERIFY" != "true" ]]; then
     bash deploy/scripts/verify-identity-cloud-routes.sh
 fi
 
 if [[ "$SKIP_BOUNDARY_CHECK" != "true" ]]; then
     bash deploy/scripts/check-identity-route-boundary.sh
+fi
+
+if [[ "$VERIFY_PRODUCTION_FLOWS" == "true" ]]; then
+    ALICIA_PRODUCTION_FLOW_SKIP_ROUTE_VERIFY=true \
+    ALICIA_PRODUCTION_FLOW_SKIP_BOUNDARY_CHECK=true \
+        bash deploy/scripts/verify-cloud-production-flows.sh
 fi
 
 if [[ "$COLLECT_STATUS" == "true" ]]; then

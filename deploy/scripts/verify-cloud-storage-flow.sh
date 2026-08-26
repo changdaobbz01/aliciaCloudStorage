@@ -209,8 +209,8 @@ PY
 }
 
 read_identity_credentials() {
-    ACCOUNT="${ALICIA_IDENTITY_ACCOUNT:-}"
-    PASSWORD="${ALICIA_IDENTITY_PASSWORD:-}"
+    ACCOUNT="${ALICIA_IDENTITY_ACCOUNT:-${ALICIA_VERIFY_ACCOUNT:-}}"
+    PASSWORD="${ALICIA_IDENTITY_PASSWORD:-${ALICIA_VERIFY_PASSWORD:-}}"
 
     if [[ -z "$ACCOUNT" ]]; then
         read -r -p "Identity account/email/phone: " ACCOUNT

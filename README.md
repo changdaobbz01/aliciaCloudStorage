@@ -293,6 +293,15 @@ ALICIA_BACKUP_BEFORE_UPDATE=true ALICIA_COLLECT_STATUS_AFTER_UPDATE=true \
   bash deploy/scripts/update-cloud-production.sh api identity rag frontend
 ```
 
+如果这次改动涉及云盘文件、分享、上传下载或回收站链路，可把深度生产流验收也打开：
+
+```bash
+ALICIA_VERIFY_PRODUCTION_FLOWS_AFTER_UPDATE=true \
+  bash deploy/scripts/update-cloud-production.sh api frontend
+```
+
+深度流验收会复用登录凭证，额外运行云盘文件操作专项和分享专项；更新脚本已经跑过的总路由和静态边界检查不会重复执行。
+
 如果主站和云盘都要一起更新，可在 `~/aliciaCloudStorage` 内执行：
 
 ```bash
@@ -324,6 +333,14 @@ bash deploy/scripts/verify-identity-cloud-routes.sh
 ```
 
 脚本默认验证 `http://127.0.0.1:8090`、`http://127.0.0.1:8093` 和 `https://127.0.0.1`；如需改为域名验证，可设置 `ALICIA_PUBLIC_BASE_URL=https://windwindwind-alicia.cn`。完整管理员检查需要使用管理员账号；普通账号可临时设置 `ALICIA_VERIFY_SKIP_ADMIN_CHECK=true`。
+
+需要一次性跑总路由、云盘文件操作、分享链路和静态边界，可执行：
+
+```bash
+bash deploy/scripts/verify-cloud-production-flows.sh
+```
+
+该脚本只做验收，不重建容器；它会读取一次账号密码，并传给后续专项脚本。
 
 需要深入回归真实分享链路时，可执行：
 
