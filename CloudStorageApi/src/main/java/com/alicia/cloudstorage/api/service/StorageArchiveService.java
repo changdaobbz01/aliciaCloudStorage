@@ -52,11 +52,24 @@ public class StorageArchiveService {
     public StorageArchivePayload createArchive(Long userId, BatchNodeRequest request) {
         List<Long> nodeIds = normalizeNodeIds(request == null ? null : request.nodeIds());
         List<StorageNode> rootNodes = collapseSelectedRoots(userId, loadOwnedActiveNodes(userId, nodeIds));
-        ArchivePlan archivePlan = buildArchivePlan(userId, rootNodes);
+        return createArchivePayload(userId, rootNodes, null);
+    }
+
+    public StorageArchivePayload createArchiveFromAuthorizedNodes(
+            Long ownerId,
+            List<StorageNode> authorizedNodes,
+            String archiveTitle
+    ) {
+        List<StorageNode> rootNodes = collapseSelectedRoots(ownerId, normalizeAuthorizedNodes(ownerId, authorizedNodes));
+        return createArchivePayload(ownerId, rootNodes, archiveTitle);
+    }
+
+    private StorageArchivePayload createArchivePayload(Long ownerId, List<StorageNode> rootNodes, String archiveTitle) {
+        ArchivePlan archivePlan = buildArchivePlan(ownerId, rootNodes);
         Path archiveFile = createArchiveFile(archivePlan.entries());
 
         return new StorageArchivePayload(
-                resolveArchiveFileName(rootNodes),
+                resolveArchiveFileName(rootNodes, archiveTitle),
                 contentLength(archiveFile),
                 outputStream -> streamArchiveFile(archiveFile, outputStream)
         );
@@ -232,6 +245,31 @@ public class StorageArchiveService {
         return List.copyOf(uniqueNodeIds);
     }
 
+    private List<StorageNode> normalizeAuthorizedNodes(Long ownerId, List<StorageNode> rawNodes) {
+        if (rawNodes == null || rawNodes.isEmpty()) {
+            throw new IllegalArgumentException("请至少选择一个要下载的项目。");
+        }
+
+        if (rawNodes.size() > MAX_ARCHIVE_ROOTS) {
+            throw new IllegalArgumentException("单次最多打包下载 100 个项目。");
+        }
+
+        Map<Long, StorageNode> uniqueNodes = new java.util.LinkedHashMap<>();
+        for (StorageNode rawNode : rawNodes) {
+            if (rawNode == null || rawNode.getId() == null) {
+                throw new IllegalArgumentException("项目编号不能为空。");
+            }
+
+            if (!ownerId.equals(rawNode.getOwnerId()) || rawNode.isDeleted()) {
+                throw new IllegalArgumentException("选择的项目不存在或已被删除。");
+            }
+
+            uniqueNodes.putIfAbsent(rawNode.getId(), rawNode);
+        }
+
+        return List.copyOf(uniqueNodes.values());
+    }
+
     private List<StorageNode> collapseSelectedRoots(Long userId, List<StorageNode> nodes) {
         Set<Long> selectedIds = new HashSet<>();
         nodes.forEach(node -> selectedIds.add(node.getId()));
@@ -268,16 +306,24 @@ public class StorageArchiveService {
         }
     }
 
-    private String resolveArchiveFileName(List<StorageNode> rootNodes) {
+    private String resolveArchiveFileName(List<StorageNode> rootNodes, String archiveTitle) {
         String baseName = rootNodes.size() == 1
                 ? stripZipSuffix(sanitizeZipPathSegment(rootNodes.get(0).getNodeName()))
-                : "AliciaCloud-" + java.time.LocalDateTime.now().format(ARCHIVE_FILE_NAME_FORMATTER);
+                : resolveMultiRootArchiveBaseName(archiveTitle);
 
         if (baseName.isBlank()) {
-            baseName = "AliciaCloud";
+            baseName = "AliciaCloud-" + java.time.LocalDateTime.now().format(ARCHIVE_FILE_NAME_FORMATTER);
         }
 
         return baseName + ".zip";
+    }
+
+    private String resolveMultiRootArchiveBaseName(String archiveTitle) {
+        if (archiveTitle == null || archiveTitle.isBlank()) {
+            return "";
+        }
+
+        return sanitizeZipPathSegment(archiveTitle);
     }
 
     private String stripZipSuffix(String fileName) {

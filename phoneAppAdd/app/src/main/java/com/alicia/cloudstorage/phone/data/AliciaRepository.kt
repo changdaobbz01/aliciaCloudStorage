@@ -632,6 +632,51 @@ class AliciaRepository(
             )
             .requireBody(fallback = "保存分享失败。")
 
+    suspend fun saveShareArchiveToUri(
+        context: Context,
+        baseUrl: String,
+        token: String,
+        shareCode: String,
+        shareAccessToken: String?,
+        nodeIds: List<Long>,
+        destinationUri: Uri,
+        onProgress: (TransferProgress) -> Unit = {},
+    ): String = withContext(Dispatchers.IO) {
+        val response = serviceFactory.serviceFor(baseUrl)
+            .downloadShareArchive(
+                authorization = authorization(token),
+                shareAccessToken = shareAccessToken,
+                shareCode = shareCode,
+                payload = BatchNodePayload(nodeIds = nodeIds),
+            )
+
+        if (!response.isSuccessful) {
+            val payload = runCatching { response.errorBody()?.string() }.getOrNull()
+            throw ApiException(
+                message = payload.toReadableError(response.code(), "下载分享内容失败。"),
+                status = response.code(),
+            )
+        }
+
+        val fileName = parseFileName(response.headers()["content-disposition"]) ?: "AliciaShare.zip"
+        val body = response.body() ?: throw ApiException("下载分享内容失败。", response.code())
+
+        body.use { responseBody ->
+            context.contentResolver.openOutputStream(destinationUri, "wt")?.use { output ->
+                responseBody.byteStream().use { input ->
+                    copyToWithProgress(
+                        input = input,
+                        output = output,
+                        totalBytes = responseBody.contentLength().takeIf { it >= 0L },
+                        onProgress = onProgress,
+                    )
+                }
+            } ?: throw ApiException("无法写入你选择的保存位置。", 400)
+        }
+
+        fileName
+    }
+
     suspend fun saveArchiveToUri(
         context: Context,
         baseUrl: String,

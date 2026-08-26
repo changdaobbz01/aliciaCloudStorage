@@ -1043,6 +1043,27 @@ export function downloadShareFile(
   );
 }
 
+export function downloadShareArchive(
+  shareCode: string,
+  payload: BatchNodePayload,
+  token: string,
+  shareAccessToken?: string | null,
+  options?: DownloadRequestOptions,
+) {
+  return requestBlob(
+    `/api/share-links/${encodeURIComponent(shareCode)}/nodes/archive`,
+    withTokenAndShareAccess(token, shareAccessToken, {
+      method: 'POST',
+      signal: options?.signal,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    }),
+    options,
+  );
+}
+
 export function renameStorageNode(nodeId: number, payload: RenameNodePayload, token: string) {
   return requestJson<StorageNode>(
     `/api/storage/nodes/${nodeId}/rename`,

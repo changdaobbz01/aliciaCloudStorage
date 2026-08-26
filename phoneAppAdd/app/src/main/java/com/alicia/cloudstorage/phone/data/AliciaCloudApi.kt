@@ -265,6 +265,15 @@ interface AliciaCloudService {
     ): Response<List<StorageNode>>
 
     @Streaming
+    @POST("api/share-links/{shareCode}/nodes/archive")
+    suspend fun downloadShareArchive(
+        @Header("Authorization") authorization: String,
+        @Header("X-Share-Access-Token") shareAccessToken: String?,
+        @Path("shareCode") shareCode: String,
+        @Body payload: BatchNodePayload,
+    ): Response<ResponseBody>
+
+    @Streaming
     @GET("api/storage/files/{fileId}/download")
     suspend fun downloadFile(
         @Header("Authorization") authorization: String,

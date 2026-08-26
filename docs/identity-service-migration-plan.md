@@ -247,10 +247,10 @@ https://windwindwind-alicia.cn/api/storage/**
   CloudStorageApi
 
 https://windwindwind-alicia.cn/api/share-links/**
-  CloudStorageApi
+  CloudStorageApi 分享详情、保存、文件下载和节点打包下载
 
 https://windwindwind-alicia.cn/api/public/share-links/**
-  CloudStorageApi
+  CloudStorageApi 公开分享状态和提取码校验
 
 https://windwindwind-alicia.cn/rag/**
   RAG Service
@@ -1002,6 +1002,7 @@ Web：
 - 登录后刷新。
 - 未登录访问云盘重定向。
 - 分享页登录跳转。
+- 分享页提取码校验、保存到网盘、文件下载和文件夹打包下载。
 - 用户资料修改。
 - 头像上传。
 - 云盘主页背景上传和清除。
@@ -1017,7 +1018,7 @@ Android：
 - 云盘首页。
 - 文件列表。
 - 上传下载。
-- 分享。
+- 分享链接识别、提取码校验和保存到网盘。
 - AI 操作。
 
 部署：

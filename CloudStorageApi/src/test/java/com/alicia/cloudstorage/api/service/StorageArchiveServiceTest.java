@@ -96,6 +96,46 @@ class StorageArchiveServiceTest {
     }
 
     @Test
+    void createArchiveFromAuthorizedNodesUsesShareTitleForMultipleRoots() throws Exception {
+        StorageNode firstFile = fileNode(51L, 7L, null, "first.txt", "cos/first.txt", 5L);
+        StorageNode secondFile = fileNode(52L, 7L, null, "second.txt", "cos/second.txt", 5L);
+
+        when(cosFileStorageService.openFileStream("cos/first.txt"))
+                .thenReturn(new CosFileStorageService.DownloadedCosFile(
+                        new ByteArrayInputStream("first".getBytes(StandardCharsets.UTF_8)),
+                        "text/plain",
+                        5L
+                ));
+        when(cosFileStorageService.openFileStream("cos/second.txt"))
+                .thenReturn(new CosFileStorageService.DownloadedCosFile(
+                        new ByteArrayInputStream("second".getBytes(StandardCharsets.UTF_8)),
+                        "text/plain",
+                        5L
+                ));
+
+        StorageArchiveService.StorageArchivePayload payload =
+                storageArchiveService.createArchiveFromAuthorizedNodes(7L, List.of(firstFile, secondFile), "项目分享/2026");
+
+        assertThat(payload.fileName()).isEqualTo("项目分享_2026.zip");
+        ZipSnapshot zipSnapshot = writeAndReadZip(payload);
+        assertThat(zipSnapshot.entryNames()).containsExactly("first.txt", "second.txt");
+        assertThat(zipSnapshot.fileContents())
+                .containsEntry("first.txt", "first")
+                .containsEntry("second.txt", "second");
+    }
+
+    @Test
+    void createArchiveFromAuthorizedNodesRejectsNodesOutsideAuthorizedOwner() {
+        StorageNode file = fileNode(61L, 8L, null, "outside.txt", "cos/outside.txt", 5L);
+
+        assertThatThrownBy(() -> storageArchiveService.createArchiveFromAuthorizedNodes(7L, List.of(file), "outside"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("选择的项目不存在或已被删除。");
+
+        verify(cosFileStorageService, never()).openFileStream(anyString());
+    }
+
+    @Test
     void createArchiveSanitizesUnsafeZipEntryNames() throws Exception {
         StorageNode file = fileNode(21L, 7L, null, "report/..\\2026?.txt", "cos/report.txt", 4L);
 

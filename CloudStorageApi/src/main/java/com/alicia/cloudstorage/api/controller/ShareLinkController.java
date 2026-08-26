@@ -3,6 +3,7 @@ package com.alicia.cloudstorage.api.controller;
 import com.alicia.cloudstorage.api.principal.PrincipalRequestAttributes;
 import com.alicia.cloudstorage.api.principal.CurrentPrincipal;
 import com.alicia.cloudstorage.api.dto.CreateShareLinkRequest;
+import com.alicia.cloudstorage.api.dto.BatchNodeRequest;
 import com.alicia.cloudstorage.api.dto.SaveShareLinkRequest;
 import com.alicia.cloudstorage.api.dto.ShareLinkDetailResponse;
 import com.alicia.cloudstorage.api.dto.ShareLinkSummaryResponse;
@@ -10,6 +11,7 @@ import com.alicia.cloudstorage.api.dto.SignedUrlResponse;
 import com.alicia.cloudstorage.api.dto.StorageNodeSummaryResponse;
 import com.alicia.cloudstorage.api.service.ShareLinkService;
 import com.alicia.cloudstorage.api.service.StorageCommandService;
+import com.alicia.cloudstorage.api.service.StorageArchiveService;
 import jakarta.validation.Valid;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.ContentDisposition;
@@ -26,6 +28,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -36,6 +39,7 @@ public class ShareLinkController {
 
     private static final String SHARE_ACCESS_HEADER = "X-Share-Access-Token";
     private static final String VERSIONED_PRIVATE_FILE_CACHE_CONTROL = "private, max-age=2592000, immutable";
+    private static final String PRIVATE_DOWNLOAD_CACHE_CONTROL = "private, no-store";
 
     private final ShareLinkService shareLinkService;
 
@@ -141,5 +145,34 @@ public class ShareLinkController {
                                 .toString()
                 )
                 .body(new InputStreamResource(downloadPayload.inputStream()));
+    }
+
+    @PostMapping("/{shareCode}/nodes/archive")
+    public ResponseEntity<StreamingResponseBody> downloadShareArchive(
+            @RequestAttribute(PrincipalRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
+            @PathVariable String shareCode,
+            @RequestHeader(value = SHARE_ACCESS_HEADER, required = false) String shareAccessToken,
+            @Valid @RequestBody BatchNodeRequest request
+    ) {
+        StorageArchiveService.StorageArchivePayload archivePayload = shareLinkService.createShareArchive(
+                principal.userId(),
+                shareCode,
+                shareAccessToken,
+                request
+        );
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CACHE_CONTROL, PRIVATE_DOWNLOAD_CACHE_CONTROL)
+                .header(HttpHeaders.VARY, HttpHeaders.AUTHORIZATION)
+                .contentType(MediaType.parseMediaType("application/zip"))
+                .contentLength(archivePayload.contentLength())
+                .header(
+                        HttpHeaders.CONTENT_DISPOSITION,
+                        ContentDisposition.attachment()
+                                .filename(archivePayload.fileName(), StandardCharsets.UTF_8)
+                                .build()
+                                .toString()
+                )
+                .body(archivePayload.body());
     }
 }

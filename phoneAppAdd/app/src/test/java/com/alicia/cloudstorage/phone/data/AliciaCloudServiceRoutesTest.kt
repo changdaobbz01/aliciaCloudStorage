@@ -28,6 +28,16 @@ class AliciaCloudServiceRoutesTest {
         assertEquals("api/admin/cloud-users/{userId}/quota", putPath("updateUserQuota"))
     }
 
+    @Test
+    fun `keeps share routes on cloud storage api`() {
+        assertEquals("api/share-links", postPath("createShareLink"))
+        assertEquals("api/public/share-links/{shareCode}/status", getPath("fetchPublicShareStatus"))
+        assertEquals("api/public/share-links/{shareCode}/verify-password", postPath("verifySharePassword"))
+        assertEquals("api/share-links/{shareCode}/detail", getPath("fetchShareDetail"))
+        assertEquals("api/share-links/{shareCode}/save", postPath("saveShareToDrive"))
+        assertEquals("api/share-links/{shareCode}/nodes/archive", postPath("downloadShareArchive"))
+    }
+
     private fun postPath(methodName: String): String =
         method(methodName).getAnnotation(POST::class.java)?.value
             ?: error("Missing @POST on $methodName")

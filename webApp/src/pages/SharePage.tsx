@@ -1,4 +1,4 @@
-import { File, FolderOpen, LogIn, Save, Smartphone } from 'lucide-react';
+import { Download, File, FolderOpen, LogIn, Save, Smartphone } from 'lucide-react';
 import { Alert, App as AntApp, Button, Card, Form, Input, Modal, Result, Space, Spin, Table, TreeSelect, Typography } from 'antd';
 import type { TableProps } from 'antd';
 import type { Key } from 'react';
@@ -10,6 +10,8 @@ import { publicAssetPath } from '../lib/appPaths';
 import { useSession } from '../context/session-context';
 import { Icon } from '../components/Icon';
 import {
+  downloadShareArchive,
+  fetchShareFileAccessUrl,
   fetchStorageFolders,
   fetchPublicShareStatus,
   fetchShareDetail,
@@ -32,6 +34,9 @@ type StoredShareAccess = {
   accessToken: string;
   expiresAt: string;
 };
+
+const SHARE_CODE_PATTERN = /^[A-Za-z0-9_-]{4,40}$/;
+const MAX_SHARE_ARCHIVE_ROOTS = 100;
 
 function isLikelyMobileClient() {
   if (typeof window === 'undefined') {
@@ -97,6 +102,28 @@ function formatBytes(value: number) {
 
 function formatTimestamp(value: string | null) {
   return value ? new Date(value).toLocaleString('zh-CN') : '永久有效';
+}
+
+function isShareAccessInvalidError(error: unknown) {
+  return isApiError(error) && error.status === 400 && /提取码|访问凭证/.test(error.message);
+}
+
+function triggerLinkDownload(url: string, fileName?: string | null) {
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.rel = 'noreferrer';
+  if (fileName) {
+    anchor.download = fileName;
+  }
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+}
+
+function triggerBlobDownload(blob: Blob, fileName: string) {
+  const objectUrl = URL.createObjectURL(blob);
+  triggerLinkDownload(objectUrl, fileName);
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
 }
 
 function buildShareTree(detail: ShareLinkDetail | null): ShareTreeNode[] {
@@ -185,15 +212,19 @@ export function SharePage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { shareCode = '' } = useParams();
+  const normalizedShareCode = useMemo(() => shareCode.trim(), [shareCode]);
+  const shareCodeValid = SHARE_CODE_PATTERN.test(normalizedShareCode);
   const { authToken, currentUser, isSessionChecking } = useSession();
   const [passwordForm] = Form.useForm<VerifySharePasswordPayload>();
   const [status, setStatus] = useState<ShareLinkStatus | null>(null);
   const [detail, setDetail] = useState<ShareLinkDetail | null>(null);
-  const [shareAccessToken, setShareAccessToken] = useState<string | null>(() => loadStoredShareAccess(shareCode));
+  const [shareAccessToken, setShareAccessToken] = useState<string | null>(() => loadStoredShareAccess(normalizedShareCode));
   const [statusLoading, setStatusLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
   const [passwordChecking, setPasswordChecking] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [downloadingNodeId, setDownloadingNodeId] = useState<number | null>(null);
+  const [downloadingSelection, setDownloadingSelection] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
   const [showMobileOpenHint, setShowMobileOpenHint] = useState(false);
   const [saveTargetOpen, setSaveTargetOpen] = useState(false);
@@ -213,11 +244,11 @@ export function SharePage() {
   );
 
   useEffect(() => {
-    setShareAccessToken(loadStoredShareAccess(shareCode));
+    setShareAccessToken(loadStoredShareAccess(normalizedShareCode));
     setDetail(null);
     setSelectedShareRowKeys([]);
-    setShowMobileOpenHint(Boolean(shareCode) && isLikelyMobileClient());
-  }, [shareCode]);
+    setShowMobileOpenHint(shareCodeValid && isLikelyMobileClient());
+  }, [normalizedShareCode, shareCodeValid]);
 
   useEffect(() => {
     let cancelled = false;
@@ -226,8 +257,15 @@ export function SharePage() {
       setStatusLoading(true);
       setPageError(null);
 
+      if (!shareCodeValid) {
+        setStatus(null);
+        setPageError('分享链接格式不正确。');
+        setStatusLoading(false);
+        return;
+      }
+
       try {
-        const nextStatus = await fetchPublicShareStatus(shareCode);
+        const nextStatus = await fetchPublicShareStatus(normalizedShareCode);
         if (!cancelled) {
           setStatus(nextStatus);
         }
@@ -248,7 +286,7 @@ export function SharePage() {
     return () => {
       cancelled = true;
     };
-  }, [shareCode]);
+  }, [normalizedShareCode, shareCodeValid]);
 
   useEffect(() => {
     if (!status?.available || isSessionChecking || !authToken || !currentUser) {
@@ -267,14 +305,14 @@ export function SharePage() {
       setPageError(null);
 
       try {
-        const nextDetail = await fetchShareDetail(shareCode, authToken!, shareAccessToken);
+        const nextDetail = await fetchShareDetail(normalizedShareCode, authToken!, shareAccessToken);
         if (!cancelled) {
           setDetail(nextDetail);
         }
       } catch (error) {
         if (!cancelled) {
-          if (currentStatus.requiresPassword && isApiError(error) && error.status === 400) {
-            clearStoredShareAccess(shareCode);
+          if (currentStatus.requiresPassword && isShareAccessInvalidError(error)) {
+            clearStoredShareAccess(normalizedShareCode);
             setShareAccessToken(null);
           }
           setDetail(null);
@@ -292,15 +330,26 @@ export function SharePage() {
     return () => {
       cancelled = true;
     };
-  }, [authToken, currentUser, isSessionChecking, shareAccessToken, shareCode, status]);
+  }, [authToken, currentUser, isSessionChecking, normalizedShareCode, shareAccessToken, status]);
+
+  function resetShareAccessIfNeeded(error: unknown) {
+    if (!status?.requiresPassword || !isShareAccessInvalidError(error)) {
+      return false;
+    }
+
+    clearStoredShareAccess(normalizedShareCode);
+    setShareAccessToken(null);
+    setDetail(null);
+    return true;
+  }
 
   async function handlePasswordSubmit(values: VerifySharePasswordPayload) {
     setPasswordChecking(true);
 
     try {
-      const response = await verifySharePassword(shareCode, values);
+      const response = await verifySharePassword(normalizedShareCode, values);
       if (response.accessToken && response.expiresAt) {
-        saveStoredShareAccess(shareCode, response.accessToken, response.expiresAt);
+        saveStoredShareAccess(normalizedShareCode, response.accessToken, response.expiresAt);
         setShareAccessToken(response.accessToken);
       }
       passwordForm.resetFields();
@@ -317,11 +366,11 @@ export function SharePage() {
   }
 
   function openInAndroidApp() {
-    window.location.href = buildShareIntentUrl(shareCode);
+    window.location.href = buildShareIntentUrl(normalizedShareCode);
   }
 
   function openAppDownloadPage() {
-    window.location.href = buildAppDownloadUrl(shareCode);
+    window.location.href = buildAppDownloadUrl(normalizedShareCode);
   }
 
   async function loadSaveFolderOptions() {
@@ -375,9 +424,97 @@ export function SharePage() {
       setSelectedShareRowKeys([]);
       void navigate('/');
     } catch (error) {
-      message.error(error instanceof Error ? error.message : '保存失败。');
+      if (resetShareAccessIfNeeded(error)) {
+        setSaveTargetOpen(false);
+        message.warning('提取码凭证已失效，请重新输入。');
+      } else {
+        message.error(error instanceof Error ? error.message : '保存失败。');
+      }
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleDownloadFile(item: ShareTreeNode) {
+    if (!authToken || !detail) {
+      return;
+    }
+
+    if (!detail.allowDownload) {
+      message.warning('分享者未开放下载权限。');
+      return;
+    }
+
+    setDownloadingNodeId(item.id);
+
+    try {
+      const access = await fetchShareFileAccessUrl(
+        detail.shareCode,
+        item.id,
+        authToken,
+        shareAccessToken,
+        'attachment',
+      );
+      triggerLinkDownload(access.url, access.fileName ?? item.name);
+      message.success('已开始下载。');
+    } catch (error) {
+      if (resetShareAccessIfNeeded(error)) {
+        message.warning('提取码凭证已失效，请重新输入。');
+      } else {
+        message.error(error instanceof Error ? error.message : '下载失败。');
+      }
+    } finally {
+      setDownloadingNodeId(null);
+    }
+  }
+
+  async function handleDownloadArchive(nodeIds: number[], busyNodeId: number | null = null) {
+    if (!authToken || !detail) {
+      return;
+    }
+
+    if (!detail.allowDownload) {
+      message.warning('分享者未开放下载权限。');
+      return;
+    }
+
+    if (nodeIds.length === 0) {
+      message.warning('请先选择要下载的分享内容。');
+      return;
+    }
+
+    if (nodeIds.length > MAX_SHARE_ARCHIVE_ROOTS) {
+      message.warning('单次最多打包下载 100 个项目，请减少选择后重试。');
+      return;
+    }
+
+    if (busyNodeId === null) {
+      setDownloadingSelection(true);
+    } else {
+      setDownloadingNodeId(busyNodeId);
+    }
+
+    try {
+      const { blob, fileName } = await downloadShareArchive(
+        detail.shareCode,
+        { nodeIds },
+        authToken,
+        shareAccessToken,
+      );
+      triggerBlobDownload(blob, fileName ?? `${detail.title}.zip`);
+      message.success('压缩包已开始下载。');
+    } catch (error) {
+      if (resetShareAccessIfNeeded(error)) {
+        message.warning('提取码凭证已失效，请重新输入。');
+      } else {
+        message.error(error instanceof Error ? error.message : '下载失败。');
+      }
+    } finally {
+      if (busyNodeId === null) {
+        setDownloadingSelection(false);
+      } else {
+        setDownloadingNodeId(null);
+      }
     }
   }
 
@@ -418,6 +555,35 @@ export function SharePage() {
       key: 'updatedAt',
       width: 200,
       render: (value: string) => formatTimestamp(value),
+    },
+    {
+      title: '操作',
+      key: 'actions',
+      width: 150,
+      render: (_, item) => {
+        if (!detail?.allowDownload) {
+          return <Typography.Text className="muted-text">-</Typography.Text>;
+        }
+
+        return (
+          <Button
+            type="link"
+            icon={<Icon icon={Download} />}
+            loading={downloadingNodeId === item.id}
+            disabled={saving || downloadingSelection}
+            onClick={(event) => {
+              event.stopPropagation();
+              if (item.type === 'FILE') {
+                void handleDownloadFile(item);
+              } else {
+                void handleDownloadArchive([item.id], item.id);
+              }
+            }}
+          >
+            {item.type === 'FILE' ? '下载' : '打包下载'}
+          </Button>
+        );
+      },
     },
   ];
 
@@ -486,12 +652,22 @@ export function SharePage() {
             </Typography.Paragraph>
           </div>
           <div className="panel-actions">
+            {detail.allowDownload ? (
+              <Button
+                icon={<Icon icon={Download} />}
+                loading={downloadingSelection}
+                disabled={selectedShareRootNodeIds.length === 0 || saving}
+                onClick={() => void handleDownloadArchive(selectedShareRootNodeIds)}
+              >
+                下载选中
+              </Button>
+            ) : null}
             {detail.allowSave ? (
               <Button
                 type="primary"
                 icon={<Icon icon={Save} />}
                 loading={saving}
-                disabled={selectedShareRootNodeIds.length === 0}
+                disabled={selectedShareRootNodeIds.length === 0 || downloadingSelection}
                 onClick={openSaveTargetModal}
               >
                 保存到我的网盘
@@ -511,16 +687,16 @@ export function SharePage() {
           dataSource={shareTree}
           pagination={false}
           rowSelection={
-            detail.allowSave
+            detail.allowSave || detail.allowDownload
               ? {
                   selectedRowKeys: selectedShareRowKeys,
                   checkStrictly: false,
                   onChange: (nextSelectedRowKeys) => setSelectedShareRowKeys(nextSelectedRowKeys),
-                  getCheckboxProps: () => ({ disabled: saving }),
+                  getCheckboxProps: () => ({ disabled: saving || downloadingSelection }),
                 }
               : undefined
           }
-          scroll={{ x: 900 }}
+          scroll={{ x: 1060 }}
           expandable={{
             defaultExpandAllRows: false,
             defaultExpandedRowKeys: [],

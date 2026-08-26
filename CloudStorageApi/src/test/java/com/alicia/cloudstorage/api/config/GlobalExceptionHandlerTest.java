@@ -2,6 +2,7 @@ package com.alicia.cloudstorage.api.config;
 
 import com.alicia.cloudstorage.api.identity.IdentityServiceUnavailableException;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -26,6 +27,15 @@ class GlobalExceptionHandlerTest {
 
         assertThat(response.status()).isEqualTo(503);
         assertThat(response.error()).isEqualTo("身份服务暂不可用。");
+        assertThat(response.timestamp()).isNotNull();
+    }
+
+    @Test
+    void unreadableRequestBodyReturnsBadRequestPayload() {
+        var response = handler.handleUnreadableMessage(new HttpMessageNotReadableException("bad json", null));
+
+        assertThat(response.status()).isEqualTo(400);
+        assertThat(response.error()).isEqualTo("请求内容不正确，请检查请求体格式。");
         assertThat(response.timestamp()).isNotNull();
     }
 }

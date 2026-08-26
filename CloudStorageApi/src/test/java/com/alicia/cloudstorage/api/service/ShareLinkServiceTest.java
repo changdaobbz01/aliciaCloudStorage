@@ -1,6 +1,7 @@
 package com.alicia.cloudstorage.api.service;
 
 import com.alicia.cloudstorage.api.identity.IdentityUserSnapshot;
+import com.alicia.cloudstorage.api.dto.BatchNodeRequest;
 import com.alicia.cloudstorage.api.dto.CreateShareLinkRequest;
 import com.alicia.cloudstorage.api.dto.SaveShareLinkRequest;
 import com.alicia.cloudstorage.api.dto.StorageNodeSummaryResponse;
@@ -35,6 +36,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -59,6 +61,9 @@ class ShareLinkServiceTest {
     private StorageCommandService storageCommandService;
 
     @Mock
+    private StorageArchiveService storageArchiveService;
+
+    @Mock
     private CosFileStorageService cosFileStorageService;
 
     private ShareLinkService shareLinkService;
@@ -72,6 +77,7 @@ class ShareLinkServiceTest {
                 identityUserGateway,
                 passwordEncoder,
                 storageCommandService,
+                storageArchiveService,
                 cosFileStorageService,
                 "share-test-secret",
                 5_000
@@ -168,6 +174,7 @@ class ShareLinkServiceTest {
                 identityUserGateway,
                 passwordEncoder,
                 storageCommandService,
+                storageArchiveService,
                 cosFileStorageService,
                 "share-test-secret",
                 2
@@ -205,6 +212,43 @@ class ShareLinkServiceTest {
                 .hasMessage("请先输入分享提取码。");
 
         verify(shareLinkItemRepository, never()).findByShareIdOrderBySortOrderAsc(1L);
+    }
+
+    @Test
+    void publicStatusHidesTitleForExpiredShare() {
+        ShareLink shareLink = activeShare(12L, 9L, "share-code");
+        shareLink.setExpiresAt(LocalDateTime.now().minusMinutes(1));
+
+        when(shareLinkRepository.findByShareCode("share-code")).thenReturn(Optional.of(shareLink));
+
+        var response = shareLinkService.getPublicStatus("share-code");
+
+        assertThat(response.available()).isFalse();
+        assertThat(response.title()).isNull();
+        assertThat(response.reason()).isEqualTo("EXPIRED");
+    }
+
+    @Test
+    void publicStatusHidesTitleForRevokedShare() {
+        ShareLink shareLink = activeShare(13L, 9L, "share-code");
+        shareLink.setStatus(ShareLinkStatus.REVOKED);
+
+        when(shareLinkRepository.findByShareCode("share-code")).thenReturn(Optional.of(shareLink));
+
+        var response = shareLinkService.getPublicStatus("share-code");
+
+        assertThat(response.available()).isFalse();
+        assertThat(response.title()).isNull();
+        assertThat(response.reason()).isEqualTo("REVOKED");
+    }
+
+    @Test
+    void invalidShareCodeFailsBeforeRepositoryLookup() {
+        assertThatThrownBy(() -> shareLinkService.getPublicStatus("../bad"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("分享链接不存在。");
+
+        verifyNoInteractions(shareLinkRepository);
     }
 
     @Test
@@ -289,6 +333,77 @@ class ShareLinkServiceTest {
                 org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.anyString()
         );
+    }
+
+    @Test
+    void shareDownloadRejectsFileWithoutStorageObject() {
+        ShareLink shareLink = activeShare(14L, 9L, "share-code");
+        StorageNode sharedFile = fileNode(141L, 9L, null, "lost.pdf", "   ");
+        ShareLinkItem shareItem = shareItem(14L, 141L);
+
+        when(shareLinkRepository.findByShareCode("share-code")).thenReturn(Optional.of(shareLink));
+        when(shareLinkItemRepository.findByShareIdOrderBySortOrderAsc(14L)).thenReturn(List.of(shareItem));
+        when(storageNodeRepository.findByIdAndOwnerIdAndDeletedFalse(141L, 9L)).thenReturn(Optional.of(sharedFile));
+
+        assertThatThrownBy(() -> shareLinkService.createShareFileAccessUrl(20L, "share-code", 141L, null, true))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("分享文件不再可用。");
+
+        verify(cosFileStorageService, never()).createAttachmentDownloadUrl(
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.anyString()
+        );
+    }
+
+    @Test
+    void createShareArchiveRejectsWhenDownloadDisabled() {
+        ShareLink shareLink = activeShare(15L, 9L, "share-code");
+        shareLink.setAllowDownload(false);
+
+        when(shareLinkRepository.findByShareCode("share-code")).thenReturn(Optional.of(shareLink));
+
+        assertThatThrownBy(() -> shareLinkService.createShareArchive(
+                20L,
+                "share-code",
+                null,
+                new BatchNodeRequest(List.of(151L))
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("分享者未允许下载。");
+
+        verifyNoInteractions(storageArchiveService);
+    }
+
+    @Test
+    void createShareArchiveDelegatesCollapsedSelectedRootsToArchiveService() {
+        ShareLink shareLink = activeShare(16L, 9L, "share-code");
+        StorageNode sharedFolder = folderNode(161L, 9L, null, "docs");
+        StorageNode sharedChild = fileNode(162L, 9L, 161L, "report.pdf", "cos/report.pdf");
+        ShareLinkItem shareItem = shareItem(16L, 161L);
+        StorageArchiveService.StorageArchivePayload archivePayload =
+                new StorageArchiveService.StorageArchivePayload("share.zip", 0L, outputStream -> {
+                });
+
+        when(shareLinkRepository.findByShareCode("share-code")).thenReturn(Optional.of(shareLink));
+        when(shareLinkItemRepository.findByShareIdOrderBySortOrderAsc(16L)).thenReturn(List.of(shareItem));
+        when(storageNodeRepository.findByIdAndOwnerIdAndDeletedFalse(161L, 9L)).thenReturn(Optional.of(sharedFolder));
+        when(storageNodeRepository.findByOwnerIdAndParentIdInAndDeletedFalseOrderByParentIdAscIdAsc(
+                9L,
+                List.of(161L)
+        )).thenReturn(List.of(sharedChild));
+        when(storageArchiveService.createArchiveFromAuthorizedNodes(9L, List.of(sharedFolder), "share"))
+                .thenReturn(archivePayload);
+
+        var response = shareLinkService.createShareArchive(
+                20L,
+                "share-code",
+                null,
+                new BatchNodeRequest(List.of(161L, 162L))
+        );
+
+        assertThat(response).isSameAs(archivePayload);
+        verify(storageArchiveService).createArchiveFromAuthorizedNodes(9L, List.of(sharedFolder), "share");
     }
 
     @Test

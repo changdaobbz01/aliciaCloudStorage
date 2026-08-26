@@ -1,6 +1,7 @@
 package com.alicia.cloudstorage.api.service;
 
 import com.alicia.cloudstorage.api.identity.IdentityUserSnapshot;
+import com.alicia.cloudstorage.api.dto.BatchNodeRequest;
 import com.alicia.cloudstorage.api.dto.CreateShareLinkRequest;
 import com.alicia.cloudstorage.api.dto.SaveShareLinkRequest;
 import com.alicia.cloudstorage.api.dto.ShareLinkDetailResponse;
@@ -39,6 +40,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Pattern;
 
 @Service
 @Transactional
@@ -46,7 +48,9 @@ public class ShareLinkService {
 
     private static final int SHARE_CODE_RANDOM_BYTES = 12;
     private static final int SHARE_CODE_MAX_ATTEMPTS = 12;
+    private static final Pattern SHARE_CODE_PATTERN = Pattern.compile("^[A-Za-z0-9_-]{4,40}$");
     private static final int MAX_SHARE_ITEMS = 20;
+    private static final int MAX_SHARE_ARCHIVE_ROOTS = 100;
     private static final int MAX_SAVE_SELECTED_ITEMS = 500;
     private static final int SHARE_NODE_QUERY_BATCH_SIZE = 500;
     private static final int SHARE_ACCESS_TOKEN_EXPIRE_MINUTES = 120;
@@ -60,6 +64,7 @@ public class ShareLinkService {
     private final IdentityUserGateway identityUserGateway;
     private final PasswordEncoder passwordEncoder;
     private final StorageCommandService storageCommandService;
+    private final StorageArchiveService storageArchiveService;
     private final CosFileStorageService cosFileStorageService;
     private final SecureRandom secureRandom = new SecureRandom();
     private final Map<String, PasswordAttemptState> passwordAttemptStates = new ConcurrentHashMap<>();
@@ -73,6 +78,7 @@ public class ShareLinkService {
             IdentityUserGateway identityUserGateway,
             PasswordEncoder passwordEncoder,
             StorageCommandService storageCommandService,
+            StorageArchiveService storageArchiveService,
             CosFileStorageService cosFileStorageService,
             @Value("${alicia.share.access-token-secret}") String shareAccessTokenSecret,
             @Value("${alicia.share.max-expanded-nodes:5000}") int maxExpandedNodes
@@ -83,6 +89,7 @@ public class ShareLinkService {
         this.identityUserGateway = identityUserGateway;
         this.passwordEncoder = passwordEncoder;
         this.storageCommandService = storageCommandService;
+        this.storageArchiveService = storageArchiveService;
         this.cosFileStorageService = cosFileStorageService;
         this.shareAccessTokenSecret = shareAccessTokenSecret;
         this.maxExpandedNodes = maxExpandedNodes;
@@ -297,6 +304,30 @@ public class ShareLinkService {
         );
     }
 
+    public StorageArchiveService.StorageArchivePayload createShareArchive(
+            Long visitorUserId,
+            String shareCode,
+            String shareAccessToken,
+            BatchNodeRequest request
+    ) {
+        ShareLink shareLink = requireActiveShare(shareCode);
+        validateShareAccessTokenIfNeeded(shareLink, shareAccessToken);
+        validateDownloadAllowed(shareLink);
+
+        List<StorageNode> rootNodes = loadActiveSharedRootNodes(shareLink);
+        List<StorageNode> selectedRootNodes = resolveSelectedSharedArchiveRootNodes(
+                shareLink.getOwnerId(),
+                rootNodes,
+                request == null ? null : request.nodeIds()
+        );
+
+        return storageArchiveService.createArchiveFromAuthorizedNodes(
+                shareLink.getOwnerId(),
+                selectedRootNodes,
+                shareLink.getTitle()
+        );
+    }
+
     private ShareLink findByShareCode(String rawShareCode) {
         String shareCode = normalizeShareCode(rawShareCode);
         return shareLinkRepository.findByShareCode(shareCode)
@@ -437,6 +468,27 @@ public class ShareLinkService {
         return collapseSelectedRoots(ownerId, selectedNodes);
     }
 
+    private List<StorageNode> resolveSelectedSharedArchiveRootNodes(
+            Long ownerId,
+            List<StorageNode> rootNodes,
+            List<Long> rawSelectedNodeIds
+    ) {
+        List<Long> selectedNodeIds = normalizeArchiveSelectedNodeIds(rawSelectedNodeIds);
+        Map<Long, StorageNode> sharedNodeMap = new HashMap<>();
+        collectActiveSharedNodes(rootNodes).forEach(node -> sharedNodeMap.put(node.getId(), node));
+
+        List<StorageNode> selectedNodes = new ArrayList<>();
+        for (Long selectedNodeId : selectedNodeIds) {
+            StorageNode selectedNode = sharedNodeMap.get(selectedNodeId);
+            if (selectedNode == null) {
+                throw new IllegalArgumentException("选择的分享内容不存在或已不可用。");
+            }
+            selectedNodes.add(selectedNode);
+        }
+
+        return collapseSelectedRoots(ownerId, selectedNodes);
+    }
+
     private List<Long> normalizeSaveSelectedNodeIds(List<Long> rawSelectedNodeIds) {
         if (rawSelectedNodeIds == null || rawSelectedNodeIds.isEmpty()) {
             throw new IllegalArgumentException("请至少选择一个分享项目。");
@@ -450,6 +502,26 @@ public class ShareLinkService {
         for (Long rawSelectedNodeId : rawSelectedNodeIds) {
             if (rawSelectedNodeId == null) {
                 throw new IllegalArgumentException("分享项目编号不能为空。");
+            }
+            uniqueNodeIds.add(rawSelectedNodeId);
+        }
+
+        return List.copyOf(uniqueNodeIds);
+    }
+
+    private List<Long> normalizeArchiveSelectedNodeIds(List<Long> rawSelectedNodeIds) {
+        if (rawSelectedNodeIds == null || rawSelectedNodeIds.isEmpty()) {
+            throw new IllegalArgumentException("请至少选择一个要下载的项目。");
+        }
+
+        if (rawSelectedNodeIds.size() > MAX_SHARE_ARCHIVE_ROOTS) {
+            throw new IllegalArgumentException("单次最多打包下载 100 个项目。");
+        }
+
+        LinkedHashSet<Long> uniqueNodeIds = new LinkedHashSet<>();
+        for (Long rawSelectedNodeId : rawSelectedNodeIds) {
+            if (rawSelectedNodeId == null) {
+                throw new IllegalArgumentException("项目编号不能为空。");
             }
             uniqueNodeIds.add(rawSelectedNodeId);
         }
@@ -534,7 +606,7 @@ public class ShareLinkService {
         }
 
         String shareCode = rawShareCode.trim();
-        if (shareCode.length() > 40) {
+        if (!SHARE_CODE_PATTERN.matcher(shareCode).matches()) {
             throw new IllegalArgumentException("分享链接不存在。");
         }
 
