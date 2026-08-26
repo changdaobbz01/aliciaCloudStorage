@@ -1,5 +1,5 @@
 ﻿import { App as AntApp, Avatar, Badge, Dropdown, Input, Layout, Menu, Progress, QRCode, Spin, Typography } from 'antd';
-import { Download, FolderOpen, Home, KeyRound, LogOut, Monitor, Search, Share2, Smartphone, Trash2, UserCog, UsersRound } from 'lucide-react';
+import { BarChart3, Download, FolderOpen, Home, KeyRound, LogOut, Monitor, Search, Share2, Smartphone, Trash2, UserCog, UsersRound } from 'lucide-react';
 import type { MenuProps } from 'antd';
 import type { CSSProperties, ChangeEvent } from 'react';
 import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
@@ -21,6 +21,7 @@ import { useDriveAppPackageAdmin } from '../features/drive/hooks/useDriveAppPack
 import { useDriveDashboard } from '../features/drive/hooks/useDriveDashboard';
 import { useDriveDownloads } from '../features/drive/hooks/useDriveDownloads';
 import { useDriveExplorer } from '../features/drive/hooks/useDriveExplorer';
+import { useDriveOperationsAdmin } from '../features/drive/hooks/useDriveOperationsAdmin';
 import { useDriveProfileSettings } from '../features/drive/hooks/useDriveProfileSettings';
 import { useDriveShares } from '../features/drive/hooks/useDriveShares';
 import { useDriveStorageDialogs } from '../features/drive/hooks/useDriveStorageDialogs';
@@ -41,6 +42,7 @@ const LazyDriveAppPackageView = lazy(() => import('../features/drive/DriveAppPac
 const LazyDriveDownloadsView = lazy(() => import('../features/drive/DriveDownloadsView'));
 const LazyDriveExplorerView = lazy(() => import('../features/drive/DriveExplorerView'));
 const LazyDriveHomeView = lazy(() => import('../features/drive/DriveHomeView'));
+const LazyDriveOperationsView = lazy(() => import('../features/drive/DriveOperationsView'));
 const LazyDriveSharesView = lazy(() => import('../features/drive/DriveSharesView'));
 
 const { Header, Sider, Content } = Layout;
@@ -53,6 +55,7 @@ const baseMenuItems = [
   { key: 'downloads', icon: <Icon icon={Download} />, label: '下载管理' },
   { key: 'shares', icon: <Icon icon={Share2} />, label: '我的分享' },
   { key: 'accounts', icon: <Icon icon={UsersRound} />, label: '账号管理' },
+  { key: 'operations', icon: <Icon icon={BarChart3} />, label: '运营明细' },
   { key: 'appPackage', icon: <Icon icon={Smartphone} />, label: 'APP 上传' },
   { key: 'trash', icon: <Icon icon={Trash2} />, label: '回收站' },
 ];
@@ -70,6 +73,7 @@ export function DrivePage() {
   const isDownloadsView = activeView === 'downloads';
   const isSharesView = activeView === 'shares';
   const isAccountsView = activeView === 'accounts';
+  const isOperationsView = activeView === 'operations';
   const isAppPackageView = activeView === 'appPackage';
   const isTrashView = activeView === 'trash';
   const isListView = isDriveView || isTrashView;
@@ -98,6 +102,12 @@ export function DrivePage() {
     currentUser,
     message,
     updateCurrentUser,
+  });
+  const operations = useDriveOperationsAdmin({
+    authToken,
+    isAdmin,
+    isOperationsView,
+    message,
   });
   const appPackages = useDriveAppPackageAdmin({
     authToken,
@@ -142,8 +152,10 @@ export function DrivePage() {
       ? '我的分享'
     : isAccountsView
       ? '账号管理'
-      : isAppPackageView
-        ? 'APP 上传'
+    : isOperationsView
+      ? '运营明细'
+    : isAppPackageView
+      ? 'APP 上传'
       : isTrashView
         ? '回收站'
         : '我的文件';
@@ -175,7 +187,7 @@ export function DrivePage() {
   const menuItems = useMemo(() => {
     const visibleItems = isAdmin
       ? baseMenuItems
-      : baseMenuItems.filter((item) => !['accounts', 'appPackage'].includes(item.key));
+      : baseMenuItems.filter((item) => !['accounts', 'operations', 'appPackage'].includes(item.key));
 
     return visibleItems.map((item) =>
       item.key === 'downloads'
@@ -199,6 +211,8 @@ export function DrivePage() {
     <Icon icon={Share2} />
   ) : isAccountsView ? (
     <Icon icon={UsersRound} />
+  ) : isOperationsView ? (
+    <Icon icon={BarChart3} />
   ) : isAppPackageView ? (
     <Icon icon={Smartphone} />
   ) : isTrashView ? (
@@ -214,7 +228,9 @@ export function DrivePage() {
       ? '分享管理'
     : isAccountsView
       ? '管理中心'
-      : isAppPackageView
+    : isOperationsView
+      ? '运营视图'
+    : isAppPackageView
         ? '客户端分发'
         : isTrashView
           ? '回收与恢复'
@@ -272,6 +288,10 @@ export function DrivePage() {
       tasks.push(accounts.loadAuditLogs());
     }
 
+    if (isOperationsView) {
+      tasks.push(operations.loadAll());
+    }
+
     if (isAppPackageView) {
       tasks.push(appPackages.loadAppPackageInfo());
     }
@@ -284,7 +304,7 @@ export function DrivePage() {
   }
 
   useEffect(() => {
-    if (!isAdmin && (activeView === 'accounts' || activeView === 'appPackage')) {
+    if (!isAdmin && (activeView === 'accounts' || activeView === 'operations' || activeView === 'appPackage')) {
       setActiveView('home');
     }
   }, [activeView, isAdmin]);
@@ -469,6 +489,30 @@ export function DrivePage() {
           onApplyAuditLogQuery={accounts.applyAuditLogQuery}
           onAuditLogPageChange={accounts.changeAuditLogPage}
           onRefreshAuditLogs={() => void accounts.loadAuditLogs()}
+        />
+      ) : null}
+
+      {isOperationsView ? (
+        <LazyDriveOperationsView
+          isAdmin={isAdmin}
+          overview={operations.overview}
+          overviewLoading={operations.overviewLoading}
+          storageUsersPage={operations.storageUsersPage}
+          storageUsersQuery={operations.storageUsersQuery}
+          storageUsersLoading={operations.storageUsersLoading}
+          trashNodesPage={operations.trashNodesPage}
+          trashNodesQuery={operations.trashNodesQuery}
+          trashNodesLoading={operations.trashNodesLoading}
+          shareLinksPage={operations.shareLinksPage}
+          shareLinksQuery={operations.shareLinksQuery}
+          shareLinksLoading={operations.shareLinksLoading}
+          onRefresh={() => void operations.loadAll()}
+          onApplyStorageUsersQuery={operations.applyStorageUsersQuery}
+          onStorageUsersPageChange={operations.changeStorageUsersPage}
+          onApplyTrashNodesQuery={operations.applyTrashNodesQuery}
+          onTrashNodesPageChange={operations.changeTrashNodesPage}
+          onApplyShareLinksQuery={operations.applyShareLinksQuery}
+          onShareLinksPageChange={operations.changeShareLinksPage}
         />
       ) : null}
 

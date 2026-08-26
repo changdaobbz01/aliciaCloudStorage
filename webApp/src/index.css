@@ -944,6 +944,99 @@ select {
   font-weight: 900;
 }
 
+.operations-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.operations-summary-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.operations-summary-icon,
+.operations-user-avatar {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border: 1px solid #dbeafe;
+  border-radius: 8px;
+  color: #2563eb;
+  background: #eff6ff;
+}
+
+.operations-user-avatar {
+  color: #ffffff;
+  background: #0f172a;
+  font-weight: 900;
+}
+
+.operations-summary-card-warning .operations-summary-icon {
+  border-color: #fed7aa;
+  color: #ea580c;
+  background: #fff7ed;
+}
+
+.operations-summary-card-success .operations-summary-icon {
+  border-color: #bbf7d0;
+  color: #16a34a;
+  background: #f0fdf4;
+}
+
+.operations-summary-copy {
+  min-width: 0;
+}
+
+.operations-overview-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px 18px;
+  flex-wrap: wrap;
+  margin: 0 0 20px;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.operations-admin-tabs {
+  margin-top: 4px;
+}
+
+.operations-tab-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.operations-filter-bar {
+  grid-template-columns: repeat(6, minmax(132px, 1fr));
+}
+
+.operations-filter-bar-compact {
+  grid-template-columns: repeat(3, minmax(160px, 1fr));
+}
+
+.operations-progress-cell {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.operations-progress-copy {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 900;
+}
+
 .selection-pill {
   display: inline-flex;
   align-items: center;

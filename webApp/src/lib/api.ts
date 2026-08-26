@@ -1,5 +1,12 @@
 import type {
   AppPackageInfo,
+  AdminCloudOperationsOverview,
+  AdminCloudShareLinksPage,
+  AdminCloudShareLinksQuery,
+  AdminCloudStorageUsersPage,
+  AdminCloudStorageUsersQuery,
+  AdminCloudTrashNodesPage,
+  AdminCloudTrashNodesQuery,
   ApiMessageResponse,
   BatchMoveNodePayload,
   BatchNodePayload,
@@ -68,6 +75,13 @@ type RequestOptions = {
 
 type ApiRequestOptions = {
   dispatchAuthExpired?: boolean;
+};
+
+type PageQuery = {
+  page?: number;
+  size?: number;
+  sortBy?: string;
+  sortDirection?: string;
 };
 
 export class ApiError extends Error {
@@ -511,6 +525,29 @@ function withTokenAndShareAccess(token: string, shareAccessToken?: string | null
       ...(shareAccessToken ? { 'X-Share-Access-Token': shareAccessToken } : {}),
     },
   };
+}
+
+function appendAdminOperationPageParams(search: URLSearchParams, query: PageQuery) {
+  if (query.page) {
+    search.set('page', String(query.page));
+  }
+
+  if (query.size) {
+    search.set('size', String(query.size));
+  }
+
+  if (query.sortBy) {
+    search.set('sortBy', query.sortBy);
+  }
+
+  if (query.sortDirection) {
+    search.set('sortDirection', query.sortDirection);
+  }
+}
+
+function toQuerySuffix(search: URLSearchParams) {
+  const query = search.toString();
+  return query ? `?${query}` : '';
 }
 
 /**
@@ -1301,6 +1338,70 @@ export function fetchIdentityAuditLogs(query: IdentityAuditLogQuery, token: stri
 
   const suffix = search.toString() ? `?${search.toString()}` : '';
   return requestJson<IdentityAuditLogPage>(`/api/identity/admin/audit-logs${suffix}`, withToken(token));
+}
+
+export function fetchAdminCloudOperationsOverview(token: string) {
+  return requestJson<AdminCloudOperationsOverview>('/api/admin/cloud-operations/overview', withToken(token));
+}
+
+export function fetchAdminCloudOperationShares(query: AdminCloudShareLinksQuery, token: string) {
+  const search = new URLSearchParams();
+
+  if (query.ownerId !== undefined && query.ownerId !== null) {
+    search.set('ownerId', String(query.ownerId));
+  }
+
+  if (query.status) {
+    search.set('status', query.status);
+  }
+
+  if (query.passwordProtected !== undefined && query.passwordProtected !== null) {
+    search.set('passwordProtected', String(query.passwordProtected));
+  }
+
+  appendAdminOperationPageParams(search, query);
+
+  return requestJson<AdminCloudShareLinksPage>(
+    `/api/admin/cloud-operations/shares${toQuerySuffix(search)}`,
+    withToken(token),
+  );
+}
+
+export function fetchAdminCloudOperationTrash(query: AdminCloudTrashNodesQuery, token: string) {
+  const search = new URLSearchParams();
+
+  if (query.ownerId !== undefined && query.ownerId !== null) {
+    search.set('ownerId', String(query.ownerId));
+  }
+
+  if (query.keyword?.trim()) {
+    search.set('keyword', query.keyword.trim());
+  }
+
+  if (query.type) {
+    search.set('type', query.type);
+  }
+
+  if (query.rootOnly !== undefined && query.rootOnly !== null) {
+    search.set('rootOnly', String(query.rootOnly));
+  }
+
+  appendAdminOperationPageParams(search, query);
+
+  return requestJson<AdminCloudTrashNodesPage>(
+    `/api/admin/cloud-operations/trash${toQuerySuffix(search)}`,
+    withToken(token),
+  );
+}
+
+export function fetchAdminCloudStorageUsers(query: AdminCloudStorageUsersQuery, token: string) {
+  const search = new URLSearchParams();
+  appendAdminOperationPageParams(search, query);
+
+  return requestJson<AdminCloudStorageUsersPage>(
+    `/api/admin/cloud-operations/users/storage${toQuerySuffix(search)}`,
+    withToken(token),
+  );
 }
 
 export function fetchPublicAppPackage() {

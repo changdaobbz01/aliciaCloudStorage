@@ -31,7 +31,15 @@ export type IdentityAuditOutcome = 'SUCCESS' | 'FAILURE';
 export type StorageNodeType = 'FOLDER' | 'FILE';
 export type StorageNodeFilter = 'ALL' | StorageNodeType;
 export type StorageFileCategory = 'IMAGE' | 'VIDEO' | 'AUDIO' | 'DOCUMENT' | 'ARCHIVE';
-export type StorageViewMode = 'home' | 'drive' | 'downloads' | 'shares' | 'accounts' | 'appPackage' | 'trash';
+export type StorageViewMode =
+  | 'home'
+  | 'drive'
+  | 'downloads'
+  | 'shares'
+  | 'accounts'
+  | 'operations'
+  | 'appPackage'
+  | 'trash';
 export type SortDirection = 'asc' | 'desc';
 export type DriveSortField = 'name' | 'size' | 'updatedAt';
 export type TrashSortField = 'name' | 'size' | 'updatedAt' | 'deletedAt';
@@ -121,6 +129,161 @@ export type IdentityAuditLogQuery = {
   page?: number;
   size?: number;
 };
+
+export type PageResponse<TItem, TSortBy extends string = string> = {
+  items: TItem[];
+  page: number;
+  size: number;
+  totalItems: number;
+  totalPages: number;
+  sortBy: TSortBy;
+  sortDirection: SortDirection;
+};
+
+export type AdminCloudOperationsOverview = {
+  generatedAt: string;
+  capacity: {
+    systemTotalSpaceBytes: number;
+    allocatedQuotaBytes: number;
+    actualUsedBytes: number;
+    remainingUnallocatedBytes: number;
+    allocatedUsageRatio: number;
+    actualUsageRatio: number;
+  };
+  activeNodes: {
+    totalItems: number;
+    folderCount: number;
+    fileCount: number;
+  };
+  trash: {
+    totalItems: number;
+    rootItems: number;
+    folderCount: number;
+    fileCount: number;
+    bytes: number;
+    latestDeletedAt: string | null;
+  };
+  shares: {
+    totalLinks: number;
+    activeLinks: number;
+    availableLinks: number;
+    expiredActiveLinks: number;
+    revokedLinks: number;
+    passwordProtectedLinks: number;
+    downloadEnabledLinks: number;
+    saveEnabledLinks: number;
+    totalViews: number;
+    latestCreatedAt: string | null;
+    latestAccessedAt: string | null;
+  };
+  multipartUploads: {
+    totalSessions: number;
+    inProgressSessions: number;
+    staleInProgressSessions: number;
+    completedSessions: number;
+    abortedSessions: number;
+    latestInProgressUpdatedAt: string | null;
+    staleHours: number;
+  };
+};
+
+export type AdminCloudShareStatusFilter = 'ACTIVE' | 'AVAILABLE' | 'EXPIRED' | 'REVOKED';
+export type AdminCloudShareSortField =
+  | 'title'
+  | 'ownerId'
+  | 'expiresAt'
+  | 'lastAccessedAt'
+  | 'updatedAt'
+  | 'viewCount'
+  | 'createdAt';
+export type AdminCloudTrashSortField = 'name' | 'ownerId' | 'size' | 'updatedAt' | 'deletedAt';
+export type AdminCloudStorageUserSortField =
+  | 'usedBytes'
+  | 'storageQuotaBytes'
+  | 'remainingBytes'
+  | 'usageRatio'
+  | 'activeItems'
+  | 'trashItems'
+  | 'shareLinks'
+  | 'createdAt'
+  | 'nickname'
+  | 'id';
+
+export type AdminCloudOperationPageQuery<TSortBy extends string> = {
+  page?: number;
+  size?: number;
+  sortBy?: TSortBy;
+  sortDirection?: SortDirection;
+};
+
+export type AdminCloudShareLinksQuery = AdminCloudOperationPageQuery<AdminCloudShareSortField> & {
+  ownerId?: number | null;
+  status?: AdminCloudShareStatusFilter | null;
+  passwordProtected?: boolean | null;
+};
+
+export type AdminCloudTrashNodesQuery = AdminCloudOperationPageQuery<AdminCloudTrashSortField> & {
+  ownerId?: number | null;
+  keyword?: string | null;
+  type?: StorageNodeType | null;
+  rootOnly?: boolean | null;
+};
+
+export type AdminCloudStorageUsersQuery = AdminCloudOperationPageQuery<AdminCloudStorageUserSortField>;
+
+export type AdminCloudShareLink = {
+  id: number;
+  ownerId: number;
+  title: string;
+  status: 'ACTIVE' | 'REVOKED';
+  effectiveStatus: 'AVAILABLE' | 'EXPIRED' | 'REVOKED';
+  passwordProtected: boolean;
+  allowDownload: boolean;
+  allowSave: boolean;
+  viewCount: number;
+  itemCount: number;
+  expiresAt: string | null;
+  lastAccessedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AdminCloudTrashNode = {
+  id: number;
+  ownerId: number;
+  parentId: number | null;
+  originalParentId: number | null;
+  name: string;
+  type: StorageNodeType;
+  size: number;
+  deletedBy: number | null;
+  rootItem: boolean;
+  deletedAt: string | null;
+  updatedAt: string;
+};
+
+export type AdminCloudStorageUserUsage = {
+  userId: number;
+  phoneNumber: string | null;
+  email: string | null;
+  nickname: string;
+  role: UserRole;
+  status: UserStatus;
+  storageQuotaBytes: number | null;
+  usedBytes: number;
+  remainingBytes: number | null;
+  usageRatio: number | null;
+  activeItems: number;
+  activeFolders: number;
+  activeFiles: number;
+  trashItems: number;
+  shareLinks: number;
+  createdAt: string | null;
+};
+
+export type AdminCloudShareLinksPage = PageResponse<AdminCloudShareLink, AdminCloudShareSortField>;
+export type AdminCloudTrashNodesPage = PageResponse<AdminCloudTrashNode, AdminCloudTrashSortField>;
+export type AdminCloudStorageUsersPage = PageResponse<AdminCloudStorageUserUsage, AdminCloudStorageUserSortField>;
 
 export type AppPackageInfo = {
   available: boolean;
