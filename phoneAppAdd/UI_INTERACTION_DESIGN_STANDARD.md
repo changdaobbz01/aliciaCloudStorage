@@ -8,10 +8,10 @@
 
 - Debug 包：如果继续用同一台机器默认 debug keystore，签名通常能保持一致。
 - Release 包：必须复用当前正式包的同一份 keystore、alias、storePassword、keyPassword 或同一套外部 `apksigner` 流程。
-- `phoneAppAdd` 当前按并行体验版处理，使用独立 `applicationId = "com.alicia.cloudstorage.phone.add"`，可以和当前 `phoneApp` 同时安装。
-- 因为并行体验版不会覆盖正式包，即使签名相同，也会被 Android 识别为另一个应用。
+- `phoneAppAdd` 已确定作为正式下载 APK 来源，使用正式 `applicationId = "com.alicia.cloudstorage.phone"`。
+- 旧 `phoneApp` 继续保留为历史参考；对外下载包从 `phoneAppAdd` 构建。
 
-建议在设计验证阶段保持独立 `applicationId`，等新 UI 确认要替换正式版时，再切回正式 `applicationId` 并走正式签名/升级验证流程。
+正式发版前仍需要走签名、覆盖安装、版本号和后台上传验证流程。
 
 ## 2. 参考图风格定位
 
@@ -595,12 +595,7 @@ phoneAppAdd/
 - 打包后用 `apksigner verify --print-certs` 对比新旧 APK 证书 SHA-256。
 - 上传后台版本管理前，先在已安装旧版的设备上执行覆盖安装验证。
 
-如果作为并行体验版：
-
-- 使用 `applicationId = "com.alicia.cloudstorage.phone.add"`。
-- 可以复用同一签名，但不会覆盖旧 App。
-- Add 版保留内置更新检测，用于验证完整启动流程；如果未来后台区分包渠道，再按渠道返回对应安装包。
-- 应用显示名应和正式版区分，例如 `Alicia 云盘 Add`。
+若未来需要重新启用内部体验渠道，必须单独创建渠道配置，并避免影响正式下载 APK。
 
 ## 27. 验收清单
 

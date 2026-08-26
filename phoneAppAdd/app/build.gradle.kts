@@ -98,7 +98,7 @@ android {
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.alicia.cloudstorage.phone.add"
+        applicationId = "com.alicia.cloudstorage.phone"
         minSdk = 26
         targetSdk = 34
         versionCode = 9

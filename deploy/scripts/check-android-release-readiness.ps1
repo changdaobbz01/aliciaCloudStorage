@@ -235,8 +235,10 @@ foreach ($app in $Apps) {
     $sessionPolicyTestFile = Join-Path $appRoot "app/src/test/java/com/alicia/cloudstorage/phone/ui/MobileSessionPolicyTest.kt"
     $appConfigTestFile = Join-Path $appRoot "app/src/test/java/com/alicia/cloudstorage/phone/AppConfigTest.kt"
     $localPropertiesExample = Join-Path $appRoot "local.properties.example"
+    $buildFile = Join-Path $appRoot "app/build.gradle.kts"
 
     foreach ($file in @(
+        $buildFile,
         $apiFile,
         $modelsFile,
         $repoFile,
@@ -269,6 +271,8 @@ foreach ($app in $Apps) {
     Assert-Contains $appConfigFile 'MAINLAND_BASE_URL = "https://windwindwind-alicia\.cn"' "$app official base URL"
     Assert-Contains $appConfigFile 'LEGACY_HONG_KONG_HTTP_BASE_URL' "$app legacy IP migration constant"
     Assert-Contains $localPropertiesExample 'ALICIA_API_BASE_URL=https://windwindwind-alicia\.cn' "$app official local properties example"
+    Assert-Contains $buildFile 'applicationId = "com\.alicia\.cloudstorage\.phone"' "$app official Android applicationId"
+    Assert-NotContains $buildFile 'com\.alicia\.cloudstorage\.phone\.add' "$app parallel Android applicationId"
     Ok "$app identity session contract is release-ready"
 
     if (-not $SkipGradle) {

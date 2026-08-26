@@ -1,6 +1,6 @@
 # Alicia Cloud Android Add
 
-`phoneAppAdd` 是 Alicia 云盘移动端的新视觉版本，使用 Kotlin + Jetpack Compose 构建。业务层、API、ViewModel 状态机复用当前 `phoneApp`，UI 改为轻量白底蓝色体系，便于和机甲风版本并行维护。
+`phoneAppAdd` 是 Alicia 云盘移动端的新视觉正式版本，使用 Kotlin + Jetpack Compose 构建。业务层、API、ViewModel 状态机复用当前 `phoneApp`，UI 改为轻量白底蓝色体系，并作为 `/api/app-package/download/current` 的默认 APK 来源。
 
 ## 当前能力
 
@@ -15,9 +15,9 @@
 - 账号面板：头像、昵称、密码、正式服务接入、退出登录
 - 登录态：启动时使用 refresh token 续签，缺失或失效时清理本地会话并提示重新登录
 
-这个工程使用独立 `applicationId = "com.alicia.cloudstorage.phone.add"`，可以和当前 `phoneApp` 同时安装，便于对比两套 UI。源码 `namespace` 仍保持 `com.alicia.cloudstorage.phone`，避免为了并行安装而移动业务代码目录。
+这个工程使用正式 `applicationId = "com.alicia.cloudstorage.phone"`，用于覆盖旧移动端并承接后续更新。源码 `namespace` 仍保持 `com.alicia.cloudstorage.phone`。
 
-并行体验版保留内置 APP 更新检测，便于验证新 UI 版本的完整启动流程。
+正式版本保留内置 APP 更新检测，便于用户收到后续版本更新提示。
 
 ## 默认联调地址
 
@@ -77,13 +77,15 @@ ALICIA_RAG_CONFIRMATION_MESSAGE=确认
 powershell -NoProfile -ExecutionPolicy Bypass -File deploy/scripts/check-android-release-readiness.ps1
 ```
 
-准备新视觉 `phoneAppAdd` 的 APK 发版包时，在仓库根目录运行：
+准备正式下载 APK 时，在仓库根目录运行：
 
 ```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File deploy/scripts/generate-android-release-keystore.ps1
+. deploy/generated/android-signing/<timestamp>/android-release-signing.env.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File deploy/scripts/prepare-android-release-package.ps1 -ReleaseNotes "填写本次正式更新说明"
 ```
 
-脚本会构建 Release APK，输出到 `deploy/generated/android-release-packages/`，并生成 SHA-256、发布清单、`release-notes.txt` 和管理员上传 helper。上传前必须确认生成目录内的 `release-notes.txt` 已改为正式更新说明。
+首次发版先生成 Android release keystore，并妥善备份 `deploy/generated/android-signing/` 下的私有文件。之后加载生成的 `android-release-signing.env.ps1`，准备脚本会构建并签名 `phoneAppAdd` Release APK，确认正式包名为 `com.alicia.cloudstorage.phone`，输出到 `deploy/generated/android-release-packages/`，并生成 SHA-256、发布清单、`release-notes.txt` 和管理员上传 helper。上传前必须确认生成目录内的 `release-notes.txt` 已改为正式更新说明。
 
 正式环境的 RAG 健康检查地址是 `https://windwindwind-alicia.cn/rag/api/health`。本地仍使用 `http://127.0.0.1:8081/api/health`，两者互不覆盖。
 
@@ -112,7 +114,7 @@ $env:ALICIA_STORAGE_API_BASE_URL="https://windwindwind-alicia.cn"
 
 ## 后续建议
 
-- 正式发版前接入与当前 `phoneApp` release 包一致的签名流程
+- 使用同一 Android release keystore 持续发版，保证后续 APK 可以平滑升级
 - 按新 UI 风格继续细化 PDF / 音视频内嵌预览
 - 增加大文件分片上传
 - 引入更完整的分页、离线缓存和分类统计

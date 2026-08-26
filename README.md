@@ -342,13 +342,22 @@ powershell -NoProfile -ExecutionPolicy Bypass -File deploy/scripts/check-android
 
 只做快速静态检查时可追加 `-SkipGradle`。
 
-生成可上传的 Android APK 发版包时，优先使用仓库级准备脚本。它默认构建当前新视觉 `phoneAppAdd` 的 Release APK，复制到 `deploy/generated/android-release-packages/`，写入 SHA-256、`manifest.json`、`release-notes.txt` 和管理员上传 helper：
+生成可上传的 Android APK 发版包时，优先使用仓库级准备脚本。它默认构建当前新视觉 `phoneAppAdd` 的 Release APK，并使用正式包名 `com.alicia.cloudstorage.phone` 作为对外下载 APK，复制到 `deploy/generated/android-release-packages/`，写入 SHA-256、`manifest.json`、`release-notes.txt` 和管理员上传 helper：
+
+首次正式发版前先生成 Android release keystore，并妥善备份生成目录：
 
 ```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File deploy/scripts/generate-android-release-keystore.ps1
+```
+
+之后在同一终端加载生成目录里的 `android-release-signing.env.ps1`，再准备 signed APK：
+
+```powershell
+. deploy/generated/android-signing/<timestamp>/android-release-signing.env.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File deploy/scripts/prepare-android-release-package.ps1 -ReleaseNotes "填写本次正式更新说明"
 ```
 
-生成目录被 git 忽略。上传前确认 `release-notes.txt` 不是 TODO 文案，然后使用目录内的 `upload-current-package.ps1`，并通过 `ALICIA_ADMIN_TOKEN` 传入 Identity 管理员 access token；上传后 helper 会校验 `/api/app-package/version` 和 `/api/app-package/download/current`。
+生成目录被 git 忽略。Release 包默认必须完成签名；如果没有加载签名配置，脚本会拒绝把 unsigned APK 当作正式包。上传前确认 `release-notes.txt` 不是 TODO 文案，然后使用目录内的 `upload-current-package.ps1`，并通过 `ALICIA_ADMIN_TOKEN` 传入 Identity 管理员 access token；上传后 helper 会校验 `/api/app-package/version` 和 `/api/app-package/download/current`。旧 `phoneApp` 仅作为历史版本参考，不再作为默认下载 APK 来源。
 
 生产服务器建议把 `origin` 指向 Gitee，以减少 GitHub 连接失败造成的更新中断：
 
