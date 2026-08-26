@@ -276,6 +276,8 @@ bash deploy/scripts/update-rag-production.sh
 
 常规生产更新推荐使用标准发布脚本，减少手动复制多段命令：
 
+生产验证、巡检、备份和发布验收命令已经集中整理在 `docs/production-verification-scripts.md`。
+
 ```bash
 bash deploy/scripts/update-cloud-production.sh
 ```

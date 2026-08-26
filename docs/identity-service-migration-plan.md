@@ -1023,6 +1023,8 @@ Android：
 
 部署：
 
+生产验证、巡检、备份和发布验收命令集中维护在 `docs/production-verification-scripts.md`。
+
 - `/api/health`
 - `/api/identity/auth/me`
 - `/api/identity/admin/audit-logs`
