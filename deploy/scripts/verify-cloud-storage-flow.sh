@@ -351,7 +351,7 @@ RENAME_RESPONSE="$(curl_body "rename file" \
     -X PUT "$CLOUD_BASE_URL/api/storage/nodes/$FILE_ID/rename" \
     -H "Authorization: Bearer $TOKEN" \
     -H "Content-Type: application/json" \
-    -d "{\"newName\":\"$(json_escape "$RENAMED_FILE_NAME")\"}")"
+    -d "{\"name\":\"$(json_escape "$RENAMED_FILE_NAME")\"}")"
 RENAMED_RESPONSE_NAME="$(require_json_string "rename file" "$RENAME_RESPONSE" "name")"
 [[ "$RENAMED_RESPONSE_NAME" == "$RENAMED_FILE_NAME" ]] || fail "rename returned unexpected file name $RENAMED_RESPONSE_NAME"
 ok "file rename succeeds"
