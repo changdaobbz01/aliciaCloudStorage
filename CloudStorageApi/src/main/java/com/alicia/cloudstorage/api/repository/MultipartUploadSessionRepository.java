@@ -3,6 +3,8 @@ package com.alicia.cloudstorage.api.repository;
 import com.alicia.cloudstorage.api.entity.MultipartUploadSession;
 import com.alicia.cloudstorage.api.entity.MultipartUploadStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -13,6 +15,19 @@ public interface MultipartUploadSessionRepository extends JpaRepository<Multipar
     Optional<MultipartUploadSession> findByUploadTokenAndOwnerId(String uploadToken, Long ownerId);
 
     List<MultipartUploadSession> findByStatusAndUpdatedAtBefore(MultipartUploadStatus status, LocalDateTime updatedAt);
+
+    long countByStatus(MultipartUploadStatus status);
+
+    long countByStatusAndUpdatedAtBefore(MultipartUploadStatus status, LocalDateTime updatedAt);
+
+    @Query("""
+            select max(session.updatedAt)
+            from MultipartUploadSession session
+            where session.status = :status
+            """)
+    LocalDateTime findLatestUpdatedAtByStatus(
+            @Param("status") MultipartUploadStatus status
+    );
 
     Optional<MultipartUploadSession> findFirstByOwnerIdAndParentScopeIdAndFileNameAndFileSizeAndFileFingerprintAndStatusOrderByUpdatedAtDesc(
             Long ownerId,

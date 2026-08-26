@@ -123,6 +123,23 @@ public interface StorageNodeRepository extends JpaRepository<StorageNode, Long>,
 
     long countByNodeTypeAndDeletedFalse(NodeType nodeType);
 
+    long countByDeletedTrue();
+
+    long countByNodeTypeAndDeletedTrue(NodeType nodeType);
+
+    @Query("""
+            select count(node)
+            from StorageNode node
+            where node.deleted = true
+              and not exists (
+                  select parent.id
+                  from StorageNode parent
+                  where parent.id = node.parentId
+                    and parent.deleted = true
+              )
+            """)
+    long countRootTrashNodesAllOwners();
+
     @Query("""
             select coalesce(sum(node.fileSize), 0)
             from StorageNode node
@@ -139,6 +156,21 @@ public interface StorageNodeRepository extends JpaRepository<StorageNode, Long>,
               and node.deleted = false
             """)
     Long sumFileSizeAllOwners();
+
+    @Query("""
+            select coalesce(sum(node.fileSize), 0)
+            from StorageNode node
+            where node.nodeType = com.alicia.cloudstorage.api.entity.NodeType.FILE
+              and node.deleted = true
+            """)
+    Long sumTrashFileSizeAllOwners();
+
+    @Query("""
+            select max(node.deletedAt)
+            from StorageNode node
+            where node.deleted = true
+            """)
+    LocalDateTime findLatestDeletedAt();
 
     @Query("""
             select coalesce(sum(node.fileSize), 0)

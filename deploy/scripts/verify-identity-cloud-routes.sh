@@ -821,6 +821,20 @@ else
     curl_ok "admin cloud-users route accepts admin identity token" \
         "$CLOUD_BASE_URL/api/admin/cloud-users" \
         -H "Authorization: Bearer $TOKEN"
+    cloud_operations_response="$(curl_json_or_fail "admin cloud operations overview route" \
+        "$CLOUD_BASE_URL/api/admin/cloud-operations/overview" \
+        -H "Authorization: Bearer $TOKEN")"
+    cloud_operations_compact="$(printf '%s' "$cloud_operations_response" | tr -d '\n')"
+    printf '%s' "$cloud_operations_compact" | grep -q '"capacity"[[:space:]]*:[[:space:]]*{' \
+        || fail "admin cloud operations overview did not expose capacity metrics"
+    printf '%s' "$cloud_operations_compact" | grep -q '"trash"[[:space:]]*:[[:space:]]*{' \
+        || fail "admin cloud operations overview did not expose trash metrics"
+    printf '%s' "$cloud_operations_compact" | grep -q '"shares"[[:space:]]*:[[:space:]]*{' \
+        || fail "admin cloud operations overview did not expose share metrics"
+    printf '%s' "$cloud_operations_compact" | grep -q '"multipartUploads"[[:space:]]*:[[:space:]]*{' \
+        || fail "admin cloud operations overview did not expose multipart upload metrics"
+    ok "admin cloud operations overview route accepts admin identity token"
+    unset cloud_operations_response cloud_operations_compact
     curl_ok "identity audit logs admin route accepts admin identity token" \
         "$PUBLIC_BASE_URL/api/identity/admin/audit-logs?size=5" \
         -H "Authorization: Bearer $TOKEN"
