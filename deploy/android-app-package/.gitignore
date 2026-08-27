@@ -1,0 +1,7 @@
+*
+!.gitignore
+!README.md
+!current.apk
+!current.apk.sha256
+!version-name.txt
+!release-notes.txt

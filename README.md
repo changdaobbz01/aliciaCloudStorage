@@ -403,6 +403,14 @@ powershell -NoProfile -ExecutionPolicy Bypass -File deploy/scripts/prepare-andro
 powershell -NoProfile -ExecutionPolicy Bypass -File deploy/scripts/publish-android-release-package.ps1 -ReleaseNotes "填写本次正式更新说明"
 ```
 
+如果希望 APK 跟随服务器 `git pull` 自动发布，先把已准备好的 signed APK 整理到 Git 当前发布目录：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File deploy/scripts/stage-android-git-package.ps1
+```
+
+该脚本会把最新 `phoneAppAdd` release 产物复制为 `deploy/android-app-package/current.apk`，并同步写入 `version-name.txt`、`release-notes.txt` 和 `current.apk.sha256`。提交推送这些文件后，服务器执行 `update-cloud-production.sh` 时会在默认 `auto` 模式下检测到 Git APK 产物，并自动调用 `/api/admin/app-package` 发布；服务器当前已是同一 `versionName` 时会跳过重复上传，需要强制重传可设置 `ALICIA_ANDROID_APP_PACKAGE_FORCE=true`。
+
 生成目录被 git 忽略。Release 包默认必须完成签名；如果没有加载签名配置，脚本会拒绝把 unsigned APK 当作正式包。`publish-android-release-package.ps1` 默认发布 `phoneAppAdd` 到 `/api/admin/app-package`，没有传入 `ALICIA_ADMIN_TOKEN` 时会提示输入 Identity 管理员账号和密码，并在上传后校验 `/api/app-package/version` 和 `/api/app-package/download/current`。旧 `phoneApp` 仅作为历史版本参考，不再作为默认下载 APK 来源。
 
 生产服务器建议把 `origin` 指向 Gitee，以减少 GitHub 连接失败造成的更新中断：

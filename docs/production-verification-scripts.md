@@ -248,6 +248,23 @@ powershell -NoProfile -ExecutionPolicy Bypass -File deploy/scripts/publish-andro
 powershell -NoProfile -ExecutionPolicy Bypass -File deploy/scripts/publish-android-release-package.ps1 -SkipPrepare -PackageDir deploy/generated/android-release-packages/phoneAppAdd/<dir>
 ```
 
+如果要让服务器常规更新命令同步发布 Git 上的 APK，先在本地把最新 signed APK 整理到当前发布目录并提交：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File deploy/scripts/stage-android-git-package.ps1
+git add deploy/android-app-package/current.apk deploy/android-app-package/current.apk.sha256 deploy/android-app-package/version-name.txt deploy/android-app-package/release-notes.txt
+git commit -m "Stage Android APK release artifact"
+git push gitee main
+```
+
+随后服务器常规更新即可自动发布：
+
+```bash
+bash deploy/scripts/update-cloud-production.sh api identity rag frontend
+```
+
+`update-cloud-production.sh` 默认 `ALICIA_PUBLISH_ANDROID_APP_PACKAGE=auto`：发现 `deploy/android-app-package/current.apk` 就发布，没有该文件就跳过。可用 `ALICIA_PUBLISH_ANDROID_APP_PACKAGE=false` 禁用，或用 `ALICIA_PUBLISH_ANDROID_APP_PACKAGE=true` 要求必须存在并发布。服务器已经公开同一 `versionName` 时会跳过重复上传；需要强制覆盖同版本时设置 `ALICIA_ANDROID_APP_PACKAGE_FORCE=true`。
+
 ## 11. 推荐执行顺序
 
 大节点上线前后推荐：

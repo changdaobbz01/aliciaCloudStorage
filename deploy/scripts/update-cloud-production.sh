@@ -17,6 +17,8 @@ SKIP_BOUNDARY_CHECK="${ALICIA_SKIP_BOUNDARY_CHECK:-false}"
 BACKUP_BEFORE_UPDATE="${ALICIA_BACKUP_BEFORE_UPDATE:-false}"
 COLLECT_STATUS="${ALICIA_COLLECT_STATUS_AFTER_UPDATE:-false}"
 VERIFY_PRODUCTION_FLOWS="${ALICIA_VERIFY_PRODUCTION_FLOWS_AFTER_UPDATE:-false}"
+PUBLISH_ANDROID_APP_PACKAGE="${ALICIA_PUBLISH_ANDROID_APP_PACKAGE:-auto}"
+ANDROID_GIT_APK_PATH="${ALICIA_ANDROID_GIT_APK_PATH:-deploy/android-app-package/current.apk}"
 
 if [[ $# -gt 0 ]]; then
     SERVICES=("$@")
@@ -36,6 +38,11 @@ docker_cmd() {
     fi
 
     "${command[@]}" "$@"
+}
+
+fail() {
+    printf '[FAIL] %s\n' "$1" >&2
+    exit 1
 }
 
 compose() {
@@ -70,6 +77,41 @@ ensure_gateway_network() {
         docker_cmd network create "$GATEWAY_NETWORK" >/dev/null
         printf '[OK] created Docker network %s\n' "$GATEWAY_NETWORK"
     fi
+}
+
+android_git_package_present() {
+    local apk_path="$ANDROID_GIT_APK_PATH"
+    if [[ "$apk_path" != /* ]]; then
+        apk_path="$PROJECT_DIR/$apk_path"
+    fi
+
+    [[ -f "$apk_path" ]]
+}
+
+publish_android_app_package_if_needed() {
+    case "$PUBLISH_ANDROID_APP_PACKAGE" in
+        true)
+            ;;
+        false)
+            printf 'Android APK Git artifact publish disabled by ALICIA_PUBLISH_ANDROID_APP_PACKAGE=false.\n'
+            return 0
+            ;;
+        auto|"")
+            if ! android_git_package_present; then
+                printf 'No Git Android APK artifact found; skipping Android APK publish.\n'
+                return 0
+            fi
+            ;;
+        *)
+            fail "Unsupported ALICIA_PUBLISH_ANDROID_APP_PACKAGE value: $PUBLISH_ANDROID_APP_PACKAGE"
+            ;;
+    esac
+
+    [[ -f deploy/scripts/publish-git-android-app-package.sh ]] || {
+        fail "Missing $PROJECT_DIR/deploy/scripts/publish-git-android-app-package.sh"
+    }
+
+    bash deploy/scripts/publish-git-android-app-package.sh
 }
 
 read_verification_credentials_if_needed() {
@@ -135,6 +177,8 @@ if [[ "$BACKUP_BEFORE_UPDATE" == "true" ]]; then
 fi
 
 compose up -d --build "${SERVICES[@]}"
+
+publish_android_app_package_if_needed
 
 read_verification_credentials_if_needed
 

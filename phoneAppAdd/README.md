@@ -98,6 +98,14 @@ powershell -NoProfile -ExecutionPolicy Bypass -File deploy/scripts/publish-andro
 
 脚本默认发布 `phoneAppAdd`，会打包签名、登录 Identity 管理员账号、上传 `/api/admin/app-package`，并校验 `/api/app-package/version` 和 `/api/app-package/download/current`。如需发布已准备好的目录，可追加 `-SkipPrepare -PackageDir deploy/generated/android-release-packages/phoneAppAdd/<dir>`。
 
+如果希望服务器执行云盘更新命令时顺带发布 Git 里的 APK，先把本地已签名产物整理到仓库当前发布目录：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File deploy/scripts/stage-android-git-package.ps1
+```
+
+脚本会写入 `deploy/android-app-package/current.apk`、`version-name.txt`、`release-notes.txt` 和 `current.apk.sha256`。提交推送后，服务器侧 `deploy/scripts/update-cloud-production.sh` 会在默认 `ALICIA_PUBLISH_ANDROID_APP_PACKAGE=auto` 下检测并发布这个 APK。
+
 正式环境的 RAG 健康检查地址是 `https://windwindwind-alicia.cn/rag/api/health`。本地仍使用 `http://127.0.0.1:8081/api/health`，两者互不覆盖。
 
 独立启动 RAG 时，还必须给 RAG 进程配置可信的 CloudStorageApi 地址，否则文件查询和目标目录匹配会被安全地跳过。例如移动端连接线上 API 时：
