@@ -47,6 +47,48 @@ scan_target() {
     ok "$label"
 }
 
+require_source_match() {
+    local label="$1"
+    local target="$2"
+    local pattern="$3"
+    local message="$4"
+
+    [[ -e "$target" ]] || fail "$label source target does not exist: $target"
+
+    if command -v rg >/dev/null 2>&1; then
+        rg -q "$pattern" "$target" || fail "$message"
+    else
+        command -v grep >/dev/null 2>&1 || fail "Either ripgrep (rg) or grep is required."
+        grep -Eq "$pattern" "$target" || fail "$message"
+    fi
+
+    ok "$label"
+}
+
+require_source_no_match() {
+    local label="$1"
+    local target="$2"
+    local pattern="$3"
+    local message="$4"
+    local matches
+
+    [[ -e "$target" ]] || fail "$label source target does not exist: $target"
+
+    if command -v rg >/dev/null 2>&1; then
+        matches="$(rg -n "$pattern" "$target" || true)"
+    else
+        command -v grep >/dev/null 2>&1 || fail "Either ripgrep (rg) or grep is required."
+        matches="$(grep -nE "$pattern" "$target" || true)"
+    fi
+
+    if [[ -n "$matches" ]]; then
+        printf '%s\n' "$matches" >&2
+        fail "$message"
+    fi
+
+    ok "$label"
+}
+
 cd "$ROOT_DIR"
 
 LEGACY_CLOUD_ADMIN_PREFIX='/api/admin'
@@ -63,3 +105,21 @@ scan_target \
     "sysManage/src" \
     "(/api/identity/admin/|${LEGACY_CLOUD_ADMIN_USERS_PATTERN}|/api/storage/|/api/share-links/|/api/public/share-links/|(^|[^[:alnum:]_])(IdentityAudit[[:alnum:]_]*|IdentityApplicationRole[[:alnum:]_]*|UpdateIdentityApplicationRole[[:alnum:]_]*|StorageViewMode|StorageFileCategory|StorageNodeFilter|StorageNodeSortField|fetchIdentitySessions|revokeIdentitySession|changePassword|updateProfile|fetchDriveOverview|fetchStorageNodes|createFolder|uploadStorageFile|createShareLink|downloadStorage[[:alnum:]_]*|renameStorage[[:alnum:]_]*|moveStorage[[:alnum:]_]*|deleteStorage[[:alnum:]_]*|restoreStorage[[:alnum:]_]*|permanentlyDelete[[:alnum:]_]*)($|[^[:alnum:]_]))" \
     "Cloud admin console contains identity-admin or personal drive API/type references."
+
+require_source_match \
+    "cloud console account menu exposes console gateway" \
+    "sysManage/src/pages/CloudConsolePage.tsx" \
+    "key:[[:space:]]*'consoleHome'" \
+    "Cloud console account menu must expose the unified console gateway."
+
+require_source_match \
+    "cloud console account menu routes through console gateway" \
+    "sysManage/src/pages/CloudConsolePage.tsx" \
+    "window\\.location\\.assign\\('/console/'\\)" \
+    "Cloud console account menu must route management navigation through /console/."
+
+require_source_no_match \
+    "cloud console avoids identity console hard-link" \
+    "sysManage/src/pages/CloudConsolePage.tsx" \
+    "window\\.location\\.assign\\('/console/identity/'\\)" \
+    "Cloud console should use the unified /console/ gateway instead of hard-linking to identity console."
