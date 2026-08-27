@@ -46,12 +46,6 @@ export type IdentityUser = {
   appRoles: ApplicationRoles;
 };
 
-export function isCloudAdmin(
-  user: Pick<User, 'role' | 'appRoles'> | Pick<IdentityUser, 'role' | 'appRoles'> | null | undefined,
-) {
-  return user?.role === 'ADMIN' || user?.appRoles?.cloud === 'CLOUD_ADMIN';
-}
-
 export type IdentityLoginResponse = {
   token: string;
   refreshToken: string;
