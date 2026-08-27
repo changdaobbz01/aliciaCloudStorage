@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { AUTH_EXPIRED_EVENT, fetchCurrentUser, logoutAuthToken, refreshAuthSession } from '../lib/api';
 import {
   clearCurrentSession as clearStoredSession,
+  hasStoredSessionChanged,
   hasStoredSessionTokens,
   isSessionRevisionStorageKey,
   isSessionStorageKey,
@@ -10,6 +11,7 @@ import {
   loadCurrentUser,
   loadRefreshToken,
   notifySessionChanged,
+  readStoredSessionSnapshot,
   saveCurrentUser,
   saveIdentityTokenSession,
   SESSION_CHANGE_EVENT,
@@ -60,8 +62,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [authToken]);
 
   async function restoreStoredSession(isCancelled: () => boolean = () => false) {
-    const token = loadAuthToken();
-    const refreshToken = loadRefreshToken();
+    const snapshot = readStoredSessionSnapshot();
+    const token = snapshot.token;
+    const refreshToken = snapshot.refreshToken;
 
     if (!token && !refreshToken) {
       resetSessionState();
@@ -69,7 +72,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }
 
     if (!token || !refreshToken) {
-      expireCurrentSession();
+      if (!hasStoredSessionChanged(snapshot)) {
+        expireCurrentSession();
+      }
       return;
     }
 
@@ -83,13 +88,17 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      if (hasStoredSessionChanged(snapshot)) {
+        return;
+      }
+
       saveIdentityTokenSession(refreshedSession);
       saveCurrentUser(user);
       setCurrentUser(user);
       setAuthToken(refreshedSession.token);
       setLoginRedirectReason(null);
     } catch {
-      if (!isCancelled()) {
+      if (!isCancelled() && !hasStoredSessionChanged(snapshot)) {
         expireCurrentSession();
       }
     } finally {
@@ -208,24 +217,27 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
 
     async function refreshStoredToken() {
-      const storedToken = loadAuthToken();
-      const storedRefreshToken = loadRefreshToken();
+      const snapshot = readStoredSessionSnapshot();
+      const storedToken = snapshot.token;
+      const storedRefreshToken = snapshot.refreshToken;
 
       if (!storedToken || !storedRefreshToken) {
-        resetSessionState();
+        if (!hasStoredSessionChanged(snapshot)) {
+          resetSessionState();
+        }
         return;
       }
 
       try {
         const refreshedSession = await refreshAuthSession(storedToken, storedRefreshToken);
 
-        if (!cancelled && loadAuthToken()) {
+        if (!cancelled && !hasStoredSessionChanged(snapshot)) {
           saveIdentityTokenSession(refreshedSession);
           setAuthToken(refreshedSession.token);
           setLoginRedirectReason(null);
         }
       } catch {
-        if (!cancelled && !loadAuthToken()) {
+        if (!cancelled && !hasStoredSessionChanged(snapshot)) {
           expireCurrentSession();
         }
       }

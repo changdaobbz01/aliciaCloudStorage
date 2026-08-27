@@ -22,10 +22,32 @@ assert.match(
   'session revision key must be part of the watched session storage keys',
 );
 assert.match(session, /function notifySessionChanged/, 'cloud session utility must expose session change notifications');
+assert.match(
+  session,
+  /function readStoredSessionSnapshot/,
+  'cloud session utility must snapshot stored tokens before refresh',
+);
+assert.match(
+  session,
+  /function hasStoredSessionChanged/,
+  'cloud session utility must detect token changes during refresh',
+);
 
-for (const token of ['SESSION_CHANGE_EVENT', 'SESSION_REVISION_STORAGE_KEY', 'isSessionRevisionStorageKey']) {
+for (const token of [
+  'SESSION_CHANGE_EVENT',
+  'SESSION_REVISION_STORAGE_KEY',
+  'isSessionRevisionStorageKey',
+  'readStoredSessionSnapshot',
+  'hasStoredSessionChanged',
+]) {
   assert.match(sessionContext, new RegExp(token), `SessionProvider must use ${token}`);
 }
+
+assert.match(
+  sessionContext,
+  /hasStoredSessionChanged\(snapshot\)/,
+  'SessionProvider must not clear or overwrite a newer session after stale refresh',
+);
 
 assert.match(
   unifiedLogin,

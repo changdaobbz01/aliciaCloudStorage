@@ -17,6 +17,11 @@ type IdentityTokenSession = {
   refreshToken?: string | null;
 };
 
+export type StoredSessionSnapshot = {
+  token: string | null;
+  refreshToken: string | null;
+};
+
 function normalizeToken(value: string | null | undefined) {
   const token = value?.trim();
   return token || null;
@@ -52,6 +57,17 @@ export function loadAuthToken() {
  */
 export function loadRefreshToken() {
   return normalizeToken(localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY));
+}
+
+export function readStoredSessionSnapshot(): StoredSessionSnapshot {
+  return {
+    token: loadAuthToken(),
+    refreshToken: loadRefreshToken(),
+  };
+}
+
+export function hasStoredSessionChanged(snapshot: StoredSessionSnapshot) {
+  return loadAuthToken() !== snapshot.token || loadRefreshToken() !== snapshot.refreshToken;
 }
 
 export function hasStoredSessionTokens() {
