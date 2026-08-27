@@ -75,22 +75,36 @@ class CloudUserProfileServiceTest {
     }
 
     @Test
-    void updateUserQuotaRejectsAdminAccounts() {
-        when(identityUserGateway.getUser(91L)).thenReturn(identityUserSnapshot(91L, UserRole.ADMIN));
+    void updateUserQuotaAllowsAdminAccounts() {
+        CloudUserProfileEntity profile = cloudProfile(91L, null, 2048L);
 
-        assertThatThrownBy(() -> cloudUserProfileService.updateUserStorageQuota(91L, new AdminUpdateUserQuotaRequest(4096L)))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("云盘管理员账号不限制存储额度，无需修改。");
+        when(identityUserGateway.getUser(91L)).thenReturn(identityUserSnapshot(91L, UserRole.ADMIN));
+        when(cloudUserProfileRepository.findById(91L)).thenReturn(Optional.of(profile));
+        when(storageQuotaService.normalizeQuotaBytes(eq(4096L), anyString())).thenReturn(4096L);
+        when(cloudUserProfileRepository.save(any(CloudUserProfileEntity.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = cloudUserProfileService.updateUserStorageQuota(91L, new AdminUpdateUserQuotaRequest(4096L));
+
+        verify(storageQuotaService).validateQuotaAssignment(91L, 4096L);
+        assertThat(response.storageQuotaBytes()).isEqualTo(4096L);
     }
 
     @Test
-    void updateUserQuotaRejectsCloudApplicationAdminAccounts() {
+    void updateUserQuotaAllowsCloudApplicationAdminAccounts() {
+        CloudUserProfileEntity profile = cloudProfile(91L, null, 2048L);
+
         when(identityUserGateway.getUser(91L))
                 .thenReturn(identityUserSnapshot(91L, UserRole.USER, Map.of("cloud", "CLOUD_ADMIN")));
+        when(cloudUserProfileRepository.findById(91L)).thenReturn(Optional.of(profile));
+        when(storageQuotaService.normalizeQuotaBytes(eq(4096L), anyString())).thenReturn(4096L);
+        when(cloudUserProfileRepository.save(any(CloudUserProfileEntity.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
-        assertThatThrownBy(() -> cloudUserProfileService.updateUserStorageQuota(91L, new AdminUpdateUserQuotaRequest(4096L)))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("云盘管理员账号不限制存储额度，无需修改。");
+        var response = cloudUserProfileService.updateUserStorageQuota(91L, new AdminUpdateUserQuotaRequest(4096L));
+
+        verify(storageQuotaService).validateQuotaAssignment(91L, 4096L);
+        assertThat(response.storageQuotaBytes()).isEqualTo(4096L);
     }
 
     @Test
@@ -180,6 +194,20 @@ class CloudUserProfileServiceTest {
     }
 
     @Test
+    void initializeAdminCreatedAdminProfileUsesRequestedQuotaWhenProvided() {
+        IdentityUserSnapshot account = identityUserSnapshot(82L, UserRole.ADMIN);
+
+        when(cloudUserProfileRepository.findById(82L)).thenReturn(Optional.empty());
+        when(storageQuotaService.normalizeQuotaBytes(8192L, "用户最大存储额度")).thenReturn(8192L);
+        when(cloudUserProfileRepository.save(any(CloudUserProfileEntity.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        var result = cloudUserProfileService.initializeAdminCreatedUserProfile(1L, account, 8192L, false);
+
+        assertThat(result.storageQuotaBytes()).isEqualTo(8192L);
+    }
+
+    @Test
     void toUserProfileCombinesIdentityAndCloudProfileForCompatibleResponse() {
         IdentityUserSnapshot account = new IdentityUserSnapshot(
                 23L,
@@ -208,7 +236,7 @@ class CloudUserProfileServiceTest {
     }
 
     @Test
-    void toUserProfileTreatsCloudApplicationAdminAsQuotaUnlimited() {
+    void toUserProfileReturnsCloudApplicationAdminPersonalQuota() {
         IdentityUserSnapshot account = new IdentityUserSnapshot(
                 23L,
                 null,
@@ -227,8 +255,8 @@ class CloudUserProfileServiceTest {
 
         var response = cloudUserProfileService.toUserProfile(account, cloudProfile);
 
-        assertThat(response.storageQuotaBytes()).isNull();
-        assertThat(response.remainingBytes()).isNull();
+        assertThat(response.storageQuotaBytes()).isEqualTo(4096L);
+        assertThat(response.remainingBytes()).isEqualTo(2560L);
         assertThat(response.appRoles()).containsEntry("cloud", "CLOUD_ADMIN");
     }
 

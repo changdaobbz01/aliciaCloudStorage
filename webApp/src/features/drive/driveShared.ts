@@ -56,7 +56,7 @@ export function formatFileSize(value: number) {
 }
 
 export function formatNullableBytes(value: number | null) {
-  return value === null ? '无限制' : formatFileSize(value);
+  return value === null ? '未配置' : formatFileSize(value);
 }
 
 export function resolveAvatarSrc(user: User | null | undefined) {

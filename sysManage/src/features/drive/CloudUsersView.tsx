@@ -62,13 +62,13 @@ function quotaInputMinimum(user: User | null) {
 }
 
 function summarizeUsers(users: User[]) {
-  const regularUsers = users.filter((user) => !isCloudAdmin(user));
+  const usersWithQuota = users.filter((user) => user.storageQuotaBytes !== null);
   const totalUsedBytes = users.reduce((total, user) => total + user.usedBytes, 0);
-  const assignedQuotaBytes = regularUsers.reduce((total, user) => total + (user.storageQuotaBytes ?? 0), 0);
+  const assignedQuotaBytes = usersWithQuota.reduce((total, user) => total + (user.storageQuotaBytes ?? 0), 0);
 
   return {
     assignedQuotaBytes,
-    regularUsers: regularUsers.length,
+    usersWithQuota: usersWithQuota.length,
     totalUsedBytes,
   };
 }
@@ -155,7 +155,7 @@ export default function CloudUsersView({
               <span>{formatNullableBytes(user.storageQuotaBytes)}</span>
             </div>
             {percent === null ? (
-              <Tag color="purple">无限制</Tag>
+              <Tag>未配置</Tag>
             ) : (
               <Progress
                 percent={percent}
@@ -193,8 +193,8 @@ export default function CloudUsersView({
         <Button
           type="link"
           icon={<Icon icon={Edit3} />}
-          disabled={isCloudAdmin(user)}
-          title={isCloudAdmin(user) ? '云盘管理员账号不限制存储额度' : undefined}
+          disabled={user.storageQuotaBytes === null}
+          title={user.storageQuotaBytes === null ? '当前账号未初始化云盘额度' : undefined}
           onClick={() => onOpenQuotaModal(user)}
         >
           调整额度
@@ -225,8 +225,8 @@ export default function CloudUsersView({
           <div className="management-summary-value">{users.length}</div>
         </div>
         <div className="management-summary-card">
-          <div className="management-summary-label">普通用户</div>
-          <div className="management-summary-value">{summary.regularUsers}</div>
+          <div className="management-summary-label">已配置额度</div>
+          <div className="management-summary-value">{summary.usersWithQuota}</div>
         </div>
         <div className="management-summary-card">
           <div className="management-summary-label">已用空间</div>

@@ -129,19 +129,12 @@ export function StatusPanel({
   onClearBackground,
 }: StatusPanelProps) {
   const serviceOnline = health?.status === 'ok';
-  const adminView = (overview?.scope ?? 'USER') === 'ADMIN';
   const usedBytes = overview?.usedBytes ?? 0;
   const totalSpaceBytes = overview?.totalSpaceBytes ?? null;
-  const trendCurrentBytes = overview?.actualUsedBytes ?? usedBytes;
+  const trendCurrentBytes = usageHistory.at(-1)?.usedBytes ?? usedBytes;
   const hasFiniteTotalSpace = totalSpaceBytes !== null && totalSpaceBytes > 0;
   const usagePercent =
     hasFiniteTotalSpace && totalSpaceBytes > 0 ? Math.min(100, Math.round((usedBytes / totalSpaceBytes) * 100)) : 0;
-  const usedLabel = adminView ? '当前总占用' : '已用空间';
-  const totalLabel = adminView ? 'COS 总容量' : '总空间';
-  const meterTitle = adminView ? '全站存储占用' : '空间使用率';
-  const chartTitle = adminView ? '近 30 日全站存储占用变化' : '近 30 日占用空间变化';
-  const chartSubtitle = adminView ? '按所有账号文件元数据回算' : '按每天结束时的文件元数据回算';
-  const overviewSubtitle = adminView ? '查看所有账号的实际总占用，以及 COS 容量语义。' : '把当前账号的核心空间状态集中放在一处。';
   const statItems: StatItem[] = [
     {
       label: '服务状态',
@@ -150,8 +143,8 @@ export function StatusPanel({
     },
     { label: '总项目数', value: overview?.totalItems ?? 0, icon: <Icon icon={Database} /> },
     { label: '文件夹数', value: overview?.totalFolders ?? 0, icon: <Icon icon={FolderOpen} /> },
-    { label: usedLabel, value: formatBytes(usedBytes), icon: <Icon icon={FileText} /> },
-    { label: totalLabel, value: formatStorageLimit(totalSpaceBytes), icon: <Icon icon={HardDrive} /> },
+    { label: '已用空间', value: formatBytes(usedBytes), icon: <Icon icon={FileText} /> },
+    { label: '总空间', value: formatStorageLimit(totalSpaceBytes), icon: <Icon icon={HardDrive} /> },
   ];
 
   return (
@@ -160,7 +153,7 @@ export function StatusPanel({
         <div className="home-card-header">
           <div>
             <Typography.Title level={3}>主页概览</Typography.Title>
-            <Typography.Text className="muted-text">{overviewSubtitle}</Typography.Text>
+            <Typography.Text className="muted-text">把当前账号的核心空间状态集中放在一处。</Typography.Text>
           </div>
 
           <Space wrap className="home-card-actions">
@@ -189,9 +182,9 @@ export function StatusPanel({
 
         <div className="home-space-meter">
           <div className="home-meter-copy">
-            <Typography.Text className="home-meter-title">{meterTitle}</Typography.Text>
+            <Typography.Text className="home-meter-title">空间使用率</Typography.Text>
             <Typography.Text className="muted-text">
-              {adminView ? '当前总占用' : '当前已用'} {formatBytes(usedBytes)} / {formatStorageLimit(totalSpaceBytes)}
+              当前已用 {formatBytes(usedBytes)} / {formatStorageLimit(totalSpaceBytes)}
             </Typography.Text>
           </div>
 
@@ -199,7 +192,7 @@ export function StatusPanel({
             <Progress percent={usagePercent} strokeColor="#2563eb" trailColor="#e5edff" />
           ) : (
             <Typography.Paragraph className="muted-text">
-              COS 存储桶没有固定容量上限，所以管理员主页会按实际总占用展示。
+              当前账号暂无固定容量上限，暂按实际已用空间展示。
             </Typography.Paragraph>
           )}
         </div>
@@ -208,8 +201,8 @@ export function StatusPanel({
       <div className="home-chart-card">
         <div className="home-card-header">
           <div>
-            <Typography.Title level={4}>{chartTitle}</Typography.Title>
-            <Typography.Text className="muted-text">{chartSubtitle}</Typography.Text>
+            <Typography.Title level={4}>近 30 日占用空间变化</Typography.Title>
+            <Typography.Text className="muted-text">按每天结束时的文件元数据回算</Typography.Text>
           </div>
           <div className="home-chart-current">{formatBytes(trendCurrentBytes)}</div>
         </div>

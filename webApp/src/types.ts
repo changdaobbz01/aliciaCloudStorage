@@ -157,7 +157,7 @@ export type DriveOverview = {
   usedBytes: number;
   totalSpaceBytes: number | null;
   actualUsedBytes: number;
-  scope: 'USER' | 'ADMIN';
+  scope: 'USER';
 };
 
 export type UsageHistoryPoint = {

@@ -208,24 +208,6 @@ public class StorageQueryService {
      * 统计当前用户云盘的基础概览数据。
      */
     public DriveOverviewResponse getOverview(Long userId) {
-        if (storageQuotaService.isAdmin(userId)) {
-            long totalItems = storageNodeRepository.countByDeletedFalse();
-            long totalFolders = storageNodeRepository.countByNodeTypeAndDeletedFalse(NodeType.FOLDER);
-            long totalFiles = storageNodeRepository.countByNodeTypeAndDeletedFalse(NodeType.FILE);
-            long actualUsedBytes = storageQuotaService.getTotalActualUsedBytes();
-            long usedBytes = actualUsedBytes;
-
-            return new DriveOverviewResponse(
-                    totalItems,
-                    totalFolders,
-                    totalFiles,
-                    usedBytes,
-                    null,
-                    actualUsedBytes,
-                    "ADMIN"
-            );
-        }
-
         long totalItems = storageNodeRepository.countByOwnerIdAndDeletedFalse(userId);
         long totalFolders = storageNodeRepository.countByOwnerIdAndNodeTypeAndDeletedFalse(userId, NodeType.FOLDER);
         long totalFiles = storageNodeRepository.countByOwnerIdAndNodeTypeAndDeletedFalse(userId, NodeType.FILE);
@@ -248,7 +230,6 @@ public class StorageQueryService {
      */
     public List<UsageHistoryPointResponse> getUsageHistory(Long userId, Integer days) {
         int normalizedDays = normalizeUsageHistoryDays(days);
-        boolean adminView = storageQuotaService.isAdmin(userId);
         LocalDate today = LocalDate.now();
         LocalDate startDate = today.minusDays(normalizedDays - 1L);
         List<UsageHistoryPointResponse> points = new ArrayList<>();
@@ -256,9 +237,7 @@ public class StorageQueryService {
         for (int offset = 0; offset < normalizedDays; offset += 1) {
             LocalDate date = startDate.plusDays(offset);
             LocalDateTime endOfDay = date.plusDays(1).atStartOfDay().minusNanos(1);
-            long usedBytes = adminView
-                    ? storageNodeRepository.sumActiveFileSizeAllOwnersAt(endOfDay)
-                    : storageNodeRepository.sumActiveFileSizeByOwnerIdAt(userId, endOfDay);
+            long usedBytes = storageNodeRepository.sumActiveFileSizeByOwnerIdAt(userId, endOfDay);
 
             points.add(new UsageHistoryPointResponse(date, usedBytes));
         }

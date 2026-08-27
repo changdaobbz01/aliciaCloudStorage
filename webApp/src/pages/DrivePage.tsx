@@ -31,7 +31,7 @@ import {
   resolveHomeBackgroundSrc,
   storageFileCategoryDescriptions,
 } from '../features/drive/driveShared';
-import { isCloudAdmin, type AppPackageInfo, type StorageNode, type StorageViewMode } from '../types';
+import type { AppPackageInfo, StorageNode, StorageViewMode } from '../types';
 
 const LazyDriveDownloadsView = lazy(() => import('../features/drive/DriveDownloadsView'));
 const LazyDriveExplorerView = lazy(() => import('../features/drive/DriveExplorerView'));
@@ -64,7 +64,6 @@ export function DrivePage() {
   const isSharesView = activeView === 'shares';
   const isTrashView = activeView === 'trash';
   const isListView = isDriveView || isTrashView;
-  const isAdmin = isCloudAdmin(currentUser);
   const [publicAppPackageInfo, setPublicAppPackageInfo] = useState<AppPackageInfo | null>(null);
   const [publicAppPackageLoading, setPublicAppPackageLoading] = useState(false);
   const [publicAppPackageError, setPublicAppPackageError] = useState<string | null>(null);
@@ -209,8 +208,7 @@ export function DrivePage() {
   const folderOptionsLoading = explorer.folderOptionsLoading;
   const overallUploadProgress = explorer.overallUploadProgress;
   const profileUsedBytes = dashboard.overview?.usedBytes ?? 0;
-  const profileTotalBytes = dashboard.overview?.totalSpaceBytes ?? (isAdmin ? null : currentUser?.storageQuotaBytes ?? null);
-  const profileUsageLabel = isAdmin ? '当前总占用' : '已用空间';
+  const profileTotalBytes = dashboard.overview?.totalSpaceBytes ?? currentUser?.storageQuotaBytes ?? null;
   const profileUsagePercent =
     profileTotalBytes !== null && profileTotalBytes > 0
       ? Math.min(100, Math.round((profileUsedBytes / profileTotalBytes) * 100))
@@ -446,14 +444,14 @@ export function DrivePage() {
                 {currentUser?.nickname ?? '未登录用户'}
               </Typography.Title>
               <div className="sider-profile-meta">
-                <span className="sider-role-pill">{isAdmin ? '云盘管理员' : '个人空间'}</span>
+                <span className="sider-role-pill">个人空间</span>
                 <span>{currentUser?.email ?? currentUser?.phoneNumber}</span>
               </div>
             </div>
           </div>
 
           <div className="sider-usage-row">
-            <span className="sider-usage-label">{profileUsageLabel}</span>
+            <span className="sider-usage-label">已用空间</span>
             <span className="sider-usage-value">
               {formatFileSize(profileUsedBytes)} / {formatNullableBytes(profileTotalBytes)}
             </span>
@@ -463,7 +461,7 @@ export function DrivePage() {
             <Progress percent={profileUsagePercent} size="small" showInfo={false} strokeColor="#2563eb" trailColor="#e5edff" />
           ) : (
             <Typography.Text className="muted-text sider-profile-note">
-              {isAdmin ? '管理员视图按所有账号的实际占用统计，COS 没有固定容量上限。' : '当前账号没有可展示的个人容量上限。'}
+              当前账号没有可展示的个人容量上限。
             </Typography.Text>
           )}
         </section>

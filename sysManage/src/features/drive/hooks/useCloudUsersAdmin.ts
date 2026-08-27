@@ -3,7 +3,6 @@ import type { MessageInstance } from 'antd/es/message/interface';
 import { useEffect, useState } from 'react';
 import { fetchUsers, updateUserStorageQuota } from '../../../lib/api';
 import type { User } from '../../../types';
-import { isCloudAdmin } from '../../../types';
 import { bytesToGigabytes, formatFileSize, gigabytesToBytes } from '../driveShared';
 
 export type CloudQuotaFormValues = {
@@ -52,8 +51,8 @@ export function useCloudUsersAdmin({
   }
 
   function openQuotaModal(user: User) {
-    if (isCloudAdmin(user) || user.storageQuotaBytes === null) {
-      message.info('云盘管理员账号不限制存储额度，无需修改。');
+    if (user.storageQuotaBytes === null) {
+      message.info('当前账号缺少云盘额度配置，请刷新后再试。');
       return;
     }
 

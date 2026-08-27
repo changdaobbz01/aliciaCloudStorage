@@ -105,10 +105,6 @@ public class StorageQuotaService {
             return;
         }
 
-        if (isAdmin(userId)) {
-            return;
-        }
-
         long quotaBytes = getUserQuotaBytes(userId);
         long usedBytes = getUsedBytes(userId);
         long remainingBytes = getRemainingBytes(quotaBytes, usedBytes);

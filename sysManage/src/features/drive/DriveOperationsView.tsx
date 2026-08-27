@@ -144,7 +144,7 @@ function formatNullableId(value: number | null | undefined) {
 
 function formatRatio(value: number | null | undefined) {
   if (value === null || value === undefined) {
-    return '无限制';
+    return '未配置';
   }
 
   return `${Math.round(value * 1000) / 10}%`;
@@ -358,7 +358,7 @@ export function DriveOperationsView({
             <span>{formatRatio(user.usageRatio)}</span>
           </div>
           {user.usageRatio === null ? (
-            <Tag color="purple">无限制</Tag>
+            <Tag>未配置</Tag>
           ) : (
             <Progress percent={toProgressPercent(user.usageRatio)} size="small" showInfo={false} strokeColor="#2563eb" trailColor="#e5edff" />
           )}

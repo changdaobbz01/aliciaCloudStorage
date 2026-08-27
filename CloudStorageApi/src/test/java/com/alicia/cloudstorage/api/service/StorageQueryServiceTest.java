@@ -24,6 +24,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -269,7 +270,6 @@ class StorageQueryServiceTest {
     void getOverviewReturnsUserQuotaForRegularUser() {
         Long userId = 18L;
 
-        when(storageQuotaService.isAdmin(userId)).thenReturn(false);
         when(storageNodeRepository.countByOwnerIdAndDeletedFalse(userId)).thenReturn(12L);
         when(storageNodeRepository.countByOwnerIdAndNodeTypeAndDeletedFalse(userId, NodeType.FOLDER)).thenReturn(5L);
         when(storageNodeRepository.countByOwnerIdAndNodeTypeAndDeletedFalse(userId, NodeType.FILE)).thenReturn(7L);
@@ -288,33 +288,36 @@ class StorageQueryServiceTest {
     }
 
     @Test
-    void getOverviewReturnsSystemAllocationForAdmin() {
+    void getOverviewKeepsAdminAccountsInPersonalStorageScope() {
         Long userId = 19L;
 
-        when(storageQuotaService.isAdmin(userId)).thenReturn(true);
-        when(storageNodeRepository.countByDeletedFalse()).thenReturn(40L);
-        when(storageNodeRepository.countByNodeTypeAndDeletedFalse(NodeType.FOLDER)).thenReturn(13L);
-        when(storageNodeRepository.countByNodeTypeAndDeletedFalse(NodeType.FILE)).thenReturn(27L);
-        when(storageQuotaService.getTotalActualUsedBytes()).thenReturn(2048L);
+        when(storageNodeRepository.countByOwnerIdAndDeletedFalse(userId)).thenReturn(3L);
+        when(storageNodeRepository.countByOwnerIdAndNodeTypeAndDeletedFalse(userId, NodeType.FOLDER)).thenReturn(1L);
+        when(storageNodeRepository.countByOwnerIdAndNodeTypeAndDeletedFalse(userId, NodeType.FILE)).thenReturn(2L);
+        when(storageQuotaService.getUsedBytes(userId)).thenReturn(2048L);
+        when(storageQuotaService.getUserQuotaBytes(userId)).thenReturn(8192L);
 
         var response = storageQueryService.getOverview(userId);
 
-        assertThat(response.totalItems()).isEqualTo(40L);
-        assertThat(response.totalFolders()).isEqualTo(13L);
-        assertThat(response.totalFiles()).isEqualTo(27L);
+        assertThat(response.totalItems()).isEqualTo(3L);
+        assertThat(response.totalFolders()).isEqualTo(1L);
+        assertThat(response.totalFiles()).isEqualTo(2L);
         assertThat(response.usedBytes()).isEqualTo(2048L);
-        assertThat(response.totalSpaceBytes()).isNull();
+        assertThat(response.totalSpaceBytes()).isEqualTo(8192L);
         assertThat(response.actualUsedBytes()).isEqualTo(2048L);
-        assertThat(response.scope()).isEqualTo("ADMIN");
+        assertThat(response.scope()).isEqualTo("USER");
+        verify(storageQuotaService, never()).isAdmin(userId);
+        verify(storageNodeRepository, never()).countByDeletedFalse();
+        verify(storageNodeRepository, never()).countByNodeTypeAndDeletedFalse(any(NodeType.class));
+        verify(storageQuotaService, never()).getTotalActualUsedBytes();
     }
 
     @Test
-    void getUsageHistoryAggregatesAllOwnersForAdmin() {
+    void getUsageHistoryKeepsAdminAccountsInPersonalStorageScope() {
         Long userId = 20L;
         LocalDate today = LocalDate.now();
 
-        when(storageQuotaService.isAdmin(userId)).thenReturn(true);
-        when(storageNodeRepository.sumActiveFileSizeAllOwnersAt(any(LocalDateTime.class)))
+        when(storageNodeRepository.sumActiveFileSizeByOwnerIdAt(eq(userId), any(LocalDateTime.class)))
                 .thenReturn(512L, 768L, 1024L);
 
         var points = storageQueryService.getUsageHistory(userId, 3);
@@ -326,7 +329,9 @@ class StorageQueryServiceTest {
                 today
         );
         assertThat(points).extracting(point -> point.usedBytes()).containsExactly(512L, 768L, 1024L);
-        verify(storageNodeRepository, org.mockito.Mockito.times(3)).sumActiveFileSizeAllOwnersAt(any(LocalDateTime.class));
+        verify(storageQuotaService, never()).isAdmin(userId);
+        verify(storageNodeRepository, org.mockito.Mockito.times(3)).sumActiveFileSizeByOwnerIdAt(eq(userId), any(LocalDateTime.class));
+        verify(storageNodeRepository, never()).sumActiveFileSizeAllOwnersAt(any(LocalDateTime.class));
     }
 
     private StorageNode activeNode(Long id, Long ownerId, String name, NodeType nodeType, Long size) {

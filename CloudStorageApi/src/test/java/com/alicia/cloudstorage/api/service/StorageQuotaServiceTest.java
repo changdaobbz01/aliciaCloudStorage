@@ -72,11 +72,14 @@ class StorageQuotaServiceTest {
     }
 
     @Test
-    void validateUploadFitsSkipsQuotaForCloudApplicationAdmin() {
+    void validateUploadFitsRejectsCloudApplicationAdminWhenRemainingSpaceIsInsufficient() {
         when(storageQuotaAccountReader.requireAccount(7L))
                 .thenReturn(new StorageQuotaAccount(7L, UserRole.USER, Map.of("cloud", "CLOUD_ADMIN"), 4_096L));
+        when(storageNodeRepository.sumFileSizeByOwnerId(7L)).thenReturn(3_584L);
 
-        storageQuotaService.validateUploadFits(7L, 8_192L);
+        assertThatThrownBy(() -> storageQuotaService.validateUploadFits(7L, 8_192L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("剩余空间不足");
     }
 
     @Test

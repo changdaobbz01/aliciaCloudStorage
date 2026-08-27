@@ -5,7 +5,6 @@ import com.alicia.cloudstorage.api.principal.PrincipalAccessException;
 import com.alicia.cloudstorage.api.dto.AdminUpdateUserQuotaRequest;
 import com.alicia.cloudstorage.api.dto.UserProfileResponse;
 import com.alicia.cloudstorage.api.entity.CloudUserProfileEntity;
-import com.alicia.cloudstorage.api.identity.UserRole;
 import com.alicia.cloudstorage.api.identity.UserStatus;
 import com.alicia.cloudstorage.api.identity.IdentityUserGateway;
 import com.alicia.cloudstorage.api.repository.CloudUserProfileRepository;
@@ -90,10 +89,6 @@ public class CloudUserProfileService {
     public CloudUserProfile updateUserStorageQuota(Long userId, AdminUpdateUserQuotaRequest request) {
         IdentityUserSnapshot user = requireUser(userId);
 
-        if (user.isCloudAdmin()) {
-            throw new IllegalArgumentException("云盘管理员账号不限制存储额度，无需修改。");
-        }
-
         CloudUserProfileEntity profile =
                 cloudUserProfileProvisioningService.findExistingOrCreateUnsavedCloudProfile(user);
         long storageQuotaBytes = storageQuotaService.normalizeQuotaBytes(request.storageQuotaBytes(), "用户最大存储额度");
@@ -119,7 +114,7 @@ public class CloudUserProfileService {
     ) {
         CloudUserProfileEntity profile =
                 cloudUserProfileProvisioningService.findExistingOrCreateUnsavedCloudProfile(account);
-        profile.setStorageQuotaBytes(resolveInitialStorageQuota(account.role(), requestedQuotaBytes));
+        profile.setStorageQuotaBytes(resolveInitialStorageQuota(requestedQuotaBytes));
 
         if (inheritAdminBackground) {
             String inheritedHomeBackgroundUrl = resolveInheritedHomeBackgroundUrl(adminUserId, account.id());
@@ -131,8 +126,8 @@ public class CloudUserProfileService {
         return toCloudUserProfile(cloudUserProfileRepository.save(profile));
     }
 
-    private long resolveInitialStorageQuota(UserRole role, Long requestedQuotaBytes) {
-        return role == UserRole.ADMIN
+    private long resolveInitialStorageQuota(Long requestedQuotaBytes) {
+        return requestedQuotaBytes == null
                 ? storageQuotaService.getDefaultUserQuotaBytes()
                 : storageQuotaService.normalizeQuotaBytes(requestedQuotaBytes, "用户最大存储额度");
     }
@@ -146,9 +141,6 @@ public class CloudUserProfileService {
         long quotaBytes = cloudProfile.storageQuotaBytes() == null
                 ? storageQuotaService.getDefaultUserQuotaBytes()
                 : cloudProfile.storageQuotaBytes();
-        boolean admin = account.isCloudAdmin();
-        Long storageQuotaBytes = admin ? null : quotaBytes;
-        Long remainingBytes = admin ? null : Math.max(0L, quotaBytes - usedBytes);
 
         return new UserProfileResponse(
                 account.id(),
@@ -160,9 +152,9 @@ public class CloudUserProfileService {
                 account.role().name(),
                 account.status().name(),
                 account.createdAt(),
-                storageQuotaBytes,
+                quotaBytes,
                 usedBytes,
-                remainingBytes,
+                Math.max(0L, quotaBytes - usedBytes),
                 account.appRoles()
         );
     }
