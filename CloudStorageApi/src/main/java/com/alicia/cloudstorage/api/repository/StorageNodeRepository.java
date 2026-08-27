@@ -115,6 +115,49 @@ public interface StorageNodeRepository extends JpaRepository<StorageNode, Long>,
             Pageable pageable
     );
 
+    @Query(value = """
+            select node
+            from StorageNode node
+            where node.deleted = true
+              and (:ownerId is null or node.ownerId = :ownerId)
+              and (:keyword is null or lower(node.nodeName) like lower(concat('%', :keyword, '%')))
+              and (:nodeType is null or node.nodeType = :nodeType)
+              and (
+                  :rootOnly = false
+                  or not exists (
+                      select parent.id
+                      from StorageNode parent
+                      where parent.id = node.parentId
+                        and parent.ownerId = node.ownerId
+                        and parent.deleted = true
+                  )
+              )
+            """, countQuery = """
+            select count(node)
+            from StorageNode node
+            where node.deleted = true
+              and (:ownerId is null or node.ownerId = :ownerId)
+              and (:keyword is null or lower(node.nodeName) like lower(concat('%', :keyword, '%')))
+              and (:nodeType is null or node.nodeType = :nodeType)
+              and (
+                  :rootOnly = false
+                  or not exists (
+                      select parent.id
+                      from StorageNode parent
+                      where parent.id = node.parentId
+                        and parent.ownerId = node.ownerId
+                        and parent.deleted = true
+                  )
+              )
+            """)
+    Page<StorageNode> searchOperationalTrashNodes(
+            @Param("ownerId") Long ownerId,
+            @Param("keyword") String keyword,
+            @Param("nodeType") NodeType nodeType,
+            @Param("rootOnly") boolean rootOnly,
+            Pageable pageable
+    );
+
     long countByOwnerIdAndDeletedFalse(Long ownerId);
 
     long countByOwnerIdAndNodeTypeAndDeletedFalse(Long ownerId, NodeType nodeType);

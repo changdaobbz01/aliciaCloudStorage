@@ -31,6 +31,7 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -131,14 +132,20 @@ class AdminCloudOperationsDetailServiceTest {
         );
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
 
-        when(storageNodeRepository.findAll(anyStorageNodeSpecification(), any(Pageable.class)))
+        when(storageNodeRepository.searchOperationalTrashNodes(any(), any(), any(), any(Boolean.class), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(nestedFile), PageRequest.of(0, 10), 1));
         when(storageNodeRepository.findAllById(any()))
                 .thenReturn(List.of(deletedParent));
 
         var response = service.listTrashNodes(8L, "报告", "FILE", false, 1, 10, "deletedAt", "desc");
 
-        verify(storageNodeRepository).findAll(anyStorageNodeSpecification(), pageableCaptor.capture());
+        verify(storageNodeRepository).searchOperationalTrashNodes(
+                eq(8L),
+                eq("报告"),
+                eq(NodeType.FILE),
+                eq(false),
+                pageableCaptor.capture()
+        );
         Pageable pageable = pageableCaptor.getValue();
         assertThat(pageable.getPageNumber()).isZero();
         assertThat(pageable.getPageSize()).isEqualTo(10);
@@ -155,6 +162,32 @@ class AdminCloudOperationsDetailServiceTest {
             assertThat(item.type()).isEqualTo("FILE");
             assertThat(item.size()).isEqualTo(2048L);
             assertThat(item.rootItem()).isFalse();
+        });
+    }
+
+    @Test
+    void listTrashNodesToleratesIncompleteHistoricalMetadata() {
+        StorageNode orphanedTrashNode = trashNode(
+                301L,
+                9L,
+                null,
+                null,
+                "历史文件",
+                null,
+                null,
+                LocalDateTime.of(2026, 8, 26, 10, 0)
+        );
+
+        when(storageNodeRepository.searchOperationalTrashNodes(any(), any(), any(), any(Boolean.class), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(orphanedTrashNode), PageRequest.of(0, 10), 1));
+
+        var response = service.listTrashNodes(null, null, null, null, null, null, null, null);
+
+        assertThat(response.items()).singleElement().satisfies(item -> {
+            assertThat(item.id()).isEqualTo(301L);
+            assertThat(item.type()).isEqualTo("UNKNOWN");
+            assertThat(item.size()).isZero();
+            assertThat(item.rootItem()).isTrue();
         });
     }
 
@@ -281,10 +314,6 @@ class AdminCloudOperationsDetailServiceTest {
     }
 
     private Specification<ShareLink> anyShareLinkSpecification() {
-        return any();
-    }
-
-    private Specification<StorageNode> anyStorageNodeSpecification() {
         return any();
     }
 

@@ -14,7 +14,6 @@ import com.alicia.cloudstorage.api.repository.ShareLinkItemRepository;
 import com.alicia.cloudstorage.api.repository.ShareLinkRepository;
 import com.alicia.cloudstorage.api.repository.StorageNodeRepository;
 import jakarta.persistence.criteria.Predicate;
-import jakarta.persistence.criteria.Subquery;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -121,15 +120,18 @@ public class AdminCloudOperationsDetailService {
                 buildTrashSort(sortBy, sortDirection)
         );
 
-        Page<StorageNode> trashNodes = storageNodeRepository.findAll(
-                buildTrashSpecification(ownerId, normalizeKeyword(keyword), normalizeNodeType(rawType), rootOnly == null || rootOnly),
+        Page<StorageNode> trashNodes = storageNodeRepository.searchOperationalTrashNodes(
+                ownerId,
+                normalizeKeyword(keyword),
+                normalizeNodeType(rawType),
+                rootOnly == null || rootOnly,
                 pageable
         );
         Set<Long> deletedParentIds = loadDeletedParentIds(trashNodes.getContent());
 
         return new PageResponse<>(
                 trashNodes.getContent().stream()
-                        .map(node -> toTrashResponse(node, !deletedParentIds.contains(node.getParentId())))
+                        .map(node -> toTrashResponse(node, isRootTrashItem(node, deletedParentIds)))
                         .toList(),
                 normalizedPage,
                 normalizedSize,
@@ -138,6 +140,11 @@ public class AdminCloudOperationsDetailService {
                 sortBy,
                 sortDirection.name().toLowerCase(Locale.ROOT)
         );
+    }
+
+    private boolean isRootTrashItem(StorageNode node, Set<Long> deletedParentIds) {
+        Long parentId = node.getParentId();
+        return parentId == null || !deletedParentIds.contains(parentId);
     }
 
     public PageResponse<AdminCloudStorageUserUsageResponse> listStorageUsers(
@@ -206,47 +213,6 @@ public class AdminCloudOperationsDetailService {
                 predicates.add(passwordProtected
                         ? criteriaBuilder.isNotNull(root.get("passwordHash"))
                         : criteriaBuilder.isNull(root.get("passwordHash")));
-            }
-
-            return criteriaBuilder.and(predicates.toArray(Predicate[]::new));
-        };
-    }
-
-    private Specification<StorageNode> buildTrashSpecification(
-            Long ownerId,
-            String keyword,
-            NodeType nodeType,
-            boolean rootOnly
-    ) {
-        return (root, query, criteriaBuilder) -> {
-            List<Predicate> predicates = new ArrayList<>();
-            predicates.add(criteriaBuilder.isTrue(root.get("deleted")));
-
-            if (ownerId != null) {
-                predicates.add(criteriaBuilder.equal(root.get("ownerId"), ownerId));
-            }
-
-            if (keyword != null) {
-                predicates.add(criteriaBuilder.like(
-                        criteriaBuilder.lower(root.get("nodeName")),
-                        "%" + keyword.toLowerCase(Locale.ROOT) + "%"
-                ));
-            }
-
-            if (nodeType != null) {
-                predicates.add(criteriaBuilder.equal(root.get("nodeType"), nodeType));
-            }
-
-            if (rootOnly) {
-                Subquery<Long> deletedParentQuery = query.subquery(Long.class);
-                var parent = deletedParentQuery.from(StorageNode.class);
-                deletedParentQuery.select(parent.get("id"))
-                        .where(
-                                criteriaBuilder.equal(parent.get("id"), root.get("parentId")),
-                                criteriaBuilder.equal(parent.get("ownerId"), root.get("ownerId")),
-                                criteriaBuilder.isTrue(parent.get("deleted"))
-                        );
-                predicates.add(criteriaBuilder.not(criteriaBuilder.exists(deletedParentQuery)));
             }
 
             return criteriaBuilder.and(predicates.toArray(Predicate[]::new));
@@ -343,7 +309,7 @@ public class AdminCloudOperationsDetailService {
                 node.getParentId(),
                 node.getOriginalParentId(),
                 node.getNodeName(),
-                node.getNodeType().name(),
+                node.getNodeType() == null ? "UNKNOWN" : node.getNodeType().name(),
                 nullToZero(node.getFileSize()),
                 node.getDeletedBy(),
                 rootItem,
