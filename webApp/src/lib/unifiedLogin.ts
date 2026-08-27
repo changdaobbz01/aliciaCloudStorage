@@ -3,17 +3,15 @@ import { appPath } from './appPaths';
 const UNIFIED_LOGIN_PATH = '/login';
 const DEFAULT_RETURN_TO = appPath('/');
 const LOGIN_REDIRECT_REASONS = new Set(['session-expired', 'login-required']);
+const FOREIGN_RETURN_PATHS = ['/api', '/console', '/rag'];
+const FOREIGN_RETURN_PATH_PREFIXES = ['/api/', '/console/', '/rag/'];
 
 export type LoginRedirectReason = 'session-expired' | 'login-required';
 
 function normalizeReturnTo(returnTo: string) {
   const trimmed = returnTo.trim();
 
-  if (!trimmed || !trimmed.startsWith('/') || trimmed.startsWith('//') || isLoginPath(trimmed)) {
-    return DEFAULT_RETURN_TO;
-  }
-
-  return trimmed;
+  return normalizeCloudPath(trimmed);
 }
 
 function safeSuffix(value: string, expectedPrefix: '?' | '#') {
@@ -26,7 +24,7 @@ function normalizeReason(reason: LoginRedirectReason | null | undefined) {
 }
 
 function isLoginPath(pathname: string) {
-  const pathOnly = pathname.split(/[?#]/, 1)[0];
+  const pathOnly = extractPathOnly(pathname);
 
   return (
     pathOnly === UNIFIED_LOGIN_PATH ||
@@ -36,16 +34,37 @@ function isLoginPath(pathname: string) {
   );
 }
 
+function isForeignReturnPath(pathname: string) {
+  const pathOnly = extractPathOnly(pathname);
+
+  return FOREIGN_RETURN_PATHS.includes(pathOnly)
+    || FOREIGN_RETURN_PATH_PREFIXES.some((pathPrefix) => pathOnly.startsWith(pathPrefix));
+}
+
+function extractPathOnly(pathname: string) {
+  return pathname.split(/[?#]/, 1)[0];
+}
+
 function normalizeCloudPath(pathname: string) {
   const trimmed = pathname.trim();
   const cloudBasePath = appPath('/');
+  const cloudBasePathWithoutTrailingSlash = cloudBasePath.replace(/\/$/, '');
+  const currentPath = extractPathOnly(trimmed);
 
   if (!trimmed || !trimmed.startsWith('/') || trimmed.startsWith('//') || isLoginPath(trimmed)) {
     return DEFAULT_RETURN_TO;
   }
 
-  if (trimmed === cloudBasePath.replace(/\/$/, '') || trimmed.startsWith(cloudBasePath)) {
+  if (currentPath === cloudBasePathWithoutTrailingSlash) {
+    return `${cloudBasePath}${trimmed.slice(currentPath.length)}`;
+  }
+
+  if (currentPath.startsWith(cloudBasePath)) {
     return trimmed;
+  }
+
+  if (isForeignReturnPath(trimmed)) {
+    return DEFAULT_RETURN_TO;
   }
 
   return appPath(trimmed);

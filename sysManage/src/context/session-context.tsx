@@ -19,7 +19,7 @@ import {
   SESSION_CHANGE_EVENT,
   SESSION_REVISION_STORAGE_KEY,
 } from '../lib/session';
-import { cloudReturnTo, redirectToUnifiedLogin, type LoginRedirectReason } from '../lib/unifiedLogin';
+import { cloudConsoleReturnTo, redirectToUnifiedLogin, type LoginRedirectReason } from '../lib/unifiedLogin';
 import type { User } from '../types';
 
 const TOKEN_REFRESH_INTERVAL_MS = 30 * 60 * 1000;
@@ -133,7 +133,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
       loginRedirectingRef.current = true;
       redirectToUnifiedLogin(
-        cloudReturnTo(location.pathname, location.search, location.hash),
+        cloudConsoleReturnTo(location.pathname, location.search, location.hash),
         true,
         'session-expired',
       );

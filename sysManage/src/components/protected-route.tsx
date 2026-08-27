@@ -3,7 +3,7 @@ import { useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useSession } from '../context/session-context';
-import { cloudReturnTo, redirectToUnifiedLogin } from '../lib/unifiedLogin';
+import { cloudConsoleReturnTo, redirectToUnifiedLogin } from '../lib/unifiedLogin';
 import type { LoginRedirectReason } from '../lib/unifiedLogin';
 
 function UnifiedLoginRedirect({ returnTo, reason }: { returnTo: string; reason: LoginRedirectReason | null }) {
@@ -36,7 +36,7 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
   if (!authToken || !currentUser) {
     return (
       <UnifiedLoginRedirect
-        returnTo={cloudReturnTo(location.pathname, location.search, location.hash)}
+        returnTo={cloudConsoleReturnTo(location.pathname, location.search, location.hash)}
         reason={loginRedirectReason}
       />
     );

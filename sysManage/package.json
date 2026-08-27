@@ -6,10 +6,11 @@
   "scripts": {
     "dev": "vite",
     "audit:high": "npm audit --audit-level=high",
+    "verify:return-to": "node scripts/verify-unified-login-return-to.mjs",
     "verify:session-sync": "node scripts/verify-session-sync.mjs",
     "verify:console-boundary": "node scripts/verify-console-boundary.mjs",
     "verify:bundle-size": "node scripts/verify-bundle-size.mjs",
-    "build": "npm run verify:session-sync && npm run verify:console-boundary && tsc -b && vite build && npm run verify:bundle-size",
+    "build": "npm run verify:return-to && npm run verify:session-sync && npm run verify:console-boundary && tsc -b && vite build && npm run verify:bundle-size",
     "preview": "vite preview"
   },
   "dependencies": {
