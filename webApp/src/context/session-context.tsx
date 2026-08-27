@@ -5,6 +5,7 @@ import {
   clearCurrentSession as clearStoredSession,
   hasStoredSessionChanged,
   hasStoredSessionTokens,
+  isSessionWriteLocked,
   isSessionRevisionStorageKey,
   isSessionStorageKey,
   loadAuthToken,
@@ -12,6 +13,7 @@ import {
   loadRefreshToken,
   notifySessionChanged,
   readStoredSessionSnapshot,
+  runAfterSessionWriteSettled,
   saveCurrentUser,
   saveIdentityTokenSession,
   SESSION_CHANGE_EVENT,
@@ -62,6 +64,16 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [authToken]);
 
   async function restoreStoredSession(isCancelled: () => boolean = () => false) {
+    if (isSessionWriteLocked()) {
+      setIsSessionChecking(true);
+      runAfterSessionWriteSettled(() => {
+        if (!isCancelled()) {
+          void restoreStoredSession(isCancelled);
+        }
+      });
+      return;
+    }
+
     const snapshot = readStoredSessionSnapshot();
     const token = snapshot.token;
     const refreshToken = snapshot.refreshToken;
@@ -159,36 +171,38 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      const token = loadAuthToken();
-      const refreshToken = loadRefreshToken();
+      runAfterSessionWriteSettled(() => {
+        const token = loadAuthToken();
+        const refreshToken = loadRefreshToken();
 
-      if (!token || !refreshToken) {
-        resetSessionState(toLoginRedirectReason(reason));
-        return;
-      }
-
-      const cachedUser = loadCurrentUser();
-      if (cachedUser) {
-        setCurrentUser(cachedUser);
-      }
-
-      if (isSessionRevisionStorageKey(key)) {
-        setAuthToken(token);
-        refreshCurrentUserFromToken(token);
-        return;
-      }
-
-      if (!authTokenRef.current) {
-        void restoreStoredSession();
-        return;
-      }
-
-      if (token !== authTokenRef.current) {
-        setAuthToken(token);
-        if (!cachedUser) {
-          refreshCurrentUserFromToken(token);
+        if (!token || !refreshToken) {
+          resetSessionState(toLoginRedirectReason(reason));
+          return;
         }
-      }
+
+        const cachedUser = loadCurrentUser();
+        if (cachedUser) {
+          setCurrentUser(cachedUser);
+        }
+
+        if (isSessionRevisionStorageKey(key)) {
+          setAuthToken(token);
+          refreshCurrentUserFromToken(token);
+          return;
+        }
+
+        if (!authTokenRef.current) {
+          void restoreStoredSession();
+          return;
+        }
+
+        if (token !== authTokenRef.current) {
+          setAuthToken(token);
+          if (!cachedUser) {
+            refreshCurrentUserFromToken(token);
+          }
+        }
+      });
     }
 
     function handleSessionStorageChange(event: StorageEvent) {
@@ -217,6 +231,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
 
     async function refreshStoredToken() {
+      if (isSessionWriteLocked()) {
+        runAfterSessionWriteSettled(() => {
+          if (!cancelled) {
+            void refreshStoredToken();
+          }
+        });
+        return;
+      }
+
       const snapshot = readStoredSessionSnapshot();
       const storedToken = snapshot.token;
       const storedRefreshToken = snapshot.refreshToken;

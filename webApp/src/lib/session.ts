@@ -5,6 +5,9 @@ const TOKEN_STORAGE_KEY = 'alicia-cloud-storage.auth-token';
 const REFRESH_TOKEN_STORAGE_KEY = 'alicia-cloud-storage.refresh-token';
 export const SESSION_REVISION_STORAGE_KEY = 'alicia-cloud-storage.session-revision';
 export const SESSION_CHANGE_EVENT = 'alicia-cloud-storage:session-change';
+const SESSION_WRITE_LOCK_STORAGE_KEY = 'alicia-cloud-storage.session-write-lock';
+const SESSION_WRITE_LOCK_TIMEOUT_MS = 3000;
+const SESSION_WRITE_SETTLE_DELAY_MS = 50;
 const SESSION_STORAGE_KEYS = new Set([
   USER_STORAGE_KEY,
   TOKEN_STORAGE_KEY,
@@ -99,6 +102,64 @@ export function notifySessionChanged(reason = 'session-updated') {
   );
 }
 
+function markSessionWriteStart(reason: string) {
+  localStorage.setItem(
+    SESSION_WRITE_LOCK_STORAGE_KEY,
+    `${Date.now()}:${Math.random().toString(36).slice(2)}:${reason}`,
+  );
+}
+
+function clearSessionWriteLock() {
+  localStorage.removeItem(SESSION_WRITE_LOCK_STORAGE_KEY);
+}
+
+function readSessionWriteLockTimestamp(value: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  const timestamp = Number(value.split(':', 1)[0]);
+  return Number.isFinite(timestamp) ? timestamp : null;
+}
+
+export function isSessionWriteLocked() {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  const timestamp = readSessionWriteLockTimestamp(localStorage.getItem(SESSION_WRITE_LOCK_STORAGE_KEY));
+
+  if (!timestamp) {
+    return false;
+  }
+
+  if (Date.now() - timestamp > SESSION_WRITE_LOCK_TIMEOUT_MS) {
+    clearSessionWriteLock();
+    return false;
+  }
+
+  return true;
+}
+
+function withSessionStorageMutation(reason: string, mutate: () => void) {
+  markSessionWriteStart(reason);
+
+  try {
+    mutate();
+  } finally {
+    clearSessionWriteLock();
+  }
+}
+
+export function runAfterSessionWriteSettled(callback: () => void) {
+  if (!isSessionWriteLocked()) {
+    callback();
+    return;
+  }
+
+  window.setTimeout(() => runAfterSessionWriteSettled(callback), SESSION_WRITE_SETTLE_DELAY_MS);
+}
+
 /**
  * 单独更新本地保存的身份令牌。
  */
@@ -110,7 +171,9 @@ export function saveAuthToken(token: string) {
     throw new Error('身份服务响应缺少 access token。');
   }
 
-  localStorage.setItem(TOKEN_STORAGE_KEY, normalizedToken);
+  withSessionStorageMutation('save-access-token', () => {
+    localStorage.setItem(TOKEN_STORAGE_KEY, normalizedToken);
+  });
 }
 
 /**
@@ -124,21 +187,40 @@ export function saveRefreshToken(refreshToken: string) {
     throw new Error('身份服务响应缺少 refresh token。');
   }
 
-  localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, normalizedRefreshToken);
+  withSessionStorageMutation('save-refresh-token', () => {
+    localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, normalizedRefreshToken);
+  });
 }
 
 export function saveIdentityTokenSession(session: IdentityTokenSession) {
-  saveAuthToken(session.token ?? '');
-  saveRefreshToken(session.refreshToken ?? '');
+  const normalizedToken = normalizeToken(session.token);
+  const normalizedRefreshToken = normalizeToken(session.refreshToken);
+
+  if (!normalizedToken) {
+    clearCurrentSession();
+    throw new Error('身份服务响应缺少 access token。');
+  }
+
+  if (!normalizedRefreshToken) {
+    clearCurrentSession();
+    throw new Error('身份服务响应缺少 refresh token。');
+  }
+
+  withSessionStorageMutation('save-session', () => {
+    localStorage.setItem(TOKEN_STORAGE_KEY, normalizedToken);
+    localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, normalizedRefreshToken);
+  });
 }
 
 /**
  * 清空浏览器里保存的登录态信息。
  */
 export function clearCurrentSession() {
-  localStorage.removeItem(USER_STORAGE_KEY);
-  localStorage.removeItem(TOKEN_STORAGE_KEY);
-  localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
+  withSessionStorageMutation('clear-session', () => {
+    localStorage.removeItem(USER_STORAGE_KEY);
+    localStorage.removeItem(TOKEN_STORAGE_KEY);
+    localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
+  });
 }
 
 /**

@@ -13,6 +13,11 @@ assert.match(
 );
 assert.match(
   session,
+  /SESSION_WRITE_LOCK_STORAGE_KEY = 'alicia-cloud-storage\.session-write-lock'/,
+  'cloud web must keep a shared session write lock key',
+);
+assert.match(
+  session,
   /SESSION_CHANGE_EVENT = 'alicia-cloud-storage:session-change'/,
   'cloud web must keep the same-document session change event',
 );
@@ -22,6 +27,11 @@ assert.match(
   'session revision key must be part of the watched session storage keys',
 );
 assert.match(session, /function notifySessionChanged/, 'cloud session utility must expose session change notifications');
+assert.match(
+  session,
+  /function runAfterSessionWriteSettled/,
+  'cloud session utility must defer session listeners during multi-key writes',
+);
 assert.match(
   session,
   /function readStoredSessionSnapshot/,
@@ -36,7 +46,9 @@ assert.match(
 for (const token of [
   'SESSION_CHANGE_EVENT',
   'SESSION_REVISION_STORAGE_KEY',
+  'runAfterSessionWriteSettled',
   'isSessionRevisionStorageKey',
+  'isSessionWriteLocked',
   'readStoredSessionSnapshot',
   'hasStoredSessionChanged',
 ]) {
