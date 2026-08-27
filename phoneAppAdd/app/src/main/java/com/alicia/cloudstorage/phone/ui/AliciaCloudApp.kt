@@ -67,7 +67,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.DriveFileMove
 import androidx.compose.material.icons.automirrored.rounded.InsertDriveFile
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
@@ -4107,22 +4106,7 @@ private fun MeAdminPage(
     ) {
         item {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Box(
-                    modifier = Modifier
-                        .size(46.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(Color.White)
-                        .border(1.dp, SoftLine, RoundedCornerShape(14.dp))
-                        .noRippleClickable(onClick = onBack),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                        contentDescription = "返回",
-                        tint = Ink,
-                        modifier = Modifier.size(24.dp),
-                    )
-                }
+                AddTopBackButton(onClick = onBack)
                 Column(modifier = Modifier.weight(1f)) {
                     Text("账号管理", fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
                     Text("当前账号：${currentUser.nickname}", color = Muted, fontSize = 13.sp)
