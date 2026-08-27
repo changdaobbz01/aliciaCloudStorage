@@ -1,5 +1,5 @@
 import { ChevronDown, CircleX, RefreshCw, Upload } from 'lucide-react';
-import { Button, Progress, Space, Typography } from 'antd';
+import { Button, Progress, Typography } from 'antd';
 import { useState } from 'react';
 import type { DriveUploadTask } from './types';
 import { Icon } from '../../components/Icon';
@@ -84,22 +84,45 @@ export function DriveUploadFloatingPanel({
           </div>
         </div>
 
-        <Space size="small" wrap className="upload-floating-actions">
+        <div className="upload-floating-actions">
           {uploading ? (
-            <Button size="small" danger icon={<Icon icon={CircleX} />} onClick={onCancelActiveUploads}>
+            <Button
+              className="upload-floating-action-button"
+              size="small"
+              danger
+              icon={<Icon icon={CircleX} />}
+              onClick={onCancelActiveUploads}
+            >
               取消上传
             </Button>
           ) : null}
           {uploadFailedCount > 0 ? (
-            <Button size="small" icon={<Icon icon={RefreshCw} />} onClick={onRetryFailedUploads} disabled={uploading}>
+            <Button
+              className="upload-floating-action-button"
+              size="small"
+              icon={<Icon icon={RefreshCw} />}
+              onClick={onRetryFailedUploads}
+              disabled={uploading}
+            >
               继续失败项
             </Button>
           ) : null}
-          <Button size="small" onClick={onClearUploadHistory} disabled={uploading}>
+          <Button
+            className="upload-floating-action-button"
+            size="small"
+            onClick={onClearUploadHistory}
+            disabled={uploading}
+          >
             清除记录
           </Button>
-          <Button size="small" icon={<Icon icon={ChevronDown} />} onClick={() => setCollapsed(true)} aria-label="收起上传队列" />
-        </Space>
+          <Button
+            className="upload-floating-collapse-button"
+            size="small"
+            icon={<Icon icon={ChevronDown} />}
+            onClick={() => setCollapsed(true)}
+            aria-label="收起上传队列"
+          />
+        </div>
       </div>
 
       <Progress

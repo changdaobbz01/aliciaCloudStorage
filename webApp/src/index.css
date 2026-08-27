@@ -3615,3 +3615,261 @@ body,
 .status-icon-warning {
   color: #f59e0b;
 }
+
+/* Alicia release polish: keep CloudPan dialogs and utility panels on one visual system. */
+.sider-download-card {
+  gap: 10px;
+  margin: 16px 4px 0;
+  padding: 16px;
+}
+
+.sider-download-head {
+  grid-template-columns: 38px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+}
+
+.sider-download-icon {
+  width: 38px;
+  height: 38px;
+  padding: 3px;
+  border-radius: 8px;
+}
+
+.sider-download-copy {
+  gap: 0;
+  text-align: left;
+}
+
+.sider-download-eyebrow {
+  color: #475569;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  line-height: 1.1;
+}
+
+.sider-download-title.ant-typography {
+  margin-top: 3px !important;
+  color: var(--alicia-text);
+  font-size: 18px;
+  font-weight: 900 !important;
+  line-height: 1.16;
+}
+
+.sider-download-note.ant-typography {
+  margin: 0 !important;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.upload-floating-panel {
+  gap: 14px;
+  padding: 18px;
+}
+
+.upload-floating-header {
+  align-items: flex-start;
+}
+
+.upload-floating-title {
+  grid-template-columns: 40px minmax(0, 1fr);
+  gap: 10px;
+}
+
+.upload-floating-title > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  text-align: left;
+}
+
+.upload-floating-title .ant-typography {
+  line-height: 1.25;
+}
+
+.upload-floating-icon {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+}
+
+.upload-floating-icon .lucide {
+  width: 20px;
+  height: 20px;
+}
+
+.upload-floating-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.upload-floating-action-button,
+.upload-floating-collapse-button {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 34px;
+  border-radius: 8px !important;
+  font-weight: 900;
+}
+
+.upload-floating-action-button {
+  padding-inline: 12px !important;
+}
+
+.upload-floating-collapse-button {
+  width: 38px;
+  min-width: 38px;
+  padding: 0 !important;
+}
+
+.upload-floating-panel .ant-btn-icon,
+.upload-floating-chip .lucide {
+  margin-inline-end: 0 !important;
+}
+
+.upload-floating-task-row {
+  display: grid;
+  gap: 8px;
+  padding-top: 12px;
+}
+
+.upload-task-main,
+.upload-task-side {
+  width: 100%;
+  text-align: left;
+}
+
+.upload-task-name {
+  line-height: 1.35;
+}
+
+.alicia-modal .ant-modal-content {
+  padding: 24px !important;
+}
+
+.alicia-modal .ant-modal-body {
+  text-align: left;
+}
+
+.alicia-modal .ant-modal-title,
+.alicia-modal-title-block,
+.alicia-modal-heading,
+.alicia-modal-kicker {
+  text-align: left;
+}
+
+.alicia-modal .ant-modal-close {
+  display: inline-grid;
+  place-items: center;
+}
+
+.alicia-modal .ant-modal-footer {
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.alicia-modal .ant-modal-footer .ant-btn + .ant-btn {
+  margin-inline-start: 0 !important;
+}
+
+.alicia-modal .ant-btn,
+:where(.ant-popconfirm-buttons .ant-btn) {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 8px !important;
+  font-weight: 900;
+}
+
+.alicia-modal .ant-btn-icon,
+:where(.ant-popconfirm-buttons .ant-btn-icon) {
+  display: inline-grid;
+  place-items: center;
+  margin-inline-end: 0 !important;
+}
+
+.alicia-modal .ant-form,
+.alicia-modal .ant-form-item-control-input,
+.alicia-modal .ant-input,
+.alicia-modal .ant-input-affix-wrapper,
+.alicia-modal .ant-input-number,
+.alicia-modal .ant-select,
+.alicia-modal .ant-tree-select,
+.alicia-modal .ant-picker {
+  width: 100%;
+}
+
+.alicia-modal .ant-form-item:last-child {
+  margin-bottom: 0;
+}
+
+.alicia-modal .ant-table-wrapper {
+  margin-top: 14px;
+}
+
+:where(.ant-popover-inner) {
+  border: 1px solid var(--alicia-line);
+  border-radius: 8px !important;
+  box-shadow: 0 22px 54px rgba(15, 23, 42, 0.14);
+}
+
+:where(.ant-popconfirm-title),
+:where(.ant-popconfirm-description) {
+  color: var(--alicia-text);
+  font-weight: 800;
+}
+
+:where(.ant-message-notice-content) {
+  border: 1px solid var(--alicia-line);
+  border-radius: 8px !important;
+  color: var(--alicia-text);
+  font-weight: 800;
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.14);
+}
+
+@media (max-width: 640px) {
+  .upload-floating-panel {
+    right: 12px;
+    bottom: 12px;
+    width: calc(100vw - 24px);
+    max-height: min(72vh, 560px);
+    padding: 16px;
+  }
+
+  .upload-floating-header {
+    gap: 12px;
+  }
+
+  .upload-floating-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .upload-floating-action-button {
+    flex: 1 1 118px;
+  }
+
+  .alicia-modal .ant-modal {
+    max-width: calc(100vw - 24px);
+  }
+
+  .alicia-modal .ant-modal-content {
+    padding: 18px !important;
+  }
+
+  .alicia-modal .ant-modal-footer {
+    justify-content: stretch;
+  }
+
+  .alicia-modal .ant-modal-footer .ant-btn {
+    flex: 1 1 120px;
+  }
+}

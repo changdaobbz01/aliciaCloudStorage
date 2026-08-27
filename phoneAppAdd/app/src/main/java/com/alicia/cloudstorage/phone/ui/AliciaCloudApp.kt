@@ -436,7 +436,6 @@ fun AliciaCloudApp(viewModel: MainViewModel) {
                     .background(ScreenBackground),
             )
             uiState.authToken.isNullOrBlank() -> LoginScreen(
-                baseUrl = uiState.baseUrl,
                 submitting = uiState.isSubmittingLogin,
                 sendingCode = uiState.isSendingRegistrationCode,
                 registering = uiState.isSubmittingRegistration,
@@ -616,7 +615,6 @@ internal fun AliciaConfirmDialog(
 
 @Composable
 private fun LoginScreen(
-    baseUrl: String,
     submitting: Boolean,
     sendingCode: Boolean,
     registering: Boolean,
@@ -849,33 +847,6 @@ private fun LoginScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(54.dp),
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(18.dp))
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(Color(0xFFF0F5FF))
-                    .padding(horizontal = 16.dp, vertical = 13.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                ReferenceIcon(
-                    asset = ReferenceAsset.CloudUploadBlue,
-                    contentDescription = null,
-                    modifier = Modifier.size(27.dp),
-                )
-                Spacer(modifier = Modifier.width(11.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("安全连接", color = Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                    Text(
-                        text = baseUrl,
-                        color = Muted,
-                        fontSize = 11.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
                     )
                 }
             }
