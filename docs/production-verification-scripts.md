@@ -235,6 +235,19 @@ bash deploy/scripts/update-main-and-cloud-production.sh
 bash deploy/scripts/update-rag-production.sh
 ```
 
+Android APK 一键发布需要在本地 PowerShell 终端执行，并确保已经加载正式 release keystore 环境变量：
+
+```powershell
+. deploy/generated/android-signing/<timestamp>/android-release-signing.env.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File deploy/scripts/publish-android-release-package.ps1 -ReleaseNotes "填写本次正式更新说明"
+```
+
+该脚本默认构建并发布 `phoneAppAdd`，通过 Identity 管理员账号登录后调用 `/api/admin/app-package` 上传到服务器，并验证公开版本和下载入口。已准备好 APK 目录时可使用：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File deploy/scripts/publish-android-release-package.ps1 -SkipPrepare -PackageDir deploy/generated/android-release-packages/phoneAppAdd/<dir>
+```
+
 ## 11. 推荐执行顺序
 
 大节点上线前后推荐：

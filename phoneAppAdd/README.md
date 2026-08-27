@@ -87,7 +87,16 @@ powershell -NoProfile -ExecutionPolicy Bypass -File deploy/scripts/generate-andr
 powershell -NoProfile -ExecutionPolicy Bypass -File deploy/scripts/prepare-android-release-package.ps1 -ReleaseNotes "填写本次正式更新说明"
 ```
 
-首次发版先生成 Android release keystore，并妥善备份 `deploy/generated/android-signing/` 下的私有文件。之后加载生成的 `android-release-signing.env.ps1`，准备脚本会构建并签名 `phoneAppAdd` Release APK，确认正式包名为 `com.alicia.cloudstorage.phone`，输出到 `deploy/generated/android-release-packages/`，并生成 SHA-256、发布清单、`release-notes.txt` 和管理员上传 helper。上传前必须确认生成目录内的 `release-notes.txt` 已改为正式更新说明。
+首次发版先生成 Android release keystore，并妥善备份 `deploy/generated/android-signing/` 下的私有文件。之后加载生成的 `android-release-signing.env.ps1`，准备脚本会构建并签名 `phoneAppAdd` Release APK，确认正式包名为 `com.alicia.cloudstorage.phone`，输出到 `deploy/generated/android-release-packages/`，并生成 SHA-256、发布清单、`release-notes.txt` 和管理员上传 helper。
+
+需要直接更新服务器上的当前 APK 时，用一键发布脚本：
+
+```powershell
+. deploy/generated/android-signing/<timestamp>/android-release-signing.env.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File deploy/scripts/publish-android-release-package.ps1 -ReleaseNotes "填写本次正式更新说明"
+```
+
+脚本默认发布 `phoneAppAdd`，会打包签名、登录 Identity 管理员账号、上传 `/api/admin/app-package`，并校验 `/api/app-package/version` 和 `/api/app-package/download/current`。如需发布已准备好的目录，可追加 `-SkipPrepare -PackageDir deploy/generated/android-release-packages/phoneAppAdd/<dir>`。
 
 正式环境的 RAG 健康检查地址是 `https://windwindwind-alicia.cn/rag/api/health`。本地仍使用 `http://127.0.0.1:8081/api/health`，两者互不覆盖。
 

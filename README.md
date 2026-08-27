@@ -396,7 +396,14 @@ powershell -NoProfile -ExecutionPolicy Bypass -File deploy/scripts/generate-andr
 powershell -NoProfile -ExecutionPolicy Bypass -File deploy/scripts/prepare-android-release-package.ps1 -ReleaseNotes "填写本次正式更新说明"
 ```
 
-生成目录被 git 忽略。Release 包默认必须完成签名；如果没有加载签名配置，脚本会拒绝把 unsigned APK 当作正式包。上传前确认 `release-notes.txt` 不是 TODO 文案，然后使用目录内的 `upload-current-package.ps1`，并通过 `ALICIA_ADMIN_TOKEN` 传入 Identity 管理员 access token；上传后 helper 会校验 `/api/app-package/version` 和 `/api/app-package/download/current`。旧 `phoneApp` 仅作为历史版本参考，不再作为默认下载 APK 来源。
+也可以直接使用一键发布脚本完成“打包、签名校验、管理员登录、上传到服务器、公开下载入口验证”：
+
+```powershell
+. deploy/generated/android-signing/<timestamp>/android-release-signing.env.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File deploy/scripts/publish-android-release-package.ps1 -ReleaseNotes "填写本次正式更新说明"
+```
+
+生成目录被 git 忽略。Release 包默认必须完成签名；如果没有加载签名配置，脚本会拒绝把 unsigned APK 当作正式包。`publish-android-release-package.ps1` 默认发布 `phoneAppAdd` 到 `/api/admin/app-package`，没有传入 `ALICIA_ADMIN_TOKEN` 时会提示输入 Identity 管理员账号和密码，并在上传后校验 `/api/app-package/version` 和 `/api/app-package/download/current`。旧 `phoneApp` 仅作为历史版本参考，不再作为默认下载 APK 来源。
 
 生产服务器建议把 `origin` 指向 Gitee，以减少 GitHub 连接失败造成的更新中断：
 

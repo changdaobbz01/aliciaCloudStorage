@@ -1102,7 +1102,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File deploy/scripts/generate-andr
 powershell -NoProfile -ExecutionPolicy Bypass -File deploy/scripts/prepare-android-release-package.ps1 -ReleaseNotes "填写本次正式更新说明"
 ```
 
-脚本默认构建 `phoneAppAdd` Release 包，并要求 release 产物使用正式包名 `com.alicia.cloudstorage.phone`。首次发版先生成 Android release keystore，并加载生成的 `android-release-signing.env.ps1`；之后准备脚本会签名并验证 APK，输出到 `deploy/generated/android-release-packages/`，并生成 APK、SHA-256、`manifest.json`、`release-notes.txt` 和上传 helper。没有签名配置时，脚本会拒绝把 unsigned APK 当作正式包。上传 helper 需要通过 `ALICIA_ADMIN_TOKEN` 传入 Identity 管理员 access token，调用 `/api/admin/app-package` 覆盖当前正式包，随后校验 `/api/app-package/version` 和 `/api/app-package/download/current`。旧 `phoneApp` 仅作为历史版本参考，紧急回退时才用 `-App phoneApp` 单独准备。
+脚本默认构建 `phoneAppAdd` Release 包，并要求 release 产物使用正式包名 `com.alicia.cloudstorage.phone`。首次发版先生成 Android release keystore，并加载生成的 `android-release-signing.env.ps1`；之后准备脚本会签名并验证 APK，输出到 `deploy/generated/android-release-packages/`，并生成 APK、SHA-256、`manifest.json`、`release-notes.txt` 和上传 helper。没有签名配置时，脚本会拒绝把 unsigned APK 当作正式包。需要一键更新服务器 APK 时，使用 `deploy/scripts/publish-android-release-package.ps1`；它会复用准备脚本产物，通过 Identity 管理员登录调用 `/api/admin/app-package`，上传后校验 `/api/app-package/version` 和 `/api/app-package/download/current`。旧 `phoneApp` 仅作为历史版本参考，紧急回退时才用 `-App phoneApp` 单独准备。
 
 脚本覆盖：
 
