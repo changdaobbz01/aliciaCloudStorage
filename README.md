@@ -248,7 +248,7 @@ RAG 依赖健康入口为 `/rag/api/health/dependencies`，会探测 Identity `/
 
 `identityApi` 通过 `ALICIA_IDENTITY_MYSQL_DATABASE` 指向独立 MySQL database，`.env.example` 默认使用 `alicia_identity`；MySQL 首次初始化会通过 `deploy/mysql/init-identity-database.sh` 创建该库。生产已完成身份库拆分，当前云盘库不再包含 `sys_user`、`identity_user`、身份验证码、refresh token、审计和 Identity Flyway 历史表。老环境可使用 `deploy/scripts/apply-identity-database-split.sh` 复制身份表和 `identity_flyway_schema_history` 到目标库、备份并更新 `.env`、重启 identity 并运行统一验证；拆库验证通过后，可运行 `deploy/scripts/drop-cloud-identity-residue.sh` 备份并删除云盘库中残留的身份表。
 
-云盘 Web 的纯身份写操作走同域 Identity 公开入口，例如 `/api/identity/auth/profile`、`/api/identity/auth/password`、`/api/identity/admin/users/{userId}/password` 和 `/api/identity/admin/users/{userId}/app-roles/{appCode}`；Identity 管理员审计日志只读查询和筛选走 `/api/identity/admin/audit-logs`。头像上传、头像访问、当前用户云盘聚合资料由 `CloudStorageApi` 的 `/api/cloud-profile/me`、`/api/cloud-profile/avatar` 和 `/api/cloud-profile/avatar/{userId}` 提供。管理员云盘聚合用户列表和创建入口统一为 `/api/admin/cloud-users`，云盘容量调整为 `/api/admin/cloud-users/{userId}/quota`；云盘容量、活跃节点、回收站、分享和分片上传会话的后台运营总览由 `/api/admin/cloud-operations/overview` 提供，分享明细、回收站明细和用户容量明细分别由 `/api/admin/cloud-operations/shares`、`/api/admin/cloud-operations/trash`、`/api/admin/cloud-operations/users/storage` 提供。云盘管理员判断使用 Identity 返回的 `appRoles.cloud=CLOUD_ADMIN`。
+普通云盘 Web 只保留个人云盘体验：个人身份会话和密码能力走同域 Identity 公开入口 `/api/identity/auth/**`，头像上传、头像访问、当前用户云盘聚合资料由 `CloudStorageApi` 的 `/api/cloud-profile/me`、`/api/cloud-profile/avatar` 和 `/api/cloud-profile/avatar/{userId}` 提供。身份后台位于主站仓库 `mainSite/userSite`，页面入口为 `/console/identity/`，承接 `/api/identity/admin/**` 的用户、应用角色、会话和审计管理。云盘运营后台位于本仓库 `sysManage`，页面入口为 `/console/cloud/`，管理员云盘聚合用户列表统一为 `/api/admin/cloud-users`，云盘容量调整为 `/api/admin/cloud-users/{userId}/quota`；云盘容量、活跃节点、回收站、分享和分片上传会话的后台运营总览由 `/api/admin/cloud-operations/overview` 提供，分享明细、回收站明细和用户容量明细分别由 `/api/admin/cloud-operations/shares`、`/api/admin/cloud-operations/trash`、`/api/admin/cloud-operations/users/storage` 提供。云盘管理员判断使用 Identity 返回的 `appRoles.cloud=CLOUD_ADMIN`。
 
 云盘 Web 会在启动和运行中通过 `/api/identity/auth/token/refresh` 续签登录态，续签和本地 session 保存都要求同时存在 access token 与 refresh token；未登录或 token 过期时生成规范化的 `/cloudPan/...` returnTo 并跳转主站 `/login`，过期场景会追加 `reason=session-expired` 供主站登录页展示正式提示，同时规避回到登录页造成的跳转环。主动退出登录时调用 `/api/identity/auth/logout` 后再清理本地 token 和 refresh token。云盘 Web 与主站使用同一组浏览器 session key，通过浏览器 storage 事件同步跨标签页登录、续签、过期和退出，并通过共享 session revision 事件同步昵称、头像、云盘背景等资料变更。Android 客户端恢复会话、保存会话和退出登录也使用同一套 Identity 接口与 token 契约；启动续签失败、缺失 refresh token 或运行中收到 401 时会走本地会话过期清理并提示重新登录，不再混用用户主动退出登录提示。默认 logout 只撤销当前刷新会话；需要全设备退出时请求体传 `{"allDevices":true}`。`GET /api/identity/auth/sessions` 返回当前账号刷新会话元数据，不暴露 refresh token 或 token hash；`DELETE /api/identity/auth/sessions/{sessionId}` 只允许撤销当前账号自己的会话。云盘 Web 头像菜单已提供“登录会话”入口，可查看会话并撤销非当前有效会话。
 
@@ -267,7 +267,7 @@ RAG 依赖健康入口为 `/rag/api/health/dependencies`，会探测 Identity `/
 docker compose -f compose.yaml -f compose.https.yaml up -d --build frontend
 ```
 
-这样会额外开放 `443`，并将 `http://` 请求自动跳转到 `https://`。统一登录入口为 `https://windwindwind-alicia.cn/login`，云盘 Web 入口为 `https://windwindwind-alicia.cn/cloudPan/`，正式 RAG 入口为 `https://windwindwind-alicia.cn/rag`，SSE 请求由 Nginx 直通 `rag` 容器；Identity 公开入口为 `https://windwindwind-alicia.cn/api/identity/health`、`/api/identity/health/dependencies`、`/api/identity/.well-known/jwks.json`、`/api/identity/auth/**` 和 `/api/identity/admin/**`。`/rag/internal/` 与 `/api/identity/internal/**` 不对公网开放。
+这样会额外开放 `443`，并将 `http://` 请求自动跳转到 `https://`。统一登录入口为 `https://windwindwind-alicia.cn/login`，云盘 Web 入口为 `https://windwindwind-alicia.cn/cloudPan/`，云盘运营后台入口为 `https://windwindwind-alicia.cn/console/cloud/`，身份后台入口为 `https://windwindwind-alicia.cn/console/identity/`，正式 RAG 入口为 `https://windwindwind-alicia.cn/rag`，SSE 请求由 Nginx 直通 `rag` 容器；Identity 公开入口为 `https://windwindwind-alicia.cn/api/identity/health`、`/api/identity/health/dependencies`、`/api/identity/.well-known/jwks.json`、`/api/identity/auth/**` 和 `/api/identity/admin/**`。`/rag/internal/` 与 `/api/identity/internal/**` 不对公网开放。
 
 生产服务器更新 RAG 与 Nginx 时，在仓库内执行：
 
@@ -285,7 +285,7 @@ bash deploy/scripts/update-rag-production.sh
 bash deploy/scripts/update-cloud-production.sh
 ```
 
-默认会在 `~/aliciaCloudStorage` 内拒绝覆盖 tracked 本地改动，快进拉取 `gitee/main`，确保 `alicia_gateway` 网络存在，重建 `frontend` 及其依赖服务，并连续运行统一路由验证和静态边界检查。需要指定服务时可追加服务名，例如：
+默认会在 `~/aliciaCloudStorage` 内拒绝覆盖 tracked 本地改动，快进拉取 `gitee/main`，确保 `alicia_gateway` 网络存在，重建 `frontend` 及其依赖服务，并连续运行统一路由验证、Identity 旧路由边界检查和前端控制台边界检查。需要指定服务时可追加服务名，例如：
 
 ```bash
 bash deploy/scripts/update-cloud-production.sh api identity frontend
@@ -321,7 +321,7 @@ bash deploy/scripts/update-main-and-cloud-production.sh
 bash deploy/scripts/collect-production-status.sh
 ```
 
-该脚本会汇总当前 Git 版本、tracked 文件状态、Compose 容器、磁盘与 Docker 占用、Cloud/Identity/RAG 直连与前端健康、三侧依赖健康 JSON、Identity 审计日志脱敏摘要、Identity Flyway 历史、云盘库身份残留边界和 COS 对象清理补偿队列摘要。默认不要求输入账号密码；如需在快照中追加完整登录链路验证，可设置 `ALICIA_STATUS_RUN_ROUTE_VERIFY=true`，如需追加静态边界检查可设置 `ALICIA_STATUS_RUN_BOUNDARY_CHECK=true`。生产更新脚本也支持 `ALICIA_COLLECT_STATUS_AFTER_UPDATE=true bash deploy/scripts/update-cloud-production.sh` 在更新后自动生成快照。
+该脚本会汇总当前 Git 版本、tracked 文件状态、Compose 容器、磁盘与 Docker 占用、Cloud/Identity/RAG 直连与前端健康、主站/云盘/控制台入口探针、三侧依赖健康 JSON、Identity 审计日志脱敏摘要、Identity Flyway 历史、云盘库身份残留边界和 COS 对象清理补偿队列摘要。默认不要求输入账号密码；如需在快照中追加完整登录链路验证，可设置 `ALICIA_STATUS_RUN_ROUTE_VERIFY=true`，如需追加静态边界检查可设置 `ALICIA_STATUS_RUN_BOUNDARY_CHECK=true`。生产更新脚本也支持 `ALICIA_COLLECT_STATUS_AFTER_UPDATE=true bash deploy/scripts/update-cloud-production.sh` 在更新后自动生成快照。
 
 大更新或迁移前建议先生成一次只读生产备份：
 
@@ -331,7 +331,7 @@ bash deploy/scripts/backup-production-data.sh
 
 备份脚本会用 `mysqldump --single-transaction` 分别导出云盘库和 Identity 库，并把 `.env`、TLS 证书和 `deploy/generated/identity-rs256/` 下的签名密钥材料打包到 `deploy/generated/production-backups/<timestamp>/`。该目录被 git 忽略，脚本只打印文件路径，不输出密钥或配置内容。备份生成后默认会运行 `validate-production-backup.sh` 校验 `SHA256SUMS`、gzip dump、敏感配置 tar 和 manifest 关键字段；也可以手动执行 `bash deploy/scripts/validate-production-backup.sh` 校验最新备份。可用 `ALICIA_BACKUP_INCLUDE_ENV=false`、`ALICIA_BACKUP_INCLUDE_CERTS=false`、`ALICIA_BACKUP_INCLUDE_GENERATED_KEYS=false` 或 `ALICIA_VALIDATE_BACKUP_AFTER_CREATE=false` 调整备份/校验行为。`update-cloud-production.sh` 设置 `ALICIA_BACKUP_BEFORE_UPDATE=true` 时，会在重建容器前自动执行该备份脚本。
 
-生产更新 `api`、`identity`、`rag` 或前端路由后，可以使用统一回归脚本检查主域路径边界、主站 `/login`、云盘 `/cloudPan` 规范化跳转、`/cloudPan/login` 到统一登录的交接、CloudStorageApi 到 Identity 的依赖健康、Identity 数据库/Flyway 依赖健康、RAG 到 Identity/Storage 的依赖健康和 telemetry、登录续签、JWT `alg/iss/aud/kid` 元数据、JWKS 入口、应用级 `cloud` 与 `rag` 角色、RAG 访问权探针、RAG 内部契约 `RAG_ADMIN` 边界、刷新会话查询和指定撤销、云盘聚合资料、存储概览、管理员云盘用户入口、管理员云盘运营总览和分享/回收站/用户容量明细、CloudStorageApi COS 对象清理补偿表、Identity 应用角色与审计日志查询、会话撤销审计事件写入、Identity Flyway 迁移历史、旧身份路径 404、注销失效和审计日志最新行；生产 RS256 模式下，CloudStorageApi 会先用 Identity JWKS 对 access token 做本地预验签，再调用 Identity 做强一致状态确认：
+生产更新 `api`、`identity`、`rag` 或前端路由后，可以使用统一回归脚本检查主域路径边界、主站 `/login`、云盘 `/cloudPan` 规范化跳转、云盘后台 `/console/cloud/`、`/cloudPan/login` 到统一登录的交接、CloudStorageApi 到 Identity 的依赖健康、Identity 数据库/Flyway 依赖健康、RAG 到 Identity/Storage 的依赖健康和 telemetry、登录续签、JWT `alg/iss/aud/kid` 元数据、JWKS 入口、应用级 `cloud` 与 `rag` 角色、RAG 访问权探针、RAG 内部契约 `RAG_ADMIN` 边界、刷新会话查询和指定撤销、云盘聚合资料、存储概览、管理员云盘用户入口、管理员云盘运营总览和分享/回收站/用户容量明细、CloudStorageApi COS 对象清理补偿表、Identity 应用角色与审计日志查询、会话撤销审计事件写入、Identity Flyway 迁移历史、旧身份路径 404、注销失效和审计日志最新行；生产 RS256 模式下，CloudStorageApi 会先用 Identity JWKS 对 access token 做本地预验签，再调用 Identity 做强一致状态确认：
 
 ```bash
 bash deploy/scripts/verify-identity-cloud-routes.sh
@@ -473,6 +473,7 @@ npm run dev
 前端开发地址：
 
 - `http://localhost:5173/cloudPan/`
+- `http://localhost:5174/console/cloud/`
 
 ## 首个管理员初始化
 

@@ -149,6 +149,10 @@ done
     printf 'Missing %s/deploy/scripts/check-identity-route-boundary.sh\n' "$PROJECT_DIR" >&2
     exit 1
 }
+[[ -f deploy/scripts/check-frontend-console-boundaries.sh ]] || {
+    printf 'Missing %s/deploy/scripts/check-frontend-console-boundaries.sh\n' "$PROJECT_DIR" >&2
+    exit 1
+}
 [[ "$BACKUP_BEFORE_UPDATE" != "true" || -f deploy/scripts/backup-production-data.sh ]] || {
     printf 'Missing %s/deploy/scripts/backup-production-data.sh\n' "$PROJECT_DIR" >&2
     exit 1
@@ -188,6 +192,7 @@ fi
 
 if [[ "$SKIP_BOUNDARY_CHECK" != "true" ]]; then
     bash deploy/scripts/check-identity-route-boundary.sh
+    bash deploy/scripts/check-frontend-console-boundaries.sh
 fi
 
 if [[ "$VERIFY_PRODUCTION_FLOWS" == "true" ]]; then

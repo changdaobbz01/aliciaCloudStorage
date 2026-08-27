@@ -188,6 +188,8 @@ curl_probe "identity dependency health direct" "$IDENTITY_BASE_URL/api/identity/
 curl_probe "main site home through frontend" "$PUBLIC_BASE_URL/"
 curl_probe "main site login through frontend" "$PUBLIC_BASE_URL/login"
 curl_probe "cloudPan frontend entry" "$PUBLIC_BASE_URL/cloudPan/"
+curl_probe "cloud console frontend entry" "$PUBLIC_BASE_URL/console/cloud/"
+curl_probe "identity console frontend entry" "$PUBLIC_BASE_URL/console/identity/"
 curl_probe "identity jwks endpoint" "$PUBLIC_BASE_URL/api/identity/.well-known/jwks.json"
 curl_probe "rag health through frontend" "$PUBLIC_BASE_URL/rag/api/health"
 curl_probe "rag dependency health through frontend" "$PUBLIC_BASE_URL/rag/api/health/dependencies"
@@ -266,6 +268,7 @@ fi
 if [[ "$RUN_BOUNDARY_CHECK" == "true" ]]; then
     print_section "Static Boundary Check"
     run_optional "identity route boundary check" bash deploy/scripts/check-identity-route-boundary.sh
+    run_optional "frontend console boundary check" bash deploy/scripts/check-frontend-console-boundaries.sh
 fi
 
 print_section "Result"

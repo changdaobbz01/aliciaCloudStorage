@@ -63,6 +63,7 @@ cd "$PROJECT_DIR"
 
 require_script deploy/scripts/verify-identity-cloud-routes.sh
 require_script deploy/scripts/check-identity-route-boundary.sh
+require_script deploy/scripts/check-frontend-console-boundaries.sh
 require_script deploy/scripts/verify-cloud-storage-flow.sh
 require_script deploy/scripts/verify-cloud-share-flow.sh
 
@@ -89,6 +90,8 @@ fi
 if [[ "$SKIP_BOUNDARY_CHECK" != "true" ]]; then
     run_step "identity route static boundary check" \
         bash deploy/scripts/check-identity-route-boundary.sh
+    run_step "frontend console static boundary check" \
+        bash deploy/scripts/check-frontend-console-boundaries.sh
 fi
 
 printf '\nAlicia production flow verification passed.\n'
