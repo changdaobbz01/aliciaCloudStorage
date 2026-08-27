@@ -1,5 +1,5 @@
 ﻿import { App as AntApp, Avatar, Badge, Dropdown, Input, Layout, Menu, Progress, QRCode, Spin, Typography } from 'antd';
-import { BarChart3, Download, FolderOpen, Home, KeyRound, LogOut, Monitor, Search, Share2, Smartphone, Trash2, UserCog, UsersRound } from 'lucide-react';
+import { Download, FolderOpen, Home, KeyRound, LogOut, Monitor, Search, Share2, Trash2, UserCog } from 'lucide-react';
 import type { MenuProps } from 'antd';
 import type { CSSProperties, ChangeEvent } from 'react';
 import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
@@ -8,23 +8,19 @@ import { Icon } from '../components/Icon';
 import { LazyChunkErrorBoundary } from '../components/lazy-chunk-error-boundary';
 import { publicAssetPath } from '../lib/appPaths';
 import { redirectToUnifiedLogin } from '../lib/unifiedLogin';
-import { DriveAccountsAdminModals } from '../features/drive/DriveAccountsAdminModals';
-import { DriveAppPackageUploadModal } from '../features/drive/DriveAppPackageUploadModal';
 import { DrivePreviewModal } from '../features/drive/DrivePreviewModal';
 import { DriveProfileModals } from '../features/drive/DriveProfileModals';
 import { DriveShareCreateModal } from '../features/drive/DriveShareCreateModal';
 import { DriveStorageActionModals } from '../features/drive/DriveStorageActionModals';
 import { DriveUploadFloatingPanel } from '../features/drive/DriveUploadFloatingPanel';
 import { useSession } from '../context/session-context';
-import { useDriveAccountsAdmin } from '../features/drive/hooks/useDriveAccountsAdmin';
-import { useDriveAppPackageAdmin } from '../features/drive/hooks/useDriveAppPackageAdmin';
 import { useDriveDashboard } from '../features/drive/hooks/useDriveDashboard';
 import { useDriveDownloads } from '../features/drive/hooks/useDriveDownloads';
 import { useDriveExplorer } from '../features/drive/hooks/useDriveExplorer';
-import { useDriveOperationsAdmin } from '../features/drive/hooks/useDriveOperationsAdmin';
 import { useDriveProfileSettings } from '../features/drive/hooks/useDriveProfileSettings';
 import { useDriveShares } from '../features/drive/hooks/useDriveShares';
 import { useDriveStorageDialogs } from '../features/drive/hooks/useDriveStorageDialogs';
+import { fetchPublicAppPackage } from '../lib/api';
 import {
   APP_DOWNLOAD_PUBLIC_PATH,
   formatFileSize,
@@ -35,14 +31,11 @@ import {
   resolveHomeBackgroundSrc,
   storageFileCategoryDescriptions,
 } from '../features/drive/driveShared';
-import { isCloudAdmin, type StorageNode, type StorageViewMode } from '../types';
+import { isCloudAdmin, type AppPackageInfo, type StorageNode, type StorageViewMode } from '../types';
 
-const LazyDriveAccountsView = lazy(() => import('../features/drive/DriveAccountsView'));
-const LazyDriveAppPackageView = lazy(() => import('../features/drive/DriveAppPackageView'));
 const LazyDriveDownloadsView = lazy(() => import('../features/drive/DriveDownloadsView'));
 const LazyDriveExplorerView = lazy(() => import('../features/drive/DriveExplorerView'));
 const LazyDriveHomeView = lazy(() => import('../features/drive/DriveHomeView'));
-const LazyDriveOperationsView = lazy(() => import('../features/drive/DriveOperationsView'));
 const LazyDriveSharesView = lazy(() => import('../features/drive/DriveSharesView'));
 
 const { Header, Sider, Content } = Layout;
@@ -54,9 +47,6 @@ const baseMenuItems = [
   { key: 'drive', icon: <Icon icon={FolderOpen} />, label: '我的文件' },
   { key: 'downloads', icon: <Icon icon={Download} />, label: '下载管理' },
   { key: 'shares', icon: <Icon icon={Share2} />, label: '我的分享' },
-  { key: 'accounts', icon: <Icon icon={UsersRound} />, label: '账号管理' },
-  { key: 'operations', icon: <Icon icon={BarChart3} />, label: '运营明细' },
-  { key: 'appPackage', icon: <Icon icon={Smartphone} />, label: 'APP 上传' },
   { key: 'trash', icon: <Icon icon={Trash2} />, label: '回收站' },
 ];
 
@@ -72,12 +62,12 @@ export function DrivePage() {
   const isDriveView = activeView === 'drive';
   const isDownloadsView = activeView === 'downloads';
   const isSharesView = activeView === 'shares';
-  const isAccountsView = activeView === 'accounts';
-  const isOperationsView = activeView === 'operations';
-  const isAppPackageView = activeView === 'appPackage';
   const isTrashView = activeView === 'trash';
   const isListView = isDriveView || isTrashView;
   const isAdmin = isCloudAdmin(currentUser);
+  const [publicAppPackageInfo, setPublicAppPackageInfo] = useState<AppPackageInfo | null>(null);
+  const [publicAppPackageLoading, setPublicAppPackageLoading] = useState(false);
+  const [publicAppPackageError, setPublicAppPackageError] = useState<string | null>(null);
   const homeBackgroundImage = resolveHomeBackgroundSrc(currentUser);
   const dashboard = useDriveDashboard({ authToken, isHomeView, homeBackgroundImage });
   const explorer = useDriveExplorer({
@@ -93,26 +83,6 @@ export function DrivePage() {
   const shares = useDriveShares({
     authToken,
     isSharesView,
-    message,
-  });
-  const accounts = useDriveAccountsAdmin({
-    authToken,
-    isAdmin,
-    isAccountsView,
-    currentUser,
-    message,
-    updateCurrentUser,
-  });
-  const operations = useDriveOperationsAdmin({
-    authToken,
-    isAdmin,
-    isOperationsView,
-    message,
-  });
-  const appPackages = useDriveAppPackageAdmin({
-    authToken,
-    isAdmin,
-    isAppPackageView,
     message,
   });
   const profileSettings = useDriveProfileSettings({
@@ -150,28 +120,22 @@ export function DrivePage() {
       ? '下载管理'
     : isSharesView
       ? '我的分享'
-    : isAccountsView
-      ? '账号管理'
-    : isOperationsView
-      ? '运营明细'
-    : isAppPackageView
-      ? 'APP 上传'
       : isTrashView
         ? '回收站'
         : '我的文件';
   const currentAvatarSrc = resolveAvatarSrc(currentUser);
-  const appDownloadAvailable = appPackages.publicAppPackageInfo?.available ?? false;
-  const appDownloadUrl = resolveAppDownloadUrl(appPackages.publicAppPackageInfo?.downloadUrl ?? APP_DOWNLOAD_PUBLIC_PATH);
-  const appDownloadButtonLabel = appPackages.publicAppPackageLoading
+  const appDownloadAvailable = publicAppPackageInfo?.available ?? false;
+  const appDownloadUrl = resolveAppDownloadUrl(publicAppPackageInfo?.downloadUrl ?? APP_DOWNLOAD_PUBLIC_PATH);
+  const appDownloadButtonLabel = publicAppPackageLoading
     ? '正在检查…'
-    : appPackages.publicAppPackageError
+    : publicAppPackageError
       ? '稍后重试'
       : appDownloadAvailable
         ? '下载 APK'
         : '等待上传';
-  const appDownloadEmptyLabel = appPackages.publicAppPackageLoading
+  const appDownloadEmptyLabel = publicAppPackageLoading
     ? '正在加载'
-    : appPackages.publicAppPackageError
+    : publicAppPackageError
       ? '状态不可用'
       : '暂未上传 APK';
   const mainShellClassName = `app-main-shell${isHomeView && homeBackgroundImage ? ' app-main-shell-with-background' : ''}`;
@@ -185,11 +149,7 @@ export function DrivePage() {
       : undefined;
   const contentClassName = `app-content${isHomeView ? ' app-content-home' : ''}`;
   const menuItems = useMemo(() => {
-    const visibleItems = isAdmin
-      ? baseMenuItems
-      : baseMenuItems.filter((item) => !['accounts', 'operations', 'appPackage'].includes(item.key));
-
-    return visibleItems.map((item) =>
+    return baseMenuItems.map((item) =>
       item.key === 'downloads'
         ? {
             ...item,
@@ -202,19 +162,13 @@ export function DrivePage() {
           }
         : item,
     );
-  }, [downloads.activeDownloadCount, isAdmin]);
+  }, [downloads.activeDownloadCount]);
   const currentViewIcon = isHomeView ? (
     <Icon icon={Home} />
   ) : isDownloadsView ? (
     <Icon icon={Download} />
   ) : isSharesView ? (
     <Icon icon={Share2} />
-  ) : isAccountsView ? (
-    <Icon icon={UsersRound} />
-  ) : isOperationsView ? (
-    <Icon icon={BarChart3} />
-  ) : isAppPackageView ? (
-    <Icon icon={Smartphone} />
   ) : isTrashView ? (
     <Icon icon={Trash2} />
   ) : (
@@ -223,18 +177,12 @@ export function DrivePage() {
   const headerEyebrow = isHomeView
     ? '系统概览'
     : isDownloadsView
-      ? '传输中心'
+    ? '传输中心'
     : isSharesView
       ? '分享管理'
-    : isAccountsView
-      ? '管理中心'
-    : isOperationsView
-      ? '运营视图'
-    : isAppPackageView
-        ? '客户端分发'
-        : isTrashView
-          ? '回收与恢复'
-          : '文件工作台';
+      : isTrashView
+        ? '回收与恢复'
+        : '文件工作台';
   const headerSearchPlaceholder = isTrashView
     ? '搜索回收站'
     : activeFileCategoryLabel
@@ -270,8 +218,22 @@ export function DrivePage() {
   const showProfileUsageMeter = profileTotalBytes !== null && profileTotalBytes > 0;
   const previewingFileId = explorer.previewingFileId;
 
+  async function loadPublicAppPackageInfo() {
+    setPublicAppPackageLoading(true);
+    setPublicAppPackageError(null);
+
+    try {
+      setPublicAppPackageInfo(await fetchPublicAppPackage());
+    } catch (loadError) {
+      setPublicAppPackageInfo(null);
+      setPublicAppPackageError(loadError instanceof Error ? loadError.message : '加载 APK 下载信息失败。');
+    } finally {
+      setPublicAppPackageLoading(false);
+    }
+  }
+
   async function refreshCurrentView() {
-    const tasks: Promise<unknown>[] = [appPackages.loadPublicAppPackageInfo()];
+    const tasks: Promise<unknown>[] = [loadPublicAppPackageInfo()];
 
     if (isHomeView) {
       tasks.push(dashboard.loadHomeDashboard());
@@ -283,19 +245,6 @@ export function DrivePage() {
       }
     }
 
-    if (isAccountsView) {
-      tasks.push(accounts.loadUsers());
-      tasks.push(accounts.loadAuditLogs());
-    }
-
-    if (isOperationsView) {
-      tasks.push(operations.loadAll());
-    }
-
-    if (isAppPackageView) {
-      tasks.push(appPackages.loadAppPackageInfo());
-    }
-
     if (isSharesView) {
       tasks.push(shares.loadShareLinks());
     }
@@ -304,10 +253,8 @@ export function DrivePage() {
   }
 
   useEffect(() => {
-    if (!isAdmin && (activeView === 'accounts' || activeView === 'operations' || activeView === 'appPackage')) {
-      setActiveView('home');
-    }
-  }, [activeView, isAdmin]);
+    void loadPublicAppPackageInfo();
+  }, []);
 
   function handleMenuClick(event: { key: string }) {
     const nextView = event.key as StorageViewMode;
@@ -473,59 +420,6 @@ export function DrivePage() {
         />
       ) : null}
 
-      {isAccountsView ? (
-        <LazyDriveAccountsView
-          isAdmin={isAdmin}
-          currentUserId={currentUser?.id}
-          users={accounts.users}
-          loading={accounts.usersLoading}
-          auditLogPage={accounts.auditLogPage}
-          auditLogQuery={accounts.auditLogQuery}
-          auditLogsLoading={accounts.auditLogsLoading}
-          onCreateUser={accounts.openCreateUserModal}
-          onEditUserQuota={accounts.openEditUserQuotaModal}
-          onEditUserAppRole={accounts.openEditUserAppRoleModal}
-          onResetUserPassword={accounts.openResetUserPasswordModal}
-          onApplyAuditLogQuery={accounts.applyAuditLogQuery}
-          onAuditLogPageChange={accounts.changeAuditLogPage}
-          onRefreshAuditLogs={() => void accounts.loadAuditLogs()}
-        />
-      ) : null}
-
-      {isOperationsView ? (
-        <LazyDriveOperationsView
-          isAdmin={isAdmin}
-          overview={operations.overview}
-          overviewLoading={operations.overviewLoading}
-          storageUsersPage={operations.storageUsersPage}
-          storageUsersQuery={operations.storageUsersQuery}
-          storageUsersLoading={operations.storageUsersLoading}
-          trashNodesPage={operations.trashNodesPage}
-          trashNodesQuery={operations.trashNodesQuery}
-          trashNodesLoading={operations.trashNodesLoading}
-          shareLinksPage={operations.shareLinksPage}
-          shareLinksQuery={operations.shareLinksQuery}
-          shareLinksLoading={operations.shareLinksLoading}
-          onRefresh={() => void operations.loadAll()}
-          onApplyStorageUsersQuery={operations.applyStorageUsersQuery}
-          onStorageUsersPageChange={operations.changeStorageUsersPage}
-          onApplyTrashNodesQuery={operations.applyTrashNodesQuery}
-          onTrashNodesPageChange={operations.changeTrashNodesPage}
-          onApplyShareLinksQuery={operations.applyShareLinksQuery}
-          onShareLinksPageChange={operations.changeShareLinksPage}
-        />
-      ) : null}
-
-      {isAppPackageView ? (
-        <LazyDriveAppPackageView
-          isAdmin={isAdmin}
-          packageInfo={appPackages.appPackageInfo}
-          loading={appPackages.appPackageLoading}
-          uploading={appPackages.appPackageUploading}
-          onUploadClick={appPackages.openAppPackageUploadModal}
-          onDeletePackage={() => void appPackages.deleteCurrentAppPackage()}
-        />
-      ) : null}
       </Suspense>
     </LazyChunkErrorBoundary>
   );
@@ -731,39 +625,6 @@ export function DrivePage() {
         onRefreshSessions={() => profileSettings.loadIdentitySessions()}
         onIncludeRevokedSessionsChange={profileSettings.changeIncludeRevokedSessions}
         onRevokeSession={profileSettings.revokeSession}
-      />
-
-      <DriveAccountsAdminModals
-        currentUser={currentUser}
-        createUserOpen={accounts.createUserOpen}
-        createUserRole={accounts.createUserRole}
-        editQuotaTarget={accounts.editQuotaTarget}
-        editAppRoleTarget={accounts.editAppRoleTarget}
-        resetPasswordTarget={accounts.resetPasswordTarget}
-        createUserForm={accounts.createUserForm}
-        quotaForm={accounts.quotaForm}
-        appRoleForm={accounts.appRoleForm}
-        resetUserPasswordForm={accounts.resetUserPasswordForm}
-        onCloseCreateUser={accounts.closeCreateUserModal}
-        onSubmitCreateUser={accounts.submitCreateUser}
-        onCloseResetPassword={accounts.closeResetUserPasswordModal}
-        onSubmitResetPassword={accounts.submitResetUserPassword}
-        onCloseEditQuota={accounts.closeEditUserQuotaModal}
-        onSubmitUserQuota={accounts.submitUserQuota}
-        onCloseEditAppRole={accounts.closeEditUserAppRoleModal}
-        onSubmitUserAppRole={accounts.submitUserAppRole}
-      />
-
-      <DriveAppPackageUploadModal
-        open={appPackages.appPackageUploadOpen}
-        uploading={appPackages.appPackageUploading}
-        selectedFile={appPackages.selectedAppPackageFile}
-        form={appPackages.appPackageUploadForm}
-        inputRef={appPackages.appPackageInputRef}
-        onClose={appPackages.closeAppPackageUploadModal}
-        onSubmit={appPackages.submitAppPackageUpload}
-        onPickFile={appPackages.handleAppPackageFilePickerClick}
-        onFileChange={appPackages.handleAppPackageFileChange}
       />
 
       <DriveShareCreateModal

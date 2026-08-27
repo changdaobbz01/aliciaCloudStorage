@@ -8,3 +8,6 @@ identityApi/target
 webApp/node_modules
 webApp/dist
 webApp/*.tsbuildinfo
+sysManage/node_modules
+sysManage/dist
+sysManage/*.tsbuildinfo

@@ -2,9 +2,7 @@ import type { AppPackageInfo, StorageFileCategory, StorageViewMode, User } from 
 import type { DriveListState } from './types';
 import { appUrl } from '../../lib/appPaths';
 
-const BYTES_PER_GIB = 1024 * 1024 * 1024;
 export const ROOT_PARENT_KEY = 'ROOT';
-export const DEFAULT_NEW_USER_QUOTA_GB = 50;
 export const APP_DOWNLOAD_PUBLIC_PATH = '/api/app-package/download/current';
 export const storageFileCategoryLabels: Record<StorageFileCategory, string> = {
   IMAGE: '相册',
@@ -57,16 +55,8 @@ export function formatFileSize(value: number) {
   return `${size.toFixed(size >= 100 ? 0 : 1)} ${units[unitIndex]}`;
 }
 
-export function bytesToGigabytes(bytes: number) {
-  return Number((bytes / BYTES_PER_GIB).toFixed(2));
-}
-
 export function formatNullableBytes(value: number | null) {
   return value === null ? '无限制' : formatFileSize(value);
-}
-
-export function gigabytesToBytes(gigabytes: number) {
-  return Math.round(gigabytes * BYTES_PER_GIB);
 }
 
 export function resolveAvatarSrc(user: User | null | undefined) {

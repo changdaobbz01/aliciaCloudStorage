@@ -1,11 +1,4 @@
-import type {
-  CloudApplicationRoleCode,
-  ResetUserPasswordPayload,
-  SortDirection,
-  StorageNode,
-  StorageNodeSortField,
-  User,
-} from '../../types';
+import type { SortDirection, StorageNode, StorageNodeSortField } from '../../types';
 
 export type FolderCrumb = {
   id: number | null;
@@ -85,33 +78,6 @@ export type DrivePreviewState = {
   textContent: string;
   note: string | null;
   error: string | null;
-};
-
-export type CreateUserFormValues = {
-  phoneNumber: string;
-  nickname: string;
-  avatarUrl: string | null;
-  inheritAdminBackground: boolean;
-  password: string;
-  role: User['role'];
-  storageQuotaGb: number;
-};
-
-export type UpdateUserQuotaFormValues = {
-  storageQuotaGb: number;
-};
-
-export type UpdateCloudAppRoleFormValues = {
-  roleCode: CloudApplicationRoleCode;
-};
-
-export type AppPackageUploadFormValues = {
-  versionName: string;
-  releaseNotes: string;
-};
-
-export type ResetUserPasswordFormValues = ResetUserPasswordPayload & {
-  confirmPassword: string;
 };
 
 export type CreateShareFormValues = {

@@ -146,7 +146,8 @@ services:
 
   frontend:
     build:
-      context: ./webApp
+      context: .
+      dockerfile: webApp/Dockerfile
     ports:
       - "80:80"
     networks:

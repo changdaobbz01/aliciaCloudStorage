@@ -1,5 +1,5 @@
 {
-  "name": "alicia-cloud-storage-web",
+  "name": "alicia-cloud-storage-sys-manage",
   "private": true,
   "version": "0.0.1",
   "type": "module",
@@ -7,9 +7,9 @@
     "dev": "vite",
     "audit:high": "npm audit --audit-level=high",
     "verify:session-sync": "node scripts/verify-session-sync.mjs",
-    "verify:client-boundary": "node scripts/verify-client-boundary.mjs",
+    "verify:console-boundary": "node scripts/verify-console-boundary.mjs",
     "verify:bundle-size": "node scripts/verify-bundle-size.mjs",
-    "build": "npm run verify:session-sync && npm run verify:client-boundary && tsc -b && vite build && npm run verify:bundle-size",
+    "build": "npm run verify:session-sync && npm run verify:console-boundary && tsc -b && vite build && npm run verify:bundle-size",
     "preview": "vite preview"
   },
   "dependencies": {

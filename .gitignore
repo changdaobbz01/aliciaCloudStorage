@@ -10,6 +10,12 @@
 /webApp/*.log
 /webApp/vite.config.js
 /webApp/vite.config.d.ts
+/sysManage/node_modules/
+/sysManage/dist/
+/sysManage/*.tsbuildinfo
+/sysManage/*.log
+/sysManage/vite.config.js
+/sysManage/vite.config.d.ts
 /.env
 /deploy/certs/*.pem
 /deploy/generated/

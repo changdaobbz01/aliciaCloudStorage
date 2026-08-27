@@ -1,12 +1,5 @@
 import type {
   AppPackageInfo,
-  AdminCloudOperationsOverview,
-  AdminCloudShareLinksPage,
-  AdminCloudShareLinksQuery,
-  AdminCloudStorageUsersPage,
-  AdminCloudStorageUsersQuery,
-  AdminCloudTrashNodesPage,
-  AdminCloudTrashNodesQuery,
   ApiMessageResponse,
   BatchMoveNodePayload,
   BatchNodePayload,
@@ -14,19 +7,14 @@ import type {
   CreateFolderPayload,
   CreateMultipartUploadPayload,
   CreateShareLinkPayload,
-  CreateUserPayload,
   DriveOverview,
   HealthResponse,
-  IdentityAuditLogPage,
-  IdentityAuditLogQuery,
-  IdentityApplicationRole,
   IdentityLoginResponse,
   IdentitySession,
   MoveNodePayload,
   MultipartUploadPart,
   MultipartUploadStatus,
   RenameNodePayload,
-  ResetUserPasswordPayload,
   SaveShareLinkPayload,
   ShareLinkDetail,
   ShareLinkStatus,
@@ -36,8 +24,6 @@ import type {
   StorageNodeFilter,
   StorageNodePage,
   StorageNodeQuery,
-  UpdateUserStorageQuotaPayload,
-  UpdateIdentityApplicationRolePayload,
   UpdateProfilePayload,
   UsageHistoryPoint,
   User,
@@ -75,13 +61,6 @@ type RequestOptions = {
 
 type ApiRequestOptions = {
   dispatchAuthExpired?: boolean;
-};
-
-type PageQuery = {
-  page?: number;
-  size?: number;
-  sortBy?: string;
-  sortDirection?: string;
 };
 
 export class ApiError extends Error {
@@ -525,29 +504,6 @@ function withTokenAndShareAccess(token: string, shareAccessToken?: string | null
       ...(shareAccessToken ? { 'X-Share-Access-Token': shareAccessToken } : {}),
     },
   };
-}
-
-function appendAdminOperationPageParams(search: URLSearchParams, query: PageQuery) {
-  if (query.page) {
-    search.set('page', String(query.page));
-  }
-
-  if (query.size) {
-    search.set('size', String(query.size));
-  }
-
-  if (query.sortBy) {
-    search.set('sortBy', query.sortBy);
-  }
-
-  if (query.sortDirection) {
-    search.set('sortDirection', query.sortDirection);
-  }
-}
-
-function toQuerySuffix(search: URLSearchParams) {
-  const query = search.toString();
-  return query ? `?${query}` : '';
 }
 
 /**
@@ -1230,208 +1186,6 @@ export function permanentlyDeleteStorageNodes(payload: BatchNodePayload, token: 
   );
 }
 
-/**
- * 查询管理员可见的账号列表。
- */
-export function fetchUsers(token: string) {
-  return requestJson<User[]>('/api/admin/cloud-users', withToken(token));
-}
-
-/**
- * 由管理员创建新的普通用户或管理员账号。
- */
-export function createUser(payload: CreateUserPayload, token: string) {
-  return requestJson<User>(
-    '/api/admin/cloud-users',
-    withToken(token, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    }),
-  );
-}
-
-export function updateUserStorageQuota(userId: number, payload: UpdateUserStorageQuotaPayload, token: string) {
-  return requestJson<User>(
-    `/api/admin/cloud-users/${userId}/quota`,
-    withToken(token, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    }),
-  );
-}
-
-export function resetUserPassword(userId: number, payload: ResetUserPasswordPayload, token: string) {
-  return requestJson<ApiMessageResponse>(
-    `/api/identity/admin/users/${userId}/password`,
-    withToken(token, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    }),
-  );
-}
-
-export function updateIdentityApplicationRole(
-  userId: number,
-  appCode: string,
-  payload: UpdateIdentityApplicationRolePayload,
-  token: string,
-) {
-  return requestJson<IdentityApplicationRole>(
-    `/api/identity/admin/users/${userId}/app-roles/${encodeURIComponent(appCode)}`,
-    withToken(token, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    }),
-  );
-}
-
-export function fetchIdentityAuditLogs(query: IdentityAuditLogQuery, token: string) {
-  const search = new URLSearchParams();
-
-  if (query.eventType) {
-    search.set('eventType', query.eventType);
-  }
-
-  if (query.outcome) {
-    search.set('outcome', query.outcome);
-  }
-
-  if (query.actorUserId !== undefined && query.actorUserId !== null) {
-    search.set('actorUserId', String(query.actorUserId));
-  }
-
-  if (query.targetUserId !== undefined && query.targetUserId !== null) {
-    search.set('targetUserId', String(query.targetUserId));
-  }
-
-  if (query.identifier?.trim()) {
-    search.set('identifier', query.identifier.trim());
-  }
-
-  if (query.createdFrom) {
-    search.set('createdFrom', query.createdFrom);
-  }
-
-  if (query.createdTo) {
-    search.set('createdTo', query.createdTo);
-  }
-
-  if (query.page) {
-    search.set('page', String(query.page));
-  }
-
-  if (query.size) {
-    search.set('size', String(query.size));
-  }
-
-  const suffix = search.toString() ? `?${search.toString()}` : '';
-  return requestJson<IdentityAuditLogPage>(`/api/identity/admin/audit-logs${suffix}`, withToken(token));
-}
-
-export function fetchAdminCloudOperationsOverview(token: string) {
-  return requestJson<AdminCloudOperationsOverview>('/api/admin/cloud-operations/overview', withToken(token));
-}
-
-export function fetchAdminCloudOperationShares(query: AdminCloudShareLinksQuery, token: string) {
-  const search = new URLSearchParams();
-
-  if (query.ownerId !== undefined && query.ownerId !== null) {
-    search.set('ownerId', String(query.ownerId));
-  }
-
-  if (query.status) {
-    search.set('status', query.status);
-  }
-
-  if (query.passwordProtected !== undefined && query.passwordProtected !== null) {
-    search.set('passwordProtected', String(query.passwordProtected));
-  }
-
-  appendAdminOperationPageParams(search, query);
-
-  return requestJson<AdminCloudShareLinksPage>(
-    `/api/admin/cloud-operations/shares${toQuerySuffix(search)}`,
-    withToken(token),
-  );
-}
-
-export function fetchAdminCloudOperationTrash(query: AdminCloudTrashNodesQuery, token: string) {
-  const search = new URLSearchParams();
-
-  if (query.ownerId !== undefined && query.ownerId !== null) {
-    search.set('ownerId', String(query.ownerId));
-  }
-
-  if (query.keyword?.trim()) {
-    search.set('keyword', query.keyword.trim());
-  }
-
-  if (query.type) {
-    search.set('type', query.type);
-  }
-
-  if (query.rootOnly !== undefined && query.rootOnly !== null) {
-    search.set('rootOnly', String(query.rootOnly));
-  }
-
-  appendAdminOperationPageParams(search, query);
-
-  return requestJson<AdminCloudTrashNodesPage>(
-    `/api/admin/cloud-operations/trash${toQuerySuffix(search)}`,
-    withToken(token),
-  );
-}
-
-export function fetchAdminCloudStorageUsers(query: AdminCloudStorageUsersQuery, token: string) {
-  const search = new URLSearchParams();
-  appendAdminOperationPageParams(search, query);
-
-  return requestJson<AdminCloudStorageUsersPage>(
-    `/api/admin/cloud-operations/users/storage${toQuerySuffix(search)}`,
-    withToken(token),
-  );
-}
-
 export function fetchPublicAppPackage() {
   return requestJson<AppPackageInfo>('/api/app-package');
-}
-
-export function fetchAdminAppPackage(token: string) {
-  return requestJson<AppPackageInfo>('/api/admin/app-package', withToken(token));
-}
-
-export function uploadAdminAppPackage(
-  file: File,
-  versionName: string,
-  releaseNotes: string,
-  token: string,
-  options?: UploadFileOptions,
-) {
-  const formData = new FormData();
-  formData.append('file', file);
-  formData.append('versionName', versionName);
-  formData.append('releaseNotes', releaseNotes);
-
-  return requestUploadJson<AppPackageInfo>('/api/admin/app-package', formData, token, options);
-}
-
-export function deleteAdminAppPackage(token: string) {
-  return requestJson<ApiMessageResponse>(
-    '/api/admin/app-package',
-    withToken(token, {
-      method: 'DELETE',
-    }),
-  );
 }

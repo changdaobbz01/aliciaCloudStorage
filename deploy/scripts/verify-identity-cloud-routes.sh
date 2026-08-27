@@ -703,6 +703,8 @@ curl_ok "main site login entry" -I "$PUBLIC_BASE_URL/login"
 expect_redirect_location "cloudPan bare path redirects to canonical slash" 308 "/cloudPan/" "$PUBLIC_BASE_URL/cloudPan"
 expect_redirect_location "cloudPan legacy login redirects to unified login" 308 "/login?returnTo=/cloudPan/" "$PUBLIC_BASE_URL/cloudPan/login"
 curl_ok "cloudPan frontend entry" -I "$PUBLIC_BASE_URL/cloudPan/"
+expect_redirect_location "cloud console bare path redirects to canonical slash" 308 "/console/cloud/" "$PUBLIC_BASE_URL/console/cloud"
+curl_ok "cloud console frontend entry" -I "$PUBLIC_BASE_URL/console/cloud/"
 
 if [[ -z "$ACCOUNT" ]]; then
     read -r -p "Identity account/email/phone: " ACCOUNT
