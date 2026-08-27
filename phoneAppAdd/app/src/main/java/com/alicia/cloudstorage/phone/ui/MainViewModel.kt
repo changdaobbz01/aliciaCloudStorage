@@ -6,9 +6,12 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.os.Process
 import android.os.SystemClock
+import android.provider.Settings
 import android.provider.OpenableColumns
+import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -48,12 +51,18 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import java.io.BufferedInputStream
+import java.io.BufferedOutputStream
 import java.io.File
+import java.net.HttpURLConnection
+import java.net.URL
 import java.nio.ByteBuffer
 import java.nio.charset.Charset
 import java.nio.charset.CodingErrorAction
@@ -201,6 +210,8 @@ data class AppUpdateState(
     val latestVersionName: String,
     val releaseNotes: String,
     val downloadUrl: String,
+    val downloading: Boolean = false,
+    val downloadProgress: Int? = null,
 )
 
 data class VersionUpdateUiState(
@@ -210,6 +221,8 @@ data class VersionUpdateUiState(
     val downloadUrl: String? = null,
     val checking: Boolean = false,
     val updateAvailable: Boolean = false,
+    val downloading: Boolean = false,
+    val downloadProgress: Int? = null,
 )
 
 enum class IncomingShareSource {
@@ -300,6 +313,7 @@ class MainViewModel internal constructor(
     private var clipboardReceiptLoaded = false
     private val clipboardReceiptMutex = Mutex()
     private var appUpdateCheckJob: Job? = null
+    private var appUpdateDownloadJob: Job? = null
     private var manualRefreshJob: Job? = null
     private var manualRefreshGeneration = 0L
     private var currentUserSyncJob: Job? = null
@@ -2624,6 +2638,7 @@ class MainViewModel internal constructor(
     }
 
     fun dismissAppUpdate() {
+        if (uiState.value.appUpdate?.downloading == true) return
         dismissedUpdateVersionName = uiState.value.appUpdate?.latestVersionName
         _uiState.update { state -> state.copy(appUpdate = null) }
     }
@@ -2635,32 +2650,163 @@ class MainViewModel internal constructor(
 
     fun openAppUpdateDownload() {
         val appUpdate = uiState.value.appUpdate ?: return
-        openAppUpdateDownloadUrl(appUpdate.downloadUrl, dismissPromptAfterOpen = true)
+        installAppUpdate(appUpdate.downloadUrl, dismissPromptAfterInstallIntent = true)
     }
 
     fun openVersionUpdateDownload() {
         val update = uiState.value.versionUpdate
+        if (update.downloading) return
         if (!update.updateAvailable) {
             checkForAppUpdateManually()
             return
         }
         val downloadUrl = update.downloadUrl ?: return
-        openAppUpdateDownloadUrl(downloadUrl, dismissPromptAfterOpen = false)
+        installAppUpdate(downloadUrl, dismissPromptAfterInstallIntent = false)
     }
 
-    private fun openAppUpdateDownloadUrl(downloadUrl: String, dismissPromptAfterOpen: Boolean) {
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(downloadUrl))
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    private fun installAppUpdate(downloadUrl: String, dismissPromptAfterInstallIntent: Boolean) {
+        if (appUpdateDownloadJob?.isActive == true) return
 
-        runCatching {
-            appContext.startActivity(intent)
-        }.onSuccess {
-            if (dismissPromptAfterOpen) {
-                dismissAppUpdate()
+        appUpdateDownloadJob = viewModelScope.launch {
+            setAppUpdateDownloadState(downloadUrl, downloading = true, progress = 0)
+            runCatching {
+                val apkFile = downloadAppUpdateApk(downloadUrl) { progress ->
+                    setAppUpdateDownloadState(downloadUrl, downloading = true, progress = progress)
+                }
+                launchAppUpdateInstaller(apkFile)
+            }.onSuccess {
+                setAppUpdateDownloadState(downloadUrl, downloading = false, progress = null)
+                if (dismissPromptAfterInstallIntent) {
+                    dismissedUpdateVersionName = uiState.value.appUpdate?.latestVersionName
+                    _uiState.update { state -> state.copy(appUpdate = null) }
+                }
+                emitMessage("安装包已下载，请按系统提示完成安装。")
+            }.onFailure { error ->
+                if (error is CancellationException) return@onFailure
+                setAppUpdateDownloadState(downloadUrl, downloading = false, progress = null)
+                emitMessage(error.readableMessage())
             }
-        }.onFailure {
-            emitMessage("无法打开更新链接，请稍后再试。")
         }
+    }
+
+    private fun setAppUpdateDownloadState(
+        downloadUrl: String,
+        downloading: Boolean,
+        progress: Int?,
+    ) {
+        _uiState.update { state ->
+            state.copy(
+                appUpdate = state.appUpdate?.let { update ->
+                    if (update.downloadUrl == downloadUrl) {
+                        update.copy(downloading = downloading, downloadProgress = progress)
+                    } else {
+                        update
+                    }
+                },
+                versionUpdate = state.versionUpdate.copy(
+                    downloading = downloading,
+                    downloadProgress = progress,
+                ),
+            )
+        }
+    }
+
+    private suspend fun downloadAppUpdateApk(
+        downloadUrl: String,
+        onProgress: (Int?) -> Unit,
+    ): File = withContext(Dispatchers.IO) {
+        val updateDir = File(appContext.cacheDir, "app-updates").apply {
+            mkdirs()
+            listFiles()?.forEach { file -> file.delete() }
+        }
+        val tempFile = File(updateDir, "alicia-update.apk.part")
+        val apkFile = File(updateDir, "alicia-update.apk")
+        val connection = (URL(downloadUrl).openConnection() as HttpURLConnection).apply {
+            connectTimeout = 20_000
+            readTimeout = 120_000
+            instanceFollowRedirects = true
+            requestMethod = "GET"
+            setRequestProperty("Accept", "application/vnd.android.package-archive,*/*")
+        }
+
+        try {
+            val responseCode = connection.responseCode
+            if (responseCode !in 200..299) {
+                throw ApiException("下载安装包失败（HTTP $responseCode）。", responseCode)
+            }
+
+            val totalBytes = connection.contentLengthLong.takeIf { it > 0L }
+            onProgress(totalBytes?.let { 0 })
+            BufferedInputStream(connection.inputStream).use { input ->
+                BufferedOutputStream(tempFile.outputStream()).use { output ->
+                    val buffer = ByteArray(64 * 1024)
+                    var copiedBytes = 0L
+                    var lastProgress = -1
+                    while (true) {
+                        currentCoroutineContext().ensureActive()
+                        val read = input.read(buffer)
+                        if (read < 0) break
+                        output.write(buffer, 0, read)
+                        copiedBytes += read
+                        if (totalBytes != null) {
+                            val nextProgress = ((copiedBytes * 100) / totalBytes).toInt().coerceIn(0, 100)
+                            if (nextProgress != lastProgress) {
+                                lastProgress = nextProgress
+                                onProgress(nextProgress)
+                            }
+                        } else if (lastProgress != 0) {
+                            lastProgress = 0
+                            onProgress(null)
+                        }
+                    }
+                }
+            }
+
+            if (!tempFile.renameTo(apkFile)) {
+                tempFile.copyTo(apkFile, overwrite = true)
+                tempFile.delete()
+            }
+            if (apkFile.length() <= 0L) {
+                apkFile.delete()
+                throw ApiException("安装包下载为空，请稍后重试。", 502)
+            }
+            onProgress(100)
+            apkFile
+        } finally {
+            connection.disconnect()
+        }
+    }
+
+    private fun launchAppUpdateInstaller(apkFile: File) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+            !appContext.packageManager.canRequestPackageInstalls()
+        ) {
+            val settingsIntent = Intent(
+                Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                Uri.parse("package:${appContext.packageName}"),
+            ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            runCatching { appContext.startActivity(settingsIntent) }
+            throw ApiException("请允许 Alicia 安装应用更新后，再点击立即更新。", 403)
+        }
+
+        val apkUri = FileProvider.getUriForFile(
+            appContext,
+            "${appContext.packageName}.fileprovider",
+            apkFile,
+        )
+        val installIntent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(apkUri, "application/vnd.android.package-archive")
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        val installers = appContext.packageManager.queryIntentActivities(
+            installIntent,
+            PackageManager.MATCH_DEFAULT_ONLY,
+        )
+        if (installers.isEmpty()) {
+            throw ApiException("未找到可用的系统安装器。", 404)
+        }
+        appContext.startActivity(installIntent)
     }
 
     fun downloadFileToUri(node: StorageNode, destinationUri: Uri) {
@@ -4024,6 +4170,7 @@ class MainViewModel internal constructor(
 
     override fun onCleared() {
         cancelExplorerRefreshes()
+        appUpdateDownloadJob?.cancel()
         transferJobs.values.forEach { job -> job.cancel() }
         transferJobs.clear()
         transferHistoryCoordinator.close()

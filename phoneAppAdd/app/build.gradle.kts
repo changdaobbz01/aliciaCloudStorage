@@ -101,8 +101,8 @@ android {
         applicationId = "com.alicia.cloudstorage.phone"
         minSdk = 26
         targetSdk = 34
-        versionCode = 11
-        versionName = "0.1.10"
+        versionCode = 12
+        versionName = "0.1.11"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         val apiBaseUrl = resolveApiBaseUrl(project)

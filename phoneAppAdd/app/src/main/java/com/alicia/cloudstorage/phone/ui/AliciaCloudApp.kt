@@ -509,7 +509,7 @@ private fun AppUpdateDialog(
     onUpdate: () -> Unit,
 ) {
     Dialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { if (!update.downloading) onDismiss() },
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
         val shape = RoundedCornerShape(24.dp)
@@ -536,6 +536,9 @@ private fun AppUpdateDialog(
                 fontSize = 13.sp,
                 lineHeight = 20.sp,
             )
+            if (update.downloading) {
+                UpdateDownloadProgress(update.downloadProgress)
+            }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -545,15 +548,38 @@ private fun AppUpdateDialog(
                     onClick = onDismiss,
                     modifier = Modifier.weight(1f),
                     primary = false,
+                    enabled = !update.downloading,
                 )
                 AddActionButton(
-                    label = "立即更新",
+                    label = if (update.downloading) "下载中" else "立即更新",
                     onClick = onUpdate,
                     modifier = Modifier.weight(1f),
                     primary = true,
+                    enabled = !update.downloading,
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun UpdateDownloadProgress(progress: Int?) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        LinearProgressIndicator(
+            progress = { (progress ?: 0).coerceIn(0, 100) / 100f },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(7.dp)
+                .clip(RoundedCornerShape(999.dp)),
+            color = PrimaryBlueDeep,
+            trackColor = Color(0xFFE8EDF7),
+        )
+        Text(
+            text = progress?.let { "正在下载安装包 $it%" } ?: "正在下载安装包...",
+            color = Muted,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+        )
     }
 }
 
@@ -2479,14 +2505,24 @@ private fun HeaderIconButton(
             },
         contentAlignment = Alignment.Center,
     ) {
-        ReferenceIcon(
-            asset = asset,
-            contentDescription = contentDescription,
-            modifier = Modifier
-                .size(32.dp)
-                .scale(1.6f)
-                .rotate(rotation.value),
-        )
+        if (asset == ReferenceAsset.RefreshBlack) {
+            Icon(
+                imageVector = Icons.Rounded.Refresh,
+                contentDescription = contentDescription,
+                tint = PrimaryBlueDeep,
+                modifier = Modifier
+                    .size(25.dp)
+                    .rotate(rotation.value),
+            )
+        } else {
+            ReferenceIcon(
+                asset = asset,
+                contentDescription = contentDescription,
+                modifier = Modifier
+                    .size(32.dp)
+                    .scale(1.6f),
+            )
+        }
     }
 }
 
@@ -4032,8 +4068,12 @@ private fun MeUpdatePage(
             fontSize = 13.sp,
             lineHeight = 20.sp,
         )
+        if (state.downloading) {
+            UpdateDownloadProgress(state.downloadProgress)
+        }
         AddActionButton(
             label = when {
+                state.downloading -> "下载安装中"
                 state.checking -> "检查中"
                 state.updateAvailable -> "立即更新"
                 else -> "检查更新"
@@ -4041,7 +4081,7 @@ private fun MeUpdatePage(
             onClick = if (state.updateAvailable) onOpenUpdate else onCheckForUpdate,
             modifier = Modifier.fillMaxWidth(),
             primary = true,
-            enabled = !state.checking,
+            enabled = !state.checking && !state.downloading,
         )
     }
 }
@@ -4069,33 +4109,46 @@ private fun MeAdminPage(
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Box(
                     modifier = Modifier
-                        .size(42.dp)
+                        .size(46.dp)
                         .clip(RoundedCornerShape(14.dp))
+                        .background(Color.White)
+                        .border(1.dp, SoftLine, RoundedCornerShape(14.dp))
                         .noRippleClickable(onClick = onBack),
                     contentAlignment = Alignment.Center,
                 ) {
-                    ReferenceIcon(ReferenceAsset.BackBlack, contentDescription = "返回", modifier = Modifier.size(24.dp))
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                        contentDescription = "返回",
+                        tint = Ink,
+                        modifier = Modifier.size(24.dp),
+                    )
                 }
                 Column(modifier = Modifier.weight(1f)) {
                     Text("账号管理", fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
                     Text("当前账号：${currentUser.nickname}", color = Muted, fontSize = 13.sp)
                 }
-                Text(
-                    "刷新",
-                    color = PrimaryBlueDeep,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(12.dp))
-                        .noRippleClickable(onClick = onRefresh)
-                        .padding(horizontal = 4.dp, vertical = 8.dp),
-                )
+                HeaderIconButton(ReferenceAsset.RefreshBlack, "刷新", onRefresh)
             }
         }
         item {
-            Button(onClick = onCreateUser, modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(16.dp)) {
-                ReferenceIcon(ReferenceAsset.MeBlack, null, modifier = Modifier.size(18.dp))
+            Button(
+                onClick = onCreateUser,
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = PrimaryBlueDeep,
+                    contentColor = Color.White,
+                ),
+                contentPadding = PaddingValues(horizontal = 18.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.ManageAccounts,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(24.dp),
+                )
                 Spacer(Modifier.width(8.dp))
-                Text("新建账号")
+                Text("新建账号", fontWeight = FontWeight.ExtraBold)
             }
         }
         when {
@@ -4172,10 +4225,20 @@ private fun TeamScreen(
                 onClick = onCreateUser,
                 modifier = Modifier.fillMaxWidth().height(50.dp),
                 shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = PrimaryBlueDeep,
+                    contentColor = Color.White,
+                ),
+                contentPadding = PaddingValues(horizontal = 18.dp),
             ) {
-                ReferenceIcon(ReferenceAsset.MeBlack, null, modifier = Modifier.size(18.dp))
+                Icon(
+                    imageVector = Icons.Rounded.ManageAccounts,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(24.dp),
+                )
                 Spacer(Modifier.width(8.dp))
-                Text("新建账号")
+                Text("新建账号", fontWeight = FontWeight.ExtraBold)
             }
         }
 
@@ -4479,45 +4542,77 @@ private fun CreateUserDialog(
     var role by rememberSaveable { mutableStateOf(UserRole.USER) }
     var quota by rememberSaveable { mutableStateOf("10") }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("新建账号") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
-                OutlinedTextField(value = phone, onValueChange = { phone = it }, label = { Text("手机号") }, singleLine = true)
-                OutlinedTextField(value = nickname, onValueChange = { nickname = it }, label = { Text("昵称") }, singleLine = true)
-                OutlinedTextField(value = password, onValueChange = { password = it }, label = { Text("初始密码") }, singleLine = true)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    AliciaChip(
-                        label = "普通用户",
-                        selected = role == UserRole.USER,
-                        onClick = { role = UserRole.USER },
-                        modifier = Modifier.weight(1f),
-                    )
-                    AliciaChip(
-                        label = "管理员",
-                        selected = role == UserRole.ADMIN,
-                        onClick = { role = UserRole.ADMIN },
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-                if (role == UserRole.USER) {
-                    OutlinedTextField(
-                        value = quota,
-                        onValueChange = { quota = it },
-                        label = { Text("空间额度 GB") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    )
-                }
+    AdminFormDialog(
+        title = "新建账号",
+        subtitle = "配置登录账号、角色和云盘额度",
+        onDismiss = { if (!creating) onDismiss() },
+        content = {
+            AddTextField(
+                value = phone,
+                onValueChange = { phone = it },
+                label = "手机号",
+                placeholder = "请输入手机号",
+                enabled = !creating,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone, imeAction = ImeAction.Next),
+            )
+            AddTextField(
+                value = nickname,
+                onValueChange = { nickname = it },
+                label = "昵称",
+                placeholder = "请输入昵称",
+                enabled = !creating,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+            )
+            AddTextField(
+                value = password,
+                onValueChange = { password = it },
+                label = "初始密码",
+                placeholder = "请输入初始密码",
+                enabled = !creating,
+                visualTransformation = PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Next),
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                AliciaChip(
+                    label = "普通用户",
+                    selected = role == UserRole.USER,
+                    onClick = { role = UserRole.USER },
+                    modifier = Modifier.weight(1f),
+                )
+                AliciaChip(
+                    label = "管理员",
+                    selected = role == UserRole.ADMIN,
+                    onClick = { role = UserRole.ADMIN },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            if (role == UserRole.USER) {
+                AddTextField(
+                    value = quota,
+                    onValueChange = { quota = it },
+                    label = "空间额度 GB",
+                    placeholder = "例如 10",
+                    enabled = !creating,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                )
             }
         },
-        confirmButton = {
-            Button(onClick = { onCreate(phone, nickname, password, role, quota) }, enabled = !creating) {
-                Text(if (creating) "创建中" else "创建")
-            }
+        footer = {
+            AddActionButton(
+                label = "取消",
+                onClick = onDismiss,
+                modifier = Modifier.weight(1f),
+                primary = false,
+                enabled = !creating,
+            )
+            AddActionButton(
+                label = if (creating) "创建中" else "创建",
+                onClick = { onCreate(phone, nickname, password, role, quota) },
+                modifier = Modifier.weight(1f),
+                primary = true,
+                enabled = !creating,
+            )
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
     )
 }
 
@@ -4529,23 +4624,36 @@ private fun UpdateQuotaDialog(
     onSubmit: (String) -> Unit,
 ) {
     var quota by rememberSaveable(user.id) { mutableStateOf(formatGigabytesInput(user.storageQuotaBytes ?: 0L)) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("调整额度") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(user.nickname, fontWeight = FontWeight.Bold)
-                OutlinedTextField(
-                    value = quota,
-                    onValueChange = { quota = it },
-                    label = { Text("空间额度 GB") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                )
-            }
+    AdminFormDialog(
+        title = "调整额度",
+        subtitle = user.nickname,
+        onDismiss = { if (!busy) onDismiss() },
+        content = {
+            AddTextField(
+                value = quota,
+                onValueChange = { quota = it },
+                label = "空间额度 GB",
+                placeholder = "例如 10",
+                enabled = !busy,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            )
         },
-        confirmButton = { Button(onClick = { onSubmit(quota) }, enabled = !busy) { Text(if (busy) "保存中" else "保存") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
+        footer = {
+            AddActionButton(
+                label = "取消",
+                onClick = onDismiss,
+                modifier = Modifier.weight(1f),
+                primary = false,
+                enabled = !busy,
+            )
+            AddActionButton(
+                label = if (busy) "保存中" else "保存",
+                onClick = { onSubmit(quota) },
+                modifier = Modifier.weight(1f),
+                primary = true,
+                enabled = !busy,
+            )
+        },
     )
 }
 
@@ -4557,24 +4665,84 @@ private fun ResetPasswordDialog(
     onSubmit: (String) -> Unit,
 ) {
     var password by rememberSaveable(user.id) { mutableStateOf("") }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("重置密码") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(user.nickname, fontWeight = FontWeight.Bold)
-                OutlinedTextField(
-                    value = password,
-                    onValueChange = { password = it },
-                    label = { Text("新密码") },
-                    singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
-                )
-            }
+    AdminFormDialog(
+        title = "重置密码",
+        subtitle = user.nickname,
+        onDismiss = { if (!busy) onDismiss() },
+        content = {
+            AddTextField(
+                value = password,
+                onValueChange = { password = it },
+                label = "新密码",
+                placeholder = "请输入新密码",
+                enabled = !busy,
+                visualTransformation = PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+            )
         },
-        confirmButton = { Button(onClick = { onSubmit(password) }, enabled = !busy) { Text(if (busy) "重置中" else "重置") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
+        footer = {
+            AddActionButton(
+                label = "取消",
+                onClick = onDismiss,
+                modifier = Modifier.weight(1f),
+                primary = false,
+                enabled = !busy,
+            )
+            AddActionButton(
+                label = if (busy) "重置中" else "重置",
+                onClick = { onSubmit(password) },
+                modifier = Modifier.weight(1f),
+                primary = true,
+                enabled = !busy,
+            )
+        },
     )
+}
+
+@Composable
+private fun AdminFormDialog(
+    title: String,
+    subtitle: String,
+    onDismiss: () -> Unit,
+    content: @Composable ColumnScope.() -> Unit,
+    footer: @Composable RowScope.() -> Unit,
+) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        val shape = RoundedCornerShape(24.dp)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .heightIn(max = 640.dp)
+                .addCardChrome(shape)
+                .clip(shape)
+                .background(Color.White)
+                .padding(22.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                Text(title, color = Ink, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold)
+                Text(subtitle, color = Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            }
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f, fill = false)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+                content = content,
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                content = footer,
+            )
+        }
+    }
 }
 
 @Composable
