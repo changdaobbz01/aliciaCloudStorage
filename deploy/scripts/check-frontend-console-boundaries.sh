@@ -123,3 +123,33 @@ require_source_no_match \
     "sysManage/src/pages/CloudConsolePage.tsx" \
     "window\\.location\\.assign\\('/console/identity/'\\)" \
     "Cloud console should use the unified /console/ gateway instead of hard-linking to identity console."
+
+require_source_match \
+    "cloud console exposes URL child routes" \
+    "sysManage/src/App.tsx" \
+    'path="/:view"' \
+    "Cloud console must expose URL-addressable child routes."
+
+require_source_match \
+    "cloud console defaults to users route" \
+    "sysManage/src/App.tsx" \
+    'to="/users"' \
+    "Cloud console root and unknown routes must land on /users."
+
+require_source_match \
+    "cloud console default route preserves query and hash" \
+    "sysManage/src/App.tsx" \
+    '`/users\$\{location\.search\}\$\{location\.hash\}`' \
+    "Cloud console root route must preserve query and hash when it redirects to /users."
+
+require_source_match \
+    "cloud console reads active route view" \
+    "sysManage/src/pages/CloudConsolePage.tsx" \
+    'useParams<\{ view\?: string \}>' \
+    "Cloud console must read the active view from the URL."
+
+require_source_match \
+    "cloud console maps APK route" \
+    "sysManage/src/pages/CloudConsolePage.tsx" \
+    "appPackage:[[:space:]]*'/app-package'" \
+    "Cloud console APK package view must use the /app-package route."

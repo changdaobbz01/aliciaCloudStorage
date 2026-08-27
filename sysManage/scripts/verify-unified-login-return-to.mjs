@@ -46,6 +46,8 @@ const returnToCases = [
   [['/', '', ''], '/console/cloud/'],
   [['/console/cloud', '?view=operations', ''], '/console/cloud/?view=operations'],
   [['/operations', '?tab=shares', '#filters'], '/console/cloud/operations?tab=shares#filters'],
+  [['/app-package', '?release=current', '#upload'], '/console/cloud/app-package?release=current#upload'],
+  [['/console/cloud/app-package', '', ''], '/console/cloud/app-package'],
   [['/console/cloud/', '?view=operations', 'bad-hash'], '/console/cloud/?view=operations'],
   [['/login', '', ''], '/console/cloud/'],
   [['/console/cloud/login', '', ''], '/console/cloud/'],

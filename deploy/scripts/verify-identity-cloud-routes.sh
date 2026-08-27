@@ -702,11 +702,16 @@ expect_status "rag assistant contract requires identity token" 401 \
 curl_ok "main site login entry" -I "$PUBLIC_BASE_URL/login"
 expect_redirect_location "console gateway bare path redirects to canonical slash" 308 "/console/" "$PUBLIC_BASE_URL/console"
 curl_ok "console gateway entry" -I "$PUBLIC_BASE_URL/console/"
+curl_ok "identity console frontend entry" -I "$PUBLIC_BASE_URL/console/identity/"
+curl_ok "identity console users route" -I "$PUBLIC_BASE_URL/console/identity/users"
+curl_ok "identity console audit route" -I "$PUBLIC_BASE_URL/console/identity/audit"
 expect_redirect_location "cloudPan bare path redirects to canonical slash" 308 "/cloudPan/" "$PUBLIC_BASE_URL/cloudPan"
 expect_redirect_location "cloudPan legacy login redirects to unified login" 308 "/login?returnTo=/cloudPan/" "$PUBLIC_BASE_URL/cloudPan/login"
 curl_ok "cloudPan frontend entry" -I "$PUBLIC_BASE_URL/cloudPan/"
 expect_redirect_location "cloud console bare path redirects to canonical slash" 308 "/console/cloud/" "$PUBLIC_BASE_URL/console/cloud"
 curl_ok "cloud console frontend entry" -I "$PUBLIC_BASE_URL/console/cloud/"
+curl_ok "cloud console operations route" -I "$PUBLIC_BASE_URL/console/cloud/operations"
+curl_ok "cloud console app package route" -I "$PUBLIC_BASE_URL/console/cloud/app-package"
 
 if [[ -z "$ACCOUNT" ]]; then
     read -r -p "Identity account/email/phone: " ACCOUNT

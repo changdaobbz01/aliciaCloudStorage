@@ -1,7 +1,8 @@
 import { App as AntApp, Avatar, Button, Dropdown, Layout, Menu, Result, Spin, Typography } from 'antd';
 import type { MenuProps } from 'antd';
 import { ArrowUpRight, BarChart3, Cloud, Home, LayoutDashboard, LogOut, RefreshCw, Smartphone, UsersRound } from 'lucide-react';
-import { Suspense, lazy, useState } from 'react';
+import { Suspense, lazy, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Icon } from '../components/Icon';
 import { LazyChunkErrorBoundary } from '../components/lazy-chunk-error-boundary';
 import { DriveAppPackageUploadModal } from '../features/drive/DriveAppPackageUploadModal';
@@ -45,10 +46,30 @@ const viewMeta: Record<CloudConsoleView, { eyebrow: string; title: string; icon:
   },
 };
 
+const routeByView: Record<CloudConsoleView, string> = {
+  users: '/users',
+  operations: '/operations',
+  appPackage: '/app-package',
+};
+
+function viewFromRoute(value: string | undefined): CloudConsoleView {
+  if (value === 'operations') {
+    return 'operations';
+  }
+
+  if (value === 'app-package') {
+    return 'appPackage';
+  }
+
+  return 'users';
+}
+
 export function CloudConsolePage() {
   const { message } = AntApp.useApp();
   const { authToken, currentUser, logoutCurrentSession, updateCurrentUser } = useSession();
-  const [activeView, setActiveView] = useState<CloudConsoleView>('users');
+  const navigate = useNavigate();
+  const { view } = useParams<{ view?: string }>();
+  const activeView = viewFromRoute(view);
   const isAdmin = isCloudAdmin(currentUser);
   const activeMeta = viewMeta[activeView];
   const currentAvatarSrc = resolveAvatarSrc(currentUser);
@@ -85,6 +106,12 @@ export function CloudConsolePage() {
     { key: 'logout', icon: <Icon icon={LogOut} />, label: '退出登录', danger: true },
   ];
 
+  useEffect(() => {
+    if (view && routeByView[activeView] !== `/${view}`) {
+      navigate(routeByView[activeView], { replace: true });
+    }
+  }, [activeView, navigate, view]);
+
   async function refreshCurrentView() {
     if (activeView === 'users') {
       await cloudUsers.loadUsers();
@@ -100,7 +127,7 @@ export function CloudConsolePage() {
   }
 
   function handleMenuClick(event: { key: string }) {
-    setActiveView(event.key as CloudConsoleView);
+    navigate(routeByView[event.key as CloudConsoleView]);
   }
 
   async function handleAccountMenuClick(event: { key: string }) {

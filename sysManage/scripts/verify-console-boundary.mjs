@@ -41,6 +41,13 @@ for (const fileUrl of listSourceFiles(srcRoot)) {
 }
 
 const consolePageSource = readFileSync(new URL('../src/pages/CloudConsolePage.tsx', import.meta.url), 'utf8');
+const appSource = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
+assert.match(appSource, /path="\/:view"/, 'cloud console must expose URL-addressable child routes');
+assert.match(appSource, /<Navigate to="\/users" replace \/>/, 'cloud console root and unknown routes must land on users');
+assert.match(appSource, /`\/users\$\{location\.search\}\$\{location\.hash\}`/, 'cloud console root route must preserve query and hash');
+assert.match(consolePageSource, /useParams<\{ view\?: string \}>/, 'cloud console must read the active view from the URL');
+assert.match(consolePageSource, /routeByView/, 'cloud console menu must map internal view keys to stable URL routes');
+assert.match(consolePageSource, /appPackage:[\s\S]*'\/app-package'/, 'cloud console APK package view must use the app-package URL route');
 assert.match(consolePageSource, /key:\s*'consoleHome'/, 'cloud console account menu must expose the unified console gateway');
 assert.match(
   consolePageSource,
