@@ -700,6 +700,8 @@ expect_status "rag assistant access requires identity token" 401 \
 expect_status "rag assistant contract requires identity token" 401 \
     "$RAG_ACTION_PLAN_CONTRACT_URL"
 curl_ok "main site login entry" -I "$PUBLIC_BASE_URL/login"
+expect_redirect_location "console gateway bare path redirects to canonical slash" 308 "/console/" "$PUBLIC_BASE_URL/console"
+curl_ok "console gateway entry" -I "$PUBLIC_BASE_URL/console/"
 expect_redirect_location "cloudPan bare path redirects to canonical slash" 308 "/cloudPan/" "$PUBLIC_BASE_URL/cloudPan"
 expect_redirect_location "cloudPan legacy login redirects to unified login" 308 "/login?returnTo=/cloudPan/" "$PUBLIC_BASE_URL/cloudPan/login"
 curl_ok "cloudPan frontend entry" -I "$PUBLIC_BASE_URL/cloudPan/"
