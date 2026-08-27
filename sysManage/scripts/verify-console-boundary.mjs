@@ -40,4 +40,12 @@ for (const fileUrl of listSourceFiles(srcRoot)) {
   }
 }
 
+const consolePageSource = readFileSync(new URL('../src/pages/CloudConsolePage.tsx', import.meta.url), 'utf8');
+assert.match(consolePageSource, /key:\s*'consoleHome'/, 'cloud console account menu must expose the unified console gateway');
+assert.match(
+  consolePageSource,
+  /window\.location\.assign\('\/console\/'\)/,
+  'cloud console account menu must route management navigation through /console/',
+);
+
 console.log('[OK] cloud console boundary verified');

@@ -1,6 +1,6 @@
 import { App as AntApp, Avatar, Button, Dropdown, Layout, Menu, Result, Spin, Typography } from 'antd';
 import type { MenuProps } from 'antd';
-import { ArrowUpRight, BarChart3, Cloud, Home, LogOut, RefreshCw, Smartphone, UsersRound } from 'lucide-react';
+import { ArrowUpRight, BarChart3, Cloud, Home, LayoutDashboard, LogOut, RefreshCw, Smartphone, UsersRound } from 'lucide-react';
 import { Suspense, lazy, useState } from 'react';
 import { Icon } from '../components/Icon';
 import { LazyChunkErrorBoundary } from '../components/lazy-chunk-error-boundary';
@@ -78,6 +78,7 @@ export function CloudConsolePage() {
     </div>
   );
   const avatarMenuItems: MenuProps['items'] = [
+    { key: 'consoleHome', icon: <Icon icon={LayoutDashboard} />, label: '管理控制台' },
     { key: 'mainSite', icon: <Icon icon={Home} />, label: '返回主站' },
     { key: 'cloudPan', icon: <Icon icon={Cloud} />, label: '进入云盘' },
     { type: 'divider' },
@@ -103,6 +104,11 @@ export function CloudConsolePage() {
   }
 
   async function handleAccountMenuClick(event: { key: string }) {
+    if (event.key === 'consoleHome') {
+      window.location.assign('/console/');
+      return;
+    }
+
     if (event.key === 'mainSite') {
       window.location.assign('/');
       return;
