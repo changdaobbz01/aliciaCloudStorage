@@ -1,11 +1,14 @@
 package com.alicia.cloudstorage.api.controller;
 
+import com.alicia.cloudstorage.api.config.GlobalExceptionHandler;
 import com.alicia.cloudstorage.api.principal.CurrentPrincipal;
 import com.alicia.cloudstorage.api.principal.PrincipalRequestAttributes;
+import com.alicia.cloudstorage.api.service.InvalidDownloadRangeException;
 import com.alicia.cloudstorage.api.service.ScopedCollectionTrashService;
 import com.alicia.cloudstorage.api.service.ShareLinkService;
 import com.alicia.cloudstorage.api.service.StorageArchiveService;
 import com.alicia.cloudstorage.api.service.StorageCommandService;
+import com.alicia.cloudstorage.api.service.StorageDownloadRange;
 import com.alicia.cloudstorage.api.service.StorageMultipartUploadService;
 import com.alicia.cloudstorage.api.service.StorageQueryService;
 import org.junit.jupiter.api.BeforeEach;
@@ -61,16 +64,18 @@ class StorageDownloadControllerTest {
                         storageMultipartUploadService,
                         scopedCollectionTrashService
                 ))
+                .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
         shareMockMvc = MockMvcBuilders
                 .standaloneSetup(new ShareLinkController(shareLinkService))
+                .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }
 
     @Test
     void downloadFileFallsBackToBinaryContentTypeWhenStoredMimeTypeIsInvalid() throws Exception {
         byte[] body = new byte[]{1, 2, 3};
-        when(storageCommandService.downloadFile(7L, 11L))
+        when(storageCommandService.downloadFile(7L, 11L, null))
                 .thenReturn(new StorageCommandService.StorageDownloadPayload(
                         "report.bin",
                         "bad/type/extra",
@@ -79,16 +84,17 @@ class StorageDownloadControllerTest {
                 ));
 
         storageMockMvc.perform(get("/api/storage/files/11/download")
-                        .requestAttr(PrincipalRequestAttributes.CURRENT_PRINCIPAL, new CurrentPrincipal(7L, null)))
+                .requestAttr(PrincipalRequestAttributes.CURRENT_PRINCIPAL, new CurrentPrincipal(7L, null)))
                 .andExpect(status().isOk())
                 .andExpect(header().string(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_OCTET_STREAM_VALUE))
+                .andExpect(header().string(HttpHeaders.ACCEPT_RANGES, "bytes"))
                 .andExpect(content().bytes(body));
     }
 
     @Test
     void downloadShareFileFallsBackToBinaryContentTypeWhenStoredMimeTypeIsInvalid() throws Exception {
         byte[] body = new byte[]{4, 5, 6};
-        when(shareLinkService.downloadShareFile(7L, "share-code", 11L, "share-access-token"))
+        when(shareLinkService.downloadShareFile(7L, "share-code", 11L, "share-access-token", null))
                 .thenReturn(new StorageCommandService.StorageDownloadPayload(
                         "report.bin",
                         "bad/type/extra",
@@ -101,6 +107,66 @@ class StorageDownloadControllerTest {
                         .header("X-Share-Access-Token", "share-access-token"))
                 .andExpect(status().isOk())
                 .andExpect(header().string(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_OCTET_STREAM_VALUE))
+                .andExpect(header().string(HttpHeaders.ACCEPT_RANGES, "bytes"))
                 .andExpect(content().bytes(body));
+    }
+
+    @Test
+    void downloadFileReturnsPartialContentForSingleByteRange() throws Exception {
+        byte[] body = new byte[]{2, 3, 4};
+        when(storageCommandService.downloadFile(7L, 11L, "bytes=2-4"))
+                .thenReturn(new StorageCommandService.StorageDownloadPayload(
+                        "report.bin",
+                        MediaType.APPLICATION_OCTET_STREAM_VALUE,
+                        body.length,
+                        10L,
+                        new StorageDownloadRange(2L, 4L),
+                        new ByteArrayInputStream(body)
+                ));
+
+        storageMockMvc.perform(get("/api/storage/files/11/download")
+                        .requestAttr(PrincipalRequestAttributes.CURRENT_PRINCIPAL, new CurrentPrincipal(7L, null))
+                        .header(HttpHeaders.RANGE, "bytes=2-4"))
+                .andExpect(status().isPartialContent())
+                .andExpect(header().string(HttpHeaders.ACCEPT_RANGES, "bytes"))
+                .andExpect(header().string(HttpHeaders.CONTENT_RANGE, "bytes 2-4/10"))
+                .andExpect(header().string(HttpHeaders.CONTENT_LENGTH, "3"))
+                .andExpect(content().bytes(body));
+    }
+
+    @Test
+    void downloadShareFileReturnsPartialContentForSingleByteRange() throws Exception {
+        byte[] body = new byte[]{8, 9};
+        when(shareLinkService.downloadShareFile(7L, "share-code", 11L, "share-access-token", "bytes=8-"))
+                .thenReturn(new StorageCommandService.StorageDownloadPayload(
+                        "report.bin",
+                        MediaType.APPLICATION_OCTET_STREAM_VALUE,
+                        body.length,
+                        10L,
+                        new StorageDownloadRange(8L, 9L),
+                        new ByteArrayInputStream(body)
+                ));
+
+        shareMockMvc.perform(get("/api/share-links/share-code/files/11/download")
+                        .requestAttr(PrincipalRequestAttributes.CURRENT_PRINCIPAL, new CurrentPrincipal(7L, null))
+                        .header("X-Share-Access-Token", "share-access-token")
+                        .header(HttpHeaders.RANGE, "bytes=8-"))
+                .andExpect(status().isPartialContent())
+                .andExpect(header().string(HttpHeaders.ACCEPT_RANGES, "bytes"))
+                .andExpect(header().string(HttpHeaders.CONTENT_RANGE, "bytes 8-9/10"))
+                .andExpect(header().string(HttpHeaders.CONTENT_LENGTH, "2"))
+                .andExpect(content().bytes(body));
+    }
+
+    @Test
+    void downloadFileReturnsRangeNotSatisfiableWithTotalLengthHeader() throws Exception {
+        when(storageCommandService.downloadFile(7L, 11L, "bytes=20-30"))
+                .thenThrow(new InvalidDownloadRangeException("请求的下载区间无效。", 10L));
+
+        storageMockMvc.perform(get("/api/storage/files/11/download")
+                        .requestAttr(PrincipalRequestAttributes.CURRENT_PRINCIPAL, new CurrentPrincipal(7L, null))
+                        .header(HttpHeaders.RANGE, "bytes=20-30"))
+                .andExpect(status().is(416))
+                .andExpect(header().string(HttpHeaders.CONTENT_RANGE, "bytes */10"));
     }
 }

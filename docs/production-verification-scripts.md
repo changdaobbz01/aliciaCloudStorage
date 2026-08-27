@@ -45,8 +45,8 @@ bash deploy/scripts/verify-cloud-production-flows.sh
 - Identity / CloudStorageApi / RAG / Nginx 主域路径总回归
 - JWT `alg/iss/aud/kid`、RS256 JWKS、应用级角色、session revoke、logout
 - 云盘管理员运营视图：容量、回收站、分享和分片上传统计总览，以及分享、回收站、用户容量明细接口
-- 云盘文件操作专项：上传、列表、下载、ZIP、重命名、移动、回收站、恢复、彻底删除
-- 分享链路专项：创建分享、提取码、详情、下载 URL、直连下载、ZIP、保存到网盘、撤销
+- 云盘文件操作专项：上传、列表、下载、HTTP Range 断点下载、ZIP、重命名、移动、回收站、恢复、彻底删除
+- 分享链路专项：创建分享、提取码、详情、下载 URL、直连下载、HTTP Range 断点下载、ZIP、保存到网盘、撤销
 - 静态边界：旧 `/api/auth/**`、旧 `/api/admin/users`、旧 `sys_user` 引用不回流
 
 常用跳过开关：
@@ -106,7 +106,7 @@ ALICIA_STORAGE_VERIFY_KEEP_TEST_DATA=true \
   bash deploy/scripts/verify-cloud-storage-flow.sh
 ```
 
-Web 和 Android 客户端需与服务端保持同一操作边界：批量移动/删除/恢复/彻底删除最多 500 项，ZIP 打包下载最多 100 项。脚本会同时验证空选择和超量选择都被服务端拒绝，避免客户端放行后造成线上异常。
+Web 和 Android 客户端需与服务端保持同一操作边界：批量移动/删除/恢复/彻底删除最多 500 项，ZIP 打包下载最多 100 项。脚本会同时验证空选择、超量选择、HTTP Range `206/416` 响应，避免客户端放行后造成线上异常。
 
 如需观察 COS 对象清理补偿队列状态，可查看云盘库中的任务摘要：
 
@@ -136,7 +136,7 @@ ALICIA_SHARE_VERIFY_KEEP_TEST_DATA=true \
   bash deploy/scripts/verify-cloud-share-flow.sh
 ```
 
-分享相关客户端边界需与服务端保持一致：单个分享最多 20 项，分享保存最多 500 项，分享 ZIP 打包下载最多 100 项。脚本会覆盖分享创建、分享保存、分享打包下载的空选择和超量选择拒绝。
+分享相关客户端边界需与服务端保持一致：单个分享最多 20 项，分享保存最多 500 项，分享 ZIP 打包下载最多 100 项。脚本会覆盖分享创建、分享保存、分享文件 HTTP Range `206/416` 响应、分享打包下载的空选择和超量选择拒绝。
 
 ## 7. 静态边界检查
 

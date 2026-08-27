@@ -25,6 +25,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.io.ByteArrayInputStream;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -394,6 +395,33 @@ class ShareLinkServiceTest {
                 org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.anyString()
         );
+    }
+
+    @Test
+    void downloadShareFilePassesSingleRangeToCosAndReturnsPartialPayload() {
+        ShareLink shareLink = activeShare(18L, 9L, "share-code");
+        StorageNode sharedFile = fileNode(181L, 9L, null, "report.pdf", "cos/report.pdf");
+        ShareLinkItem shareItem = shareItem(18L, 181L);
+        StorageDownloadRange range = new StorageDownloadRange(1016L, 1023L);
+
+        when(shareLinkRepository.findByShareCode("share-code")).thenReturn(Optional.of(shareLink));
+        when(shareLinkItemRepository.findByShareIdOrderBySortOrderAsc(18L)).thenReturn(List.of(shareItem));
+        when(storageNodeRepository.findByIdAndOwnerIdAndDeletedFalse(181L, 9L)).thenReturn(Optional.of(sharedFile));
+        when(cosFileStorageService.openFileStream("cos/report.pdf", range))
+                .thenReturn(new CosFileStorageService.DownloadedCosFile(
+                        new ByteArrayInputStream(new byte[]{1, 2}),
+                        "application/pdf",
+                        8L
+                ));
+
+        StorageCommandService.StorageDownloadPayload payload =
+                shareLinkService.downloadShareFile(20L, "share-code", 181L, null, "bytes=-8");
+
+        assertThat(payload.partialContent()).isTrue();
+        assertThat(payload.contentLength()).isEqualTo(8L);
+        assertThat(payload.totalLength()).isEqualTo(1024L);
+        assertThat(payload.range()).isEqualTo(range);
+        verify(cosFileStorageService, never()).openFileStream("cos/report.pdf");
     }
 
     @Test

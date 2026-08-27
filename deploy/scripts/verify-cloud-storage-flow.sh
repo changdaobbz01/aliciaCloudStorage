@@ -103,6 +103,34 @@ curl_file() {
     ok "$label"
 }
 
+curl_range_file() {
+    local label="$1"
+    local output_file="$2"
+    local expected_content_range="$3"
+    local expected_content_length="$4"
+    shift 4
+
+    local header_file="$WORK_DIR/range-headers.txt"
+    local error_file="$WORK_DIR/curl-error.txt"
+    local status
+    status="$(curl "${CURL_COMMON[@]}" -o "$output_file" -D "$header_file" -w '%{http_code}' "$@" 2>"$error_file" || true)"
+
+    if [[ "$status" != "206" ]]; then
+        printf '[FAIL] %s: expected HTTP 206, got %s\n' "$label" "${status:-<none>}" >&2
+        cat "$error_file" >&2 || true
+        exit 1
+    fi
+
+    tr -d '\r' < "$header_file" | grep -Fxi "Accept-Ranges: bytes" >/dev/null \
+        || fail "$label did not expose Accept-Ranges: bytes"
+    tr -d '\r' < "$header_file" | grep -Fxi "Content-Range: $expected_content_range" >/dev/null \
+        || fail "$label returned unexpected Content-Range"
+    tr -d '\r' < "$header_file" | grep -Fxi "Content-Length: $expected_content_length" >/dev/null \
+        || fail "$label returned unexpected Content-Length"
+
+    ok "$label"
+}
+
 expect_http_status() {
     local label="$1"
     local expected_status="$2"
@@ -253,6 +281,7 @@ RENAMED_FILE_NAME="storage-flow-renamed-$TIMESTAMP.txt"
 VERIFY_FILE="$WORK_DIR/$VERIFY_FILE_NAME"
 CASE_CONFLICT_FILE="$WORK_DIR/$CASE_CONFLICT_FILE_NAME"
 DOWNLOAD_FILE="$WORK_DIR/downloaded-$VERIFY_FILE_NAME"
+PARTIAL_DOWNLOAD_FILE="$WORK_DIR/partial-$VERIFY_FILE_NAME"
 ARCHIVE_FILE="$WORK_DIR/storage-archive.zip"
 
 printf 'Verifying Alicia cloud storage flow...\n'
@@ -264,6 +293,7 @@ read_identity_credentials
 
 printf 'Alicia storage verification %s\n' "$TIMESTAMP" > "$VERIFY_FILE"
 printf 'Alicia storage case conflict verification %s\n' "$TIMESTAMP" > "$CASE_CONFLICT_FILE"
+VERIFY_FILE_SIZE="$(wc -c < "$VERIFY_FILE" | tr -d '[:space:]')"
 
 LOGIN_RESPONSE="$(curl_body "identity login" \
     -X POST "$IDENTITY_BASE_URL/api/identity/auth/login" \
@@ -407,6 +437,18 @@ curl_file "file direct download" "$DOWNLOAD_FILE" \
     -H "Authorization: Bearer $TOKEN"
 cmp -s "$VERIFY_FILE" "$DOWNLOAD_FILE" || fail "file download content mismatch"
 ok "file direct download content matches upload"
+
+curl_range_file "file range download" "$PARTIAL_DOWNLOAD_FILE" "bytes 0-5/$VERIFY_FILE_SIZE" "6" \
+    "$PUBLIC_BASE_URL/api/storage/files/$FILE_ID/download" \
+    -H "Authorization: Bearer $TOKEN" \
+    -H "Range: bytes=0-5"
+printf 'Alicia' | cmp -s - "$PARTIAL_DOWNLOAD_FILE" || fail "file range download content mismatch"
+ok "file range download content matches requested bytes"
+
+expect_http_status "file range download rejects unsatisfiable range" 416 \
+    "$PUBLIC_BASE_URL/api/storage/files/$FILE_ID/download" \
+    -H "Authorization: Bearer $TOKEN" \
+    -H "Range: bytes=$VERIFY_FILE_SIZE-$((VERIFY_FILE_SIZE + 10))"
 
 curl_file "folder archive download" "$ARCHIVE_FILE" \
     -X POST "$PUBLIC_BASE_URL/api/storage/nodes/archive" \

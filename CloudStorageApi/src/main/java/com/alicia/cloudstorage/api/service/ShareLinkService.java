@@ -290,18 +290,35 @@ public class ShareLinkService {
             Long fileId,
             String shareAccessToken
     ) {
+        return downloadShareFile(visitorUserId, shareCode, fileId, shareAccessToken, null);
+    }
+
+    @Transactional(readOnly = true)
+    public StorageCommandService.StorageDownloadPayload downloadShareFile(
+            Long visitorUserId,
+            String shareCode,
+            Long fileId,
+            String shareAccessToken,
+            String rangeHeader
+    ) {
         ShareLink shareLink = requireActiveShare(shareCode);
         validateShareAccessTokenIfNeeded(shareLink, shareAccessToken);
         validateDownloadAllowed(shareLink);
         StorageNode fileNode = requireSharedFile(shareLink, fileId);
-        CosFileStorageService.DownloadedCosFile downloadedCosFile = cosFileStorageService.openFileStream(fileNode.getStoragePath());
+        long totalLength = resolveDownloadFileSize(fileNode);
+        StorageDownloadRange range = StorageDownloadRange.parse(rangeHeader, totalLength).orElse(null);
+        CosFileStorageService.DownloadedCosFile downloadedCosFile = range == null
+                ? cosFileStorageService.openFileStream(fileNode.getStoragePath())
+                : cosFileStorageService.openFileStream(fileNode.getStoragePath(), range);
 
         return new StorageCommandService.StorageDownloadPayload(
                 fileNode.getNodeName(),
                 fileNode.getMimeType() == null || fileNode.getMimeType().isBlank()
                         ? downloadedCosFile.contentType()
                         : fileNode.getMimeType(),
-                downloadedCosFile.contentLength(),
+                range == null ? downloadedCosFile.contentLength() : range.length(),
+                totalLength,
+                range,
                 downloadedCosFile.inputStream()
         );
     }
@@ -535,6 +552,14 @@ public class ShareLinkService {
         if (!shareLink.isAllowDownload()) {
             throw new IllegalArgumentException("分享者未允许下载。");
         }
+    }
+
+    private long resolveDownloadFileSize(StorageNode fileNode) {
+        Long fileSize = fileNode.getFileSize();
+        if (fileSize == null || fileSize < 0L) {
+            throw new IllegalStateException("文件大小元数据异常，无法下载。");
+        }
+        return fileSize;
     }
 
     private void validateShareAccessTokenIfNeeded(ShareLink shareLink, String shareAccessToken) {

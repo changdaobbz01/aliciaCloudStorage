@@ -107,6 +107,34 @@ curl_file() {
     ok "$label"
 }
 
+curl_range_file() {
+    local label="$1"
+    local output_file="$2"
+    local expected_content_range="$3"
+    local expected_content_length="$4"
+    shift 4
+
+    local header_file="$WORK_DIR/range-headers.txt"
+    local error_file="$WORK_DIR/curl-error.txt"
+    local status
+    status="$(curl "${CURL_COMMON[@]}" -o "$output_file" -D "$header_file" -w '%{http_code}' "$@" 2>"$error_file" || true)"
+
+    if [[ "$status" != "206" ]]; then
+        printf '[FAIL] %s: expected HTTP 206, got %s\n' "$label" "${status:-<none>}" >&2
+        cat "$error_file" >&2 || true
+        exit 1
+    fi
+
+    tr -d '\r' < "$header_file" | grep -Fxi "Accept-Ranges: bytes" >/dev/null \
+        || fail "$label did not expose Accept-Ranges: bytes"
+    tr -d '\r' < "$header_file" | grep -Fxi "Content-Range: $expected_content_range" >/dev/null \
+        || fail "$label returned unexpected Content-Range"
+    tr -d '\r' < "$header_file" | grep -Fxi "Content-Length: $expected_content_length" >/dev/null \
+        || fail "$label returned unexpected Content-Length"
+
+    ok "$label"
+}
+
 expect_http_status() {
     local label="$1"
     local expected_status="$2"
@@ -259,6 +287,7 @@ SAVE_FOLDER_NAME="alicia-share-verify-save-$TIMESTAMP-$RANDOM_SUFFIX"
 VERIFY_FILE_NAME="share-flow-$TIMESTAMP.txt"
 VERIFY_FILE="$WORK_DIR/$VERIFY_FILE_NAME"
 DOWNLOAD_FILE="$WORK_DIR/downloaded-$VERIFY_FILE_NAME"
+PARTIAL_DOWNLOAD_FILE="$WORK_DIR/partial-$VERIFY_FILE_NAME"
 ARCHIVE_FILE="$WORK_DIR/share-archive.zip"
 SHARE_TITLE="Alicia share verify $TIMESTAMP"
 SHARE_PASSWORD="verify-$RANDOM_SUFFIX"
@@ -271,6 +300,7 @@ printf 'Public base: %s\n' "$PUBLIC_BASE_URL"
 read_identity_credentials
 
 printf 'Alicia share verification %s\n' "$TIMESTAMP" > "$VERIFY_FILE"
+VERIFY_FILE_SIZE="$(wc -c < "$VERIFY_FILE" | tr -d '[:space:]')"
 
 LOGIN_RESPONSE="$(curl_body "identity login" \
     -X POST "$IDENTITY_BASE_URL/api/identity/auth/login" \
@@ -395,6 +425,20 @@ curl_file "share file direct download" "$DOWNLOAD_FILE" \
     -H "X-Share-Access-Token: $SHARE_ACCESS_TOKEN"
 cmp -s "$VERIFY_FILE" "$DOWNLOAD_FILE" || fail "share file download content mismatch"
 ok "share file download content matches upload"
+
+curl_range_file "share file range download" "$PARTIAL_DOWNLOAD_FILE" "bytes 0-5/$VERIFY_FILE_SIZE" "6" \
+    "$PUBLIC_BASE_URL/api/share-links/$SHARE_CODE/files/$FILE_ID/download" \
+    -H "Authorization: Bearer $TOKEN" \
+    -H "X-Share-Access-Token: $SHARE_ACCESS_TOKEN" \
+    -H "Range: bytes=0-5"
+printf 'Alicia' | cmp -s - "$PARTIAL_DOWNLOAD_FILE" || fail "share file range download content mismatch"
+ok "share file range download content matches requested bytes"
+
+expect_http_status "share file range download rejects unsatisfiable range" 416 \
+    "$PUBLIC_BASE_URL/api/share-links/$SHARE_CODE/files/$FILE_ID/download" \
+    -H "Authorization: Bearer $TOKEN" \
+    -H "X-Share-Access-Token: $SHARE_ACCESS_TOKEN" \
+    -H "Range: bytes=$VERIFY_FILE_SIZE-$((VERIFY_FILE_SIZE + 10))"
 
 curl_file "share folder archive download" "$ARCHIVE_FILE" \
     -X POST "$PUBLIC_BASE_URL/api/share-links/$SHARE_CODE/nodes/archive" \

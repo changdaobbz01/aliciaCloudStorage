@@ -38,6 +38,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
@@ -357,24 +358,16 @@ public class StorageNodeController {
     @GetMapping("/files/{fileId}/download")
     public ResponseEntity<InputStreamResource> downloadFile(
             @RequestAttribute(PrincipalRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
-            @PathVariable Long fileId
+            @PathVariable Long fileId,
+            @RequestHeader(value = HttpHeaders.RANGE, required = false) String rangeHeader
     ) {
-        StorageCommandService.StorageDownloadPayload downloadPayload = storageCommandService.downloadFile(principal.userId(), fileId);
-        MediaType mediaType = DownloadResponseMediaTypes.resolve(downloadPayload.contentType());
-
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CACHE_CONTROL, VERSIONED_PRIVATE_FILE_CACHE_CONTROL)
-                .header(HttpHeaders.VARY, HttpHeaders.AUTHORIZATION)
-                .contentType(mediaType)
-                .contentLength(downloadPayload.contentLength())
-                .header(
-                        HttpHeaders.CONTENT_DISPOSITION,
-                        ContentDisposition.attachment()
-                                .filename(downloadPayload.fileName(), StandardCharsets.UTF_8)
-                                .build()
-                                .toString()
-                )
-                .body(new InputStreamResource(downloadPayload.inputStream()));
+        StorageCommandService.StorageDownloadPayload downloadPayload =
+                storageCommandService.downloadFile(principal.userId(), fileId, rangeHeader);
+        return DownloadResponseBuilder.buildFileDownload(
+                downloadPayload,
+                VERSIONED_PRIVATE_FILE_CACHE_CONTROL,
+                HttpHeaders.AUTHORIZATION
+        );
     }
 
     @GetMapping("/files/{fileId}/access-url")

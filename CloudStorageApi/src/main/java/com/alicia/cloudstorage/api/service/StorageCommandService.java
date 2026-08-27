@@ -126,6 +126,14 @@ public class StorageCommandService {
      */
     @Transactional(readOnly = true)
     public StorageDownloadPayload downloadFile(Long userId, Long fileId) {
+        return downloadFile(userId, fileId, null);
+    }
+
+    /**
+     * 根据文件节点元数据从 COS 打开下载流，并按需支持标准单段 Range 断点续传。
+     */
+    @Transactional(readOnly = true)
+    public StorageDownloadPayload downloadFile(Long userId, Long fileId, String rangeHeader) {
         StorageNode fileNode = storageNodeRepository.findByIdAndOwnerIdAndDeletedFalse(fileId, userId)
                 .orElseThrow(() -> new IllegalArgumentException("文件不存在。"));
 
@@ -137,14 +145,20 @@ public class StorageCommandService {
             throw new IllegalArgumentException("文件未关联云端存储对象。");
         }
 
-        CosFileStorageService.DownloadedCosFile downloadedCosFile = cosFileStorageService.openFileStream(fileNode.getStoragePath());
+        long totalLength = resolveDownloadFileSize(fileNode);
+        StorageDownloadRange range = StorageDownloadRange.parse(rangeHeader, totalLength).orElse(null);
+        CosFileStorageService.DownloadedCosFile downloadedCosFile = range == null
+                ? cosFileStorageService.openFileStream(fileNode.getStoragePath())
+                : cosFileStorageService.openFileStream(fileNode.getStoragePath(), range);
 
         return new StorageDownloadPayload(
                 fileNode.getNodeName(),
                 fileNode.getMimeType() == null || fileNode.getMimeType().isBlank()
                         ? downloadedCosFile.contentType()
                         : fileNode.getMimeType(),
-                downloadedCosFile.contentLength(),
+                range == null ? downloadedCosFile.contentLength() : range.length(),
+                totalLength,
+                range,
                 downloadedCosFile.inputStream()
         );
     }
@@ -610,6 +624,14 @@ public class StorageCommandService {
         }
     }
 
+    private long resolveDownloadFileSize(StorageNode fileNode) {
+        Long fileSize = fileNode.getFileSize();
+        if (fileSize == null || fileSize < 0L) {
+            throw new IllegalStateException("文件大小元数据异常，无法下载。");
+        }
+        return fileSize;
+    }
+
     private List<StorageNode> filterFileNodes(List<StorageNode> nodes) {
         if (nodes == null || nodes.isEmpty()) {
             return List.of();
@@ -960,8 +982,22 @@ public class StorageCommandService {
             String fileName,
             String contentType,
             long contentLength,
+            long totalLength,
+            StorageDownloadRange range,
             InputStream inputStream
     ) {
+        public StorageDownloadPayload(
+                String fileName,
+                String contentType,
+                long contentLength,
+                InputStream inputStream
+        ) {
+            this(fileName, contentType, contentLength, contentLength, null, inputStream);
+        }
+
+        public boolean partialContent() {
+            return range != null;
+        }
     }
 
     public record StorageAccessUrlPayload(

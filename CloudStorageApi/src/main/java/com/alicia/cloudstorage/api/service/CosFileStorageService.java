@@ -13,6 +13,7 @@ import com.qcloud.cos.model.CompleteMultipartUploadRequest;
 import com.qcloud.cos.model.COSObject;
 import com.qcloud.cos.model.COSObjectInputStream;
 import com.qcloud.cos.model.GeneratePresignedUrlRequest;
+import com.qcloud.cos.model.GetObjectRequest;
 import com.qcloud.cos.model.InitiateMultipartUploadRequest;
 import com.qcloud.cos.model.InitiateMultipartUploadResult;
 import com.qcloud.cos.model.ObjectMetadata;
@@ -362,12 +363,26 @@ public class CosFileStorageService {
      * 从腾讯 COS 打开文件流，供下载接口直接回传给前端。
      */
     public DownloadedCosFile openFileStream(String objectKey) {
+        return openFileStream(objectKey, null);
+    }
+
+    /**
+     * 从腾讯 COS 打开文件区间流，供支持断点续传的下载接口回传给前端。
+     */
+    public DownloadedCosFile openFileStream(String objectKey, StorageDownloadRange range) {
         validateCosConfig();
+        if (!hasText(objectKey)) {
+            throw new IllegalArgumentException("Object key is required.");
+        }
 
         COSClient cosClient = createCosClient();
 
         try {
-            COSObject cosObject = cosClient.getObject(bucket, objectKey);
+            GetObjectRequest request = new GetObjectRequest(bucket.trim(), objectKey.trim());
+            if (range != null) {
+                request.setRange(range.startInclusive(), range.endInclusive());
+            }
+            COSObject cosObject = cosClient.getObject(request);
             ObjectMetadata metadata = cosObject.getObjectMetadata();
             COSObjectInputStream objectInputStream = cosObject.getObjectContent();
             InputStream safeInputStream = wrapCosStream(objectInputStream, cosObject, cosClient);

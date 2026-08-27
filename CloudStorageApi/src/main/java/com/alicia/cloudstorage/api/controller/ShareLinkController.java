@@ -118,29 +118,21 @@ public class ShareLinkController {
             @RequestAttribute(PrincipalRequestAttributes.CURRENT_PRINCIPAL) CurrentPrincipal principal,
             @PathVariable String shareCode,
             @PathVariable Long fileId,
-            @RequestHeader(value = SHARE_ACCESS_HEADER, required = false) String shareAccessToken
+            @RequestHeader(value = SHARE_ACCESS_HEADER, required = false) String shareAccessToken,
+            @RequestHeader(value = HttpHeaders.RANGE, required = false) String rangeHeader
     ) {
         StorageCommandService.StorageDownloadPayload downloadPayload = shareLinkService.downloadShareFile(
                 principal.userId(),
                 shareCode,
                 fileId,
-                shareAccessToken
+                shareAccessToken,
+                rangeHeader
         );
-        MediaType mediaType = DownloadResponseMediaTypes.resolve(downloadPayload.contentType());
-
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CACHE_CONTROL, VERSIONED_PRIVATE_FILE_CACHE_CONTROL)
-                .header(HttpHeaders.VARY, HttpHeaders.AUTHORIZATION)
-                .contentType(mediaType)
-                .contentLength(downloadPayload.contentLength())
-                .header(
-                        HttpHeaders.CONTENT_DISPOSITION,
-                        ContentDisposition.attachment()
-                                .filename(downloadPayload.fileName(), StandardCharsets.UTF_8)
-                                .build()
-                                .toString()
-                )
-                .body(new InputStreamResource(downloadPayload.inputStream()));
+        return DownloadResponseBuilder.buildFileDownload(
+                downloadPayload,
+                VERSIONED_PRIVATE_FILE_CACHE_CONTROL,
+                HttpHeaders.AUTHORIZATION
+        );
     }
 
     @PostMapping("/{shareCode}/nodes/archive")

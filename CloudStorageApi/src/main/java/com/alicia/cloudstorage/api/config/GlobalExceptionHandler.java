@@ -4,11 +4,14 @@ import com.alicia.cloudstorage.api.principal.PrincipalAccessException;
 import com.alicia.cloudstorage.api.dto.ApiErrorResponse;
 import com.alicia.cloudstorage.api.identity.IdentityServiceUnavailableException;
 import com.alicia.cloudstorage.api.service.CosStorageException;
+import com.alicia.cloudstorage.api.service.InvalidDownloadRangeException;
 import com.alicia.cloudstorage.api.service.ScopedTrashSnapshotStaleException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -103,6 +106,14 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.BAD_GATEWAY)
     public ApiErrorResponse handleCosStorageException(CosStorageException ex) {
         return new ApiErrorResponse(502, ex.getMessage(), LocalDateTime.now());
+    }
+
+    @ExceptionHandler(InvalidDownloadRangeException.class)
+    public ResponseEntity<ApiErrorResponse> handleInvalidDownloadRange(InvalidDownloadRangeException ex) {
+        return ResponseEntity
+                .status(HttpStatus.REQUESTED_RANGE_NOT_SATISFIABLE)
+                .header(HttpHeaders.CONTENT_RANGE, "bytes */" + ex.getTotalLength())
+                .body(new ApiErrorResponse(416, ex.getMessage(), LocalDateTime.now()));
     }
 
     @ExceptionHandler({NoHandlerFoundException.class, NoResourceFoundException.class})

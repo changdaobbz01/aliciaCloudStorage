@@ -20,6 +20,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.io.ByteArrayInputStream;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -395,6 +396,31 @@ class StorageCommandServiceTest {
                 .hasMessage("文件未关联云端存储对象。");
 
         verifyNoInteractions(cosFileStorageService);
+    }
+
+    @Test
+    void downloadFilePassesSingleRangeToCosAndReturnsPartialPayload() {
+        Long userId = 6L;
+        StorageNode fileNode = fileNode(13L, userId, null, "report.pdf", "cos/report.pdf");
+        fileNode.setFileSize(1024L);
+        StorageDownloadRange range = new StorageDownloadRange(10L, 19L);
+
+        when(storageNodeRepository.findByIdAndOwnerIdAndDeletedFalse(13L, userId)).thenReturn(Optional.of(fileNode));
+        when(cosFileStorageService.openFileStream("cos/report.pdf", range))
+                .thenReturn(new CosFileStorageService.DownloadedCosFile(
+                        new ByteArrayInputStream(new byte[]{1, 2, 3}),
+                        "application/pdf",
+                        10L
+                ));
+
+        StorageCommandService.StorageDownloadPayload payload =
+                storageCommandService.downloadFile(userId, 13L, "bytes=10-19");
+
+        assertThat(payload.partialContent()).isTrue();
+        assertThat(payload.contentLength()).isEqualTo(10L);
+        assertThat(payload.totalLength()).isEqualTo(1024L);
+        assertThat(payload.range()).isEqualTo(range);
+        verify(cosFileStorageService, never()).openFileStream("cos/report.pdf");
     }
 
     @Test
