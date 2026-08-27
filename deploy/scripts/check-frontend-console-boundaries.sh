@@ -137,10 +137,16 @@ require_source_match \
     "Cloud console root and unknown routes must land on /users."
 
 require_source_match \
+    "cloud console default route reads legacy view query" \
+    "sysManage/src/App.tsx" \
+    "new URLSearchParams\\(search\\)\\.get\\('view'\\)" \
+    "Cloud console root route must read the legacy view query."
+
+require_source_match \
     "cloud console default route preserves query and hash" \
     "sysManage/src/App.tsx" \
-    '`/users\$\{location\.search\}\$\{location\.hash\}`' \
-    "Cloud console root route must preserve query and hash when it redirects to /users."
+    "defaultCloudViewRoute\\(location\\.search\\).*location\\.search.*location\\.hash" \
+    "Cloud console root route must preserve query and hash when it redirects to a child route."
 
 require_source_match \
     "cloud console reads active route view" \
