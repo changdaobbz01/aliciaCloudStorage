@@ -1086,6 +1086,12 @@ bash deploy/scripts/check-identity-route-boundary.sh
 
 同一边界也由 `CloudStorageApi` 的 `IdentityRouteBoundaryTest` 纳入 Maven 测试，避免只依赖部署脚本人工执行。后端 Controller 路由归属由 `CloudApiRouteOwnershipTest` 和 `IdentityApiRouteOwnershipTest` 固化：云盘服务只暴露云盘业务 API 前缀，身份服务只暴露 `/api/identity/**`。
 
+本地提交前可一次执行：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File deploy\scripts\verify-backend-api-boundaries.ps1
+```
+
 Android 发版前执行移动端 readiness 检查：
 
 ```powershell

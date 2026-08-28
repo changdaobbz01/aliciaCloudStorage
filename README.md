@@ -375,6 +375,12 @@ bash deploy/scripts/check-identity-route-boundary.sh
 
 同一边界也已纳入 Maven 测试：`CloudStorageApi` 的 `IdentityRouteBoundaryTest` 会扫描 Web、Android、CloudStorageApi、identityApi、RAG 和 deploy 源码目录，防止旧身份路径回流；`CloudApiRouteOwnershipTest` 和 `IdentityApiRouteOwnershipTest` 会检查后端 Controller 的 API 前缀归属，确保 `CloudStorageApi` 不暴露身份路由、`identityApi` 不暴露云盘业务路由。
 
+本地提交前也可以一次运行后端边界测试：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File deploy\scripts\verify-backend-api-boundaries.ps1
+```
+
 移动端发版前可以执行 Android readiness 检查，脚本会扫描 `phoneApp` 和 `phoneAppAdd` 的正式服务入口、旧 Identity 路径、旧测试服入口、refresh token 契约、401 过期会话处理，并默认运行两个 Android 工程的 Debug 单测：
 
 ```powershell
