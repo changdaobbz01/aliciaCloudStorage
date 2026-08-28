@@ -317,7 +317,7 @@ ALICIA_VERIFY_PRODUCTION_FLOWS_AFTER_UPDATE=true \
 bash deploy/scripts/update-main-and-cloud-production.sh
 ```
 
-该脚本会先更新 `~/mainSite` 并运行主站直连路由验证与主站前端边界检查，再更新云盘仓库并运行云盘/Identity/RAG 统一验证和云盘前端边界检查；两侧都更新时，主站的公网网关检查默认延后到云盘 `frontend` 更新完成后再执行，避免旧网关还未发布时提前误报。可用 `ALICIA_SKIP_MAIN_SITE_UPDATE=true` 或 `ALICIA_SKIP_CLOUD_UPDATE=true` 临时跳过其中一侧；如需强制在主站更新阶段就检查公网网关，可设置 `ALICIA_VERIFY_MAIN_SITE_PUBLIC_DURING_JOINT_UPDATE=true`；如需跳过最后一次主站公网复核，可设置 `ALICIA_SKIP_FINAL_MAIN_SITE_VERIFY=true`。
+当前前端管理台拆分发布优先使用这个联合入口：它会先更新 `~/mainSite` 的主站门户和 `/console/identity/` 身份后台，再更新本仓库的 `/cloudPan/` 普通云盘和 `/console/cloud/` 云盘后台，并运行云盘/Identity/RAG 统一验证、两侧前端边界检查和后端 API 边界检查；两侧都更新时，主站的公网网关检查默认延后到云盘 `frontend` 更新完成后再执行，避免旧网关还未发布时提前误报。可用 `ALICIA_SKIP_MAIN_SITE_UPDATE=true` 或 `ALICIA_SKIP_CLOUD_UPDATE=true` 临时跳过其中一侧；如需强制在主站更新阶段就检查公网网关，可设置 `ALICIA_VERIFY_MAIN_SITE_PUBLIC_DURING_JOINT_UPDATE=true`；如需跳过最后一次主站公网复核，可设置 `ALICIA_SKIP_FINAL_MAIN_SITE_VERIFY=true`。
 
 日常巡检或发布后复核可使用非交互式生产状态快照脚本：
 

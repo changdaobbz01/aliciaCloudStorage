@@ -245,6 +245,8 @@ ALICIA_VERIFY_PRODUCTION_FLOWS_AFTER_UPDATE=true \
 bash deploy/scripts/update-main-and-cloud-production.sh
 ```
 
+前端管理台拆分阶段优先使用这个联合入口，它会按顺序发布 `mainSite/webApp`、`mainSite/userSite`、`AliciaCloudStorage/webApp` 和 `AliciaCloudStorage/sysManage`，并在云盘网关更新后补跑主站公网路由复核，覆盖 `/console/identity/**` 与 `/console/cloud/**` 的最终挂载状态。
+
 只更新 RAG：
 
 ```bash
