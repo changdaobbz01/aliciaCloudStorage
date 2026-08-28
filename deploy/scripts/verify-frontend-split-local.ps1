@@ -192,6 +192,8 @@ Invoke-Step "verify cloud frontend split wiring" {
     Require-Contains "sysManage/vite.config.ts" "getAntdModuleChunk(id)" "cloud console Vite config must keep Ant Design module chunking"
     Require-Match "sysManage/src/pages/CloudConsolePage.tsx" 'document\.title = `\$\{activeMeta\.title\} - Alicia .+`;' "cloud console document title must follow the active view"
     Require-Contains "sysManage/src/pages/CloudConsolePage.tsx" 'className="account-profile-form"' "cloud console profile modal must use the unified account profile layout"
+    Require-Contains "sysManage/src/features/drive/CloudUsersView.tsx" 'title={<AliciaModalTitle eyebrow="Cloud">调整云盘额度</AliciaModalTitle>}' "cloud console quota modal must use the unified Alicia modal title"
+    Require-Contains "sysManage/src/features/drive/CloudUsersView.tsx" 'rootClassName="alicia-modal alicia-account-modal cloud-quota-modal"' "cloud console quota modal must use the unified Alicia modal chrome"
     Require-Contains "deploy/scripts/verify-identity-cloud-routes.sh" "Alicia 云盘后台" "cloud route verifier must assert cloud console serves the console shell"
     Require-Contains "deploy/scripts/verify-identity-cloud-routes.sh" "/console/cloud/assets/index-" "cloud route verifier must assert cloud console assets use the mounted prefix"
     Require-Contains "deploy/scripts/verify-identity-cloud-routes.sh" "/cloudPan/assets/index-" "cloud route verifier must assert cloud web assets use the mounted prefix"

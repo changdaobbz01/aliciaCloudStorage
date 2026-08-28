@@ -391,6 +391,18 @@ require_source_match \
     "Cloud console profile modal must use the unified account profile layout."
 
 require_source_match \
+    "cloud quota modal uses unified title" \
+    "sysManage/src/features/drive/CloudUsersView.tsx" \
+    'title=\{<AliciaModalTitle eyebrow="Cloud">调整云盘额度</AliciaModalTitle>\}' \
+    "Cloud console quota modal must use the unified Alicia modal title."
+
+require_source_match \
+    "cloud quota modal uses unified chrome" \
+    "sysManage/src/features/drive/CloudUsersView.tsx" \
+    'rootClassName="alicia-modal alicia-account-modal cloud-quota-modal"' \
+    "Cloud console quota modal must use the unified Alicia modal chrome."
+
+require_source_match \
     "cloud console account menu exposes console gateway" \
     "sysManage/src/pages/CloudConsolePage.tsx" \
     "key:[[:space:]]*'consoleHome'" \

@@ -106,6 +106,7 @@ assertApiPathsMatchAllowedPrefixes(
 );
 
 const consolePageSource = readFileSync(new URL('../src/pages/CloudConsolePage.tsx', import.meta.url), 'utf8');
+const cloudUsersViewSource = readFileSync(new URL('../src/features/drive/CloudUsersView.tsx', import.meta.url), 'utf8');
 const appSource = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
 const typesSource = readFileSync(new URL('../src/types.ts', import.meta.url), 'utf8');
 assert.match(appSource, /path="\/:view"/, 'cloud console must expose URL-addressable child routes');
@@ -144,6 +145,16 @@ assert.match(consolePageSource, /key:\s*'consoleHome'/, 'cloud console account m
 assert.match(consolePageSource, /key:\s*'profile'/, 'cloud console account menu must expose current user profile editing');
 assert.match(consolePageSource, /className="account-profile-form"/, 'cloud console profile modal must use the unified account profile form layout');
 assert.match(consolePageSource, /name="avatarUrl"/, 'cloud console profile modal must keep the shared avatar URL field');
+assert.match(
+  cloudUsersViewSource,
+  /title=\{<AliciaModalTitle eyebrow="Cloud">调整云盘额度<\/AliciaModalTitle>\}/,
+  'cloud quota modal must use the Alicia modal title',
+);
+assert.match(
+  cloudUsersViewSource,
+  /rootClassName="alicia-modal alicia-account-modal cloud-quota-modal"/,
+  'cloud quota modal must use the unified Alicia modal chrome',
+);
 assert.match(
   consolePageSource,
   /window\.location\.assign\('\/console\/'\)/,

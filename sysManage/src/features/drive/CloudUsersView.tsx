@@ -13,8 +13,9 @@ import {
 } from 'antd';
 import type { FormInstance } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { Edit3, RefreshCw, UsersRound } from 'lucide-react';
+import { Edit3, RefreshCw } from 'lucide-react';
 import { Icon } from '../../components/Icon';
+import { AliciaModalTitle } from '../../components/AliciaModalTitle';
 import type { User } from '../../types';
 import { isCloudAdmin } from '../../types';
 import {
@@ -250,12 +251,8 @@ export default function CloudUsersView({
       />
 
       <Modal
-        title={
-          <span className="modal-title-with-icon">
-            <Icon icon={UsersRound} />
-            调整云盘额度
-          </span>
-        }
+        title={<AliciaModalTitle eyebrow="Cloud">调整云盘额度</AliciaModalTitle>}
+        rootClassName="alicia-modal alicia-account-modal cloud-quota-modal"
         open={quotaModalOpen}
         okText="保存额度"
         cancelText="取消"
