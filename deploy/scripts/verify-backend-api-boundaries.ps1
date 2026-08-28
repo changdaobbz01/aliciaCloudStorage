@@ -59,7 +59,7 @@ function Invoke-MavenBoundaryTests {
 }
 
 Invoke-Step "CloudStorageApi legacy and route ownership boundaries" {
-    Invoke-MavenBoundaryTests "CloudStorageApi" "IdentityRouteBoundaryTest,CloudApiRouteOwnershipTest"
+    Invoke-MavenBoundaryTests "CloudStorageApi" "IdentityRouteBoundaryTest,CloudApiRouteOwnershipTest,CurrentPrincipalTest"
 }
 
 Invoke-Step "identityApi source, route, and admin access boundaries" {

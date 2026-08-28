@@ -167,6 +167,7 @@ bash deploy/scripts/verify-backend-api-boundaries.sh
 
 - `CloudStorageApi` Controller 只暴露云盘业务 API 前缀
 - `identityApi` Controller 只暴露 `/api/identity/**`
+- 云盘后台权限只接受全局管理员和 `cloud/CLOUD_ADMIN`
 - 身份后台 Controller 传递 Authorization
 - 身份后台委托的管理服务方法直接调用 `requireAdminUser`
 

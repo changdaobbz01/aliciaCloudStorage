@@ -373,7 +373,7 @@ bash deploy/scripts/check-identity-route-boundary.sh
 
 该脚本优先使用 `rg`，服务器未安装 `rg` 时会自动降级到 `grep`。
 
-同一边界也已纳入 Maven 测试：`CloudStorageApi` 的 `IdentityRouteBoundaryTest` 会扫描 Web、Android、CloudStorageApi、identityApi、RAG 和 deploy 源码目录，防止旧身份路径回流；`CloudApiRouteOwnershipTest` 和 `IdentityApiRouteOwnershipTest` 会检查后端 Controller 的 API 前缀归属，确保 `CloudStorageApi` 不暴露身份路由、`identityApi` 不暴露云盘业务路由。`IdentityApiRouteOwnershipTest` 也会检查身份后台 Controller 是否传递 Authorization，并确保其委托的管理服务方法直接调用 `requireAdminUser`。
+同一边界也已纳入 Maven 测试：`CloudStorageApi` 的 `IdentityRouteBoundaryTest` 会扫描 Web、Android、CloudStorageApi、identityApi、RAG 和 deploy 源码目录，防止旧身份路径回流；`CloudApiRouteOwnershipTest` 和 `IdentityApiRouteOwnershipTest` 会检查后端 Controller 的 API 前缀归属，确保 `CloudStorageApi` 不暴露身份路由、`identityApi` 不暴露云盘业务路由。`IdentityApiRouteOwnershipTest` 也会检查身份后台 Controller 是否传递 Authorization，并确保其委托的管理服务方法直接调用 `requireAdminUser`；`CurrentPrincipalTest` 固定云盘后台权限口径：全局管理员和 `cloud/CLOUD_ADMIN` 可访问，其他应用管理员不可访问。
 
 本地提交前也可以一次运行后端边界测试：
 
