@@ -100,6 +100,24 @@ scan_target \
     '(/api/admin/|/api/identity/admin/|(^|[^[:alnum:]_])(isCloudAdmin|CLOUD_ADMIN|AdminCloud[[:alnum:]_]*|IdentityAudit[[:alnum:]_]*|fetchUsers|createUser|updateUserStorageQuota|resetUserPassword|fetchAdminCloud[[:alnum:]_]*|fetchAdminAppPackage|uploadAdminAppPackage|deleteAdminAppPackage)($|[^[:alnum:]_]))' \
     "Cloud web user client contains admin API or admin type references."
 
+require_source_no_match \
+    "cloud web exposes no console routes" \
+    "webApp/src/App.tsx" \
+    'path="/console' \
+    "Cloud web user client must not mount admin console routes."
+
+require_source_no_match \
+    "cloud web account menu exposes no console entry" \
+    "webApp/src/pages/DrivePage.tsx" \
+    '管理控制台|consoleHome|/console(/|$)' \
+    "Cloud web account menu must not expose admin console entry points."
+
+require_source_no_match \
+    "cloud web has no admin style leftovers" \
+    "webApp/src/index.css" \
+    '\.account-admin-tabs|\.audit-(filter|quick|result)|\.operations-|\.app-package-(summary|grid|card|link|url|meta|release-notes|list)|\.management-summary-|\.user-cell-copy|\.user-chip|\.table-secondary-text' \
+    "Cloud web stylesheet must not keep admin console style leftovers."
+
 scan_target \
     "cloud console has no identity or personal drive references" \
     "sysManage/src" \
@@ -159,3 +177,9 @@ require_source_match \
     "sysManage/src/pages/CloudConsolePage.tsx" \
     "appPackage:[[:space:]]*'/app-package'" \
     "Cloud console APK package view must use the /app-package route."
+
+require_source_match \
+    "cloud console sets view document title" \
+    "sysManage/src/pages/CloudConsolePage.tsx" \
+    "document\\.title = .*Alicia 云盘后台" \
+    "Cloud console document title must follow the active view."
