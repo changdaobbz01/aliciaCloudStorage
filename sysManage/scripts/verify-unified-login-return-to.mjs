@@ -66,6 +66,10 @@ assert.equal(
   '/login?returnTo=%2Fconsole%2Fcloud%2Foperations&reason=login-required',
 );
 assert.equal(
+  buildUnifiedLoginUrl(cloudConsoleReturnTo('/app-package'), 'login-required'),
+  '/login?returnTo=%2Fconsole%2Fcloud%2Fapp-package&reason=login-required',
+);
+assert.equal(
   buildUnifiedLoginUrl('/api/admin/cloud-users', 'session-expired'),
   '/login?returnTo=%2Fconsole%2Fcloud%2F&reason=session-expired',
 );

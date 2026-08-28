@@ -143,6 +143,42 @@ require_source_match \
     "Cloud web API allowlist must include identity auth APIs."
 
 require_source_match \
+    "cloud web exposes returnTo verifier" \
+    "webApp/package.json" \
+    '"verify:return-to"[[:space:]]*:[[:space:]]*"node scripts/verify-unified-login-return-to\.mjs"' \
+    "Cloud web build must expose the unified login returnTo verifier."
+
+require_source_match \
+    "cloud web build runs returnTo verifier" \
+    "webApp/package.json" \
+    '"build"[[:space:]]*:[[:space:]]*"npm run verify:return-to && npm run verify:session-sync' \
+    "Cloud web build must run returnTo verification before session and compile checks."
+
+require_source_match \
+    "cloud web returnTo preserves share links" \
+    "webApp/scripts/verify-unified-login-return-to.mjs" \
+    "/share/abc123" \
+    "Cloud web returnTo verifier must preserve share deep links."
+
+require_source_match \
+    "cloud web returnTo preserves app download links" \
+    "webApp/scripts/verify-unified-login-return-to.mjs" \
+    "/app-download" \
+    "Cloud web returnTo verifier must preserve app download deep links."
+
+require_source_match \
+    "cloud web returnTo rejects API paths" \
+    "webApp/scripts/verify-unified-login-return-to.mjs" \
+    "/api/storage/overview" \
+    "Cloud web returnTo verifier must reject storage API paths."
+
+require_source_match \
+    "cloud web returnTo rejects console paths" \
+    "webApp/scripts/verify-unified-login-return-to.mjs" \
+    "/console/cloud/" \
+    "Cloud web returnTo verifier must reject cloud console paths."
+
+require_source_match \
     "cloud console reads current cloud profile" \
     "sysManage/src/lib/api.ts" \
     '/api/cloud-profile/me' \
@@ -207,6 +243,42 @@ require_source_match \
     "sysManage/scripts/verify-console-boundary.mjs" \
     'global admins and cloud application admins' \
     "Cloud console boundary verifier must accept global and cloud application administrators."
+
+require_source_match \
+    "cloud console exposes returnTo verifier" \
+    "sysManage/package.json" \
+    '"verify:return-to"[[:space:]]*:[[:space:]]*"node scripts/verify-unified-login-return-to\.mjs"' \
+    "Cloud console build must expose the unified login returnTo verifier."
+
+require_source_match \
+    "cloud console build runs returnTo verifier" \
+    "sysManage/package.json" \
+    '"build"[[:space:]]*:[[:space:]]*"npm run verify:return-to && npm run verify:session-sync' \
+    "Cloud console build must run returnTo verification before session and compile checks."
+
+require_source_match \
+    "cloud console returnTo preserves APK route" \
+    "sysManage/scripts/verify-unified-login-return-to.mjs" \
+    "/console/cloud/app-package" \
+    "Cloud console returnTo verifier must preserve APK package deep links."
+
+require_source_match \
+    "cloud console returnTo covers APK login redirect" \
+    "sysManage/scripts/verify-unified-login-return-to.mjs" \
+    "cloudConsoleReturnTo\\('/app-package'\\), 'login-required'" \
+    "Cloud console returnTo verifier must cover APK package login redirects."
+
+require_source_match \
+    "cloud console returnTo rejects admin APIs" \
+    "sysManage/scripts/verify-unified-login-return-to.mjs" \
+    "/api/admin/cloud-users" \
+    "Cloud console returnTo verifier must reject admin API paths."
+
+require_source_match \
+    "cloud console returnTo rejects identity console" \
+    "sysManage/scripts/verify-unified-login-return-to.mjs" \
+    "/console/identity/" \
+    "Cloud console returnTo verifier must reject identity console paths."
 
 require_source_match \
     "CloudStorageApi exposes cloud-users admin backend" \

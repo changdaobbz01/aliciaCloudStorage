@@ -46,6 +46,7 @@ const returnToCases = [
   [['/', '', ''], '/cloudPan/'],
   [['/cloudPan', '?from=login', ''], '/cloudPan/?from=login'],
   [['/share/abc123', '?mode=save', '#files'], '/cloudPan/share/abc123?mode=save#files'],
+  [['/app-download', '?share=abc123', ''], '/cloudPan/app-download?share=abc123'],
   [['/cloudPan/share/abc123', '?p=1', 'bad-hash'], '/cloudPan/share/abc123?p=1'],
   [['/login', '', ''], '/cloudPan/'],
   [['/cloudPan/login', '', ''], '/cloudPan/'],
