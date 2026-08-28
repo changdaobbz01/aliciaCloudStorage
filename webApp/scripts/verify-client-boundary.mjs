@@ -71,6 +71,16 @@ for (const entry of readdirSync(srcRoot, { recursive: true })) {
 const types = readFileSync(new URL('../src/types.ts', import.meta.url), 'utf8');
 assert.doesNotMatch(types, /'accounts'|'operations'|'appPackage'/, 'StorageViewMode must stay user-facing only');
 
+const rootApp = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
+assert.doesNotMatch(rootApp, /path="\/console/, 'cloud web must not mount console routes');
+
+const drivePage = readFileSync(new URL('../src/pages/DrivePage.tsx', import.meta.url), 'utf8');
+assert.doesNotMatch(
+  drivePage,
+  /管理控制台|consoleHome|\/console(?:\/|\b)/,
+  'cloud web account menu must not expose admin console entry points',
+);
+
 const clientStyles = readFileSync(new URL('../src/index.css', import.meta.url), 'utf8');
 for (const { pattern, reason } of forbiddenStyleClassPatterns) {
   assert.doesNotMatch(clientStyles, pattern, `webApp styles must not contain ${pattern}: ${reason}`);
