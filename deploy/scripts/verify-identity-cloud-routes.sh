@@ -312,13 +312,15 @@ expect_redirect_location() {
     local header_file
     local status
     local location
+    local request_origin
     local absolute_expected_location
     header_file="$(mktemp)"
     status="$(curl "${CURL_ARGS[@]}" -I -o /dev/null -D "$header_file" -w '%{http_code}' "$url" || true)"
     location="$(awk 'BEGIN { IGNORECASE = 1 } /^location:/ { sub(/^[^:]+:[[:space:]]*/, ""); sub(/\r$/, ""); print; exit }' "$header_file")"
     absolute_expected_location="$expected_location"
     if [[ "$expected_location" == /* ]]; then
-        absolute_expected_location="${PUBLIC_BASE_URL}${expected_location}"
+        request_origin="$(printf '%s' "$url" | sed -E 's#^([a-zA-Z][a-zA-Z0-9+.-]*://[^/]+).*#\1#')"
+        absolute_expected_location="${request_origin}${expected_location}"
     fi
 
     if [[ "$status" != "$expected_status" ]]; then
@@ -328,7 +330,7 @@ expect_redirect_location() {
         exit 1
     fi
 
-    if [[ "$location" != "$expected_location" && "$location" != "$absolute_expected_location" ]]; then
+    if [[ "$location" != "$expected_location" && "$location" != "${PUBLIC_BASE_URL}${expected_location}" && "$location" != "$absolute_expected_location" ]]; then
         printf '[FAIL] %s: expected Location %s, got %s\n' "$label" "$expected_location" "${location:-<missing>}" >&2
         sed -n '1,20p' "$header_file" >&2 || true
         rm -f "$header_file"
