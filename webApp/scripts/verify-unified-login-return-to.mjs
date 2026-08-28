@@ -51,7 +51,10 @@ const returnToCases = [
   [['/login', '', ''], '/cloudPan/'],
   [['/cloudPan/login', '', ''], '/cloudPan/'],
   [['/api/storage/overview', '', ''], '/cloudPan/'],
+  [['/console/', '', ''], '/cloudPan/'],
+  [['/console/identity/', '', ''], '/cloudPan/'],
   [['/console/cloud/', '', ''], '/cloudPan/'],
+  [['/rag/', '', ''], '/cloudPan/'],
   [['//evil.example/cloudPan/', '', ''], '/cloudPan/'],
 ];
 
@@ -68,6 +71,8 @@ assert.equal(
   '/login?returnTo=%2FcloudPan%2F&reason=session-expired',
 );
 assert.equal(buildUnifiedLoginUrl('/cloudPan?from=login'), '/login?returnTo=%2FcloudPan%2F%3Ffrom%3Dlogin');
+assert.equal(buildUnifiedLoginUrl('/console/identity/users'), '/login?returnTo=%2FcloudPan%2F');
 assert.equal(buildUnifiedLoginUrl('/console/cloud/'), '/login?returnTo=%2FcloudPan%2F');
+assert.equal(buildUnifiedLoginUrl('/rag/'), '/login?returnTo=%2FcloudPan%2F');
 
 console.log('[OK] cloud web unified login returnTo verified');

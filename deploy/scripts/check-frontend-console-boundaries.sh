@@ -179,6 +179,24 @@ require_source_match \
     "Cloud web returnTo verifier must reject cloud console paths."
 
 require_source_match \
+    "cloud web returnTo rejects identity console paths" \
+    "webApp/scripts/verify-unified-login-return-to.mjs" \
+    "/console/identity/" \
+    "Cloud web returnTo verifier must reject identity console paths."
+
+require_source_match \
+    "cloud web returnTo rejects console gateway" \
+    "webApp/scripts/verify-unified-login-return-to.mjs" \
+    "/console/" \
+    "Cloud web returnTo verifier must reject the shared console gateway path."
+
+require_source_match \
+    "cloud web returnTo rejects rag paths" \
+    "webApp/scripts/verify-unified-login-return-to.mjs" \
+    "/rag/" \
+    "Cloud web returnTo verifier must reject RAG paths."
+
+require_source_match \
     "cloud console reads current cloud profile" \
     "sysManage/src/lib/api.ts" \
     '/api/cloud-profile/me' \
@@ -285,6 +303,18 @@ require_source_match \
     "sysManage/scripts/verify-unified-login-return-to.mjs" \
     "/console/identity/" \
     "Cloud console returnTo verifier must reject identity console paths."
+
+require_source_match \
+    "cloud console returnTo rejects console gateway" \
+    "sysManage/scripts/verify-unified-login-return-to.mjs" \
+    "/console/" \
+    "Cloud console returnTo verifier must reject the shared console gateway path."
+
+require_source_match \
+    "cloud console returnTo rejects rag paths" \
+    "sysManage/scripts/verify-unified-login-return-to.mjs" \
+    "/rag/" \
+    "Cloud console returnTo verifier must reject RAG paths."
 
 require_source_match \
     "CloudStorageApi exposes cloud-users admin backend" \

@@ -52,7 +52,9 @@ const returnToCases = [
   [['/login', '', ''], '/console/cloud/'],
   [['/console/cloud/login', '', ''], '/console/cloud/'],
   [['/cloudPan/', '', ''], '/console/cloud/'],
+  [['/console/', '', ''], '/console/cloud/'],
   [['/console/identity/', '', ''], '/console/cloud/'],
+  [['/rag/', '', ''], '/console/cloud/'],
   [['/api/admin/cloud-users', '', ''], '/console/cloud/'],
   [['//evil.example/console/cloud/', '', ''], '/console/cloud/'],
 ];
@@ -78,5 +80,7 @@ assert.equal(
   '/login?returnTo=%2Fconsole%2Fcloud%2F%3Fview%3Doperations',
 );
 assert.equal(buildUnifiedLoginUrl('/cloudPan/'), '/login?returnTo=%2Fconsole%2Fcloud%2F');
+assert.equal(buildUnifiedLoginUrl('/console/'), '/login?returnTo=%2Fconsole%2Fcloud%2F');
+assert.equal(buildUnifiedLoginUrl('/rag/'), '/login?returnTo=%2Fconsole%2Fcloud%2F');
 
 console.log('[OK] cloud console unified login returnTo verified');
