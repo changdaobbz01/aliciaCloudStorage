@@ -197,6 +197,30 @@ require_source_match \
     "CloudStorageApi admin principal must accept global admins and cloud app admins."
 
 require_source_match \
+    "main/cloud update can defer main public gateway checks" \
+    "deploy/scripts/update-main-and-cloud-production.sh" \
+    'should_defer_main_site_public_boundary\(\)' \
+    "Joint production update must support deferring main public gateway checks until cloud frontend is updated."
+
+require_source_match \
+    "main/cloud update defers main public boundary by default" \
+    "deploy/scripts/update-main-and-cloud-production.sh" \
+    'ALICIA_VERIFY_SKIP_PUBLIC_BOUNDARY=true bash "\$MAIN_SITE_UPDATE_SCRIPT" "\$MAIN_SITE_PROJECT_DIR"' \
+    "Joint production update must avoid checking the public gateway before the cloud frontend update completes."
+
+require_source_match \
+    "main/cloud update reruns main route verification after cloud update" \
+    "deploy/scripts/update-main-and-cloud-production.sh" \
+    'run_final_main_site_route_verify' \
+    "Joint production update must rerun main route verification after the cloud frontend gateway update."
+
+require_source_match \
+    "main/cloud update exposes final main route verify skip" \
+    "deploy/scripts/update-main-and-cloud-production.sh" \
+    'ALICIA_SKIP_FINAL_MAIN_SITE_VERIFY' \
+    "Joint production update must expose an escape hatch for the final main route verification."
+
+require_source_match \
     "cloud web Dockerfile publishes root Android asset links" \
     "webApp/Dockerfile" \
     'COPY --from=cloud-builder /app/webApp/dist/\.well-known /usr/share/nginx/html/\.well-known' \
