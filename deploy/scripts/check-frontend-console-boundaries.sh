@@ -203,6 +203,12 @@ require_source_match \
     "Cloud web returnTo verifier must reject RAG paths."
 
 require_source_match \
+    "cloud web restores after history cache" \
+    "webApp/scripts/verify-session-sync.mjs" \
+    'history cache restores' \
+    "Cloud web must restore local session state after browser history cache restores."
+
+require_source_match \
     "cloud console reads current cloud profile" \
     "sysManage/src/lib/api.ts" \
     '/api/cloud-profile/me' \
@@ -327,6 +333,12 @@ require_source_match \
     "sysManage/scripts/verify-unified-login-return-to.mjs" \
     "/rag/" \
     "Cloud console returnTo verifier must reject RAG paths."
+
+require_source_match \
+    "cloud console restores after history cache" \
+    "sysManage/scripts/verify-session-sync.mjs" \
+    'history cache restores' \
+    "Cloud console must restore local session state after browser history cache restores."
 
 require_source_match \
     "CloudStorageApi exposes cloud-users admin backend" \

@@ -60,6 +60,16 @@ assert.match(
   /hasStoredSessionChanged\(snapshot\)/,
   'SessionProvider must not clear or overwrite a newer session after stale refresh',
 );
+assert.match(
+  sessionContext,
+  /window\.addEventListener\('pageshow', handlePageShow\)/,
+  'SessionProvider must restore stored sessions after browser history cache restores',
+);
+assert.match(
+  sessionContext,
+  /window\.removeEventListener\('pageshow', handlePageShow\)/,
+  'SessionProvider must clean up the history cache restore listener',
+);
 
 assert.match(
   unifiedLogin,

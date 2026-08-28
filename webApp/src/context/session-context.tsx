@@ -149,10 +149,16 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelled = false;
 
+    function handlePageShow() {
+      void restoreStoredSession(() => cancelled);
+    }
+
     void restoreStoredSession(() => cancelled);
+    window.addEventListener('pageshow', handlePageShow);
 
     return () => {
       cancelled = true;
+      window.removeEventListener('pageshow', handlePageShow);
     };
   }, []);
 
