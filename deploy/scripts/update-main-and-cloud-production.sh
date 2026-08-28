@@ -4,6 +4,7 @@ set -Eeuo pipefail
 MAIN_SITE_PROJECT_DIR="${ALICIA_MAIN_SITE_PROJECT_DIR:-$HOME/mainSite}"
 CLOUD_PROJECT_DIR="${ALICIA_CLOUD_PROJECT_DIR:-$HOME/aliciaCloudStorage}"
 MAIN_SITE_UPDATE_SCRIPT="$MAIN_SITE_PROJECT_DIR/deploy/scripts/update-main-site-production.sh"
+MAIN_SITE_BOUNDARY_SCRIPT="$MAIN_SITE_PROJECT_DIR/deploy/scripts/check-main-site-frontend-boundaries.sh"
 CLOUD_UPDATE_SCRIPT="$CLOUD_PROJECT_DIR/deploy/scripts/update-cloud-production.sh"
 SKIP_MAIN_SITE_UPDATE="${ALICIA_SKIP_MAIN_SITE_UPDATE:-false}"
 SKIP_CLOUD_UPDATE="${ALICIA_SKIP_CLOUD_UPDATE:-false}"
@@ -23,6 +24,11 @@ if [[ "$SKIP_MAIN_SITE_UPDATE" != "true" ]]; then
         git pull --ff-only "${ALICIA_MAIN_SITE_GIT_REMOTE:-origin}" "${ALICIA_MAIN_SITE_GIT_BRANCH:-master}"
         sudo docker compose up -d --build frontend
         bash deploy/scripts/verify-main-site-routes.sh
+        [[ -f "$MAIN_SITE_BOUNDARY_SCRIPT" ]] || {
+            printf 'Missing main site boundary script: %s\n' "$MAIN_SITE_BOUNDARY_SCRIPT" >&2
+            exit 1
+        }
+        bash deploy/scripts/check-main-site-frontend-boundaries.sh
     fi
 fi
 

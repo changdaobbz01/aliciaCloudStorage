@@ -313,7 +313,7 @@ ALICIA_VERIFY_PRODUCTION_FLOWS_AFTER_UPDATE=true \
 bash deploy/scripts/update-main-and-cloud-production.sh
 ```
 
-该脚本会先更新 `~/mainSite` 并运行主站路由验证，再更新云盘仓库并运行云盘/Identity/RAG 统一验证。可用 `ALICIA_SKIP_MAIN_SITE_UPDATE=true` 或 `ALICIA_SKIP_CLOUD_UPDATE=true` 临时跳过其中一侧。
+该脚本会先更新 `~/mainSite` 并运行主站路由验证与主站前端边界检查，再更新云盘仓库并运行云盘/Identity/RAG 统一验证和云盘前端边界检查。可用 `ALICIA_SKIP_MAIN_SITE_UPDATE=true` 或 `ALICIA_SKIP_CLOUD_UPDATE=true` 临时跳过其中一侧。
 
 日常巡检或发布后复核可使用非交互式生产状态快照脚本：
 
