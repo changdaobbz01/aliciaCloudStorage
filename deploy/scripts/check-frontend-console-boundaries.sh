@@ -207,8 +207,26 @@ require_source_match \
 require_source_match \
     "cloud web build runs bundle size verifier" \
     "webApp/package.json" \
-    '"build"[[:space:]]*:[[:space:]]*"[^"]*vite build && npm run verify:bundle-size' \
-    "Cloud web build must run the bundle size verifier after vite build."
+    '"build"[[:space:]]*:[[:space:]]*"[^"]*vite build && npm run verify:built-shell && npm run verify:bundle-size' \
+    "Cloud web build must verify built shell and bundle size after vite build."
+
+require_source_match \
+    "cloud web exposes built shell verifier" \
+    "webApp/package.json" \
+    '"verify:built-shell"[[:space:]]*:[[:space:]]*"node scripts/verify-built-shell\.mjs"' \
+    "Cloud web build must expose the built shell verifier."
+
+require_source_match \
+    "cloud web built shell verifier checks title" \
+    "webApp/scripts/verify-built-shell.mjs" \
+    'Alicia 云盘' \
+    "Cloud web built shell verifier must assert the cloud web title."
+
+require_source_match \
+    "cloud web built shell verifier checks asset prefix" \
+    "webApp/scripts/verify-built-shell.mjs" \
+    '/cloudPan/assets/' \
+    "Cloud web built shell verifier must assert the mounted asset prefix."
 
 require_source_match \
     "cloud web bundle size cap is 500 KiB" \
@@ -237,8 +255,26 @@ require_source_match \
 require_source_match \
     "cloud console build runs bundle size verifier" \
     "sysManage/package.json" \
-    '"build"[[:space:]]*:[[:space:]]*"[^"]*vite build && npm run verify:bundle-size' \
-    "Cloud console build must run the bundle size verifier after vite build."
+    '"build"[[:space:]]*:[[:space:]]*"[^"]*vite build && npm run verify:built-shell && npm run verify:bundle-size' \
+    "Cloud console build must verify built shell and bundle size after vite build."
+
+require_source_match \
+    "cloud console exposes built shell verifier" \
+    "sysManage/package.json" \
+    '"verify:built-shell"[[:space:]]*:[[:space:]]*"node scripts/verify-built-shell\.mjs"' \
+    "Cloud console build must expose the built shell verifier."
+
+require_source_match \
+    "cloud console built shell verifier checks title" \
+    "sysManage/scripts/verify-built-shell.mjs" \
+    'Alicia 云盘后台' \
+    "Cloud console built shell verifier must assert the cloud console title."
+
+require_source_match \
+    "cloud console built shell verifier checks asset prefix" \
+    "sysManage/scripts/verify-built-shell.mjs" \
+    '/console/cloud/assets/' \
+    "Cloud console built shell verifier must assert the mounted asset prefix."
 
 require_source_match \
     "cloud console bundle size cap is 500 KiB" \

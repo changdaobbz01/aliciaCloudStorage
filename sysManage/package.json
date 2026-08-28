@@ -10,7 +10,8 @@
     "verify:session-sync": "node scripts/verify-session-sync.mjs",
     "verify:console-boundary": "node scripts/verify-console-boundary.mjs",
     "verify:bundle-size": "node scripts/verify-bundle-size.mjs",
-    "build": "npm run verify:return-to && npm run verify:session-sync && npm run verify:console-boundary && tsc -b && vite build && npm run verify:bundle-size",
+    "verify:built-shell": "node scripts/verify-built-shell.mjs",
+    "build": "npm run verify:return-to && npm run verify:session-sync && npm run verify:console-boundary && tsc -b && vite build && npm run verify:built-shell && npm run verify:bundle-size",
     "preview": "vite preview"
   },
   "dependencies": {
