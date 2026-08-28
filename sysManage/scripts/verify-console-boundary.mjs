@@ -64,5 +64,10 @@ assert.match(
   /window\.location\.assign\('\/console\/'\)/,
   'cloud console account menu must route management navigation through /console/',
 );
+assert.match(
+  consolePageSource,
+  /title="没有云盘后台权限"[\s\S]*href="\/console\/"[\s\S]*href="\/cloudPan\/"[\s\S]*href="\/"/,
+  'cloud console permission denied state must expose routes back to the console gateway, cloud web, and main site',
+);
 
 console.log('[OK] cloud console boundary verified');

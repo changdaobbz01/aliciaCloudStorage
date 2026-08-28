@@ -1,4 +1,4 @@
-import { App as AntApp, Avatar, Button, Dropdown, Layout, Menu, Result, Spin, Typography } from 'antd';
+import { App as AntApp, Avatar, Button, Dropdown, Layout, Menu, Result, Space, Spin, Typography } from 'antd';
 import type { MenuProps } from 'antd';
 import { ArrowUpRight, BarChart3, Cloud, Home, LayoutDashboard, LogOut, RefreshCw, Smartphone, UsersRound } from 'lucide-react';
 import { Suspense, lazy, useEffect } from 'react';
@@ -163,9 +163,13 @@ export function CloudConsolePage() {
         title="没有云盘后台权限"
         subTitle="只有云盘管理员可以访问运营后台。"
         extra={
-          <Button type="primary" href="/cloudPan/">
-            返回云盘
-          </Button>
+          <Space>
+            <Button href="/console/">管理控制台</Button>
+            <Button type="primary" href="/cloudPan/">
+              返回云盘
+            </Button>
+            <Button href="/">返回主站</Button>
+          </Space>
         }
       />
     </section>
