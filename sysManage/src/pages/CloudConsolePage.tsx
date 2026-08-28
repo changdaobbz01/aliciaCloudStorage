@@ -107,6 +107,10 @@ export function CloudConsolePage() {
   ];
 
   useEffect(() => {
+    document.title = `${activeMeta.title} - Alicia 云盘后台`;
+  }, [activeMeta.title]);
+
+  useEffect(() => {
     if (view && routeByView[activeView] !== `/${view}`) {
       navigate(routeByView[activeView], { replace: true });
     }

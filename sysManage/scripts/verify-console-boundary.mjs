@@ -54,6 +54,10 @@ assert.match(
 assert.match(consolePageSource, /useParams<\{ view\?: string \}>/, 'cloud console must read the active view from the URL');
 assert.match(consolePageSource, /routeByView/, 'cloud console menu must map internal view keys to stable URL routes');
 assert.match(consolePageSource, /appPackage:[\s\S]*'\/app-package'/, 'cloud console APK package view must use the app-package URL route');
+assert.ok(
+  consolePageSource.includes('document.title = `${activeMeta.title} - Alicia 云盘后台`;'),
+  'cloud console document title must follow the active view',
+);
 assert.match(consolePageSource, /key:\s*'consoleHome'/, 'cloud console account menu must expose the unified console gateway');
 assert.match(
   consolePageSource,
