@@ -192,6 +192,8 @@ Invoke-Step "verify cloud frontend split wiring" {
     Require-Contains "deploy/scripts/verify-identity-cloud-routes.sh" "Alicia 云盘后台" "cloud route verifier must assert cloud console serves the console shell"
     Require-Contains "deploy/scripts/verify-identity-cloud-routes.sh" "/console/cloud/assets/index-" "cloud route verifier must assert cloud console assets use the mounted prefix"
     Require-Contains "deploy/scripts/verify-identity-cloud-routes.sh" "/cloudPan/assets/index-" "cloud route verifier must assert cloud web assets use the mounted prefix"
+    Require-Contains "deploy/scripts/verify-identity-cloud-routes.sh" "login?returnTo=/console/identity/users" "cloud route verifier must assert login preserves identity console returnTo"
+    Require-Contains "deploy/scripts/verify-identity-cloud-routes.sh" "login?returnTo=/console/cloud/users" "cloud route verifier must assert login preserves cloud console returnTo"
     Require-Contains "deploy/scripts/verify-identity-cloud-routes.sh" 'expect_spa_shell "main site home entry"' "cloud route verifier must assert the gateway still serves the main site shell"
     Require-Contains "deploy/scripts/verify-identity-cloud-routes.sh" 'expect_spa_shell "main site login returnTo entry"' "cloud route verifier must assert public login returnTo serves the main site shell"
     Require-Contains "deploy/scripts/verify-identity-cloud-routes.sh" 'expect_spa_shell "cloudPan share route"' "cloud route verifier must assert cloud share deep links serve the cloud web shell"

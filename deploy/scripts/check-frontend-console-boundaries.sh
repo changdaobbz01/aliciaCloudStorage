@@ -533,3 +533,99 @@ require_source_match \
     "sysManage/vite.config.ts" \
     'getAntdModuleChunk\(id\)' \
     "Cloud console Vite config must keep Ant Design module chunking."
+
+require_source_match \
+    "cloud route verifier asserts cloud console shell" \
+    "deploy/scripts/verify-identity-cloud-routes.sh" \
+    'Alicia 云盘后台' \
+    "Cloud route verifier must assert cloud console serves the console shell."
+
+require_source_match \
+    "cloud route verifier asserts cloud console asset prefix" \
+    "deploy/scripts/verify-identity-cloud-routes.sh" \
+    "/console/cloud/assets/index-" \
+    "Cloud route verifier must assert cloud console assets use the mounted prefix."
+
+require_source_match \
+    "cloud route verifier asserts cloud web asset prefix" \
+    "deploy/scripts/verify-identity-cloud-routes.sh" \
+    "/cloudPan/assets/index-" \
+    "Cloud route verifier must assert cloud web assets use the mounted prefix."
+
+require_source_match \
+    "cloud route verifier covers identity console login returnTo" \
+    "deploy/scripts/verify-identity-cloud-routes.sh" \
+    "login\\?returnTo=/console/identity/users" \
+    "Cloud route verifier must assert login preserves identity console returnTo."
+
+require_source_match \
+    "cloud route verifier covers cloud console login returnTo" \
+    "deploy/scripts/verify-identity-cloud-routes.sh" \
+    "login\\?returnTo=/console/cloud/users" \
+    "Cloud route verifier must assert login preserves cloud console returnTo."
+
+require_source_match \
+    "cloud route verifier asserts gateway main shell" \
+    "deploy/scripts/verify-identity-cloud-routes.sh" \
+    'expect_spa_shell "main site home entry"' \
+    "Cloud route verifier must assert the gateway still serves the main site shell."
+
+require_source_match \
+    "cloud route verifier asserts public login returnTo shell" \
+    "deploy/scripts/verify-identity-cloud-routes.sh" \
+    'expect_spa_shell "main site login returnTo entry"' \
+    "Cloud route verifier must assert public login returnTo serves the main site shell."
+
+require_source_match \
+    "cloud route verifier asserts cloud share deep links" \
+    "deploy/scripts/verify-identity-cloud-routes.sh" \
+    'expect_spa_shell "cloudPan share route"' \
+    "Cloud route verifier must assert cloud share deep links serve the cloud web shell."
+
+require_source_match \
+    "cloud route verifier asserts main no-store cache" \
+    "deploy/scripts/verify-identity-cloud-routes.sh" \
+    'expect_no_store_index "main site index"' \
+    "Cloud route verifier must assert main site index no-store cache."
+
+require_source_match \
+    "cloud route verifier asserts login no-store cache" \
+    "deploy/scripts/verify-identity-cloud-routes.sh" \
+    'expect_no_store_index "main site login index"' \
+    "Cloud route verifier must assert main site login no-store cache."
+
+require_source_match \
+    "cloud route verifier asserts identity no-store cache" \
+    "deploy/scripts/verify-identity-cloud-routes.sh" \
+    'expect_no_store_index "identity console roles index"' \
+    "Cloud route verifier must assert identity console child routes no-store cache."
+
+require_source_match \
+    "cloud route verifier asserts cloud web no-store cache" \
+    "deploy/scripts/verify-identity-cloud-routes.sh" \
+    'expect_no_store_index "cloudPan index"' \
+    "Cloud route verifier must assert cloud web index no-store cache."
+
+require_source_match \
+    "cloud route verifier asserts cloud console no-store cache" \
+    "deploy/scripts/verify-identity-cloud-routes.sh" \
+    'expect_no_store_index "cloud console operations index"' \
+    "Cloud route verifier must assert cloud console child routes no-store cache."
+
+require_source_match \
+    "cloud route verifier asserts main asset cache" \
+    "deploy/scripts/verify-identity-cloud-routes.sh" \
+    'expect_spa_asset_cache "main site"' \
+    "Cloud route verifier must assert main site immutable assets through the cloud gateway."
+
+require_source_match \
+    "cloud route verifier asserts identity asset cache" \
+    "deploy/scripts/verify-identity-cloud-routes.sh" \
+    'expect_spa_asset_cache "identity console"' \
+    "Cloud route verifier must assert identity console immutable assets."
+
+require_source_match \
+    "cloud route verifier exposes cache skip" \
+    "deploy/scripts/verify-identity-cloud-routes.sh" \
+    'SKIP_CACHE_CHECKS="${ALICIA_VERIFY_SKIP_CACHE_CHECKS:-false}"' \
+    "Cloud route verifier must support skipping cache checks."
