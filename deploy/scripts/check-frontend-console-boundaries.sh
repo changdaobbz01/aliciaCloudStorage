@@ -245,6 +245,12 @@ require_source_match \
     "Cloud web must confirm the current session before redirecting on auth-expired events."
 
 require_source_match \
+    "cloud web treats no-session auth expired as logout" \
+    "webApp/scripts/verify-session-sync.mjs" \
+    'no stored session as logout/no-op rather than session expiry' \
+    "Cloud web must treat post-logout auth-expired events as logout/no-op."
+
+require_source_match \
     "cloud console reads current cloud profile" \
     "sysManage/src/lib/api.ts" \
     '/api/cloud-profile/me' \
@@ -411,6 +417,12 @@ require_source_match \
     "sysManage/scripts/verify-session-sync.mjs" \
     'confirm the current session before redirecting on auth-expired events' \
     "Cloud console must confirm the current session before redirecting on auth-expired events."
+
+require_source_match \
+    "cloud console treats no-session auth expired as logout" \
+    "sysManage/scripts/verify-session-sync.mjs" \
+    'no stored session as logout/no-op rather than session expiry' \
+    "Cloud console must treat post-logout auth-expired events as logout/no-op."
 
 require_source_match \
     "CloudStorageApi exposes cloud-users admin backend" \

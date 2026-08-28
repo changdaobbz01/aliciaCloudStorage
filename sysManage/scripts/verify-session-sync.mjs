@@ -97,6 +97,11 @@ assert.match(
   /const refreshedSession = await refreshAuthSession\(token, refreshToken\)/,
   'SessionProvider must try to refresh the current session before clearing it after auth-expired events',
 );
+assert.match(
+  sessionContext,
+  /if \(!token && !refreshToken\) \{\s*resetSessionState\(\);\s*return;\s*\}/,
+  'SessionProvider must treat auth-expired events with no stored session as logout/no-op rather than session expiry',
+);
 assert.match(sessionContext, /const cachedUser = loadCurrentUser\(\)/, 'SessionProvider must use cached user snapshots while restoring sessions');
 assert.match(sessionContext, /function toCachedCloudUser/, 'SessionProvider must derive a cloud-safe cached user from identity login sessions');
 assert.match(sessionContext, /saveCurrentUser\(toCachedCloudUser\(refreshedSession\.user\)\)/, 'SessionProvider token refresh must seed the cached current user snapshot');

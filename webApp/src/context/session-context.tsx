@@ -188,6 +188,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       const token = snapshot.token;
       const refreshToken = snapshot.refreshToken;
 
+      if (!token && !refreshToken) {
+        resetSessionState();
+        return;
+      }
+
       if (!token || !refreshToken) {
         if (!cancelled && !hasStoredSessionChanged(snapshot)) {
           expireCurrentSession();
