@@ -227,6 +227,24 @@ require_source_match \
     "Cloud web must sanitize legacy browser session residue."
 
 require_source_match \
+    "cloud web ignores stale 401 responses" \
+    "webApp/scripts/verify-session-sync.mjs" \
+    'ignore stale-token 401 responses' \
+    "Cloud web must ignore stale-token 401 responses."
+
+require_source_match \
+    "cloud web suppresses refresh expiry broadcasts" \
+    "webApp/scripts/verify-session-sync.mjs" \
+    'refresh requests must not broadcast global session expiry' \
+    "Cloud web refresh requests must not broadcast global session expiry before snapshot checks."
+
+require_source_match \
+    "cloud web confirms auth expired events" \
+    "webApp/scripts/verify-session-sync.mjs" \
+    'confirm the current session before redirecting on auth-expired events' \
+    "Cloud web must confirm the current session before redirecting on auth-expired events."
+
+require_source_match \
     "cloud console reads current cloud profile" \
     "sysManage/src/lib/api.ts" \
     '/api/cloud-profile/me' \
@@ -375,6 +393,24 @@ require_source_match \
     "sysManage/scripts/verify-session-sync.mjs" \
     'sanitize legacy browser session residue' \
     "Cloud console must sanitize legacy browser session residue."
+
+require_source_match \
+    "cloud console ignores stale 401 responses" \
+    "sysManage/scripts/verify-session-sync.mjs" \
+    'ignore stale-token 401 responses' \
+    "Cloud console must ignore stale-token 401 responses."
+
+require_source_match \
+    "cloud console suppresses refresh expiry broadcasts" \
+    "sysManage/scripts/verify-session-sync.mjs" \
+    'refresh requests must not broadcast global session expiry' \
+    "Cloud console refresh requests must not broadcast global session expiry before snapshot checks."
+
+require_source_match \
+    "cloud console confirms auth expired events" \
+    "sysManage/scripts/verify-session-sync.mjs" \
+    'confirm the current session before redirecting on auth-expired events' \
+    "Cloud console must confirm the current session before redirecting on auth-expired events."
 
 require_source_match \
     "CloudStorageApi exposes cloud-users admin backend" \

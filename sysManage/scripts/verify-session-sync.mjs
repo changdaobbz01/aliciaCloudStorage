@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const session = readFileSync(new URL('../src/lib/session.ts', import.meta.url), 'utf8');
+const api = readFileSync(new URL('../src/lib/api.ts', import.meta.url), 'utf8');
 const sessionContext = readFileSync(new URL('../src/context/session-context.tsx', import.meta.url), 'utf8');
 const protectedRoute = readFileSync(new URL('../src/components/protected-route.tsx', import.meta.url), 'utf8');
 const unifiedLogin = readFileSync(new URL('../src/lib/unifiedLogin.ts', import.meta.url), 'utf8');
@@ -49,6 +50,14 @@ assert.match(
   /function hasStoredSessionChanged/,
   'cloud console session utility must detect token changes during refresh',
 );
+assert.match(api, /import \{ loadAuthToken \} from '\.\/session'/, 'cloud console API helper must compare 401 responses with the current stored token');
+assert.match(api, /function shouldDispatchAuthExpiredForToken/, 'cloud console API helper must ignore stale-token 401 responses');
+assert.match(api, /xhr\.status === 401 && shouldDispatchAuthExpiredForToken\(token\)/, 'cloud console upload API helper must ignore stale-token 401 responses');
+assert.match(
+  api,
+  /refreshAuthSession[\s\S]*dispatchAuthExpired: false/,
+  'cloud console refresh requests must not broadcast global session expiry before snapshot checks',
+);
 
 for (const token of [
   'SESSION_CHANGE_EVENT',
@@ -72,6 +81,21 @@ assert.match(
   sessionContext,
   /isAuthenticationSessionError\(error\)/,
   'SessionProvider must only expire local sessions on authentication failures',
+);
+assert.match(
+  sessionContext,
+  /function confirmCurrentSessionExpired/,
+  'SessionProvider must confirm the current session before redirecting on auth-expired events',
+);
+assert.match(
+  sessionContext,
+  /hasStoredSessionChanged\(snapshot\)/,
+  'SessionProvider must ignore auth-expired events when another page has already written a newer session',
+);
+assert.match(
+  sessionContext,
+  /const refreshedSession = await refreshAuthSession\(token, refreshToken\)/,
+  'SessionProvider must try to refresh the current session before clearing it after auth-expired events',
 );
 assert.match(sessionContext, /const cachedUser = loadCurrentUser\(\)/, 'SessionProvider must use cached user snapshots while restoring sessions');
 assert.match(sessionContext, /function toCachedCloudUser/, 'SessionProvider must derive a cloud-safe cached user from identity login sessions');

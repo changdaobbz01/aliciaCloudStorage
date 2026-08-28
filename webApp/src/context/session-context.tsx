@@ -159,9 +159,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     /**
      * 监听全局鉴权过期事件，并将用户带回登录页。
      */
-    function handleAuthExpired() {
-      expireCurrentSession();
+    let cancelled = false;
 
+    function redirectExpiredSession() {
       if (loginRedirectingRef.current) {
         return;
       }
@@ -174,9 +174,63 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       );
     }
 
+    async function confirmCurrentSessionExpired() {
+      if (isSessionWriteLocked()) {
+        runAfterSessionWriteSettled(() => {
+          if (!cancelled) {
+            void confirmCurrentSessionExpired();
+          }
+        });
+        return;
+      }
+
+      const snapshot = readStoredSessionSnapshot();
+      const token = snapshot.token;
+      const refreshToken = snapshot.refreshToken;
+
+      if (!token || !refreshToken) {
+        if (!cancelled && !hasStoredSessionChanged(snapshot)) {
+          expireCurrentSession();
+          redirectExpiredSession();
+        }
+        return;
+      }
+
+      setIsSessionChecking(true);
+
+      try {
+        const refreshedSession = await refreshAuthSession(token, refreshToken);
+
+        if (cancelled || hasStoredSessionChanged(snapshot)) {
+          return;
+        }
+
+        const user = toCachedCloudUser(refreshedSession.user);
+        saveIdentityTokenSession(refreshedSession);
+        saveCurrentUser(user);
+        setCurrentUser(user);
+        setAuthToken(refreshedSession.token);
+        setLoginRedirectReason(null);
+      } catch (error) {
+        if (!cancelled && !hasStoredSessionChanged(snapshot) && isAuthenticationSessionError(error)) {
+          expireCurrentSession();
+          redirectExpiredSession();
+        }
+      } finally {
+        if (!cancelled) {
+          setIsSessionChecking(false);
+        }
+      }
+    }
+
+    function handleAuthExpired() {
+      void confirmCurrentSessionExpired();
+    }
+
     window.addEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
 
     return () => {
+      cancelled = true;
       window.removeEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
     };
   }, [location.hash, location.pathname, location.search]);

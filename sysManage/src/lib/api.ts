@@ -14,6 +14,7 @@ import type {
   UpdateUserStorageQuotaPayload,
   User,
 } from '../types';
+import { loadAuthToken } from './session';
 
 export const AUTH_EXPIRED_EVENT = 'alicia-cloud-storage:auth-expired';
 
@@ -148,10 +149,34 @@ function dispatchAuthExpired(error: ApiError) {
   );
 }
 
-function throwApiError(response: Response, payload: unknown, options?: ApiRequestOptions): never {
+function readRequestAuthToken(init?: RequestInit) {
+  const authorization = new Headers(init?.headers).get('Authorization');
+  const match = authorization?.match(/^Bearer\s+(.+)$/i);
+  return match?.[1]?.trim() || null;
+}
+
+function shouldDispatchAuthExpiredForToken(token: string | null | undefined) {
+  const requestToken = token?.trim();
+
+  if (!requestToken || typeof window === 'undefined') {
+    return true;
+  }
+
+  return loadAuthToken() === requestToken;
+}
+
+function shouldDispatchAuthExpired(init?: RequestInit, options?: ApiRequestOptions) {
+  if (options?.dispatchAuthExpired === false) {
+    return false;
+  }
+
+  return shouldDispatchAuthExpiredForToken(readRequestAuthToken(init));
+}
+
+function throwApiError(response: Response, payload: unknown, init?: RequestInit, options?: ApiRequestOptions): never {
   const error = new ApiError(toErrorMessage(payload, response.status), response.status, payload);
 
-  if (response.status === 401 && options?.dispatchAuthExpired !== false) {
+  if (response.status === 401 && shouldDispatchAuthExpired(init, options)) {
     dispatchAuthExpired(error);
   }
 
@@ -175,7 +200,7 @@ async function requestJson<T>(url: string, init?: RequestInit, options?: ApiRequ
   const payload = await readBody(response);
 
   if (!response.ok) {
-    throwApiError(response, payload, options);
+    throwApiError(response, payload, init, options);
   }
 
   return payload as T;
@@ -258,7 +283,7 @@ function requestUploadJson<T>(
 
       const error = new ApiError(toErrorMessage(payload, xhr.status), xhr.status, payload);
 
-      if (xhr.status === 401) {
+      if (xhr.status === 401 && shouldDispatchAuthExpiredForToken(token)) {
         dispatchAuthExpired(error);
       }
 
@@ -362,6 +387,7 @@ export function refreshAuthSession(token: string, refreshToken: string) {
       },
       body: JSON.stringify({ refreshToken: nextRefreshToken }),
     }),
+    { dispatchAuthExpired: false },
   );
 }
 
