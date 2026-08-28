@@ -141,6 +141,8 @@ Invoke-Step "verify cloud frontend split wiring" {
     Require-Contains "sysManage/scripts/verify-console-boundary.mjs" "'/api/admin/cloud-users'" "cloud console API allowlist must include cloud users admin APIs"
     Require-Contains "sysManage/scripts/verify-console-boundary.mjs" "'/api/admin/cloud-operations'" "cloud console API allowlist must include cloud operations admin APIs"
     Require-Contains "sysManage/scripts/verify-console-boundary.mjs" "'/api/identity/auth/token/refresh'" "cloud console API allowlist must include identity refresh only for session continuity"
+    Require-Contains "sysManage/scripts/verify-console-boundary.mjs" "cloud console page must use the centralized cloud admin predicate" "cloud console boundary verifier must enforce the runtime cloud admin gate"
+    Require-Contains "sysManage/scripts/verify-console-boundary.mjs" "global admins and cloud application admins" "cloud console boundary verifier must accept global and cloud application administrators"
     Require-Contains "CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/controller/AdminCloudUserController.java" '@RequestMapping("/api/admin/cloud-users")' "CloudStorageApi must expose the cloud-users admin backend used by sysManage"
     Require-Contains "CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/controller/AdminCloudUserProfileController.java" '@RequestMapping("/api/admin/cloud-users")' "CloudStorageApi must expose the cloud user quota admin backend used by sysManage"
     Require-Contains "CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/controller/AdminCloudOperationsController.java" '@RequestMapping("/api/admin/cloud-operations")' "CloudStorageApi must expose the cloud operations admin backend used by sysManage"

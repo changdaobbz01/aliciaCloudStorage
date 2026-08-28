@@ -197,6 +197,18 @@ require_source_match \
     "Cloud console API allowlist must include identity refresh only for session continuity."
 
 require_source_match \
+    "cloud console boundary checks runtime cloud admin gate" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console page must use the centralized cloud admin predicate' \
+    "Cloud console boundary verifier must enforce the runtime cloud admin gate."
+
+require_source_match \
+    "cloud console boundary accepts cloud app admins" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'global admins and cloud application admins' \
+    "Cloud console boundary verifier must accept global and cloud application administrators."
+
+require_source_match \
     "CloudStorageApi exposes cloud-users admin backend" \
     "CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/controller/AdminCloudUserController.java" \
     '@RequestMapping\("/api/admin/cloud-users"\)' \

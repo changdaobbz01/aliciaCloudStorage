@@ -106,6 +106,7 @@ assertApiPathsMatchAllowedPrefixes(
 
 const consolePageSource = readFileSync(new URL('../src/pages/CloudConsolePage.tsx', import.meta.url), 'utf8');
 const appSource = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
+const typesSource = readFileSync(new URL('../src/types.ts', import.meta.url), 'utf8');
 assert.match(appSource, /path="\/:view"/, 'cloud console must expose URL-addressable child routes');
 assert.match(appSource, /<Navigate to="\/users" replace \/>/, 'cloud console root and unknown routes must land on users');
 assert.match(appSource, /new URLSearchParams\(search\)\.get\('view'\)/, 'cloud console root route must read legacy view query');
@@ -121,6 +122,22 @@ assert.match(consolePageSource, /appPackage:[\s\S]*'\/app-package'/, 'cloud cons
 assert.ok(
   consolePageSource.includes('document.title = `${activeMeta.title} - Alicia 云盘后台`;'),
   'cloud console document title must follow the active view',
+);
+assert.match(typesSource, /export function isCloudAdmin/, 'cloud console must centralize its runtime access predicate');
+assert.match(
+  typesSource,
+  /return user\?\.role === 'ADMIN' \|\| user\?\.appRoles\?\.cloud === 'CLOUD_ADMIN';/,
+  'cloud console runtime access must accept global admins and cloud application admins',
+);
+assert.match(
+  consolePageSource,
+  /const isAdmin = isCloudAdmin\(currentUser\);/,
+  'cloud console page must use the centralized cloud admin predicate',
+);
+assert.match(
+  consolePageSource,
+  /activeViewContent = !isAdmin \? \([\s\S]*title="没有云盘后台权限"/,
+  'cloud console must show its permission denied state before rendering admin views',
 );
 assert.match(consolePageSource, /key:\s*'consoleHome'/, 'cloud console account menu must expose the unified console gateway');
 assert.match(
