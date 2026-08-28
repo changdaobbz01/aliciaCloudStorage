@@ -238,6 +238,31 @@ curl_ok_with_wait() {
     done
 }
 
+curl_body() {
+    local label="$1"
+    shift
+
+    curl -fsS "${CURL_ARGS[@]}" "$@" || fail "$label body request failed"
+}
+
+expect_spa_shell() {
+    local label="$1"
+    local url="$2"
+    local expected_title="$3"
+    local expected_asset_prefix="$4"
+    local body
+
+    body="$(curl_body "$label" "$url")"
+    printf '%s' "$body" | grep -q '<div id="root">' \
+        || fail "$label did not return an Alicia SPA shell"
+    printf '%s' "$body" | grep -Fq "<title>$expected_title</title>" \
+        || fail "$label did not return the expected $expected_title shell"
+    printf '%s' "$body" | grep -Fq "$expected_asset_prefix" \
+        || fail "$label did not reference built frontend assets under $expected_asset_prefix"
+
+    ok "$label SPA shell"
+}
+
 expect_redirect_location() {
     local label="$1"
     local expected_status="$2"
@@ -700,6 +725,7 @@ expect_status "rag assistant access requires identity token" 401 \
 expect_status "rag assistant contract requires identity token" 401 \
     "$RAG_ACTION_PLAN_CONTRACT_URL"
 curl_ok "main site login entry" -I "$PUBLIC_BASE_URL/login"
+expect_spa_shell "main site login entry" "$PUBLIC_BASE_URL/login" "Alicia Tools" "/assets/index-"
 assetlinks_response="$(curl_json_or_fail "android asset links endpoint" "$PUBLIC_BASE_URL/.well-known/assetlinks.json")"
 printf '%s' "$assetlinks_response" | grep -Eq '"package_name"[[:space:]]*:[[:space:]]*"com\.alicia\.cloudstorage\.phone"' \
     || fail "android asset links must expose official package com.alicia.cloudstorage.phone"
@@ -715,6 +741,12 @@ curl_ok "identity console users route" -I "$PUBLIC_BASE_URL/console/identity/use
 curl_ok "identity console roles route" -I "$PUBLIC_BASE_URL/console/identity/roles"
 curl_ok "identity console sessions route" -I "$PUBLIC_BASE_URL/console/identity/sessions"
 curl_ok "identity console audit route" -I "$PUBLIC_BASE_URL/console/identity/audit"
+expect_spa_shell "console gateway entry" "$PUBLIC_BASE_URL/console/" "Alicia Tools" "/assets/index-"
+expect_spa_shell "identity console frontend entry" "$PUBLIC_BASE_URL/console/identity/" "Alicia 身份后台" "/console/identity/assets/index-"
+expect_spa_shell "identity console users route" "$PUBLIC_BASE_URL/console/identity/users" "Alicia 身份后台" "/console/identity/assets/index-"
+expect_spa_shell "identity console roles route" "$PUBLIC_BASE_URL/console/identity/roles" "Alicia 身份后台" "/console/identity/assets/index-"
+expect_spa_shell "identity console sessions route" "$PUBLIC_BASE_URL/console/identity/sessions" "Alicia 身份后台" "/console/identity/assets/index-"
+expect_spa_shell "identity console audit route" "$PUBLIC_BASE_URL/console/identity/audit" "Alicia 身份后台" "/console/identity/assets/index-"
 expect_redirect_location "cloudPan bare path redirects to canonical slash" 308 "/cloudPan/" "$PUBLIC_BASE_URL/cloudPan"
 expect_redirect_location "cloudPan legacy login redirects to unified login" 308 "/login?returnTo=/cloudPan/" "$PUBLIC_BASE_URL/cloudPan/login"
 curl_ok "cloudPan frontend entry" -I "$PUBLIC_BASE_URL/cloudPan/"
@@ -723,6 +755,11 @@ curl_ok "cloud console frontend entry" -I "$PUBLIC_BASE_URL/console/cloud/"
 curl_ok "cloud console users route" -I "$PUBLIC_BASE_URL/console/cloud/users"
 curl_ok "cloud console operations route" -I "$PUBLIC_BASE_URL/console/cloud/operations"
 curl_ok "cloud console app package route" -I "$PUBLIC_BASE_URL/console/cloud/app-package"
+expect_spa_shell "cloudPan frontend entry" "$PUBLIC_BASE_URL/cloudPan/" "Alicia 云盘" "/cloudPan/assets/index-"
+expect_spa_shell "cloud console frontend entry" "$PUBLIC_BASE_URL/console/cloud/" "Alicia 云盘后台" "/console/cloud/assets/index-"
+expect_spa_shell "cloud console users route" "$PUBLIC_BASE_URL/console/cloud/users" "Alicia 云盘后台" "/console/cloud/assets/index-"
+expect_spa_shell "cloud console operations route" "$PUBLIC_BASE_URL/console/cloud/operations" "Alicia 云盘后台" "/console/cloud/assets/index-"
+expect_spa_shell "cloud console app package route" "$PUBLIC_BASE_URL/console/cloud/app-package" "Alicia 云盘后台" "/console/cloud/assets/index-"
 
 if [[ -z "$ACCOUNT" ]]; then
     read -r -p "Identity account/email/phone: " ACCOUNT
