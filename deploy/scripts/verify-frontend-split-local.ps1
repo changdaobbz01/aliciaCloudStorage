@@ -149,6 +149,10 @@ Invoke-Step "verify cloud frontend split wiring" {
     Require-Contains "deploy/scripts/verify-identity-cloud-routes.sh" "Alicia 云盘后台" "cloud route verifier must assert cloud console serves the console shell"
     Require-Contains "deploy/scripts/verify-identity-cloud-routes.sh" "/console/cloud/assets/index-" "cloud route verifier must assert cloud console assets use the mounted prefix"
     Require-Contains "deploy/scripts/verify-identity-cloud-routes.sh" "/cloudPan/assets/index-" "cloud route verifier must assert cloud web assets use the mounted prefix"
+    Require-Contains "deploy/scripts/verify-identity-cloud-routes.sh" 'expect_no_store_index "cloudPan index"' "cloud route verifier must assert cloud web index no-store cache"
+    Require-Contains "deploy/scripts/verify-identity-cloud-routes.sh" 'expect_no_store_index "cloud console index"' "cloud route verifier must assert cloud console index no-store cache"
+    Require-Contains "deploy/scripts/verify-identity-cloud-routes.sh" 'expect_spa_asset_cache "identity console"' "cloud route verifier must assert identity console immutable assets"
+    Require-Contains "deploy/scripts/verify-identity-cloud-routes.sh" 'SKIP_CACHE_CHECKS="${ALICIA_VERIFY_SKIP_CACHE_CHECKS:-false}"' "cloud route verifier must support skipping cache checks"
 }
 
 Write-Host "[OK] cloud frontend split local verification complete"

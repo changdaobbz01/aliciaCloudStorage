@@ -14,6 +14,7 @@ INSECURE_TLS="${ALICIA_VERIFY_INSECURE_TLS:-true}"
 SKIP_ADMIN_CHECK="${ALICIA_VERIFY_SKIP_ADMIN_CHECK:-false}"
 SKIP_AUDIT_CHECK="${ALICIA_VERIFY_SKIP_AUDIT_CHECK:-false}"
 SKIP_IDENTITY_FLYWAY_CHECK="${ALICIA_VERIFY_SKIP_IDENTITY_FLYWAY_CHECK:-false}"
+SKIP_CACHE_CHECKS="${ALICIA_VERIFY_SKIP_CACHE_CHECKS:-false}"
 COMPOSE_FILES="${ALICIA_COMPOSE_FILES:-compose.yaml compose.https.yaml}"
 ENV_FILE="${ALICIA_VERIFY_ENV_FILE:-.env}"
 FORBID_PREVIOUS_KEY_ID="${ALICIA_VERIFY_FORBID_PREVIOUS_KEY_ID:-}"
@@ -245,6 +246,25 @@ curl_body() {
     curl -fsS "${CURL_ARGS[@]}" "$@" || fail "$label body request failed"
 }
 
+curl_headers() {
+    local label="$1"
+    shift
+
+    curl -fsS "${CURL_ARGS[@]}" -I "$@" || fail "$label headers request failed"
+}
+
+expect_no_store_index() {
+    local label="$1"
+    local url="$2"
+    local headers
+
+    headers="$(curl_headers "$label" "$url")"
+    printf '%s' "$headers" | grep -qi '^Cache-Control: .*no-store' \
+        || fail "$label did not expose no-store cache control"
+
+    ok "$label no-store cache"
+}
+
 expect_spa_shell() {
     local label="$1"
     local url="$2"
@@ -261,6 +281,26 @@ expect_spa_shell() {
         || fail "$label did not reference built frontend assets under $expected_asset_prefix"
 
     ok "$label SPA shell"
+}
+
+expect_spa_asset_cache() {
+    local label="$1"
+    local origin_url="$2"
+    local index_url="$3"
+    local body
+    local asset_path
+    local headers
+
+    body="$(curl_body "$label index" "$index_url")"
+    asset_path="$(printf '%s' "$body" | sed -n 's/.*src="\([^"]*\/assets\/index-[^"]*\.js\)".*/\1/p' | head -n 1)"
+    [[ -n "$asset_path" ]] || fail "$label could not find built JS asset"
+    [[ "$asset_path" == /* ]] || fail "$label built JS asset path must be absolute"
+
+    headers="$(curl_headers "$label asset" "$origin_url$asset_path")"
+    printf '%s' "$headers" | grep -qi '^Cache-Control: .*immutable' \
+        || fail "$label built asset did not expose immutable cache control"
+
+    ok "$label built asset cache"
 }
 
 expect_redirect_location() {
@@ -760,6 +800,20 @@ expect_spa_shell "cloud console frontend entry" "$PUBLIC_BASE_URL/console/cloud/
 expect_spa_shell "cloud console users route" "$PUBLIC_BASE_URL/console/cloud/users" "Alicia 云盘后台" "/console/cloud/assets/index-"
 expect_spa_shell "cloud console operations route" "$PUBLIC_BASE_URL/console/cloud/operations" "Alicia 云盘后台" "/console/cloud/assets/index-"
 expect_spa_shell "cloud console app package route" "$PUBLIC_BASE_URL/console/cloud/app-package" "Alicia 云盘后台" "/console/cloud/assets/index-"
+
+if [[ "$SKIP_CACHE_CHECKS" != "true" ]]; then
+    expect_no_store_index "console gateway index" "$PUBLIC_BASE_URL/console/"
+    expect_no_store_index "identity console index" "$PUBLIC_BASE_URL/console/identity/"
+    expect_no_store_index "identity console users index" "$PUBLIC_BASE_URL/console/identity/users"
+    expect_no_store_index "cloudPan index" "$PUBLIC_BASE_URL/cloudPan/"
+    expect_no_store_index "cloudPan share index" "$PUBLIC_BASE_URL/cloudPan/share/cache-probe"
+    expect_no_store_index "cloud console index" "$PUBLIC_BASE_URL/console/cloud/"
+    expect_no_store_index "cloud console users index" "$PUBLIC_BASE_URL/console/cloud/users"
+    expect_spa_asset_cache "console gateway" "$PUBLIC_BASE_URL" "$PUBLIC_BASE_URL/console/"
+    expect_spa_asset_cache "identity console" "$PUBLIC_BASE_URL" "$PUBLIC_BASE_URL/console/identity/"
+    expect_spa_asset_cache "cloudPan" "$PUBLIC_BASE_URL" "$PUBLIC_BASE_URL/cloudPan/"
+    expect_spa_asset_cache "cloud console" "$PUBLIC_BASE_URL" "$PUBLIC_BASE_URL/console/cloud/"
+fi
 
 if [[ -z "$ACCOUNT" ]]; then
     read -r -p "Identity account/email/phone: " ACCOUNT
