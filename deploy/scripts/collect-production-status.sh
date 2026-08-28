@@ -197,6 +197,7 @@ curl_probe "identity console users route" "$PUBLIC_BASE_URL/console/identity/use
 curl_probe "identity console roles route" "$PUBLIC_BASE_URL/console/identity/roles"
 curl_probe "identity console sessions route" "$PUBLIC_BASE_URL/console/identity/sessions"
 curl_probe "identity console audit route" "$PUBLIC_BASE_URL/console/identity/audit"
+curl_probe "android asset links endpoint" "$PUBLIC_BASE_URL/.well-known/assetlinks.json"
 curl_probe "identity jwks endpoint" "$PUBLIC_BASE_URL/api/identity/.well-known/jwks.json"
 curl_probe "rag health through frontend" "$PUBLIC_BASE_URL/rag/api/health"
 curl_probe "rag dependency health through frontend" "$PUBLIC_BASE_URL/rag/api/health/dependencies"
