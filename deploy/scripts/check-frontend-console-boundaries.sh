@@ -119,6 +119,84 @@ require_source_no_match \
     "Cloud web stylesheet must not keep admin console style leftovers."
 
 require_source_match \
+    "cloud console reads current cloud profile" \
+    "sysManage/src/lib/api.ts" \
+    '/api/cloud-profile/me' \
+    "Cloud console must read the current cloud profile from CloudStorageApi."
+
+require_source_match \
+    "cloud console uses cloud-users admin backend" \
+    "sysManage/src/lib/api.ts" \
+    '/api/admin/cloud-users' \
+    "Cloud console users view must use the CloudStorageApi cloud-users admin endpoint."
+
+require_source_match \
+    "cloud console uses cloud-operations backend" \
+    "sysManage/src/lib/api.ts" \
+    '/api/admin/cloud-operations/overview' \
+    "Cloud console operations view must use the CloudStorageApi cloud-operations endpoint."
+
+require_source_match \
+    "cloud console uses APK admin backend" \
+    "sysManage/src/lib/api.ts" \
+    '/api/admin/app-package' \
+    "Cloud console APK view must use the CloudStorageApi admin app package endpoint."
+
+require_source_match \
+    "cloud console uses public APK download backend" \
+    "sysManage/src/features/drive/driveShared.ts" \
+    '/api/app-package/download/current' \
+    "Cloud console APK download link must use the public CloudStorageApi package endpoint."
+
+require_source_match \
+    "CloudStorageApi exposes cloud-users admin backend" \
+    "CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/controller/AdminCloudUserController.java" \
+    '@RequestMapping\("/api/admin/cloud-users"\)' \
+    "CloudStorageApi must expose the cloud-users admin backend used by sysManage."
+
+require_source_match \
+    "CloudStorageApi exposes cloud user quota admin backend" \
+    "CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/controller/AdminCloudUserProfileController.java" \
+    '@RequestMapping\("/api/admin/cloud-users"\)' \
+    "CloudStorageApi must expose the cloud user quota admin backend used by sysManage."
+
+require_source_match \
+    "CloudStorageApi exposes cloud-operations backend" \
+    "CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/controller/AdminCloudOperationsController.java" \
+    '@RequestMapping\("/api/admin/cloud-operations"\)' \
+    "CloudStorageApi must expose the cloud operations backend used by sysManage."
+
+require_source_match \
+    "CloudStorageApi exposes APK admin backend" \
+    "CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/controller/AdminAppPackageController.java" \
+    '@RequestMapping\("/api/admin/app-package"\)' \
+    "CloudStorageApi must expose the APK admin backend used by sysManage."
+
+require_source_match \
+    "CloudStorageApi exposes public APK backend" \
+    "CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/controller/AppPackageController.java" \
+    '@RequestMapping\("/api/app-package"\)' \
+    "CloudStorageApi must expose the public APK package backend used by sysManage."
+
+require_source_match \
+    "CloudStorageApi protects admin API prefix" \
+    "CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/config/WebMvcConfig.java" \
+    '\.addPathPatterns\("/api/admin/\*\*"\);' \
+    "CloudStorageApi must protect admin endpoints through AdminPrincipalInterceptor."
+
+require_source_match \
+    "CloudStorageApi admin role uses cloud app role" \
+    "CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/principal/CurrentPrincipal.java" \
+    'CLOUD_ADMIN_ROLE = "CLOUD_ADMIN"' \
+    "CloudStorageApi admin principal must continue to use the cloud app admin role."
+
+require_source_match \
+    "CloudStorageApi admin role accepts global and cloud admins" \
+    "CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/principal/CurrentPrincipal.java" \
+    'role == UserRole.ADMIN \|\| CLOUD_ADMIN_ROLE.equals\(appRoles\(\).get\(CLOUD_APP_CODE\)\)' \
+    "CloudStorageApi admin principal must accept global admins and cloud app admins."
+
+require_source_match \
     "cloud web Dockerfile publishes root Android asset links" \
     "webApp/Dockerfile" \
     'COPY --from=cloud-builder /app/webApp/dist/\.well-known /usr/share/nginx/html/\.well-known' \
