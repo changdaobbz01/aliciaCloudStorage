@@ -197,3 +197,69 @@ require_source_match \
     "sysManage/src/pages/CloudConsolePage.tsx" \
     "document\\.title = .*Alicia 云盘后台" \
     "Cloud console document title must follow the active view."
+
+require_source_match \
+    "cloud web exposes bundle size verifier" \
+    "webApp/package.json" \
+    '"verify:bundle-size"[[:space:]]*:[[:space:]]*"node scripts/verify-bundle-size\.mjs"' \
+    "Cloud web build must expose the bundle size verifier."
+
+require_source_match \
+    "cloud web build runs bundle size verifier" \
+    "webApp/package.json" \
+    '"build"[[:space:]]*:[[:space:]]*"[^"]*vite build && npm run verify:bundle-size' \
+    "Cloud web build must run the bundle size verifier after vite build."
+
+require_source_match \
+    "cloud web bundle size cap is 500 KiB" \
+    "webApp/scripts/verify-bundle-size.mjs" \
+    'maxChunkBytes = 500 \* 1024' \
+    "Cloud web bundle size verifier must cap JavaScript chunks at 500 KiB."
+
+require_source_match \
+    "cloud web keeps vendor chunking" \
+    "webApp/vite.config.ts" \
+    'manualChunks\(moduleId\)' \
+    "Cloud web Vite config must keep explicit vendor chunking."
+
+require_source_match \
+    "cloud web keeps Ant Design module chunking" \
+    "webApp/vite.config.ts" \
+    'getAntdModuleChunk\(id\)' \
+    "Cloud web Vite config must keep Ant Design module chunking."
+
+require_source_match \
+    "cloud console exposes bundle size verifier" \
+    "sysManage/package.json" \
+    '"verify:bundle-size"[[:space:]]*:[[:space:]]*"node scripts/verify-bundle-size\.mjs"' \
+    "Cloud console build must expose the bundle size verifier."
+
+require_source_match \
+    "cloud console build runs bundle size verifier" \
+    "sysManage/package.json" \
+    '"build"[[:space:]]*:[[:space:]]*"[^"]*vite build && npm run verify:bundle-size' \
+    "Cloud console build must run the bundle size verifier after vite build."
+
+require_source_match \
+    "cloud console bundle size cap is 500 KiB" \
+    "sysManage/scripts/verify-bundle-size.mjs" \
+    'maxChunkBytes = 500 \* 1024' \
+    "Cloud console bundle size verifier must cap JavaScript chunks at 500 KiB."
+
+require_source_match \
+    "cloud console bundle verifier reports console target" \
+    "sysManage/scripts/verify-bundle-size.mjs" \
+    'cloud console bundle size verified' \
+    "Cloud console bundle size verifier must report the console target."
+
+require_source_match \
+    "cloud console keeps vendor chunking" \
+    "sysManage/vite.config.ts" \
+    'manualChunks\(moduleId\)' \
+    "Cloud console Vite config must keep explicit vendor chunking."
+
+require_source_match \
+    "cloud console keeps Ant Design module chunking" \
+    "sysManage/vite.config.ts" \
+    'getAntdModuleChunk\(id\)' \
+    "Cloud console Vite config must keep Ant Design module chunking."
