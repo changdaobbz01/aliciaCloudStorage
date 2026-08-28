@@ -475,6 +475,12 @@ npm run dev
 - `http://localhost:5173/cloudPan/`
 - `http://localhost:5174/console/cloud/users`
 
+Windows 本地可以直接跑前端拆分验收脚本，它会构建 `webApp` 和 `sysManage`，并检查普通云盘、云盘后台的 Docker/Nginx 挂载与边界守护：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File deploy\scripts\verify-frontend-split-local.ps1
+```
+
 ## 首个管理员初始化
 
 当前仓库不再内置默认演示账号，也不再依赖固定的演示管理员密码。

@@ -1,0 +1,125 @@
+param(
+    [switch]$SkipBuild
+)
+
+$ErrorActionPreference = "Stop"
+
+$RootDir = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
+
+function Fail {
+    param([string]$Message)
+    throw $Message
+}
+
+function Resolve-RepoPath {
+    param([string]$RelativePath)
+    return (Join-Path $RootDir $RelativePath)
+}
+
+function Read-RepoText {
+    param([string]$RelativePath)
+
+    $path = Resolve-RepoPath $RelativePath
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+        Fail "Missing file: $RelativePath"
+    }
+
+    return Get-Content -LiteralPath $path -Raw
+}
+
+function Require-Contains {
+    param(
+        [string]$RelativePath,
+        [string]$Needle,
+        [string]$Message
+    )
+
+    $source = Read-RepoText $RelativePath
+    if (-not $source.Contains($Needle)) {
+        Fail $Message
+    }
+}
+
+function Require-NoMatch {
+    param(
+        [string]$RelativePath,
+        [string]$Pattern,
+        [string]$Message
+    )
+
+    $source = Read-RepoText $RelativePath
+    if ([regex]::IsMatch($source, $Pattern, [System.Text.RegularExpressions.RegexOptions]::Singleline)) {
+        Fail $Message
+    }
+}
+
+function Require-Match {
+    param(
+        [string]$RelativePath,
+        [string]$Pattern,
+        [string]$Message
+    )
+
+    $source = Read-RepoText $RelativePath
+    if (-not [regex]::IsMatch($source, $Pattern, [System.Text.RegularExpressions.RegexOptions]::Singleline)) {
+        Fail $Message
+    }
+}
+
+function Invoke-Step {
+    param(
+        [string]$Name,
+        [scriptblock]$Script
+    )
+
+    Write-Host "[RUN] $Name"
+    & $Script
+    Write-Host "[OK] $Name"
+}
+
+function Invoke-NpmScript {
+    param(
+        [string]$RelativeDirectory,
+        [string]$ScriptName
+    )
+
+    $npm = Get-Command npm.cmd -ErrorAction SilentlyContinue
+    if (-not $npm) {
+        $npm = Get-Command npm -ErrorAction Stop
+    }
+
+    Push-Location (Resolve-RepoPath $RelativeDirectory)
+    try {
+        & $npm.Source run $ScriptName
+        if ($LASTEXITCODE -ne 0) {
+            Fail "npm run $ScriptName failed in $RelativeDirectory"
+        }
+    } finally {
+        Pop-Location
+    }
+}
+
+if (-not $SkipBuild) {
+    Invoke-Step "build cloud webApp" { Invoke-NpmScript "webApp" "build" }
+    Invoke-Step "build cloud sysManage" { Invoke-NpmScript "sysManage" "build" }
+}
+
+Invoke-Step "verify cloud frontend split wiring" {
+    Require-Contains "webApp/Dockerfile" "COPY --from=cloud-builder /app/webApp/dist /usr/share/nginx/html/cloudPan" "cloud Dockerfile must package webApp under /cloudPan"
+    Require-Contains "webApp/Dockerfile" "COPY --from=cloud-console-builder /app/sysManage/dist /usr/share/nginx/html/console/cloud" "cloud Dockerfile must package sysManage under /console/cloud"
+
+    foreach ($conf in @("webApp/nginx/default.conf", "webApp/nginx/default.ssl.conf")) {
+        Require-Contains $conf "location ^~ /cloudPan/" "$conf must mount cloudPan deep links"
+        Require-Contains $conf 'try_files $uri $uri/ /cloudPan/index.html;' "$conf must serve cloudPan SPA fallback"
+        Require-Contains $conf "location ^~ /console/cloud/" "$conf must mount cloud console deep links"
+        Require-Contains $conf 'try_files $uri $uri/ /console/cloud/index.html;' "$conf must serve cloud console SPA fallback"
+        Require-Contains $conf "return 308 /login?returnTo=/cloudPan/;" "$conf must redirect legacy cloudPan login to unified login"
+    }
+
+    Require-NoMatch "webApp/src/App.tsx" 'path="/console' "cloud webApp must not mount console routes"
+    Require-NoMatch "webApp/src/pages/DrivePage.tsx" 'consoleHome|/console(/|$)' "cloud web account menu must not expose console entry points"
+    Require-NoMatch "webApp/src/index.css" '\.account-admin-tabs|\.audit-(filter|quick|result)|\.operations-|\.app-package-(summary|grid|card|link|url|meta|release-notes|list)|\.management-summary-|\.user-cell-copy|\.user-chip|\.table-secondary-text' "cloud web stylesheet must not keep admin console leftovers"
+    Require-Match "sysManage/src/pages/CloudConsolePage.tsx" 'document\.title = `\$\{activeMeta\.title\} - Alicia .+`;' "cloud console document title must follow the active view"
+}
+
+Write-Host "[OK] cloud frontend split local verification complete"
