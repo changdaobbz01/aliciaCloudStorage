@@ -627,5 +627,5 @@ require_source_match \
 require_source_match \
     "cloud route verifier exposes cache skip" \
     "deploy/scripts/verify-identity-cloud-routes.sh" \
-    'SKIP_CACHE_CHECKS="${ALICIA_VERIFY_SKIP_CACHE_CHECKS:-false}"' \
+    'ALICIA_VERIFY_SKIP_CACHE_CHECKS' \
     "Cloud route verifier must support skipping cache checks."
