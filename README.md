@@ -39,8 +39,10 @@ AliciaCloudStorage/
 ├─ identityApi/          # 统一身份服务，负责登录、注册、Token 和账号资料
 ├─ rag/                  # RAG 语义服务
 ├─ CloudStorageDB/       # 早期 SQL 初始化脚本
-├─ webApp/               # React + Vite 前端
-├─ phoneApp/             # Android 客户端（Kotlin + Jetpack Compose）
+├─ webApp/               # 普通云盘用户端，挂载在 /cloudPan/
+├─ sysManage/            # 云盘运营后台前端，挂载在 /console/cloud/
+├─ phoneAppAdd/          # 正式 Android 客户端（Kotlin + Jetpack Compose）
+├─ phoneApp/             # 历史 Android 客户端参考
 ├─ compose.yaml          # 本地 / 首发用 Docker Compose
 ├─ .env.example          # 环境变量示例
 └─ pom.xml               # Maven 根工程
@@ -482,6 +484,10 @@ Set-Location CloudStorageApi
 Set-Location webApp
 npm ci
 npm run dev
+
+Set-Location ../sysManage
+npm ci
+npm run dev -- --host 127.0.0.1 --port 5174
 ```
 
 前端开发地址：
@@ -489,7 +495,7 @@ npm run dev
 - `http://localhost:5173/cloudPan/`
 - `http://localhost:5174/console/cloud/users`
 
-Windows 本地可以直接跑前端拆分验收脚本，它会构建 `webApp` 和 `sysManage`，并检查普通云盘、云盘后台的 Docker/Nginx 挂载、边界守护、bundle size 守卫和 vendor 分包：
+Windows 本地可以直接跑前端拆分验收脚本，它会构建 `webApp` 和 `sysManage`，并检查普通云盘、云盘后台的 Docker/Nginx 挂载、`returnTo`、session 同步、边界守护、bundle size 守卫和 vendor 分包：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File deploy\scripts\verify-frontend-split-local.ps1
@@ -549,9 +555,13 @@ git push origin main
 Set-Location webApp
 npm run audit:high
 npm run build
+
+Set-Location ../sysManage
+npm run audit:high
+npm run build
 ```
 
-`npm run build` 会先检查浏览器统一会话同步约定，再执行 TypeScript 与 Vite 生产构建，最后校验单个 JS chunk 不超过 500 KiB，避免前端依赖升级后重新出现大包警告。
+两个前端的 `npm run build` 都会先检查统一登录 `returnTo`、浏览器 session 同步和职责边界，再执行 TypeScript 与 Vite 生产构建，最后校验单个 JS chunk 不超过 500 KiB，避免前端依赖升级后重新出现大包警告。
 
 停止容器：
 
