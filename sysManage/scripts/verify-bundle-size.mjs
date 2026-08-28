@@ -28,7 +28,7 @@ assert.deepEqual(
 );
 
 const largestChunk = jsChunks[0];
-console.log(`[OK] cloud web bundle size verified, largest JS chunk ${largestChunk.fileName} ${formatBytes(largestChunk.size)}`);
+console.log(`[OK] cloud console bundle size verified, largest JS chunk ${largestChunk.fileName} ${formatBytes(largestChunk.size)}`);
 
 function formatBytes(bytes) {
   return `${(bytes / 1024).toFixed(1)} KiB`;
