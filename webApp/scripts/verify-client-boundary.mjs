@@ -15,6 +15,14 @@ const forbiddenPatterns = [
   { pattern: /\b(fetchUsers|createUser|updateUserStorageQuota|resetUserPassword)\b/, reason: 'user administration belongs outside webApp' },
   { pattern: /\b(fetchAdminCloud|fetchAdminAppPackage|uploadAdminAppPackage|deleteAdminAppPackage)\b/, reason: 'cloud administration belongs in sysManage' },
 ];
+const forbiddenStyleClassPatterns = [
+  { pattern: /\.account-admin-tabs\b/, reason: 'account administration styles belong outside webApp' },
+  { pattern: /\.audit-(filter|quick|result)/, reason: 'identity audit styles belong in mainSite/userSite' },
+  { pattern: /\.operations-/, reason: 'cloud operations styles belong in sysManage' },
+  { pattern: /\.app-package-(summary|grid|card|link|url|meta|release-notes|list)/, reason: 'APK administration styles belong in sysManage' },
+  { pattern: /\.management-summary-/, reason: 'operations summary styles belong in sysManage' },
+  { pattern: /\.user-cell-copy\b|\.user-chip\b|\.table-secondary-text\b/, reason: 'admin table cell styles belong outside webApp' },
+];
 const forbiddenFileNames = [
   /DriveAccounts/,
   /DriveOperations/,
@@ -62,5 +70,10 @@ for (const entry of readdirSync(srcRoot, { recursive: true })) {
 
 const types = readFileSync(new URL('../src/types.ts', import.meta.url), 'utf8');
 assert.doesNotMatch(types, /'accounts'|'operations'|'appPackage'/, 'StorageViewMode must stay user-facing only');
+
+const clientStyles = readFileSync(new URL('../src/index.css', import.meta.url), 'utf8');
+for (const { pattern, reason } of forbiddenStyleClassPatterns) {
+  assert.doesNotMatch(clientStyles, pattern, `webApp styles must not contain ${pattern}: ${reason}`);
+}
 
 console.log('[OK] cloud web client boundary verified');
