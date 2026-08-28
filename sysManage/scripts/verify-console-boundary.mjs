@@ -31,6 +31,50 @@ function listSourceFiles(directoryUrl) {
   });
 }
 
+function extractApiPathLiterals(fileUrl) {
+  const source = readFileSync(fileUrl, 'utf8');
+  const apiPathPattern = /(['"`])(\/api\/[\s\S]*?)\1/g;
+  const paths = [];
+  let match;
+
+  while ((match = apiPathPattern.exec(source)) !== null) {
+    paths.push({
+      path: match[2],
+      relativePath: relative(srcRootPath, fileURLToPath(fileUrl)).replaceAll('\\', '/'),
+      line: source.slice(0, match.index).split('\n').length,
+    });
+  }
+
+  return paths;
+}
+
+function matchesOwnedApiPrefix(path, allowedPrefix) {
+  if (allowedPrefix.endsWith('/')) {
+    return path.startsWith(allowedPrefix);
+  }
+
+  return (
+    path === allowedPrefix ||
+    path.startsWith(`${allowedPrefix}/`) ||
+    path.startsWith(`${allowedPrefix}?`) ||
+    path.startsWith(`${allowedPrefix}\${`)
+  );
+}
+
+function assertApiPathsMatchAllowedPrefixes(fileUrls, allowedPrefixes, label) {
+  const violations = fileUrls
+    .flatMap((fileUrl) => extractApiPathLiterals(fileUrl))
+    .filter(({ path }) => !allowedPrefixes.some((allowedPrefix) => matchesOwnedApiPrefix(path, allowedPrefix)));
+
+  assert.deepEqual(
+    violations,
+    [],
+    `${label} contains API paths outside its frontend/API ownership:\n${violations
+      .map(({ relativePath, line, path }) => `  ${relativePath}:${line} ${path}`)
+      .join('\n')}\nAllowed prefixes: ${allowedPrefixes.join(', ')}`,
+  );
+}
+
 for (const fileUrl of listSourceFiles(srcRoot)) {
   const relativePath = relative(srcRootPath, fileURLToPath(fileUrl)).replaceAll('\\', '/');
   const source = readFileSync(fileUrl, 'utf8');
@@ -39,6 +83,26 @@ for (const fileUrl of listSourceFiles(srcRoot)) {
     assert.doesNotMatch(source, pattern, `${relativePath} must not contain ${pattern}: ${reason}`);
   }
 }
+
+assertApiPathsMatchAllowedPrefixes(
+  [
+    new URL('../src/lib/api.ts', import.meta.url),
+    new URL('../src/features/drive/driveShared.ts', import.meta.url),
+    new URL('../src/components/AppPackagePanel.tsx', import.meta.url),
+  ],
+  [
+    '/api/health',
+    '/api/cloud-profile/me',
+    '/api/cloud-profile/avatar',
+    '/api/identity/auth/token/refresh',
+    '/api/identity/auth/logout',
+    '/api/admin/cloud-users',
+    '/api/admin/cloud-operations',
+    '/api/admin/app-package',
+    '/api/app-package',
+  ],
+  'cloud console',
+);
 
 const consolePageSource = readFileSync(new URL('../src/pages/CloudConsolePage.tsx', import.meta.url), 'utf8');
 const appSource = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');

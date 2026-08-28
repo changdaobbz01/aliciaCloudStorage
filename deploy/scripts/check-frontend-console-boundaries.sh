@@ -119,6 +119,30 @@ require_source_no_match \
     "Cloud web stylesheet must not keep admin console style leftovers."
 
 require_source_match \
+    "cloud web API allowlist is enforced" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'assertApiPathsMatchAllowedPrefixes' \
+    "Cloud web boundary verifier must enforce API ownership allowlists."
+
+require_source_match \
+    "cloud web API allowlist keeps personal storage ownership" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    "'/api/storage/'" \
+    "Cloud web API allowlist must include personal storage APIs."
+
+require_source_match \
+    "cloud web API allowlist keeps personal share ownership" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    "'/api/share-links'" \
+    "Cloud web API allowlist must include personal share APIs."
+
+require_source_match \
+    "cloud web API allowlist keeps identity auth ownership" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    "'/api/identity/auth/'" \
+    "Cloud web API allowlist must include identity auth APIs."
+
+require_source_match \
     "cloud console reads current cloud profile" \
     "sysManage/src/lib/api.ts" \
     '/api/cloud-profile/me' \
@@ -147,6 +171,30 @@ require_source_match \
     "sysManage/src/features/drive/driveShared.ts" \
     '/api/app-package/download/current' \
     "Cloud console APK download link must use the public CloudStorageApi package endpoint."
+
+require_source_match \
+    "cloud console API allowlist is enforced" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'assertApiPathsMatchAllowedPrefixes' \
+    "Cloud console boundary verifier must enforce API ownership allowlists."
+
+require_source_match \
+    "cloud console API allowlist keeps cloud-users ownership" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    "'/api/admin/cloud-users'" \
+    "Cloud console API allowlist must include cloud users admin APIs."
+
+require_source_match \
+    "cloud console API allowlist keeps cloud-operations ownership" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    "'/api/admin/cloud-operations'" \
+    "Cloud console API allowlist must include cloud operations admin APIs."
+
+require_source_match \
+    "cloud console API allowlist keeps identity refresh ownership limited" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    "'/api/identity/auth/token/refresh'" \
+    "Cloud console API allowlist must include identity refresh only for session continuity."
 
 require_source_match \
     "CloudStorageApi exposes cloud-users admin backend" \

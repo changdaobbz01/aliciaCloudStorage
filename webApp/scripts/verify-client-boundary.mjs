@@ -44,6 +44,50 @@ function listSourceFiles(directoryUrl) {
   });
 }
 
+function extractApiPathLiterals(fileUrl) {
+  const source = readFileSync(fileUrl, 'utf8');
+  const apiPathPattern = /(['"`])(\/api\/[\s\S]*?)\1/g;
+  const paths = [];
+  let match;
+
+  while ((match = apiPathPattern.exec(source)) !== null) {
+    paths.push({
+      path: match[2],
+      relativePath: relative(srcRootPath, fileURLToPath(fileUrl)).replaceAll('\\', '/'),
+      line: source.slice(0, match.index).split('\n').length,
+    });
+  }
+
+  return paths;
+}
+
+function matchesOwnedApiPrefix(path, allowedPrefix) {
+  if (allowedPrefix.endsWith('/')) {
+    return path.startsWith(allowedPrefix);
+  }
+
+  return (
+    path === allowedPrefix ||
+    path.startsWith(`${allowedPrefix}/`) ||
+    path.startsWith(`${allowedPrefix}?`) ||
+    path.startsWith(`${allowedPrefix}\${`)
+  );
+}
+
+function assertApiPathsMatchAllowedPrefixes(fileUrls, allowedPrefixes, label) {
+  const violations = fileUrls
+    .flatMap((fileUrl) => extractApiPathLiterals(fileUrl))
+    .filter(({ path }) => !allowedPrefixes.some((allowedPrefix) => matchesOwnedApiPrefix(path, allowedPrefix)));
+
+  assert.deepEqual(
+    violations,
+    [],
+    `${label} contains API paths outside its frontend/API ownership:\n${violations
+      .map(({ relativePath, line, path }) => `  ${relativePath}:${line} ${path}`)
+      .join('\n')}\nAllowed prefixes: ${allowedPrefixes.join(', ')}`,
+  );
+}
+
 const files = listSourceFiles(srcRoot);
 
 for (const fileUrl of files) {
@@ -54,6 +98,20 @@ for (const fileUrl of files) {
     assert.doesNotMatch(source, pattern, `${relativePath} must not contain ${pattern}: ${reason}`);
   }
 }
+
+assertApiPathsMatchAllowedPrefixes(
+  [new URL('../src/lib/api.ts', import.meta.url), new URL('../src/features/drive/driveShared.ts', import.meta.url)],
+  [
+    '/api/health',
+    '/api/cloud-profile/',
+    '/api/identity/auth/',
+    '/api/storage/',
+    '/api/share-links',
+    '/api/public/share-links',
+    '/api/app-package',
+  ],
+  'cloud web',
+);
 
 for (const entry of readdirSync(srcRoot, { recursive: true })) {
   const relativePath = String(entry).replaceAll('\\', '/');
