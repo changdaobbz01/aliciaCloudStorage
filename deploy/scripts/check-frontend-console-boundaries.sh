@@ -209,6 +209,18 @@ require_source_match \
     "Cloud web must restore local session state after browser history cache restores."
 
 require_source_match \
+    "cloud web only expires authentication failures" \
+    "webApp/scripts/verify-session-sync.mjs" \
+    'only expire local sessions on authentication failures' \
+    "Cloud web must not clear sessions for transient API failures."
+
+require_source_match \
+    "cloud web seeds cached user from identity session" \
+    "webApp/scripts/verify-session-sync.mjs" \
+    'cloud-safe cached user from identity login sessions' \
+    "Cloud web must seed a cached user snapshot from identity login sessions."
+
+require_source_match \
     "cloud console reads current cloud profile" \
     "sysManage/src/lib/api.ts" \
     '/api/cloud-profile/me' \
@@ -339,6 +351,18 @@ require_source_match \
     "sysManage/scripts/verify-session-sync.mjs" \
     'history cache restores' \
     "Cloud console must restore local session state after browser history cache restores."
+
+require_source_match \
+    "cloud console only expires authentication failures" \
+    "sysManage/scripts/verify-session-sync.mjs" \
+    'only expire local sessions on authentication failures' \
+    "Cloud console must not clear sessions for transient API failures."
+
+require_source_match \
+    "cloud console seeds cached user from identity session" \
+    "sysManage/scripts/verify-session-sync.mjs" \
+    'cloud-safe cached user from identity login sessions' \
+    "Cloud console must seed a cached user snapshot from identity login sessions."
 
 require_source_match \
     "CloudStorageApi exposes cloud-users admin backend" \

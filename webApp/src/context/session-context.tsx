@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
-import { AUTH_EXPIRED_EVENT, fetchCurrentUser, logoutAuthToken, refreshAuthSession } from '../lib/api';
+import { AUTH_EXPIRED_EVENT, fetchCurrentUser, isApiError, logoutAuthToken, refreshAuthSession } from '../lib/api';
 import {
   clearCurrentSession as clearStoredSession,
   hasStoredSessionChanged,
@@ -45,6 +45,28 @@ function parseSessionChangeReason(revision: string | null | undefined) {
   return parts.length >= 3 ? parts[2] : null;
 }
 
+function isAuthenticationSessionError(error: unknown) {
+  return isApiError(error) && error.status === 401;
+}
+
+function toCachedCloudUser(sessionUser: { id: number; phoneNumber: string | null; email: string | null; nickname: string; avatarUrl: string | null; role: User['role']; status: User['status']; createdAt: string; appRoles: User['appRoles'] }): User {
+  return {
+    id: sessionUser.id,
+    phoneNumber: sessionUser.phoneNumber ?? '',
+    email: sessionUser.email,
+    nickname: sessionUser.nickname,
+    avatarUrl: sessionUser.avatarUrl,
+    homeBackgroundUrl: null,
+    role: sessionUser.role,
+    status: sessionUser.status,
+    createdAt: sessionUser.createdAt,
+    storageQuotaBytes: null,
+    usedBytes: 0,
+    remainingBytes: null,
+    appRoles: sessionUser.appRoles,
+  };
+}
+
 /**
  * 提供全局会话状态，统一管理登录态、资料刷新和令牌过期处理。
  */
@@ -77,6 +99,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     const snapshot = readStoredSessionSnapshot();
     const token = snapshot.token;
     const refreshToken = snapshot.refreshToken;
+    const cachedUser = loadCurrentUser();
+
+    if (cachedUser) {
+      setCurrentUser(cachedUser);
+    }
 
     if (!token && !refreshToken) {
       resetSessionState();
@@ -94,7 +121,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
     try {
       const refreshedSession = await refreshAuthSession(token, refreshToken);
-      const user = await fetchCurrentUser(refreshedSession.token);
+      let user = cachedUser ?? toCachedCloudUser(refreshedSession.user);
+
+      try {
+        user = await fetchCurrentUser(refreshedSession.token);
+      } catch (error) {
+        if (isAuthenticationSessionError(error)) {
+          throw error;
+        }
+      }
 
       if (isCancelled()) {
         return;
@@ -109,8 +144,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setCurrentUser(user);
       setAuthToken(refreshedSession.token);
       setLoginRedirectReason(null);
-    } catch {
-      if (!isCancelled() && !hasStoredSessionChanged(snapshot)) {
+    } catch (error) {
+      if (!isCancelled() && !hasStoredSessionChanged(snapshot) && isAuthenticationSessionError(error)) {
         expireCurrentSession();
       }
     } finally {
@@ -262,11 +297,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
         if (!cancelled && !hasStoredSessionChanged(snapshot)) {
           saveIdentityTokenSession(refreshedSession);
+          if (!loadCurrentUser()) {
+            saveCurrentUser(toCachedCloudUser(refreshedSession.user));
+          }
           setAuthToken(refreshedSession.token);
           setLoginRedirectReason(null);
         }
-      } catch {
-        if (!cancelled && !hasStoredSessionChanged(snapshot)) {
+      } catch (error) {
+        if (!cancelled && !hasStoredSessionChanged(snapshot) && isAuthenticationSessionError(error)) {
           expireCurrentSession();
         }
       }

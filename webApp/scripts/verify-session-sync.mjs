@@ -60,6 +60,15 @@ assert.match(
   /hasStoredSessionChanged\(snapshot\)/,
   'SessionProvider must not clear or overwrite a newer session after stale refresh',
 );
+assert.match(sessionContext, /function isAuthenticationSessionError/, 'SessionProvider must distinguish authentication failures from transient API failures');
+assert.match(
+  sessionContext,
+  /isAuthenticationSessionError\(error\)/,
+  'SessionProvider must only expire local sessions on authentication failures',
+);
+assert.match(sessionContext, /const cachedUser = loadCurrentUser\(\)/, 'SessionProvider must use cached user snapshots while restoring sessions');
+assert.match(sessionContext, /function toCachedCloudUser/, 'SessionProvider must derive a cloud-safe cached user from identity login sessions');
+assert.match(sessionContext, /saveCurrentUser\(toCachedCloudUser\(refreshedSession\.user\)\)/, 'SessionProvider token refresh must seed the cached current user snapshot');
 assert.match(
   sessionContext,
   /window\.addEventListener\('pageshow', handlePageShow\)/,
