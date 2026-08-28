@@ -19,6 +19,10 @@ export function AppDownloadPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    document.title = '移动客户端下载 - Alicia 云盘';
+  }, []);
+
+  useEffect(() => {
     let cancelled = false;
 
     async function loadPackage() {

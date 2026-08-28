@@ -75,11 +75,18 @@ const rootApp = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8')
 assert.doesNotMatch(rootApp, /path="\/console/, 'cloud web must not mount console routes');
 
 const drivePage = readFileSync(new URL('../src/pages/DrivePage.tsx', import.meta.url), 'utf8');
+const appDownloadPage = readFileSync(new URL('../src/pages/AppDownloadPage.tsx', import.meta.url), 'utf8');
+const sharePage = readFileSync(new URL('../src/pages/SharePage.tsx', import.meta.url), 'utf8');
+const unifiedLoginRedirectPage = readFileSync(new URL('../src/pages/UnifiedLoginRedirectPage.tsx', import.meta.url), 'utf8');
 assert.doesNotMatch(
   drivePage,
   /管理控制台|consoleHome|\/console(?:\/|\b)/,
   'cloud web account menu must not expose admin console entry points',
 );
+assert.match(drivePage, /document\.title = `\$\{currentViewLabel\} - Alicia/, 'cloud drive page document title must follow the active view');
+assert.match(appDownloadPage, /document\.title = '.+Alicia/, 'cloud app download page document title must be explicit');
+assert.match(sharePage, /document\.title = shareTitle \?/, 'cloud share page document title must follow the loaded share title');
+assert.match(unifiedLoginRedirectPage, /document\.title = '.+Alicia/, 'cloud login redirect page document title must be explicit');
 
 const clientStyles = readFileSync(new URL('../src/index.css', import.meta.url), 'utf8');
 for (const { pattern, reason } of forbiddenStyleClassPatterns) {

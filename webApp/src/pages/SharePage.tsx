@@ -244,6 +244,11 @@ export function SharePage() {
   );
 
   useEffect(() => {
+    const shareTitle = detail?.title.trim();
+    document.title = shareTitle ? `${shareTitle} - Alicia 云盘分享` : '分享文件 - Alicia 云盘';
+  }, [detail?.title]);
+
+  useEffect(() => {
     setShareAccessToken(loadStoredShareAccess(normalizedShareCode));
     setDetail(null);
     setSelectedShareRowKeys([]);

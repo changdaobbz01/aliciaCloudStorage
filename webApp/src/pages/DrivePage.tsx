@@ -119,9 +119,14 @@ export function DrivePage() {
       ? '下载管理'
     : isSharesView
       ? '我的分享'
-      : isTrashView
-        ? '回收站'
-        : '我的文件';
+    : isTrashView
+      ? '回收站'
+      : '我的文件';
+
+  useEffect(() => {
+    document.title = `${currentViewLabel} - Alicia 云盘`;
+  }, [currentViewLabel]);
+
   const currentAvatarSrc = resolveAvatarSrc(currentUser);
   const appDownloadAvailable = publicAppPackageInfo?.available ?? false;
   const appDownloadUrl = resolveAppDownloadUrl(publicAppPackageInfo?.downloadUrl ?? APP_DOWNLOAD_PUBLIC_PATH);
