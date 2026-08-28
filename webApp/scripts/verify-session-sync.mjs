@@ -27,6 +27,13 @@ assert.match(
   'session revision key must be part of the watched session storage keys',
 );
 assert.match(session, /function notifySessionChanged/, 'cloud session utility must expose session change notifications');
+assert.match(session, /function sanitizeStoredSession/, 'cloud session utility must sanitize legacy browser session residue');
+assert.match(session, /sanitizeStoredSession\(\);/, 'cloud session utility must run legacy browser session sanitation on startup');
+assert.match(
+  session,
+  /if \(\(!token \|\| !refreshToken\) && !isSessionWriteLocked\(\)\) \{\s*clearCurrentSession\(\);\s*\}/,
+  'cloud session utility must clear partial stored token pairs once no session write is active',
+);
 assert.match(
   session,
   /function runAfterSessionWriteSettled/,

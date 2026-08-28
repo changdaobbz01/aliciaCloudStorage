@@ -221,6 +221,12 @@ require_source_match \
     "Cloud web must seed a cached user snapshot from identity login sessions."
 
 require_source_match \
+    "cloud web sanitizes legacy sessions" \
+    "webApp/scripts/verify-session-sync.mjs" \
+    'sanitize legacy browser session residue' \
+    "Cloud web must sanitize legacy browser session residue."
+
+require_source_match \
     "cloud console reads current cloud profile" \
     "sysManage/src/lib/api.ts" \
     '/api/cloud-profile/me' \
@@ -363,6 +369,12 @@ require_source_match \
     "sysManage/scripts/verify-session-sync.mjs" \
     'cloud-safe cached user from identity login sessions' \
     "Cloud console must seed a cached user snapshot from identity login sessions."
+
+require_source_match \
+    "cloud console sanitizes legacy sessions" \
+    "sysManage/scripts/verify-session-sync.mjs" \
+    'sanitize legacy browser session residue' \
+    "Cloud console must sanitize legacy browser session residue."
 
 require_source_match \
     "CloudStorageApi exposes cloud-users admin backend" \

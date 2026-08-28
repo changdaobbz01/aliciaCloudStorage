@@ -77,6 +77,27 @@ export function hasStoredSessionTokens() {
   return Boolean(loadAuthToken() || loadRefreshToken());
 }
 
+export function sanitizeStoredSession() {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  const token = loadAuthToken();
+  const refreshToken = loadRefreshToken();
+
+  loadCurrentUser();
+
+  if (!token && !refreshToken) {
+    localStorage.removeItem(USER_STORAGE_KEY);
+    clearSessionWriteLock();
+    return;
+  }
+
+  if ((!token || !refreshToken) && !isSessionWriteLocked()) {
+    clearCurrentSession();
+  }
+}
+
 export function isSessionStorageKey(key: string | null) {
   return key !== null && SESSION_STORAGE_KEYS.has(key);
 }
@@ -229,3 +250,5 @@ export function clearCurrentSession() {
 export function saveCurrentUser(user: User) {
   localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
 }
+
+sanitizeStoredSession();
