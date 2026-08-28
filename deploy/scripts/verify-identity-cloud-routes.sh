@@ -764,9 +764,11 @@ expect_status "rag assistant access requires identity token" 401 \
     "$PUBLIC_BASE_URL/rag/api/assistant/auth/access"
 expect_status "rag assistant contract requires identity token" 401 \
     "$RAG_ACTION_PLAN_CONTRACT_URL"
+curl_ok "main site home entry" -I "$PUBLIC_BASE_URL/"
 curl_ok "main site login entry" -I "$PUBLIC_BASE_URL/login"
 curl_ok "main site login returnTo entry" -I "$PUBLIC_BASE_URL/login?returnTo=/cloudPan/"
 curl_ok "main site expired login entry" -I "$PUBLIC_BASE_URL/login?returnTo=/cloudPan/&reason=session-expired"
+expect_spa_shell "main site home entry" "$PUBLIC_BASE_URL/" "Alicia Tools" "/assets/index-"
 expect_spa_shell "main site login entry" "$PUBLIC_BASE_URL/login" "Alicia Tools" "/assets/index-"
 expect_spa_shell "main site login returnTo entry" "$PUBLIC_BASE_URL/login?returnTo=/cloudPan/" "Alicia Tools" "/assets/index-"
 expect_spa_shell "main site expired login entry" "$PUBLIC_BASE_URL/login?returnTo=/cloudPan/&reason=session-expired" "Alicia Tools" "/assets/index-"
@@ -808,6 +810,7 @@ expect_spa_shell "cloud console app package route" "$PUBLIC_BASE_URL/console/clo
 expect_spa_shell "cloudPan share route" "$PUBLIC_BASE_URL/cloudPan/share/cache-probe" "Alicia 云盘" "/cloudPan/assets/index-"
 
 if [[ "$SKIP_CACHE_CHECKS" != "true" ]]; then
+    expect_no_store_index "main site index" "$PUBLIC_BASE_URL/"
     expect_no_store_index "main site login index" "$PUBLIC_BASE_URL/login"
     expect_no_store_index "main site login returnTo index" "$PUBLIC_BASE_URL/login?returnTo=/cloudPan/"
     expect_no_store_index "main site expired login index" "$PUBLIC_BASE_URL/login?returnTo=/cloudPan/&reason=session-expired"
@@ -823,6 +826,7 @@ if [[ "$SKIP_CACHE_CHECKS" != "true" ]]; then
     expect_no_store_index "cloud console users index" "$PUBLIC_BASE_URL/console/cloud/users"
     expect_no_store_index "cloud console operations index" "$PUBLIC_BASE_URL/console/cloud/operations"
     expect_no_store_index "cloud console app package index" "$PUBLIC_BASE_URL/console/cloud/app-package"
+    expect_spa_asset_cache "main site" "$PUBLIC_BASE_URL" "$PUBLIC_BASE_URL/"
     expect_spa_asset_cache "console gateway" "$PUBLIC_BASE_URL" "$PUBLIC_BASE_URL/console/"
     expect_spa_asset_cache "identity console" "$PUBLIC_BASE_URL" "$PUBLIC_BASE_URL/console/identity/"
     expect_spa_asset_cache "cloudPan" "$PUBLIC_BASE_URL" "$PUBLIC_BASE_URL/cloudPan/"
