@@ -1084,7 +1084,7 @@ bash deploy/scripts/check-identity-route-boundary.sh
 
 该脚本检查源码和部署配置中是否重新出现旧 `/api/auth/**` 或旧 `/api/admin/users` 引用，并检查 Identity 源码/迁移是否重新引用云盘画像字段；同时排除运行验证脚本里的旧路由 404 断言。优先使用 `rg`，服务器未安装 `rg` 时自动降级到 `grep`。
 
-同一边界也由 `CloudStorageApi` 的 `IdentityRouteBoundaryTest` 纳入 Maven 测试，避免只依赖部署脚本人工执行。后端 Controller 路由归属由 `CloudApiRouteOwnershipTest` 和 `IdentityApiRouteOwnershipTest` 固化：云盘服务只暴露云盘业务 API 前缀，身份服务只暴露 `/api/identity/**`。
+同一边界也由 `CloudStorageApi` 的 `IdentityRouteBoundaryTest` 纳入 Maven 测试，避免只依赖部署脚本人工执行。后端 Controller 路由归属由 `CloudApiRouteOwnershipTest` 和 `IdentityApiRouteOwnershipTest` 固化：云盘服务只暴露云盘业务 API 前缀，身份服务只暴露 `/api/identity/**`。`IdentityApiRouteOwnershipTest` 同时固定身份后台运行时访问边界：管理 Controller 必须接收 Authorization，其委托的管理服务方法必须直接调用 `requireAdminUser`。
 
 本地提交前可一次执行：
 
