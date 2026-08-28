@@ -277,6 +277,7 @@ if [[ "$RUN_BOUNDARY_CHECK" == "true" ]]; then
     print_section "Static Boundary Check"
     run_optional "identity route boundary check" bash deploy/scripts/check-identity-route-boundary.sh
     run_optional "frontend console boundary check" bash deploy/scripts/check-frontend-console-boundaries.sh
+    run_optional "backend API ownership boundary check" bash deploy/scripts/verify-backend-api-boundaries.sh
 fi
 
 print_section "Result"

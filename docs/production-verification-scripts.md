@@ -157,6 +157,19 @@ bash deploy/scripts/check-identity-route-boundary.sh
 
 服务器未安装 `rg` 时脚本会自动降级到 `grep`。
 
+用于提交、部署或生产回归前确认后端 API 路由归属和身份后台管理权限兜底：
+
+```bash
+bash deploy/scripts/verify-backend-api-boundaries.sh
+```
+
+检查内容：
+
+- `CloudStorageApi` Controller 只暴露云盘业务 API 前缀
+- `identityApi` Controller 只暴露 `/api/identity/**`
+- 身份后台 Controller 传递 Authorization
+- 身份后台委托的管理服务方法直接调用 `requireAdminUser`
+
 ## 8. 生产状态快照
 
 用于日常巡检或发布后留档：

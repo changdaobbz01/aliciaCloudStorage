@@ -1092,6 +1092,12 @@ bash deploy/scripts/check-identity-route-boundary.sh
 powershell -ExecutionPolicy Bypass -File deploy\scripts\verify-backend-api-boundaries.ps1
 ```
 
+服务器或 Linux 环境可执行：
+
+```bash
+bash deploy/scripts/verify-backend-api-boundaries.sh
+```
+
 Android 发版前执行移动端 readiness 检查：
 
 ```powershell

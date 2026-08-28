@@ -381,6 +381,12 @@ bash deploy/scripts/check-identity-route-boundary.sh
 powershell -ExecutionPolicy Bypass -File deploy\scripts\verify-backend-api-boundaries.ps1
 ```
 
+服务器或 Linux 环境可执行：
+
+```bash
+bash deploy/scripts/verify-backend-api-boundaries.sh
+```
+
 移动端发版前可以执行 Android readiness 检查，脚本会扫描 `phoneApp` 和 `phoneAppAdd` 的正式服务入口、旧 Identity 路径、旧测试服入口、refresh token 契约、401 过期会话处理，并默认运行两个 Android 工程的 Debug 单测：
 
 ```powershell
