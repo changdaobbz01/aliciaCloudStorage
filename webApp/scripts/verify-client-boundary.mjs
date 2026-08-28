@@ -145,6 +145,11 @@ assert.doesNotMatch(
   /管理控制台|consoleHome|\/console(?:\/|\b)/,
   'cloud web account menu must not expose admin console entry points',
 );
+assert.match(
+  driveProfileModals,
+  /title=\{<AliciaModalTitle eyebrow="Account">个人资料<\/AliciaModalTitle>\}[\s\S]*rootClassName="alicia-modal alicia-account-modal account-profile-modal"[\s\S]*className="account-profile-form"[\s\S]*className="profile-avatar-row account-profile-hero"[\s\S]*<strong>用户图标<\/strong>[\s\S]*上传本地图片或填写图片地址后，会同步更新所有 Alicia 账号入口。[\s\S]*className="account-profile-actions"[\s\S]*name="nickname"[\s\S]*name="phoneNumber"[\s\S]*name="avatarUrl"/,
+  'cloud web profile modal must keep the shared profile dialog contract',
+);
 assert.match(driveProfileModals, /className="account-profile-form"/, 'cloud web profile modal must use the unified account profile form layout');
 assert.match(driveProfileModals, /name="avatarUrl"/, 'cloud web profile modal must keep the shared avatar URL field');
 assert.match(driveProfileModals, /className="profile-avatar-row account-profile-hero"/, 'cloud web profile modal must keep the shared avatar function area');
@@ -163,5 +168,10 @@ const clientStyles = readFileSync(new URL('../src/index.css', import.meta.url), 
 for (const { pattern, reason } of forbiddenStyleClassPatterns) {
   assert.doesNotMatch(clientStyles, pattern, `webApp styles must not contain ${pattern}: ${reason}`);
 }
+assert.match(clientStyles, /\.account-profile-form/, 'cloud web styles must define the unified account profile form');
+assert.match(clientStyles, /\.account-profile-hero/, 'cloud web styles must define the unified profile avatar function area');
+assert.match(clientStyles, /\.account-profile-copy/, 'cloud web styles must define the unified profile explanatory copy');
+assert.match(clientStyles, /\.account-profile-actions/, 'cloud web styles must define the unified profile action row');
+assert.match(clientStyles, /\.account-profile-fields/, 'cloud web styles must define the unified profile field stack');
 
 console.log('[OK] cloud web client boundary verified');

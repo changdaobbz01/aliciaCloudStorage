@@ -143,6 +143,12 @@ require_source_match \
     "Cloud web API allowlist must include identity auth APIs."
 
 require_source_match \
+    "cloud web profile dialog contract is enforced" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web profile modal must keep the shared profile dialog contract' \
+    "Cloud web profile modal must enforce the shared account profile contract."
+
+require_source_match \
     "cloud web exposes returnTo verifier" \
     "webApp/package.json" \
     '"verify:return-to"[[:space:]]*:[[:space:]]*"node scripts/verify-unified-login-return-to\.mjs"' \
@@ -261,6 +267,12 @@ require_source_match \
     "sysManage/scripts/verify-console-boundary.mjs" \
     'cloud console page must use the centralized cloud admin predicate' \
     "Cloud console boundary verifier must enforce the runtime cloud admin gate."
+
+require_source_match \
+    "cloud console profile dialog contract is enforced" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console profile modal must keep the shared profile dialog contract' \
+    "Cloud console profile modal must enforce the shared account profile contract."
 
 require_source_match \
     "cloud console boundary accepts cloud app admins" \
