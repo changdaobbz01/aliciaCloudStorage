@@ -14,7 +14,7 @@ const forbiddenPatterns = [
   { pattern: /\/api\/public\/share-links\//, reason: 'public share pages belong in webApp' },
   { pattern: /\b(IdentityAudit|IdentityApplicationRole|UpdateIdentityApplicationRole)[A-Za-z0-9_]*\b/, reason: 'identity admin types belong in mainSite/userSite' },
   { pattern: /\b(StorageViewMode|StorageFileCategory|StorageNodeFilter|StorageNodeSortField)\b/, reason: 'personal drive types belong in webApp' },
-  { pattern: /\b(fetchIdentitySessions|revokeIdentitySession|changePassword|updateProfile)\b/, reason: 'personal identity settings belong in webApp or userSite' },
+  { pattern: /\b(fetchIdentitySessions|revokeIdentitySession|changePassword)\b/, reason: 'personal session and password settings belong in webApp or userSite' },
   { pattern: /\b(fetchDriveOverview|fetchStorageNodes|createFolder|uploadStorageFile|createShareLink)\b/, reason: 'personal drive API calls belong in webApp' },
   { pattern: /\b(downloadStorage|renameStorage|moveStorage|deleteStorage|restoreStorage|permanentlyDelete)\b/, reason: 'personal drive mutation API calls belong in webApp' },
 ];
@@ -94,6 +94,7 @@ assertApiPathsMatchAllowedPrefixes(
     '/api/health',
     '/api/cloud-profile/me',
     '/api/cloud-profile/avatar',
+    '/api/identity/auth/profile',
     '/api/identity/auth/token/refresh',
     '/api/identity/auth/logout',
     '/api/admin/cloud-users',
@@ -140,6 +141,9 @@ assert.match(
   'cloud console must show its permission denied state before rendering admin views',
 );
 assert.match(consolePageSource, /key:\s*'consoleHome'/, 'cloud console account menu must expose the unified console gateway');
+assert.match(consolePageSource, /key:\s*'profile'/, 'cloud console account menu must expose current user profile editing');
+assert.match(consolePageSource, /className="account-profile-form"/, 'cloud console profile modal must use the unified account profile form layout');
+assert.match(consolePageSource, /name="avatarUrl"/, 'cloud console profile modal must keep the shared avatar URL field');
 assert.match(
   consolePageSource,
   /window\.location\.assign\('\/console\/'\)/,

@@ -10,6 +10,7 @@ import type {
   AppPackageInfo,
   HealthResponse,
   IdentityLoginResponse,
+  UpdateProfilePayload,
   UpdateUserStorageQuotaPayload,
   User,
 } from '../types';
@@ -326,6 +327,26 @@ export function fetchHealth() {
 
 export function fetchCurrentUser(token: string) {
   return requestJson<User>('/api/cloud-profile/me', withToken(token));
+}
+
+export function updateProfile(payload: UpdateProfilePayload, token: string) {
+  return requestJson<unknown>(
+    '/api/identity/auth/profile',
+    withToken(token, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    }),
+  ).then(() => fetchCurrentUser(token));
+}
+
+export function uploadCurrentUserAvatar(file: File, token: string) {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  return requestUploadJson<User>('/api/cloud-profile/avatar', formData, token);
 }
 
 export function refreshAuthSession(token: string, refreshToken: string) {

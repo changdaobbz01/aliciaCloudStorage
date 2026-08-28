@@ -233,6 +233,12 @@ export type UpdateUserStorageQuotaPayload = {
   storageQuotaBytes: number;
 };
 
+export type UpdateProfilePayload = {
+  nickname: string;
+  phoneNumber?: string | null;
+  avatarUrl: string | null;
+};
+
 export type ApiMessageResponse = {
   message: string;
 };

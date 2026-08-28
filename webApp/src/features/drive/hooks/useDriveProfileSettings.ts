@@ -44,6 +44,7 @@ export function useDriveProfileSettings({
   const [identitySessionsLoading, setIdentitySessionsLoading] = useState(false);
   const [identitySessionRevokingId, setIdentitySessionRevokingId] = useState<number | null>(null);
   const [includeRevokedSessions, setIncludeRevokedSessions] = useState(false);
+  const [profileSaving, setProfileSaving] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [profileForm] = Form.useForm<UpdateProfilePayload>();
   const [passwordForm] = Form.useForm<PasswordFormValues>();
@@ -56,8 +57,9 @@ export function useDriveProfileSettings({
     }
 
     profileForm.setFieldsValue({
-      phoneNumber: currentUser.phoneNumber || '',
       nickname: currentUser.nickname,
+      phoneNumber: currentUser.phoneNumber || '',
+      avatarUrl: currentUser.avatarUrl ?? '',
     });
     setProfileOpen(true);
   }
@@ -228,26 +230,38 @@ export function useDriveProfileSettings({
       return false;
     }
 
-    const submittedAvatarUrl = (values as Partial<UpdateProfilePayload>).avatarUrl;
-    const avatarUrl =
-      submittedAvatarUrl === undefined
-        ? currentUser?.avatarUrl ?? null
-        : submittedAvatarUrl?.trim()
-          ? submittedAvatarUrl.trim()
-          : null;
+    const nickname = values.nickname.trim();
 
-    const updatedUser = await updateProfile(
-      {
-        ...values,
-        avatarUrl,
-      },
-      authToken,
-    );
+    if (!nickname) {
+      message.error('请输入昵称。');
+      return false;
+    }
 
-    updateCurrentUser(updatedUser);
-    setProfileOpen(false);
-    message.success('个人资料已更新。');
-    return true;
+    const avatarUrl = values.avatarUrl?.trim() ? values.avatarUrl.trim() : null;
+    const phoneNumber = values.phoneNumber?.trim() ? values.phoneNumber.trim() : null;
+
+    setProfileSaving(true);
+
+    try {
+      const updatedUser = await updateProfile(
+        {
+          nickname,
+          phoneNumber,
+          avatarUrl,
+        },
+        authToken,
+      );
+
+      updateCurrentUser(updatedUser);
+      setProfileOpen(false);
+      message.success('个人资料已更新。');
+      return true;
+    } catch (profileError) {
+      message.error(profileError instanceof Error ? profileError.message : '个人资料保存失败。');
+      return false;
+    } finally {
+      setProfileSaving(false);
+    }
   }
 
   async function submitPassword(values: PasswordFormValues) {
@@ -305,6 +319,7 @@ export function useDriveProfileSettings({
     identitySessionsLoading,
     identitySessionRevokingId,
     includeRevokedSessions,
+    profileSaving,
     avatarUploading,
     profileForm,
     passwordForm,

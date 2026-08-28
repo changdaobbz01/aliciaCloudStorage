@@ -21,6 +21,7 @@ type DriveProfileModalsProps = {
   identitySessionsLoading: boolean;
   identitySessionRevokingId: number | null;
   includeRevokedSessions: boolean;
+  profileSaving: boolean;
   avatarUploading: boolean;
   profileForm: FormInstance<UpdateProfilePayload>;
   passwordForm: FormInstance<PasswordFormValues>;
@@ -61,6 +62,20 @@ function renderSessionStatus(session: IdentitySession) {
   return <Tag color="green">有效</Tag>;
 }
 
+function resolveProfileAvatarSrc(user: User | null, avatarUrl: string | null | undefined) {
+  const trimmed = avatarUrl?.trim();
+
+  if (!trimmed) {
+    return undefined;
+  }
+
+  if (trimmed.startsWith('cos:')) {
+    return user ? `/api/cloud-profile/avatar/${user.id}?v=${encodeURIComponent(trimmed)}` : undefined;
+  }
+
+  return trimmed;
+}
+
 export function DriveProfileModals({
   currentUser,
   currentAvatarSrc,
@@ -71,6 +86,7 @@ export function DriveProfileModals({
   identitySessionsLoading,
   identitySessionRevokingId,
   includeRevokedSessions,
+  profileSaving,
   avatarUploading,
   profileForm,
   passwordForm,
@@ -86,6 +102,9 @@ export function DriveProfileModals({
   onIncludeRevokedSessionsChange,
   onRevokeSession,
 }: DriveProfileModalsProps) {
+  const watchedAvatarUrl = Form.useWatch('avatarUrl', profileForm);
+  const profileAvatarSrc =
+    watchedAvatarUrl === undefined ? currentAvatarSrc : resolveProfileAvatarSrc(currentUser, watchedAvatarUrl);
   const sessionColumns: TableProps<IdentitySession>['columns'] = [
     {
       title: '客户端',
@@ -163,23 +182,41 @@ export function DriveProfileModals({
     <>
       <Modal
         title={<AliciaModalTitle eyebrow="Account">个人资料</AliciaModalTitle>}
-        rootClassName="alicia-modal alicia-account-modal"
+        rootClassName="alicia-modal alicia-account-modal account-profile-modal"
         open={profileOpen}
         onCancel={onCloseProfile}
         onOk={() => void profileForm.submit()}
         okText="保存资料"
         cancelText="取消"
+        confirmLoading={profileSaving}
+        maskClosable={!profileSaving && !avatarUploading}
+        closable={!profileSaving && !avatarUploading}
+        cancelButtonProps={{ disabled: profileSaving || avatarUploading }}
         destroyOnHidden
       >
-        <Form form={profileForm} layout="vertical" onFinish={(values) => void onSubmitProfile(values)}>
-          <div className="profile-avatar-row">
-            <Avatar size={64} src={currentAvatarSrc}>
+        <Form
+          form={profileForm}
+          layout="vertical"
+          className="account-profile-form"
+          onFinish={(values) => void onSubmitProfile(values)}
+        >
+          <div className="profile-avatar-row account-profile-hero">
+            <Avatar size={64} src={profileAvatarSrc} className="account-profile-avatar-frame">
               {currentUser?.nickname?.slice(0, 1).toUpperCase() ?? 'U'}
             </Avatar>
-            <Space wrap>
-              <Button icon={<Icon icon={Upload} />} loading={avatarUploading} onClick={onAvatarButtonClick}>
-                上传本地头像
-              </Button>
+            <div className="account-profile-copy">
+              <strong>用户图标</strong>
+              <small>上传本地图片或填写图片地址后，会同步更新所有 Alicia 账号入口。</small>
+              <div className="account-profile-actions">
+                <Button
+                  icon={<Icon icon={Upload} />}
+                  loading={avatarUploading}
+                  disabled={profileSaving}
+                  onClick={onAvatarButtonClick}
+                >
+                  上传图片
+                </Button>
+              </div>
               <input
                 ref={avatarInputRef}
                 type="file"
@@ -187,24 +224,29 @@ export function DriveProfileModals({
                 className="upload-input"
                 onChange={(event) => void onAvatarFileChange(event)}
               />
-            </Space>
+            </div>
           </div>
-          <Form.Item
-            name="phoneNumber"
-            label="手机号"
-            rules={[
-              { pattern: /^1\d{10}$/, message: '请输入 11 位手机号。' },
-            ]}
-          >
-            <Input placeholder="可选，绑定后也可用于登录" />
-          </Form.Item>
-          <Form.Item
-            name="nickname"
-            label="昵称"
-            rules={[{ required: true, message: '请输入昵称。' }]}
-          >
-            <Input />
-          </Form.Item>
+          <div className="account-profile-fields">
+            <Form.Item
+              name="nickname"
+              label="昵称"
+              rules={[{ required: true, message: '请输入昵称。' }]}
+            >
+              <Input maxLength={100} placeholder="请输入昵称" />
+            </Form.Item>
+            <Form.Item
+              name="phoneNumber"
+              label="手机号"
+              rules={[
+                { pattern: /^1\d{10}$/, message: '请输入 11 位手机号。' },
+              ]}
+            >
+              <Input placeholder="可选，绑定后也可用于登录" />
+            </Form.Item>
+            <Form.Item name="avatarUrl" label="头像图标地址">
+              <Input maxLength={500} placeholder="可选，使用图片地址或 cos: 头像地址" />
+            </Form.Item>
+          </div>
         </Form>
       </Modal>
 

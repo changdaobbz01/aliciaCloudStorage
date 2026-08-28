@@ -133,6 +133,7 @@ const rootApp = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8')
 assert.doesNotMatch(rootApp, /path="\/console/, 'cloud web must not mount console routes');
 
 const drivePage = readFileSync(new URL('../src/pages/DrivePage.tsx', import.meta.url), 'utf8');
+const driveProfileModals = readFileSync(new URL('../src/features/drive/DriveProfileModals.tsx', import.meta.url), 'utf8');
 const appDownloadPage = readFileSync(new URL('../src/pages/AppDownloadPage.tsx', import.meta.url), 'utf8');
 const sharePage = readFileSync(new URL('../src/pages/SharePage.tsx', import.meta.url), 'utf8');
 const unifiedLoginRedirectPage = readFileSync(new URL('../src/pages/UnifiedLoginRedirectPage.tsx', import.meta.url), 'utf8');
@@ -144,6 +145,9 @@ assert.doesNotMatch(
   /管理控制台|consoleHome|\/console(?:\/|\b)/,
   'cloud web account menu must not expose admin console entry points',
 );
+assert.match(driveProfileModals, /className="account-profile-form"/, 'cloud web profile modal must use the unified account profile form layout');
+assert.match(driveProfileModals, /name="avatarUrl"/, 'cloud web profile modal must keep the shared avatar URL field');
+assert.match(driveProfileModals, /className="profile-avatar-row account-profile-hero"/, 'cloud web profile modal must keep the shared avatar function area');
 assert.match(drivePage, /document\.title = `\$\{currentViewLabel\} - Alicia/, 'cloud drive page document title must follow the active view');
 assert.match(appDownloadPage, /document\.title = '.+Alicia/, 'cloud app download page document title must be explicit');
 assert.match(sharePage, /document\.title = shareTitle \?/, 'cloud share page document title must follow the loaded share title');

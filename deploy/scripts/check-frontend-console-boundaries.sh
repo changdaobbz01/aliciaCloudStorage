@@ -233,6 +233,12 @@ require_source_match \
     "Cloud console API allowlist must include identity refresh only for session continuity."
 
 require_source_match \
+    "cloud console API allowlist keeps identity profile ownership limited" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    "'/api/identity/auth/profile'" \
+    "Cloud console API allowlist must include identity profile only for current-user settings."
+
+require_source_match \
     "cloud console boundary checks runtime cloud admin gate" \
     "sysManage/scripts/verify-console-boundary.mjs" \
     'cloud console page must use the centralized cloud admin predicate' \
@@ -369,8 +375,20 @@ done
 scan_target \
     "cloud console has no identity or personal drive references" \
     "sysManage/src" \
-    "(/api/identity/admin/|${LEGACY_CLOUD_ADMIN_USERS_PATTERN}|/api/storage/|/api/share-links/|/api/public/share-links/|(^|[^[:alnum:]_])(IdentityAudit[[:alnum:]_]*|IdentityApplicationRole[[:alnum:]_]*|UpdateIdentityApplicationRole[[:alnum:]_]*|StorageViewMode|StorageFileCategory|StorageNodeFilter|StorageNodeSortField|fetchIdentitySessions|revokeIdentitySession|changePassword|updateProfile|fetchDriveOverview|fetchStorageNodes|createFolder|uploadStorageFile|createShareLink|downloadStorage[[:alnum:]_]*|renameStorage[[:alnum:]_]*|moveStorage[[:alnum:]_]*|deleteStorage[[:alnum:]_]*|restoreStorage[[:alnum:]_]*|permanentlyDelete[[:alnum:]_]*)($|[^[:alnum:]_]))" \
+    "(/api/identity/admin/|${LEGACY_CLOUD_ADMIN_USERS_PATTERN}|/api/storage/|/api/share-links/|/api/public/share-links/|(^|[^[:alnum:]_])(IdentityAudit[[:alnum:]_]*|IdentityApplicationRole[[:alnum:]_]*|UpdateIdentityApplicationRole[[:alnum:]_]*|StorageViewMode|StorageFileCategory|StorageNodeFilter|StorageNodeSortField|fetchIdentitySessions|revokeIdentitySession|changePassword|fetchDriveOverview|fetchStorageNodes|createFolder|uploadStorageFile|createShareLink|downloadStorage[[:alnum:]_]*|renameStorage[[:alnum:]_]*|moveStorage[[:alnum:]_]*|deleteStorage[[:alnum:]_]*|restoreStorage[[:alnum:]_]*|permanentlyDelete[[:alnum:]_]*)($|[^[:alnum:]_]))" \
     "Cloud admin console contains identity-admin or personal drive API/type references."
+
+require_source_match \
+    "cloud console account menu exposes profile editing" \
+    "sysManage/src/pages/CloudConsolePage.tsx" \
+    "key:[[:space:]]*'profile'" \
+    "Cloud console account menu must expose current user profile editing."
+
+require_source_match \
+    "cloud console profile modal uses unified layout" \
+    "sysManage/src/pages/CloudConsolePage.tsx" \
+    'className="account-profile-form"' \
+    "Cloud console profile modal must use the unified account profile layout."
 
 require_source_match \
     "cloud console account menu exposes console gateway" \

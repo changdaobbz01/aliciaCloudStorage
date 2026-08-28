@@ -1,8 +1,9 @@
-import { App as AntApp, Avatar, Button, Dropdown, Layout, Menu, Result, Space, Spin, Typography } from 'antd';
+import { App as AntApp, Avatar, Button, Dropdown, Form, Input, Layout, Menu, Modal, Result, Space, Spin, Typography } from 'antd';
 import type { MenuProps } from 'antd';
-import { ArrowUpRight, BarChart3, Cloud, Home, LayoutDashboard, LogOut, RefreshCw, Smartphone, UsersRound } from 'lucide-react';
-import { Suspense, lazy, useEffect } from 'react';
+import { ArrowUpRight, BarChart3, Cloud, Home, LayoutDashboard, LogOut, RefreshCw, Smartphone, Upload, UserCog, UsersRound } from 'lucide-react';
+import { Suspense, lazy, useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { AliciaModalTitle } from '../components/AliciaModalTitle';
 import { Icon } from '../components/Icon';
 import { LazyChunkErrorBoundary } from '../components/lazy-chunk-error-boundary';
 import { DriveAppPackageUploadModal } from '../features/drive/DriveAppPackageUploadModal';
@@ -12,7 +13,8 @@ import { useDriveOperationsAdmin } from '../features/drive/hooks/useDriveOperati
 import { resolveAvatarSrc } from '../features/drive/driveShared';
 import { useSession } from '../context/session-context';
 import { publicAssetPath } from '../lib/appPaths';
-import { isCloudAdmin } from '../types';
+import { updateProfile, uploadCurrentUserAvatar } from '../lib/api';
+import { isCloudAdmin, type UpdateProfilePayload, type User } from '../types';
 
 const LazyCloudUsersView = lazy(() => import('../features/drive/CloudUsersView'));
 const LazyDriveAppPackageView = lazy(() => import('../features/drive/DriveAppPackageView'));
@@ -64,15 +66,42 @@ function viewFromRoute(value: string | undefined): CloudConsoleView {
   return 'users';
 }
 
+function normalizeOptionalText(value: string | null | undefined) {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+}
+
+function resolveProfileAvatarSrc(user: User | null, avatarUrl: string | null | undefined) {
+  const trimmed = avatarUrl?.trim();
+
+  if (!trimmed) {
+    return undefined;
+  }
+
+  if (trimmed.startsWith('cos:')) {
+    return user ? `/api/cloud-profile/avatar/${user.id}?v=${encodeURIComponent(trimmed)}` : undefined;
+  }
+
+  return trimmed;
+}
+
 export function CloudConsolePage() {
   const { message } = AntApp.useApp();
   const { authToken, currentUser, logoutCurrentSession, updateCurrentUser } = useSession();
   const navigate = useNavigate();
   const { view } = useParams<{ view?: string }>();
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [profileForm] = Form.useForm<UpdateProfilePayload>();
+  const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const activeView = viewFromRoute(view);
   const isAdmin = isCloudAdmin(currentUser);
   const activeMeta = viewMeta[activeView];
   const currentAvatarSrc = resolveAvatarSrc(currentUser);
+  const watchedAvatarUrl = Form.useWatch('avatarUrl', profileForm);
+  const profileAvatarSrc =
+    watchedAvatarUrl === undefined ? currentAvatarSrc : resolveProfileAvatarSrc(currentUser, watchedAvatarUrl);
   const cloudUsers = useCloudUsersAdmin({
     authToken,
     currentUser,
@@ -99,6 +128,8 @@ export function CloudConsolePage() {
     </div>
   );
   const avatarMenuItems: MenuProps['items'] = [
+    { key: 'profile', icon: <Icon icon={UserCog} />, label: '个人资料' },
+    { type: 'divider' },
     { key: 'consoleHome', icon: <Icon icon={LayoutDashboard} />, label: '管理控制台' },
     { key: 'mainSite', icon: <Icon icon={Home} />, label: '返回主站' },
     { key: 'cloudPan', icon: <Icon icon={Cloud} />, label: '进入云盘' },
@@ -134,7 +165,103 @@ export function CloudConsolePage() {
     navigate(routeByView[event.key as CloudConsoleView]);
   }
 
+  function openProfileModal() {
+    if (!currentUser) {
+      return;
+    }
+
+    profileForm.setFieldsValue({
+      nickname: currentUser.nickname,
+      phoneNumber: currentUser.phoneNumber || '',
+      avatarUrl: currentUser.avatarUrl ?? '',
+    });
+    setProfileOpen(true);
+  }
+
+  function closeProfileModal() {
+    if (profileSaving || avatarUploading) {
+      return;
+    }
+
+    setProfileOpen(false);
+  }
+
+  function handleAvatarButtonClick() {
+    avatarInputRef.current?.click();
+  }
+
+  async function handleAvatarFileChange(event: ChangeEvent<HTMLInputElement>) {
+    if (!authToken) {
+      return;
+    }
+
+    const selectedFile = event.target.files?.[0] ?? null;
+    event.target.value = '';
+
+    if (!selectedFile) {
+      return;
+    }
+
+    if (!selectedFile.type.startsWith('image/')) {
+      message.error('请选择图片文件作为头像。');
+      return;
+    }
+
+    setAvatarUploading(true);
+
+    try {
+      const updatedUser = await uploadCurrentUserAvatar(selectedFile, authToken);
+      updateCurrentUser(updatedUser);
+      profileForm.setFieldsValue({ avatarUrl: updatedUser.avatarUrl ?? '' });
+      message.success('头像已更新。');
+    } catch (avatarError) {
+      message.error(avatarError instanceof Error ? avatarError.message : '头像上传失败。');
+    } finally {
+      setAvatarUploading(false);
+    }
+  }
+
+  async function submitProfile(values: UpdateProfilePayload) {
+    if (!authToken) {
+      return false;
+    }
+
+    const nickname = values.nickname.trim();
+
+    if (!nickname) {
+      message.error('请输入昵称。');
+      return false;
+    }
+
+    setProfileSaving(true);
+
+    try {
+      const updatedUser = await updateProfile(
+        {
+          nickname,
+          phoneNumber: normalizeOptionalText(values.phoneNumber),
+          avatarUrl: normalizeOptionalText(values.avatarUrl),
+        },
+        authToken,
+      );
+      updateCurrentUser(updatedUser);
+      setProfileOpen(false);
+      message.success('个人资料已更新。');
+      return true;
+    } catch (profileError) {
+      message.error(profileError instanceof Error ? profileError.message : '个人资料保存失败。');
+      return false;
+    } finally {
+      setProfileSaving(false);
+    }
+  }
+
   async function handleAccountMenuClick(event: { key: string }) {
+    if (event.key === 'profile') {
+      openProfileModal();
+      return;
+    }
+
     if (event.key === 'consoleHome') {
       window.location.assign('/console/');
       return;
@@ -346,6 +473,67 @@ export function CloudConsolePage() {
         onPickFile={appPackages.handleAppPackageFilePickerClick}
         onFileChange={appPackages.handleAppPackageFileChange}
       />
+
+      <Modal
+        title={<AliciaModalTitle eyebrow="Account">个人资料</AliciaModalTitle>}
+        rootClassName="alicia-modal alicia-account-modal account-profile-modal"
+        open={profileOpen}
+        onCancel={closeProfileModal}
+        onOk={() => void profileForm.submit()}
+        okText="保存资料"
+        cancelText="取消"
+        confirmLoading={profileSaving}
+        maskClosable={!profileSaving && !avatarUploading}
+        closable={!profileSaving && !avatarUploading}
+        cancelButtonProps={{ disabled: profileSaving || avatarUploading }}
+        destroyOnHidden
+      >
+        <Form
+          form={profileForm}
+          layout="vertical"
+          className="account-profile-form"
+          onFinish={(values) => void submitProfile(values)}
+        >
+          <div className="profile-avatar-row account-profile-hero">
+            <Avatar size={64} src={profileAvatarSrc} className="account-profile-avatar-frame">
+              {currentUser?.nickname?.slice(0, 1).toUpperCase() ?? 'A'}
+            </Avatar>
+            <div className="account-profile-copy">
+              <strong>用户图标</strong>
+              <small>上传本地图片或填写图片地址后，会同步更新所有 Alicia 账号入口。</small>
+              <div className="account-profile-actions">
+                <Button
+                  icon={<Icon icon={Upload} />}
+                  loading={avatarUploading}
+                  disabled={profileSaving}
+                  onClick={handleAvatarButtonClick}
+                >
+                  上传图片
+                </Button>
+              </div>
+              <input
+                ref={avatarInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/gif,image/webp"
+                className="upload-input"
+                onChange={(event) => void handleAvatarFileChange(event)}
+              />
+            </div>
+          </div>
+
+          <div className="account-profile-fields">
+            <Form.Item name="nickname" label="昵称" rules={[{ required: true, message: '请输入昵称。' }]}>
+              <Input maxLength={100} placeholder="请输入昵称" />
+            </Form.Item>
+            <Form.Item name="phoneNumber" label="手机号" rules={[{ pattern: /^1\d{10}$/, message: '请输入 11 位手机号。' }]}>
+              <Input placeholder="可选，绑定后也可用于登录" />
+            </Form.Item>
+            <Form.Item name="avatarUrl" label="头像图标地址">
+              <Input maxLength={500} placeholder="可选，使用图片地址或 cos: 头像地址" />
+            </Form.Item>
+          </div>
+        </Form>
+      </Modal>
     </Layout>
   );
 }

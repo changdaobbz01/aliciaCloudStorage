@@ -614,6 +614,7 @@ export function DrivePage() {
         identitySessionsLoading={profileSettings.identitySessionsLoading}
         identitySessionRevokingId={profileSettings.identitySessionRevokingId}
         includeRevokedSessions={profileSettings.includeRevokedSessions}
+        profileSaving={profileSettings.profileSaving}
         avatarUploading={profileSettings.avatarUploading}
         profileForm={profileSettings.profileForm}
         passwordForm={profileSettings.passwordForm}
