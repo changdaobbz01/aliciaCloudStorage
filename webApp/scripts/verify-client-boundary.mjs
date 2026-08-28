@@ -78,6 +78,8 @@ const drivePage = readFileSync(new URL('../src/pages/DrivePage.tsx', import.meta
 const appDownloadPage = readFileSync(new URL('../src/pages/AppDownloadPage.tsx', import.meta.url), 'utf8');
 const sharePage = readFileSync(new URL('../src/pages/SharePage.tsx', import.meta.url), 'utf8');
 const unifiedLoginRedirectPage = readFileSync(new URL('../src/pages/UnifiedLoginRedirectPage.tsx', import.meta.url), 'utf8');
+const mobileApp = readFileSync(new URL('../src/lib/mobileApp.ts', import.meta.url), 'utf8');
+const assetLinks = readFileSync(new URL('../public/.well-known/assetlinks.json', import.meta.url), 'utf8');
 assert.doesNotMatch(
   drivePage,
   /管理控制台|consoleHome|\/console(?:\/|\b)/,
@@ -87,6 +89,13 @@ assert.match(drivePage, /document\.title = `\$\{currentViewLabel\} - Alicia/, 'c
 assert.match(appDownloadPage, /document\.title = '.+Alicia/, 'cloud app download page document title must be explicit');
 assert.match(sharePage, /document\.title = shareTitle \?/, 'cloud share page document title must follow the loaded share title');
 assert.match(unifiedLoginRedirectPage, /document\.title = '.+Alicia/, 'cloud login redirect page document title must be explicit');
+assert.match(
+  mobileApp,
+  /DEFAULT_ANDROID_PACKAGE_NAME = 'com\.alicia\.cloudstorage\.phone'/,
+  'cloud web intent fallback package must match the official Android applicationId',
+);
+assert.doesNotMatch(assetLinks, /com\.alicia\.cloudstorage\.phone\.add/, 'cloud asset links must not authorize the old Android test package');
+assert.match(assetLinks, /"package_name": "com\.alicia\.cloudstorage\.phone"/, 'cloud asset links must authorize the official Android package');
 
 const clientStyles = readFileSync(new URL('../src/index.css', import.meta.url), 'utf8');
 for (const { pattern, reason } of forbiddenStyleClassPatterns) {

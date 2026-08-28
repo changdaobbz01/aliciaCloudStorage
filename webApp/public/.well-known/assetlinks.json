@@ -8,15 +8,5 @@
         "9B:55:CC:5D:A7:72:F4:A9:66:6E:32:C2:56:58:4A:ED:68:78:9B:E4:ED:E0:A0:0A:BA:B9:09:BD:08:ED:80:84"
       ]
     }
-  },
-  {
-    "relation": ["delegate_permission/common.handle_all_urls"],
-    "target": {
-      "namespace": "android_app",
-      "package_name": "com.alicia.cloudstorage.phone.add",
-      "sha256_cert_fingerprints": [
-        "80:07:39:FA:A6:3E:B1:A9:68:C2:A1:D1:FE:12:13:34:C6:23:56:06:64:AF:CE:A1:B6:63:DF:CB:12:E6:C7:7D"
-      ]
-    }
   }
 ]

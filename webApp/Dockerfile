@@ -1,5 +1,7 @@
 FROM node:22-bookworm-slim AS cloud-builder
 WORKDIR /app/webApp
+ARG VITE_ANDROID_PACKAGE_NAME=com.alicia.cloudstorage.phone
+ENV VITE_ANDROID_PACKAGE_NAME=$VITE_ANDROID_PACKAGE_NAME
 
 COPY webApp/package.json webApp/package-lock.json ./
 RUN npm ci

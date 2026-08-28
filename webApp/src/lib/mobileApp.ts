@@ -1,6 +1,6 @@
 import { appPath, appUrl } from './appPaths';
 
-const DEFAULT_ANDROID_PACKAGE_NAME = 'com.alicia.cloudstorage.phone.add';
+const DEFAULT_ANDROID_PACKAGE_NAME = 'com.alicia.cloudstorage.phone';
 
 export const ANDROID_PACKAGE_NAME =
   import.meta.env.VITE_ANDROID_PACKAGE_NAME?.trim() || DEFAULT_ANDROID_PACKAGE_NAME;

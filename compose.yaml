@@ -148,6 +148,8 @@ services:
     build:
       context: .
       dockerfile: webApp/Dockerfile
+      args:
+        VITE_ANDROID_PACKAGE_NAME: ${VITE_ANDROID_PACKAGE_NAME:-com.alicia.cloudstorage.phone}
     ports:
       - "80:80"
     networks:
