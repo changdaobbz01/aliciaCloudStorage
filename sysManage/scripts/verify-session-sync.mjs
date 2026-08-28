@@ -9,38 +9,38 @@ const unifiedLogin = readFileSync(new URL('../src/lib/unifiedLogin.ts', import.m
 assert.match(
   session,
   /SESSION_REVISION_STORAGE_KEY = 'alicia-cloud-storage\.session-revision'/,
-  'cloud web must keep the shared session revision key',
+  'cloud console must keep the shared session revision key',
 );
 assert.match(
   session,
   /SESSION_WRITE_LOCK_STORAGE_KEY = 'alicia-cloud-storage\.session-write-lock'/,
-  'cloud web must keep a shared session write lock key',
+  'cloud console must keep a shared session write lock key',
 );
 assert.match(
   session,
   /SESSION_CHANGE_EVENT = 'alicia-cloud-storage:session-change'/,
-  'cloud web must keep the same-document session change event',
+  'cloud console must keep the same-document session change event',
 );
 assert.match(
   session,
   /SESSION_STORAGE_KEYS[\s\S]*SESSION_REVISION_STORAGE_KEY/,
   'session revision key must be part of the watched session storage keys',
 );
-assert.match(session, /function notifySessionChanged/, 'cloud session utility must expose session change notifications');
+assert.match(session, /function notifySessionChanged/, 'cloud console session utility must expose session change notifications');
 assert.match(
   session,
   /function runAfterSessionWriteSettled/,
-  'cloud session utility must defer session listeners during multi-key writes',
+  'cloud console session utility must defer session listeners during multi-key writes',
 );
 assert.match(
   session,
   /function readStoredSessionSnapshot/,
-  'cloud session utility must snapshot stored tokens before refresh',
+  'cloud console session utility must snapshot stored tokens before refresh',
 );
 assert.match(
   session,
   /function hasStoredSessionChanged/,
-  'cloud session utility must detect token changes during refresh',
+  'cloud console session utility must detect token changes during refresh',
 );
 
 for (const token of [
