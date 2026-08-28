@@ -285,7 +285,7 @@ bash deploy/scripts/update-rag-production.sh
 bash deploy/scripts/update-cloud-production.sh
 ```
 
-默认会在 `~/aliciaCloudStorage` 内拒绝覆盖 tracked 本地改动，快进拉取 `gitee/main`，确保 `alicia_gateway` 网络存在，重建 `frontend` 及其依赖服务，并连续运行统一路由验证、Identity 旧路由边界检查和前端控制台边界检查。需要指定服务时可追加服务名，例如：
+默认会在 `~/aliciaCloudStorage` 内拒绝覆盖 tracked 本地改动，快进拉取 `gitee/main`，确保 `alicia_gateway` 网络存在，重建 `frontend` 及其依赖服务，并连续运行统一路由验证、Identity 旧路由边界检查和前端控制台边界检查。前端边界检查会确认普通云盘端没有后台入口、云盘后台没有身份管理实现，并确认云盘用户端与云盘后台都保留 bundle size 守卫和显式 vendor 分包。需要指定服务时可追加服务名，例如：
 
 ```bash
 bash deploy/scripts/update-cloud-production.sh api identity frontend
@@ -475,7 +475,7 @@ npm run dev
 - `http://localhost:5173/cloudPan/`
 - `http://localhost:5174/console/cloud/users`
 
-Windows 本地可以直接跑前端拆分验收脚本，它会构建 `webApp` 和 `sysManage`，并检查普通云盘、云盘后台的 Docker/Nginx 挂载与边界守护：
+Windows 本地可以直接跑前端拆分验收脚本，它会构建 `webApp` 和 `sysManage`，并检查普通云盘、云盘后台的 Docker/Nginx 挂载、边界守护、bundle size 守卫和 vendor 分包：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File deploy\scripts\verify-frontend-split-local.ps1
