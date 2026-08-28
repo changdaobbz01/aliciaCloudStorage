@@ -700,6 +700,14 @@ expect_status "rag assistant access requires identity token" 401 \
 expect_status "rag assistant contract requires identity token" 401 \
     "$RAG_ACTION_PLAN_CONTRACT_URL"
 curl_ok "main site login entry" -I "$PUBLIC_BASE_URL/login"
+assetlinks_response="$(curl_json_or_fail "android asset links endpoint" "$PUBLIC_BASE_URL/.well-known/assetlinks.json")"
+printf '%s' "$assetlinks_response" | grep -Eq '"package_name"[[:space:]]*:[[:space:]]*"com\.alicia\.cloudstorage\.phone"' \
+    || fail "android asset links must expose official package com.alicia.cloudstorage.phone"
+if printf '%s' "$assetlinks_response" | grep -Eq 'com\.alicia\.cloudstorage\.phone\.add'; then
+    fail "android asset links must not expose the old Android test package"
+fi
+ok "android asset links official package"
+unset assetlinks_response
 expect_redirect_location "console gateway bare path redirects to canonical slash" 308 "/console/" "$PUBLIC_BASE_URL/console"
 curl_ok "console gateway entry" -I "$PUBLIC_BASE_URL/console/"
 curl_ok "identity console frontend entry" -I "$PUBLIC_BASE_URL/console/identity/"

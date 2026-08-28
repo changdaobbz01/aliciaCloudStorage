@@ -80,6 +80,7 @@ const sharePage = readFileSync(new URL('../src/pages/SharePage.tsx', import.meta
 const unifiedLoginRedirectPage = readFileSync(new URL('../src/pages/UnifiedLoginRedirectPage.tsx', import.meta.url), 'utf8');
 const mobileApp = readFileSync(new URL('../src/lib/mobileApp.ts', import.meta.url), 'utf8');
 const assetLinks = readFileSync(new URL('../public/.well-known/assetlinks.json', import.meta.url), 'utf8');
+const assetLinkPackages = JSON.parse(assetLinks).map((entry) => entry.target?.package_name);
 assert.doesNotMatch(
   drivePage,
   /管理控制台|consoleHome|\/console(?:\/|\b)/,
@@ -94,8 +95,7 @@ assert.match(
   /DEFAULT_ANDROID_PACKAGE_NAME = 'com\.alicia\.cloudstorage\.phone'/,
   'cloud web intent fallback package must match the official Android applicationId',
 );
-assert.doesNotMatch(assetLinks, /com\.alicia\.cloudstorage\.phone\.add/, 'cloud asset links must not authorize the old Android test package');
-assert.match(assetLinks, /"package_name": "com\.alicia\.cloudstorage\.phone"/, 'cloud asset links must authorize the official Android package');
+assert.deepEqual(assetLinkPackages, ['com.alicia.cloudstorage.phone'], 'cloud asset links must authorize only the official Android package');
 
 const clientStyles = readFileSync(new URL('../src/index.css', import.meta.url), 'utf8');
 for (const { pattern, reason } of forbiddenStyleClassPatterns) {

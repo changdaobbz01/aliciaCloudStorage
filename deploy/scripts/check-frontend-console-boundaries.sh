@@ -118,6 +118,20 @@ require_source_no_match \
     '\.account-admin-tabs|\.audit-(filter|quick|result)|\.operations-|\.app-package-(summary|grid|card|link|url|meta|release-notes|list)|\.management-summary-|\.user-cell-copy|\.user-chip|\.table-secondary-text' \
     "Cloud web stylesheet must not keep admin console style leftovers."
 
+require_source_match \
+    "cloud web Dockerfile publishes root Android asset links" \
+    "webApp/Dockerfile" \
+    'COPY --from=cloud-builder /app/webApp/dist/\.well-known /usr/share/nginx/html/\.well-known' \
+    "Cloud web Dockerfile must publish Android asset links at the domain root."
+
+for nginx_conf in webApp/nginx/default.conf webApp/nginx/default.ssl.conf; do
+    require_source_match \
+        "$nginx_conf serves root Android asset links" \
+        "$nginx_conf" \
+        'location = /\.well-known/assetlinks\.json' \
+        "$nginx_conf must serve Android asset links from the domain root."
+done
+
 scan_target \
     "cloud console has no identity or personal drive references" \
     "sysManage/src" \

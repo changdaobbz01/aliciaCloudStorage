@@ -29,6 +29,7 @@ RUN npm run build
 FROM nginx:1.27-alpine
 COPY webApp/nginx/default.conf /etc/nginx/conf.d/default.conf
 COPY --from=cloud-builder /app/webApp/dist /usr/share/nginx/html/cloudPan
+COPY --from=cloud-builder /app/webApp/dist/.well-known /usr/share/nginx/html/.well-known
 COPY --from=cloud-console-builder /app/sysManage/dist /usr/share/nginx/html/console/cloud
 
 EXPOSE 80
