@@ -194,6 +194,8 @@ curl_probe "cloud console operations route" "$PUBLIC_BASE_URL/console/cloud/oper
 curl_probe "cloud console app package route" "$PUBLIC_BASE_URL/console/cloud/app-package"
 curl_probe "identity console frontend entry" "$PUBLIC_BASE_URL/console/identity/"
 curl_probe "identity console users route" "$PUBLIC_BASE_URL/console/identity/users"
+curl_probe "identity console roles route" "$PUBLIC_BASE_URL/console/identity/roles"
+curl_probe "identity console sessions route" "$PUBLIC_BASE_URL/console/identity/sessions"
 curl_probe "identity console audit route" "$PUBLIC_BASE_URL/console/identity/audit"
 curl_probe "identity jwks endpoint" "$PUBLIC_BASE_URL/api/identity/.well-known/jwks.json"
 curl_probe "rag health through frontend" "$PUBLIC_BASE_URL/rag/api/health"

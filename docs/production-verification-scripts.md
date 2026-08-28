@@ -69,7 +69,7 @@ ALICIA_PRODUCTION_FLOW_SKIP_BOUNDARY_CHECK=true \
 bash deploy/scripts/verify-identity-cloud-routes.sh
 ```
 
-脚本会覆盖主站登录、云盘 `/cloudPan/`、身份后台 `/console/identity/users` 与 `/console/identity/audit`、云盘后台 `/console/cloud/users`、`/console/cloud/operations` 与 `/console/cloud/app-package`、Identity/RAG 健康、管理员云盘接口和旧身份路径边界。身份后台的主站容器直连路由仍由 `mainSite` 的 `verify-main-site-routes.sh` 覆盖。
+脚本会覆盖主站登录、云盘 `/cloudPan/`、身份后台 `/console/identity/users`、`/console/identity/roles`、`/console/identity/sessions` 与 `/console/identity/audit`、云盘后台 `/console/cloud/users`、`/console/cloud/operations` 与 `/console/cloud/app-package`、Identity/RAG 健康、管理员云盘接口和旧身份路径边界。身份后台的主站容器直连路由仍由 `mainSite` 的 `verify-main-site-routes.sh` 覆盖。
 
 如果需要显式指定当前生产 token 算法和 `kid`：
 
