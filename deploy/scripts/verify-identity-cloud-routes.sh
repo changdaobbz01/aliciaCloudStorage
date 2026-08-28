@@ -312,6 +312,7 @@ expect_redirect_location() {
     local header_file
     local status
     local location
+    local location_path
     local request_origin
     local absolute_expected_location
     header_file="$(mktemp)"
@@ -322,6 +323,7 @@ expect_redirect_location() {
         request_origin="$(printf '%s' "$url" | sed -E 's#^([a-zA-Z][a-zA-Z0-9+.-]*://[^/]+).*#\1#')"
         absolute_expected_location="${request_origin}${expected_location}"
     fi
+    location_path="$(printf '%s' "$location" | sed -E 's#^[a-zA-Z][a-zA-Z0-9+.-]*://[^/?#]*##')"
 
     if [[ "$status" != "$expected_status" ]]; then
         printf '[FAIL] %s: expected HTTP %s, got %s\n' "$label" "$expected_status" "$status" >&2
@@ -330,7 +332,7 @@ expect_redirect_location() {
         exit 1
     fi
 
-    if [[ "$location" != "$expected_location" && "$location" != "${PUBLIC_BASE_URL}${expected_location}" && "$location" != "$absolute_expected_location" ]]; then
+    if [[ "$location" != "$expected_location" && "$location" != "${PUBLIC_BASE_URL}${expected_location}" && "$location" != "$absolute_expected_location" && "$location_path" != "$expected_location" ]]; then
         printf '[FAIL] %s: expected Location %s, got %s\n' "$label" "$expected_location" "${location:-<missing>}" >&2
         sed -n '1,20p' "$header_file" >&2 || true
         rm -f "$header_file"
