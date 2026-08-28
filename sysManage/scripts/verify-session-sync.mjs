@@ -85,4 +85,4 @@ for (const reason of ['profile', 'logout', 'expired']) {
   );
 }
 
-console.log('[OK] cloud web browser session sync boundary verified');
+console.log('[OK] cloud console browser session sync boundary verified');
