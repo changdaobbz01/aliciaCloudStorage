@@ -149,6 +149,12 @@ require_source_match \
     "Cloud web profile modal must enforce the shared account profile contract."
 
 require_source_match \
+    "cloud web profile dialog rejects legacy aliases" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web profile modal must not keep legacy profile layout aliases' \
+    "Cloud web profile modal must reject legacy profile layout aliases."
+
+require_source_match \
     "cloud web exposes returnTo verifier" \
     "webApp/package.json" \
     '"verify:return-to"[[:space:]]*:[[:space:]]*"node scripts/verify-unified-login-return-to\.mjs"' \
@@ -321,6 +327,12 @@ require_source_match \
     "sysManage/scripts/verify-console-boundary.mjs" \
     'cloud console profile modal must keep the shared profile dialog contract' \
     "Cloud console profile modal must enforce the shared account profile contract."
+
+require_source_match \
+    "cloud console profile dialog rejects legacy aliases" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console profile modal must not keep legacy profile layout aliases' \
+    "Cloud console profile modal must reject legacy profile layout aliases."
 
 require_source_match \
     "cloud console boundary accepts cloud app admins" \

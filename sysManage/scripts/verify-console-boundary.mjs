@@ -149,6 +149,11 @@ assert.match(
   /title=\{<AliciaModalTitle eyebrow="Account">个人资料<\/AliciaModalTitle>\}[\s\S]*rootClassName="alicia-modal alicia-account-modal account-profile-modal"[\s\S]*className="account-profile-form"[\s\S]*className="profile-avatar-row account-profile-hero"[\s\S]*<strong>用户图标<\/strong>[\s\S]*上传本地图片或填写图片地址后，会同步更新所有 Alicia 账号入口。[\s\S]*className="account-profile-actions"[\s\S]*name="nickname"[\s\S]*name="phoneNumber"[\s\S]*name="avatarUrl"/,
   'cloud console profile modal must keep the shared profile dialog contract',
 );
+assert.doesNotMatch(
+  consolePageSource,
+  /profile-avatar-preview-row|profile-avatar-actions/,
+  'cloud console profile modal must not keep legacy profile layout aliases',
+);
 assert.match(consolePageSource, /className="account-profile-form"/, 'cloud console profile modal must use the unified account profile form layout');
 assert.match(consolePageSource, /name="avatarUrl"/, 'cloud console profile modal must keep the shared avatar URL field');
 assert.match(consoleStyles, /\.account-profile-form/, 'cloud console styles must define the unified account profile form');
@@ -156,6 +161,11 @@ assert.match(consoleStyles, /\.account-profile-hero/, 'cloud console styles must
 assert.match(consoleStyles, /\.account-profile-copy/, 'cloud console styles must define the unified profile explanatory copy');
 assert.match(consoleStyles, /\.account-profile-actions/, 'cloud console styles must define the unified profile action row');
 assert.match(consoleStyles, /\.account-profile-fields/, 'cloud console styles must define the unified profile field stack');
+assert.doesNotMatch(
+  consoleStyles,
+  /\.profile-avatar-preview-row\b|\.profile-avatar-actions\b/,
+  'cloud console styles must not keep legacy profile layout aliases',
+);
 assert.match(
   cloudUsersViewSource,
   /title=\{<AliciaModalTitle eyebrow="Cloud">调整云盘额度<\/AliciaModalTitle>\}/,
