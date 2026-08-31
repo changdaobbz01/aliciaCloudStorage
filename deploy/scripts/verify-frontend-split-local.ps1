@@ -353,6 +353,8 @@ Invoke-Step "verify cloud frontend split wiring" {
     Require-Contains "webApp/scripts/verify-api-contracts.mjs" "assertControllerMethodMapping" "cloud web contract verifier must bind frontend API calls to controller mappings"
     Require-Contains "webApp/scripts/verify-api-contracts.mjs" "assertApiFunctionUsesAuthToken" "cloud web contract verifier must ensure protected frontend API calls send the current auth token"
     Require-Contains "webApp/scripts/verify-api-contracts.mjs" "assertApiFunctionStringifiesPayload" "cloud web contract verifier must ensure typed payloads are sent"
+    Require-Contains "webApp/scripts/verify-api-contracts.mjs" "assertApiFunctionUsesShareAccessToken" "cloud web contract verifier must ensure share access tokens are sent"
+    Require-Contains "webApp/scripts/verify-api-contracts.mjs" "assertControllerMethodReceivesShareAccessToken" "cloud web contract verifier must ensure share controllers receive share access tokens"
     Require-Contains "webApp/scripts/verify-api-contracts.mjs" "assertCloudStorageApiCurrentPrincipalInterceptorContract" "cloud web contract verifier must ensure user APIs stay protected by CurrentPrincipalInterceptor"
     Require-Contains "webApp/scripts/verify-api-contracts.mjs" "cloudWebIdentityEndpointContracts" "cloud web contract verifier must compare IdentityApi endpoint paths and methods"
     Require-Contains "webApp/scripts/verify-api-contracts.mjs" "IdentitySessionResponse" "cloud web contract verifier must compare identity session responses"

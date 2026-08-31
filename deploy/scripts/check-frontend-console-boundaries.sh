@@ -314,6 +314,18 @@ require_source_match \
     "Cloud web contract verifier must ensure typed payloads are sent."
 
 require_source_match \
+    "cloud web contract verifier checks share access tokens" \
+    "webApp/scripts/verify-api-contracts.mjs" \
+    'assertApiFunctionUsesShareAccessToken' \
+    "Cloud web contract verifier must ensure share access tokens are sent."
+
+require_source_match \
+    "cloud web contract verifier checks share controller access headers" \
+    "webApp/scripts/verify-api-contracts.mjs" \
+    'assertControllerMethodReceivesShareAccessToken' \
+    "Cloud web contract verifier must ensure share controllers receive share access tokens."
+
+require_source_match \
     "cloud web contract verifier checks current principal interceptor" \
     "webApp/scripts/verify-api-contracts.mjs" \
     'assertCloudStorageApiCurrentPrincipalInterceptorContract' \
@@ -1580,6 +1592,18 @@ require_source_match \
     "webApp/scripts/verify-api-contracts.mjs" \
     'assertApiFunctionStringifiesPayload' \
     "Cloud web contract verifier must ensure typed payloads are sent."
+
+require_source_match \
+    "cloud web contract verifier checks share access tokens" \
+    "webApp/scripts/verify-api-contracts.mjs" \
+    'assertApiFunctionUsesShareAccessToken' \
+    "Cloud web contract verifier must ensure share access tokens are sent."
+
+require_source_match \
+    "cloud web contract verifier checks share controller access headers" \
+    "webApp/scripts/verify-api-contracts.mjs" \
+    'assertControllerMethodReceivesShareAccessToken' \
+    "Cloud web contract verifier must ensure share controllers receive share access tokens."
 
 require_source_match \
     "cloud web contract verifier checks current principal interceptor" \

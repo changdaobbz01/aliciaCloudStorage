@@ -268,6 +268,20 @@ function assertApiFunctionStringifiesPayload(functionName) {
   );
 }
 
+function assertApiFunctionUsesShareAccessToken(functionName) {
+  const source = extractApiFunctionBody(functionName);
+  assert.match(
+    apiSource,
+    /'X-Share-Access-Token':\s*shareAccessToken/,
+    'webApp share access helper must send X-Share-Access-Token',
+  );
+  assert.match(
+    source,
+    /withTokenAndShareAccess\(token,\s*shareAccessToken\b/,
+    `${functionName} must send the share access token when available`,
+  );
+}
+
 function assertCloudStorageApiCurrentPrincipalInterceptorContract() {
   const source = readRepoFile('CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/config/WebMvcConfig.java');
   assert.match(
@@ -287,6 +301,22 @@ function assertControllerMethodReceivesAuthorization(relativePath, methodName) {
   assert.match(body, /\bauthorization\b/, `${methodName} must pass Authorization to the Identity service layer`);
 }
 
+function assertControllerMethodReceivesShareAccessToken(relativePath, methodName) {
+  const source = readRepoFile(relativePath);
+  const { parameters, body } = extractJavaMethodParts(relativePath, methodName);
+  assert.match(
+    source,
+    /SHARE_ACCESS_HEADER\s*=\s*"X-Share-Access-Token"/,
+    `${relativePath} must keep the share access header name`,
+  );
+  assert.match(
+    parameters,
+    /@RequestHeader\s*\(\s*value\s*=\s*SHARE_ACCESS_HEADER\s*,\s*required\s*=\s*false\s*\)\s+String\s+shareAccessToken/,
+    `${methodName} must receive the share access token header`,
+  );
+  assert.match(body, /\bshareAccessToken\b/, `${methodName} must pass the share access token to the service layer`);
+}
+
 function assertCloudWebEndpointContract(contract) {
   assertControllerBasePath(contract.controller, contract.basePath);
   assertControllerMethodMapping(contract.controller, contract.javaMethod, contract.mappingPattern);
@@ -298,6 +328,11 @@ function assertCloudWebEndpointContract(contract) {
 
   if (contract.requiresAuthorizationHeader) {
     assertControllerMethodReceivesAuthorization(contract.controller, contract.javaMethod);
+  }
+
+  if (contract.requiresShareAccessToken) {
+    assertApiFunctionUsesShareAccessToken(contract.tsFunction);
+    assertControllerMethodReceivesShareAccessToken(contract.controller, contract.javaMethod);
   }
 
   if (contract.httpMethod) {
@@ -650,6 +685,7 @@ const cloudWebEndpointContracts = [
     tsFunction: 'fetchShareDetail',
     endpointNeedle: '/api/share-links/',
     requiresAuthToken: true,
+    requiresShareAccessToken: true,
   },
   {
     controller: shareController,
@@ -660,6 +696,7 @@ const cloudWebEndpointContracts = [
     endpointNeedle: '/api/share-links/',
     httpMethod: 'POST',
     requiresAuthToken: true,
+    requiresShareAccessToken: true,
   },
   {
     controller: shareController,
@@ -669,6 +706,7 @@ const cloudWebEndpointContracts = [
     tsFunction: 'fetchShareFileAccessUrl',
     endpointNeedle: '/api/share-links/',
     requiresAuthToken: true,
+    requiresShareAccessToken: true,
   },
   {
     controller: shareController,
@@ -678,6 +716,7 @@ const cloudWebEndpointContracts = [
     tsFunction: 'downloadShareFile',
     endpointNeedle: '/api/share-links/',
     requiresAuthToken: true,
+    requiresShareAccessToken: true,
   },
   {
     controller: shareController,
@@ -688,6 +727,7 @@ const cloudWebEndpointContracts = [
     endpointNeedle: '/api/share-links/',
     httpMethod: 'POST',
     requiresAuthToken: true,
+    requiresShareAccessToken: true,
   },
   {
     controller: publicShareController,
