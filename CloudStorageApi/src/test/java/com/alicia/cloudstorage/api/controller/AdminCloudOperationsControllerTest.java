@@ -17,6 +17,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -189,6 +190,7 @@ class AdminCloudOperationsControllerTest {
                                 "admin@example.com",
                                 "青空",
                                 "ADMIN",
+                                Map.of("cloud", "CLOUD_ADMIN"),
                                 "ACTIVE",
                                 10_000L,
                                 4_500L,
@@ -217,6 +219,7 @@ class AdminCloudOperationsControllerTest {
                         .param("sortDirection", "desc"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items[0].userId").value(9))
+                .andExpect(jsonPath("$.items[0].appRoles.cloud").value("CLOUD_ADMIN"))
                 .andExpect(jsonPath("$.items[0].usedBytes").value(4_500))
                 .andExpect(jsonPath("$.items[0].usageRatio").value(0.45));
 

@@ -1,6 +1,7 @@
 package com.alicia.cloudstorage.api.dto;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 
 public record AdminCloudStorageUserUsageResponse(
         Long userId,
@@ -8,6 +9,7 @@ public record AdminCloudStorageUserUsageResponse(
         String email,
         String nickname,
         String role,
+        Map<String, String> appRoles,
         String status,
         Long storageQuotaBytes,
         long usedBytes,
@@ -20,4 +22,7 @@ public record AdminCloudStorageUserUsageResponse(
         long shareLinks,
         LocalDateTime createdAt
 ) {
+    public AdminCloudStorageUserUsageResponse {
+        appRoles = appRoles == null ? Map.of() : Map.copyOf(appRoles);
+    }
 }

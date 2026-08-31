@@ -40,15 +40,16 @@ export type IdentityUser = {
   appRoles: ApplicationRoles;
 };
 
-export function isCloudAdmin(
-  user: Pick<User, 'role' | 'appRoles'> | Pick<IdentityUser, 'role' | 'appRoles'> | null | undefined,
-) {
+type CloudRoleSource = {
+  role: UserRole;
+  appRoles?: ApplicationRoles | null;
+};
+
+export function isCloudAdmin(user: CloudRoleSource | null | undefined) {
   return user?.role === 'ADMIN' || user?.appRoles?.cloud === 'CLOUD_ADMIN';
 }
 
-export function cloudRoleLabel(
-  user: Pick<User, 'role' | 'appRoles'> | Pick<IdentityUser, 'role' | 'appRoles'> | null | undefined,
-) {
+export function cloudRoleLabel(user: CloudRoleSource | null | undefined) {
   if (!user) {
     return '无后台权限';
   }
@@ -220,6 +221,7 @@ export type AdminCloudStorageUserUsage = {
   email: string | null;
   nickname: string;
   role: UserRole;
+  appRoles?: ApplicationRoles;
   status: UserStatus;
   storageQuotaBytes: number | null;
   usedBytes: number;

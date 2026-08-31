@@ -233,6 +233,7 @@ class AdminCloudOperationsDetailServiceTest {
         assertThat(response.items()).extracting(AdminCloudStorageUserUsageResponse::userId)
                 .containsExactly(7L, 8L);
         assertThat(response.items().get(0)).satisfies(item -> {
+            assertThat(item.appRoles()).containsEntry("cloud", "CLOUD_ADMIN");
             assertThat(item.storageQuotaBytes()).isEqualTo(1_000L);
             assertThat(item.usedBytes()).isEqualTo(600L);
             assertThat(item.remainingBytes()).isEqualTo(400L);
@@ -244,6 +245,7 @@ class AdminCloudOperationsDetailServiceTest {
             assertThat(item.shareLinks()).isEqualTo(5L);
         });
         assertThat(response.items().get(1)).satisfies(item -> {
+            assertThat(item.appRoles()).containsEntry("cloud", "CLOUD_USER");
             assertThat(item.storageQuotaBytes()).isNull();
             assertThat(item.remainingBytes()).isNull();
             assertThat(item.usageRatio()).isNull();

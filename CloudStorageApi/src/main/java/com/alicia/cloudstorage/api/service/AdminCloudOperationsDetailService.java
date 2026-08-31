@@ -340,6 +340,7 @@ public class AdminCloudOperationsDetailService {
                 profile.email(),
                 profile.nickname(),
                 profile.role(),
+                profile.appRoles(),
                 profile.status(),
                 storageQuotaBytes,
                 usedBytes,

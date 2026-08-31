@@ -1019,6 +1019,8 @@ else
         || fail "admin cloud operations storage users did not expose paged items"
     printf '%s' "$cloud_operation_storage_users_compact" | grep -q '"usedBytes"[[:space:]]*:' \
         || fail "admin cloud operations storage users did not expose usedBytes"
+    printf '%s' "$cloud_operation_storage_users_compact" | grep -q '"appRoles"[[:space:]]*:' \
+        || fail "admin cloud operations storage users did not expose appRoles"
     ok "admin cloud operations storage users route accepts admin identity token"
     unset cloud_operation_storage_users_response cloud_operation_storage_users_compact
     curl_ok "identity audit logs admin route accepts admin identity token" \

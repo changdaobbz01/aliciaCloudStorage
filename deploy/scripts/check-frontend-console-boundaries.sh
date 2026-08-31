@@ -437,6 +437,12 @@ require_source_match \
     "Cloud operations permission copy must match the runtime access contract."
 
 require_source_match \
+    "cloud operations storage users role tags use role label helper" \
+    "sysManage/src/features/drive/DriveOperationsView.tsx" \
+    'cloudRoleLabel\(user\)' \
+    "Cloud operations storage users role tags must use the centralized role label."
+
+require_source_match \
     "cloud APK package permission copy matches access contract" \
     "sysManage/src/features/drive/DriveAppPackageView.tsx" \
     'description="仅全局管理员或云盘管理员可以上传和替换安卓安装包。"' \
@@ -567,6 +573,12 @@ require_source_match \
     "CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/controller/AppPackageController.java" \
     '@RequestMapping\("/api/app-package"\)' \
     "CloudStorageApi must expose the public APK package backend used by sysManage."
+
+require_source_match \
+    "cloud operations storage users expose app roles" \
+    "CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/dto/AdminCloudStorageUserUsageResponse.java" \
+    'Map<String, String> appRoles' \
+    "CloudStorageApi storage user operations response must expose application roles for sysManage role labels."
 
 require_source_match \
     "CloudStorageApi protects admin API prefix" \

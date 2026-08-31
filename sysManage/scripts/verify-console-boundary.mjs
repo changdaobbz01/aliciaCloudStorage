@@ -173,6 +173,11 @@ assert.match(
   'cloud operations view permission copy must mention global admins and cloud admins',
 );
 assert.match(
+  driveOperationsViewSource,
+  /cloudRoleLabel\(user\)/,
+  'cloud operations storage users role tags must use the centralized cloud role label copy',
+);
+assert.match(
   driveAppPackageViewSource,
   /description="仅全局管理员或云盘管理员可以上传和替换安卓安装包。"/,
   'cloud APK package view permission copy must mention global admins and cloud admins',

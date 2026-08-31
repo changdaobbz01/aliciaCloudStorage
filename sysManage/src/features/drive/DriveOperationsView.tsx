@@ -32,6 +32,7 @@ import {
 import type { ColumnsType, TablePaginationConfig } from 'antd/es/table';
 import { useEffect, useState } from 'react';
 import { Icon } from '../../components/Icon';
+import { cloudRoleLabel, isCloudAdmin } from '../../types';
 import type {
   AdminCloudOperationsOverview,
   AdminCloudShareLink,
@@ -347,7 +348,7 @@ export function DriveOperationsView({
       width: 150,
       render: (_, user) => (
         <Space size={4} wrap>
-          <Tag color={user.role === 'ADMIN' ? 'gold' : 'blue'}>{user.role === 'ADMIN' ? '身份管理员' : '普通用户'}</Tag>
+          <Tag color={isCloudAdmin(user) ? 'gold' : 'blue'}>{cloudRoleLabel(user)}</Tag>
           <Tag color={user.status === 'ACTIVE' ? 'green' : 'red'}>{user.status === 'ACTIVE' ? '启用' : '停用'}</Tag>
         </Space>
       ),
