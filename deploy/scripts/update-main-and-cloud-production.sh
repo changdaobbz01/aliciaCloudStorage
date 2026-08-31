@@ -7,10 +7,12 @@ MAIN_SITE_UPDATE_SCRIPT="$MAIN_SITE_PROJECT_DIR/deploy/scripts/update-main-site-
 MAIN_SITE_ROUTE_VERIFY_SCRIPT="$MAIN_SITE_PROJECT_DIR/deploy/scripts/verify-main-site-routes.sh"
 MAIN_SITE_BOUNDARY_SCRIPT="$MAIN_SITE_PROJECT_DIR/deploy/scripts/check-main-site-frontend-boundaries.sh"
 CLOUD_UPDATE_SCRIPT="$CLOUD_PROJECT_DIR/deploy/scripts/update-cloud-production.sh"
+STATUS_SNAPSHOT_SCRIPT="$CLOUD_PROJECT_DIR/deploy/scripts/collect-production-status.sh"
 SKIP_MAIN_SITE_UPDATE="${ALICIA_SKIP_MAIN_SITE_UPDATE:-false}"
 SKIP_CLOUD_UPDATE="${ALICIA_SKIP_CLOUD_UPDATE:-false}"
 SKIP_FINAL_MAIN_SITE_VERIFY="${ALICIA_SKIP_FINAL_MAIN_SITE_VERIFY:-${ALICIA_SKIP_VERIFY:-false}}"
 VERIFY_MAIN_SITE_PUBLIC_DURING_JOINT_UPDATE="${ALICIA_VERIFY_MAIN_SITE_PUBLIC_DURING_JOINT_UPDATE:-false}"
+COLLECT_STATUS="${ALICIA_COLLECT_STATUS_AFTER_UPDATE:-false}"
 
 should_defer_main_site_public_boundary() {
     [[ "$SKIP_CLOUD_UPDATE" != "true" ]] \
@@ -54,6 +56,33 @@ run_final_main_site_route_verify() {
     (cd "$MAIN_SITE_PROJECT_DIR" && bash deploy/scripts/verify-main-site-routes.sh)
 }
 
+run_cloud_update_script() {
+    if [[ "$COLLECT_STATUS" == "true" ]]; then
+        ALICIA_COLLECT_STATUS_AFTER_UPDATE=false bash "$CLOUD_UPDATE_SCRIPT" "$CLOUD_PROJECT_DIR" "$@"
+    else
+        bash "$CLOUD_UPDATE_SCRIPT" "$CLOUD_PROJECT_DIR" "$@"
+    fi
+}
+
+run_platform_status_snapshot() {
+    [[ "$COLLECT_STATUS" == "true" ]] || return 0
+
+    [[ -f "$STATUS_SNAPSHOT_SCRIPT" ]] || {
+        printf 'Missing platform status snapshot script: %s\n' "$STATUS_SNAPSHOT_SCRIPT" >&2
+        exit 1
+    }
+
+    printf 'Collecting Alicia platform production status snapshot after joint update verification.\n'
+    ALICIA_MAIN_SITE_PROJECT_DIR="$MAIN_SITE_PROJECT_DIR" \
+    ALICIA_CLOUD_PROJECT_DIR="$CLOUD_PROJECT_DIR" \
+        bash "$STATUS_SNAPSHOT_SCRIPT"
+}
+
+if [[ "$COLLECT_STATUS" == "true" && ! -f "$STATUS_SNAPSHOT_SCRIPT" ]]; then
+    printf 'Missing platform status snapshot script: %s\n' "$STATUS_SNAPSHOT_SCRIPT" >&2
+    exit 1
+fi
+
 if [[ "$SKIP_MAIN_SITE_UPDATE" != "true" ]]; then
     if [[ -f "$MAIN_SITE_UPDATE_SCRIPT" ]]; then
         run_main_site_update_script
@@ -82,9 +111,10 @@ if [[ "$SKIP_CLOUD_UPDATE" != "true" ]]; then
         printf 'Missing cloud update script: %s\n' "$CLOUD_UPDATE_SCRIPT" >&2
         exit 1
     }
-    bash "$CLOUD_UPDATE_SCRIPT" "$CLOUD_PROJECT_DIR" "$@"
+    run_cloud_update_script "$@"
 fi
 
 run_final_main_site_route_verify
+run_platform_status_snapshot
 
 printf 'Alicia main/cloud production update completed.\n'

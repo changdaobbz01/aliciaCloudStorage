@@ -557,6 +557,54 @@ require_source_no_match \
     "Joint production update must still run final main route verification after cloud updates even when main site update was skipped."
 
 require_source_match \
+    "main/cloud update owns platform status snapshot switch" \
+    "deploy/scripts/update-main-and-cloud-production.sh" \
+    'COLLECT_STATUS="\$\{ALICIA_COLLECT_STATUS_AFTER_UPDATE:-false\}"' \
+    "Joint production update must own post-update platform status snapshots."
+
+require_source_match \
+    "main/cloud update locates platform status snapshot" \
+    "deploy/scripts/update-main-and-cloud-production.sh" \
+    'STATUS_SNAPSHOT_SCRIPT="\$CLOUD_PROJECT_DIR/deploy/scripts/collect-production-status.sh"' \
+    "Joint production update must locate the platform status snapshot script."
+
+require_source_match \
+    "main/cloud update exposes final platform status snapshot" \
+    "deploy/scripts/update-main-and-cloud-production.sh" \
+    'run_platform_status_snapshot\(\)' \
+    "Joint production update must expose a final platform status snapshot step."
+
+require_source_match \
+    "main/cloud update defers cloud status snapshot" \
+    "deploy/scripts/update-main-and-cloud-production.sh" \
+    'ALICIA_COLLECT_STATUS_AFTER_UPDATE=false bash "\$CLOUD_UPDATE_SCRIPT" "\$CLOUD_PROJECT_DIR" "\$@"' \
+    "Joint production update must defer cloud status snapshots until final main route verification completes."
+
+require_source_match \
+    "main/cloud update passes main site path to status snapshot" \
+    "deploy/scripts/update-main-and-cloud-production.sh" \
+    'ALICIA_MAIN_SITE_PROJECT_DIR="\$MAIN_SITE_PROJECT_DIR"' \
+    "Joint production update must pass the main site path to the platform status snapshot."
+
+require_source_match \
+    "main/cloud update passes cloud path to status snapshot" \
+    "deploy/scripts/update-main-and-cloud-production.sh" \
+    'ALICIA_CLOUD_PROJECT_DIR="\$CLOUD_PROJECT_DIR"' \
+    "Joint production update must pass the cloud path to the platform status snapshot."
+
+require_source_match \
+    "main/cloud update runs platform status snapshot" \
+    "deploy/scripts/update-main-and-cloud-production.sh" \
+    'bash "\$STATUS_SNAPSHOT_SCRIPT"' \
+    "Joint production update must run the platform status snapshot after final verification."
+
+require_source_match \
+    "main/cloud update fails fast for missing platform status snapshot" \
+    "deploy/scripts/update-main-and-cloud-production.sh" \
+    'if \[\[ "\$COLLECT_STATUS" == "true" && ! -f "\$STATUS_SNAPSHOT_SCRIPT" \]\]; then' \
+    "Joint production update must fail fast when the requested platform status snapshot script is missing."
+
+require_source_match \
     "production status locates main site repository" \
     "deploy/scripts/collect-production-status.sh" \
     'MAIN_SITE_PROJECT_DIR="\$\{ALICIA_MAIN_SITE_PROJECT_DIR:-\$HOME/mainSite\}"' \
