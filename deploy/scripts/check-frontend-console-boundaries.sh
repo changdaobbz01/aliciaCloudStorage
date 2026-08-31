@@ -1160,6 +1160,12 @@ require_source_match \
     "Main site portal contract verifier must ensure typed payloads are sent."
 
 require_source_match \
+    "main site portal contract verifier reads inline query parameters" \
+    "deploy/scripts/verify-main-site-portal-api-contracts.mjs" \
+    'extractInlineQueryParamKeysForFunction' \
+    "Main site portal contract verifier must read inline query parameters from frontend source."
+
+require_source_match \
     "main site portal contract verifier compares query parameters" \
     "deploy/scripts/verify-main-site-portal-api-contracts.mjs" \
     'extractRequestParamsForMethod' \
@@ -1218,6 +1224,24 @@ require_source_match \
     "deploy/scripts/verify-identity-console-api-contracts.mjs" \
     'assertUserSiteApiStringifiesPayload' \
     "Identity console contract verifier must ensure typed payloads are sent."
+
+require_source_match \
+    "identity console contract verifier reads URLSearchParams keys" \
+    "deploy/scripts/verify-identity-console-api-contracts.mjs" \
+    'extractUrlSearchParamKeysForFunction' \
+    "Identity console contract verifier must read URLSearchParams keys from frontend source."
+
+require_source_match \
+    "identity console contract verifier checks audit query helper" \
+    "deploy/scripts/verify-identity-console-api-contracts.mjs" \
+    'assertUserSiteApiUsesQueryHelper' \
+    "Identity console contract verifier must ensure audit APIs use the query helper."
+
+require_source_match \
+    "identity console contract verifier reads inline query parameters" \
+    "deploy/scripts/verify-identity-console-api-contracts.mjs" \
+    'extractInlineQueryParamKeysForFunction' \
+    "Identity console contract verifier must read inline query parameters from frontend source."
 
 require_source_match \
     "identity console contract verifier compares query parameters" \

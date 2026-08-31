@@ -200,6 +200,19 @@ function extractJsonStringifyObjectFieldsForFunction(functionName) {
   return fields;
 }
 
+function extractInlineQueryParamKeysForFunction(functionName) {
+  const source = extractTsFunctionSource(functionName);
+  const fields = [];
+  const queryParamPattern = /[?&]([A-Za-z][A-Za-z0-9_]*)=/g;
+  let match;
+
+  while ((match = queryParamPattern.exec(source)) !== null) {
+    fields.push(match[1]);
+  }
+
+  return fields;
+}
+
 function assertControllerBasePath(relativePath, expectedBasePath) {
   const source = readCloudProjectFile(relativePath);
   const pattern = new RegExp(`@RequestMapping\\("${escapeRegExp(expectedBasePath)}"\\)`);
@@ -489,7 +502,7 @@ assertFieldsSubset(
 assertContainsFields('main site logoutCurrentIdentitySession request body', logoutCurrentIdentitySessionRequestFields, ['refreshToken']);
 assertSameFields(
   'main site fetchIdentitySessions query parameters',
-  ['includeRevoked'],
+  extractInlineQueryParamKeysForFunction('fetchIdentitySessions'),
   extractRequestParamsForMethod(identityAuthController, 'listSessions'),
 );
 assert.match(

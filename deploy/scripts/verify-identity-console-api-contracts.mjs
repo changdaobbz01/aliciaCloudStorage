@@ -185,7 +185,7 @@ function assertControllerMethodMapping(relativePath, methodName, mappingPattern)
 }
 
 function extractTsFunctionSource(functionName) {
-  const functionPattern = new RegExp(`export\\s+function\\s+${escapeRegExp(functionName)}\\s*\\(`);
+  const functionPattern = new RegExp(`(?:export\\s+)?function\\s+${escapeRegExp(functionName)}\\s*\\(`);
   const match = functionPattern.exec(userSiteApiSource);
   assert.ok(match, `${functionName} must exist in mainSite/userSite/src/lib/api.ts`);
 
@@ -218,6 +218,32 @@ function extractJsonStringifyObjectFieldsForFunction(functionName) {
     }
 
     searchIndex = closeIndex + 1;
+  }
+
+  return fields;
+}
+
+function extractUrlSearchParamKeysForFunction(functionName) {
+  const source = extractTsFunctionSource(functionName);
+  const fields = [];
+  const searchSetPattern = /search\.set\('([^']+)'/g;
+  let match;
+
+  while ((match = searchSetPattern.exec(source)) !== null) {
+    fields.push(match[1]);
+  }
+
+  return fields;
+}
+
+function extractInlineQueryParamKeysForFunction(functionName) {
+  const source = extractTsFunctionSource(functionName);
+  const fields = [];
+  const queryParamPattern = /[?&]([A-Za-z][A-Za-z0-9_]*)=/g;
+  let match;
+
+  while ((match = queryParamPattern.exec(source)) !== null) {
+    fields.push(match[1]);
   }
 
   return fields;
@@ -264,6 +290,14 @@ function assertUserSiteApiStringifiesPayload(functionName) {
     extractTsFunctionSource(functionName),
     /body:\s*JSON\.stringify\(payload\)/,
     `${functionName} must send the typed payload as its request body`,
+  );
+}
+
+function assertUserSiteApiUsesQueryHelper(functionName, helperName) {
+  assert.match(
+    extractTsFunctionSource(functionName),
+    new RegExp(`${escapeRegExp(helperName)}\\(search,\\s*query\\)`),
+    `${functionName} must use ${helperName} for query parameters`,
   );
 }
 
@@ -488,8 +522,13 @@ assertSameFields(
   extractRequestParamsForMethod(`${identityControllerRoot}/IdentityAdminAuditLogController.java`, 'listAuditLogs'),
 );
 assertSameFields(
+  'fetchIdentityAuditLogs query parameters',
+  extractUrlSearchParamKeysForFunction('appendIdentityAuditLogParams'),
+  extractRequestParamsForMethod(`${identityControllerRoot}/IdentityAdminAuditLogController.java`, 'listAuditLogs'),
+);
+assertSameFields(
   'IdentitySessionsQuery',
-  ['includeRevoked'],
+  extractInlineQueryParamKeysForFunction('fetchIdentitySessions'),
   extractRequestParamsForMethod(`${identityControllerRoot}/IdentityAuthController.java`, 'listSessions'),
 );
 assertSameFields(
@@ -514,6 +553,7 @@ for (const functionName of [
 ]) {
   assertUserSiteApiStringifiesPayload(functionName);
 }
+assertUserSiteApiUsesQueryHelper('fetchIdentityAuditLogs', 'appendIdentityAuditLogParams');
 
 for (const contract of identityEndpointContracts) {
   assertIdentityEndpointContract(contract);
