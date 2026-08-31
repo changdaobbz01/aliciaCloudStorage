@@ -524,6 +524,18 @@ require_source_match \
     "Cloud console contract verifier must compare operations query parameters."
 
 require_source_match \
+    "cloud console contract verifier reads URLSearchParams keys" \
+    "sysManage/scripts/verify-api-contracts.mjs" \
+    'extractUrlSearchParamKeysForFunction' \
+    "Cloud console contract verifier must read URLSearchParams keys from frontend source."
+
+require_source_match \
+    "cloud console contract verifier checks operations query helper" \
+    "sysManage/scripts/verify-api-contracts.mjs" \
+    'assertApiFunctionUsesQueryHelper' \
+    "Cloud console contract verifier must ensure operations APIs use the query helper."
+
+require_source_match \
     "cloud console contract verifier compares user profile responses" \
     "sysManage/scripts/verify-api-contracts.mjs" \
     'UserProfileResponse' \

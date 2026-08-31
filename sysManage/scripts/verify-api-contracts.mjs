@@ -157,7 +157,7 @@ function extractRequestParamsForMethod(relativePath, methodName) {
 }
 
 function extractApiFunctionBody(functionName) {
-  const functionPattern = new RegExp(`export\\s+function\\s+${escapeRegExp(functionName)}\\s*\\(`);
+  const functionPattern = new RegExp(`(?:export\\s+)?function\\s+${escapeRegExp(functionName)}\\s*\\(`);
   const match = functionPattern.exec(apiSource);
   assert.ok(match, `${functionName} must exist in sysManage/src/lib/api.ts`);
 
@@ -190,6 +190,19 @@ function extractJsonStringifyObjectFieldsForFunction(functionName) {
     }
 
     searchIndex = closeIndex + 1;
+  }
+
+  return fields;
+}
+
+function extractUrlSearchParamKeysForFunction(functionName) {
+  const body = extractApiFunctionBody(functionName);
+  const fields = [];
+  const searchSetPattern = /search\.set\('([^']+)'/g;
+  let match;
+
+  while ((match = searchSetPattern.exec(body)) !== null) {
+    fields.push(match[1]);
   }
 
   return fields;
@@ -266,6 +279,14 @@ function assertApiFunctionStringifiesPayload(functionName) {
     extractApiFunctionBody(functionName),
     /body:\s*JSON\.stringify\(payload\)/,
     `${functionName} must send the typed payload as its request body`,
+  );
+}
+
+function assertApiFunctionUsesQueryHelper(functionName, helperName) {
+  assert.match(
+    extractApiFunctionBody(functionName),
+    new RegExp(`${escapeRegExp(helperName)}\\(search,\\s*query\\)`),
+    `${functionName} must use ${helperName} for query parameters`,
   );
 }
 
@@ -585,26 +606,55 @@ for (const functionName of [
   assertApiFunctionStringifiesPayload(functionName);
 }
 
-const pageQueryFields = extractTsTypeFields('AdminCloudOperationPageQuery');
-const shareQueryFields = [...extractTsTypeFields('AdminCloudShareLinksQuery'), ...pageQueryFields];
-const trashQueryFields = [...extractTsTypeFields('AdminCloudTrashNodesQuery'), ...pageQueryFields];
-const storageUsersQueryFields = pageQueryFields;
+const pageQueryTypeFields = extractTsTypeFields('AdminCloudOperationPageQuery');
+const shareQueryTypeFields = [...extractTsTypeFields('AdminCloudShareLinksQuery'), ...pageQueryTypeFields];
+const trashQueryTypeFields = [...extractTsTypeFields('AdminCloudTrashNodesQuery'), ...pageQueryTypeFields];
+const storageUsersQueryTypeFields = pageQueryTypeFields;
+
+const pageQueryRuntimeFields = extractUrlSearchParamKeysForFunction('appendAdminOperationPageParams');
+const shareQueryRuntimeFields = [
+  ...extractUrlSearchParamKeysForFunction('fetchAdminCloudOperationShares'),
+  ...pageQueryRuntimeFields,
+];
+const trashQueryRuntimeFields = [
+  ...extractUrlSearchParamKeysForFunction('fetchAdminCloudOperationTrash'),
+  ...pageQueryRuntimeFields,
+];
+const storageUsersQueryRuntimeFields = pageQueryRuntimeFields;
 
 assertSameFields(
   'AdminCloudShareLinksQuery',
-  shareQueryFields,
+  shareQueryTypeFields,
   extractRequestParamsForMethod(operationsController, 'listShareLinks'),
 );
 assertSameFields(
   'AdminCloudTrashNodesQuery',
-  trashQueryFields,
+  trashQueryTypeFields,
   extractRequestParamsForMethod(operationsController, 'listTrashNodes'),
 );
 assertSameFields(
   'AdminCloudStorageUsersQuery',
-  storageUsersQueryFields,
+  storageUsersQueryTypeFields,
   extractRequestParamsForMethod(operationsController, 'listStorageUsers'),
 );
+assertSameFields(
+  'fetchAdminCloudOperationShares query parameters',
+  shareQueryRuntimeFields,
+  extractRequestParamsForMethod(operationsController, 'listShareLinks'),
+);
+assertSameFields(
+  'fetchAdminCloudOperationTrash query parameters',
+  trashQueryRuntimeFields,
+  extractRequestParamsForMethod(operationsController, 'listTrashNodes'),
+);
+assertSameFields(
+  'fetchAdminCloudStorageUsers query parameters',
+  storageUsersQueryRuntimeFields,
+  extractRequestParamsForMethod(operationsController, 'listStorageUsers'),
+);
+assertApiFunctionUsesQueryHelper('fetchAdminCloudOperationShares', 'appendAdminOperationPageParams');
+assertApiFunctionUsesQueryHelper('fetchAdminCloudOperationTrash', 'appendAdminOperationPageParams');
+assertApiFunctionUsesQueryHelper('fetchAdminCloudStorageUsers', 'appendAdminOperationPageParams');
 
 for (const contract of cloudConsoleEndpointContracts) {
   assertCloudConsoleEndpointContract(contract);

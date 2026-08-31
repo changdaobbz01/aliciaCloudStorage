@@ -375,6 +375,8 @@ Invoke-Step "verify cloud frontend split wiring" {
     Require-Contains "sysManage/scripts/verify-api-contracts.mjs" "AdminCloudOperationsOverviewResponse" "cloud console contract verifier must compare the operations overview response"
     Require-Contains "sysManage/scripts/verify-api-contracts.mjs" "AdminCloudStorageUserUsageResponse" "cloud console contract verifier must compare the storage users response"
     Require-Contains "sysManage/scripts/verify-api-contracts.mjs" "extractRequestParamsForMethod" "cloud console contract verifier must compare operations query parameters"
+    Require-Contains "sysManage/scripts/verify-api-contracts.mjs" "extractUrlSearchParamKeysForFunction" "cloud console contract verifier must read URLSearchParams keys from frontend source"
+    Require-Contains "sysManage/scripts/verify-api-contracts.mjs" "assertApiFunctionUsesQueryHelper" "cloud console contract verifier must ensure operations APIs use the query helper"
     Require-Contains "sysManage/scripts/verify-api-contracts.mjs" "UserProfileResponse" "cloud console contract verifier must compare CloudStorageApi user profile responses"
     Require-Contains "sysManage/scripts/verify-api-contracts.mjs" "AdminUpdateUserQuotaRequest" "cloud console contract verifier must compare quota update requests"
     Require-Contains "sysManage/scripts/verify-api-contracts.mjs" "cloudConsoleEndpointContracts" "cloud console contract verifier must compare CloudStorageApi endpoint paths and methods"
