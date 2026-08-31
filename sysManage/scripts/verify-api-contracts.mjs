@@ -124,6 +124,18 @@ function assertSameFields(label, actualFields, expectedFields) {
   assert.deepEqual(sortedUnique(actualFields), sortedUnique(expectedFields), `${label} fields must match`);
 }
 
+function assertSubsetFields(label, actualFields, expectedFields) {
+  const allowed = new Set(expectedFields);
+  const unexpectedFields = sortedUnique(actualFields).filter((field) => !allowed.has(field));
+  assert.deepEqual(unexpectedFields, [], `${label} fields must be declared by backend DTO`);
+}
+
+function assertIncludesFields(label, actualFields, requiredFields) {
+  const actual = new Set(actualFields);
+  const missingFields = requiredFields.filter((field) => !actual.has(field));
+  assert.deepEqual(missingFields, [], `${label} fields must be sent by the frontend`);
+}
+
 function extractRequestParamsForMethod(relativePath, methodName) {
   const source = readRepoFile(relativePath);
   const methodPattern = new RegExp(`${escapeRegExp(methodName)}\\s*\\(`);
@@ -156,6 +168,33 @@ function extractApiFunctionBody(functionName) {
   return apiSource.slice(openIndex + 1, closeIndex);
 }
 
+function extractJsonStringifyObjectFieldsForFunction(functionName) {
+  const body = extractApiFunctionBody(functionName);
+  const fields = [];
+  let searchIndex = 0;
+
+  while (searchIndex < body.length) {
+    const stringifyIndex = body.indexOf('JSON.stringify(', searchIndex);
+    if (stringifyIndex === -1) {
+      break;
+    }
+
+    const openIndex = body.indexOf('(', stringifyIndex);
+    const closeIndex = findMatching(body, openIndex, '(', ')');
+    const argumentSource = body.slice(openIndex + 1, closeIndex);
+    const fieldPattern = /(?:^|[{\s,?])([A-Za-z][A-Za-z0-9_]*)\s*:/g;
+    let fieldMatch;
+
+    while ((fieldMatch = fieldPattern.exec(argumentSource)) !== null) {
+      fields.push(fieldMatch[1]);
+    }
+
+    searchIndex = closeIndex + 1;
+  }
+
+  return fields;
+}
+
 function assertControllerBasePath(relativePath, expectedBasePath) {
   if (!expectedBasePath) {
     return;
@@ -172,7 +211,7 @@ function assertControllerMethodMapping(relativePath, methodName, mappingPattern)
   assert.ok(methodIndex > -1, `${methodName} must exist in ${relativePath}`);
 
   const context = source.slice(Math.max(0, methodIndex - 260), methodIndex);
-  assert.match(context, mappingPattern, `${methodName} must keep its CloudStorageApi route mapping`);
+  assert.match(context, mappingPattern, `${methodName} must keep its route mapping`);
 }
 
 function assertApiFunctionUsesPath(functionName, pathNeedle) {
@@ -230,7 +269,7 @@ function assertControllerMethodReceivesAuthorization(relativePath, methodName) {
     /@RequestHeader\s*\(\s*value\s*=\s*HttpHeaders\.AUTHORIZATION\s*,\s*required\s*=\s*false\s*\)\s+String\s+authorization/,
     `${methodName} must receive the Authorization header`,
   );
-  assert.match(body, /\bauthorization\b/, `${methodName} must pass Authorization to the CloudStorageApi service layer`);
+  assert.match(body, /\bauthorization\b/, `${methodName} must pass Authorization to the service layer`);
 }
 
 function assertCloudStorageApiAdminInterceptorContract() {
@@ -274,6 +313,9 @@ const operationsController = `${controllerRoot}/AdminCloudOperationsController.j
 const adminAppPackageController = `${controllerRoot}/AdminAppPackageController.java`;
 const appPackageController = `${controllerRoot}/AppPackageController.java`;
 const overviewDto = `${dtoRoot}/AdminCloudOperationsOverviewResponse.java`;
+const identityDtoRoot = 'identityApi/src/main/java/com/alicia/cloudstorage/identity/dto';
+const identityControllerRoot = 'identityApi/src/main/java/com/alicia/cloudstorage/identity/controller';
+const identityAuthController = `${identityControllerRoot}/IdentityAuthController.java`;
 
 const cloudConsoleEndpointContracts = [
   {
@@ -399,10 +441,60 @@ const cloudConsoleEndpointContracts = [
   },
 ];
 
+const cloudConsoleIdentityEndpointContracts = [
+  {
+    controller: identityAuthController,
+    basePath: '/api/identity/auth',
+    javaMethod: 'refreshToken',
+    mappingPattern: /@PostMapping\("\/token\/refresh"\)/,
+    tsFunction: 'refreshAuthSession',
+    endpointNeedle: "'/api/identity/auth/token/refresh'",
+    httpMethod: 'POST',
+    requiresAuthToken: true,
+  },
+  {
+    controller: identityAuthController,
+    basePath: '/api/identity/auth',
+    javaMethod: 'logout',
+    mappingPattern: /@PostMapping\("\/logout"\)/,
+    tsFunction: 'logoutAuthToken',
+    endpointNeedle: "'/api/identity/auth/logout'",
+    httpMethod: 'POST',
+    requiresAuthToken: true,
+    requiresAuthorizationHeader: true,
+  },
+  {
+    controller: identityAuthController,
+    basePath: '/api/identity/auth',
+    javaMethod: 'updateProfile',
+    mappingPattern: /@PutMapping\("\/profile"\)/,
+    tsFunction: 'updateProfile',
+    endpointNeedle: "'/api/identity/auth/profile'",
+    httpMethod: 'PUT',
+    requiresAuthToken: true,
+    requiresAuthorizationHeader: true,
+  },
+];
+
 assertSameFields(
   'User',
   extractTsTypeFields('User'),
   extractJavaRecordFields(`${dtoRoot}/UserProfileResponse.java`, 'UserProfileResponse'),
+);
+assertSameFields(
+  'IdentityUser',
+  extractTsTypeFields('IdentityUser'),
+  extractJavaRecordFields(`${identityDtoRoot}/IdentityUserResponse.java`, 'IdentityUserResponse'),
+);
+assertSameFields(
+  'IdentityLoginResponse',
+  extractTsTypeFields('IdentityLoginResponse'),
+  extractJavaRecordFields(`${identityDtoRoot}/IdentityLoginResponse.java`, 'IdentityLoginResponse'),
+);
+assertSameFields(
+  'UpdateProfilePayload',
+  extractTsTypeFields('UpdateProfilePayload'),
+  extractJavaRecordFields(`${identityDtoRoot}/UpdateIdentityProfileRequest.java`, 'UpdateIdentityProfileRequest'),
 );
 assertSameFields(
   'AdminCloudOperationsOverview',
@@ -464,6 +556,19 @@ assertSameFields(
   extractTsTypeFields('UpdateUserStorageQuotaPayload'),
   extractJavaRecordFields(`${dtoRoot}/AdminUpdateUserQuotaRequest.java`, 'AdminUpdateUserQuotaRequest'),
 );
+assertSameFields(
+  'refreshAuthSession request body',
+  extractJsonStringifyObjectFieldsForFunction('refreshAuthSession'),
+  extractJavaRecordFields(`${identityDtoRoot}/IdentityRefreshTokenRequest.java`, 'IdentityRefreshTokenRequest'),
+);
+
+const logoutAuthTokenRequestFields = extractJsonStringifyObjectFieldsForFunction('logoutAuthToken');
+assertSubsetFields(
+  'logoutAuthToken request body',
+  logoutAuthTokenRequestFields,
+  extractJavaRecordFields(`${identityDtoRoot}/IdentityLogoutRequest.java`, 'IdentityLogoutRequest'),
+);
+assertIncludesFields('logoutAuthToken request body', logoutAuthTokenRequestFields, ['refreshToken']);
 
 const pageQueryFields = extractTsTypeFields('AdminCloudOperationPageQuery');
 const shareQueryFields = [...extractTsTypeFields('AdminCloudShareLinksQuery'), ...pageQueryFields];
@@ -490,6 +595,10 @@ for (const contract of cloudConsoleEndpointContracts) {
   assertCloudConsoleEndpointContract(contract);
 }
 
+for (const contract of cloudConsoleIdentityEndpointContracts) {
+  assertCloudConsoleEndpointContract(contract);
+}
+
 assertCloudStorageApiAdminInterceptorContract();
 assertControllerBasePath(appPackageController, '/api/app-package');
 assertControllerMethodMapping(appPackageController, 'downloadCurrentPackage', /@GetMapping\("\/download\/current"\)/);
@@ -499,4 +608,4 @@ assert.match(
   'cloud console APK download constant must stay pinned to CloudStorageApi public package download',
 );
 
-console.log('[OK] sysManage CloudStorageApi contracts verified');
+console.log('[OK] sysManage CloudStorageApi and IdentityApi contracts verified');

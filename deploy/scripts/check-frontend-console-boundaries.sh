@@ -536,6 +536,24 @@ require_source_match \
     "Cloud console contract verifier must compare CloudStorageApi endpoint paths and methods."
 
 require_source_match \
+    "cloud console contract verifier compares allowed identity endpoint contracts" \
+    "sysManage/scripts/verify-api-contracts.mjs" \
+    'cloudConsoleIdentityEndpointContracts' \
+    "Cloud console contract verifier must compare allowed IdentityApi endpoint paths and methods."
+
+require_source_match \
+    "cloud console contract verifier compares identity login responses" \
+    "sysManage/scripts/verify-api-contracts.mjs" \
+    'IdentityLoginResponse' \
+    "Cloud console contract verifier must compare identity login responses."
+
+require_source_match \
+    "cloud console contract verifier binds profile updates to IdentityApi" \
+    "sysManage/scripts/verify-api-contracts.mjs" \
+    'UpdateIdentityProfileRequest' \
+    "Cloud console contract verifier must bind profile updates to IdentityApi."
+
+require_source_match \
     "cloud console contract verifier binds controller mappings" \
     "sysManage/scripts/verify-api-contracts.mjs" \
     'assertControllerMethodMapping' \
