@@ -545,6 +545,18 @@ require_source_match \
     "Joint production update must expose an escape hatch for the final main route verification."
 
 require_source_match \
+    "main/cloud update allows cloud-only missing main verifier" \
+    "deploy/scripts/update-main-and-cloud-production.sh" \
+    'Skipping final main site route verification; route verify script is missing because main site update was skipped' \
+    "Joint production update must allow cloud-only updates when the main site verifier is unavailable."
+
+require_source_no_match \
+    "main/cloud update final route verify survives skipped main update" \
+    "deploy/scripts/update-main-and-cloud-production.sh" \
+    '\[\[ "\$SKIP_MAIN_SITE_UPDATE" != "true" \]\] \|\| return 0' \
+    "Joint production update must still run final main route verification after cloud updates even when main site update was skipped."
+
+require_source_match \
     "cloud web Dockerfile publishes root Android asset links" \
     "webApp/Dockerfile" \
     'COPY --from=cloud-builder /app/webApp/dist/\.well-known /usr/share/nginx/html/\.well-known' \

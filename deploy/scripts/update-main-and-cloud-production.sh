@@ -38,12 +38,17 @@ run_main_site_route_verify() {
 
 run_final_main_site_route_verify() {
     [[ "$SKIP_FINAL_MAIN_SITE_VERIFY" != "true" ]] || return 0
-    [[ "$SKIP_MAIN_SITE_UPDATE" != "true" ]] || return 0
     [[ "$SKIP_CLOUD_UPDATE" != "true" ]] || return 0
-    [[ -f "$MAIN_SITE_ROUTE_VERIFY_SCRIPT" ]] || {
+
+    if [[ ! -f "$MAIN_SITE_ROUTE_VERIFY_SCRIPT" ]]; then
+        if [[ "$SKIP_MAIN_SITE_UPDATE" == "true" ]]; then
+            printf 'Skipping final main site route verification; route verify script is missing because main site update was skipped: %s\n' "$MAIN_SITE_ROUTE_VERIFY_SCRIPT"
+            return 0
+        fi
+
         printf 'Missing main site route verify script: %s\n' "$MAIN_SITE_ROUTE_VERIFY_SCRIPT" >&2
         exit 1
-    }
+    fi
 
     printf 'Running final main site route verification through the updated cloud frontend gateway.\n'
     (cd "$MAIN_SITE_PROJECT_DIR" && bash deploy/scripts/verify-main-site-routes.sh)
