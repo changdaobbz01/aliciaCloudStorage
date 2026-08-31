@@ -201,10 +201,61 @@ function assertMainSiteApiMethod(functionName, method) {
   assert.match(source, new RegExp(`method:\\s*'${escapeRegExp(method)}'`), `${functionName} must use ${method}`);
 }
 
+function extractJavaMethodParts(relativePath, methodName) {
+  const source = readCloudProjectFile(relativePath);
+  const methodPattern = new RegExp(`${escapeRegExp(methodName)}\\s*\\(`);
+  const match = methodPattern.exec(source);
+  assert.ok(match, `${methodName} must exist in ${relativePath}`);
+
+  const openIndex = source.indexOf('(', match.index);
+  const closeIndex = findMatching(source, openIndex, '(', ')');
+  const bodyOpenIndex = source.indexOf('{', closeIndex);
+  assert.ok(bodyOpenIndex > -1, `${methodName} must use a method body in ${relativePath}`);
+
+  const bodyCloseIndex = findMatching(source, bodyOpenIndex, '{', '}');
+  return {
+    parameters: source.slice(openIndex + 1, closeIndex),
+    body: source.slice(bodyOpenIndex + 1, bodyCloseIndex),
+  };
+}
+
+function assertMainSiteApiUsesAuthToken(functionName) {
+  const source = extractTsFunctionSource(functionName);
+  assert.match(source, /withToken\((?:token|accessToken)\b/, `${functionName} must send the current auth token`);
+}
+
+function assertControllerMethodReceivesAuthorization(relativePath, methodName) {
+  const { parameters, body } = extractJavaMethodParts(relativePath, methodName);
+
+  assert.match(
+    parameters,
+    /@RequestHeader\s*\(\s*value\s*=\s*HttpHeaders\.AUTHORIZATION\s*,\s*required\s*=\s*false\s*\)\s+String\s+authorization/,
+    `${methodName} must receive the Authorization header`,
+  );
+  assert.match(body, /\bauthorization\b/, `${methodName} must pass Authorization to the service layer`);
+}
+
+function assertCloudProfileAvatarInterceptorContract() {
+  const source = readCloudProjectFile('CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/config/WebMvcConfig.java');
+  assert.match(
+    source,
+    /registry\.addInterceptor\(currentPrincipalInterceptor\)[\s\S]*\.addPathPatterns\([\s\S]*"\/api\/cloud-profile\/avatar"[\s\S]*\)/,
+    'CloudStorageApi must protect avatar uploads with CurrentPrincipalInterceptor',
+  );
+}
+
 function assertMainSitePortalEndpointContract(contract) {
   assertControllerBasePath(contract.controller, contract.basePath);
   assertControllerMethodMapping(contract.controller, contract.javaMethod, contract.mappingPattern);
   assertMainSiteApiEndpoint(contract.tsFunction, contract.endpointNeedle);
+
+  if (contract.requiresAuthToken) {
+    assertMainSiteApiUsesAuthToken(contract.tsFunction);
+  }
+
+  if (contract.requiresAuthorizationHeader) {
+    assertControllerMethodReceivesAuthorization(contract.controller, contract.javaMethod);
+  }
 
   if (contract.httpMethod) {
     assertMainSiteApiMethod(contract.tsFunction, contract.httpMethod);
@@ -240,6 +291,8 @@ const mainSitePortalEndpointContracts = [
     mappingPattern: /@GetMapping\("\/me"\)/,
     tsFunction: 'fetchCurrentIdentityUser',
     endpointNeedle: '/api/identity/auth/me',
+    requiresAuthToken: true,
+    requiresAuthorizationHeader: true,
   },
   {
     controller: identityAuthController,
@@ -249,6 +302,7 @@ const mainSitePortalEndpointContracts = [
     tsFunction: 'refreshAuthSession',
     endpointNeedle: '/api/identity/auth/token/refresh',
     httpMethod: 'POST',
+    requiresAuthToken: true,
   },
   {
     controller: identityAuthController,
@@ -257,6 +311,8 @@ const mainSitePortalEndpointContracts = [
     mappingPattern: /@GetMapping\("\/sessions"\)/,
     tsFunction: 'fetchIdentitySessions',
     endpointNeedle: '/api/identity/auth/sessions',
+    requiresAuthToken: true,
+    requiresAuthorizationHeader: true,
   },
   {
     controller: identityAuthController,
@@ -266,6 +322,8 @@ const mainSitePortalEndpointContracts = [
     tsFunction: 'revokeIdentitySession',
     endpointNeedle: '/api/identity/auth/sessions/',
     httpMethod: 'DELETE',
+    requiresAuthToken: true,
+    requiresAuthorizationHeader: true,
   },
   {
     controller: identityAuthController,
@@ -275,6 +333,8 @@ const mainSitePortalEndpointContracts = [
     tsFunction: 'logoutCurrentIdentitySession',
     endpointNeedle: '/api/identity/auth/logout',
     httpMethod: 'POST',
+    requiresAuthToken: true,
+    requiresAuthorizationHeader: true,
   },
   {
     controller: identityAuthController,
@@ -311,6 +371,8 @@ const mainSitePortalEndpointContracts = [
     tsFunction: 'updateIdentityProfile',
     endpointNeedle: '/api/identity/auth/profile',
     httpMethod: 'PUT',
+    requiresAuthToken: true,
+    requiresAuthorizationHeader: true,
   },
   {
     controller: identityAuthController,
@@ -320,6 +382,8 @@ const mainSitePortalEndpointContracts = [
     tsFunction: 'changeIdentityPassword',
     endpointNeedle: '/api/identity/auth/password',
     httpMethod: 'PUT',
+    requiresAuthToken: true,
+    requiresAuthorizationHeader: true,
   },
   {
     controller: cloudProfileController,
@@ -329,6 +393,8 @@ const mainSitePortalEndpointContracts = [
     tsFunction: 'uploadIdentityAvatar',
     endpointNeedle: '/api/cloud-profile/avatar',
     httpMethod: 'POST',
+    requiresAuthToken: true,
+    requiresAuthorizationHeader: true,
   },
 ];
 
@@ -401,6 +467,7 @@ for (const contract of mainSitePortalEndpointContracts) {
 
 assertControllerBasePath(cloudProfileController, '/api/cloud-profile');
 assertControllerMethodMapping(cloudProfileController, 'getAvatar', /@GetMapping\("\/avatar\/\{userId\}"\)/);
+assertCloudProfileAvatarInterceptorContract();
 assertSourceUsesPath(
   'IdentityAvatar in mainSite/webApp/src/IdentityAvatar.tsx',
   identityAvatarSource,

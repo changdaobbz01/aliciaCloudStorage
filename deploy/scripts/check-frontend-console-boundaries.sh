@@ -1124,6 +1124,24 @@ require_source_match \
     "Main site portal contract verifier must bind avatar uploads to CloudStorageApi."
 
 require_source_match \
+    "main site portal contract verifier checks frontend auth tokens" \
+    "deploy/scripts/verify-main-site-portal-api-contracts.mjs" \
+    'assertMainSiteApiUsesAuthToken' \
+    "Main site portal contract verifier must ensure protected API calls send the current auth token."
+
+require_source_match \
+    "main site portal contract verifier checks controller auth headers" \
+    "deploy/scripts/verify-main-site-portal-api-contracts.mjs" \
+    'assertControllerMethodReceivesAuthorization' \
+    "Main site portal contract verifier must ensure protected backend methods receive Authorization headers."
+
+require_source_match \
+    "main site portal contract verifier checks avatar interceptor" \
+    "deploy/scripts/verify-main-site-portal-api-contracts.mjs" \
+    'assertCloudProfileAvatarInterceptorContract' \
+    "Main site portal contract verifier must ensure avatar uploads stay protected by CurrentPrincipalInterceptor."
+
+require_source_match \
     "identity console contract verifier compares user responses" \
     "deploy/scripts/verify-identity-console-api-contracts.mjs" \
     'IdentityUserResponse' \
