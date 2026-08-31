@@ -28,7 +28,7 @@ cd F:\webProject\AliciaCloudStorage
 powershell -ExecutionPolicy Bypass -File deploy\scripts\verify-platform-frontend-split-local.ps1
 ```
 
-该脚本会先运行 `mainSite/deploy/scripts/verify-frontend-split-local.ps1`，再运行本仓库的 `deploy/scripts/verify-frontend-split-local.ps1`，覆盖主站门户、身份后台、普通云盘和云盘后台的本地构建与静态拆分边界，并额外复核四处个人资料弹窗的共享标题、头像功能区、字段区和 CSS 布局骨架。默认主站仓库为同级 `..\mainSite`；路径不同时可传 `-MainSiteProjectDir`，只做静态检查时可加 `-SkipBuild`。
+该脚本会先运行 `mainSite/deploy/scripts/verify-frontend-split-local.ps1`，再运行本仓库的 `deploy/scripts/verify-frontend-split-local.ps1`，覆盖主站门户、身份后台、普通云盘和云盘后台的本地构建与静态拆分边界，并额外复核四处个人资料弹窗的共享标题、头像功能区、字段区和 CSS 布局骨架，以及 `mainSite/userSite` 与当前 `identityApi` 的字段级 API 契约。默认主站仓库为同级 `..\mainSite`；路径不同时可传 `-MainSiteProjectDir`，只做静态检查时可加 `-SkipBuild`。
 
 ## 3. 账号密码输入方式
 

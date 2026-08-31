@@ -773,6 +773,30 @@ require_source_match \
     "Platform local verifier must include the cloud console profile modal in the shared profile contract."
 
 require_source_match \
+    "platform local verifier checks identity console API contracts" \
+    "deploy/scripts/verify-platform-frontend-split-local.ps1" \
+    'Invoke-IdentityConsoleApiContractVerification' \
+    "Platform local verifier must enforce identity console IdentityApi contracts."
+
+require_source_match \
+    "identity console contract verifier compares user responses" \
+    "deploy/scripts/verify-identity-console-api-contracts.mjs" \
+    'IdentityUserResponse' \
+    "Identity console contract verifier must compare Identity user responses."
+
+require_source_match \
+    "identity console contract verifier compares audit pages" \
+    "deploy/scripts/verify-identity-console-api-contracts.mjs" \
+    'IdentityAuditLogPageResponse' \
+    "Identity console contract verifier must compare Identity audit log pages."
+
+require_source_match \
+    "identity console contract verifier compares query parameters" \
+    "deploy/scripts/verify-identity-console-api-contracts.mjs" \
+    'extractRequestParamsForMethod' \
+    "Identity console contract verifier must compare query parameters."
+
+require_source_match \
     "production status locates main site repository" \
     "deploy/scripts/collect-production-status.sh" \
     'MAIN_SITE_PROJECT_DIR="\$\{ALICIA_MAIN_SITE_PROJECT_DIR:-\$HOME/mainSite\}"' \
