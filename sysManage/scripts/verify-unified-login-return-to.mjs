@@ -3,12 +3,37 @@ import fs from 'node:fs';
 import path from 'node:path';
 import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
-import ts from 'typescript';
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const expectedBasePath = '/console/cloud/';
 
-function loadModule() {
+async function compileTypeScriptModule(sourceText, exportNames) {
+  const typescript = process.env.ALICIA_VERIFY_RETURN_TO_DISABLE_TYPESCRIPT === '1'
+    ? null
+    : await import('typescript').catch(() => null);
+  const ts = typescript?.default ?? typescript;
+
+  if (ts?.transpileModule) {
+    return ts.transpileModule(sourceText, {
+      compilerOptions: {
+        module: ts.ModuleKind.CommonJS,
+        target: ts.ScriptTarget.ES2022,
+      },
+    }).outputText;
+  }
+
+  return `${transpileTypeScriptSubset(sourceText)}\nmodule.exports = { ${exportNames.join(', ')} };`;
+}
+
+function transpileTypeScriptSubset(sourceText) {
+  return sourceText
+    .replace(/^export\s+type\s+[A-Za-z_$][\w$]*\s*=\s*[^;]+;\s*/gm, '')
+    .replace(/\bexport\s+(?=(?:const|function)\b)/g, '')
+    .replace(/([\(,]\s*[A-Za-z_$][\w$]*)\??\s*:\s*[^=,)]+(?=[=,)])/g, '$1')
+    .replace(/\)\s*:\s*[A-Za-z_$][\w$<>\[\] |.'"]*\s*\{/g, ') {');
+}
+
+async function loadModule() {
   const appPathsSource = fs
     .readFileSync(path.join(rootDir, 'src', 'lib', 'appPaths.ts'), 'utf8')
     .replaceAll('import.meta.env.BASE_URL', JSON.stringify(expectedBasePath));
@@ -16,16 +41,11 @@ function loadModule() {
     .readFileSync(path.join(rootDir, 'src', 'lib', 'unifiedLogin.ts'), 'utf8')
     .replace(/^import\s+\{\s*appPath\s*\}\s+from\s+'\.\/appPaths';\r?\n/m, '');
   const source = `${appPathsSource}\n${loginSource}`;
-  const compiled = ts.transpileModule(source, {
-    compilerOptions: {
-      module: ts.ModuleKind.CommonJS,
-      target: ts.ScriptTarget.ES2022,
-    },
-  });
+  const compiled = await compileTypeScriptModule(source, ['buildUnifiedLoginUrl', 'cloudConsoleReturnTo']);
   const module = { exports: {} };
 
   vm.runInNewContext(
-    compiled.outputText,
+    compiled,
     {
       exports: module.exports,
       module,
@@ -39,7 +59,7 @@ function loadModule() {
   return module.exports;
 }
 
-const { buildUnifiedLoginUrl, cloudConsoleReturnTo } = loadModule();
+const { buildUnifiedLoginUrl, cloudConsoleReturnTo } = await loadModule();
 
 const returnToCases = [
   [['', '', ''], '/console/cloud/'],

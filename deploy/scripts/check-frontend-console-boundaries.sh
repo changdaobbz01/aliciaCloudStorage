@@ -24,19 +24,6 @@ run_node_script() {
     ok "$label"
 }
 
-run_typescript_node_script() {
-    local label="$1"
-    local package_dir="$2"
-    local relative_script="$3"
-
-    if [[ ! -d "$package_dir/node_modules/typescript" ]]; then
-        printf '[SKIP] %s requires %s/node_modules/typescript; run npm install or a full build to execute it.\n' "$label" "$package_dir"
-        return 0
-    fi
-
-    run_node_script "$label" "$relative_script"
-}
-
 scan_target() {
     local label="$1"
     local target="$2"
@@ -116,11 +103,11 @@ require_source_no_match() {
 
 cd "$ROOT_DIR"
 
-run_typescript_node_script "cloud web returnTo boundary" "webApp" "webApp/scripts/verify-unified-login-return-to.mjs"
+run_node_script "cloud web returnTo boundary" "webApp/scripts/verify-unified-login-return-to.mjs"
 run_node_script "cloud web session sync boundary" "webApp/scripts/verify-session-sync.mjs"
 run_node_script "cloud web client boundary" "webApp/scripts/verify-client-boundary.mjs"
 run_node_script "cloud web CloudStorageApi contract" "webApp/scripts/verify-api-contracts.mjs"
-run_typescript_node_script "cloud console returnTo boundary" "sysManage" "sysManage/scripts/verify-unified-login-return-to.mjs"
+run_node_script "cloud console returnTo boundary" "sysManage/scripts/verify-unified-login-return-to.mjs"
 run_node_script "cloud console session sync boundary" "sysManage/scripts/verify-session-sync.mjs"
 run_node_script "cloud console boundary" "sysManage/scripts/verify-console-boundary.mjs"
 run_node_script "cloud console CloudStorageApi contract" "sysManage/scripts/verify-api-contracts.mjs"

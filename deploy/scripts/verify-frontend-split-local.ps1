@@ -118,30 +118,15 @@ function Invoke-NodeScript {
     }
 }
 
-function Invoke-TypescriptNodeScript {
-    param(
-        [string]$RelativeDirectory,
-        [string]$RelativeScript
-    )
-
-    $typescriptPath = Resolve-RepoPath (Join-Path $RelativeDirectory "node_modules\typescript")
-    if (-not (Test-Path -LiteralPath $typescriptPath -PathType Container)) {
-        Write-Host "[SKIP] node $RelativeScript requires $RelativeDirectory\node_modules\typescript; run npm install or a full build to execute it."
-        return
-    }
-
-    Invoke-NodeScript $RelativeScript
-}
-
 if (-not $SkipBuild) {
     Invoke-Step "build cloud webApp" { Invoke-NpmScript "webApp" "build" }
     Invoke-Step "build cloud sysManage" { Invoke-NpmScript "sysManage" "build" }
 } else {
-    Invoke-Step "verify cloud webApp returnTo boundary" { Invoke-TypescriptNodeScript "webApp" "webApp\scripts\verify-unified-login-return-to.mjs" }
+    Invoke-Step "verify cloud webApp returnTo boundary" { Invoke-NodeScript "webApp\scripts\verify-unified-login-return-to.mjs" }
     Invoke-Step "verify cloud webApp session sync boundary" { Invoke-NodeScript "webApp\scripts\verify-session-sync.mjs" }
     Invoke-Step "verify cloud webApp client boundary" { Invoke-NodeScript "webApp\scripts\verify-client-boundary.mjs" }
     Invoke-Step "verify cloud webApp API contracts" { Invoke-NodeScript "webApp\scripts\verify-api-contracts.mjs" }
-    Invoke-Step "verify cloud sysManage returnTo boundary" { Invoke-TypescriptNodeScript "sysManage" "sysManage\scripts\verify-unified-login-return-to.mjs" }
+    Invoke-Step "verify cloud sysManage returnTo boundary" { Invoke-NodeScript "sysManage\scripts\verify-unified-login-return-to.mjs" }
     Invoke-Step "verify cloud sysManage session sync boundary" { Invoke-NodeScript "sysManage\scripts\verify-session-sync.mjs" }
     Invoke-Step "verify cloud sysManage console boundary" { Invoke-NodeScript "sysManage\scripts\verify-console-boundary.mjs" }
     Invoke-Step "verify cloud sysManage API contracts" { Invoke-NodeScript "sysManage\scripts\verify-api-contracts.mjs" }
@@ -291,11 +276,11 @@ Invoke-Step "verify cloud frontend split wiring" {
     Require-Contains "deploy/scripts/verify-platform-frontend-split-local.ps1" 'Join-Path (Split-Path -Parent $CloudProjectDir) "mainSite"' "platform local verifier must default to a sibling mainSite repository"
     Require-Contains "deploy/scripts/verify-platform-frontend-split-local.ps1" 'deploy\scripts\verify-frontend-split-local.ps1' "platform local verifier must run each repository frontend split verifier"
     Require-Contains "deploy/scripts/verify-platform-frontend-split-local.ps1" '$verificationArgs["SkipBuild"] = $true' "platform local verifier must pass through the SkipBuild switch"
-    Require-Contains "deploy/scripts/check-frontend-console-boundaries.sh" 'run_typescript_node_script "cloud web returnTo boundary"' "cloud Bash boundary check must run webApp returnTo verifier when TypeScript packages are present"
+    Require-Contains "deploy/scripts/check-frontend-console-boundaries.sh" 'run_node_script "cloud web returnTo boundary"' "cloud Bash boundary check must run webApp returnTo verifier without TypeScript packages"
     Require-Contains "deploy/scripts/check-frontend-console-boundaries.sh" 'run_node_script "cloud web session sync boundary"' "cloud Bash boundary check must run webApp session sync boundary"
     Require-Contains "deploy/scripts/check-frontend-console-boundaries.sh" 'run_node_script "cloud web client boundary"' "cloud Bash boundary check must run webApp client boundary"
     Require-Contains "deploy/scripts/check-frontend-console-boundaries.sh" 'run_node_script "cloud web CloudStorageApi contract"' "cloud Bash boundary check must run webApp CloudStorageApi contracts"
-    Require-Contains "deploy/scripts/check-frontend-console-boundaries.sh" 'run_typescript_node_script "cloud console returnTo boundary"' "cloud Bash boundary check must run sysManage returnTo verifier when TypeScript packages are present"
+    Require-Contains "deploy/scripts/check-frontend-console-boundaries.sh" 'run_node_script "cloud console returnTo boundary"' "cloud Bash boundary check must run sysManage returnTo verifier without TypeScript packages"
     Require-Contains "deploy/scripts/check-frontend-console-boundaries.sh" 'run_node_script "cloud console session sync boundary"' "cloud Bash boundary check must run sysManage session sync boundary"
     Require-Contains "deploy/scripts/check-frontend-console-boundaries.sh" 'run_node_script "cloud console boundary"' "cloud Bash boundary check must run sysManage console boundary"
     Require-Contains "deploy/scripts/check-frontend-console-boundaries.sh" 'run_node_script "cloud console CloudStorageApi contract"' "cloud Bash boundary check must run sysManage CloudStorageApi contracts"
