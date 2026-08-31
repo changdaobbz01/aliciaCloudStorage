@@ -112,6 +112,12 @@ run_node_script "cloud console session sync boundary" "sysManage/scripts/verify-
 run_node_script "cloud console boundary" "sysManage/scripts/verify-console-boundary.mjs"
 run_node_script "cloud console CloudStorageApi contract" "sysManage/scripts/verify-api-contracts.mjs"
 
+require_source_no_match \
+    "cloud Bash boundary avoids TypeScript-gated returnTo checks" \
+    "deploy/scripts/check-frontend-console-boundaries.sh" \
+    'run_''typescript_node_script' \
+    "Cloud Bash boundary check must not skip returnTo verification when TypeScript packages are missing."
+
 LEGACY_CLOUD_ADMIN_PREFIX='/api/admin'
 LEGACY_CLOUD_ADMIN_USERS_PATTERN="${LEGACY_CLOUD_ADMIN_PREFIX}/users($|[^[:alnum:]_])"
 
@@ -228,6 +234,18 @@ require_source_match \
     "webApp/package.json" \
     '"build"[[:space:]]*:[[:space:]]*"npm run verify:return-to && npm run verify:session-sync' \
     "Cloud web build must run returnTo verification before session and compile checks."
+
+require_source_match \
+    "cloud web returnTo verifier runs without TypeScript packages" \
+    "webApp/scripts/verify-unified-login-return-to.mjs" \
+    'ALICIA_VERIFY_RETURN_TO_DISABLE_TYPESCRIPT' \
+    "Cloud web returnTo verifier must run without installed TypeScript packages."
+
+require_source_match \
+    "cloud Bash boundary runs cloud web returnTo verifier" \
+    "deploy/scripts/check-frontend-console-boundaries.sh" \
+    'run_node_script "cloud web returnTo boundary"' \
+    "Cloud Bash boundary check must run the cloud web returnTo verifier directly."
 
 require_source_match \
     "cloud web exposes API contract verifier" \
@@ -678,6 +696,18 @@ require_source_match \
     "sysManage/package.json" \
     '"build"[[:space:]]*:[[:space:]]*"npm run verify:return-to && npm run verify:session-sync' \
     "Cloud console build must run returnTo verification before session and compile checks."
+
+require_source_match \
+    "cloud console returnTo verifier runs without TypeScript packages" \
+    "sysManage/scripts/verify-unified-login-return-to.mjs" \
+    'ALICIA_VERIFY_RETURN_TO_DISABLE_TYPESCRIPT' \
+    "Cloud console returnTo verifier must run without installed TypeScript packages."
+
+require_source_match \
+    "cloud Bash boundary runs cloud console returnTo verifier" \
+    "deploy/scripts/check-frontend-console-boundaries.sh" \
+    'run_node_script "cloud console returnTo boundary"' \
+    "Cloud Bash boundary check must run the cloud console returnTo verifier directly."
 
 require_source_match \
     "cloud console returnTo preserves APK route" \
