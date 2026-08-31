@@ -779,6 +779,60 @@ require_source_match \
     "Platform local verifier must enforce identity console IdentityApi contracts."
 
 require_source_match \
+    "platform bash verifier allows main site path override" \
+    "deploy/scripts/verify-platform-frontend-split-local.sh" \
+    'ALICIA_MAIN_SITE_PROJECT_DIR' \
+    "Platform bash verifier must allow overriding the main site repository path."
+
+require_source_match \
+    "platform bash verifier allows cloud path override" \
+    "deploy/scripts/verify-platform-frontend-split-local.sh" \
+    'ALICIA_CLOUD_PROJECT_DIR' \
+    "Platform bash verifier must allow overriding the cloud repository path."
+
+require_source_match \
+    "platform bash verifier defaults to sibling mainSite" \
+    "deploy/scripts/verify-platform-frontend-split-local.sh" \
+    'mainSite' \
+    "Platform bash verifier must default to a sibling mainSite repository."
+
+require_source_match \
+    "platform bash verifier runs main site boundary checks" \
+    "deploy/scripts/verify-platform-frontend-split-local.sh" \
+    'check-main-site-frontend-boundaries\.sh' \
+    "Platform bash verifier must run the main site frontend boundary checks."
+
+require_source_match \
+    "platform bash verifier runs cloud boundary checks" \
+    "deploy/scripts/verify-platform-frontend-split-local.sh" \
+    'check-frontend-console-boundaries\.sh' \
+    "Platform bash verifier must run the cloud frontend boundary checks."
+
+require_source_match \
+    "platform bash verifier runs identity route boundary checks" \
+    "deploy/scripts/verify-platform-frontend-split-local.sh" \
+    'check-identity-route-boundary\.sh' \
+    "Platform bash verifier must run the identity route boundary checks."
+
+require_source_match \
+    "platform bash verifier checks shared account profile contract" \
+    "deploy/scripts/verify-platform-frontend-split-local.sh" \
+    'verify_shared_account_profile' \
+    "Platform bash verifier must enforce shared account profile layout across all frontends."
+
+require_source_match \
+    "platform bash verifier checks identity console API contracts" \
+    "deploy/scripts/verify-platform-frontend-split-local.sh" \
+    'verify-identity-console-api-contracts\.mjs' \
+    "Platform bash verifier must enforce identity console IdentityApi contracts."
+
+require_source_match \
+    "platform bash verifier supports static API checks" \
+    "deploy/scripts/verify-platform-frontend-split-local.sh" \
+    'skip-build' \
+    "Platform bash verifier must allow static/API-only checks."
+
+require_source_match \
     "identity console contract verifier compares user responses" \
     "deploy/scripts/verify-identity-console-api-contracts.mjs" \
     'IdentityUserResponse' \

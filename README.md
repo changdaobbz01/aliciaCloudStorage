@@ -511,6 +511,12 @@ powershell -ExecutionPolicy Bypass -File deploy\scripts\verify-frontend-split-lo
 powershell -ExecutionPolicy Bypass -File deploy\scripts\verify-platform-frontend-split-local.ps1
 ```
 
+Ubuntu/Git Bash/macOS 环境可跑同名 Bash 入口；默认也会构建四个前端，只做静态边界与字段级 API 契约检查时加 `--skip-build`：
+
+```bash
+ALICIA_MAIN_SITE_PROJECT_DIR=../mainSite bash deploy/scripts/verify-platform-frontend-split-local.sh --skip-build
+```
+
 ## 首个管理员初始化
 
 当前仓库不再内置默认演示账号，也不再依赖固定的演示管理员密码。
