@@ -135,7 +135,7 @@ export function DrivePage() {
     : publicAppPackageError
       ? '稍后重试'
       : appDownloadAvailable
-        ? '下载 APK'
+        ? '下载安装包'
         : '暂不可用';
   const appDownloadEmptyLabel = publicAppPackageLoading
     ? '正在加载'
@@ -229,7 +229,7 @@ export function DrivePage() {
       setPublicAppPackageInfo(await fetchPublicAppPackage());
     } catch (loadError) {
       setPublicAppPackageInfo(null);
-      setPublicAppPackageError(loadError instanceof Error ? loadError.message : '加载 APK 下载信息失败。');
+      setPublicAppPackageError(loadError instanceof Error ? loadError.message : '加载移动端下载信息失败。');
     } finally {
       setPublicAppPackageLoading(false);
     }
@@ -491,7 +491,7 @@ export function DrivePage() {
             <div className="sider-download-copy">
               <Typography.Text className="sider-download-eyebrow">Android App</Typography.Text>
               <Typography.Title level={5} className="sider-download-title">
-                Alicia 云盘 APK
+                Alicia 云盘移动端
               </Typography.Title>
             </div>
           </div>

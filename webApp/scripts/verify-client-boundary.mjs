@@ -152,8 +152,8 @@ assert.doesNotMatch(
 );
 assert.doesNotMatch(
   drivePage,
-  /上传\s*APK|等待上传|暂未上传\s*APK|开放下载/,
-  'cloud web APK download panel must use user-facing unavailable copy without upload/admin wording',
+  /APK|等待上传|开放下载/,
+  'cloud web app download panel must use Android installer copy without APK upload/admin wording',
 );
 assert.doesNotMatch(
   appDownloadPage,

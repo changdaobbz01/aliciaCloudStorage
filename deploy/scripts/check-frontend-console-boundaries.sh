@@ -130,8 +130,8 @@ require_source_no_match \
 require_source_no_match \
     "cloud web APK download panel uses user copy" \
     "webApp/src/pages/DrivePage.tsx" \
-    '上传[[:space:]]*APK|等待上传|暂未上传[[:space:]]*APK|开放下载' \
-    "Cloud web APK download panel must not expose upload/admin wording."
+    'APK|等待上传|开放下载' \
+    "Cloud web app download panel must not expose APK artifact or upload/admin wording."
 
 require_source_match \
     "cloud web verifies profile wording boundary" \
@@ -142,8 +142,8 @@ require_source_match \
 require_source_match \
     "cloud web verifies APK download copy boundary" \
     "webApp/scripts/verify-client-boundary.mjs" \
-    'cloud web APK download panel must use user-facing unavailable copy without upload/admin wording' \
-    "Cloud web boundary verifier must reject APK upload wording in the user-facing download panel."
+    'cloud web app download panel must use Android installer copy without APK upload/admin wording' \
+    "Cloud web boundary verifier must reject APK artifact wording in the user-facing download panel."
 
 require_source_match \
     "cloud web verifies app download copy boundary" \
