@@ -308,6 +308,12 @@ require_source_match \
     "Cloud web contract verifier must ensure protected frontend API calls send the current auth token."
 
 require_source_match \
+    "cloud web contract verifier checks typed payloads" \
+    "webApp/scripts/verify-api-contracts.mjs" \
+    'assertApiFunctionStringifiesPayload' \
+    "Cloud web contract verifier must ensure typed payloads are sent."
+
+require_source_match \
     "cloud web contract verifier checks current principal interceptor" \
     "webApp/scripts/verify-api-contracts.mjs" \
     'assertCloudStorageApiCurrentPrincipalInterceptorContract' \
@@ -564,6 +570,12 @@ require_source_match \
     "sysManage/scripts/verify-api-contracts.mjs" \
     'assertApiFunctionUsesAuthToken' \
     "Cloud console contract verifier must ensure frontend API calls send the current auth token."
+
+require_source_match \
+    "cloud console contract verifier checks typed payloads" \
+    "sysManage/scripts/verify-api-contracts.mjs" \
+    'assertApiFunctionStringifiesPayload' \
+    "Cloud console contract verifier must ensure typed payloads are sent."
 
 require_source_match \
     "cloud console contract verifier checks controller auth headers" \
@@ -1550,6 +1562,12 @@ require_source_match \
     "webApp/scripts/verify-api-contracts.mjs" \
     'assertApiFunctionUsesAuthToken' \
     "Cloud web contract verifier must ensure protected frontend API calls send the current auth token."
+
+require_source_match \
+    "cloud web contract verifier checks typed payloads" \
+    "webApp/scripts/verify-api-contracts.mjs" \
+    'assertApiFunctionStringifiesPayload' \
+    "Cloud web contract verifier must ensure typed payloads are sent."
 
 require_source_match \
     "cloud web contract verifier checks current principal interceptor" \

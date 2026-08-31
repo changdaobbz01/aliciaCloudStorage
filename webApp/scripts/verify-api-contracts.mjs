@@ -260,6 +260,14 @@ function assertApiFunctionUsesAuthToken(functionName) {
   );
 }
 
+function assertApiFunctionStringifiesPayload(functionName) {
+  assert.match(
+    extractApiFunctionBody(functionName),
+    /body:\s*JSON\.stringify\(payload\)/,
+    `${functionName} must send the typed payload as its request body`,
+  );
+}
+
 function assertCloudStorageApiCurrentPrincipalInterceptorContract() {
   const source = readRepoFile('CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/config/WebMvcConfig.java');
   assert.match(
@@ -962,6 +970,26 @@ assertSameFields(
   ],
   extractRequestParamsForMethod(identityAuthController, 'listSessions'),
 );
+
+for (const functionName of [
+  'updateProfile',
+  'changePassword',
+  'createFolder',
+  'createMultipartUpload',
+  'downloadStorageArchive',
+  'createShareLink',
+  'verifySharePassword',
+  'saveShareToDrive',
+  'downloadShareArchive',
+  'renameStorageNode',
+  'moveStorageNode',
+  'moveStorageNodes',
+  'deleteStorageNodes',
+  'restoreStorageNodes',
+  'permanentlyDeleteStorageNodes',
+]) {
+  assertApiFunctionStringifiesPayload(functionName);
+}
 
 for (const contract of cloudWebEndpointContracts) {
   assertCloudWebEndpointContract(contract);

@@ -261,6 +261,14 @@ function assertApiFunctionUsesAuthToken(functionName) {
   );
 }
 
+function assertApiFunctionStringifiesPayload(functionName) {
+  assert.match(
+    extractApiFunctionBody(functionName),
+    /body:\s*JSON\.stringify\(payload\)/,
+    `${functionName} must send the typed payload as its request body`,
+  );
+}
+
 function assertControllerMethodReceivesAuthorization(relativePath, methodName) {
   const { parameters, body } = extractJavaMethodParts(relativePath, methodName);
 
@@ -569,6 +577,13 @@ assertSubsetFields(
   extractJavaRecordFields(`${identityDtoRoot}/IdentityLogoutRequest.java`, 'IdentityLogoutRequest'),
 );
 assertIncludesFields('logoutAuthToken request body', logoutAuthTokenRequestFields, ['refreshToken']);
+
+for (const functionName of [
+  'updateProfile',
+  'updateUserStorageQuota',
+]) {
+  assertApiFunctionStringifiesPayload(functionName);
+}
 
 const pageQueryFields = extractTsTypeFields('AdminCloudOperationPageQuery');
 const shareQueryFields = [...extractTsTypeFields('AdminCloudShareLinksQuery'), ...pageQueryFields];
