@@ -1122,8 +1122,14 @@ require_source_match \
 require_source_no_match \
     "cloud console avoids identity console hard-link" \
     "sysManage/src/pages/CloudConsolePage.tsx" \
-    "window\\.location\\.assign\\('/console/identity/'\\)" \
+    "(window\\.location\\.assign\\('/console/identity/?'\\)|href=\"/console/identity(/|\"))" \
     "Cloud console should use the unified /console/ gateway instead of hard-linking to identity console."
+
+require_source_match \
+    "cloud console verifier rejects identity console hard-link" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console should use the unified console gateway instead of hard-linking to the identity console' \
+    "Cloud console boundary verifier must reject direct identity console links."
 
 require_source_match \
     "cloud console exposes URL child routes" \

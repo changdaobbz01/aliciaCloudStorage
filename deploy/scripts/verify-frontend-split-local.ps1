@@ -224,6 +224,7 @@ Invoke-Step "verify cloud frontend split wiring" {
     Require-Contains "sysManage/src/features/drive/DriveOperationsView.tsx" 'description="仅全局管理员或云盘管理员可以查看全局文件运营明细。"' "cloud operations permission copy must match the runtime access contract"
     Require-Contains "sysManage/src/features/drive/DriveOperationsView.tsx" "cloudRoleLabel(user)" "cloud operations storage users role tags must use the centralized role label"
     Require-Contains "sysManage/src/features/drive/DriveAppPackageView.tsx" 'description="仅全局管理员或云盘管理员可以上传和替换安卓安装包。"' "cloud APK package permission copy must match the runtime access contract"
+    Require-Contains "sysManage/scripts/verify-console-boundary.mjs" "cloud console should use the unified console gateway instead of hard-linking to the identity console" "cloud console boundary verifier must reject direct identity console links"
     Require-Contains "sysManage/scripts/verify-unified-login-return-to.mjs" "['/app-package', '?release=current', '#upload']" "cloud console returnTo verifier must preserve APK package deep links"
     Require-Contains "sysManage/scripts/verify-unified-login-return-to.mjs" "['/console/cloud/app-package', '', '']" "cloud console returnTo verifier must preserve mounted APK package routes"
     Require-Contains "sysManage/scripts/verify-unified-login-return-to.mjs" "buildUnifiedLoginUrl(cloudConsoleReturnTo('/app-package'), 'login-required')" "cloud console returnTo verifier must cover APK package login redirects"

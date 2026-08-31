@@ -463,6 +463,11 @@ assert.match(
   /window\.location\.assign\('\/console\/'\)/,
   'cloud console account menu must route management navigation through /console/',
 );
+assert.doesNotMatch(
+  consolePageSource,
+  /window\.location\.assign\('\/console\/identity\/?'\)|href="\/console\/identity(?:\/|")/,
+  'cloud console should use the unified console gateway instead of hard-linking to the identity console',
+);
 assert.match(
   consolePageSource,
   /title="没有云盘后台权限"[\s\S]*href="\/console\/"[\s\S]*href="\/cloudPan\/"[\s\S]*href="\/"/,
