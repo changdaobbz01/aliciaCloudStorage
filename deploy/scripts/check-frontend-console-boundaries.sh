@@ -1208,6 +1208,12 @@ require_source_match \
     "Identity console contract verifier must compare IdentityApi endpoint paths and methods."
 
 require_source_match \
+    "identity console contract verifier binds cloud avatar route" \
+    "deploy/scripts/verify-identity-console-api-contracts.mjs" \
+    'identityConsoleCloudProfileEndpointContracts' \
+    "Identity console contract verifier must bind avatar uploads to CloudStorageApi."
+
+require_source_match \
     "identity console contract verifier binds controller mappings" \
     "deploy/scripts/verify-identity-console-api-contracts.mjs" \
     'assertControllerMethodMapping' \
@@ -1224,6 +1230,12 @@ require_source_match \
     "deploy/scripts/verify-identity-console-api-contracts.mjs" \
     'assertControllerMethodReceivesAuthorization' \
     "Identity console contract verifier must ensure protected IdentityApi controllers receive Authorization headers."
+
+require_source_match \
+    "identity console contract verifier checks cloud avatar interceptor" \
+    "deploy/scripts/verify-identity-console-api-contracts.mjs" \
+    'assertCloudProfileAvatarInterceptorContract' \
+    "Identity console contract verifier must ensure avatar uploads stay protected by CurrentPrincipalInterceptor."
 
 require_source_match \
     "production status locates main site repository" \

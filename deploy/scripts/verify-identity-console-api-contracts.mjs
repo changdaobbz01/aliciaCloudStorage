@@ -35,6 +35,8 @@ function parseArgs(argv) {
 const { cloudProjectDir, mainSiteProjectDir } = parseArgs(process.argv.slice(2));
 const identityDtoRoot = 'identityApi/src/main/java/com/alicia/cloudstorage/identity/dto';
 const identityControllerRoot = 'identityApi/src/main/java/com/alicia/cloudstorage/identity/controller';
+const cloudStorageControllerRoot = 'CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/controller';
+const cloudStorageConfigRoot = 'CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/config';
 const userSiteTypesSource = readProjectFile(mainSiteProjectDir, 'userSite/src/types.ts');
 const userSiteApiSource = readProjectFile(mainSiteProjectDir, 'userSite/src/lib/api.ts');
 
@@ -169,7 +171,7 @@ function assertControllerMethodMapping(relativePath, methodName, mappingPattern)
   assert.ok(methodIndex > -1, `${methodName} must exist in ${relativePath}`);
 
   const context = source.slice(Math.max(0, methodIndex - 260), methodIndex);
-  assert.match(context, mappingPattern, `${methodName} must keep its IdentityApi route mapping`);
+  assert.match(context, mappingPattern, `${methodName} must keep its backend route mapping`);
 }
 
 function extractTsFunctionSource(functionName) {
@@ -228,7 +230,16 @@ function assertControllerMethodReceivesAuthorization(relativePath, methodName) {
     /@RequestHeader\s*\(\s*value\s*=\s*HttpHeaders\.AUTHORIZATION\s*,\s*required\s*=\s*false\s*\)\s+String\s+authorization/,
     `${methodName} must receive the Authorization header`,
   );
-  assert.match(body, /\bauthorization\b/, `${methodName} must pass Authorization to the Identity service layer`);
+  assert.match(body, /\bauthorization\b/, `${methodName} must pass Authorization to the service layer`);
+}
+
+function assertCloudProfileAvatarInterceptorContract() {
+  const source = readIdentityFile(`${cloudStorageConfigRoot}/WebMvcConfig.java`);
+  assert.match(
+    source,
+    /registry\.addInterceptor\(currentPrincipalInterceptor\)[\s\S]*\.addPathPatterns\([\s\S]*"\/api\/cloud-profile\/avatar"[\s\S]*\)/,
+    'CloudStorageApi must protect identity console avatar uploads with CurrentPrincipalInterceptor',
+  );
 }
 
 function assertIdentityEndpointContract(contract) {
@@ -363,6 +374,19 @@ const identityEndpointContracts = [
   },
 ];
 
+const identityConsoleCloudProfileEndpointContracts = [
+  {
+    controller: `${cloudStorageControllerRoot}/CloudProfileController.java`,
+    basePath: '/api/cloud-profile',
+    javaMethod: 'uploadAvatar',
+    mappingPattern: /@PostMapping\(value = "\/avatar", consumes = MediaType\.MULTIPART_FORM_DATA_VALUE\)/,
+    tsFunction: 'uploadIdentityAvatar',
+    endpointNeedle: "'/api/cloud-profile/avatar'",
+    httpMethod: 'POST',
+    requiresAuthorizationHeader: true,
+  },
+];
+
 assertSameFields(
   'IdentityUser',
   extractTsTypeFields('IdentityUser'),
@@ -428,4 +452,10 @@ for (const contract of identityEndpointContracts) {
   assertIdentityEndpointContract(contract);
 }
 
-console.log('[OK] identity console IdentityApi contracts verified');
+for (const contract of identityConsoleCloudProfileEndpointContracts) {
+  assertIdentityEndpointContract(contract);
+}
+
+assertCloudProfileAvatarInterceptorContract();
+
+console.log('[OK] identity console IdentityApi and CloudStorageApi profile contracts verified');
