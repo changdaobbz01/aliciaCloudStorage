@@ -138,6 +138,16 @@ function assertSameFields(label, actualFields, expectedFields) {
   assert.deepEqual(sortedUnique(actualFields), sortedUnique(expectedFields), `${label} fields must match`);
 }
 
+function assertFieldsSubset(label, actualFields, expectedFields) {
+  const missingFields = sortedUnique(actualFields).filter((field) => !expectedFields.includes(field));
+  assert.deepEqual(missingFields, [], `${label} fields must be accepted by the backend contract`);
+}
+
+function assertContainsFields(label, actualFields, expectedFields) {
+  const missingFields = sortedUnique(expectedFields).filter((field) => !actualFields.includes(field));
+  assert.deepEqual(missingFields, [], `${label} must include required fields`);
+}
+
 function extractRequestParamsForMethod(relativePath, methodName) {
   const source = readIdentityFile(relativePath);
   const methodPattern = new RegExp(`${escapeRegExp(methodName)}\\s*\\(`);
@@ -186,6 +196,33 @@ function extractTsFunctionSource(functionName) {
   return userSiteApiSource.slice(openIndex + 1, closeIndex);
 }
 
+function extractJsonStringifyObjectFieldsForFunction(functionName) {
+  const source = extractTsFunctionSource(functionName);
+  const fields = [];
+  let searchIndex = 0;
+
+  while (searchIndex < source.length) {
+    const stringifyIndex = source.indexOf('JSON.stringify(', searchIndex);
+    if (stringifyIndex === -1) {
+      break;
+    }
+
+    const openIndex = source.indexOf('(', stringifyIndex);
+    const closeIndex = findMatching(source, openIndex, '(', ')');
+    const argumentSource = source.slice(openIndex + 1, closeIndex);
+    const fieldPattern = /[{,]\s*([A-Za-z][A-Za-z0-9_]*)\s*(?::|[,}])/g;
+    let fieldMatch;
+
+    while ((fieldMatch = fieldPattern.exec(argumentSource)) !== null) {
+      fields.push(fieldMatch[1]);
+    }
+
+    searchIndex = closeIndex + 1;
+  }
+
+  return fields;
+}
+
 function assertUserSiteApiEndpoint(functionName, endpointNeedle) {
   const source = extractTsFunctionSource(functionName);
   assert.ok(
@@ -220,6 +257,14 @@ function extractJavaMethodParts(relativePath, methodName) {
 function assertUserSiteApiUsesAuthToken(functionName) {
   const source = extractTsFunctionSource(functionName);
   assert.match(source, /withToken\(token\b/, `${functionName} must send the current auth token`);
+}
+
+function assertUserSiteApiStringifiesPayload(functionName) {
+  assert.match(
+    extractTsFunctionSource(functionName),
+    /body:\s*JSON\.stringify\(payload\)/,
+    `${functionName} must send the typed payload as its request body`,
+  );
 }
 
 function assertControllerMethodReceivesAuthorization(relativePath, methodName) {
@@ -447,6 +492,28 @@ assertSameFields(
   ['includeRevoked'],
   extractRequestParamsForMethod(`${identityControllerRoot}/IdentityAuthController.java`, 'listSessions'),
 );
+assertSameFields(
+  'refreshAuthSession request body',
+  extractJsonStringifyObjectFieldsForFunction('refreshAuthSession'),
+  extractJavaRecordFields(`${identityDtoRoot}/IdentityRefreshTokenRequest.java`, 'IdentityRefreshTokenRequest'),
+);
+
+const logoutAuthTokenRequestFields = extractJsonStringifyObjectFieldsForFunction('logoutAuthToken');
+assertFieldsSubset(
+  'logoutAuthToken request body',
+  logoutAuthTokenRequestFields,
+  extractJavaRecordFields(`${identityDtoRoot}/IdentityLogoutRequest.java`, 'IdentityLogoutRequest'),
+);
+assertContainsFields('logoutAuthToken request body', logoutAuthTokenRequestFields, ['refreshToken']);
+
+for (const functionName of [
+  'updateIdentityProfile',
+  'createIdentityUser',
+  'resetIdentityUserPassword',
+  'updateIdentityApplicationRole',
+]) {
+  assertUserSiteApiStringifiesPayload(functionName);
+}
 
 for (const contract of identityEndpointContracts) {
   assertIdentityEndpointContract(contract);

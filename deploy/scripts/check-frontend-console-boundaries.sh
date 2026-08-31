@@ -1148,6 +1148,18 @@ require_source_match \
     "Main site portal contract verifier must compare registration requests."
 
 require_source_match \
+    "main site portal contract verifier reads frontend request bodies" \
+    "deploy/scripts/verify-main-site-portal-api-contracts.mjs" \
+    'extractJsonStringifyObjectFieldsForFunction' \
+    "Main site portal contract verifier must read auth request bodies from frontend source."
+
+require_source_match \
+    "main site portal contract verifier checks typed payloads" \
+    "deploy/scripts/verify-main-site-portal-api-contracts.mjs" \
+    'assertMainSiteApiStringifiesPayload' \
+    "Main site portal contract verifier must ensure typed payloads are sent."
+
+require_source_match \
     "main site portal contract verifier compares query parameters" \
     "deploy/scripts/verify-main-site-portal-api-contracts.mjs" \
     'extractRequestParamsForMethod' \
@@ -1194,6 +1206,18 @@ require_source_match \
     "deploy/scripts/verify-identity-console-api-contracts.mjs" \
     'IdentityAuditLogPageResponse' \
     "Identity console contract verifier must compare Identity audit log pages."
+
+require_source_match \
+    "identity console contract verifier reads frontend request bodies" \
+    "deploy/scripts/verify-identity-console-api-contracts.mjs" \
+    'extractJsonStringifyObjectFieldsForFunction' \
+    "Identity console contract verifier must read auth request bodies from frontend source."
+
+require_source_match \
+    "identity console contract verifier checks typed payloads" \
+    "deploy/scripts/verify-identity-console-api-contracts.mjs" \
+    'assertUserSiteApiStringifiesPayload' \
+    "Identity console contract verifier must ensure typed payloads are sent."
 
 require_source_match \
     "identity console contract verifier compares query parameters" \

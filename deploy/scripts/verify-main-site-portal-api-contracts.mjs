@@ -173,6 +173,33 @@ function extractTsFunctionSource(functionName) {
   return mainSiteAuthSource.slice(openIndex + 1, closeIndex);
 }
 
+function extractJsonStringifyObjectFieldsForFunction(functionName) {
+  const source = extractTsFunctionSource(functionName);
+  const fields = [];
+  let searchIndex = 0;
+
+  while (searchIndex < source.length) {
+    const stringifyIndex = source.indexOf('JSON.stringify(', searchIndex);
+    if (stringifyIndex === -1) {
+      break;
+    }
+
+    const openIndex = source.indexOf('(', stringifyIndex);
+    const closeIndex = findMatching(source, openIndex, '(', ')');
+    const argumentSource = source.slice(openIndex + 1, closeIndex);
+    const fieldPattern = /[{,]\s*([A-Za-z][A-Za-z0-9_]*)\s*(?::|[,}])/g;
+    let fieldMatch;
+
+    while ((fieldMatch = fieldPattern.exec(argumentSource)) !== null) {
+      fields.push(fieldMatch[1]);
+    }
+
+    searchIndex = closeIndex + 1;
+  }
+
+  return fields;
+}
+
 function assertControllerBasePath(relativePath, expectedBasePath) {
   const source = readCloudProjectFile(relativePath);
   const pattern = new RegExp(`@RequestMapping\\("${escapeRegExp(expectedBasePath)}"\\)`);
@@ -222,6 +249,14 @@ function extractJavaMethodParts(relativePath, methodName) {
 function assertMainSiteApiUsesAuthToken(functionName) {
   const source = extractTsFunctionSource(functionName);
   assert.match(source, /withToken\((?:token|accessToken)\b/, `${functionName} must send the current auth token`);
+}
+
+function assertMainSiteApiStringifiesPayload(functionName) {
+  assert.match(
+    extractTsFunctionSource(functionName),
+    /body:\s*JSON\.stringify\(payload\)/,
+    `${functionName} must send the typed payload as its request body`,
+  );
 }
 
 function assertControllerMethodReceivesAuthorization(relativePath, methodName) {
@@ -442,14 +477,16 @@ assertContainsFields('IdentityLoginRequest', identityLoginRequestFields, ['ident
 
 assertSameFields(
   'main site refreshAuthSession request body',
-  ['refreshToken'],
+  extractJsonStringifyObjectFieldsForFunction('refreshAuthSession'),
   extractJavaRecordFields(`${identityDtoRoot}/IdentityRefreshTokenRequest.java`, 'IdentityRefreshTokenRequest'),
 );
+const logoutCurrentIdentitySessionRequestFields = extractJsonStringifyObjectFieldsForFunction('logoutCurrentIdentitySession');
 assertFieldsSubset(
   'main site logoutCurrentIdentitySession request body',
-  ['refreshToken'],
+  logoutCurrentIdentitySessionRequestFields,
   extractJavaRecordFields(`${identityDtoRoot}/IdentityLogoutRequest.java`, 'IdentityLogoutRequest'),
 );
+assertContainsFields('main site logoutCurrentIdentitySession request body', logoutCurrentIdentitySessionRequestFields, ['refreshToken']);
 assertSameFields(
   'main site fetchIdentitySessions query parameters',
   ['includeRevoked'],
@@ -460,6 +497,16 @@ assert.match(
   /includeRevoked=true/,
   'fetchIdentitySessions must keep the includeRevoked query parameter',
 );
+
+for (const functionName of [
+  'login',
+  'requestEmailRegistrationCode',
+  'verifyEmailRegistration',
+  'updateIdentityProfile',
+  'changeIdentityPassword',
+]) {
+  assertMainSiteApiStringifiesPayload(functionName);
+}
 
 for (const contract of mainSitePortalEndpointContracts) {
   assertMainSitePortalEndpointContract(contract);
