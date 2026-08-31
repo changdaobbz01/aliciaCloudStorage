@@ -19,7 +19,18 @@ git log --oneline -3
 
 如果服务器提示 tracked 文件有本地改动，先确认改动来源，不要直接强制覆盖。
 
-## 2. 账号密码输入方式
+## 2. 本地前端拆分验收
+
+Windows 本地需要一次性验收四个前端时，可在云盘仓库执行平台级脚本：
+
+```powershell
+cd F:\webProject\AliciaCloudStorage
+powershell -ExecutionPolicy Bypass -File deploy\scripts\verify-platform-frontend-split-local.ps1
+```
+
+该脚本会先运行 `mainSite/deploy/scripts/verify-frontend-split-local.ps1`，再运行本仓库的 `deploy/scripts/verify-frontend-split-local.ps1`，覆盖主站门户、身份后台、普通云盘和云盘后台的本地构建与静态拆分边界。默认主站仓库为同级 `..\mainSite`；路径不同时可传 `-MainSiteProjectDir`，只做静态检查时可加 `-SkipBuild`。
+
+## 3. 账号密码输入方式
 
 多数完整验证脚本需要 Identity 账号密码。可以直接运行脚本后按提示输入，也可以在当前终端先导出变量：
 
@@ -32,7 +43,7 @@ export ALICIA_VERIFY_ACCOUNT ALICIA_VERIFY_PASSWORD
 
 专项脚本同时兼容 `ALICIA_IDENTITY_ACCOUNT` 和 `ALICIA_IDENTITY_PASSWORD`，但推荐统一使用 `ALICIA_VERIFY_ACCOUNT` / `ALICIA_VERIFY_PASSWORD`。
 
-## 3. 最常用：完整生产流验收
+## 4. 最常用：完整生产流验收
 
 用于大节点部署后一次性确认主线稳定：
 
@@ -61,7 +72,7 @@ ALICIA_PRODUCTION_FLOW_SKIP_BOUNDARY_CHECK=true \
 
 只跳过不需要的部分即可，不必全部设置。
 
-## 4. 标准路由与身份边界验证
+## 5. 标准路由与身份边界验证
 
 用于每次更新 `api`、`identity`、`rag`、`frontend` 或 Nginx 路由后：
 
@@ -93,7 +104,7 @@ ALICIA_PUBLIC_BASE_URL=https://windwindwind-alicia.cn \
   bash deploy/scripts/verify-identity-cloud-routes.sh
 ```
 
-## 5. 云盘文件操作专项验证
+## 6. 云盘文件操作专项验证
 
 用于改动上传、下载、移动、删除、回收站、ZIP 打包或 COS 访问相关逻辑后：
 
@@ -123,7 +134,7 @@ ORDER BY status, source;
 
 该队列由上传/分片/分享回滚和回收站彻底删除自动登记，后台定时重试；生产验证不主动制造 COS 故障。
 
-## 6. 分享链路专项验证
+## 7. 分享链路专项验证
 
 用于改动分享创建、公开分享页、提取码、分享下载、保存到网盘或分享撤销后：
 
@@ -140,7 +151,7 @@ ALICIA_SHARE_VERIFY_KEEP_TEST_DATA=true \
 
 分享相关客户端边界需与服务端保持一致：单个分享最多 20 项，分享保存最多 500 项，分享 ZIP 打包下载最多 100 项。脚本会覆盖分享创建、分享保存、分享文件 HTTP Range `206/416` 响应、分享打包下载的空选择和超量选择拒绝。
 
-## 7. 静态边界检查
+## 8. 静态边界检查
 
 用于提交或部署前确认旧身份路径没有回流：
 
@@ -171,7 +182,7 @@ bash deploy/scripts/verify-backend-api-boundaries.sh
 - 身份后台 Controller 传递 Authorization
 - 身份后台委托的管理服务方法直接调用 `requireAdminUser`
 
-## 8. 生产状态快照
+## 9. 生产状态快照
 
 用于日常巡检或发布后留档：
 
@@ -199,7 +210,7 @@ ALICIA_STATUS_RUN_BOUNDARY_CHECK=true \
 
 开启后会同时运行主站前端边界、云盘前端边界、旧身份路径边界和后端 API 归属边界检查，避免只看云盘仓库而漏掉 `mainSite/webApp` 或 `mainSite/userSite` 的拆分回退。
 
-## 9. 生产备份与备份校验
+## 10. 生产备份与备份校验
 
 大更新、数据库迁移或密钥调整前先备份：
 
@@ -222,7 +233,7 @@ bash deploy/scripts/validate-production-backup.sh \
 
 备份目录可能包含数据库 dump、`.env`、TLS 证书和 RS256 签名密钥材料，必须保持私密。
 
-## 10. 发布脚本常用组合
+## 11. 发布脚本常用组合
 
 常规云盘发布：
 
@@ -296,7 +307,7 @@ bash deploy/scripts/update-cloud-production.sh api identity rag frontend
 
 `update-cloud-production.sh` 默认 `ALICIA_PUBLISH_ANDROID_APP_PACKAGE=auto`：发现 `deploy/android-app-package/current.apk` 就发布，没有该文件就跳过。可用 `ALICIA_PUBLISH_ANDROID_APP_PACKAGE=false` 禁用，或用 `ALICIA_PUBLISH_ANDROID_APP_PACKAGE=true` 要求必须存在并发布。服务器已经公开同一 `versionName` 时会跳过重复上传；需要强制覆盖同版本时设置 `ALICIA_ANDROID_APP_PACKAGE_FORCE=true`。
 
-## 11. 推荐执行顺序
+## 12. 推荐执行顺序
 
 大节点上线前后推荐：
 

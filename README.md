@@ -501,6 +501,12 @@ Windows 本地可以直接跑前端拆分验收脚本，它会构建 `webApp` �
 powershell -ExecutionPolicy Bypass -File deploy\scripts\verify-frontend-split-local.ps1
 ```
 
+如果要一次性验收主站门户、身份后台、普通云盘和云盘后台四个前端，可在本仓库执行平台级本地验收脚本。它会默认使用同级 `..\mainSite` 仓库，也可通过 `ALICIA_MAIN_SITE_PROJECT_DIR` 或参数指定主站路径：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File deploy\scripts\verify-platform-frontend-split-local.ps1
+```
+
 ## 首个管理员初始化
 
 当前仓库不再内置默认演示账号，也不再依赖固定的演示管理员密码。

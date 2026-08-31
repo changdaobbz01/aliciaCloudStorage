@@ -605,6 +605,36 @@ require_source_match \
     "Joint production update must fail fast when the requested platform status snapshot script is missing."
 
 require_source_match \
+    "platform local verifier allows main site path override" \
+    "deploy/scripts/verify-platform-frontend-split-local.ps1" \
+    '\$env:ALICIA_MAIN_SITE_PROJECT_DIR' \
+    "Platform local verifier must allow overriding the main site repository path."
+
+require_source_match \
+    "platform local verifier allows cloud path override" \
+    "deploy/scripts/verify-platform-frontend-split-local.ps1" \
+    '\$env:ALICIA_CLOUD_PROJECT_DIR' \
+    "Platform local verifier must allow overriding the cloud repository path."
+
+require_source_match \
+    "platform local verifier defaults to sibling mainSite" \
+    "deploy/scripts/verify-platform-frontend-split-local.ps1" \
+    'Join-Path \(Split-Path -Parent \$CloudProjectDir\) "mainSite"' \
+    "Platform local verifier must default to a sibling mainSite repository."
+
+require_source_match \
+    "platform local verifier runs repository split verifiers" \
+    "deploy/scripts/verify-platform-frontend-split-local.ps1" \
+    'deploy\\scripts\\verify-frontend-split-local.ps1' \
+    "Platform local verifier must run each repository frontend split verifier."
+
+require_source_match \
+    "platform local verifier passes SkipBuild" \
+    "deploy/scripts/verify-platform-frontend-split-local.ps1" \
+    '\$verificationArgs\["SkipBuild"\] = \$true' \
+    "Platform local verifier must pass through the SkipBuild switch."
+
+require_source_match \
     "production status locates main site repository" \
     "deploy/scripts/collect-production-status.sh" \
     'MAIN_SITE_PROJECT_DIR="\$\{ALICIA_MAIN_SITE_PROJECT_DIR:-\$HOME/mainSite\}"' \
