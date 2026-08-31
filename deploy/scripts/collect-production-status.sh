@@ -2,6 +2,7 @@
 set -Eeuo pipefail
 
 PROJECT_DIR="${ALICIA_CLOUD_PROJECT_DIR:-$HOME/aliciaCloudStorage}"
+MAIN_SITE_PROJECT_DIR="${ALICIA_MAIN_SITE_PROJECT_DIR:-$HOME/mainSite}"
 COMPOSE_FILES="${ALICIA_COMPOSE_FILES:-compose.yaml compose.https.yaml}"
 CLOUD_BASE_URL="${ALICIA_CLOUD_BASE_URL:-http://127.0.0.1:8090}"
 IDENTITY_BASE_URL="${ALICIA_IDENTITY_BASE_URL:-http://127.0.0.1:8093}"
@@ -12,6 +13,8 @@ SKIP_DB="${ALICIA_STATUS_SKIP_DB:-false}"
 SKIP_DOCKER_DF="${ALICIA_STATUS_SKIP_DOCKER_DF:-false}"
 RUN_ROUTE_VERIFY="${ALICIA_STATUS_RUN_ROUTE_VERIFY:-false}"
 RUN_BOUNDARY_CHECK="${ALICIA_STATUS_RUN_BOUNDARY_CHECK:-false}"
+MAIN_SITE_ROUTE_VERIFY_SCRIPT="$MAIN_SITE_PROJECT_DIR/deploy/scripts/verify-main-site-routes.sh"
+MAIN_SITE_BOUNDARY_SCRIPT="$MAIN_SITE_PROJECT_DIR/deploy/scripts/check-main-site-frontend-boundaries.sh"
 
 CLOUD_BASE_URL="${CLOUD_BASE_URL%/}"
 IDENTITY_BASE_URL="${IDENTITY_BASE_URL%/}"
@@ -79,6 +82,49 @@ run_optional() {
     else
         warn "$label failed"
     fi
+}
+
+git_snapshot() {
+    local label="$1"
+    local directory="$2"
+    local tracked_status
+
+    printf '\n-- %s: %s --\n' "$label" "$directory"
+
+    if ! git -C "$directory" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        warn "$label Git repository is missing: $directory"
+        return 0
+    fi
+
+    pushd "$directory" >/dev/null
+    git log --oneline -3 || warn "$label git log failed"
+    if ! tracked_status="$(git status --porcelain --untracked-files=no)"; then
+        warn "$label tracked status failed"
+    elif [[ -n "$tracked_status" ]]; then
+        warn "$label tracked server files have local changes"
+        printf '%s\n' "$tracked_status"
+    else
+        ok "$label tracked server files are clean"
+    fi
+    popd >/dev/null
+}
+
+run_main_site_route_verify() {
+    [[ -f "$MAIN_SITE_ROUTE_VERIFY_SCRIPT" ]] || {
+        printf 'Missing main site route verify script: %s\n' "$MAIN_SITE_ROUTE_VERIFY_SCRIPT" >&2
+        return 1
+    }
+
+    (cd "$MAIN_SITE_PROJECT_DIR" && bash deploy/scripts/verify-main-site-routes.sh)
+}
+
+run_main_site_boundary_check() {
+    [[ -f "$MAIN_SITE_BOUNDARY_SCRIPT" ]] || {
+        printf 'Missing main site boundary script: %s\n' "$MAIN_SITE_BOUNDARY_SCRIPT" >&2
+        return 1
+    }
+
+    (cd "$MAIN_SITE_PROJECT_DIR" && bash deploy/scripts/check-main-site-frontend-boundaries.sh)
 }
 
 curl_probe() {
@@ -158,18 +204,14 @@ done
 print_section "Alicia Production Snapshot"
 date -Is 2>/dev/null || date
 printf 'Project: %s\n' "$PROJECT_DIR"
+printf 'Main site project: %s\n' "$MAIN_SITE_PROJECT_DIR"
 printf 'Cloud API: %s\n' "$CLOUD_BASE_URL"
 printf 'Identity API: %s\n' "$IDENTITY_BASE_URL"
 printf 'Public base: %s\n' "$PUBLIC_BASE_URL"
 
 print_section "Git"
-git log --oneline -3
-if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
-    warn "tracked server files have local changes"
-    git status --short --untracked-files=no
-else
-    ok "tracked server files are clean"
-fi
+git_snapshot "cloud repository" "$PROJECT_DIR"
+git_snapshot "main site repository" "$MAIN_SITE_PROJECT_DIR"
 
 print_section "Containers"
 run_optional "docker compose ps" compose ps
@@ -270,11 +312,13 @@ fi
 
 if [[ "$RUN_ROUTE_VERIFY" == "true" ]]; then
     print_section "Full Route Verification"
+    run_optional "main site route verification" run_main_site_route_verify
     run_optional "verify identity/cloud routes" bash deploy/scripts/verify-identity-cloud-routes.sh
 fi
 
 if [[ "$RUN_BOUNDARY_CHECK" == "true" ]]; then
     print_section "Static Boundary Check"
+    run_optional "main site frontend boundary check" run_main_site_boundary_check
     run_optional "identity route boundary check" bash deploy/scripts/check-identity-route-boundary.sh
     run_optional "frontend console boundary check" bash deploy/scripts/check-frontend-console-boundaries.sh
     run_optional "backend API ownership boundary check" bash deploy/scripts/verify-backend-api-boundaries.sh

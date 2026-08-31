@@ -1130,7 +1130,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File deploy/scripts/prepare-andro
 - `/api/identity/admin/audit-logs` 管理员审计日志查询入口和 `SESSION_REVOKE` 筛选。
 - 旧 `/api/auth/me`、`/api/auth/avatar/{userId}`、`/api/admin/users` 保持 404。
 - `identity_audit_log` 最新记录查询。
-- `deploy/scripts/collect-production-status.sh` 可非交互式汇总 Git 版本、容器、容量、Cloud/Identity/RAG 健康、依赖健康 JSON、Identity 审计脱敏摘要、Identity Flyway 和云盘库身份残留边界；完整登录链路仍由 `verify-identity-cloud-routes.sh` 执行。
+- `deploy/scripts/collect-production-status.sh` 可非交互式汇总云盘仓库和 `~/mainSite` 的 Git 版本、tracked 状态、容器、容量、Cloud/Identity/RAG 健康、主站/云盘/控制台入口探针、依赖健康 JSON、Identity 审计脱敏摘要、Identity Flyway 和云盘库身份残留边界；开启 `ALICIA_STATUS_RUN_ROUTE_VERIFY=true` 时会同时执行主站路由验证与云盘/Identity/RAG 统一验证，开启 `ALICIA_STATUS_RUN_BOUNDARY_CHECK=true` 时会同时执行主站前端、云盘前端和后端 API 边界检查。
 - `deploy/scripts/backup-production-data.sh` 可在大更新或迁移前只读导出 Cloud/Identity MySQL 数据库，并打包 `.env`、TLS 证书和 RS256 签名密钥材料到 git 忽略目录；脚本不输出敏感内容。备份生成后默认调用 `validate-production-backup.sh` 校验校验和、gzip dump、敏感配置 tar 和 manifest。`update-cloud-production.sh` 支持 `ALICIA_BACKUP_BEFORE_UPDATE=true` 在容器重建前自动备份，支持 `ALICIA_VERIFY_PRODUCTION_FLOWS_AFTER_UPDATE=true` 在基础验证后追加云盘文件/分享深度流验收，支持 `ALICIA_COLLECT_STATUS_AFTER_UPDATE=true` 在验证后自动生成生产状态快照。
 
 ## 14. 后续重点位置

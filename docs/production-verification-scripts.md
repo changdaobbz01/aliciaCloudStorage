@@ -179,6 +179,8 @@ bash deploy/scripts/verify-backend-api-boundaries.sh
 bash deploy/scripts/collect-production-status.sh
 ```
 
+默认快照会同时输出云盘仓库和 `~/mainSite` 仓库的最近提交与 tracked 文件状态，并探测主站、统一登录、普通云盘、身份后台、云盘后台、Identity、CloudStorageApi 和 RAG 的主要入口。
+
 需要把完整路由验证也纳入快照：
 
 ```bash
@@ -186,12 +188,16 @@ ALICIA_STATUS_RUN_ROUTE_VERIFY=true \
   bash deploy/scripts/collect-production-status.sh
 ```
 
+开启后会先调用 `~/mainSite/deploy/scripts/verify-main-site-routes.sh`，再调用云盘仓库的 `deploy/scripts/verify-identity-cloud-routes.sh`，同时覆盖主站容器直连路由和主域网关路由。
+
 需要把静态边界检查也纳入快照：
 
 ```bash
 ALICIA_STATUS_RUN_BOUNDARY_CHECK=true \
   bash deploy/scripts/collect-production-status.sh
 ```
+
+开启后会同时运行主站前端边界、云盘前端边界、旧身份路径边界和后端 API 归属边界检查，避免只看云盘仓库而漏掉 `mainSite/webApp` 或 `mainSite/userSite` 的拆分回退。
 
 ## 9. 生产备份与备份校验
 

@@ -557,6 +557,42 @@ require_source_no_match \
     "Joint production update must still run final main route verification after cloud updates even when main site update was skipped."
 
 require_source_match \
+    "production status locates main site repository" \
+    "deploy/scripts/collect-production-status.sh" \
+    'MAIN_SITE_PROJECT_DIR="\$\{ALICIA_MAIN_SITE_PROJECT_DIR:-\$HOME/mainSite\}"' \
+    "Production status snapshot must locate the main site repository."
+
+require_source_match \
+    "production status includes main site Git state" \
+    "deploy/scripts/collect-production-status.sh" \
+    'git_snapshot "main site repository" "\$MAIN_SITE_PROJECT_DIR"' \
+    "Production status snapshot must include main site Git state."
+
+require_source_match \
+    "production status exposes main site route verification" \
+    "deploy/scripts/collect-production-status.sh" \
+    'run_main_site_route_verify\(\)' \
+    "Production status snapshot must expose optional main site route verification."
+
+require_source_match \
+    "production status exposes main site boundary verification" \
+    "deploy/scripts/collect-production-status.sh" \
+    'run_main_site_boundary_check\(\)' \
+    "Production status snapshot must expose optional main site boundary verification."
+
+require_source_match \
+    "production status runs main site route verification" \
+    "deploy/scripts/collect-production-status.sh" \
+    'run_optional "main site route verification" run_main_site_route_verify' \
+    "Production status snapshot must run main site route verification when full route checks are requested."
+
+require_source_match \
+    "production status runs main site boundary check" \
+    "deploy/scripts/collect-production-status.sh" \
+    'run_optional "main site frontend boundary check" run_main_site_boundary_check' \
+    "Production status snapshot must run main site frontend boundary checks when static boundary checks are requested."
+
+require_source_match \
     "cloud web Dockerfile publishes root Android asset links" \
     "webApp/Dockerfile" \
     'COPY --from=cloud-builder /app/webApp/dist/\.well-known /usr/share/nginx/html/\.well-known' \
