@@ -185,6 +185,25 @@ function Invoke-IdentityConsoleApiContractVerification {
     Write-Host "[OK] identity console IdentityApi contract"
 }
 
+function Invoke-MainSitePortalApiContractVerification {
+    $node = Get-Command node.exe -ErrorAction SilentlyContinue
+    if (-not $node) {
+        $node = Get-Command node -ErrorAction Stop
+    }
+
+    $scriptPath = Join-Path $CloudProjectDir "deploy\scripts\verify-main-site-portal-api-contracts.mjs"
+    if (-not (Test-Path -LiteralPath $scriptPath -PathType Leaf)) {
+        Fail "Missing main site portal API contract verifier: $scriptPath"
+    }
+
+    Write-Host "[RUN] main site portal API contract"
+    & $node.Source $scriptPath "--main-site" $MainSiteProjectDir "--cloud" $CloudProjectDir
+    if ($LASTEXITCODE -ne 0) {
+        Fail "Main site portal API contract verification failed"
+    }
+    Write-Host "[OK] main site portal API contract"
+}
+
 $defaultCloudProjectDir = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..\..")).Path
 
 if ([string]::IsNullOrWhiteSpace($CloudProjectDir)) {
@@ -214,6 +233,7 @@ Write-Host "Cloud project: $CloudProjectDir"
 Invoke-FrontendSplitVerification "main site" $MainSiteProjectDir
 Invoke-FrontendSplitVerification "cloud" $CloudProjectDir
 Invoke-SharedAccountProfileVerification
+Invoke-MainSitePortalApiContractVerification
 Invoke-IdentityConsoleApiContractVerification
 
 Write-Host "[OK] Alicia platform frontend split local verification complete"

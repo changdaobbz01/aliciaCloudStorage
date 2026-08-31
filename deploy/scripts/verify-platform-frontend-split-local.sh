@@ -247,6 +247,14 @@ verify_identity_console_api_contract() {
     node "$script_path" --main-site "$MAIN_SITE_PROJECT_DIR" --cloud "$CLOUD_PROJECT_DIR"
 }
 
+verify_main_site_portal_api_contract() {
+    local script_path="$CLOUD_PROJECT_DIR/deploy/scripts/verify-main-site-portal-api-contracts.mjs"
+
+    require_command node "Node.js is required for main site portal API contract verification."
+    require_file "main site portal API contract verifier" "$script_path"
+    node "$script_path" --main-site "$MAIN_SITE_PROJECT_DIR" --cloud "$CLOUD_PROJECT_DIR"
+}
+
 CLOUD_PROJECT_DIR="$(resolve_dir "Cloud project" "$CLOUD_PROJECT_DIR")"
 
 if [[ -z "$MAIN_SITE_PROJECT_DIR" ]]; then
@@ -275,6 +283,7 @@ run_step "main site frontend boundary check" run_bash_script "$MAIN_SITE_PROJECT
 run_step "cloud frontend boundary check" run_bash_script "$CLOUD_PROJECT_DIR" "deploy/scripts/check-frontend-console-boundaries.sh"
 run_step "cloud identity route boundary check" run_bash_script "$CLOUD_PROJECT_DIR" "deploy/scripts/check-identity-route-boundary.sh"
 run_step "shared account profile contract" verify_shared_account_profile
+run_step "main site portal API contract" verify_main_site_portal_api_contract
 run_step "identity console IdentityApi contract" verify_identity_console_api_contract
 
 ok "Alicia platform frontend split local verification complete"

@@ -975,6 +975,12 @@ require_source_match \
     "Platform local verifier must include the cloud console profile modal in the shared profile contract."
 
 require_source_match \
+    "platform local verifier checks main site portal API contracts" \
+    "deploy/scripts/verify-platform-frontend-split-local.ps1" \
+    'Invoke-MainSitePortalApiContractVerification' \
+    "Platform local verifier must enforce main site portal API contracts."
+
+require_source_match \
     "platform local verifier checks identity console API contracts" \
     "deploy/scripts/verify-platform-frontend-split-local.ps1" \
     'Invoke-IdentityConsoleApiContractVerification' \
@@ -1023,6 +1029,12 @@ require_source_match \
     "Platform bash verifier must enforce shared account profile layout across all frontends."
 
 require_source_match \
+    "platform bash verifier checks main site portal API contracts" \
+    "deploy/scripts/verify-platform-frontend-split-local.sh" \
+    'verify-main-site-portal-api-contracts\.mjs' \
+    "Platform bash verifier must enforce main site portal API contracts."
+
+require_source_match \
     "platform bash verifier checks identity console API contracts" \
     "deploy/scripts/verify-platform-frontend-split-local.sh" \
     'verify-identity-console-api-contracts\.mjs' \
@@ -1033,6 +1045,36 @@ require_source_match \
     "deploy/scripts/verify-platform-frontend-split-local.sh" \
     'skip-build' \
     "Platform bash verifier must allow static/API-only checks."
+
+require_source_match \
+    "main site portal contract verifier compares login responses" \
+    "deploy/scripts/verify-main-site-portal-api-contracts.mjs" \
+    'IdentityLoginResponse' \
+    "Main site portal contract verifier must compare Identity login responses."
+
+require_source_match \
+    "main site portal contract verifier compares registration requests" \
+    "deploy/scripts/verify-main-site-portal-api-contracts.mjs" \
+    'RequestEmailRegistrationCodeRequest' \
+    "Main site portal contract verifier must compare registration requests."
+
+require_source_match \
+    "main site portal contract verifier compares query parameters" \
+    "deploy/scripts/verify-main-site-portal-api-contracts.mjs" \
+    'extractRequestParamsForMethod' \
+    "Main site portal contract verifier must compare query parameters."
+
+require_source_match \
+    "main site portal contract verifier compares endpoint contracts" \
+    "deploy/scripts/verify-main-site-portal-api-contracts.mjs" \
+    'mainSitePortalEndpointContracts' \
+    "Main site portal contract verifier must compare API endpoint paths and methods."
+
+require_source_match \
+    "main site portal contract verifier binds cloud avatar route" \
+    "deploy/scripts/verify-main-site-portal-api-contracts.mjs" \
+    'CloudProfileController.java' \
+    "Main site portal contract verifier must bind avatar uploads to CloudStorageApi."
 
 require_source_match \
     "identity console contract verifier compares user responses" \
