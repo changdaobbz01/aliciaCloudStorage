@@ -341,6 +341,36 @@ require_source_match \
     "Cloud console API allowlist must include identity profile only for current-user settings."
 
 require_source_match \
+    "cloud console exposes API contract verifier" \
+    "sysManage/package.json" \
+    '"verify:api-contracts": "node scripts/verify-api-contracts.mjs"' \
+    "Cloud console package must expose the CloudStorageApi contract verifier."
+
+require_source_match \
+    "cloud console build verifies API contracts" \
+    "sysManage/package.json" \
+    'npm run verify:console-boundary && npm run verify:api-contracts && tsc -b' \
+    "Cloud console build must verify CloudStorageApi contracts before TypeScript compile."
+
+require_source_match \
+    "cloud console contract verifier compares operations responses" \
+    "sysManage/scripts/verify-api-contracts.mjs" \
+    'AdminCloudOperationsOverviewResponse' \
+    "Cloud console contract verifier must compare the operations overview response."
+
+require_source_match \
+    "cloud console contract verifier compares storage users response" \
+    "sysManage/scripts/verify-api-contracts.mjs" \
+    'AdminCloudStorageUserUsageResponse' \
+    "Cloud console contract verifier must compare the storage users response."
+
+require_source_match \
+    "cloud console contract verifier compares query parameters" \
+    "sysManage/scripts/verify-api-contracts.mjs" \
+    'extractRequestParamsForMethod' \
+    "Cloud console contract verifier must compare operations query parameters."
+
+require_source_match \
     "cloud console boundary checks runtime cloud admin gate" \
     "sysManage/scripts/verify-console-boundary.mjs" \
     'cloud console page must use the centralized cloud admin predicate' \

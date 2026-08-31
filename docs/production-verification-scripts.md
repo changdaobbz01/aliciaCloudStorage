@@ -243,6 +243,8 @@ bash deploy/scripts/update-cloud-production.sh
 
 默认组合是 `api frontend`，用于覆盖 `sysManage` 与 `CloudStorageApi` 响应契约联动的更新，例如运营明细 `appRoles` 角色标签。纯前端文案或样式更新才建议显式传 `frontend`；涉及 Identity 或 RAG 服务时再把 `identity`、`rag` 加入服务列表。
 
+`sysManage` 构建会先运行 `verify:api-contracts`，比对后台 TypeScript 类型与 CloudStorageApi 运营 DTO、分页响应、APK 响应和查询参数，避免只改一侧造成生产 UI 字段漂移。
+
 发布前自动备份，发布后生成状态快照：
 
 ```bash
