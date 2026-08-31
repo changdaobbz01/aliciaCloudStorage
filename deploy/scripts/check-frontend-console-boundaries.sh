@@ -155,6 +155,24 @@ require_source_match \
     "Cloud web profile modal must reject legacy profile layout aliases."
 
 require_source_match \
+    "cloud web profile styles reject legacy aliases" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web styles must not keep legacy profile layout aliases' \
+    "Cloud web profile style verifier must reject legacy profile layout aliases."
+
+require_source_no_match \
+    "cloud web profile source avoids legacy aliases" \
+    "webApp/src/features/drive/DriveProfileModals.tsx" \
+    'profile-avatar-preview-row|profile-avatar-actions' \
+    "Cloud web profile modal must not keep legacy profile layout aliases."
+
+require_source_no_match \
+    "cloud web profile stylesheet avoids legacy aliases" \
+    "webApp/src/index.css" \
+    '\.profile-avatar-preview-row\b|\.profile-avatar-actions\b' \
+    "Cloud web styles must not keep legacy profile layout aliases."
+
+require_source_match \
     "cloud web exposes returnTo verifier" \
     "webApp/package.json" \
     '"verify:return-to"[[:space:]]*:[[:space:]]*"node scripts/verify-unified-login-return-to\.mjs"' \
@@ -333,6 +351,24 @@ require_source_match \
     "sysManage/scripts/verify-console-boundary.mjs" \
     'cloud console profile modal must not keep legacy profile layout aliases' \
     "Cloud console profile modal must reject legacy profile layout aliases."
+
+require_source_match \
+    "cloud console profile styles reject legacy aliases" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console styles must not keep legacy profile layout aliases' \
+    "Cloud console profile style verifier must reject legacy profile layout aliases."
+
+require_source_no_match \
+    "cloud console profile source avoids legacy aliases" \
+    "sysManage/src/pages/CloudConsolePage.tsx" \
+    'profile-avatar-preview-row|profile-avatar-actions' \
+    "Cloud console profile modal must not keep legacy profile layout aliases."
+
+require_source_no_match \
+    "cloud console profile stylesheet avoids legacy aliases" \
+    "sysManage/src/index.css" \
+    '\.profile-avatar-preview-row\b|\.profile-avatar-actions\b' \
+    "Cloud console styles must not keep legacy profile layout aliases."
 
 require_source_match \
     "cloud console boundary accepts cloud app admins" \
