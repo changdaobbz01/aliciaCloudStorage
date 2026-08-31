@@ -314,6 +314,30 @@ require_source_match \
     "Cloud web contract verifier must ensure user APIs stay protected by CurrentPrincipalInterceptor."
 
 require_source_match \
+    "cloud web contract verifier compares identity endpoint contracts" \
+    "webApp/scripts/verify-api-contracts.mjs" \
+    'cloudWebIdentityEndpointContracts' \
+    "Cloud web contract verifier must compare IdentityApi endpoint paths and methods."
+
+require_source_match \
+    "cloud web contract verifier compares identity session response" \
+    "webApp/scripts/verify-api-contracts.mjs" \
+    'IdentitySessionResponse' \
+    "Cloud web contract verifier must compare identity session responses."
+
+require_source_match \
+    "cloud web contract verifier binds profile updates to IdentityApi" \
+    "webApp/scripts/verify-api-contracts.mjs" \
+    'UpdateIdentityProfileRequest' \
+    "Cloud web contract verifier must bind profile updates to IdentityApi."
+
+require_source_match \
+    "cloud web contract verifier checks identity authorization headers" \
+    "webApp/scripts/verify-api-contracts.mjs" \
+    'assertControllerMethodReceivesAuthorization' \
+    "Cloud web contract verifier must ensure protected IdentityApi methods receive Authorization headers."
+
+require_source_match \
     "cloud web returnTo preserves share links" \
     "webApp/scripts/verify-unified-login-return-to.mjs" \
     "/share/abc123" \
@@ -1454,6 +1478,30 @@ require_source_match \
     "webApp/scripts/verify-api-contracts.mjs" \
     'assertCloudStorageApiCurrentPrincipalInterceptorContract' \
     "Cloud web contract verifier must ensure user APIs stay protected by CurrentPrincipalInterceptor."
+
+require_source_match \
+    "cloud web contract verifier compares identity endpoint contracts" \
+    "webApp/scripts/verify-api-contracts.mjs" \
+    'cloudWebIdentityEndpointContracts' \
+    "Cloud web contract verifier must compare IdentityApi endpoint paths and methods."
+
+require_source_match \
+    "cloud web contract verifier compares identity session response" \
+    "webApp/scripts/verify-api-contracts.mjs" \
+    'IdentitySessionResponse' \
+    "Cloud web contract verifier must compare identity session responses."
+
+require_source_match \
+    "cloud web contract verifier binds profile updates to IdentityApi" \
+    "webApp/scripts/verify-api-contracts.mjs" \
+    'UpdateIdentityProfileRequest' \
+    "Cloud web contract verifier must bind profile updates to IdentityApi."
+
+require_source_match \
+    "cloud web contract verifier checks identity authorization headers" \
+    "webApp/scripts/verify-api-contracts.mjs" \
+    'assertControllerMethodReceivesAuthorization' \
+    "Cloud web contract verifier must ensure protected IdentityApi methods receive Authorization headers."
 
 require_source_match \
     "cloud web bundle size cap is 500 KiB" \

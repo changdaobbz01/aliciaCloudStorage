@@ -149,6 +149,64 @@ function extractRequestParamsForMethod(relativePath, methodName) {
   return requestParams;
 }
 
+function extractJavaMethodParts(relativePath, methodName) {
+  const source = readRepoFile(relativePath);
+  const methodPattern = new RegExp(`${escapeRegExp(methodName)}\\s*\\(`);
+  const match = methodPattern.exec(source);
+  assert.ok(match, `${methodName} must exist in ${relativePath}`);
+
+  const openIndex = source.indexOf('(', match.index);
+  const closeIndex = findMatching(source, openIndex, '(', ')');
+  const bodyOpenIndex = source.indexOf('{', closeIndex);
+  assert.ok(bodyOpenIndex > -1, `${methodName} must use a method body in ${relativePath}`);
+  const bodyCloseIndex = findMatching(source, bodyOpenIndex, '{', '}');
+
+  return {
+    parameters: source.slice(openIndex + 1, closeIndex),
+    body: source.slice(bodyOpenIndex + 1, bodyCloseIndex),
+  };
+}
+
+function extractInlineQueryParamKeysForFunction(functionName) {
+  const body = extractApiFunctionBody(functionName);
+  const fields = [];
+  const queryParamPattern = /[?&]([A-Za-z][A-Za-z0-9_]*)=/g;
+  let match;
+
+  while ((match = queryParamPattern.exec(body)) !== null) {
+    fields.push(match[1]);
+  }
+
+  return fields;
+}
+
+function extractJsonStringifyObjectFieldsForFunction(functionName) {
+  const body = extractApiFunctionBody(functionName);
+  const fields = [];
+  let searchIndex = 0;
+
+  while (searchIndex < body.length) {
+    const stringifyIndex = body.indexOf('JSON.stringify(', searchIndex);
+    if (stringifyIndex === -1) {
+      break;
+    }
+
+    const openIndex = body.indexOf('(', stringifyIndex);
+    const closeIndex = findMatching(body, openIndex, '(', ')');
+    const argumentSource = body.slice(openIndex + 1, closeIndex);
+    const fieldPattern = /(?:^|[{\s,?])([A-Za-z][A-Za-z0-9_]*)\s*:/g;
+    let fieldMatch;
+
+    while ((fieldMatch = fieldPattern.exec(argumentSource)) !== null) {
+      fields.push(fieldMatch[1]);
+    }
+
+    searchIndex = closeIndex + 1;
+  }
+
+  return fields;
+}
+
 function assertApiFunctionUsesPath(functionName, pathNeedle) {
   assert.match(
     extractApiFunctionBody(functionName),
@@ -173,7 +231,7 @@ function assertControllerMethodMapping(relativePath, methodName, mappingPattern)
   assert.ok(methodIndex > -1, `${methodName} must exist in ${relativePath}`);
 
   const context = source.slice(Math.max(0, methodIndex - 260), methodIndex);
-  assert.match(context, mappingPattern, `${methodName} must keep its CloudStorageApi route mapping`);
+  assert.match(context, mappingPattern, `${methodName} must keep its route mapping`);
 }
 
 function assertApiFunctionUsesMethod(functionName, method) {
@@ -211,6 +269,16 @@ function assertCloudStorageApiCurrentPrincipalInterceptorContract() {
   );
 }
 
+function assertControllerMethodReceivesAuthorization(relativePath, methodName) {
+  const { parameters, body } = extractJavaMethodParts(relativePath, methodName);
+  assert.match(
+    parameters,
+    /@RequestHeader\s*\(\s*value\s*=\s*HttpHeaders\.AUTHORIZATION\s*,\s*required\s*=\s*false\s*\)\s+String\s+authorization/,
+    `${methodName} must receive the Authorization header`,
+  );
+  assert.match(body, /\bauthorization\b/, `${methodName} must pass Authorization to the Identity service layer`);
+}
+
 function assertCloudWebEndpointContract(contract) {
   assertControllerBasePath(contract.controller, contract.basePath);
   assertControllerMethodMapping(contract.controller, contract.javaMethod, contract.mappingPattern);
@@ -218,6 +286,10 @@ function assertCloudWebEndpointContract(contract) {
 
   if (contract.requiresAuthToken) {
     assertApiFunctionUsesAuthToken(contract.tsFunction);
+  }
+
+  if (contract.requiresAuthorizationHeader) {
+    assertControllerMethodReceivesAuthorization(contract.controller, contract.javaMethod);
   }
 
   if (contract.httpMethod) {
@@ -237,6 +309,18 @@ function assertSameFields(label, actualFields, expectedFields) {
   assert.deepEqual(sortedUnique(actualFields), sortedUnique(expectedFields), `${label} fields must match`);
 }
 
+function assertSubsetFields(label, actualFields, expectedFields) {
+  const allowed = new Set(expectedFields);
+  const unexpectedFields = sortedUnique(actualFields).filter((field) => !allowed.has(field));
+  assert.deepEqual(unexpectedFields, [], `${label} fields must be declared by backend DTO`);
+}
+
+function assertIncludesFields(label, actualFields, requiredFields) {
+  const actual = new Set(actualFields);
+  const missingFields = requiredFields.filter((field) => !actual.has(field));
+  assert.deepEqual(missingFields, [], `${label} fields must be sent by the frontend`);
+}
+
 const dtoRoot = 'CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/dto';
 const controllerRoot = 'CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/controller';
 const cloudProfileController = `${controllerRoot}/CloudProfileController.java`;
@@ -244,6 +328,9 @@ const storageController = `${controllerRoot}/StorageNodeController.java`;
 const shareController = `${controllerRoot}/ShareLinkController.java`;
 const publicShareController = `${controllerRoot}/PublicShareLinkController.java`;
 const appPackageController = `${controllerRoot}/AppPackageController.java`;
+const identityDtoRoot = 'identityApi/src/main/java/com/alicia/cloudstorage/identity/dto';
+const identityControllerRoot = 'identityApi/src/main/java/com/alicia/cloudstorage/identity/controller';
+const identityAuthController = `${identityControllerRoot}/IdentityAuthController.java`;
 
 const cloudWebEndpointContracts = [
   {
@@ -621,6 +708,73 @@ const cloudWebEndpointContracts = [
   },
 ];
 
+const cloudWebIdentityEndpointContracts = [
+  {
+    controller: identityAuthController,
+    basePath: '/api/identity/auth',
+    javaMethod: 'refreshToken',
+    mappingPattern: /@PostMapping\("\/token\/refresh"\)/,
+    tsFunction: 'refreshAuthSession',
+    endpointNeedle: '/api/identity/auth/token/refresh',
+    httpMethod: 'POST',
+    requiresAuthToken: true,
+  },
+  {
+    controller: identityAuthController,
+    basePath: '/api/identity/auth',
+    javaMethod: 'logout',
+    mappingPattern: /@PostMapping\("\/logout"\)/,
+    tsFunction: 'logoutAuthToken',
+    endpointNeedle: '/api/identity/auth/logout',
+    httpMethod: 'POST',
+    requiresAuthToken: true,
+    requiresAuthorizationHeader: true,
+  },
+  {
+    controller: identityAuthController,
+    basePath: '/api/identity/auth',
+    javaMethod: 'listSessions',
+    mappingPattern: /@GetMapping\("\/sessions"\)/,
+    tsFunction: 'fetchIdentitySessions',
+    endpointNeedle: '/api/identity/auth/sessions',
+    requiresAuthToken: true,
+    requiresAuthorizationHeader: true,
+  },
+  {
+    controller: identityAuthController,
+    basePath: '/api/identity/auth',
+    javaMethod: 'revokeSession',
+    mappingPattern: /@DeleteMapping\("\/sessions\/\{sessionId\}"\)/,
+    tsFunction: 'revokeIdentitySession',
+    endpointNeedle: '/api/identity/auth/sessions/',
+    httpMethod: 'DELETE',
+    requiresAuthToken: true,
+    requiresAuthorizationHeader: true,
+  },
+  {
+    controller: identityAuthController,
+    basePath: '/api/identity/auth',
+    javaMethod: 'updateProfile',
+    mappingPattern: /@PutMapping\("\/profile"\)/,
+    tsFunction: 'updateProfile',
+    endpointNeedle: '/api/identity/auth/profile',
+    httpMethod: 'PUT',
+    requiresAuthToken: true,
+    requiresAuthorizationHeader: true,
+  },
+  {
+    controller: identityAuthController,
+    basePath: '/api/identity/auth',
+    javaMethod: 'changePassword',
+    mappingPattern: /@PutMapping\("\/password"\)/,
+    tsFunction: 'changePassword',
+    endpointNeedle: '/api/identity/auth/password',
+    httpMethod: 'PUT',
+    requiresAuthToken: true,
+    requiresAuthorizationHeader: true,
+  },
+];
+
 assertSameFields(
   'User',
   extractTsTypeFields('User'),
@@ -670,6 +824,31 @@ assertSameFields(
   'AppPackageInfo',
   extractTsTypeFields('AppPackageInfo'),
   extractJavaRecordFields(`${dtoRoot}/AppPackageInfoResponse.java`, 'AppPackageInfoResponse'),
+);
+assertSameFields(
+  'IdentityUser',
+  extractTsTypeFields('IdentityUser'),
+  extractJavaRecordFields(`${identityDtoRoot}/IdentityUserResponse.java`, 'IdentityUserResponse'),
+);
+assertSameFields(
+  'IdentityLoginResponse',
+  extractTsTypeFields('IdentityLoginResponse'),
+  extractJavaRecordFields(`${identityDtoRoot}/IdentityLoginResponse.java`, 'IdentityLoginResponse'),
+);
+assertSameFields(
+  'IdentitySession',
+  extractTsTypeFields('IdentitySession'),
+  extractJavaRecordFields(`${identityDtoRoot}/IdentitySessionResponse.java`, 'IdentitySessionResponse'),
+);
+assertSameFields(
+  'UpdateProfilePayload',
+  extractTsTypeFields('UpdateProfilePayload'),
+  extractJavaRecordFields(`${identityDtoRoot}/UpdateIdentityProfileRequest.java`, 'UpdateIdentityProfileRequest'),
+);
+assertSameFields(
+  'ChangePasswordPayload',
+  extractTsTypeFields('ChangePasswordPayload'),
+  extractJavaRecordFields(`${identityDtoRoot}/ChangePasswordRequest.java`, 'ChangePasswordRequest'),
 );
 assertSameFields(
   'CreateFolderPayload',
@@ -737,10 +916,18 @@ assertSameFields(
   extractJavaRecordFields(`${dtoRoot}/SaveShareLinkRequest.java`, 'SaveShareLinkRequest'),
 );
 assertSameFields(
-  'UpdateProfilePayload',
-  extractTsTypeFields('UpdateProfilePayload'),
-  extractJavaRecordFields(`${dtoRoot}/UpdateProfileRequest.java`, 'UpdateProfileRequest'),
+  'refreshAuthSession request body',
+  extractJsonStringifyObjectFieldsForFunction('refreshAuthSession'),
+  extractJavaRecordFields(`${identityDtoRoot}/IdentityRefreshTokenRequest.java`, 'IdentityRefreshTokenRequest'),
 );
+
+const logoutAuthTokenRequestFields = extractJsonStringifyObjectFieldsForFunction('logoutAuthToken');
+assertSubsetFields(
+  'logoutAuthToken request body',
+  logoutAuthTokenRequestFields,
+  extractJavaRecordFields(`${identityDtoRoot}/IdentityLogoutRequest.java`, 'IdentityLogoutRequest'),
+);
+assertIncludesFields('logoutAuthToken request body', logoutAuthTokenRequestFields, ['refreshToken']);
 
 assertSameFields(
   'fetchStorageNodes query parameters',
@@ -767,11 +954,23 @@ assertSameFields(
   extractUrlSearchParamKeysForFunction('fetchShareFileAccessUrl'),
   extractRequestParamsForMethod(shareController, 'getShareFileAccessUrl'),
 );
+assertSameFields(
+  'fetchIdentitySessions query parameters',
+  [
+    ...extractUrlSearchParamKeysForFunction('fetchIdentitySessions'),
+    ...extractInlineQueryParamKeysForFunction('fetchIdentitySessions'),
+  ],
+  extractRequestParamsForMethod(identityAuthController, 'listSessions'),
+);
 
 for (const contract of cloudWebEndpointContracts) {
   assertCloudWebEndpointContract(contract);
 }
 
+for (const contract of cloudWebIdentityEndpointContracts) {
+  assertCloudWebEndpointContract(contract);
+}
+
 assertCloudStorageApiCurrentPrincipalInterceptorContract();
 
-console.log('[OK] cloud web CloudStorageApi contracts verified');
+console.log('[OK] cloud web CloudStorageApi and IdentityApi contracts verified');
