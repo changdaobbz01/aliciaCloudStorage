@@ -112,6 +112,12 @@ require_source_no_match \
     '管理控制台|consoleHome|/console(/|$)' \
     "Cloud web account menu must not expose admin console entry points."
 
+require_source_match \
+    "cloud web verifies profile wording boundary" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud drive page must describe user-facing profile tools without admin management wording' \
+    "Cloud web boundary verifier must reject admin management wording in user-facing drive page copy."
+
 require_source_no_match \
     "cloud web has no admin style leftovers" \
     "webApp/src/index.css" \

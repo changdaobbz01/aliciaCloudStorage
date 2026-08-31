@@ -132,6 +132,7 @@ Invoke-Step "verify cloud frontend split wiring" {
     Require-NoMatch "webApp/src/pages/DrivePage.tsx" 'consoleHome|/console(/|$)' "cloud web account menu must not expose console entry points"
     Require-NoMatch "webApp/src/index.css" '\.account-admin-tabs|\.audit-(filter|quick|result)|\.operations-|\.app-package-(summary|grid|card|link|url|meta|release-notes|list)|\.management-summary-|\.user-cell-copy|\.user-chip|\.table-secondary-text' "cloud web stylesheet must not keep admin console leftovers"
     Require-Contains "webApp/scripts/verify-client-boundary.mjs" "assertApiPathsMatchAllowedPrefixes" "cloud web boundary verifier must enforce API ownership allowlists"
+    Require-Contains "webApp/scripts/verify-client-boundary.mjs" "cloud drive page must describe user-facing profile tools without admin management wording" "cloud web boundary verifier must reject admin management wording in user-facing drive page copy"
     Require-Contains "webApp/scripts/verify-client-boundary.mjs" "'/api/storage/'" "cloud web API allowlist must include personal storage APIs"
     Require-Contains "webApp/scripts/verify-client-boundary.mjs" "'/api/share-links'" "cloud web API allowlist must include personal share APIs"
     Require-Contains "webApp/scripts/verify-client-boundary.mjs" "'/api/identity/auth/'" "cloud web API allowlist must include only identity auth APIs"

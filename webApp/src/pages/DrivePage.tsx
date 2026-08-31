@@ -51,7 +51,7 @@ const baseMenuItems = [
 ];
 
 /**
- * 渲染云盘主工作台，并串联上传、下载、筛选、批量操作和账号管理等核心交互。 */
+ * 渲染云盘主工作台，并串联上传、下载、筛选、批量操作和个人资料等核心交互。 */
 export function DrivePage() {
   const { message } = AntApp.useApp();
   const navigate = useNavigate();

@@ -145,6 +145,11 @@ assert.doesNotMatch(
   /管理控制台|consoleHome|\/console(?:\/|\b)/,
   'cloud web account menu must not expose admin console entry points',
 );
+assert.doesNotMatch(
+  drivePage,
+  /账号管理|用户管理|云盘后台|身份后台/,
+  'cloud drive page must describe user-facing profile tools without admin management wording',
+);
 assert.match(
   driveProfileModals,
   /title=\{<AliciaModalTitle eyebrow="Account">个人资料<\/AliciaModalTitle>\}[\s\S]*rootClassName="alicia-modal alicia-account-modal account-profile-modal"[\s\S]*className="account-profile-form"[\s\S]*className="profile-avatar-row account-profile-hero"[\s\S]*<strong>用户图标<\/strong>[\s\S]*上传本地图片或填写图片地址后，会同步更新所有 Alicia 账号入口。[\s\S]*className="account-profile-actions"[\s\S]*name="nickname"[\s\S]*name="phoneNumber"[\s\S]*name="avatarUrl"/,
