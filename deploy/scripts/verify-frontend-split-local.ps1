@@ -99,9 +99,31 @@ function Invoke-NpmScript {
     }
 }
 
+function Invoke-NodeScript {
+    param([string]$RelativeScript)
+
+    $node = Get-Command node.exe -ErrorAction SilentlyContinue
+    if (-not $node) {
+        $node = Get-Command node -ErrorAction Stop
+    }
+
+    $scriptPath = Resolve-RepoPath $RelativeScript
+    if (-not (Test-Path -LiteralPath $scriptPath -PathType Leaf)) {
+        Fail "Missing Node verification script: $RelativeScript"
+    }
+
+    & $node.Source $scriptPath
+    if ($LASTEXITCODE -ne 0) {
+        Fail "node $RelativeScript failed"
+    }
+}
+
 if (-not $SkipBuild) {
     Invoke-Step "build cloud webApp" { Invoke-NpmScript "webApp" "build" }
     Invoke-Step "build cloud sysManage" { Invoke-NpmScript "sysManage" "build" }
+} else {
+    Invoke-Step "verify cloud webApp API contracts" { Invoke-NodeScript "webApp\scripts\verify-api-contracts.mjs" }
+    Invoke-Step "verify cloud sysManage API contracts" { Invoke-NodeScript "sysManage\scripts\verify-api-contracts.mjs" }
 }
 
 Invoke-Step "verify cloud frontend split wiring" {
@@ -112,6 +134,8 @@ Invoke-Step "verify cloud frontend split wiring" {
     Require-Contains "sysManage/vite.config.ts" "base: '/console/cloud/'" "cloud console Vite base must stay mounted under /console/cloud/"
     Require-Contains "webApp/package.json" '"verify:return-to": "node scripts/verify-unified-login-return-to.mjs"' "cloud web package must expose the unified login returnTo verifier"
     Require-Contains "webApp/package.json" "npm run verify:return-to && npm run verify:session-sync" "cloud web build must run returnTo verification before session and compile checks"
+    Require-Contains "webApp/package.json" '"verify:api-contracts": "node scripts/verify-api-contracts.mjs"' "cloud web package must expose the CloudStorageApi contract verifier"
+    Require-Contains "webApp/package.json" "npm run verify:client-boundary && npm run verify:api-contracts && tsc -b" "cloud web build must verify CloudStorageApi contracts before TypeScript compile"
     Require-Contains "sysManage/package.json" '"verify:return-to": "node scripts/verify-unified-login-return-to.mjs"' "cloud console package must expose the unified login returnTo verifier"
     Require-Contains "sysManage/package.json" "npm run verify:return-to && npm run verify:session-sync" "cloud console build must run returnTo verification before session and compile checks"
     Require-Contains "webApp/Dockerfile" "ARG VITE_ANDROID_PACKAGE_NAME=com.alicia.cloudstorage.phone" "cloud Dockerfile must default Android package name to the official applicationId"
@@ -243,6 +267,8 @@ Invoke-Step "verify cloud frontend split wiring" {
     Require-Contains "deploy/scripts/verify-platform-frontend-split-local.ps1" 'Join-Path (Split-Path -Parent $CloudProjectDir) "mainSite"' "platform local verifier must default to a sibling mainSite repository"
     Require-Contains "deploy/scripts/verify-platform-frontend-split-local.ps1" 'deploy\scripts\verify-frontend-split-local.ps1' "platform local verifier must run each repository frontend split verifier"
     Require-Contains "deploy/scripts/verify-platform-frontend-split-local.ps1" '$verificationArgs["SkipBuild"] = $true' "platform local verifier must pass through the SkipBuild switch"
+    Require-Contains "deploy/scripts/check-frontend-console-boundaries.sh" 'run_node_script "cloud web CloudStorageApi contract"' "cloud Bash boundary check must run webApp CloudStorageApi contracts"
+    Require-Contains "deploy/scripts/check-frontend-console-boundaries.sh" 'run_node_script "cloud console CloudStorageApi contract"' "cloud Bash boundary check must run sysManage CloudStorageApi contracts"
     Require-Contains "deploy/scripts/verify-platform-frontend-split-local.ps1" "Invoke-SharedAccountProfileVerification" "platform local verifier must enforce shared account profile layout across all frontends"
     Require-Contains "deploy/scripts/verify-platform-frontend-split-local.ps1" "cloud console profile modal" "platform local verifier must include the cloud console profile modal in the shared contract"
     Require-Contains "deploy/scripts/verify-platform-frontend-split-local.ps1" "identity console profile modal" "platform local verifier must include the identity console profile modal in the shared contract"
@@ -276,6 +302,11 @@ Invoke-Step "verify cloud frontend split wiring" {
     Require-Contains "webApp/package.json" '"verify:bundle-size": "node scripts/verify-bundle-size.mjs"' "cloud web package must expose the bundle size verifier"
     Require-Contains "webApp/package.json" '"verify:built-shell": "node scripts/verify-built-shell.mjs"' "cloud web package must expose the built shell verifier"
     Require-Contains "webApp/package.json" "vite build && npm run verify:built-shell && npm run verify:bundle-size" "cloud web build must verify built shell and bundle size after vite build"
+    Require-Contains "webApp/scripts/verify-api-contracts.mjs" "UserProfileResponse" "cloud web contract verifier must compare the CloudStorageApi current profile response"
+    Require-Contains "webApp/scripts/verify-api-contracts.mjs" "StorageNodeSummaryResponse" "cloud web contract verifier must compare personal storage node responses"
+    Require-Contains "webApp/scripts/verify-api-contracts.mjs" "CreateMultipartUploadRequest" "cloud web contract verifier must compare multipart upload requests"
+    Require-Contains "webApp/scripts/verify-api-contracts.mjs" "ShareLinkDetailResponse" "cloud web contract verifier must compare share detail responses"
+    Require-Contains "webApp/scripts/verify-api-contracts.mjs" "extractRequestParamsForMethod" "cloud web contract verifier must compare storage/share query parameters"
     Require-Contains "webApp/scripts/verify-built-shell.mjs" "Alicia 云盘" "cloud web built shell verifier must assert the cloud web title"
     Require-Contains "webApp/scripts/verify-built-shell.mjs" "/cloudPan/assets/" "cloud web built shell verifier must assert mounted asset prefix"
     Require-Contains "webApp/scripts/verify-bundle-size.mjs" "maxChunkBytes = 500 * 1024" "cloud web bundle size verifier must cap JS chunks at 500 KiB"

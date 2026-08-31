@@ -12,6 +12,18 @@ ok() {
     printf '[OK] %s\n' "$1"
 }
 
+run_node_script() {
+    local label="$1"
+    local relative_script="$2"
+
+    command -v node >/dev/null 2>&1 || fail "Node.js is required for $label."
+    [[ -f "$relative_script" ]] || fail "Missing $label script: $relative_script"
+
+    printf '[RUN] %s\n' "$label"
+    node "$relative_script" || fail "$label failed."
+    ok "$label"
+}
+
 scan_target() {
     local label="$1"
     local target="$2"
@@ -90,6 +102,9 @@ require_source_no_match() {
 }
 
 cd "$ROOT_DIR"
+
+run_node_script "cloud web CloudStorageApi contract" "webApp/scripts/verify-api-contracts.mjs"
+run_node_script "cloud console CloudStorageApi contract" "sysManage/scripts/verify-api-contracts.mjs"
 
 LEGACY_CLOUD_ADMIN_PREFIX='/api/admin'
 LEGACY_CLOUD_ADMIN_USERS_PATTERN="${LEGACY_CLOUD_ADMIN_PREFIX}/users($|[^[:alnum:]_])"
@@ -189,6 +204,48 @@ require_source_match \
     "webApp/package.json" \
     '"build"[[:space:]]*:[[:space:]]*"npm run verify:return-to && npm run verify:session-sync' \
     "Cloud web build must run returnTo verification before session and compile checks."
+
+require_source_match \
+    "cloud web exposes API contract verifier" \
+    "webApp/package.json" \
+    '"verify:api-contracts"[[:space:]]*:[[:space:]]*"node scripts/verify-api-contracts\.mjs"' \
+    "Cloud web package must expose the CloudStorageApi contract verifier."
+
+require_source_match \
+    "cloud web build verifies API contracts" \
+    "webApp/package.json" \
+    'npm run verify:client-boundary && npm run verify:api-contracts && tsc -b' \
+    "Cloud web build must verify CloudStorageApi contracts before TypeScript compile."
+
+require_source_match \
+    "cloud web contract verifier compares current profile response" \
+    "webApp/scripts/verify-api-contracts.mjs" \
+    'UserProfileResponse' \
+    "Cloud web contract verifier must compare the CloudStorageApi current profile response."
+
+require_source_match \
+    "cloud web contract verifier compares storage node response" \
+    "webApp/scripts/verify-api-contracts.mjs" \
+    'StorageNodeSummaryResponse' \
+    "Cloud web contract verifier must compare personal storage node responses."
+
+require_source_match \
+    "cloud web contract verifier compares multipart upload request" \
+    "webApp/scripts/verify-api-contracts.mjs" \
+    'CreateMultipartUploadRequest' \
+    "Cloud web contract verifier must compare multipart upload requests."
+
+require_source_match \
+    "cloud web contract verifier compares share detail response" \
+    "webApp/scripts/verify-api-contracts.mjs" \
+    'ShareLinkDetailResponse' \
+    "Cloud web contract verifier must compare share detail responses."
+
+require_source_match \
+    "cloud web contract verifier compares query parameters" \
+    "webApp/scripts/verify-api-contracts.mjs" \
+    'extractRequestParamsForMethod' \
+    "Cloud web contract verifier must compare storage/share query parameters."
 
 require_source_match \
     "cloud web returnTo preserves share links" \
@@ -1121,6 +1178,48 @@ require_source_match \
     "webApp/scripts/verify-built-shell.mjs" \
     '/cloudPan/assets/' \
     "Cloud web built shell verifier must assert the mounted asset prefix."
+
+require_source_match \
+    "cloud web exposes API contract verifier" \
+    "webApp/package.json" \
+    '"verify:api-contracts"[[:space:]]*:[[:space:]]*"node scripts/verify-api-contracts\.mjs"' \
+    "Cloud web build must expose the CloudStorageApi contract verifier."
+
+require_source_match \
+    "cloud web build verifies API contracts" \
+    "webApp/package.json" \
+    'npm run verify:client-boundary && npm run verify:api-contracts && tsc -b' \
+    "Cloud web build must verify CloudStorageApi contracts before TypeScript compile."
+
+require_source_match \
+    "cloud web contract verifier compares current profile response" \
+    "webApp/scripts/verify-api-contracts.mjs" \
+    'UserProfileResponse' \
+    "Cloud web contract verifier must compare the CloudStorageApi current profile response."
+
+require_source_match \
+    "cloud web contract verifier compares storage node response" \
+    "webApp/scripts/verify-api-contracts.mjs" \
+    'StorageNodeSummaryResponse' \
+    "Cloud web contract verifier must compare personal storage node responses."
+
+require_source_match \
+    "cloud web contract verifier compares multipart upload request" \
+    "webApp/scripts/verify-api-contracts.mjs" \
+    'CreateMultipartUploadRequest' \
+    "Cloud web contract verifier must compare multipart upload requests."
+
+require_source_match \
+    "cloud web contract verifier compares share detail response" \
+    "webApp/scripts/verify-api-contracts.mjs" \
+    'ShareLinkDetailResponse' \
+    "Cloud web contract verifier must compare share detail responses."
+
+require_source_match \
+    "cloud web contract verifier compares query parameters" \
+    "webApp/scripts/verify-api-contracts.mjs" \
+    'extractRequestParamsForMethod' \
+    "Cloud web contract verifier must compare storage/share query parameters."
 
 require_source_match \
     "cloud web bundle size cap is 500 KiB" \

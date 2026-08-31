@@ -254,7 +254,7 @@ RAG 依赖健康入口为 `/rag/api/health/dependencies`，会探测 Identity `/
 
 `sysManage` 没有独立的 `sysManageApi` 后端；第一阶段仍由本仓库 `CloudStorageApi` 承接云盘运营接口。当前对应关系为：用户与额度管理走 `/api/admin/cloud-users` 和 `/api/admin/cloud-users/{userId}/quota`，运营总览、分享、回收站和用户容量明细走 `/api/admin/cloud-operations/**`，APK 后台发布走 `/api/admin/app-package`，APK 公开查询与下载走 `/api/app-package/**`，当前管理员云盘资料走 `/api/cloud-profile/me`。`/api/admin/**` 统一由 CloudStorageApi 的 `AdminPrincipalInterceptor` 保护，权限来自 Identity 的全局 `ADMIN` 或应用角色 `appRoles.cloud=CLOUD_ADMIN`。
 
-`sysManage` 构建会先运行 `verify:api-contracts`，把后台 TypeScript 类型与 CloudStorageApi 的运营 DTO、分页响应、APK 响应和查询参数做字段级比对，防止前后端契约漂移。云盘后台边界守卫还会固定用户额度、运营明细和 APK 管理三类视图对应的 CloudStorageApi 接口，并确保后台读取、额度调整和 APK 上传/删除入口保留全局管理员或云盘管理员门槛。
+`webApp` 构建会先运行 `verify:api-contracts`，把普通云盘 TypeScript 类型与 CloudStorageApi 的当前资料、个人存储、分片上传、分享、公开 APK 响应和查询参数做字段级比对，防止用户端与云盘 API 契约漂移；资料保存仍走同域 Identity 公开入口，头像上传后由 CloudStorageApi 同步 Identity 当前资料请求体。`sysManage` 构建同样会先运行 `verify:api-contracts`，把后台 TypeScript 类型与 CloudStorageApi 的运营 DTO、分页响应、APK 响应和查询参数做字段级比对。云盘后台边界守卫还会固定用户额度、运营明细和 APK 管理三类视图对应的 CloudStorageApi 接口，并确保后台读取、额度调整和 APK 上传/删除入口保留全局管理员或云盘管理员门槛。
 
 平台级本地验收会同时复核主站个人资料、身份后台个人资料、普通云盘个人资料和云盘后台个人资料的共享弹窗契约，确保四处都保留一致的标题、头像功能区、字段区和布局类名；也会比对 `mainSite/userSite` 与当前 `identityApi` 的用户、登录、会话、应用角色、审计分页、请求体和查询参数契约。
 
@@ -499,7 +499,7 @@ npm run dev -- --host 127.0.0.1 --port 5174
 - `http://localhost:5173/cloudPan/`
 - `http://localhost:5174/console/cloud/users`
 
-Windows 本地可以直接跑前端拆分验收脚本，它会构建 `webApp` 和 `sysManage`，并检查普通云盘、云盘后台的 Docker/Nginx 挂载、`returnTo`、session 同步、边界守护、bundle size 守卫和 vendor 分包：
+Windows 本地可以直接跑前端拆分验收脚本，它会构建 `webApp` 和 `sysManage`，并检查普通云盘、云盘后台的 Docker/Nginx 挂载、`returnTo`、session 同步、边界守护、字段级 API 契约、bundle size 守卫和 vendor 分包：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File deploy\scripts\verify-frontend-split-local.ps1
