@@ -136,12 +136,12 @@ export function DrivePage() {
       ? '稍后重试'
       : appDownloadAvailable
         ? '下载 APK'
-        : '等待上传';
+        : '暂不可用';
   const appDownloadEmptyLabel = publicAppPackageLoading
     ? '正在加载'
     : publicAppPackageError
       ? '状态不可用'
-      : '暂未上传 APK';
+      : '暂未开放';
   const mainShellClassName = `app-main-shell${isHomeView && homeBackgroundImage ? ' app-main-shell-with-background' : ''}`;
   const mainShellStyle =
     isHomeView && homeBackgroundImage
@@ -496,7 +496,7 @@ export function DrivePage() {
             </div>
           </div>
           <Typography.Paragraph className="sider-download-note">
-            {appDownloadAvailable ? '扫码下载移动端安装包' : '上传 APK 后即可开放下载'}
+            {appDownloadAvailable ? '扫码下载移动端安装包' : '移动端安装包暂未开放'}
           </Typography.Paragraph>
 
           {appDownloadAvailable ? (

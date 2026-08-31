@@ -150,6 +150,16 @@ assert.doesNotMatch(
   /账号管理|用户管理|云盘后台|身份后台/,
   'cloud drive page must describe user-facing profile tools without admin management wording',
 );
+assert.doesNotMatch(
+  drivePage,
+  /上传\s*APK|等待上传|暂未上传\s*APK|开放下载/,
+  'cloud web APK download panel must use user-facing unavailable copy without upload/admin wording',
+);
+assert.doesNotMatch(
+  appDownloadPage,
+  /发布状态|暂未发布|未发布/,
+  'cloud app download page must describe package availability as a user-facing download state',
+);
 assert.match(
   driveProfileModals,
   /title=\{<AliciaModalTitle eyebrow="Account">个人资料<\/AliciaModalTitle>\}[\s\S]*rootClassName="alicia-modal alicia-account-modal account-profile-modal"[\s\S]*className="account-profile-form"[\s\S]*className="profile-avatar-row account-profile-hero"[\s\S]*<strong>用户图标<\/strong>[\s\S]*上传本地图片或填写图片地址后，会同步更新所有 Alicia 账号入口。[\s\S]*className="account-profile-actions"[\s\S]*name="nickname"[\s\S]*name="phoneNumber"[\s\S]*name="avatarUrl"/,

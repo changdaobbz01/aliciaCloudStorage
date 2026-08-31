@@ -127,11 +127,29 @@ require_source_no_match \
     '管理控制台|consoleHome|/console(/|$)' \
     "Cloud web account menu must not expose admin console entry points."
 
+require_source_no_match \
+    "cloud web APK download panel uses user copy" \
+    "webApp/src/pages/DrivePage.tsx" \
+    '上传[[:space:]]*APK|等待上传|暂未上传[[:space:]]*APK|开放下载' \
+    "Cloud web APK download panel must not expose upload/admin wording."
+
 require_source_match \
     "cloud web verifies profile wording boundary" \
     "webApp/scripts/verify-client-boundary.mjs" \
     'cloud drive page must describe user-facing profile tools without admin management wording' \
     "Cloud web boundary verifier must reject admin management wording in user-facing drive page copy."
+
+require_source_match \
+    "cloud web verifies APK download copy boundary" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web APK download panel must use user-facing unavailable copy without upload/admin wording' \
+    "Cloud web boundary verifier must reject APK upload wording in the user-facing download panel."
+
+require_source_match \
+    "cloud web verifies app download copy boundary" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud app download page must describe package availability as a user-facing download state' \
+    "Cloud web boundary verifier must reject release workflow wording in the app download page."
 
 require_source_no_match \
     "cloud web has no admin style leftovers" \

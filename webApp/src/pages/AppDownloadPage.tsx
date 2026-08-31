@@ -117,7 +117,7 @@ export function AppDownloadPage() {
             <div className="app-download-meta-grid">
               <div className="app-download-meta-card">
                 <Typography.Text className="muted-text">当前版本</Typography.Text>
-                <Typography.Title level={4}>{packageInfo?.versionName || '暂未发布'}</Typography.Title>
+                <Typography.Title level={4}>{packageInfo?.versionName || '暂未开放'}</Typography.Title>
               </div>
               <div className="app-download-meta-card">
                 <Typography.Text className="muted-text">安装包大小</Typography.Text>
@@ -126,8 +126,8 @@ export function AppDownloadPage() {
                 </Typography.Title>
               </div>
               <div className="app-download-meta-card">
-                <Typography.Text className="muted-text">发布状态</Typography.Text>
-                <Typography.Title level={4}>{packageInfo?.available ? '可下载' : '未发布'}</Typography.Title>
+                <Typography.Text className="muted-text">下载状态</Typography.Text>
+                <Typography.Title level={4}>{packageInfo?.available ? '可下载' : '暂未开放'}</Typography.Title>
               </div>
             </div>
 
