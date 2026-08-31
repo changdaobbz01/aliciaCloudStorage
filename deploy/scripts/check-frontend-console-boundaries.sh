@@ -593,6 +593,36 @@ require_source_match \
     "Production status snapshot must run main site frontend boundary checks when static boundary checks are requested."
 
 require_source_match \
+    "production status exposes canonical redirect probes" \
+    "deploy/scripts/collect-production-status.sh" \
+    'curl_redirect_probe\(\)' \
+    "Production status snapshot must include canonical redirect probes."
+
+require_source_match \
+    "production status verifies shared console gateway redirect" \
+    "deploy/scripts/collect-production-status.sh" \
+    'curl_redirect_probe "console gateway bare path" "\$PUBLIC_BASE_URL/console" "/console/"' \
+    "Production status snapshot must verify the shared console gateway redirect."
+
+require_source_match \
+    "production status verifies cloud web canonical redirect" \
+    "deploy/scripts/collect-production-status.sh" \
+    'curl_redirect_probe "cloudPan bare path" "\$PUBLIC_BASE_URL/cloudPan" "/cloudPan/"' \
+    "Production status snapshot must verify the cloud web canonical redirect."
+
+require_source_match \
+    "production status verifies cloud console canonical redirect" \
+    "deploy/scripts/collect-production-status.sh" \
+    'curl_redirect_probe "cloud console bare path" "\$PUBLIC_BASE_URL/console/cloud" "/console/cloud/"' \
+    "Production status snapshot must verify the cloud console canonical redirect."
+
+require_source_match \
+    "production status verifies legacy cloud login handoff" \
+    "deploy/scripts/collect-production-status.sh" \
+    'curl_redirect_probe "cloudPan legacy login" "\$PUBLIC_BASE_URL/cloudPan/login" "/login\?returnTo=/cloudPan/"' \
+    "Production status snapshot must verify legacy cloud login handoff."
+
+require_source_match \
     "cloud web Dockerfile publishes root Android asset links" \
     "webApp/Dockerfile" \
     'COPY --from=cloud-builder /app/webApp/dist/\.well-known /usr/share/nginx/html/\.well-known' \

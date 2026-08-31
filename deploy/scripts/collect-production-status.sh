@@ -152,6 +152,49 @@ curl_probe() {
     rm -f "$body_file"
 }
 
+curl_redirect_probe() {
+    local label="$1"
+    local url="$2"
+    local expected_location="$3"
+    local header_file
+    local meta
+    local status
+    local total_time
+    local location
+    local location_path
+    local request_origin
+    local absolute_expected_location
+
+    header_file="$(mktemp)"
+    if meta="$(curl "${CURL_ARGS[@]}" -I -o /dev/null -D "$header_file" -w '%{http_code} %{time_total}' "$url" 2>&1)"; then
+        status="${meta%% *}"
+        total_time="${meta#* }"
+        location="$(awk 'BEGIN { IGNORECASE = 1 } /^location:/ { sub(/^[^:]+:[[:space:]]*/, ""); sub(/\r$/, ""); print; exit }' "$header_file")"
+        absolute_expected_location="$expected_location"
+        if [[ "$expected_location" == /* ]]; then
+            request_origin="$(printf '%s' "$url" | sed -E 's#^([a-zA-Z][a-zA-Z0-9+.-]*://[^/]+).*#\1#')"
+            absolute_expected_location="${request_origin}${expected_location}"
+        fi
+        location_path="$(printf '%s' "$location" | sed -E 's#^[a-zA-Z][a-zA-Z0-9+.-]*://[^/?#]*##')"
+
+        if [[ ! "$status" =~ ^(301|302|307|308)$ ]]; then
+            printf '[WARN] %-40s expected redirect to %s, got HTTP %s %ss\n' "$label" "$expected_location" "$status" "$total_time" >&2
+            sed -n '1,20p' "$header_file" >&2 || true
+            FAILURES=$((FAILURES + 1))
+        elif [[ "$location" != "$expected_location" && "$location" != "${PUBLIC_BASE_URL}${expected_location}" && "$location" != "$absolute_expected_location" && "$location_path" != "$expected_location" ]]; then
+            printf '[WARN] %-40s expected Location %s, got %s\n' "$label" "$expected_location" "${location:-<missing>}" >&2
+            sed -n '1,20p' "$header_file" >&2 || true
+            FAILURES=$((FAILURES + 1))
+        else
+            printf '[OK] %-42s HTTP %s -> %s %ss\n' "$label" "$status" "$expected_location" "$total_time"
+        fi
+    else
+        printf '[WARN] %-40s curl failed: %s\n' "$label" "$meta" >&2
+        FAILURES=$((FAILURES + 1))
+    fi
+    rm -f "$header_file"
+}
+
 curl_json() {
     local label="$1"
     local url="$2"
@@ -230,10 +273,14 @@ curl_probe "identity dependency health direct" "$IDENTITY_BASE_URL/api/identity/
 curl_probe "main site home through frontend" "$PUBLIC_BASE_URL/"
 curl_probe "main site login through frontend" "$PUBLIC_BASE_URL/login"
 curl_probe "cloudPan frontend entry" "$PUBLIC_BASE_URL/cloudPan/"
+curl_redirect_probe "cloudPan bare path" "$PUBLIC_BASE_URL/cloudPan" "/cloudPan/"
+curl_redirect_probe "cloudPan legacy login" "$PUBLIC_BASE_URL/cloudPan/login" "/login?returnTo=/cloudPan/"
 curl_probe "cloud console frontend entry" "$PUBLIC_BASE_URL/console/cloud/"
+curl_redirect_probe "cloud console bare path" "$PUBLIC_BASE_URL/console/cloud" "/console/cloud/"
 curl_probe "cloud console users route" "$PUBLIC_BASE_URL/console/cloud/users"
 curl_probe "cloud console operations route" "$PUBLIC_BASE_URL/console/cloud/operations"
 curl_probe "cloud console app package route" "$PUBLIC_BASE_URL/console/cloud/app-package"
+curl_redirect_probe "console gateway bare path" "$PUBLIC_BASE_URL/console" "/console/"
 curl_probe "identity console frontend entry" "$PUBLIC_BASE_URL/console/identity/"
 curl_probe "identity console users route" "$PUBLIC_BASE_URL/console/identity/users"
 curl_probe "identity console roles route" "$PUBLIC_BASE_URL/console/identity/roles"
