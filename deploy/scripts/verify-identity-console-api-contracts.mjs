@@ -36,6 +36,7 @@ const { cloudProjectDir, mainSiteProjectDir } = parseArgs(process.argv.slice(2))
 const identityDtoRoot = 'identityApi/src/main/java/com/alicia/cloudstorage/identity/dto';
 const identityControllerRoot = 'identityApi/src/main/java/com/alicia/cloudstorage/identity/controller';
 const userSiteTypesSource = readProjectFile(mainSiteProjectDir, 'userSite/src/types.ts');
+const userSiteApiSource = readProjectFile(mainSiteProjectDir, 'userSite/src/lib/api.ts');
 
 function readProjectFile(projectDir, relativePath) {
   const path = resolve(projectDir, relativePath);
@@ -156,6 +157,162 @@ function extractRequestParamsForMethod(relativePath, methodName) {
     });
 }
 
+function assertControllerBasePath(relativePath, expectedBasePath) {
+  const source = readIdentityFile(relativePath);
+  const pattern = new RegExp(`@RequestMapping\\("${escapeRegExp(expectedBasePath)}"\\)`);
+  assert.match(source, pattern, `${relativePath} must keep ${expectedBasePath}`);
+}
+
+function assertControllerMethodMapping(relativePath, methodName, mappingPattern) {
+  const source = readIdentityFile(relativePath);
+  const methodIndex = source.indexOf(`${methodName}(`);
+  assert.ok(methodIndex > -1, `${methodName} must exist in ${relativePath}`);
+
+  const context = source.slice(Math.max(0, methodIndex - 260), methodIndex);
+  assert.match(context, mappingPattern, `${methodName} must keep its IdentityApi route mapping`);
+}
+
+function extractTsFunctionSource(functionName) {
+  const functionPattern = new RegExp(`export\\s+function\\s+${escapeRegExp(functionName)}\\s*\\(`);
+  const match = functionPattern.exec(userSiteApiSource);
+  assert.ok(match, `${functionName} must exist in mainSite/userSite/src/lib/api.ts`);
+
+  const openIndex = userSiteApiSource.indexOf('{', match.index);
+  assert.ok(openIndex > -1, `${functionName} must use a function block`);
+
+  const closeIndex = findMatching(userSiteApiSource, openIndex, '{', '}');
+  return userSiteApiSource.slice(openIndex + 1, closeIndex);
+}
+
+function assertUserSiteApiEndpoint(functionName, endpointNeedle) {
+  const source = extractTsFunctionSource(functionName);
+  assert.ok(
+    source.includes(endpointNeedle),
+    `${functionName} must call ${endpointNeedle} from mainSite/userSite/src/lib/api.ts`,
+  );
+}
+
+function assertUserSiteApiMethod(functionName, method) {
+  const source = extractTsFunctionSource(functionName);
+  assert.match(source, new RegExp(`method:\\s*'${escapeRegExp(method)}'`), `${functionName} must use ${method}`);
+}
+
+function assertIdentityEndpointContract(contract) {
+  assertControllerBasePath(contract.controller, contract.basePath);
+  assertControllerMethodMapping(contract.controller, contract.javaMethod, contract.mappingPattern);
+  assertUserSiteApiEndpoint(contract.tsFunction, contract.endpointNeedle);
+
+  if (contract.httpMethod) {
+    assertUserSiteApiMethod(contract.tsFunction, contract.httpMethod);
+  }
+}
+
+const identityEndpointContracts = [
+  {
+    controller: `${identityControllerRoot}/IdentityAuthController.java`,
+    basePath: '/api/identity/auth',
+    javaMethod: 'me',
+    mappingPattern: /@GetMapping\("\/me"\)/,
+    tsFunction: 'fetchCurrentIdentityUser',
+    endpointNeedle: "'/api/identity/auth/me'",
+  },
+  {
+    controller: `${identityControllerRoot}/IdentityAuthController.java`,
+    basePath: '/api/identity/auth',
+    javaMethod: 'updateProfile',
+    mappingPattern: /@PutMapping\("\/profile"\)/,
+    tsFunction: 'updateIdentityProfile',
+    endpointNeedle: "'/api/identity/auth/profile'",
+    httpMethod: 'PUT',
+  },
+  {
+    controller: `${identityControllerRoot}/IdentityAuthController.java`,
+    basePath: '/api/identity/auth',
+    javaMethod: 'refreshToken',
+    mappingPattern: /@PostMapping\("\/token\/refresh"\)/,
+    tsFunction: 'refreshAuthSession',
+    endpointNeedle: "'/api/identity/auth/token/refresh'",
+    httpMethod: 'POST',
+  },
+  {
+    controller: `${identityControllerRoot}/IdentityAuthController.java`,
+    basePath: '/api/identity/auth',
+    javaMethod: 'logout',
+    mappingPattern: /@PostMapping\("\/logout"\)/,
+    tsFunction: 'logoutAuthToken',
+    endpointNeedle: "'/api/identity/auth/logout'",
+    httpMethod: 'POST',
+  },
+  {
+    controller: `${identityControllerRoot}/IdentityAuthController.java`,
+    basePath: '/api/identity/auth',
+    javaMethod: 'listSessions',
+    mappingPattern: /@GetMapping\("\/sessions"\)/,
+    tsFunction: 'fetchIdentitySessions',
+    endpointNeedle: '`/api/identity/auth/sessions${suffix}`',
+  },
+  {
+    controller: `${identityControllerRoot}/IdentityAuthController.java`,
+    basePath: '/api/identity/auth',
+    javaMethod: 'revokeSession',
+    mappingPattern: /@DeleteMapping\("\/sessions\/\{sessionId\}"\)/,
+    tsFunction: 'revokeIdentitySession',
+    endpointNeedle: '`/api/identity/auth/sessions/${sessionId}`',
+    httpMethod: 'DELETE',
+  },
+  {
+    controller: `${identityControllerRoot}/IdentityAdminUserController.java`,
+    basePath: '/api/identity/admin/users',
+    javaMethod: 'listUsers',
+    mappingPattern: /@GetMapping\b/,
+    tsFunction: 'fetchIdentityUsers',
+    endpointNeedle: "'/api/identity/admin/users'",
+  },
+  {
+    controller: `${identityControllerRoot}/IdentityAdminUserController.java`,
+    basePath: '/api/identity/admin/users',
+    javaMethod: 'createUser',
+    mappingPattern: /@PostMapping\b/,
+    tsFunction: 'createIdentityUser',
+    endpointNeedle: "'/api/identity/admin/users'",
+    httpMethod: 'POST',
+  },
+  {
+    controller: `${identityControllerRoot}/IdentityAdminUserController.java`,
+    basePath: '/api/identity/admin/users',
+    javaMethod: 'resetUserPassword',
+    mappingPattern: /@PutMapping\("\/\{userId\}\/password"\)/,
+    tsFunction: 'resetIdentityUserPassword',
+    endpointNeedle: '`/api/identity/admin/users/${userId}/password`',
+    httpMethod: 'PUT',
+  },
+  {
+    controller: `${identityControllerRoot}/IdentityAdminApplicationRoleController.java`,
+    basePath: '/api/identity/admin/users/{userId}/app-roles',
+    javaMethod: 'listUserRoles',
+    mappingPattern: /@GetMapping\b/,
+    tsFunction: 'fetchIdentityApplicationRoles',
+    endpointNeedle: '`/api/identity/admin/users/${userId}/app-roles`',
+  },
+  {
+    controller: `${identityControllerRoot}/IdentityAdminApplicationRoleController.java`,
+    basePath: '/api/identity/admin/users/{userId}/app-roles',
+    javaMethod: 'updateUserRole',
+    mappingPattern: /@PutMapping\("\/\{appCode\}"\)/,
+    tsFunction: 'updateIdentityApplicationRole',
+    endpointNeedle: '`/api/identity/admin/users/${userId}/app-roles/${encodeURIComponent(appCode)}`',
+    httpMethod: 'PUT',
+  },
+  {
+    controller: `${identityControllerRoot}/IdentityAdminAuditLogController.java`,
+    basePath: '/api/identity/admin/audit-logs',
+    javaMethod: 'listAuditLogs',
+    mappingPattern: /@GetMapping\b/,
+    tsFunction: 'fetchIdentityAuditLogs',
+    endpointNeedle: '`/api/identity/admin/audit-logs${suffix}`',
+  },
+];
+
 assertSameFields(
   'IdentityUser',
   extractTsTypeFields('IdentityUser'),
@@ -216,5 +373,9 @@ assertSameFields(
   ['includeRevoked'],
   extractRequestParamsForMethod(`${identityControllerRoot}/IdentityAuthController.java`, 'listSessions'),
 );
+
+for (const contract of identityEndpointContracts) {
+  assertIdentityEndpointContract(contract);
+}
 
 console.log('[OK] identity console IdentityApi contracts verified');

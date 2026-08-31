@@ -1017,6 +1017,18 @@ require_source_match \
     "Identity console contract verifier must compare query parameters."
 
 require_source_match \
+    "identity console contract verifier compares endpoint contracts" \
+    "deploy/scripts/verify-identity-console-api-contracts.mjs" \
+    'identityEndpointContracts' \
+    "Identity console contract verifier must compare IdentityApi endpoint paths and methods."
+
+require_source_match \
+    "identity console contract verifier binds controller mappings" \
+    "deploy/scripts/verify-identity-console-api-contracts.mjs" \
+    'assertControllerMethodMapping' \
+    "Identity console contract verifier must bind frontend API calls to controller mappings."
+
+require_source_match \
     "production status locates main site repository" \
     "deploy/scripts/collect-production-status.sh" \
     'MAIN_SITE_PROJECT_DIR="\$\{ALICIA_MAIN_SITE_PROJECT_DIR:-\$HOME/mainSite\}"' \
