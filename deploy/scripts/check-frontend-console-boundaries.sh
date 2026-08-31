@@ -725,6 +725,24 @@ require_source_match \
     "Platform local verifier must pass through the SkipBuild switch."
 
 require_source_match \
+    "platform local verifier checks shared account profile contract" \
+    "deploy/scripts/verify-platform-frontend-split-local.ps1" \
+    'Invoke-SharedAccountProfileVerification' \
+    "Platform local verifier must enforce shared account profile layout across all frontends."
+
+require_source_match \
+    "platform local verifier covers identity profile modal" \
+    "deploy/scripts/verify-platform-frontend-split-local.ps1" \
+    'identity console profile modal' \
+    "Platform local verifier must include the identity console profile modal in the shared profile contract."
+
+require_source_match \
+    "platform local verifier covers cloud profile modal" \
+    "deploy/scripts/verify-platform-frontend-split-local.ps1" \
+    'cloud console profile modal' \
+    "Platform local verifier must include the cloud console profile modal in the shared profile contract."
+
+require_source_match \
     "production status locates main site repository" \
     "deploy/scripts/collect-production-status.sh" \
     'MAIN_SITE_PROJECT_DIR="\$\{ALICIA_MAIN_SITE_PROJECT_DIR:-\$HOME/mainSite\}"' \

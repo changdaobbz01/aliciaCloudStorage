@@ -254,6 +254,8 @@ RAG 依赖健康入口为 `/rag/api/health/dependencies`，会探测 Identity `/
 
 `sysManage` 没有独立的 `sysManageApi` 后端；第一阶段仍由本仓库 `CloudStorageApi` 承接云盘运营接口。当前对应关系为：用户与额度管理走 `/api/admin/cloud-users` 和 `/api/admin/cloud-users/{userId}/quota`，运营总览、分享、回收站和用户容量明细走 `/api/admin/cloud-operations/**`，APK 后台发布走 `/api/admin/app-package`，APK 公开查询与下载走 `/api/app-package/**`，当前管理员云盘资料走 `/api/cloud-profile/me`。`/api/admin/**` 统一由 CloudStorageApi 的 `AdminPrincipalInterceptor` 保护，权限来自 Identity 的全局 `ADMIN` 或应用角色 `appRoles.cloud=CLOUD_ADMIN`。
 
+平台级本地验收会同时复核主站个人资料、身份后台个人资料、普通云盘个人资料和云盘后台个人资料的共享弹窗契约，确保四处都保留一致的标题、头像功能区、字段区和布局类名。
+
 云盘 Web 会在启动和运行中通过 `/api/identity/auth/token/refresh` 续签登录态，续签和本地 session 保存都要求同时存在 access token 与 refresh token；未登录或 token 过期时生成规范化的 `/cloudPan/...` returnTo 并跳转主站 `/login`，过期场景会追加 `reason=session-expired` 供主站登录页展示正式提示，同时规避回到登录页造成的跳转环。主动退出登录时调用 `/api/identity/auth/logout` 后再清理本地 token 和 refresh token。云盘 Web 与主站使用同一组浏览器 session key，通过浏览器 storage 事件同步跨标签页登录、续签、过期和退出，并通过共享 session revision 事件同步昵称、头像、云盘背景等资料变更。Android 客户端恢复会话、保存会话和退出登录也使用同一套 Identity 接口与 token 契约；启动续签失败、缺失 refresh token 或运行中收到 401 时会走本地会话过期清理并提示重新登录，不再混用用户主动退出登录提示。默认 logout 只撤销当前刷新会话；需要全设备退出时请求体传 `{"allDevices":true}`。`GET /api/identity/auth/sessions` 返回当前账号刷新会话元数据，不暴露 refresh token 或 token hash；`DELETE /api/identity/auth/sessions/{sessionId}` 只允许撤销当前账号自己的会话。云盘 Web 头像菜单已提供“登录会话”入口，可查看会话并撤销非当前有效会话。
 
 `identityApi` 新注册用户首次携带 identity token 访问 CloudStorageApi 受保护接口时，CloudStorageApi 会自动补建对应的 `cloud_user_profile`，云盘默认额度取 `ALICIA_STORAGE_DEFAULT_USER_QUOTA_BYTES`。
