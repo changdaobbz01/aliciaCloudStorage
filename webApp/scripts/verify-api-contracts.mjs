@@ -193,10 +193,32 @@ function assertApiUploadFunctionUsesPost(functionName, helperName = 'requestUplo
   assert.match(apiSource, /xhr\.open\('POST', url\)/, 'webApp upload request helpers must use POST');
 }
 
+function assertApiFunctionUsesAuthToken(functionName) {
+  const source = extractApiFunctionBody(functionName);
+  assert.match(
+    source,
+    /withToken\((?:token|accessToken)\b|withTokenAndShareAccess\(token\b|request(?:Binary)?UploadJson<[\s\S]*,\s*token\b/,
+    `${functionName} must send the current auth token`,
+  );
+}
+
+function assertCloudStorageApiCurrentPrincipalInterceptorContract() {
+  const source = readRepoFile('CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/config/WebMvcConfig.java');
+  assert.match(
+    source,
+    /registry\.addInterceptor\(currentPrincipalInterceptor\)[\s\S]*\.addPathPatterns\([\s\S]*"\/api\/cloud-profile\/me"[\s\S]*"\/api\/cloud-profile\/avatar"[\s\S]*"\/api\/cloud-profile\/background"[\s\S]*"\/api\/share-links\/\*\*"[\s\S]*"\/api\/storage\/\*\*"[\s\S]*\)/,
+    'CloudStorageApi must protect cloud web user APIs with CurrentPrincipalInterceptor',
+  );
+}
+
 function assertCloudWebEndpointContract(contract) {
   assertControllerBasePath(contract.controller, contract.basePath);
   assertControllerMethodMapping(contract.controller, contract.javaMethod, contract.mappingPattern);
   assertApiFunctionUsesPath(contract.tsFunction, contract.endpointNeedle);
+
+  if (contract.requiresAuthToken) {
+    assertApiFunctionUsesAuthToken(contract.tsFunction);
+  }
 
   if (contract.httpMethod) {
     assertApiFunctionUsesMethod(contract.tsFunction, contract.httpMethod);
@@ -231,6 +253,7 @@ const cloudWebEndpointContracts = [
     mappingPattern: /@GetMapping\("\/me"\)/,
     tsFunction: 'fetchCurrentUser',
     endpointNeedle: '/api/cloud-profile/me',
+    requiresAuthToken: true,
   },
   {
     controller: cloudProfileController,
@@ -240,6 +263,7 @@ const cloudWebEndpointContracts = [
     tsFunction: 'uploadCurrentUserAvatar',
     endpointNeedle: '/api/cloud-profile/avatar',
     uploadPost: true,
+    requiresAuthToken: true,
   },
   {
     controller: cloudProfileController,
@@ -249,6 +273,7 @@ const cloudWebEndpointContracts = [
     tsFunction: 'uploadCurrentUserHomeBackground',
     endpointNeedle: '/api/cloud-profile/background',
     uploadPost: true,
+    requiresAuthToken: true,
   },
   {
     controller: cloudProfileController,
@@ -258,6 +283,7 @@ const cloudWebEndpointContracts = [
     tsFunction: 'clearCurrentUserHomeBackground',
     endpointNeedle: '/api/cloud-profile/background',
     httpMethod: 'DELETE',
+    requiresAuthToken: true,
   },
   {
     controller: storageController,
@@ -266,6 +292,7 @@ const cloudWebEndpointContracts = [
     mappingPattern: /@GetMapping\("\/overview"\)/,
     tsFunction: 'fetchDriveOverview',
     endpointNeedle: '/api/storage/overview',
+    requiresAuthToken: true,
   },
   {
     controller: storageController,
@@ -274,6 +301,7 @@ const cloudWebEndpointContracts = [
     mappingPattern: /@GetMapping\("\/usage-history"\)/,
     tsFunction: 'fetchUsageHistory',
     endpointNeedle: '/api/storage/usage-history',
+    requiresAuthToken: true,
   },
   {
     controller: storageController,
@@ -282,6 +310,7 @@ const cloudWebEndpointContracts = [
     mappingPattern: /@GetMapping\("\/nodes"\)/,
     tsFunction: 'fetchStorageNodes',
     endpointNeedle: '/api/storage/nodes',
+    requiresAuthToken: true,
   },
   {
     controller: storageController,
@@ -290,6 +319,7 @@ const cloudWebEndpointContracts = [
     mappingPattern: /@GetMapping\("\/folders"\)/,
     tsFunction: 'fetchStorageFolders',
     endpointNeedle: '/api/storage/folders',
+    requiresAuthToken: true,
   },
   {
     controller: storageController,
@@ -298,6 +328,7 @@ const cloudWebEndpointContracts = [
     mappingPattern: /@GetMapping\("\/trash"\)/,
     tsFunction: 'fetchTrashNodes',
     endpointNeedle: '/api/storage/trash',
+    requiresAuthToken: true,
   },
   {
     controller: storageController,
@@ -307,6 +338,7 @@ const cloudWebEndpointContracts = [
     tsFunction: 'createFolder',
     endpointNeedle: '/api/storage/folders',
     httpMethod: 'POST',
+    requiresAuthToken: true,
   },
   {
     controller: storageController,
@@ -316,6 +348,7 @@ const cloudWebEndpointContracts = [
     tsFunction: 'uploadStorageFile',
     endpointNeedle: '/api/storage/files',
     uploadPost: true,
+    requiresAuthToken: true,
   },
   {
     controller: storageController,
@@ -325,6 +358,7 @@ const cloudWebEndpointContracts = [
     tsFunction: 'createMultipartUpload',
     endpointNeedle: '/api/storage/files/multipart',
     httpMethod: 'POST',
+    requiresAuthToken: true,
   },
   {
     controller: storageController,
@@ -333,6 +367,7 @@ const cloudWebEndpointContracts = [
     mappingPattern: /@GetMapping\("\/files\/multipart\/\{uploadToken\}"\)/,
     tsFunction: 'fetchMultipartUploadStatus',
     endpointNeedle: '/api/storage/files/multipart/',
+    requiresAuthToken: true,
   },
   {
     controller: storageController,
@@ -343,6 +378,7 @@ const cloudWebEndpointContracts = [
     endpointNeedle: '/api/storage/files/multipart/',
     uploadPost: true,
     uploadHelper: 'requestBinaryUploadJson',
+    requiresAuthToken: true,
   },
   {
     controller: storageController,
@@ -352,6 +388,7 @@ const cloudWebEndpointContracts = [
     tsFunction: 'completeMultipartUpload',
     endpointNeedle: '/api/storage/files/multipart/',
     httpMethod: 'POST',
+    requiresAuthToken: true,
   },
   {
     controller: storageController,
@@ -361,6 +398,7 @@ const cloudWebEndpointContracts = [
     tsFunction: 'abortMultipartUpload',
     endpointNeedle: '/api/storage/files/multipart/',
     httpMethod: 'DELETE',
+    requiresAuthToken: true,
   },
   {
     controller: storageController,
@@ -369,6 +407,7 @@ const cloudWebEndpointContracts = [
     mappingPattern: /@GetMapping\("\/files\/\{fileId\}\/download"\)/,
     tsFunction: 'downloadStorageFile',
     endpointNeedle: '/api/storage/files/',
+    requiresAuthToken: true,
   },
   {
     controller: storageController,
@@ -377,6 +416,7 @@ const cloudWebEndpointContracts = [
     mappingPattern: /@GetMapping\("\/files\/\{fileId\}\/access-url"\)/,
     tsFunction: 'fetchStorageFileAccessUrl',
     endpointNeedle: '/api/storage/files/',
+    requiresAuthToken: true,
   },
   {
     controller: storageController,
@@ -386,6 +426,7 @@ const cloudWebEndpointContracts = [
     tsFunction: 'downloadStorageArchive',
     endpointNeedle: '/api/storage/nodes/archive',
     httpMethod: 'POST',
+    requiresAuthToken: true,
   },
   {
     controller: storageController,
@@ -395,6 +436,7 @@ const cloudWebEndpointContracts = [
     tsFunction: 'renameStorageNode',
     endpointNeedle: '/api/storage/nodes/',
     httpMethod: 'PUT',
+    requiresAuthToken: true,
   },
   {
     controller: storageController,
@@ -404,6 +446,7 @@ const cloudWebEndpointContracts = [
     tsFunction: 'moveStorageNode',
     endpointNeedle: '/api/storage/nodes/',
     httpMethod: 'PUT',
+    requiresAuthToken: true,
   },
   {
     controller: storageController,
@@ -413,6 +456,7 @@ const cloudWebEndpointContracts = [
     tsFunction: 'moveStorageNodes',
     endpointNeedle: '/api/storage/nodes/batch/move',
     httpMethod: 'PUT',
+    requiresAuthToken: true,
   },
   {
     controller: storageController,
@@ -422,6 +466,7 @@ const cloudWebEndpointContracts = [
     tsFunction: 'deleteStorageNode',
     endpointNeedle: '/api/storage/nodes/',
     httpMethod: 'DELETE',
+    requiresAuthToken: true,
   },
   {
     controller: storageController,
@@ -431,6 +476,7 @@ const cloudWebEndpointContracts = [
     tsFunction: 'deleteStorageNodes',
     endpointNeedle: '/api/storage/nodes/batch/trash',
     httpMethod: 'POST',
+    requiresAuthToken: true,
   },
   {
     controller: storageController,
@@ -440,6 +486,7 @@ const cloudWebEndpointContracts = [
     tsFunction: 'restoreStorageNode',
     endpointNeedle: '/api/storage/trash/',
     httpMethod: 'POST',
+    requiresAuthToken: true,
   },
   {
     controller: storageController,
@@ -449,6 +496,7 @@ const cloudWebEndpointContracts = [
     tsFunction: 'restoreStorageNodes',
     endpointNeedle: '/api/storage/trash/batch/restore',
     httpMethod: 'POST',
+    requiresAuthToken: true,
   },
   {
     controller: storageController,
@@ -458,6 +506,7 @@ const cloudWebEndpointContracts = [
     tsFunction: 'permanentlyDeleteStorageNode',
     endpointNeedle: '/api/storage/trash/',
     httpMethod: 'DELETE',
+    requiresAuthToken: true,
   },
   {
     controller: storageController,
@@ -467,6 +516,7 @@ const cloudWebEndpointContracts = [
     tsFunction: 'permanentlyDeleteStorageNodes',
     endpointNeedle: '/api/storage/trash/batch/delete',
     httpMethod: 'POST',
+    requiresAuthToken: true,
   },
   {
     controller: shareController,
@@ -476,6 +526,7 @@ const cloudWebEndpointContracts = [
     tsFunction: 'createShareLink',
     endpointNeedle: '/api/share-links',
     httpMethod: 'POST',
+    requiresAuthToken: true,
   },
   {
     controller: shareController,
@@ -484,6 +535,7 @@ const cloudWebEndpointContracts = [
     mappingPattern: /@GetMapping\("\/my"\)/,
     tsFunction: 'fetchMyShareLinks',
     endpointNeedle: '/api/share-links/my',
+    requiresAuthToken: true,
   },
   {
     controller: shareController,
@@ -493,6 +545,7 @@ const cloudWebEndpointContracts = [
     tsFunction: 'revokeShareLink',
     endpointNeedle: '/api/share-links/',
     httpMethod: 'DELETE',
+    requiresAuthToken: true,
   },
   {
     controller: shareController,
@@ -501,6 +554,7 @@ const cloudWebEndpointContracts = [
     mappingPattern: /@GetMapping\("\/\{shareCode\}\/detail"\)/,
     tsFunction: 'fetchShareDetail',
     endpointNeedle: '/api/share-links/',
+    requiresAuthToken: true,
   },
   {
     controller: shareController,
@@ -510,6 +564,7 @@ const cloudWebEndpointContracts = [
     tsFunction: 'saveShareToDrive',
     endpointNeedle: '/api/share-links/',
     httpMethod: 'POST',
+    requiresAuthToken: true,
   },
   {
     controller: shareController,
@@ -518,6 +573,7 @@ const cloudWebEndpointContracts = [
     mappingPattern: /@GetMapping\("\/\{shareCode\}\/files\/\{fileId\}\/access-url"\)/,
     tsFunction: 'fetchShareFileAccessUrl',
     endpointNeedle: '/api/share-links/',
+    requiresAuthToken: true,
   },
   {
     controller: shareController,
@@ -526,6 +582,7 @@ const cloudWebEndpointContracts = [
     mappingPattern: /@GetMapping\("\/\{shareCode\}\/files\/\{fileId\}\/download"\)/,
     tsFunction: 'downloadShareFile',
     endpointNeedle: '/api/share-links/',
+    requiresAuthToken: true,
   },
   {
     controller: shareController,
@@ -535,6 +592,7 @@ const cloudWebEndpointContracts = [
     tsFunction: 'downloadShareArchive',
     endpointNeedle: '/api/share-links/',
     httpMethod: 'POST',
+    requiresAuthToken: true,
   },
   {
     controller: publicShareController,
@@ -713,5 +771,7 @@ assertSameFields(
 for (const contract of cloudWebEndpointContracts) {
   assertCloudWebEndpointContract(contract);
 }
+
+assertCloudStorageApiCurrentPrincipalInterceptorContract();
 
 console.log('[OK] cloud web CloudStorageApi contracts verified');

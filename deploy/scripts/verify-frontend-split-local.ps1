@@ -338,6 +338,8 @@ Invoke-Step "verify cloud frontend split wiring" {
     Require-Contains "webApp/scripts/verify-api-contracts.mjs" "extractRequestParamsForMethod" "cloud web contract verifier must compare storage/share query parameters"
     Require-Contains "webApp/scripts/verify-api-contracts.mjs" "cloudWebEndpointContracts" "cloud web contract verifier must compare CloudStorageApi endpoint paths and methods"
     Require-Contains "webApp/scripts/verify-api-contracts.mjs" "assertControllerMethodMapping" "cloud web contract verifier must bind frontend API calls to controller mappings"
+    Require-Contains "webApp/scripts/verify-api-contracts.mjs" "assertApiFunctionUsesAuthToken" "cloud web contract verifier must ensure protected frontend API calls send the current auth token"
+    Require-Contains "webApp/scripts/verify-api-contracts.mjs" "assertCloudStorageApiCurrentPrincipalInterceptorContract" "cloud web contract verifier must ensure user APIs stay protected by CurrentPrincipalInterceptor"
     Require-Contains "webApp/scripts/verify-built-shell.mjs" "Alicia 云盘" "cloud web built shell verifier must assert the cloud web title"
     Require-Contains "webApp/scripts/verify-built-shell.mjs" "/cloudPan/assets/" "cloud web built shell verifier must assert mounted asset prefix"
     Require-Contains "webApp/scripts/verify-bundle-size.mjs" "maxChunkBytes = 500 * 1024" "cloud web bundle size verifier must cap JS chunks at 500 KiB"

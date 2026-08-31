@@ -302,6 +302,18 @@ require_source_match \
     "Cloud web contract verifier must bind frontend API calls to controller mappings."
 
 require_source_match \
+    "cloud web contract verifier checks frontend auth tokens" \
+    "webApp/scripts/verify-api-contracts.mjs" \
+    'assertApiFunctionUsesAuthToken' \
+    "Cloud web contract verifier must ensure protected frontend API calls send the current auth token."
+
+require_source_match \
+    "cloud web contract verifier checks current principal interceptor" \
+    "webApp/scripts/verify-api-contracts.mjs" \
+    'assertCloudStorageApiCurrentPrincipalInterceptorContract' \
+    "Cloud web contract verifier must ensure user APIs stay protected by CurrentPrincipalInterceptor."
+
+require_source_match \
     "cloud web returnTo preserves share links" \
     "webApp/scripts/verify-unified-login-return-to.mjs" \
     "/share/abc123" \
@@ -1412,6 +1424,18 @@ require_source_match \
     "webApp/scripts/verify-api-contracts.mjs" \
     'assertControllerMethodMapping' \
     "Cloud web contract verifier must bind frontend API calls to controller mappings."
+
+require_source_match \
+    "cloud web contract verifier checks frontend auth tokens" \
+    "webApp/scripts/verify-api-contracts.mjs" \
+    'assertApiFunctionUsesAuthToken' \
+    "Cloud web contract verifier must ensure protected frontend API calls send the current auth token."
+
+require_source_match \
+    "cloud web contract verifier checks current principal interceptor" \
+    "webApp/scripts/verify-api-contracts.mjs" \
+    'assertCloudStorageApiCurrentPrincipalInterceptorContract' \
+    "Cloud web contract verifier must ensure user APIs stay protected by CurrentPrincipalInterceptor."
 
 require_source_match \
     "cloud web bundle size cap is 500 KiB" \
