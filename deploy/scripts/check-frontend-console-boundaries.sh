@@ -285,6 +285,18 @@ require_source_match \
     "Cloud web contract verifier must compare storage/share query parameters."
 
 require_source_match \
+    "cloud web contract verifier compares endpoint contracts" \
+    "webApp/scripts/verify-api-contracts.mjs" \
+    'cloudWebEndpointContracts' \
+    "Cloud web contract verifier must compare CloudStorageApi endpoint paths and methods."
+
+require_source_match \
+    "cloud web contract verifier binds controller mappings" \
+    "webApp/scripts/verify-api-contracts.mjs" \
+    'assertControllerMethodMapping' \
+    "Cloud web contract verifier must bind frontend API calls to controller mappings."
+
+require_source_match \
     "cloud web returnTo preserves share links" \
     "webApp/scripts/verify-unified-login-return-to.mjs" \
     "/share/abc123" \
@@ -1299,6 +1311,18 @@ require_source_match \
     "webApp/scripts/verify-api-contracts.mjs" \
     'extractRequestParamsForMethod' \
     "Cloud web contract verifier must compare storage/share query parameters."
+
+require_source_match \
+    "cloud web contract verifier compares endpoint contracts" \
+    "webApp/scripts/verify-api-contracts.mjs" \
+    'cloudWebEndpointContracts' \
+    "Cloud web contract verifier must compare CloudStorageApi endpoint paths and methods."
+
+require_source_match \
+    "cloud web contract verifier binds controller mappings" \
+    "webApp/scripts/verify-api-contracts.mjs" \
+    'assertControllerMethodMapping' \
+    "Cloud web contract verifier must bind frontend API calls to controller mappings."
 
 require_source_match \
     "cloud web bundle size cap is 500 KiB" \

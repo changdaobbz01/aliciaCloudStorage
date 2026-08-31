@@ -157,6 +157,56 @@ function assertApiFunctionUsesPath(functionName, pathNeedle) {
   );
 }
 
+function assertControllerBasePath(relativePath, expectedBasePath) {
+  if (!expectedBasePath) {
+    return;
+  }
+
+  const source = readRepoFile(relativePath);
+  const pattern = new RegExp(`@RequestMapping\\("${escapeRegExp(expectedBasePath)}"\\)`);
+  assert.match(source, pattern, `${relativePath} must keep ${expectedBasePath}`);
+}
+
+function assertControllerMethodMapping(relativePath, methodName, mappingPattern) {
+  const source = readRepoFile(relativePath);
+  const methodIndex = source.indexOf(`${methodName}(`);
+  assert.ok(methodIndex > -1, `${methodName} must exist in ${relativePath}`);
+
+  const context = source.slice(Math.max(0, methodIndex - 260), methodIndex);
+  assert.match(context, mappingPattern, `${methodName} must keep its CloudStorageApi route mapping`);
+}
+
+function assertApiFunctionUsesMethod(functionName, method) {
+  assert.match(
+    extractApiFunctionBody(functionName),
+    new RegExp(`method:\\s*'${escapeRegExp(method)}'`),
+    `${functionName} must use ${method}`,
+  );
+}
+
+function assertApiUploadFunctionUsesPost(functionName, helperName = 'requestUploadJson') {
+  assert.match(
+    extractApiFunctionBody(functionName),
+    new RegExp(`${escapeRegExp(helperName)}<`),
+    `${functionName} must use ${helperName}`,
+  );
+  assert.match(apiSource, /xhr\.open\('POST', url\)/, 'webApp upload request helpers must use POST');
+}
+
+function assertCloudWebEndpointContract(contract) {
+  assertControllerBasePath(contract.controller, contract.basePath);
+  assertControllerMethodMapping(contract.controller, contract.javaMethod, contract.mappingPattern);
+  assertApiFunctionUsesPath(contract.tsFunction, contract.endpointNeedle);
+
+  if (contract.httpMethod) {
+    assertApiFunctionUsesMethod(contract.tsFunction, contract.httpMethod);
+  }
+
+  if (contract.uploadPost) {
+    assertApiUploadFunctionUsesPost(contract.tsFunction, contract.uploadHelper);
+  }
+}
+
 function sortedUnique(fields) {
   return [...new Set(fields)].sort();
 }
@@ -166,8 +216,352 @@ function assertSameFields(label, actualFields, expectedFields) {
 }
 
 const dtoRoot = 'CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/dto';
-const storageController = 'CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/controller/StorageNodeController.java';
-const shareController = 'CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/controller/ShareLinkController.java';
+const controllerRoot = 'CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/controller';
+const cloudProfileController = `${controllerRoot}/CloudProfileController.java`;
+const storageController = `${controllerRoot}/StorageNodeController.java`;
+const shareController = `${controllerRoot}/ShareLinkController.java`;
+const publicShareController = `${controllerRoot}/PublicShareLinkController.java`;
+const appPackageController = `${controllerRoot}/AppPackageController.java`;
+
+const cloudWebEndpointContracts = [
+  {
+    controller: cloudProfileController,
+    basePath: '/api/cloud-profile',
+    javaMethod: 'me',
+    mappingPattern: /@GetMapping\("\/me"\)/,
+    tsFunction: 'fetchCurrentUser',
+    endpointNeedle: '/api/cloud-profile/me',
+  },
+  {
+    controller: cloudProfileController,
+    basePath: '/api/cloud-profile',
+    javaMethod: 'uploadAvatar',
+    mappingPattern: /@PostMapping\(value = "\/avatar", consumes = MediaType\.MULTIPART_FORM_DATA_VALUE\)/,
+    tsFunction: 'uploadCurrentUserAvatar',
+    endpointNeedle: '/api/cloud-profile/avatar',
+    uploadPost: true,
+  },
+  {
+    controller: cloudProfileController,
+    basePath: '/api/cloud-profile',
+    javaMethod: 'uploadHomeBackground',
+    mappingPattern: /@PostMapping\(value = "\/background", consumes = MediaType\.MULTIPART_FORM_DATA_VALUE\)/,
+    tsFunction: 'uploadCurrentUserHomeBackground',
+    endpointNeedle: '/api/cloud-profile/background',
+    uploadPost: true,
+  },
+  {
+    controller: cloudProfileController,
+    basePath: '/api/cloud-profile',
+    javaMethod: 'clearHomeBackground',
+    mappingPattern: /@DeleteMapping\("\/background"\)/,
+    tsFunction: 'clearCurrentUserHomeBackground',
+    endpointNeedle: '/api/cloud-profile/background',
+    httpMethod: 'DELETE',
+  },
+  {
+    controller: storageController,
+    basePath: '/api/storage',
+    javaMethod: 'getOverview',
+    mappingPattern: /@GetMapping\("\/overview"\)/,
+    tsFunction: 'fetchDriveOverview',
+    endpointNeedle: '/api/storage/overview',
+  },
+  {
+    controller: storageController,
+    basePath: '/api/storage',
+    javaMethod: 'getUsageHistory',
+    mappingPattern: /@GetMapping\("\/usage-history"\)/,
+    tsFunction: 'fetchUsageHistory',
+    endpointNeedle: '/api/storage/usage-history',
+  },
+  {
+    controller: storageController,
+    basePath: '/api/storage',
+    javaMethod: 'listNodes',
+    mappingPattern: /@GetMapping\("\/nodes"\)/,
+    tsFunction: 'fetchStorageNodes',
+    endpointNeedle: '/api/storage/nodes',
+  },
+  {
+    controller: storageController,
+    basePath: '/api/storage',
+    javaMethod: 'listFolders',
+    mappingPattern: /@GetMapping\("\/folders"\)/,
+    tsFunction: 'fetchStorageFolders',
+    endpointNeedle: '/api/storage/folders',
+  },
+  {
+    controller: storageController,
+    basePath: '/api/storage',
+    javaMethod: 'listTrashNodes',
+    mappingPattern: /@GetMapping\("\/trash"\)/,
+    tsFunction: 'fetchTrashNodes',
+    endpointNeedle: '/api/storage/trash',
+  },
+  {
+    controller: storageController,
+    basePath: '/api/storage',
+    javaMethod: 'createFolder',
+    mappingPattern: /@PostMapping\("\/folders"\)/,
+    tsFunction: 'createFolder',
+    endpointNeedle: '/api/storage/folders',
+    httpMethod: 'POST',
+  },
+  {
+    controller: storageController,
+    basePath: '/api/storage',
+    javaMethod: 'uploadFile',
+    mappingPattern: /@PostMapping\(value = "\/files", consumes = MediaType\.MULTIPART_FORM_DATA_VALUE\)/,
+    tsFunction: 'uploadStorageFile',
+    endpointNeedle: '/api/storage/files',
+    uploadPost: true,
+  },
+  {
+    controller: storageController,
+    basePath: '/api/storage',
+    javaMethod: 'createMultipartUpload',
+    mappingPattern: /@PostMapping\("\/files\/multipart"\)/,
+    tsFunction: 'createMultipartUpload',
+    endpointNeedle: '/api/storage/files/multipart',
+    httpMethod: 'POST',
+  },
+  {
+    controller: storageController,
+    basePath: '/api/storage',
+    javaMethod: 'getMultipartUploadStatus',
+    mappingPattern: /@GetMapping\("\/files\/multipart\/\{uploadToken\}"\)/,
+    tsFunction: 'fetchMultipartUploadStatus',
+    endpointNeedle: '/api/storage/files/multipart/',
+  },
+  {
+    controller: storageController,
+    basePath: '/api/storage',
+    javaMethod: 'uploadMultipartPart',
+    mappingPattern: /@PostMapping\(value = "\/files\/multipart\/\{uploadToken\}\/parts\/\{partNumber\}", consumes = MediaType\.APPLICATION_OCTET_STREAM_VALUE\)/,
+    tsFunction: 'uploadMultipartPart',
+    endpointNeedle: '/api/storage/files/multipart/',
+    uploadPost: true,
+    uploadHelper: 'requestBinaryUploadJson',
+  },
+  {
+    controller: storageController,
+    basePath: '/api/storage',
+    javaMethod: 'completeMultipartUpload',
+    mappingPattern: /@PostMapping\("\/files\/multipart\/\{uploadToken\}\/complete"\)/,
+    tsFunction: 'completeMultipartUpload',
+    endpointNeedle: '/api/storage/files/multipart/',
+    httpMethod: 'POST',
+  },
+  {
+    controller: storageController,
+    basePath: '/api/storage',
+    javaMethod: 'abortMultipartUpload',
+    mappingPattern: /@DeleteMapping\("\/files\/multipart\/\{uploadToken\}"\)/,
+    tsFunction: 'abortMultipartUpload',
+    endpointNeedle: '/api/storage/files/multipart/',
+    httpMethod: 'DELETE',
+  },
+  {
+    controller: storageController,
+    basePath: '/api/storage',
+    javaMethod: 'downloadFile',
+    mappingPattern: /@GetMapping\("\/files\/\{fileId\}\/download"\)/,
+    tsFunction: 'downloadStorageFile',
+    endpointNeedle: '/api/storage/files/',
+  },
+  {
+    controller: storageController,
+    basePath: '/api/storage',
+    javaMethod: 'getFileAccessUrl',
+    mappingPattern: /@GetMapping\("\/files\/\{fileId\}\/access-url"\)/,
+    tsFunction: 'fetchStorageFileAccessUrl',
+    endpointNeedle: '/api/storage/files/',
+  },
+  {
+    controller: storageController,
+    basePath: '/api/storage',
+    javaMethod: 'downloadArchive',
+    mappingPattern: /@PostMapping\("\/nodes\/archive"\)/,
+    tsFunction: 'downloadStorageArchive',
+    endpointNeedle: '/api/storage/nodes/archive',
+    httpMethod: 'POST',
+  },
+  {
+    controller: storageController,
+    basePath: '/api/storage',
+    javaMethod: 'renameNode',
+    mappingPattern: /@PutMapping\("\/nodes\/\{nodeId\}\/rename"\)/,
+    tsFunction: 'renameStorageNode',
+    endpointNeedle: '/api/storage/nodes/',
+    httpMethod: 'PUT',
+  },
+  {
+    controller: storageController,
+    basePath: '/api/storage',
+    javaMethod: 'moveNode',
+    mappingPattern: /@PutMapping\("\/nodes\/\{nodeId\}\/move"\)/,
+    tsFunction: 'moveStorageNode',
+    endpointNeedle: '/api/storage/nodes/',
+    httpMethod: 'PUT',
+  },
+  {
+    controller: storageController,
+    basePath: '/api/storage',
+    javaMethod: 'moveNodes',
+    mappingPattern: /@PutMapping\("\/nodes\/batch\/move"\)/,
+    tsFunction: 'moveStorageNodes',
+    endpointNeedle: '/api/storage/nodes/batch/move',
+    httpMethod: 'PUT',
+  },
+  {
+    controller: storageController,
+    basePath: '/api/storage',
+    javaMethod: 'moveNodeToTrash',
+    mappingPattern: /@DeleteMapping\("\/nodes\/\{nodeId\}"\)/,
+    tsFunction: 'deleteStorageNode',
+    endpointNeedle: '/api/storage/nodes/',
+    httpMethod: 'DELETE',
+  },
+  {
+    controller: storageController,
+    basePath: '/api/storage',
+    javaMethod: 'moveNodesToTrash',
+    mappingPattern: /@PostMapping\("\/nodes\/batch\/trash"\)/,
+    tsFunction: 'deleteStorageNodes',
+    endpointNeedle: '/api/storage/nodes/batch/trash',
+    httpMethod: 'POST',
+  },
+  {
+    controller: storageController,
+    basePath: '/api/storage',
+    javaMethod: 'restoreNode',
+    mappingPattern: /@PostMapping\("\/trash\/\{nodeId\}\/restore"\)/,
+    tsFunction: 'restoreStorageNode',
+    endpointNeedle: '/api/storage/trash/',
+    httpMethod: 'POST',
+  },
+  {
+    controller: storageController,
+    basePath: '/api/storage',
+    javaMethod: 'restoreNodes',
+    mappingPattern: /@PostMapping\("\/trash\/batch\/restore"\)/,
+    tsFunction: 'restoreStorageNodes',
+    endpointNeedle: '/api/storage/trash/batch/restore',
+    httpMethod: 'POST',
+  },
+  {
+    controller: storageController,
+    basePath: '/api/storage',
+    javaMethod: 'permanentlyDeleteNode',
+    mappingPattern: /@DeleteMapping\("\/trash\/\{nodeId\}"\)/,
+    tsFunction: 'permanentlyDeleteStorageNode',
+    endpointNeedle: '/api/storage/trash/',
+    httpMethod: 'DELETE',
+  },
+  {
+    controller: storageController,
+    basePath: '/api/storage',
+    javaMethod: 'permanentlyDeleteNodes',
+    mappingPattern: /@PostMapping\("\/trash\/batch\/delete"\)/,
+    tsFunction: 'permanentlyDeleteStorageNodes',
+    endpointNeedle: '/api/storage/trash/batch/delete',
+    httpMethod: 'POST',
+  },
+  {
+    controller: shareController,
+    basePath: '/api/share-links',
+    javaMethod: 'createShareLink',
+    mappingPattern: /@PostMapping\b/,
+    tsFunction: 'createShareLink',
+    endpointNeedle: '/api/share-links',
+    httpMethod: 'POST',
+  },
+  {
+    controller: shareController,
+    basePath: '/api/share-links',
+    javaMethod: 'listMyShareLinks',
+    mappingPattern: /@GetMapping\("\/my"\)/,
+    tsFunction: 'fetchMyShareLinks',
+    endpointNeedle: '/api/share-links/my',
+  },
+  {
+    controller: shareController,
+    basePath: '/api/share-links',
+    javaMethod: 'revokeShareLink',
+    mappingPattern: /@DeleteMapping\("\/\{shareId\}"\)/,
+    tsFunction: 'revokeShareLink',
+    endpointNeedle: '/api/share-links/',
+    httpMethod: 'DELETE',
+  },
+  {
+    controller: shareController,
+    basePath: '/api/share-links',
+    javaMethod: 'getShareDetail',
+    mappingPattern: /@GetMapping\("\/\{shareCode\}\/detail"\)/,
+    tsFunction: 'fetchShareDetail',
+    endpointNeedle: '/api/share-links/',
+  },
+  {
+    controller: shareController,
+    basePath: '/api/share-links',
+    javaMethod: 'saveShare',
+    mappingPattern: /@PostMapping\("\/\{shareCode\}\/save"\)/,
+    tsFunction: 'saveShareToDrive',
+    endpointNeedle: '/api/share-links/',
+    httpMethod: 'POST',
+  },
+  {
+    controller: shareController,
+    basePath: '/api/share-links',
+    javaMethod: 'getShareFileAccessUrl',
+    mappingPattern: /@GetMapping\("\/\{shareCode\}\/files\/\{fileId\}\/access-url"\)/,
+    tsFunction: 'fetchShareFileAccessUrl',
+    endpointNeedle: '/api/share-links/',
+  },
+  {
+    controller: shareController,
+    basePath: '/api/share-links',
+    javaMethod: 'downloadShareFile',
+    mappingPattern: /@GetMapping\("\/\{shareCode\}\/files\/\{fileId\}\/download"\)/,
+    tsFunction: 'downloadShareFile',
+    endpointNeedle: '/api/share-links/',
+  },
+  {
+    controller: shareController,
+    basePath: '/api/share-links',
+    javaMethod: 'downloadShareArchive',
+    mappingPattern: /@PostMapping\("\/\{shareCode\}\/nodes\/archive"\)/,
+    tsFunction: 'downloadShareArchive',
+    endpointNeedle: '/api/share-links/',
+    httpMethod: 'POST',
+  },
+  {
+    controller: publicShareController,
+    basePath: '/api/public/share-links',
+    javaMethod: 'getPublicStatus',
+    mappingPattern: /@GetMapping\("\/\{shareCode\}\/status"\)/,
+    tsFunction: 'fetchPublicShareStatus',
+    endpointNeedle: '/api/public/share-links/',
+  },
+  {
+    controller: publicShareController,
+    basePath: '/api/public/share-links',
+    javaMethod: 'verifyPassword',
+    mappingPattern: /@PostMapping\("\/\{shareCode\}\/verify-password"\)/,
+    tsFunction: 'verifySharePassword',
+    endpointNeedle: '/api/public/share-links/',
+    httpMethod: 'POST',
+  },
+  {
+    controller: appPackageController,
+    basePath: '/api/app-package',
+    javaMethod: 'getCurrentPackageInfo',
+    mappingPattern: /@GetMapping\b/,
+    tsFunction: 'fetchPublicAppPackage',
+    endpointNeedle: '/api/app-package',
+  },
+];
 
 assertSameFields(
   'User',
@@ -316,44 +710,8 @@ assertSameFields(
   extractRequestParamsForMethod(shareController, 'getShareFileAccessUrl'),
 );
 
-assertApiFunctionUsesPath('fetchCurrentUser', '/api/cloud-profile/me');
-assertApiFunctionUsesPath('uploadCurrentUserAvatar', '/api/cloud-profile/avatar');
-assertApiFunctionUsesPath('uploadCurrentUserHomeBackground', '/api/cloud-profile/background');
-assertApiFunctionUsesPath('clearCurrentUserHomeBackground', '/api/cloud-profile/background');
-assertApiFunctionUsesPath('fetchDriveOverview', '/api/storage/overview');
-assertApiFunctionUsesPath('fetchUsageHistory', '/api/storage/usage-history');
-assertApiFunctionUsesPath('fetchStorageNodes', '/api/storage/nodes');
-assertApiFunctionUsesPath('fetchStorageFolders', '/api/storage/folders');
-assertApiFunctionUsesPath('fetchTrashNodes', '/api/storage/trash');
-assertApiFunctionUsesPath('createFolder', '/api/storage/folders');
-assertApiFunctionUsesPath('uploadStorageFile', '/api/storage/files');
-assertApiFunctionUsesPath('createMultipartUpload', '/api/storage/files/multipart');
-assertApiFunctionUsesPath('fetchMultipartUploadStatus', '/api/storage/files/multipart/');
-assertApiFunctionUsesPath('uploadMultipartPart', '/api/storage/files/multipart/');
-assertApiFunctionUsesPath('completeMultipartUpload', '/api/storage/files/multipart/');
-assertApiFunctionUsesPath('abortMultipartUpload', '/api/storage/files/multipart/');
-assertApiFunctionUsesPath('downloadStorageFile', '/api/storage/files/');
-assertApiFunctionUsesPath('fetchStorageFileAccessUrl', '/api/storage/files/');
-assertApiFunctionUsesPath('downloadStorageArchive', '/api/storage/nodes/archive');
-assertApiFunctionUsesPath('createShareLink', '/api/share-links');
-assertApiFunctionUsesPath('fetchMyShareLinks', '/api/share-links/my');
-assertApiFunctionUsesPath('revokeShareLink', '/api/share-links/');
-assertApiFunctionUsesPath('fetchPublicShareStatus', '/api/public/share-links/');
-assertApiFunctionUsesPath('verifySharePassword', '/api/public/share-links/');
-assertApiFunctionUsesPath('fetchShareDetail', '/api/share-links/');
-assertApiFunctionUsesPath('saveShareToDrive', '/api/share-links/');
-assertApiFunctionUsesPath('fetchShareFileAccessUrl', '/api/share-links/');
-assertApiFunctionUsesPath('downloadShareFile', '/api/share-links/');
-assertApiFunctionUsesPath('downloadShareArchive', '/api/share-links/');
-assertApiFunctionUsesPath('renameStorageNode', '/api/storage/nodes/');
-assertApiFunctionUsesPath('moveStorageNode', '/api/storage/nodes/');
-assertApiFunctionUsesPath('moveStorageNodes', '/api/storage/nodes/batch/move');
-assertApiFunctionUsesPath('deleteStorageNode', '/api/storage/nodes/');
-assertApiFunctionUsesPath('deleteStorageNodes', '/api/storage/nodes/batch/trash');
-assertApiFunctionUsesPath('restoreStorageNode', '/api/storage/trash/');
-assertApiFunctionUsesPath('restoreStorageNodes', '/api/storage/trash/batch/restore');
-assertApiFunctionUsesPath('permanentlyDeleteStorageNode', '/api/storage/trash/');
-assertApiFunctionUsesPath('permanentlyDeleteStorageNodes', '/api/storage/trash/batch/delete');
-assertApiFunctionUsesPath('fetchPublicAppPackage', '/api/app-package');
+for (const contract of cloudWebEndpointContracts) {
+  assertCloudWebEndpointContract(contract);
+}
 
 console.log('[OK] cloud web CloudStorageApi contracts verified');
