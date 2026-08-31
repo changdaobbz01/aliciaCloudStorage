@@ -82,6 +82,12 @@ require_file() {
     [[ -f "$path" ]] || fail "Missing $label: $path"
 }
 
+git_revision() {
+    local project_dir="$1"
+
+    git -C "$project_dir" rev-parse --short HEAD 2>/dev/null || printf 'unknown'
+}
+
 run_step() {
     local name="$1"
     shift
@@ -117,7 +123,7 @@ require_contains() {
     local path="$project_dir/$relative_path"
 
     require_file "platform contract file" "$path"
-    grep -Fq -- "$needle" "$path" || fail "$label: $message"
+    grep -Fq -- "$needle" "$path" || fail "$label: $message (missing '$needle' in $relative_path)"
 }
 
 verify_profile_source() {
@@ -251,7 +257,9 @@ MAIN_SITE_PROJECT_DIR="$(resolve_dir "Main site project" "$MAIN_SITE_PROJECT_DIR
 
 printf '[RUN] Alicia platform frontend split local verification\n'
 printf 'Main site project: %s\n' "$MAIN_SITE_PROJECT_DIR"
+printf 'Main site commit: %s\n' "$(git_revision "$MAIN_SITE_PROJECT_DIR")"
 printf 'Cloud project: %s\n' "$CLOUD_PROJECT_DIR"
+printf 'Cloud commit: %s\n' "$(git_revision "$CLOUD_PROJECT_DIR")"
 
 if [[ "$SKIP_BUILD" != "true" ]]; then
     require_command npm "npm is required unless --skip-build is used."
