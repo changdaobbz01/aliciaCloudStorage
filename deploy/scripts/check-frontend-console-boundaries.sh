@@ -434,6 +434,12 @@ require_source_match \
     "Cloud web refresh requests must not broadcast global session expiry before snapshot checks."
 
 require_source_match \
+    "cloud web suppresses logout expiry broadcasts" \
+    "webApp/scripts/verify-session-sync.mjs" \
+    'logout requests must not broadcast global session expiry' \
+    "Cloud web logout requests must not broadcast global session expiry after local logout starts."
+
+require_source_match \
     "cloud web confirms auth expired events" \
     "webApp/scripts/verify-session-sync.mjs" \
     'confirm the current session before redirecting on auth-expired events' \
@@ -888,6 +894,12 @@ require_source_match \
     "sysManage/scripts/verify-session-sync.mjs" \
     'refresh requests must not broadcast global session expiry' \
     "Cloud console refresh requests must not broadcast global session expiry before snapshot checks."
+
+require_source_match \
+    "cloud console suppresses logout expiry broadcasts" \
+    "sysManage/scripts/verify-session-sync.mjs" \
+    'logout requests must not broadcast global session expiry' \
+    "Cloud console logout requests must not broadcast global session expiry after local logout starts."
 
 require_source_match \
     "cloud console confirms auth expired events" \

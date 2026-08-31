@@ -58,6 +58,11 @@ assert.match(
   /refreshAuthSession[\s\S]*dispatchAuthExpired: false/,
   'cloud refresh requests must not broadcast global session expiry before snapshot checks',
 );
+assert.match(
+  api,
+  /logoutAuthToken[\s\S]*dispatchAuthExpired: false/,
+  'cloud logout requests must not broadcast global session expiry after local logout starts',
+);
 
 for (const token of [
   'SESSION_CHANGE_EVENT',
