@@ -75,6 +75,16 @@ function assertApiPathsMatchAllowedPrefixes(fileUrls, allowedPrefixes, label) {
   );
 }
 
+function assertIncludesInOrder(source, snippets, message) {
+  let searchFrom = 0;
+
+  for (const snippet of snippets) {
+    const foundAt = source.indexOf(snippet, searchFrom);
+    assert.notEqual(foundAt, -1, `${message}: missing ${snippet}`);
+    searchFrom = foundAt + snippet.length;
+  }
+}
+
 for (const fileUrl of listSourceFiles(srcRoot)) {
   const relativePath = relative(srcRootPath, fileURLToPath(fileUrl)).replaceAll('\\', '/');
   const source = readFileSync(fileUrl, 'utf8');
@@ -111,6 +121,10 @@ const driveOperationsViewSource = readFileSync(new URL('../src/features/drive/Dr
 const driveAppPackageViewSource = readFileSync(new URL('../src/features/drive/DriveAppPackageView.tsx', import.meta.url), 'utf8');
 const consoleStyles = readFileSync(new URL('../src/index.css', import.meta.url), 'utf8');
 const appSource = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
+const apiSource = readFileSync(new URL('../src/lib/api.ts', import.meta.url), 'utf8');
+const cloudUsersHookSource = readFileSync(new URL('../src/features/drive/hooks/useCloudUsersAdmin.ts', import.meta.url), 'utf8');
+const driveOperationsHookSource = readFileSync(new URL('../src/features/drive/hooks/useDriveOperationsAdmin.ts', import.meta.url), 'utf8');
+const appPackageHookSource = readFileSync(new URL('../src/features/drive/hooks/useDriveAppPackageAdmin.ts', import.meta.url), 'utf8');
 const typesSource = readFileSync(new URL('../src/types.ts', import.meta.url), 'utf8');
 assert.match(appSource, /path="\/:view"/, 'cloud console must expose URL-addressable child routes');
 assert.match(appSource, /<Navigate to="\/users" replace \/>/, 'cloud console root and unknown routes must land on users');
@@ -151,6 +165,234 @@ assert.match(
   consolePageSource,
   /activeViewContent = !isAdmin \? \([\s\S]*title="没有云盘后台权限"/,
   'cloud console must show its permission denied state before rendering admin views',
+);
+assertIncludesInOrder(
+  apiSource,
+  [
+    'export function fetchUsers(token: string)',
+    "requestJson<User[]>('/api/admin/cloud-users'",
+  ],
+  'cloud console users view must load CloudStorageApi cloud-users',
+);
+assertIncludesInOrder(
+  apiSource,
+  [
+    'export function updateUserStorageQuota(userId: number, payload: UpdateUserStorageQuotaPayload, token: string)',
+    '`/api/admin/cloud-users/${userId}/quota`',
+    "method: 'PUT'",
+    'body: JSON.stringify(payload)',
+  ],
+  'cloud console quota mutations must use CloudStorageApi cloud-users quota contract',
+);
+assertIncludesInOrder(
+  apiSource,
+  [
+    'export function fetchAdminCloudOperationsOverview(token: string)',
+    "requestJson<AdminCloudOperationsOverview>('/api/admin/cloud-operations/overview'",
+  ],
+  'cloud console operations view must load CloudStorageApi operations overview',
+);
+assertIncludesInOrder(
+  apiSource,
+  [
+    'export function fetchAdminCloudOperationShares(query: AdminCloudShareLinksQuery, token: string)',
+    'appendAdminOperationPageParams(search, query);',
+    '`/api/admin/cloud-operations/shares${toQuerySuffix(search)}`',
+  ],
+  'cloud console operations view must load CloudStorageApi share operations',
+);
+assertIncludesInOrder(
+  apiSource,
+  [
+    'export function fetchAdminCloudOperationTrash(query: AdminCloudTrashNodesQuery, token: string)',
+    'appendAdminOperationPageParams(search, query);',
+    '`/api/admin/cloud-operations/trash${toQuerySuffix(search)}`',
+  ],
+  'cloud console operations view must load CloudStorageApi trash operations',
+);
+assertIncludesInOrder(
+  apiSource,
+  [
+    'export function fetchAdminCloudStorageUsers(query: AdminCloudStorageUsersQuery, token: string)',
+    'appendAdminOperationPageParams(search, query);',
+    '`/api/admin/cloud-operations/users/storage${toQuerySuffix(search)}`',
+  ],
+  'cloud console operations view must load CloudStorageApi storage user operations',
+);
+assertIncludesInOrder(
+  apiSource,
+  [
+    'export function fetchPublicAppPackage()',
+    "requestJson<AppPackageInfo>('/api/app-package')",
+  ],
+  'cloud console APK view may read the public CloudStorageApi app package contract',
+);
+assertIncludesInOrder(
+  apiSource,
+  [
+    'export function fetchAdminAppPackage(token: string)',
+    "requestJson<AppPackageInfo>('/api/admin/app-package'",
+  ],
+  'cloud console APK view must load CloudStorageApi admin app package',
+);
+assertIncludesInOrder(
+  apiSource,
+  [
+    'export function uploadAdminAppPackage(',
+    "requestUploadJson<AppPackageInfo>('/api/admin/app-package'",
+  ],
+  'cloud console APK upload must use CloudStorageApi admin app package',
+);
+assertIncludesInOrder(
+  apiSource,
+  [
+    'export function deleteAdminAppPackage(token: string)',
+    "'/api/admin/app-package'",
+    "method: 'DELETE'",
+  ],
+  'cloud console APK deletion must use CloudStorageApi admin app package',
+);
+assertIncludesInOrder(
+  consolePageSource,
+  [
+    'async function refreshCurrentView() {',
+    'if (!isAdmin) {',
+    'return;',
+    "if (activeView === 'users')",
+    'await cloudUsers.loadUsers();',
+    "if (activeView === 'operations')",
+    'await operations.loadAll();',
+    'await appPackages.loadAppPackageInfo();',
+  ],
+  'cloud console header refresh must not load admin view data without cloud admin access',
+);
+assertIncludesInOrder(
+  cloudUsersHookSource,
+  [
+    'async function loadUsers() {',
+    'if (!authToken || !isAdmin) {',
+    'setUsers([]);',
+    'setUsers(await fetchUsers(authToken));',
+  ],
+  'cloud console users hook must keep cloud-users reads behind the cloud admin gate',
+);
+assertIncludesInOrder(
+  cloudUsersHookSource,
+  [
+    'function openQuotaModal(user: User) {',
+    'if (!authToken || !isAdmin) {',
+    'return;',
+    'setQuotaTarget(user);',
+  ],
+  'cloud console quota modal must stay behind the cloud admin gate',
+);
+assertIncludesInOrder(
+  cloudUsersHookSource,
+  [
+    'async function submitQuotaUpdate() {',
+    'if (!authToken || !quotaTarget || !isAdmin) {',
+    'const updatedUser = await updateUserStorageQuota(',
+  ],
+  'cloud console quota mutations must stay behind the cloud admin gate',
+);
+assertIncludesInOrder(
+  driveOperationsHookSource,
+  [
+    'async function loadOverview() {',
+    'if (!authToken || !isAdmin) {',
+    'setOverview(null);',
+    'setOverview(await fetchAdminCloudOperationsOverview(authToken));',
+  ],
+  'cloud console operations overview must stay behind the cloud admin gate',
+);
+assertIncludesInOrder(
+  driveOperationsHookSource,
+  [
+    'async function loadStorageUsers(query: AdminCloudStorageUsersQuery = storageUsersQuery) {',
+    'if (!authToken || !isAdmin) {',
+    'setStorageUsersPage(null);',
+    'const page = await fetchAdminCloudStorageUsers(query, authToken);',
+  ],
+  'cloud console storage user operations must stay behind the cloud admin gate',
+);
+assertIncludesInOrder(
+  driveOperationsHookSource,
+  [
+    'async function loadTrashNodes(query: AdminCloudTrashNodesQuery = trashNodesQuery) {',
+    'if (!authToken || !isAdmin) {',
+    'setTrashNodesPage(null);',
+    'const page = await fetchAdminCloudOperationTrash(query, authToken);',
+  ],
+  'cloud console trash operations must stay behind the cloud admin gate',
+);
+assertIncludesInOrder(
+  driveOperationsHookSource,
+  [
+    'async function loadShareLinks(query: AdminCloudShareLinksQuery = shareLinksQuery) {',
+    'if (!authToken || !isAdmin) {',
+    'setShareLinksPage(null);',
+    'const page = await fetchAdminCloudOperationShares(query, authToken);',
+  ],
+  'cloud console share operations must stay behind the cloud admin gate',
+);
+assertIncludesInOrder(
+  driveOperationsHookSource,
+  [
+    'async function loadAll() {',
+    'loadOverview(),',
+    'loadStorageUsers(),',
+    'loadTrashNodes(),',
+    'loadShareLinks(),',
+  ],
+  'cloud console operations refresh must keep overview, storage users, trash, and shares together',
+);
+assertIncludesInOrder(
+  appPackageHookSource,
+  [
+    'async function loadAppPackageInfo() {',
+    'if (!authToken || !isAdmin) {',
+    'setAppPackageInfo(null);',
+    'setAppPackageInfo(await fetchAdminAppPackage(authToken));',
+  ],
+  'cloud console APK admin reads must stay behind the cloud admin gate',
+);
+assertIncludesInOrder(
+  appPackageHookSource,
+  [
+    'function openAppPackageUploadModal() {',
+    'if (!authToken || !isAdmin) {',
+    'return;',
+    'setAppPackageUploadOpen(true);',
+  ],
+  'cloud console APK upload modal must stay behind the cloud admin gate',
+);
+assertIncludesInOrder(
+  appPackageHookSource,
+  [
+    'function handleAppPackageFileChange(event: ChangeEvent<HTMLInputElement>)',
+    'if (!authToken || !isAdmin) {',
+    "event.target.value = '';",
+    'return;',
+  ],
+  'cloud console APK file selection must stay behind the cloud admin gate',
+);
+assertIncludesInOrder(
+  appPackageHookSource,
+  [
+    'async function submitAppPackageUpload(values: AppPackageUploadFormValues)',
+    'if (!authToken || !isAdmin) {',
+    'const nextPackageInfo = await uploadAdminAppPackage(',
+  ],
+  'cloud console APK upload mutations must stay behind the cloud admin gate',
+);
+assertIncludesInOrder(
+  appPackageHookSource,
+  [
+    'async function deleteCurrentAppPackage()',
+    'if (!authToken || !isAdmin) {',
+    'await deleteAdminAppPackage(authToken);',
+  ],
+  'cloud console APK delete mutations must stay behind the cloud admin gate',
 );
 assert.match(
   consolePageSource,

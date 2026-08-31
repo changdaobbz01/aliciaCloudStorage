@@ -148,6 +148,10 @@ export function CloudConsolePage() {
   }, [activeView, navigate, view]);
 
   async function refreshCurrentView() {
+    if (!isAdmin) {
+      return;
+    }
+
     if (activeView === 'users') {
       await cloudUsers.loadUsers();
       return;

@@ -51,6 +51,10 @@ export function useCloudUsersAdmin({
   }
 
   function openQuotaModal(user: User) {
+    if (!authToken || !isAdmin) {
+      return;
+    }
+
     if (user.storageQuotaBytes === null) {
       message.info('当前账号缺少云盘额度配置，请刷新后再试。');
       return;
@@ -70,7 +74,7 @@ export function useCloudUsersAdmin({
   }
 
   async function submitQuotaUpdate() {
-    if (!authToken || !quotaTarget) {
+    if (!authToken || !quotaTarget || !isAdmin) {
       return;
     }
 

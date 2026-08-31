@@ -383,6 +383,78 @@ require_source_match \
     "Cloud console boundary verifier must enforce centralized role label copy."
 
 require_source_match \
+    "cloud console users API contract is pinned" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console users view must load CloudStorageApi cloud-users' \
+    "Cloud console boundary verifier must pin the users view to CloudStorageApi cloud-users."
+
+require_source_match \
+    "cloud console quota API contract is pinned" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console quota mutations must use CloudStorageApi cloud-users quota contract' \
+    "Cloud console boundary verifier must pin quota updates to CloudStorageApi cloud-users quota."
+
+require_source_match \
+    "cloud console operations overview contract is pinned" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console operations view must load CloudStorageApi operations overview' \
+    "Cloud console boundary verifier must pin the operations overview to CloudStorageApi."
+
+require_source_match \
+    "cloud console operations shares contract is pinned" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console operations view must load CloudStorageApi share operations' \
+    "Cloud console boundary verifier must pin share operations to CloudStorageApi."
+
+require_source_match \
+    "cloud console operations trash contract is pinned" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console operations view must load CloudStorageApi trash operations' \
+    "Cloud console boundary verifier must pin trash operations to CloudStorageApi."
+
+require_source_match \
+    "cloud console operations storage users contract is pinned" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console operations view must load CloudStorageApi storage user operations' \
+    "Cloud console boundary verifier must pin storage user operations to CloudStorageApi."
+
+require_source_match \
+    "cloud console APK upload contract is pinned" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console APK upload must use CloudStorageApi admin app package' \
+    "Cloud console boundary verifier must pin APK uploads to CloudStorageApi admin app package."
+
+require_source_match \
+    "cloud console header refresh keeps admin gate" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console header refresh must not load admin view data without cloud admin access' \
+    "Cloud console boundary verifier must keep header refresh behind the cloud admin gate."
+
+require_source_match \
+    "cloud console quota mutations keep admin gate" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console quota mutations must stay behind the cloud admin gate' \
+    "Cloud console boundary verifier must keep quota mutations behind the cloud admin gate."
+
+require_source_match \
+    "cloud console operations refresh stays complete" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console operations refresh must keep overview, storage users, trash, and shares together' \
+    "Cloud console boundary verifier must keep operations refresh complete."
+
+require_source_match \
+    "cloud console APK uploads keep admin gate" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console APK upload mutations must stay behind the cloud admin gate' \
+    "Cloud console boundary verifier must keep APK uploads behind the cloud admin gate."
+
+require_source_match \
+    "cloud console APK deletion keeps admin gate" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console APK delete mutations must stay behind the cloud admin gate' \
+    "Cloud console boundary verifier must keep APK deletion behind the cloud admin gate."
+
+require_source_match \
     "cloud console boundary checks permission denied copy" \
     "sysManage/scripts/verify-console-boundary.mjs" \
     'cloud console permission denied copy must mention global admins and cloud admins' \

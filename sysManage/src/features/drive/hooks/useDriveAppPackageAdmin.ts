@@ -82,6 +82,10 @@ export function useDriveAppPackageAdmin({
   }
 
   function openAppPackageUploadModal() {
+    if (!authToken || !isAdmin) {
+      return;
+    }
+
     resetAppPackageUploadDraft();
     setAppPackageUploadOpen(true);
   }
@@ -106,6 +110,11 @@ export function useDriveAppPackageAdmin({
   }
 
   function handleAppPackageFileChange(event: ChangeEvent<HTMLInputElement>) {
+    if (!authToken || !isAdmin) {
+      event.target.value = '';
+      return;
+    }
+
     const selectedFile = event.target.files?.[0] ?? null;
     event.target.value = '';
 
