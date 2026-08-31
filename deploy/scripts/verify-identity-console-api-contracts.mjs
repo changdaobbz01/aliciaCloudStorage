@@ -197,10 +197,49 @@ function assertUserSiteApiMethod(functionName, method) {
   assert.match(source, new RegExp(`method:\\s*'${escapeRegExp(method)}'`), `${functionName} must use ${method}`);
 }
 
+function extractJavaMethodParts(relativePath, methodName) {
+  const source = readIdentityFile(relativePath);
+  const methodPattern = new RegExp(`${escapeRegExp(methodName)}\\s*\\(`);
+  const match = methodPattern.exec(source);
+  assert.ok(match, `${methodName} must exist in ${relativePath}`);
+
+  const openIndex = source.indexOf('(', match.index);
+  const closeIndex = findMatching(source, openIndex, '(', ')');
+  const bodyOpenIndex = source.indexOf('{', closeIndex);
+  assert.ok(bodyOpenIndex > -1, `${methodName} must use a method body in ${relativePath}`);
+
+  const bodyCloseIndex = findMatching(source, bodyOpenIndex, '{', '}');
+  return {
+    parameters: source.slice(openIndex + 1, closeIndex),
+    body: source.slice(bodyOpenIndex + 1, bodyCloseIndex),
+  };
+}
+
+function assertUserSiteApiUsesAuthToken(functionName) {
+  const source = extractTsFunctionSource(functionName);
+  assert.match(source, /withToken\(token\b/, `${functionName} must send the current auth token`);
+}
+
+function assertControllerMethodReceivesAuthorization(relativePath, methodName) {
+  const { parameters, body } = extractJavaMethodParts(relativePath, methodName);
+
+  assert.match(
+    parameters,
+    /@RequestHeader\s*\(\s*value\s*=\s*HttpHeaders\.AUTHORIZATION\s*,\s*required\s*=\s*false\s*\)\s+String\s+authorization/,
+    `${methodName} must receive the Authorization header`,
+  );
+  assert.match(body, /\bauthorization\b/, `${methodName} must pass Authorization to the Identity service layer`);
+}
+
 function assertIdentityEndpointContract(contract) {
   assertControllerBasePath(contract.controller, contract.basePath);
   assertControllerMethodMapping(contract.controller, contract.javaMethod, contract.mappingPattern);
   assertUserSiteApiEndpoint(contract.tsFunction, contract.endpointNeedle);
+  assertUserSiteApiUsesAuthToken(contract.tsFunction);
+
+  if (contract.requiresAuthorizationHeader) {
+    assertControllerMethodReceivesAuthorization(contract.controller, contract.javaMethod);
+  }
 
   if (contract.httpMethod) {
     assertUserSiteApiMethod(contract.tsFunction, contract.httpMethod);
@@ -215,6 +254,7 @@ const identityEndpointContracts = [
     mappingPattern: /@GetMapping\("\/me"\)/,
     tsFunction: 'fetchCurrentIdentityUser',
     endpointNeedle: "'/api/identity/auth/me'",
+    requiresAuthorizationHeader: true,
   },
   {
     controller: `${identityControllerRoot}/IdentityAuthController.java`,
@@ -224,6 +264,7 @@ const identityEndpointContracts = [
     tsFunction: 'updateIdentityProfile',
     endpointNeedle: "'/api/identity/auth/profile'",
     httpMethod: 'PUT',
+    requiresAuthorizationHeader: true,
   },
   {
     controller: `${identityControllerRoot}/IdentityAuthController.java`,
@@ -242,6 +283,7 @@ const identityEndpointContracts = [
     tsFunction: 'logoutAuthToken',
     endpointNeedle: "'/api/identity/auth/logout'",
     httpMethod: 'POST',
+    requiresAuthorizationHeader: true,
   },
   {
     controller: `${identityControllerRoot}/IdentityAuthController.java`,
@@ -250,6 +292,7 @@ const identityEndpointContracts = [
     mappingPattern: /@GetMapping\("\/sessions"\)/,
     tsFunction: 'fetchIdentitySessions',
     endpointNeedle: '`/api/identity/auth/sessions${suffix}`',
+    requiresAuthorizationHeader: true,
   },
   {
     controller: `${identityControllerRoot}/IdentityAuthController.java`,
@@ -259,6 +302,7 @@ const identityEndpointContracts = [
     tsFunction: 'revokeIdentitySession',
     endpointNeedle: '`/api/identity/auth/sessions/${sessionId}`',
     httpMethod: 'DELETE',
+    requiresAuthorizationHeader: true,
   },
   {
     controller: `${identityControllerRoot}/IdentityAdminUserController.java`,
@@ -267,6 +311,7 @@ const identityEndpointContracts = [
     mappingPattern: /@GetMapping\b/,
     tsFunction: 'fetchIdentityUsers',
     endpointNeedle: "'/api/identity/admin/users'",
+    requiresAuthorizationHeader: true,
   },
   {
     controller: `${identityControllerRoot}/IdentityAdminUserController.java`,
@@ -276,6 +321,7 @@ const identityEndpointContracts = [
     tsFunction: 'createIdentityUser',
     endpointNeedle: "'/api/identity/admin/users'",
     httpMethod: 'POST',
+    requiresAuthorizationHeader: true,
   },
   {
     controller: `${identityControllerRoot}/IdentityAdminUserController.java`,
@@ -285,6 +331,7 @@ const identityEndpointContracts = [
     tsFunction: 'resetIdentityUserPassword',
     endpointNeedle: '`/api/identity/admin/users/${userId}/password`',
     httpMethod: 'PUT',
+    requiresAuthorizationHeader: true,
   },
   {
     controller: `${identityControllerRoot}/IdentityAdminApplicationRoleController.java`,
@@ -293,6 +340,7 @@ const identityEndpointContracts = [
     mappingPattern: /@GetMapping\b/,
     tsFunction: 'fetchIdentityApplicationRoles',
     endpointNeedle: '`/api/identity/admin/users/${userId}/app-roles`',
+    requiresAuthorizationHeader: true,
   },
   {
     controller: `${identityControllerRoot}/IdentityAdminApplicationRoleController.java`,
@@ -302,6 +350,7 @@ const identityEndpointContracts = [
     tsFunction: 'updateIdentityApplicationRole',
     endpointNeedle: '`/api/identity/admin/users/${userId}/app-roles/${encodeURIComponent(appCode)}`',
     httpMethod: 'PUT',
+    requiresAuthorizationHeader: true,
   },
   {
     controller: `${identityControllerRoot}/IdentityAdminAuditLogController.java`,
@@ -310,6 +359,7 @@ const identityEndpointContracts = [
     mappingPattern: /@GetMapping\b/,
     tsFunction: 'fetchIdentityAuditLogs',
     endpointNeedle: '`/api/identity/admin/audit-logs${suffix}`',
+    requiresAuthorizationHeader: true,
   },
 ];
 

@@ -312,6 +312,8 @@ Invoke-Step "verify cloud frontend split wiring" {
     Require-Contains "deploy/scripts/verify-identity-console-api-contracts.mjs" "extractRequestParamsForMethod" "identity console contract verifier must compare query parameters"
     Require-Contains "deploy/scripts/verify-identity-console-api-contracts.mjs" "identityEndpointContracts" "identity console contract verifier must compare IdentityApi endpoint paths and methods"
     Require-Contains "deploy/scripts/verify-identity-console-api-contracts.mjs" "assertControllerMethodMapping" "identity console contract verifier must bind frontend API calls to controller mappings"
+    Require-Contains "deploy/scripts/verify-identity-console-api-contracts.mjs" "assertUserSiteApiUsesAuthToken" "identity console contract verifier must ensure frontend API calls send the current auth token"
+    Require-Contains "deploy/scripts/verify-identity-console-api-contracts.mjs" "assertControllerMethodReceivesAuthorization" "identity console contract verifier must ensure protected IdentityApi controllers receive Authorization headers"
     Require-Contains "deploy/scripts/collect-production-status.sh" 'MAIN_SITE_PROJECT_DIR="${ALICIA_MAIN_SITE_PROJECT_DIR:-$HOME/mainSite}"' "production status snapshot must locate the main site repository"
     Require-Contains "deploy/scripts/collect-production-status.sh" 'git_snapshot "main site repository" "$MAIN_SITE_PROJECT_DIR"' "production status snapshot must include main site Git state"
     Require-Contains "deploy/scripts/collect-production-status.sh" "run_main_site_route_verify()" "production status snapshot must expose optional main site route verification"

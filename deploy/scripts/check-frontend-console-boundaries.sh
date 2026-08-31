@@ -1124,6 +1124,18 @@ require_source_match \
     "Identity console contract verifier must bind frontend API calls to controller mappings."
 
 require_source_match \
+    "identity console contract verifier checks frontend auth tokens" \
+    "deploy/scripts/verify-identity-console-api-contracts.mjs" \
+    'assertUserSiteApiUsesAuthToken' \
+    "Identity console contract verifier must ensure frontend API calls send the current auth token."
+
+require_source_match \
+    "identity console contract verifier checks controller auth headers" \
+    "deploy/scripts/verify-identity-console-api-contracts.mjs" \
+    'assertControllerMethodReceivesAuthorization' \
+    "Identity console contract verifier must ensure protected IdentityApi controllers receive Authorization headers."
+
+require_source_match \
     "production status locates main site repository" \
     "deploy/scripts/collect-production-status.sh" \
     'MAIN_SITE_PROJECT_DIR="\$\{ALICIA_MAIN_SITE_PROJECT_DIR:-\$HOME/mainSite\}"' \
