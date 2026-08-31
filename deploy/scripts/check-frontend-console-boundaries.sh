@@ -506,6 +506,24 @@ require_source_match \
     "Cloud console contract verifier must bind frontend API calls to controller mappings."
 
 require_source_match \
+    "cloud console contract verifier checks frontend auth tokens" \
+    "sysManage/scripts/verify-api-contracts.mjs" \
+    'assertApiFunctionUsesAuthToken' \
+    "Cloud console contract verifier must ensure frontend API calls send the current auth token."
+
+require_source_match \
+    "cloud console contract verifier checks controller auth headers" \
+    "sysManage/scripts/verify-api-contracts.mjs" \
+    'assertControllerMethodReceivesAuthorization' \
+    "Cloud console contract verifier must ensure proxying controller methods receive Authorization headers."
+
+require_source_match \
+    "cloud console contract verifier checks admin interceptor" \
+    "sysManage/scripts/verify-api-contracts.mjs" \
+    'assertCloudStorageApiAdminInterceptorContract' \
+    "Cloud console contract verifier must ensure /api/admin/** stays protected by AdminPrincipalInterceptor."
+
+require_source_match \
     "cloud console boundary checks runtime cloud admin gate" \
     "sysManage/scripts/verify-console-boundary.mjs" \
     'cloud console page must use the centralized cloud admin predicate' \

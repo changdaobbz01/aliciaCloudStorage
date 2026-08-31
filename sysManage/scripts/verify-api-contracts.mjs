@@ -195,10 +195,65 @@ function assertApiUploadFunctionUsesPost(functionName) {
   assert.match(apiSource, /xhr\.open\('POST', url\)/, 'sysManage upload request helper must use POST');
 }
 
+function extractJavaMethodParts(relativePath, methodName) {
+  const source = readRepoFile(relativePath);
+  const methodPattern = new RegExp(`${escapeRegExp(methodName)}\\s*\\(`);
+  const match = methodPattern.exec(source);
+  assert.ok(match, `${methodName} must exist in ${relativePath}`);
+
+  const openIndex = source.indexOf('(', match.index);
+  const closeIndex = findMatching(source, openIndex, '(', ')');
+  const bodyOpenIndex = source.indexOf('{', closeIndex);
+  assert.ok(bodyOpenIndex > -1, `${methodName} must use a method body in ${relativePath}`);
+
+  const bodyCloseIndex = findMatching(source, bodyOpenIndex, '{', '}');
+  return {
+    parameters: source.slice(openIndex + 1, closeIndex),
+    body: source.slice(bodyOpenIndex + 1, bodyCloseIndex),
+  };
+}
+
+function assertApiFunctionUsesAuthToken(functionName) {
+  const source = extractApiFunctionBody(functionName);
+  assert.match(
+    source,
+    /withToken\((?:token|accessToken)\b|requestUploadJson<[\s\S]*,\s*token\b/,
+    `${functionName} must send the current auth token`,
+  );
+}
+
+function assertControllerMethodReceivesAuthorization(relativePath, methodName) {
+  const { parameters, body } = extractJavaMethodParts(relativePath, methodName);
+
+  assert.match(
+    parameters,
+    /@RequestHeader\s*\(\s*value\s*=\s*HttpHeaders\.AUTHORIZATION\s*,\s*required\s*=\s*false\s*\)\s+String\s+authorization/,
+    `${methodName} must receive the Authorization header`,
+  );
+  assert.match(body, /\bauthorization\b/, `${methodName} must pass Authorization to the CloudStorageApi service layer`);
+}
+
+function assertCloudStorageApiAdminInterceptorContract() {
+  const source = readRepoFile('CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/config/WebMvcConfig.java');
+  assert.match(
+    source,
+    /registry\.addInterceptor\(adminPrincipalInterceptor\)[\s\S]*\.addPathPatterns\(\s*"\/api\/admin\/\*\*"\s*\)/,
+    'CloudStorageApi must protect /api/admin/** with AdminPrincipalInterceptor',
+  );
+}
+
 function assertCloudConsoleEndpointContract(contract) {
   assertControllerBasePath(contract.controller, contract.basePath);
   assertControllerMethodMapping(contract.controller, contract.javaMethod, contract.mappingPattern);
   assertApiFunctionUsesPath(contract.tsFunction, contract.endpointNeedle);
+
+  if (contract.requiresAuthToken) {
+    assertApiFunctionUsesAuthToken(contract.tsFunction);
+  }
+
+  if (contract.requiresAuthorizationHeader) {
+    assertControllerMethodReceivesAuthorization(contract.controller, contract.javaMethod);
+  }
 
   if (contract.httpMethod) {
     assertApiFunctionUsesMethod(contract.tsFunction, contract.httpMethod);
@@ -235,6 +290,7 @@ const cloudConsoleEndpointContracts = [
     mappingPattern: /@GetMapping\("\/me"\)/,
     tsFunction: 'fetchCurrentUser',
     endpointNeedle: "'/api/cloud-profile/me'",
+    requiresAuthToken: true,
   },
   {
     controller: cloudProfileController,
@@ -244,6 +300,8 @@ const cloudConsoleEndpointContracts = [
     tsFunction: 'uploadCurrentUserAvatar',
     endpointNeedle: "'/api/cloud-profile/avatar'",
     uploadPost: true,
+    requiresAuthToken: true,
+    requiresAuthorizationHeader: true,
   },
   {
     controller: adminCloudUserController,
@@ -252,6 +310,8 @@ const cloudConsoleEndpointContracts = [
     mappingPattern: /@GetMapping\b/,
     tsFunction: 'fetchUsers',
     endpointNeedle: "'/api/admin/cloud-users'",
+    requiresAuthToken: true,
+    requiresAuthorizationHeader: true,
   },
   {
     controller: adminCloudUserProfileController,
@@ -261,6 +321,7 @@ const cloudConsoleEndpointContracts = [
     tsFunction: 'updateUserStorageQuota',
     endpointNeedle: '`/api/admin/cloud-users/${userId}/quota`',
     httpMethod: 'PUT',
+    requiresAuthToken: true,
   },
   {
     controller: operationsController,
@@ -269,6 +330,7 @@ const cloudConsoleEndpointContracts = [
     mappingPattern: /@GetMapping\("\/overview"\)/,
     tsFunction: 'fetchAdminCloudOperationsOverview',
     endpointNeedle: "'/api/admin/cloud-operations/overview'",
+    requiresAuthToken: true,
   },
   {
     controller: operationsController,
@@ -277,6 +339,7 @@ const cloudConsoleEndpointContracts = [
     mappingPattern: /@GetMapping\("\/shares"\)/,
     tsFunction: 'fetchAdminCloudOperationShares',
     endpointNeedle: '`/api/admin/cloud-operations/shares${toQuerySuffix(search)}`',
+    requiresAuthToken: true,
   },
   {
     controller: operationsController,
@@ -285,6 +348,7 @@ const cloudConsoleEndpointContracts = [
     mappingPattern: /@GetMapping\("\/trash"\)/,
     tsFunction: 'fetchAdminCloudOperationTrash',
     endpointNeedle: '`/api/admin/cloud-operations/trash${toQuerySuffix(search)}`',
+    requiresAuthToken: true,
   },
   {
     controller: operationsController,
@@ -293,6 +357,8 @@ const cloudConsoleEndpointContracts = [
     mappingPattern: /@GetMapping\("\/users\/storage"\)/,
     tsFunction: 'fetchAdminCloudStorageUsers',
     endpointNeedle: '`/api/admin/cloud-operations/users/storage${toQuerySuffix(search)}`',
+    requiresAuthToken: true,
+    requiresAuthorizationHeader: true,
   },
   {
     controller: appPackageController,
@@ -309,6 +375,7 @@ const cloudConsoleEndpointContracts = [
     mappingPattern: /@GetMapping\b/,
     tsFunction: 'fetchAdminAppPackage',
     endpointNeedle: "'/api/admin/app-package'",
+    requiresAuthToken: true,
   },
   {
     controller: adminAppPackageController,
@@ -318,6 +385,7 @@ const cloudConsoleEndpointContracts = [
     tsFunction: 'uploadAdminAppPackage',
     endpointNeedle: "'/api/admin/app-package'",
     uploadPost: true,
+    requiresAuthToken: true,
   },
   {
     controller: adminAppPackageController,
@@ -327,6 +395,7 @@ const cloudConsoleEndpointContracts = [
     tsFunction: 'deleteAdminAppPackage',
     endpointNeedle: "'/api/admin/app-package'",
     httpMethod: 'DELETE',
+    requiresAuthToken: true,
   },
 ];
 
@@ -421,6 +490,7 @@ for (const contract of cloudConsoleEndpointContracts) {
   assertCloudConsoleEndpointContract(contract);
 }
 
+assertCloudStorageApiAdminInterceptorContract();
 assertControllerBasePath(appPackageController, '/api/app-package');
 assertControllerMethodMapping(appPackageController, 'downloadCurrentPackage', /@GetMapping\("\/download\/current"\)/);
 assert.match(
