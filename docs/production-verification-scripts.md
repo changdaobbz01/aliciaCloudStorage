@@ -238,8 +238,10 @@ bash deploy/scripts/validate-production-backup.sh \
 常规云盘发布：
 
 ```bash
-bash deploy/scripts/update-cloud-production.sh api identity rag frontend
+bash deploy/scripts/update-cloud-production.sh
 ```
+
+默认组合是 `api frontend`，用于覆盖 `sysManage` 与 `CloudStorageApi` 响应契约联动的更新，例如运营明细 `appRoles` 角色标签。纯前端文案或样式更新才建议显式传 `frontend`；涉及 Identity 或 RAG 服务时再把 `identity`、`rag` 加入服务列表。
 
 发布前自动备份，发布后生成状态快照：
 

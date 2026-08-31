@@ -23,7 +23,7 @@ ANDROID_GIT_APK_PATH="${ALICIA_ANDROID_GIT_APK_PATH:-deploy/android-app-package/
 if [[ $# -gt 0 ]]; then
     SERVICES=("$@")
 else
-    read -r -a SERVICES <<< "${ALICIA_CLOUD_DEPLOY_SERVICES:-frontend}"
+    read -r -a SERVICES <<< "${ALICIA_CLOUD_DEPLOY_SERVICES:-api frontend}"
 fi
 
 docker_cmd() {

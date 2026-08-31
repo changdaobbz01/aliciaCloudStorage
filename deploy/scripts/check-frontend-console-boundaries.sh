@@ -599,6 +599,18 @@ require_source_match \
     "CloudStorageApi admin principal must accept global admins and cloud app admins."
 
 require_source_match \
+    "cloud update defaults to api frontend" \
+    "deploy/scripts/update-cloud-production.sh" \
+    'ALICIA_CLOUD_DEPLOY_SERVICES:-api frontend' \
+    "Cloud production update must publish the CloudStorageApi/sysManage contract by default."
+
+require_source_match \
+    "cloud README documents api frontend contract publishing" \
+    "README.md" \
+    'appRoles.+api frontend' \
+    "Cloud README must document the api/frontend publishing pair for appRoles-backed console labels."
+
+require_source_match \
     "main/cloud update can defer main public gateway checks" \
     "deploy/scripts/update-main-and-cloud-production.sh" \
     'should_defer_main_site_public_boundary\(\)' \

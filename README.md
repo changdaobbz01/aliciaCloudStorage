@@ -289,7 +289,7 @@ bash deploy/scripts/update-rag-production.sh
 bash deploy/scripts/update-cloud-production.sh
 ```
 
-默认会在 `~/aliciaCloudStorage` 内拒绝覆盖 tracked 本地改动，快进拉取 `gitee/main`，确保 `alicia_gateway` 网络存在，重建 `frontend` 及其依赖服务，并连续运行统一路由验证、Identity 旧路由边界检查和前端控制台边界检查。前端边界检查会确认普通云盘端没有后台入口、云盘后台没有身份管理实现，并确认云盘用户端与云盘后台都保留 bundle size 守卫和显式 vendor 分包。需要指定服务时可追加服务名，例如：
+默认会在 `~/aliciaCloudStorage` 内拒绝覆盖 tracked 本地改动，快进拉取 `gitee/main`，确保 `alicia_gateway` 网络存在，重建 `api frontend`，并连续运行统一路由验证、Identity 旧路由边界检查、前端控制台边界检查和后端 API 边界检查。前端边界检查会确认普通云盘端没有后台入口、云盘后台没有身份管理实现，并确认云盘用户端与云盘后台都保留 bundle size 守卫和显式 vendor 分包。`sysManage` 与 `CloudStorageApi` 响应契约联动的更新（例如运营明细 `appRoles` 角色标签）至少使用 `api frontend`；纯前端文案或样式更新才建议显式传 `frontend`。需要指定更多服务时可追加服务名，例如：
 
 ```bash
 bash deploy/scripts/update-cloud-production.sh api identity frontend
