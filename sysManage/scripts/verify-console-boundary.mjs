@@ -107,6 +107,8 @@ assertApiPathsMatchAllowedPrefixes(
 
 const consolePageSource = readFileSync(new URL('../src/pages/CloudConsolePage.tsx', import.meta.url), 'utf8');
 const cloudUsersViewSource = readFileSync(new URL('../src/features/drive/CloudUsersView.tsx', import.meta.url), 'utf8');
+const driveOperationsViewSource = readFileSync(new URL('../src/features/drive/DriveOperationsView.tsx', import.meta.url), 'utf8');
+const driveAppPackageViewSource = readFileSync(new URL('../src/features/drive/DriveAppPackageView.tsx', import.meta.url), 'utf8');
 const consoleStyles = readFileSync(new URL('../src/index.css', import.meta.url), 'utf8');
 const appSource = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
 const typesSource = readFileSync(new URL('../src/types.ts', import.meta.url), 'utf8');
@@ -127,11 +129,14 @@ assert.ok(
   'cloud console document title must follow the active view',
 );
 assert.match(typesSource, /export function isCloudAdmin/, 'cloud console must centralize its runtime access predicate');
+assert.match(typesSource, /export function cloudRoleLabel/, 'cloud console must centralize its role label copy');
 assert.match(
   typesSource,
   /return user\?\.role === 'ADMIN' \|\| user\?\.appRoles\?\.cloud === 'CLOUD_ADMIN';/,
   'cloud console runtime access must accept global admins and cloud application admins',
 );
+assert.match(typesSource, /return '全局管理员';/, 'cloud console role label must distinguish global administrators');
+assert.match(typesSource, /return '云盘管理员';/, 'cloud console role label must distinguish cloud application administrators');
 assert.match(
   consolePageSource,
   /const isAdmin = isCloudAdmin\(currentUser\);/,
@@ -139,8 +144,38 @@ assert.match(
 );
 assert.match(
   consolePageSource,
+  /cloudRoleLabel\(currentUser\)/,
+  'cloud console sidebar must use the centralized cloud role label copy',
+);
+assert.match(
+  consolePageSource,
   /activeViewContent = !isAdmin \? \([\s\S]*title="没有云盘后台权限"/,
   'cloud console must show its permission denied state before rendering admin views',
+);
+assert.match(
+  consolePageSource,
+  /subTitle="仅全局管理员或云盘管理员可以访问运营后台。"/,
+  'cloud console permission denied copy must mention global admins and cloud admins',
+);
+assert.match(
+  cloudUsersViewSource,
+  /description="仅全局管理员或云盘管理员可以查看用户画像和调整存储额度。"/,
+  'cloud users view permission copy must mention global admins and cloud admins',
+);
+assert.match(
+  cloudUsersViewSource,
+  /cloudRoleLabel\(user\)/,
+  'cloud users view role tags must use the centralized cloud role label copy',
+);
+assert.match(
+  driveOperationsViewSource,
+  /description="仅全局管理员或云盘管理员可以查看全局文件运营明细。"/,
+  'cloud operations view permission copy must mention global admins and cloud admins',
+);
+assert.match(
+  driveAppPackageViewSource,
+  /description="仅全局管理员或云盘管理员可以上传和替换安卓安装包。"/,
+  'cloud APK package view permission copy must mention global admins and cloud admins',
 );
 assert.match(consolePageSource, /key:\s*'consoleHome'/, 'cloud console account menu must expose the unified console gateway');
 assert.match(consolePageSource, /key:\s*'profile'/, 'cloud console account menu must expose current user profile editing');

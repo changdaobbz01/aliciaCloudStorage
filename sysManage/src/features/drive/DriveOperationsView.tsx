@@ -311,7 +311,12 @@ export function DriveOperationsView({
   if (!isAdmin) {
     return (
       <section className="content-panel">
-        <Alert type="warning" showIcon message="当前账号没有运营查看权限" description="只有云盘管理员可以查看全局文件运营明细。" />
+        <Alert
+          type="warning"
+          showIcon
+          message="当前账号没有运营查看权限"
+          description="仅全局管理员或云盘管理员可以查看全局文件运营明细。"
+        />
       </section>
     );
   }

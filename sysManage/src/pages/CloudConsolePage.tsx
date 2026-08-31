@@ -14,7 +14,7 @@ import { resolveAvatarSrc } from '../features/drive/driveShared';
 import { useSession } from '../context/session-context';
 import { publicAssetPath } from '../lib/appPaths';
 import { updateProfile, uploadCurrentUserAvatar } from '../lib/api';
-import { isCloudAdmin, type UpdateProfilePayload, type User } from '../types';
+import { cloudRoleLabel, isCloudAdmin, type UpdateProfilePayload, type User } from '../types';
 
 const LazyCloudUsersView = lazy(() => import('../features/drive/CloudUsersView'));
 const LazyDriveAppPackageView = lazy(() => import('../features/drive/DriveAppPackageView'));
@@ -288,7 +288,7 @@ export function CloudConsolePage() {
       <Result
         status="403"
         title="没有云盘后台权限"
-        subTitle="只有云盘管理员可以访问运营后台。"
+        subTitle="仅全局管理员或云盘管理员可以访问运营后台。"
         extra={
           <Space>
             <Button href="/console/">管理控制台</Button>
@@ -378,7 +378,7 @@ export function CloudConsolePage() {
                 {currentUser?.nickname ?? '未登录用户'}
               </Typography.Title>
               <div className="sider-profile-meta">
-                <span className="sider-role-pill">{isAdmin ? '云盘管理员' : '无后台权限'}</span>
+                <span className="sider-role-pill">{cloudRoleLabel(currentUser)}</span>
                 <span>{currentUser?.email ?? currentUser?.phoneNumber}</span>
               </div>
             </div>

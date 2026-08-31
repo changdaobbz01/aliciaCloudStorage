@@ -46,6 +46,24 @@ export function isCloudAdmin(
   return user?.role === 'ADMIN' || user?.appRoles?.cloud === 'CLOUD_ADMIN';
 }
 
+export function cloudRoleLabel(
+  user: Pick<User, 'role' | 'appRoles'> | Pick<IdentityUser, 'role' | 'appRoles'> | null | undefined,
+) {
+  if (!user) {
+    return '无后台权限';
+  }
+
+  if (user.role === 'ADMIN') {
+    return '全局管理员';
+  }
+
+  if (user.appRoles?.cloud === 'CLOUD_ADMIN') {
+    return '云盘管理员';
+  }
+
+  return '云盘用户';
+}
+
 export type IdentityLoginResponse = {
   token: string;
   refreshToken: string;

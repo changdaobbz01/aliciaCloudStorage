@@ -341,6 +341,24 @@ require_source_match \
     "Cloud console boundary verifier must enforce the runtime cloud admin gate."
 
 require_source_match \
+    "cloud console boundary checks role label copy" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console must centralize its role label copy' \
+    "Cloud console boundary verifier must enforce centralized role label copy."
+
+require_source_match \
+    "cloud console boundary checks permission denied copy" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console permission denied copy must mention global admins and cloud admins' \
+    "Cloud console boundary verifier must enforce accurate permission denied copy."
+
+require_source_match \
+    "cloud console boundary checks users role label copy" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud users view role tags must use the centralized cloud role label copy' \
+    "Cloud console boundary verifier must enforce role labels in the users view."
+
+require_source_match \
     "cloud console profile dialog contract is enforced" \
     "sysManage/scripts/verify-console-boundary.mjs" \
     'cloud console profile modal must keep the shared profile dialog contract' \
@@ -375,6 +393,48 @@ require_source_match \
     "sysManage/scripts/verify-console-boundary.mjs" \
     'global admins and cloud application admins' \
     "Cloud console boundary verifier must accept global and cloud application administrators."
+
+require_source_match \
+    "cloud console centralizes role labels" \
+    "sysManage/src/types.ts" \
+    'export function cloudRoleLabel' \
+    "Cloud console role labels must be centralized."
+
+require_source_match \
+    "cloud console permission denied copy matches access contract" \
+    "sysManage/src/pages/CloudConsolePage.tsx" \
+    'subTitle="仅全局管理员或云盘管理员可以访问运营后台。"' \
+    "Cloud console permission denied copy must match the runtime access contract."
+
+require_source_match \
+    "cloud console sidebar uses role label helper" \
+    "sysManage/src/pages/CloudConsolePage.tsx" \
+    'cloudRoleLabel\(currentUser\)' \
+    "Cloud console sidebar must use the centralized role label."
+
+require_source_match \
+    "cloud users permission copy matches access contract" \
+    "sysManage/src/features/drive/CloudUsersView.tsx" \
+    'description="仅全局管理员或云盘管理员可以查看用户画像和调整存储额度。"' \
+    "Cloud users permission copy must match the runtime access contract."
+
+require_source_match \
+    "cloud users role tags use role label helper" \
+    "sysManage/src/features/drive/CloudUsersView.tsx" \
+    'cloudRoleLabel\(user\)' \
+    "Cloud users role tags must use the centralized role label."
+
+require_source_match \
+    "cloud operations permission copy matches access contract" \
+    "sysManage/src/features/drive/DriveOperationsView.tsx" \
+    'description="仅全局管理员或云盘管理员可以查看全局文件运营明细。"' \
+    "Cloud operations permission copy must match the runtime access contract."
+
+require_source_match \
+    "cloud APK package permission copy matches access contract" \
+    "sysManage/src/features/drive/DriveAppPackageView.tsx" \
+    'description="仅全局管理员或云盘管理员可以上传和替换安卓安装包。"' \
+    "Cloud APK package permission copy must match the runtime access contract."
 
 require_source_match \
     "cloud console exposes returnTo verifier" \

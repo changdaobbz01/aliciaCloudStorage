@@ -26,7 +26,7 @@ export default function DriveAppPackageView({
           type="warning"
           showIcon
           message="当前账号没有 APP 上传权限"
-          description="只有管理员可以上传和替换安卓安装包。"
+          description="仅全局管理员或云盘管理员可以上传和替换安卓安装包。"
         />
       </section>
     );

@@ -17,7 +17,7 @@ import { Edit3, RefreshCw } from 'lucide-react';
 import { Icon } from '../../components/Icon';
 import { AliciaModalTitle } from '../../components/AliciaModalTitle';
 import type { User } from '../../types';
-import { isCloudAdmin } from '../../types';
+import { cloudRoleLabel, isCloudAdmin } from '../../types';
 import {
   bytesToGigabytes,
   formatFileSize,
@@ -94,7 +94,7 @@ export default function CloudUsersView({
           type="warning"
           showIcon
           message="当前账号没有云盘用户管理权限"
-          description="只有云盘管理员可以查看用户画像和调整存储额度。"
+          description="仅全局管理员或云盘管理员可以查看用户画像和调整存储额度。"
         />
       </section>
     );
@@ -133,9 +133,7 @@ export default function CloudUsersView({
       width: 170,
       render: (_, user) => (
         <Space size={4} wrap>
-          <Tag color={isCloudAdmin(user) ? 'gold' : 'blue'}>
-            {isCloudAdmin(user) ? '云盘管理员' : '云盘用户'}
-          </Tag>
+          <Tag color={isCloudAdmin(user) ? 'gold' : 'blue'}>{cloudRoleLabel(user)}</Tag>
           <Tag color={user.status === 'ACTIVE' ? 'green' : 'red'}>
             {user.status === 'ACTIVE' ? '启用' : '停用'}
           </Tag>
