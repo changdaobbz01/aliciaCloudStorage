@@ -465,6 +465,30 @@ require_source_match \
     "Cloud console contract verifier must compare operations query parameters."
 
 require_source_match \
+    "cloud console contract verifier compares user profile responses" \
+    "sysManage/scripts/verify-api-contracts.mjs" \
+    'UserProfileResponse' \
+    "Cloud console contract verifier must compare CloudStorageApi user profile responses."
+
+require_source_match \
+    "cloud console contract verifier compares quota requests" \
+    "sysManage/scripts/verify-api-contracts.mjs" \
+    'AdminUpdateUserQuotaRequest' \
+    "Cloud console contract verifier must compare quota update requests."
+
+require_source_match \
+    "cloud console contract verifier compares endpoint contracts" \
+    "sysManage/scripts/verify-api-contracts.mjs" \
+    'cloudConsoleEndpointContracts' \
+    "Cloud console contract verifier must compare CloudStorageApi endpoint paths and methods."
+
+require_source_match \
+    "cloud console contract verifier binds controller mappings" \
+    "sysManage/scripts/verify-api-contracts.mjs" \
+    'assertControllerMethodMapping' \
+    "Cloud console contract verifier must bind frontend API calls to controller mappings."
+
+require_source_match \
     "cloud console boundary checks runtime cloud admin gate" \
     "sysManage/scripts/verify-console-boundary.mjs" \
     'cloud console page must use the centralized cloud admin predicate' \
