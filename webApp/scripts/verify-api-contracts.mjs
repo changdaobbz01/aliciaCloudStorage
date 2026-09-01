@@ -149,6 +149,30 @@ function extractRequestParamsForMethod(relativePath, methodName) {
   return requestParams;
 }
 
+function extractNamedRequestAnnotationsForMethod(relativePath, methodName, annotationName) {
+  const source = readRepoFile(relativePath);
+  const methodPattern = new RegExp(`${escapeRegExp(methodName)}\\s*\\(`);
+  const match = methodPattern.exec(source);
+  assert.ok(match, `${methodName} must exist in ${relativePath}`);
+
+  const openIndex = source.indexOf('(', match.index);
+  const closeIndex = findMatching(source, openIndex, '(', ')');
+  const parameterList = source.slice(openIndex + 1, closeIndex);
+  const requestFields = [];
+  const annotationPattern = new RegExp(
+    `@${escapeRegExp(annotationName)}(?:\\(([^)]*)\\))?\\s+[A-Za-z0-9_.<>?]+\\s+([A-Za-z][A-Za-z0-9_]*)`,
+    'g',
+  );
+  let annotationMatch;
+
+  while ((annotationMatch = annotationPattern.exec(parameterList)) !== null) {
+    const explicitName = annotationMatch[1]?.match(/(?:^|[,\s])(?:value\s*=\s*|name\s*=\s*)?"([^"]+)"/)?.[1];
+    requestFields.push(explicitName ?? annotationMatch[2]);
+  }
+
+  return requestFields;
+}
+
 function extractJavaMethodParts(relativePath, methodName) {
   const source = readRepoFile(relativePath);
   const methodPattern = new RegExp(`${escapeRegExp(methodName)}\\s*\\(`);
@@ -202,6 +226,19 @@ function extractJsonStringifyObjectFieldsForFunction(functionName) {
     }
 
     searchIndex = closeIndex + 1;
+  }
+
+  return fields;
+}
+
+function extractFormDataAppendKeysForFunction(functionName) {
+  const body = extractApiFunctionBody(functionName);
+  const fields = [];
+  const appendPattern = /formData\.append\(\s*['"`]([^'"`]+)['"`]/g;
+  let match;
+
+  while ((match = appendPattern.exec(body)) !== null) {
+    fields.push(match[1]);
   }
 
   return fields;
@@ -976,6 +1013,25 @@ assertSubsetFields(
   extractJavaRecordFields(`${identityDtoRoot}/IdentityLogoutRequest.java`, 'IdentityLogoutRequest'),
 );
 assertIncludesFields('logoutAuthToken request body', logoutAuthTokenRequestFields, ['refreshToken']);
+
+assertSameFields(
+  'uploadCurrentUserAvatar multipart fields',
+  extractFormDataAppendKeysForFunction('uploadCurrentUserAvatar'),
+  extractNamedRequestAnnotationsForMethod(cloudProfileController, 'uploadAvatar', 'RequestPart'),
+);
+assertSameFields(
+  'uploadCurrentUserHomeBackground multipart fields',
+  extractFormDataAppendKeysForFunction('uploadCurrentUserHomeBackground'),
+  extractNamedRequestAnnotationsForMethod(cloudProfileController, 'uploadHomeBackground', 'RequestPart'),
+);
+assertSameFields(
+  'uploadStorageFile multipart fields',
+  extractFormDataAppendKeysForFunction('uploadStorageFile'),
+  [
+    ...extractNamedRequestAnnotationsForMethod(storageController, 'uploadFile', 'RequestParam'),
+    ...extractNamedRequestAnnotationsForMethod(storageController, 'uploadFile', 'RequestPart'),
+  ],
+);
 
 assertSameFields(
   'fetchStorageNodes query parameters',

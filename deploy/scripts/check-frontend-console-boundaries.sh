@@ -332,6 +332,36 @@ require_source_match \
     "Cloud web contract verifier must ensure typed payloads are sent."
 
 require_source_match \
+    "cloud web contract verifier reads FormData fields" \
+    "webApp/scripts/verify-api-contracts.mjs" \
+    'extractFormDataAppendKeysForFunction' \
+    "Cloud web contract verifier must read multipart upload field names from FormData."
+
+require_source_match \
+    "cloud web contract verifier reads multipart annotations" \
+    "webApp/scripts/verify-api-contracts.mjs" \
+    'extractNamedRequestAnnotationsForMethod' \
+    "Cloud web contract verifier must read backend multipart request field names."
+
+require_source_match \
+    "cloud web contract verifier compares avatar multipart fields" \
+    "webApp/scripts/verify-api-contracts.mjs" \
+    'uploadCurrentUserAvatar multipart fields' \
+    "Cloud web contract verifier must compare avatar upload multipart fields."
+
+require_source_match \
+    "cloud web contract verifier compares background multipart fields" \
+    "webApp/scripts/verify-api-contracts.mjs" \
+    'uploadCurrentUserHomeBackground multipart fields' \
+    "Cloud web contract verifier must compare background upload multipart fields."
+
+require_source_match \
+    "cloud web contract verifier compares storage multipart fields" \
+    "webApp/scripts/verify-api-contracts.mjs" \
+    'uploadStorageFile multipart fields' \
+    "Cloud web contract verifier must compare storage upload multipart fields."
+
+require_source_match \
     "cloud web contract verifier checks share access tokens" \
     "webApp/scripts/verify-api-contracts.mjs" \
     'assertApiFunctionUsesShareAccessToken' \
