@@ -134,6 +134,7 @@ assert.doesNotMatch(rootApp, /path="\/console/, 'cloud web must not mount consol
 
 const drivePage = readFileSync(new URL('../src/pages/DrivePage.tsx', import.meta.url), 'utf8');
 const driveProfileModals = readFileSync(new URL('../src/features/drive/DriveProfileModals.tsx', import.meta.url), 'utf8');
+const driveShared = readFileSync(new URL('../src/features/drive/driveShared.ts', import.meta.url), 'utf8');
 const appDownloadPage = readFileSync(new URL('../src/pages/AppDownloadPage.tsx', import.meta.url), 'utf8');
 const sharePage = readFileSync(new URL('../src/pages/SharePage.tsx', import.meta.url), 'utf8');
 const unifiedLoginRedirectPage = readFileSync(new URL('../src/pages/UnifiedLoginRedirectPage.tsx', import.meta.url), 'utf8');
@@ -159,6 +160,21 @@ assert.doesNotMatch(
   appDownloadPage,
   /发布状态|暂未发布|未发布/,
   'cloud app download page must describe package availability as a user-facing download state',
+);
+assert.match(
+  driveShared,
+  /function normalizeAppDownloadPath\(downloadPath = APP_DOWNLOAD_PUBLIC_PATH\)/,
+  'cloud web app download URL resolver must normalize download paths',
+);
+assert.match(
+  driveShared,
+  /url\.origin !== currentOrigin \|\| url\.pathname !== APP_DOWNLOAD_PUBLIC_PATH/,
+  'cloud web app download URL resolver must stay on the public package endpoint',
+);
+assert.match(
+  driveShared,
+  /return new URL\(safeDownloadPath, window\.location\.origin\)\.toString\(\);/,
+  'cloud web app download URL resolver must produce same-origin public download URLs',
 );
 assert.match(
   driveProfileModals,

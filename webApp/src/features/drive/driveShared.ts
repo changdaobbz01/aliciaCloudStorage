@@ -83,12 +83,29 @@ export function resolveHomeBackgroundSrc(user: User | null | undefined) {
   return user.homeBackgroundUrl;
 }
 
-export function resolveAppDownloadUrl(downloadPath = APP_DOWNLOAD_PUBLIC_PATH) {
-  if (typeof window === 'undefined') {
-    return downloadPath;
+function normalizeAppDownloadPath(downloadPath = APP_DOWNLOAD_PUBLIC_PATH) {
+  const currentOrigin = typeof window === 'undefined' ? 'https://alicia.local' : window.location.origin;
+
+  try {
+    const url = new URL(downloadPath || APP_DOWNLOAD_PUBLIC_PATH, currentOrigin);
+    if (url.origin !== currentOrigin || url.pathname !== APP_DOWNLOAD_PUBLIC_PATH) {
+      return APP_DOWNLOAD_PUBLIC_PATH;
+    }
+  } catch {
+    return APP_DOWNLOAD_PUBLIC_PATH;
   }
 
-  return new URL(downloadPath, window.location.origin).toString();
+  return APP_DOWNLOAD_PUBLIC_PATH;
+}
+
+export function resolveAppDownloadUrl(downloadPath = APP_DOWNLOAD_PUBLIC_PATH) {
+  const safeDownloadPath = normalizeAppDownloadPath(downloadPath);
+
+  if (typeof window === 'undefined') {
+    return safeDownloadPath;
+  }
+
+  return new URL(safeDownloadPath, window.location.origin).toString();
 }
 
 export function resolveShareUrl(shareCode: string) {

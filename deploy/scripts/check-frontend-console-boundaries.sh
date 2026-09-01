@@ -163,6 +163,24 @@ require_source_match \
     'cloud app download page must describe package availability as a user-facing download state' \
     "Cloud web boundary verifier must reject release workflow wording in the app download page."
 
+require_source_match \
+    "cloud web normalizes app download paths" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web app download URL resolver must normalize download paths' \
+    "Cloud web boundary verifier must normalize app download URLs."
+
+require_source_match \
+    "cloud web keeps app downloads on public endpoint" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web app download URL resolver must stay on the public package endpoint' \
+    "Cloud web boundary verifier must keep app downloads on the public package endpoint."
+
+require_source_match \
+    "cloud web keeps app downloads same-origin" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web app download URL resolver must produce same-origin public download URLs' \
+    "Cloud web boundary verifier must keep app downloads same-origin."
+
 require_source_no_match \
     "cloud web has no admin style leftovers" \
     "webApp/src/index.css" \
