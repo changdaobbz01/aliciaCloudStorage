@@ -237,6 +237,37 @@ function extractFormDataAppendKeysForFunction(functionName) {
   return fields;
 }
 
+function extractTemplatePathVariablesForFunction(functionName) {
+  const source = extractTsFunctionSource(functionName);
+  const fields = [];
+  const templatePattern = /`([^`]*\/api\/[^`]*)`/g;
+  let templateMatch;
+
+  while ((templateMatch = templatePattern.exec(source)) !== null) {
+    const templateSource = templateMatch[1];
+    const interpolationPattern = /\$\{([^}]+)\}/g;
+    let interpolationMatch;
+
+    while ((interpolationMatch = interpolationPattern.exec(templateSource)) !== null) {
+      if (templateSource[interpolationMatch.index - 1] !== '/') {
+        continue;
+      }
+
+      const expression = interpolationMatch[1].trim();
+      const encodedIdentifierMatch = /^encodeURIComponent\(\s*([A-Za-z][A-Za-z0-9_]*)\s*\)$/.exec(expression);
+      const identifierMatch = /^([A-Za-z][A-Za-z0-9_]*)$/.exec(expression);
+
+      assert.ok(
+        encodedIdentifierMatch || identifierMatch,
+        `Unable to parse ${functionName} template path variable expression: ${expression}`,
+      );
+      fields.push((encodedIdentifierMatch ?? identifierMatch)[1]);
+    }
+  }
+
+  return fields;
+}
+
 function extractInlineQueryParamKeysForFunction(functionName) {
   const source = extractTsFunctionSource(functionName);
   const fields = [];
@@ -296,6 +327,21 @@ function extractJavaMethodParts(relativePath, methodName) {
   };
 }
 
+function extractPathVariablesForMethod(relativePath, methodName) {
+  const { parameters } = extractJavaMethodParts(relativePath, methodName);
+  const fields = [];
+  const pathVariablePattern =
+    /@PathVariable(?:\(([^)]*)\))?\s+[A-Za-z0-9_.<>?]+\s+([A-Za-z][A-Za-z0-9_]*)/g;
+  let match;
+
+  while ((match = pathVariablePattern.exec(parameters)) !== null) {
+    const explicitName = match[1]?.match(/(?:^|[,\s])(?:value\s*=\s*|name\s*=\s*)?"([^"]+)"/)?.[1];
+    fields.push(explicitName ?? match[2]);
+  }
+
+  return fields;
+}
+
 function assertMainSiteApiUsesAuthToken(functionName) {
   const source = extractTsFunctionSource(functionName);
   assert.match(source, /withToken\((?:token|accessToken)\b/, `${functionName} must send the current auth token`);
@@ -344,6 +390,14 @@ function assertMainSitePortalEndpointContract(contract) {
 
   if (contract.httpMethod) {
     assertMainSiteApiMethod(contract.tsFunction, contract.httpMethod);
+  }
+
+  if (contract.pathVariableLabel) {
+    assertSameFields(
+      contract.pathVariableLabel,
+      extractTemplatePathVariablesForFunction(contract.tsFunction),
+      extractPathVariablesForMethod(contract.controller, contract.javaMethod),
+    );
   }
 }
 
@@ -409,6 +463,7 @@ const mainSitePortalEndpointContracts = [
     httpMethod: 'DELETE',
     requiresAuthToken: true,
     requiresAuthorizationHeader: true,
+    pathVariableLabel: 'revokeIdentitySession path variables',
   },
   {
     controller: identityAuthController,

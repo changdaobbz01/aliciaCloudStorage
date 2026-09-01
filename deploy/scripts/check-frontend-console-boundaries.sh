@@ -1550,6 +1550,24 @@ require_source_match \
     "Main site portal contract verifier must compare query parameters."
 
 require_source_match \
+    "main site portal contract verifier reads frontend path variables" \
+    "deploy/scripts/verify-main-site-portal-api-contracts.mjs" \
+    'extractTemplatePathVariablesForFunction' \
+    "Main site portal contract verifier must read frontend path variables."
+
+require_source_match \
+    "main site portal contract verifier reads backend path variables" \
+    "deploy/scripts/verify-main-site-portal-api-contracts.mjs" \
+    'extractPathVariablesForMethod' \
+    "Main site portal contract verifier must read backend path variables."
+
+require_source_match \
+    "main site portal contract verifier compares session path variables" \
+    "deploy/scripts/verify-main-site-portal-api-contracts.mjs" \
+    'revokeIdentitySession path variables' \
+    "Main site portal contract verifier must compare session path variables."
+
+require_source_match \
     "main site portal contract verifier reads FormData fields" \
     "deploy/scripts/verify-main-site-portal-api-contracts.mjs" \
     'extractFormDataAppendKeysForFunction' \
