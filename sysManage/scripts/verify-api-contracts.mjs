@@ -156,6 +156,29 @@ function extractRequestParamsForMethod(relativePath, methodName) {
   return requestParams;
 }
 
+function extractNamedRequestAnnotationsForMethod(relativePath, methodName, annotationName) {
+  const source = readRepoFile(relativePath);
+  const methodPattern = new RegExp(`${escapeRegExp(methodName)}\\s*\\(`);
+  const match = methodPattern.exec(source);
+  assert.ok(match, `${methodName} must exist in ${relativePath}`);
+
+  const openIndex = source.indexOf('(', match.index);
+  const closeIndex = findMatching(source, openIndex, '(', ')');
+  const parameterList = source.slice(openIndex + 1, closeIndex);
+  const requestFields = [];
+  const annotationPattern = new RegExp(
+    `@${escapeRegExp(annotationName)}(?:\\(\\s*"([^"]+)"\\s*\\))?\\s+[A-Za-z0-9_.<>?]+\\s+([A-Za-z][A-Za-z0-9_]*)`,
+    'g',
+  );
+  let annotationMatch;
+
+  while ((annotationMatch = annotationPattern.exec(parameterList)) !== null) {
+    requestFields.push(annotationMatch[1] ?? annotationMatch[2]);
+  }
+
+  return requestFields;
+}
+
 function extractApiFunctionBody(functionName) {
   const functionPattern = new RegExp(`(?:export\\s+)?function\\s+${escapeRegExp(functionName)}\\s*\\(`);
   const match = functionPattern.exec(apiSource);
@@ -190,6 +213,19 @@ function extractJsonStringifyObjectFieldsForFunction(functionName) {
     }
 
     searchIndex = closeIndex + 1;
+  }
+
+  return fields;
+}
+
+function extractFormDataAppendKeysForFunction(functionName) {
+  const body = extractApiFunctionBody(functionName);
+  const fields = [];
+  const appendPattern = /formData\.append\(\s*['"`]([^'"`]+)['"`]/g;
+  let match;
+
+  while ((match = appendPattern.exec(body)) !== null) {
+    fields.push(match[1]);
   }
 
   return fields;
@@ -655,6 +691,15 @@ assertSameFields(
 assertApiFunctionUsesQueryHelper('fetchAdminCloudOperationShares', 'appendAdminOperationPageParams');
 assertApiFunctionUsesQueryHelper('fetchAdminCloudOperationTrash', 'appendAdminOperationPageParams');
 assertApiFunctionUsesQueryHelper('fetchAdminCloudStorageUsers', 'appendAdminOperationPageParams');
+
+assertSameFields(
+  'uploadAdminAppPackage multipart fields',
+  extractFormDataAppendKeysForFunction('uploadAdminAppPackage'),
+  [
+    ...extractNamedRequestAnnotationsForMethod(adminAppPackageController, 'uploadCurrentPackage', 'RequestPart'),
+    ...extractNamedRequestAnnotationsForMethod(adminAppPackageController, 'uploadCurrentPackage', 'RequestParam'),
+  ],
+);
 
 for (const contract of cloudConsoleEndpointContracts) {
   assertCloudConsoleEndpointContract(contract);

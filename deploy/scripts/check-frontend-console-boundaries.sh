@@ -674,6 +674,24 @@ require_source_match \
     "Cloud console contract verifier must ensure typed payloads are sent."
 
 require_source_match \
+    "cloud console contract verifier reads FormData fields" \
+    "sysManage/scripts/verify-api-contracts.mjs" \
+    'extractFormDataAppendKeysForFunction' \
+    "Cloud console contract verifier must read multipart upload field names from FormData."
+
+require_source_match \
+    "cloud console contract verifier reads multipart annotations" \
+    "sysManage/scripts/verify-api-contracts.mjs" \
+    'extractNamedRequestAnnotationsForMethod' \
+    "Cloud console contract verifier must read backend multipart request field names."
+
+require_source_match \
+    "cloud console contract verifier compares APK multipart fields" \
+    "sysManage/scripts/verify-api-contracts.mjs" \
+    'uploadAdminAppPackage multipart fields' \
+    "Cloud console contract verifier must compare APK upload multipart fields."
+
+require_source_match \
     "cloud console contract verifier checks controller auth headers" \
     "sysManage/scripts/verify-api-contracts.mjs" \
     'assertControllerMethodReceivesAuthorization' \
