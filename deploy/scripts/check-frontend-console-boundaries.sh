@@ -1490,6 +1490,24 @@ require_source_match \
     "Main site portal contract verifier must compare query parameters."
 
 require_source_match \
+    "main site portal contract verifier reads FormData fields" \
+    "deploy/scripts/verify-main-site-portal-api-contracts.mjs" \
+    'extractFormDataAppendKeysForFunction' \
+    "Main site portal contract verifier must read avatar multipart fields from FormData."
+
+require_source_match \
+    "main site portal contract verifier reads multipart annotations" \
+    "deploy/scripts/verify-main-site-portal-api-contracts.mjs" \
+    'extractNamedRequestAnnotationsForMethod' \
+    "Main site portal contract verifier must read backend avatar multipart fields."
+
+require_source_match \
+    "main site portal contract verifier compares avatar multipart fields" \
+    "deploy/scripts/verify-main-site-portal-api-contracts.mjs" \
+    'main site uploadIdentityAvatar multipart fields' \
+    "Main site portal contract verifier must compare avatar upload multipart fields."
+
+require_source_match \
     "main site portal contract verifier compares endpoint contracts" \
     "deploy/scripts/verify-main-site-portal-api-contracts.mjs" \
     'mainSitePortalEndpointContracts' \
@@ -1566,6 +1584,24 @@ require_source_match \
     "deploy/scripts/verify-identity-console-api-contracts.mjs" \
     'extractRequestParamsForMethod' \
     "Identity console contract verifier must compare query parameters."
+
+require_source_match \
+    "identity console contract verifier reads FormData fields" \
+    "deploy/scripts/verify-identity-console-api-contracts.mjs" \
+    'extractFormDataAppendKeysForFunction' \
+    "Identity console contract verifier must read avatar multipart fields from FormData."
+
+require_source_match \
+    "identity console contract verifier reads multipart annotations" \
+    "deploy/scripts/verify-identity-console-api-contracts.mjs" \
+    'extractNamedRequestAnnotationsForMethod' \
+    "Identity console contract verifier must read backend avatar multipart fields."
+
+require_source_match \
+    "identity console contract verifier compares avatar multipart fields" \
+    "deploy/scripts/verify-identity-console-api-contracts.mjs" \
+    'identity console uploadIdentityAvatar multipart fields' \
+    "Identity console contract verifier must compare avatar upload multipart fields."
 
 require_source_match \
     "identity console contract verifier compares endpoint contracts" \

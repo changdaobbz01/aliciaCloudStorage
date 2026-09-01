@@ -161,6 +161,30 @@ function extractRequestParamsForMethod(relativePath, methodName) {
   return requestParams;
 }
 
+function extractNamedRequestAnnotationsForMethod(relativePath, methodName, annotationName) {
+  const source = readCloudProjectFile(relativePath);
+  const methodPattern = new RegExp(`${escapeRegExp(methodName)}\\s*\\(`);
+  const match = methodPattern.exec(source);
+  assert.ok(match, `${methodName} must exist in ${relativePath}`);
+
+  const openIndex = source.indexOf('(', match.index);
+  const closeIndex = findMatching(source, openIndex, '(', ')');
+  const parameterList = source.slice(openIndex + 1, closeIndex);
+  const requestFields = [];
+  const annotationPattern = new RegExp(
+    `@${escapeRegExp(annotationName)}(?:\\(([^)]*)\\))?\\s+[A-Za-z0-9_.<>?]+\\s+([A-Za-z][A-Za-z0-9_]*)`,
+    'g',
+  );
+  let annotationMatch;
+
+  while ((annotationMatch = annotationPattern.exec(parameterList)) !== null) {
+    const explicitName = annotationMatch[1]?.match(/(?:^|[,\s])(?:value\s*=\s*|name\s*=\s*)?"([^"]+)"/)?.[1];
+    requestFields.push(explicitName ?? annotationMatch[2]);
+  }
+
+  return requestFields;
+}
+
 function extractTsFunctionSource(functionName) {
   const functionPattern = new RegExp(`export\\s+(?:async\\s+)?function\\s+${escapeRegExp(functionName)}\\s*\\(`);
   const match = functionPattern.exec(mainSiteAuthSource);
@@ -195,6 +219,19 @@ function extractJsonStringifyObjectFieldsForFunction(functionName) {
     }
 
     searchIndex = closeIndex + 1;
+  }
+
+  return fields;
+}
+
+function extractFormDataAppendKeysForFunction(functionName) {
+  const source = extractTsFunctionSource(functionName);
+  const fields = [];
+  const appendPattern = /formData\.append\(\s*['"`]([^'"`]+)['"`]/g;
+  let match;
+
+  while ((match = appendPattern.exec(source)) !== null) {
+    fields.push(match[1]);
   }
 
   return fields;
@@ -509,6 +546,11 @@ assert.match(
   extractTsFunctionSource('fetchIdentitySessions'),
   /includeRevoked=true/,
   'fetchIdentitySessions must keep the includeRevoked query parameter',
+);
+assertSameFields(
+  'main site uploadIdentityAvatar multipart fields',
+  extractFormDataAppendKeysForFunction('uploadIdentityAvatar'),
+  extractNamedRequestAnnotationsForMethod(cloudProfileController, 'uploadAvatar', 'RequestPart'),
 );
 
 for (const functionName of [

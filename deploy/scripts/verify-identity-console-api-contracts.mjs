@@ -169,6 +169,30 @@ function extractRequestParamsForMethod(relativePath, methodName) {
     });
 }
 
+function extractNamedRequestAnnotationsForMethod(relativePath, methodName, annotationName) {
+  const source = readIdentityFile(relativePath);
+  const methodPattern = new RegExp(`${escapeRegExp(methodName)}\\s*\\(`);
+  const match = methodPattern.exec(source);
+  assert.ok(match, `${methodName} must exist in ${relativePath}`);
+
+  const openIndex = source.indexOf('(', match.index);
+  const closeIndex = findMatching(source, openIndex, '(', ')');
+  const parameterList = source.slice(openIndex + 1, closeIndex);
+  const requestFields = [];
+  const annotationPattern = new RegExp(
+    `@${escapeRegExp(annotationName)}(?:\\(([^)]*)\\))?\\s+[A-Za-z0-9_.<>?]+\\s+([A-Za-z][A-Za-z0-9_]*)`,
+    'g',
+  );
+  let annotationMatch;
+
+  while ((annotationMatch = annotationPattern.exec(parameterList)) !== null) {
+    const explicitName = annotationMatch[1]?.match(/(?:^|[,\s])(?:value\s*=\s*|name\s*=\s*)?"([^"]+)"/)?.[1];
+    requestFields.push(explicitName ?? annotationMatch[2]);
+  }
+
+  return requestFields;
+}
+
 function assertControllerBasePath(relativePath, expectedBasePath) {
   const source = readIdentityFile(relativePath);
   const pattern = new RegExp(`@RequestMapping\\("${escapeRegExp(expectedBasePath)}"\\)`);
@@ -243,6 +267,19 @@ function extractInlineQueryParamKeysForFunction(functionName) {
   let match;
 
   while ((match = queryParamPattern.exec(source)) !== null) {
+    fields.push(match[1]);
+  }
+
+  return fields;
+}
+
+function extractFormDataAppendKeysForFunction(functionName) {
+  const source = extractTsFunctionSource(functionName);
+  const fields = [];
+  const appendPattern = /formData\.append\(\s*['"`]([^'"`]+)['"`]/g;
+  let match;
+
+  while ((match = appendPattern.exec(source)) !== null) {
     fields.push(match[1]);
   }
 
@@ -544,6 +581,11 @@ assertFieldsSubset(
   extractJavaRecordFields(`${identityDtoRoot}/IdentityLogoutRequest.java`, 'IdentityLogoutRequest'),
 );
 assertContainsFields('logoutAuthToken request body', logoutAuthTokenRequestFields, ['refreshToken']);
+assertSameFields(
+  'identity console uploadIdentityAvatar multipart fields',
+  extractFormDataAppendKeysForFunction('uploadIdentityAvatar'),
+  extractNamedRequestAnnotationsForMethod(`${cloudStorageControllerRoot}/CloudProfileController.java`, 'uploadAvatar', 'RequestPart'),
+);
 
 for (const functionName of [
   'updateIdentityProfile',
