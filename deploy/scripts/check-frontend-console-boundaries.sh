@@ -770,6 +770,36 @@ require_source_match \
     "Cloud console boundary verifier must pin storage user operations to CloudStorageApi."
 
 require_source_match \
+    "cloud console operations APIs remain read-only" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console operations APIs must stay read-only GET contracts' \
+    "Cloud console boundary verifier must keep operations APIs read-only."
+
+require_source_match \
+    "cloud console operations view avoids mutation controls" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console operations view must not expose personal file mutation controls' \
+    "Cloud console boundary verifier must keep operations views read-only."
+
+require_source_match \
+    "cloud console operations hook avoids mutation flows" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console operations hook must not import personal file mutation flows' \
+    "Cloud console boundary verifier must keep personal file mutations out of operations hooks."
+
+require_source_no_match \
+    "cloud console operations source avoids mutation controls" \
+    "sysManage/src/features/drive/DriveOperationsView.tsx" \
+    "title:[[:space:]]*'操作'|onRestore|onDelete|onRevoke|restore[A-Z][A-Za-z0-9_]*|delete[A-Z][A-Za-z0-9_]*|revoke[A-Z][A-Za-z0-9_]*" \
+    "Cloud console operations view must not expose personal file mutation controls."
+
+require_source_no_match \
+    "cloud console operations hook avoids mutation helpers" \
+    "sysManage/src/features/drive/hooks/useDriveOperationsAdmin.ts" \
+    '(^|[^[:alnum:]_])(update|delete|restore|revoke|permanentlyDelete|createShareLink|uploadStorageFile)[A-Za-z0-9_]*\(' \
+    "Cloud console operations hook must not import personal file mutation flows."
+
+require_source_match \
     "cloud console APK upload contract is pinned" \
     "sysManage/scripts/verify-console-boundary.mjs" \
     'cloud console APK upload must use CloudStorageApi admin app package' \

@@ -86,6 +86,34 @@ function assertIncludesInOrder(source, snippets, message) {
   }
 }
 
+function findMatchingBrace(source, openIndex) {
+  let depth = 0;
+
+  for (let index = openIndex; index < source.length; index += 1) {
+    if (source[index] === '{') {
+      depth += 1;
+    } else if (source[index] === '}') {
+      depth -= 1;
+      if (depth === 0) {
+        return index;
+      }
+    }
+  }
+
+  throw new Error('No matching } found.');
+}
+
+function extractApiFunctionBody(functionName) {
+  const functionPattern = new RegExp(`export\\s+function\\s+${functionName}\\s*\\(`);
+  const match = functionPattern.exec(apiSource);
+  assert.ok(match, `${functionName} must exist in sysManage/src/lib/api.ts`);
+
+  const openIndex = apiSource.indexOf('{', match.index);
+  assert.ok(openIndex > -1, `${functionName} must use a function body`);
+
+  return apiSource.slice(openIndex + 1, findMatchingBrace(apiSource, openIndex));
+}
+
 for (const fileUrl of listSourceFiles(srcRoot)) {
   const relativePath = relative(srcRootPath, fileURLToPath(fileUrl)).replaceAll('\\', '/');
   const source = readFileSync(fileUrl, 'utf8');
@@ -259,6 +287,28 @@ assertIncludesInOrder(
     '`/api/admin/cloud-operations/users/storage${toQuerySuffix(search)}`',
   ],
   'cloud console operations view must load CloudStorageApi storage user operations',
+);
+for (const functionName of [
+  'fetchAdminCloudOperationsOverview',
+  'fetchAdminCloudOperationShares',
+  'fetchAdminCloudOperationTrash',
+  'fetchAdminCloudStorageUsers',
+]) {
+  assert.doesNotMatch(
+    extractApiFunctionBody(functionName),
+    /method:\s*'(?:POST|PUT|PATCH|DELETE)'/,
+    'cloud console operations APIs must stay read-only GET contracts',
+  );
+}
+assert.doesNotMatch(
+  driveOperationsViewSource,
+  /title:\s*'操作'|onRestore|onDelete|onRevoke|restore[A-Z][A-Za-z0-9_]*|delete[A-Z][A-Za-z0-9_]*|revoke[A-Z][A-Za-z0-9_]*/,
+  'cloud console operations view must not expose personal file mutation controls',
+);
+assert.doesNotMatch(
+  driveOperationsHookSource,
+  /\b(?:update|delete|restore|revoke|permanentlyDelete|createShareLink|uploadStorageFile)[A-Za-z0-9_]*\(/,
+  'cloud console operations hook must not import personal file mutation flows',
 );
 assertIncludesInOrder(
   apiSource,
