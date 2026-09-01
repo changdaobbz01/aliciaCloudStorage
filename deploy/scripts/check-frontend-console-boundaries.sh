@@ -308,6 +308,48 @@ require_source_match \
     "Cloud web contract verifier must compare storage/share query parameters."
 
 require_source_match \
+    "cloud web contract verifier reads frontend path variables" \
+    "webApp/scripts/verify-api-contracts.mjs" \
+    'extractTemplatePathVariablesForFunction' \
+    "Cloud web contract verifier must read frontend path variables."
+
+require_source_match \
+    "cloud web contract verifier reads backend path variables" \
+    "webApp/scripts/verify-api-contracts.mjs" \
+    'extractPathVariablesForMethod' \
+    "Cloud web contract verifier must read backend path variables."
+
+require_source_match \
+    "cloud web contract verifier compares multipart path variables" \
+    "webApp/scripts/verify-api-contracts.mjs" \
+    'uploadMultipartPart path variables' \
+    "Cloud web contract verifier must compare multipart path variables."
+
+require_source_match \
+    "cloud web contract verifier compares storage node path variables" \
+    "webApp/scripts/verify-api-contracts.mjs" \
+    'renameStorageNode path variables' \
+    "Cloud web contract verifier must compare storage node path variables."
+
+require_source_match \
+    "cloud web contract verifier compares share file path variables" \
+    "webApp/scripts/verify-api-contracts.mjs" \
+    'fetchShareFileAccessUrl path variables' \
+    "Cloud web contract verifier must compare share file path variables."
+
+require_source_match \
+    "cloud web contract verifier compares public share path variables" \
+    "webApp/scripts/verify-api-contracts.mjs" \
+    'fetchPublicShareStatus path variables' \
+    "Cloud web contract verifier must compare public share path variables."
+
+require_source_match \
+    "cloud web contract verifier compares identity session path variables" \
+    "webApp/scripts/verify-api-contracts.mjs" \
+    'revokeIdentitySession path variables' \
+    "Cloud web contract verifier must compare identity session path variables."
+
+require_source_match \
     "cloud web contract verifier compares endpoint contracts" \
     "webApp/scripts/verify-api-contracts.mjs" \
     'cloudWebEndpointContracts' \

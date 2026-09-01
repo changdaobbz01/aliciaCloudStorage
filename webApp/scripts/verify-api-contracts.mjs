@@ -191,6 +191,21 @@ function extractJavaMethodParts(relativePath, methodName) {
   };
 }
 
+function extractPathVariablesForMethod(relativePath, methodName) {
+  const { parameters } = extractJavaMethodParts(relativePath, methodName);
+  const fields = [];
+  const pathVariablePattern =
+    /@PathVariable(?:\(([^)]*)\))?\s+[A-Za-z0-9_.<>?]+\s+([A-Za-z][A-Za-z0-9_]*)/g;
+  let match;
+
+  while ((match = pathVariablePattern.exec(parameters)) !== null) {
+    const explicitName = match[1]?.match(/(?:^|[,\s])(?:value\s*=\s*|name\s*=\s*)?"([^"]+)"/)?.[1];
+    fields.push(explicitName ?? match[2]);
+  }
+
+  return fields;
+}
+
 function extractInlineQueryParamKeysForFunction(functionName) {
   const body = extractApiFunctionBody(functionName);
   const fields = [];
@@ -239,6 +254,37 @@ function extractFormDataAppendKeysForFunction(functionName) {
 
   while ((match = appendPattern.exec(body)) !== null) {
     fields.push(match[1]);
+  }
+
+  return fields;
+}
+
+function extractTemplatePathVariablesForFunction(functionName) {
+  const body = extractApiFunctionBody(functionName);
+  const fields = [];
+  const templatePattern = /`([^`]*\/api\/[^`]*)`/g;
+  let templateMatch;
+
+  while ((templateMatch = templatePattern.exec(body)) !== null) {
+    const templateSource = templateMatch[1];
+    const interpolationPattern = /\$\{([^}]+)\}/g;
+    let interpolationMatch;
+
+    while ((interpolationMatch = interpolationPattern.exec(templateSource)) !== null) {
+      if (templateSource[interpolationMatch.index - 1] !== '/') {
+        continue;
+      }
+
+      const expression = interpolationMatch[1].trim();
+      const encodedIdentifierMatch = /^encodeURIComponent\(\s*([A-Za-z][A-Za-z0-9_]*)\s*\)$/.exec(expression);
+      const identifierMatch = /^([A-Za-z][A-Za-z0-9_]*)$/.exec(expression);
+
+      assert.ok(
+        encodedIdentifierMatch || identifierMatch,
+        `Unable to parse ${functionName} template path variable expression: ${expression}`,
+      );
+      fields.push((encodedIdentifierMatch ?? identifierMatch)[1]);
+    }
   }
 
   return fields;
@@ -378,6 +424,14 @@ function assertCloudWebEndpointContract(contract) {
 
   if (contract.uploadPost) {
     assertApiUploadFunctionUsesPost(contract.tsFunction, contract.uploadHelper);
+  }
+
+  if (contract.pathVariableLabel) {
+    assertSameFields(
+      contract.pathVariableLabel,
+      extractTemplatePathVariablesForFunction(contract.tsFunction),
+      extractPathVariablesForMethod(contract.controller, contract.javaMethod),
+    );
   }
 }
 
@@ -535,6 +589,7 @@ const cloudWebEndpointContracts = [
     tsFunction: 'fetchMultipartUploadStatus',
     endpointNeedle: '/api/storage/files/multipart/',
     requiresAuthToken: true,
+    pathVariableLabel: 'fetchMultipartUploadStatus path variables',
   },
   {
     controller: storageController,
@@ -546,6 +601,7 @@ const cloudWebEndpointContracts = [
     uploadPost: true,
     uploadHelper: 'requestBinaryUploadJson',
     requiresAuthToken: true,
+    pathVariableLabel: 'uploadMultipartPart path variables',
   },
   {
     controller: storageController,
@@ -556,6 +612,7 @@ const cloudWebEndpointContracts = [
     endpointNeedle: '/api/storage/files/multipart/',
     httpMethod: 'POST',
     requiresAuthToken: true,
+    pathVariableLabel: 'completeMultipartUpload path variables',
   },
   {
     controller: storageController,
@@ -566,6 +623,7 @@ const cloudWebEndpointContracts = [
     endpointNeedle: '/api/storage/files/multipart/',
     httpMethod: 'DELETE',
     requiresAuthToken: true,
+    pathVariableLabel: 'abortMultipartUpload path variables',
   },
   {
     controller: storageController,
@@ -575,6 +633,7 @@ const cloudWebEndpointContracts = [
     tsFunction: 'downloadStorageFile',
     endpointNeedle: '/api/storage/files/',
     requiresAuthToken: true,
+    pathVariableLabel: 'downloadStorageFile path variables',
   },
   {
     controller: storageController,
@@ -584,6 +643,7 @@ const cloudWebEndpointContracts = [
     tsFunction: 'fetchStorageFileAccessUrl',
     endpointNeedle: '/api/storage/files/',
     requiresAuthToken: true,
+    pathVariableLabel: 'fetchStorageFileAccessUrl path variables',
   },
   {
     controller: storageController,
@@ -604,6 +664,7 @@ const cloudWebEndpointContracts = [
     endpointNeedle: '/api/storage/nodes/',
     httpMethod: 'PUT',
     requiresAuthToken: true,
+    pathVariableLabel: 'renameStorageNode path variables',
   },
   {
     controller: storageController,
@@ -614,6 +675,7 @@ const cloudWebEndpointContracts = [
     endpointNeedle: '/api/storage/nodes/',
     httpMethod: 'PUT',
     requiresAuthToken: true,
+    pathVariableLabel: 'moveStorageNode path variables',
   },
   {
     controller: storageController,
@@ -634,6 +696,7 @@ const cloudWebEndpointContracts = [
     endpointNeedle: '/api/storage/nodes/',
     httpMethod: 'DELETE',
     requiresAuthToken: true,
+    pathVariableLabel: 'deleteStorageNode path variables',
   },
   {
     controller: storageController,
@@ -654,6 +717,7 @@ const cloudWebEndpointContracts = [
     endpointNeedle: '/api/storage/trash/',
     httpMethod: 'POST',
     requiresAuthToken: true,
+    pathVariableLabel: 'restoreStorageNode path variables',
   },
   {
     controller: storageController,
@@ -674,6 +738,7 @@ const cloudWebEndpointContracts = [
     endpointNeedle: '/api/storage/trash/',
     httpMethod: 'DELETE',
     requiresAuthToken: true,
+    pathVariableLabel: 'permanentlyDeleteStorageNode path variables',
   },
   {
     controller: storageController,
@@ -713,6 +778,7 @@ const cloudWebEndpointContracts = [
     endpointNeedle: '/api/share-links/',
     httpMethod: 'DELETE',
     requiresAuthToken: true,
+    pathVariableLabel: 'revokeShareLink path variables',
   },
   {
     controller: shareController,
@@ -723,6 +789,7 @@ const cloudWebEndpointContracts = [
     endpointNeedle: '/api/share-links/',
     requiresAuthToken: true,
     requiresShareAccessToken: true,
+    pathVariableLabel: 'fetchShareDetail path variables',
   },
   {
     controller: shareController,
@@ -734,6 +801,7 @@ const cloudWebEndpointContracts = [
     httpMethod: 'POST',
     requiresAuthToken: true,
     requiresShareAccessToken: true,
+    pathVariableLabel: 'saveShareToDrive path variables',
   },
   {
     controller: shareController,
@@ -744,6 +812,7 @@ const cloudWebEndpointContracts = [
     endpointNeedle: '/api/share-links/',
     requiresAuthToken: true,
     requiresShareAccessToken: true,
+    pathVariableLabel: 'fetchShareFileAccessUrl path variables',
   },
   {
     controller: shareController,
@@ -754,6 +823,7 @@ const cloudWebEndpointContracts = [
     endpointNeedle: '/api/share-links/',
     requiresAuthToken: true,
     requiresShareAccessToken: true,
+    pathVariableLabel: 'downloadShareFile path variables',
   },
   {
     controller: shareController,
@@ -765,6 +835,7 @@ const cloudWebEndpointContracts = [
     httpMethod: 'POST',
     requiresAuthToken: true,
     requiresShareAccessToken: true,
+    pathVariableLabel: 'downloadShareArchive path variables',
   },
   {
     controller: publicShareController,
@@ -773,6 +844,7 @@ const cloudWebEndpointContracts = [
     mappingPattern: /@GetMapping\("\/\{shareCode\}\/status"\)/,
     tsFunction: 'fetchPublicShareStatus',
     endpointNeedle: '/api/public/share-links/',
+    pathVariableLabel: 'fetchPublicShareStatus path variables',
   },
   {
     controller: publicShareController,
@@ -782,6 +854,7 @@ const cloudWebEndpointContracts = [
     tsFunction: 'verifySharePassword',
     endpointNeedle: '/api/public/share-links/',
     httpMethod: 'POST',
+    pathVariableLabel: 'verifySharePassword path variables',
   },
   {
     controller: appPackageController,
@@ -835,6 +908,7 @@ const cloudWebIdentityEndpointContracts = [
     httpMethod: 'DELETE',
     requiresAuthToken: true,
     requiresAuthorizationHeader: true,
+    pathVariableLabel: 'revokeIdentitySession path variables',
   },
   {
     controller: identityAuthController,
