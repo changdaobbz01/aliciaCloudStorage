@@ -116,6 +116,18 @@ function extractApiFunctionBody(functionName) {
   return apiSource.slice(openIndex + 1, closeIndex);
 }
 
+function extractApiFunctionSource(functionName) {
+  const functionPattern = new RegExp(`export\\s+function\\s+${escapeRegExp(functionName)}\\s*\\(`);
+  const match = functionPattern.exec(apiSource);
+  assert.ok(match, `${functionName} must exist in webApp/src/lib/api.ts`);
+
+  const openIndex = apiSource.indexOf('{', match.index);
+  assert.ok(openIndex > -1, `${functionName} must use a function body`);
+
+  const closeIndex = findMatching(apiSource, openIndex, '{', '}');
+  return apiSource.slice(match.index, closeIndex + 1);
+}
+
 function extractUrlSearchParamKeysForFunction(functionName) {
   const body = extractApiFunctionBody(functionName);
   const fields = [];
@@ -348,6 +360,21 @@ function assertApiFunctionUsesBlobRequest(functionName) {
   );
 }
 
+function assertApiFunctionSendsDisposition(functionName, defaultDisposition) {
+  const source = extractApiFunctionSource(functionName);
+  const body = extractApiFunctionBody(functionName);
+  const defaultPattern = new RegExp(
+    `disposition:\\s*'inline'\\s*\\|\\s*'attachment'\\s*=\\s*'${escapeRegExp(defaultDisposition)}'`,
+  );
+
+  assert.match(source, defaultPattern, `${functionName} must default disposition to ${defaultDisposition}`);
+  assert.match(
+    body,
+    /search\.set\('disposition',\s*disposition\)/,
+    `${functionName} must send the requested disposition query parameter`,
+  );
+}
+
 function assertApiFunctionUsesAuthToken(functionName) {
   const source = extractApiFunctionBody(functionName);
   assert.match(
@@ -470,6 +497,24 @@ function assertArchiveDownloadResponseContract(relativePath, methodName, label) 
   );
 }
 
+function assertAccessUrlDispositionContract(contract) {
+  const { parameters, body } = extractJavaMethodParts(contract.controller, contract.javaMethod);
+
+  assertApiFunctionSendsDisposition(contract.tsFunction, contract.defaultDisposition);
+  assert.match(
+    parameters,
+    /@RequestParam\s*\(\s*required\s*=\s*false,\s*defaultValue\s*=\s*"inline"\s*\)\s+String\s+disposition/,
+    `${contract.accessUrlDispositionLabel} must keep the backend disposition parameter`,
+  );
+  assert.match(
+    body,
+    /"attachment"\.equalsIgnoreCase\(disposition\)\s*\|\|\s*"download"\.equalsIgnoreCase\(disposition\)/,
+    `${contract.accessUrlDispositionLabel} must keep attachment and download disposition aliases`,
+  );
+  assert.match(body, /\bboolean\s+attachment\s*=/, `${contract.accessUrlDispositionLabel} must map disposition to attachment mode`);
+  assert.match(body, /\battachment\b[\s\S]*new SignedUrlResponse\(/, `${contract.accessUrlDispositionLabel} must use attachment mode for signed URLs`);
+}
+
 function assertCloudWebEndpointContract(contract) {
   assertControllerBasePath(contract.controller, contract.basePath);
   assertControllerMethodMapping(contract.controller, contract.javaMethod, contract.mappingPattern);
@@ -512,6 +557,10 @@ function assertCloudWebEndpointContract(contract) {
   if (contract.archiveDownloadLabel) {
     assertApiFunctionUsesBlobRequest(contract.tsFunction);
     assertArchiveDownloadResponseContract(contract.controller, contract.javaMethod, contract.archiveDownloadLabel);
+  }
+
+  if (contract.accessUrlDispositionLabel) {
+    assertAccessUrlDispositionContract(contract);
   }
 }
 
@@ -725,6 +774,8 @@ const cloudWebEndpointContracts = [
     endpointNeedle: '/api/storage/files/',
     requiresAuthToken: true,
     pathVariableLabel: 'fetchStorageFileAccessUrl path variables',
+    defaultDisposition: 'inline',
+    accessUrlDispositionLabel: 'fetchStorageFileAccessUrl disposition contract',
   },
   {
     controller: storageController,
@@ -895,6 +946,8 @@ const cloudWebEndpointContracts = [
     requiresAuthToken: true,
     requiresShareAccessToken: true,
     pathVariableLabel: 'fetchShareFileAccessUrl path variables',
+    defaultDisposition: 'attachment',
+    accessUrlDispositionLabel: 'fetchShareFileAccessUrl disposition contract',
   },
   {
     controller: shareController,

@@ -386,6 +386,24 @@ require_source_match \
     "Cloud web contract verifier must compare share archive download responses."
 
 require_source_match \
+    "cloud web contract verifier checks signed URL disposition" \
+    "webApp/scripts/verify-api-contracts.mjs" \
+    'assertApiFunctionSendsDisposition' \
+    "Cloud web contract verifier must ensure signed URL calls send disposition."
+
+require_source_match \
+    "cloud web contract verifier compares storage access URL disposition" \
+    "webApp/scripts/verify-api-contracts.mjs" \
+    'fetchStorageFileAccessUrl disposition contract' \
+    "Cloud web contract verifier must compare storage access URL disposition."
+
+require_source_match \
+    "cloud web contract verifier compares share access URL disposition" \
+    "webApp/scripts/verify-api-contracts.mjs" \
+    'fetchShareFileAccessUrl disposition contract' \
+    "Cloud web contract verifier must compare share access URL disposition."
+
+require_source_match \
     "cloud web contract verifier compares endpoint contracts" \
     "webApp/scripts/verify-api-contracts.mjs" \
     'cloudWebEndpointContracts' \
