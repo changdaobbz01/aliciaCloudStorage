@@ -286,6 +286,32 @@ function extractFormDataAppendKeysForFunction(functionName) {
   return fields;
 }
 
+function extractTemplatePathVariablesForFunction(functionName) {
+  const source = extractTsFunctionSource(functionName);
+  const fields = [];
+  const templatePattern = /`([^`]*\/api\/identity\/[^`]*)`/g;
+  let templateMatch;
+
+  while ((templateMatch = templatePattern.exec(source)) !== null) {
+    const interpolationPattern = /\$\{([^}]+)\}/g;
+    let interpolationMatch;
+
+    while ((interpolationMatch = interpolationPattern.exec(templateMatch[1])) !== null) {
+      const expression = interpolationMatch[1].trim();
+      const encodedIdentifierMatch = /^encodeURIComponent\(\s*([A-Za-z][A-Za-z0-9_]*)\s*\)$/.exec(expression);
+      const identifierMatch = /^([A-Za-z][A-Za-z0-9_]*)$/.exec(expression);
+
+      assert.ok(
+        encodedIdentifierMatch || identifierMatch,
+        `Unable to parse ${functionName} template path variable expression: ${expression}`,
+      );
+      fields.push((encodedIdentifierMatch ?? identifierMatch)[1]);
+    }
+  }
+
+  return fields;
+}
+
 function assertUserSiteApiEndpoint(functionName, endpointNeedle) {
   const source = extractTsFunctionSource(functionName);
   assert.ok(
@@ -315,6 +341,21 @@ function extractJavaMethodParts(relativePath, methodName) {
     parameters: source.slice(openIndex + 1, closeIndex),
     body: source.slice(bodyOpenIndex + 1, bodyCloseIndex),
   };
+}
+
+function extractPathVariablesForMethod(relativePath, methodName) {
+  const { parameters } = extractJavaMethodParts(relativePath, methodName);
+  const fields = [];
+  const pathVariablePattern =
+    /@PathVariable(?:\(([^)]*)\))?\s+[A-Za-z0-9_.<>?]+\s+([A-Za-z][A-Za-z0-9_]*)/g;
+  let match;
+
+  while ((match = pathVariablePattern.exec(parameters)) !== null) {
+    const explicitName = match[1]?.match(/(?:^|[,\s])(?:value\s*=\s*|name\s*=\s*)?"([^"]+)"/)?.[1];
+    fields.push(explicitName ?? match[2]);
+  }
+
+  return fields;
 }
 
 function assertUserSiteApiUsesAuthToken(functionName) {
@@ -370,6 +411,14 @@ function assertIdentityEndpointContract(contract) {
 
   if (contract.httpMethod) {
     assertUserSiteApiMethod(contract.tsFunction, contract.httpMethod);
+  }
+
+  if (contract.pathVariableLabel) {
+    assertSameFields(
+      contract.pathVariableLabel,
+      extractTemplatePathVariablesForFunction(contract.tsFunction),
+      extractPathVariablesForMethod(contract.controller, contract.javaMethod),
+    );
   }
 }
 
@@ -430,6 +479,7 @@ const identityEndpointContracts = [
     endpointNeedle: '`/api/identity/auth/sessions/${sessionId}`',
     httpMethod: 'DELETE',
     requiresAuthorizationHeader: true,
+    pathVariableLabel: 'revokeIdentitySession path variables',
   },
   {
     controller: `${identityControllerRoot}/IdentityAdminUserController.java`,
@@ -459,6 +509,7 @@ const identityEndpointContracts = [
     endpointNeedle: '`/api/identity/admin/users/${userId}/password`',
     httpMethod: 'PUT',
     requiresAuthorizationHeader: true,
+    pathVariableLabel: 'resetIdentityUserPassword path variables',
   },
   {
     controller: `${identityControllerRoot}/IdentityAdminApplicationRoleController.java`,
@@ -468,6 +519,7 @@ const identityEndpointContracts = [
     tsFunction: 'fetchIdentityApplicationRoles',
     endpointNeedle: '`/api/identity/admin/users/${userId}/app-roles`',
     requiresAuthorizationHeader: true,
+    pathVariableLabel: 'fetchIdentityApplicationRoles path variables',
   },
   {
     controller: `${identityControllerRoot}/IdentityAdminApplicationRoleController.java`,
@@ -478,6 +530,7 @@ const identityEndpointContracts = [
     endpointNeedle: '`/api/identity/admin/users/${userId}/app-roles/${encodeURIComponent(appCode)}`',
     httpMethod: 'PUT',
     requiresAuthorizationHeader: true,
+    pathVariableLabel: 'updateIdentityApplicationRole path variables',
   },
   {
     controller: `${identityControllerRoot}/IdentityAdminAuditLogController.java`,

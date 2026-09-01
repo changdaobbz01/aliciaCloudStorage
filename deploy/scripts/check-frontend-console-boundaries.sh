@@ -1586,6 +1586,42 @@ require_source_match \
     "Identity console contract verifier must compare query parameters."
 
 require_source_match \
+    "identity console contract verifier reads frontend path variables" \
+    "deploy/scripts/verify-identity-console-api-contracts.mjs" \
+    'extractTemplatePathVariablesForFunction' \
+    "Identity console contract verifier must read frontend path variables."
+
+require_source_match \
+    "identity console contract verifier reads backend path variables" \
+    "deploy/scripts/verify-identity-console-api-contracts.mjs" \
+    'extractPathVariablesForMethod' \
+    "Identity console contract verifier must read backend path variables."
+
+require_source_match \
+    "identity console contract verifier compares session path variables" \
+    "deploy/scripts/verify-identity-console-api-contracts.mjs" \
+    'revokeIdentitySession path variables' \
+    "Identity console contract verifier must compare session path variables."
+
+require_source_match \
+    "identity console contract verifier compares password reset path variables" \
+    "deploy/scripts/verify-identity-console-api-contracts.mjs" \
+    'resetIdentityUserPassword path variables' \
+    "Identity console contract verifier must compare password reset path variables."
+
+require_source_match \
+    "identity console contract verifier compares app role list path variables" \
+    "deploy/scripts/verify-identity-console-api-contracts.mjs" \
+    'fetchIdentityApplicationRoles path variables' \
+    "Identity console contract verifier must compare app role list path variables."
+
+require_source_match \
+    "identity console contract verifier compares app role path variables" \
+    "deploy/scripts/verify-identity-console-api-contracts.mjs" \
+    'updateIdentityApplicationRole path variables' \
+    "Identity console contract verifier must compare app role path variables."
+
+require_source_match \
     "identity console contract verifier reads FormData fields" \
     "deploy/scripts/verify-identity-console-api-contracts.mjs" \
     'extractFormDataAppendKeysForFunction' \
