@@ -2,6 +2,7 @@ import { Download, Trash2, Upload } from 'lucide-react';
 import { Alert, Button, Popconfirm, Space, Spin, Typography } from 'antd';
 import type { AppPackageInfo } from '../types';
 import { Icon } from './Icon';
+import { normalizeAppDownloadPath } from '../features/drive/driveShared';
 
 type AppPackagePanelProps = {
   packageInfo: AppPackageInfo | null;
@@ -40,7 +41,7 @@ export function AppPackagePanel({
   onDeletePackage,
 }: AppPackagePanelProps) {
   const packageAvailable = packageInfo?.available ?? false;
-  const downloadUrl = packageInfo?.downloadUrl ?? '/api/app-package/download/current';
+  const downloadUrl = normalizeAppDownloadPath(packageInfo?.downloadUrl);
   const versionName = packageInfo?.versionName?.trim() || '未填写';
   const releaseNotes = packageInfo?.releaseNotes?.trim() || '当前安装包尚未填写更新说明。';
 

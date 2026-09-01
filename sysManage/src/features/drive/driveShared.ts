@@ -48,6 +48,21 @@ export function resolveAvatarSrc(user: User | null | undefined) {
   return user.avatarUrl;
 }
 
+export function normalizeAppDownloadPath(downloadPath = APP_DOWNLOAD_PUBLIC_PATH) {
+  const currentOrigin = typeof window === 'undefined' ? 'https://alicia.local' : window.location.origin;
+
+  try {
+    const url = new URL(downloadPath || APP_DOWNLOAD_PUBLIC_PATH, currentOrigin);
+    if (url.origin !== currentOrigin || url.pathname !== APP_DOWNLOAD_PUBLIC_PATH) {
+      return APP_DOWNLOAD_PUBLIC_PATH;
+    }
+  } catch {
+    return APP_DOWNLOAD_PUBLIC_PATH;
+  }
+
+  return APP_DOWNLOAD_PUBLIC_PATH;
+}
+
 export function createEmptyAppPackageInfo(): AppPackageInfo {
   return {
     available: false,

@@ -119,6 +119,8 @@ const consolePageSource = readFileSync(new URL('../src/pages/CloudConsolePage.ts
 const cloudUsersViewSource = readFileSync(new URL('../src/features/drive/CloudUsersView.tsx', import.meta.url), 'utf8');
 const driveOperationsViewSource = readFileSync(new URL('../src/features/drive/DriveOperationsView.tsx', import.meta.url), 'utf8');
 const driveAppPackageViewSource = readFileSync(new URL('../src/features/drive/DriveAppPackageView.tsx', import.meta.url), 'utf8');
+const driveSharedSource = readFileSync(new URL('../src/features/drive/driveShared.ts', import.meta.url), 'utf8');
+const appPackagePanelSource = readFileSync(new URL('../src/components/AppPackagePanel.tsx', import.meta.url), 'utf8');
 const consoleStyles = readFileSync(new URL('../src/index.css', import.meta.url), 'utf8');
 const appSource = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
 const apiSource = readFileSync(new URL('../src/lib/api.ts', import.meta.url), 'utf8');
@@ -226,6 +228,21 @@ assertIncludesInOrder(
     "requestJson<AppPackageInfo>('/api/app-package')",
   ],
   'cloud console APK view may read the public CloudStorageApi app package contract',
+);
+assert.match(
+  driveSharedSource,
+  /export function normalizeAppDownloadPath\(downloadPath = APP_DOWNLOAD_PUBLIC_PATH\)/,
+  'cloud console app package download URL resolver must normalize download paths',
+);
+assert.match(
+  driveSharedSource,
+  /url\.origin !== currentOrigin \|\| url\.pathname !== APP_DOWNLOAD_PUBLIC_PATH/,
+  'cloud console app package download URL resolver must stay on the public package endpoint',
+);
+assert.match(
+  appPackagePanelSource,
+  /const downloadUrl = normalizeAppDownloadPath\(packageInfo\?\.downloadUrl\);/,
+  'cloud console app package panel must use the normalized public download path',
 );
 assertIncludesInOrder(
   apiSource,

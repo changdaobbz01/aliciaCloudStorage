@@ -530,6 +530,24 @@ require_source_match \
     "Cloud console APK download link must use the public CloudStorageApi package endpoint."
 
 require_source_match \
+    "cloud console normalizes app package download paths" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console app package download URL resolver must normalize download paths' \
+    "Cloud console boundary verifier must normalize app package download URLs."
+
+require_source_match \
+    "cloud console keeps app package downloads on public endpoint" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console app package download URL resolver must stay on the public package endpoint' \
+    "Cloud console boundary verifier must keep app package downloads on the public package endpoint."
+
+require_source_match \
+    "cloud console app package panel uses normalized download path" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console app package panel must use the normalized public download path' \
+    "Cloud console app package panel must use the normalized public download path."
+
+require_source_match \
     "cloud console API allowlist is enforced" \
     "sysManage/scripts/verify-console-boundary.mjs" \
     'assertApiPathsMatchAllowedPrefixes' \
