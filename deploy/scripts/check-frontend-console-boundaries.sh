@@ -194,6 +194,24 @@ require_source_match \
     "Cloud web boundary verifier must enforce API ownership allowlists."
 
 require_source_match \
+    "cloud web API allowlist scans source files" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloudWebApiScopeFiles = files' \
+    "Cloud web boundary verifier must scan all source files for API ownership."
+
+require_source_match \
+    "cloud web API allowlist reports source scope" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web source' \
+    "Cloud web boundary verifier must report full-source API ownership failures."
+
+require_source_match \
+    "cloud web API allowlist separates returnTo sentinels" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'isReturnPathBoundarySentinel' \
+    "Cloud web boundary verifier must keep returnTo sentinels out of API ownership matches."
+
+require_source_match \
     "cloud web API allowlist keeps personal storage ownership" \
     "webApp/scripts/verify-client-boundary.mjs" \
     "'/api/storage/'" \

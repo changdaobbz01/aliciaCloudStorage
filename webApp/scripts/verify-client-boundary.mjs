@@ -77,6 +77,7 @@ function matchesOwnedApiPrefix(path, allowedPrefix) {
 function assertApiPathsMatchAllowedPrefixes(fileUrls, allowedPrefixes, label) {
   const violations = fileUrls
     .flatMap((fileUrl) => extractApiPathLiterals(fileUrl))
+    .filter(({ path, relativePath }) => !isReturnPathBoundarySentinel(relativePath, path))
     .filter(({ path }) => !allowedPrefixes.some((allowedPrefix) => matchesOwnedApiPrefix(path, allowedPrefix)));
 
   assert.deepEqual(
@@ -88,7 +89,21 @@ function assertApiPathsMatchAllowedPrefixes(fileUrls, allowedPrefixes, label) {
   );
 }
 
+function isReturnPathBoundarySentinel(relativePath, path) {
+  return relativePath === 'lib/unifiedLogin.ts' && (path === '/api' || path === '/api/');
+}
+
 const files = listSourceFiles(srcRoot);
+const cloudWebApiScopeFiles = files;
+const cloudWebAllowedApiPrefixes = [
+  '/api/health',
+  '/api/cloud-profile/',
+  '/api/identity/auth/',
+  '/api/storage/',
+  '/api/share-links',
+  '/api/public/share-links',
+  '/api/app-package',
+];
 
 for (const fileUrl of files) {
   const relativePath = relative(srcRootPath, fileURLToPath(fileUrl)).replaceAll('\\', '/');
@@ -100,17 +115,9 @@ for (const fileUrl of files) {
 }
 
 assertApiPathsMatchAllowedPrefixes(
-  [new URL('../src/lib/api.ts', import.meta.url), new URL('../src/features/drive/driveShared.ts', import.meta.url)],
-  [
-    '/api/health',
-    '/api/cloud-profile/',
-    '/api/identity/auth/',
-    '/api/storage/',
-    '/api/share-links',
-    '/api/public/share-links',
-    '/api/app-package',
-  ],
-  'cloud web',
+  cloudWebApiScopeFiles,
+  cloudWebAllowedApiPrefixes,
+  'cloud web source',
 );
 
 for (const entry of readdirSync(srcRoot, { recursive: true })) {
