@@ -728,6 +728,24 @@ require_source_match \
     "Cloud console boundary verifier must pin quota updates to CloudStorageApi cloud-users quota."
 
 require_source_match \
+    "cloud console quota modal keeps GiB display" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console quota modal must present backend byte quotas as GiB' \
+    "Cloud console boundary verifier must keep quota modal units readable."
+
+require_source_match \
+    "cloud console quota submit writes backend bytes" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console quota submit must convert GiB input to backend bytes' \
+    "Cloud console boundary verifier must keep quota writes in backend byte units."
+
+require_source_match \
+    "cloud console quota submit rejects below usage" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console quota submit must reject quotas below current usage' \
+    "Cloud console boundary verifier must reject quota writes below current usage."
+
+require_source_match \
     "cloud console operations overview contract is pinned" \
     "sysManage/scripts/verify-console-boundary.mjs" \
     'cloud console operations view must load CloudStorageApi operations overview' \

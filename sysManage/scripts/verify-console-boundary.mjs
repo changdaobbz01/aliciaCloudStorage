@@ -198,6 +198,34 @@ assertIncludesInOrder(
   'cloud console quota mutations must use CloudStorageApi cloud-users quota contract',
 );
 assertIncludesInOrder(
+  cloudUsersHookSource,
+  [
+    'function openQuotaModal(user: User) {',
+    'quotaForm.setFieldsValue({',
+    'storageQuotaGb: bytesToGigabytes(user.storageQuotaBytes),',
+  ],
+  'cloud console quota modal must present backend byte quotas as GiB',
+);
+assertIncludesInOrder(
+  cloudUsersHookSource,
+  [
+    'const storageQuotaBytes = gigabytesToBytes(values.storageQuotaGb);',
+    'if (storageQuotaBytes < quotaTarget.usedBytes) {',
+    'const updatedUser = await updateUserStorageQuota(quotaTarget.id, { storageQuotaBytes }, authToken);',
+  ],
+  'cloud console quota submit must convert GiB input to backend bytes',
+);
+assertIncludesInOrder(
+  cloudUsersHookSource,
+  [
+    'if (storageQuotaBytes < quotaTarget.usedBytes) {',
+    '最大额度不能低于当前已用空间',
+    'return;',
+    'setQuotaSaving(true);',
+  ],
+  'cloud console quota submit must reject quotas below current usage',
+);
+assertIncludesInOrder(
   apiSource,
   [
     'export function fetchAdminCloudOperationsOverview(token: string)',
