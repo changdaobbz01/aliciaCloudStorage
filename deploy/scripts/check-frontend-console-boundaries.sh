@@ -464,6 +464,24 @@ require_source_match \
     "Cloud web must treat post-logout auth-expired events as logout/no-op."
 
 require_source_match \
+    "cloud web profile sessions load selected revoked filter" \
+    "webApp/scripts/verify-session-sync.mjs" \
+    'cloud web profile sessions must load current identity sessions with the selected revoked filter' \
+    "Cloud web profile sessions must load IdentityApi sessions with the selected revoked filter."
+
+require_source_match \
+    "cloud web profile session toggle keeps selected state" \
+    "webApp/scripts/verify-session-sync.mjs" \
+    'cloud web profile sessions include-revoked toggle must reload with the selected state' \
+    "Cloud web profile session toggle must preserve the selected revoked filter."
+
+require_source_match \
+    "cloud web profile session revocation keeps selected state" \
+    "webApp/scripts/verify-session-sync.mjs" \
+    'cloud web profile session revocation must preserve the current revoked filter' \
+    "Cloud web profile session revocation must preserve the selected revoked filter."
+
+require_source_match \
     "cloud console reads current cloud profile" \
     "sysManage/src/lib/api.ts" \
     '/api/cloud-profile/me' \

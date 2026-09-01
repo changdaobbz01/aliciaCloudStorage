@@ -6,6 +6,7 @@ const api = readFileSync(new URL('../src/lib/api.ts', import.meta.url), 'utf8');
 const sessionContext = readFileSync(new URL('../src/context/session-context.tsx', import.meta.url), 'utf8');
 const protectedRoute = readFileSync(new URL('../src/components/protected-route.tsx', import.meta.url), 'utf8');
 const unifiedLogin = readFileSync(new URL('../src/lib/unifiedLogin.ts', import.meta.url), 'utf8');
+const driveProfileSettings = readFileSync(new URL('../src/features/drive/hooks/useDriveProfileSettings.ts', import.meta.url), 'utf8');
 
 function findMatching(source, openIndex, openChar, closeChar) {
   let depth = 0;
@@ -49,6 +50,16 @@ function assertLocalLogoutFlow(source, functionName, label) {
     /resetSessionState\(\);[\s\S]*notifySessionChanged\('logout'\)/,
     `${label} must clear the local session before notifying logout`,
   );
+}
+
+function assertIncludesInOrder(source, snippets, message) {
+  let searchFrom = 0;
+
+  for (const snippet of snippets) {
+    const foundAt = source.indexOf(snippet, searchFrom);
+    assert.notEqual(foundAt, -1, `${message}: missing ${snippet}`);
+    searchFrom = foundAt + snippet.length;
+  }
 }
 
 assert.match(
@@ -179,6 +190,35 @@ assert.match(
   protectedRoute,
   /loginRedirectReason/,
   'ProtectedRoute must pass the session expiry reason to unified login',
+);
+assertIncludesInOrder(
+  driveProfileSettings,
+  [
+    'async function loadIdentitySessions(nextIncludeRevoked = includeRevokedSessions) {',
+    'if (!authToken) {',
+    'setIdentitySessionsLoading(true);',
+    'setIdentitySessions(await fetchIdentitySessions(authToken, nextIncludeRevoked));',
+  ],
+  'cloud web profile sessions must load current identity sessions with the selected revoked filter',
+);
+assertIncludesInOrder(
+  driveProfileSettings,
+  [
+    'function changeIncludeRevokedSessions(checked: boolean) {',
+    'setIncludeRevokedSessions(checked);',
+    'void loadIdentitySessions(checked);',
+  ],
+  'cloud web profile sessions include-revoked toggle must reload with the selected state',
+);
+assertIncludesInOrder(
+  driveProfileSettings,
+  [
+    'async function revokeSession(sessionId: number) {',
+    'await revokeIdentitySession(authToken, sessionId);',
+    'message.success',
+    'await loadIdentitySessions(includeRevokedSessions);',
+  ],
+  'cloud web profile session revocation must preserve the current revoked filter',
 );
 
 for (const reason of ['profile', 'logout', 'expired']) {
