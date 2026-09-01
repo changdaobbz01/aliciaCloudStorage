@@ -7,6 +7,50 @@ const sessionContext = readFileSync(new URL('../src/context/session-context.tsx'
 const protectedRoute = readFileSync(new URL('../src/components/protected-route.tsx', import.meta.url), 'utf8');
 const unifiedLogin = readFileSync(new URL('../src/lib/unifiedLogin.ts', import.meta.url), 'utf8');
 
+function findMatching(source, openIndex, openChar, closeChar) {
+  let depth = 0;
+
+  for (let index = openIndex; index < source.length; index += 1) {
+    if (source[index] === openChar) {
+      depth += 1;
+    } else if (source[index] === closeChar) {
+      depth -= 1;
+      if (depth === 0) {
+        return index;
+      }
+    }
+  }
+
+  throw new Error(`No matching ${closeChar} found.`);
+}
+
+function extractFunctionSource(source, functionName) {
+  const marker = `function ${functionName}(`;
+  const startIndex = source.indexOf(marker);
+  assert.ok(startIndex > -1, `${functionName} must exist`);
+
+  const openIndex = source.indexOf('{', startIndex);
+  assert.ok(openIndex > -1, `${functionName} must use a function body`);
+
+  const closeIndex = findMatching(source, openIndex, '{', '}');
+  return source.slice(openIndex + 1, closeIndex);
+}
+
+function assertLocalLogoutFlow(source, functionName, label) {
+  const functionSource = extractFunctionSource(source, functionName);
+
+  assert.match(
+    functionSource,
+    /await logoutAuthToken\(token,\s*refreshToken\)[\s\S]*catch\s*\{/,
+    `${label} must ignore server logout failures before local logout`,
+  );
+  assert.match(
+    functionSource,
+    /resetSessionState\(\);[\s\S]*notifySessionChanged\('logout'\)/,
+    `${label} must clear the local session before notifying logout`,
+  );
+}
+
 assert.match(
   session,
   /SESSION_REVISION_STORAGE_KEY = 'alicia-cloud-storage\.session-revision'/,
@@ -144,5 +188,7 @@ for (const reason of ['profile', 'logout', 'expired']) {
     `SessionProvider must notify ${reason} changes`,
   );
 }
+
+assertLocalLogoutFlow(sessionContext, 'logoutCurrentSession', 'cloud console logout');
 
 console.log('[OK] cloud console browser session sync boundary verified');

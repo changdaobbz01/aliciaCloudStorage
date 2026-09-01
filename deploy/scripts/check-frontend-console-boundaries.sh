@@ -410,6 +410,18 @@ require_source_match \
     "Cloud web must not clear sessions for transient API failures."
 
 require_source_match \
+    "cloud web logout ignores server failures" \
+    "webApp/scripts/verify-session-sync.mjs" \
+    'server logout failures before local logout' \
+    "Cloud web logout must keep local session cleanup independent of backend logout."
+
+require_source_match \
+    "cloud web logout clears before broadcast" \
+    "webApp/scripts/verify-session-sync.mjs" \
+    'clear the local session before notifying logout' \
+    "Cloud web logout must clear local session state before broadcasting logout."
+
+require_source_match \
     "cloud web seeds cached user from identity session" \
     "webApp/scripts/verify-session-sync.mjs" \
     'cloud-safe cached user from identity login sessions' \
@@ -870,6 +882,18 @@ require_source_match \
     "sysManage/scripts/verify-session-sync.mjs" \
     'only expire local sessions on authentication failures' \
     "Cloud console must not clear sessions for transient API failures."
+
+require_source_match \
+    "cloud console logout ignores server failures" \
+    "sysManage/scripts/verify-session-sync.mjs" \
+    'server logout failures before local logout' \
+    "Cloud console logout must keep local session cleanup independent of backend logout."
+
+require_source_match \
+    "cloud console logout clears before broadcast" \
+    "sysManage/scripts/verify-session-sync.mjs" \
+    'clear the local session before notifying logout' \
+    "Cloud console logout must clear local session state before broadcasting logout."
 
 require_source_match \
     "cloud console seeds cached user from identity session" \
