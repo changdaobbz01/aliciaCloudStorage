@@ -334,6 +334,20 @@ function assertApiUploadFunctionUsesPost(functionName, helperName = 'requestUplo
   assert.match(apiSource, /xhr\.open\('POST', url\)/, 'webApp upload request helpers must use POST');
 }
 
+function assertApiFunctionUsesBlobRequest(functionName) {
+  assert.match(extractApiFunctionBody(functionName), /return requestBlob\(/, `${functionName} must use requestBlob`);
+  assert.match(
+    apiSource,
+    /readBlobWithProgress\(response,\s*options\?\.onProgress\)/,
+    'webApp requestBlob must read downloads with progress callbacks',
+  );
+  assert.match(
+    apiSource,
+    /parseFileName\(response\.headers\.get\('content-disposition'\)\)/,
+    'webApp requestBlob must parse filenames from Content-Disposition',
+  );
+}
+
 function assertApiFunctionUsesAuthToken(functionName) {
   const source = extractApiFunctionBody(functionName);
   assert.match(
@@ -400,6 +414,62 @@ function assertControllerMethodReceivesShareAccessToken(relativePath, methodName
   assert.match(body, /\bshareAccessToken\b/, `${methodName} must pass the share access token to the service layer`);
 }
 
+function extractJavaMethodDeclarationPrefix(relativePath, methodName) {
+  const source = readRepoFile(relativePath);
+  const methodIndex = source.indexOf(`${methodName}(`);
+  assert.ok(methodIndex > -1, `${methodName} must exist in ${relativePath}`);
+
+  return source.slice(Math.max(0, methodIndex - 220), methodIndex + methodName.length);
+}
+
+function assertDownloadResponseBuilderContract() {
+  const source = readRepoFile('CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/controller/DownloadResponseBuilder.java');
+  assert.match(
+    source,
+    /static ResponseEntity<InputStreamResource> buildFileDownload\(/,
+    'DownloadResponseBuilder must return an InputStreamResource response',
+  );
+  assert.match(source, /HttpHeaders\.ACCEPT_RANGES/, 'DownloadResponseBuilder must advertise byte range support');
+  assert.match(source, /HttpHeaders\.CONTENT_RANGE/, 'DownloadResponseBuilder must keep partial content range headers');
+  assert.match(source, /\.contentLength\(downloadPayload\.contentLength\(\)\)/, 'DownloadResponseBuilder must send content length');
+  assert.match(
+    source,
+    /HttpHeaders\.CONTENT_DISPOSITION[\s\S]*ContentDisposition\.attachment\(\)[\s\S]*\.filename\(downloadPayload\.fileName\(\),\s*StandardCharsets\.UTF_8\)/,
+    'DownloadResponseBuilder must send UTF-8 attachment filenames',
+  );
+}
+
+function assertFileDownloadResponseContract(relativePath, methodName, label) {
+  const declaration = extractJavaMethodDeclarationPrefix(relativePath, methodName);
+  const { body } = extractJavaMethodParts(relativePath, methodName);
+
+  assert.match(
+    declaration,
+    /ResponseEntity<InputStreamResource>\s+[A-Za-z][A-Za-z0-9_]*$/,
+    `${label} must return an InputStreamResource response`,
+  );
+  assert.match(body, /DownloadResponseBuilder\.buildFileDownload\(/, `${label} must use DownloadResponseBuilder`);
+  assertDownloadResponseBuilderContract();
+}
+
+function assertArchiveDownloadResponseContract(relativePath, methodName, label) {
+  const declaration = extractJavaMethodDeclarationPrefix(relativePath, methodName);
+  const { body } = extractJavaMethodParts(relativePath, methodName);
+
+  assert.match(
+    declaration,
+    /ResponseEntity<StreamingResponseBody>\s+[A-Za-z][A-Za-z0-9_]*$/,
+    `${label} must return a streaming archive response`,
+  );
+  assert.match(body, /MediaType\.parseMediaType\("application\/zip"\)/, `${label} must return a zip archive`);
+  assert.match(body, /\.contentLength\(archivePayload\.contentLength\(\)\)/, `${label} must send archive content length`);
+  assert.match(
+    body,
+    /HttpHeaders\.CONTENT_DISPOSITION[\s\S]*ContentDisposition\.attachment\(\)[\s\S]*\.filename\(archivePayload\.fileName\(\),\s*StandardCharsets\.UTF_8\)/,
+    `${label} must send UTF-8 attachment filenames`,
+  );
+}
+
 function assertCloudWebEndpointContract(contract) {
   assertControllerBasePath(contract.controller, contract.basePath);
   assertControllerMethodMapping(contract.controller, contract.javaMethod, contract.mappingPattern);
@@ -432,6 +502,16 @@ function assertCloudWebEndpointContract(contract) {
       extractTemplatePathVariablesForFunction(contract.tsFunction),
       extractPathVariablesForMethod(contract.controller, contract.javaMethod),
     );
+  }
+
+  if (contract.fileDownloadLabel) {
+    assertApiFunctionUsesBlobRequest(contract.tsFunction);
+    assertFileDownloadResponseContract(contract.controller, contract.javaMethod, contract.fileDownloadLabel);
+  }
+
+  if (contract.archiveDownloadLabel) {
+    assertApiFunctionUsesBlobRequest(contract.tsFunction);
+    assertArchiveDownloadResponseContract(contract.controller, contract.javaMethod, contract.archiveDownloadLabel);
   }
 }
 
@@ -634,6 +714,7 @@ const cloudWebEndpointContracts = [
     endpointNeedle: '/api/storage/files/',
     requiresAuthToken: true,
     pathVariableLabel: 'downloadStorageFile path variables',
+    fileDownloadLabel: 'downloadStorageFile binary response',
   },
   {
     controller: storageController,
@@ -654,6 +735,7 @@ const cloudWebEndpointContracts = [
     endpointNeedle: '/api/storage/nodes/archive',
     httpMethod: 'POST',
     requiresAuthToken: true,
+    archiveDownloadLabel: 'downloadStorageArchive binary response',
   },
   {
     controller: storageController,
@@ -824,6 +906,7 @@ const cloudWebEndpointContracts = [
     requiresAuthToken: true,
     requiresShareAccessToken: true,
     pathVariableLabel: 'downloadShareFile path variables',
+    fileDownloadLabel: 'downloadShareFile binary response',
   },
   {
     controller: shareController,
@@ -836,6 +919,7 @@ const cloudWebEndpointContracts = [
     requiresAuthToken: true,
     requiresShareAccessToken: true,
     pathVariableLabel: 'downloadShareArchive path variables',
+    archiveDownloadLabel: 'downloadShareArchive binary response',
   },
   {
     controller: publicShareController,

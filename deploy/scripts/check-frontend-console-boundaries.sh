@@ -350,6 +350,42 @@ require_source_match \
     "Cloud web contract verifier must compare identity session path variables."
 
 require_source_match \
+    "cloud web contract verifier checks blob downloads" \
+    "webApp/scripts/verify-api-contracts.mjs" \
+    'assertApiFunctionUsesBlobRequest' \
+    "Cloud web contract verifier must ensure downloads use the blob helper."
+
+require_source_match \
+    "cloud web contract verifier checks download headers" \
+    "webApp/scripts/verify-api-contracts.mjs" \
+    'assertDownloadResponseBuilderContract' \
+    "Cloud web contract verifier must verify file download response headers."
+
+require_source_match \
+    "cloud web contract verifier compares storage file download responses" \
+    "webApp/scripts/verify-api-contracts.mjs" \
+    'downloadStorageFile binary response' \
+    "Cloud web contract verifier must compare storage file download responses."
+
+require_source_match \
+    "cloud web contract verifier compares storage archive download responses" \
+    "webApp/scripts/verify-api-contracts.mjs" \
+    'downloadStorageArchive binary response' \
+    "Cloud web contract verifier must compare storage archive download responses."
+
+require_source_match \
+    "cloud web contract verifier compares share file download responses" \
+    "webApp/scripts/verify-api-contracts.mjs" \
+    'downloadShareFile binary response' \
+    "Cloud web contract verifier must compare share file download responses."
+
+require_source_match \
+    "cloud web contract verifier compares share archive download responses" \
+    "webApp/scripts/verify-api-contracts.mjs" \
+    'downloadShareArchive binary response' \
+    "Cloud web contract verifier must compare share archive download responses."
+
+require_source_match \
     "cloud web contract verifier compares endpoint contracts" \
     "webApp/scripts/verify-api-contracts.mjs" \
     'cloudWebEndpointContracts' \
