@@ -806,6 +806,48 @@ require_source_match \
     "Cloud console boundary verifier must pin APK uploads to CloudStorageApi admin app package."
 
 require_source_match \
+    "cloud console APK picker restricts Android packages" \
+    "sysManage/src/features/drive/DriveAppPackageUploadModal.tsx" \
+    'accept="\.apk,application/vnd\.android\.package-archive"' \
+    "Cloud console APK upload picker must restrict Android packages."
+
+require_source_match \
+    "cloud console APK verifier checks picker restrictions" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console APK upload modal must restrict picker to Android package files' \
+    "Cloud console boundary verifier must keep APK picker restricted to Android packages."
+
+require_source_match \
+    "cloud console APK verifier checks version bounds" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console APK upload modal must require a bounded version name' \
+    "Cloud console boundary verifier must require bounded APK version names."
+
+require_source_match \
+    "cloud console APK verifier checks release note bounds" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console APK upload modal must require bounded release notes' \
+    "Cloud console boundary verifier must require bounded APK release notes."
+
+require_source_match \
+    "cloud console APK verifier rejects non-APK drafts" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console APK upload hook must reject non-APK files before storing the draft' \
+    "Cloud console boundary verifier must reject non-APK upload drafts."
+
+require_source_match \
+    "cloud console APK verifier syncs upload state" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console APK upload must refresh admin and public package state together' \
+    "Cloud console boundary verifier must refresh APK admin and public state together."
+
+require_source_match \
+    "cloud console APK verifier syncs delete state" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console APK delete must clear admin and public package state together' \
+    "Cloud console boundary verifier must clear APK admin and public state together."
+
+require_source_match \
     "cloud console header refresh keeps admin gate" \
     "sysManage/scripts/verify-console-boundary.mjs" \
     'cloud console header refresh must not load admin view data without cloud admin access' \

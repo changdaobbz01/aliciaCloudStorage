@@ -148,6 +148,7 @@ const consolePageSource = readFileSync(new URL('../src/pages/CloudConsolePage.ts
 const cloudUsersViewSource = readFileSync(new URL('../src/features/drive/CloudUsersView.tsx', import.meta.url), 'utf8');
 const driveOperationsViewSource = readFileSync(new URL('../src/features/drive/DriveOperationsView.tsx', import.meta.url), 'utf8');
 const driveAppPackageViewSource = readFileSync(new URL('../src/features/drive/DriveAppPackageView.tsx', import.meta.url), 'utf8');
+const appPackageUploadModalSource = readFileSync(new URL('../src/features/drive/DriveAppPackageUploadModal.tsx', import.meta.url), 'utf8');
 const driveSharedSource = readFileSync(new URL('../src/features/drive/driveShared.ts', import.meta.url), 'utf8');
 const appPackagePanelSource = readFileSync(new URL('../src/components/AppPackagePanel.tsx', import.meta.url), 'utf8');
 const consoleStyles = readFileSync(new URL('../src/index.css', import.meta.url), 'utf8');
@@ -349,6 +350,52 @@ assertIncludesInOrder(
   ],
   'cloud console APK upload must use CloudStorageApi admin app package',
 );
+assert.match(
+  appPackageUploadModalSource,
+  /accept="\.apk,application\/vnd\.android\.package-archive"/,
+  'cloud console APK upload modal must restrict picker to Android package files',
+);
+assertIncludesInOrder(
+  appPackageUploadModalSource,
+  [
+    'name="versionName"',
+    "{ required: true, message: '请填写更新版本。' }",
+    "{ max: 64, message: '更新版本长度不能超过 64 个字符。' }",
+  ],
+  'cloud console APK upload modal must require a bounded version name',
+);
+assertIncludesInOrder(
+  appPackageUploadModalSource,
+  [
+    'name="releaseNotes"',
+    "{ required: true, message: '请填写更新说明。' }",
+    "{ max: 4000, message: '更新说明长度不能超过 4000 个字符。' }",
+  ],
+  'cloud console APK upload modal must require bounded release notes',
+);
+assertIncludesInOrder(
+  appPackageHookSource,
+  [
+    'function handleAppPackageFileChange(event: ChangeEvent<HTMLInputElement>)',
+    "event.target.value = '';",
+    "if (!selectedFile.name.toLowerCase().endsWith('.apk'))",
+    "message.error('请上传 APK 安装包文件。');",
+    'setSelectedAppPackageFile(selectedFile);',
+  ],
+  'cloud console APK upload hook must reject non-APK files before storing the draft',
+);
+assertIncludesInOrder(
+  appPackageHookSource,
+  [
+    'const nextPackageInfo = await uploadAdminAppPackage(',
+    'values.versionName.trim(),',
+    'values.releaseNotes.trim(),',
+    'setAppPackageInfo(nextPackageInfo);',
+    'setPublicAppPackageInfo(nextPackageInfo);',
+    'setPublicAppPackageError(null);',
+  ],
+  'cloud console APK upload must refresh admin and public package state together',
+);
 assertIncludesInOrder(
   apiSource,
   [
@@ -357,6 +404,16 @@ assertIncludesInOrder(
     "method: 'DELETE'",
   ],
   'cloud console APK deletion must use CloudStorageApi admin app package',
+);
+assertIncludesInOrder(
+  appPackageHookSource,
+  [
+    'await deleteAdminAppPackage(authToken);',
+    'setAppPackageInfo(createEmptyAppPackageInfo());',
+    'setPublicAppPackageInfo(createEmptyAppPackageInfo());',
+    'setPublicAppPackageError(null);',
+  ],
+  'cloud console APK delete must clear admin and public package state together',
 );
 assertIncludesInOrder(
   consolePageSource,
