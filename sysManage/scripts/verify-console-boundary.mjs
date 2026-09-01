@@ -12,7 +12,8 @@ const forbiddenPatterns = [
   { pattern: /\/api\/storage\//, reason: 'personal file operations belong in webApp' },
   { pattern: /\/api\/share-links\//, reason: 'personal share operations belong in webApp' },
   { pattern: /\/api\/public\/share-links\//, reason: 'public share pages belong in webApp' },
-  { pattern: /\b(IdentityAudit|IdentityApplicationRole|UpdateIdentityApplicationRole)[A-Za-z0-9_]*\b/, reason: 'identity admin types belong in mainSite/userSite' },
+  { pattern: /\b(IdentityAudit|IdentityApplicationRole|CreateIdentityUser|ResetIdentityUserPassword|UpdateIdentityApplicationRole)[A-Za-z0-9_]*\b/, reason: 'identity admin types belong in mainSite/userSite' },
+  { pattern: /\b(fetchIdentityUsers|createIdentityUser|resetIdentityUserPassword|fetchIdentityApplicationRoles|updateIdentityApplicationRole|fetchIdentityAuditLogs)\b/, reason: 'identity admin API calls belong in mainSite/userSite' },
   { pattern: /\b(StorageViewMode|StorageFileCategory|StorageNodeFilter|StorageNodeSortField)\b/, reason: 'personal drive types belong in webApp' },
   { pattern: /\b(fetchIdentitySessions|revokeIdentitySession|changePassword)\b/, reason: 'personal session and password settings belong in webApp or userSite' },
   { pattern: /\b(fetchDriveOverview|fetchStorageNodes|createFolder|uploadStorageFile|createShareLink)\b/, reason: 'personal drive API calls belong in webApp' },
@@ -175,6 +176,16 @@ assertIncludesInOrder(
     "requestJson<User[]>('/api/admin/cloud-users'",
   ],
   'cloud console users view must load CloudStorageApi cloud-users',
+);
+assert.doesNotMatch(
+  apiSource,
+  /requestJson<[^>]+>\(\s*['"`]\/api\/admin\/cloud-users['"`][\s\S]*?method:\s*'POST'/,
+  'cloud console user directory must not expose identity user creation from sysManage',
+);
+assert.doesNotMatch(
+  cloudUsersViewSource,
+  /新增用户|创建用户|重置密码|Input\.Password|name="password"|inheritAdminBackground/,
+  'cloud console users view must keep identity account creation in the identity console',
 );
 assertIncludesInOrder(
   apiSource,

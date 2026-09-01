@@ -704,6 +704,24 @@ require_source_match \
     "Cloud console boundary verifier must pin the users view to CloudStorageApi cloud-users."
 
 require_source_match \
+    "cloud console rejects sysManage user creation API" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console user directory must not expose identity user creation from sysManage' \
+    "Cloud console boundary verifier must keep identity user creation out of sysManage."
+
+require_source_match \
+    "cloud console rejects identity account creation UI" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console users view must keep identity account creation in the identity console' \
+    "Cloud console boundary verifier must keep identity account creation in userSite."
+
+require_source_no_match \
+    "cloud console users view avoids identity creation controls" \
+    "sysManage/src/features/drive/CloudUsersView.tsx" \
+    '新增用户|创建用户|重置密码|Input\.Password|name="password"|inheritAdminBackground' \
+    "Cloud console users view must not expose identity account creation controls."
+
+require_source_match \
     "cloud console quota API contract is pinned" \
     "sysManage/scripts/verify-console-boundary.mjs" \
     'cloud console quota mutations must use CloudStorageApi cloud-users quota contract' \
