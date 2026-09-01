@@ -283,6 +283,32 @@ function assertApiUploadFunctionUsesPost(functionName) {
   assert.match(apiSource, /xhr\.open\('POST', url\)/, 'sysManage upload request helper must use POST');
 }
 
+function extractTemplatePathVariablesForFunction(functionName) {
+  const source = extractApiFunctionBody(functionName);
+  const fields = [];
+  const templatePattern = /`([^`]*\/api\/[^`]*)`/g;
+  let templateMatch;
+
+  while ((templateMatch = templatePattern.exec(source)) !== null) {
+    const interpolationPattern = /\$\{([^}]+)\}/g;
+    let interpolationMatch;
+
+    while ((interpolationMatch = interpolationPattern.exec(templateMatch[1])) !== null) {
+      const expression = interpolationMatch[1].trim();
+      const encodedIdentifierMatch = /^encodeURIComponent\(\s*([A-Za-z][A-Za-z0-9_]*)\s*\)$/.exec(expression);
+      const identifierMatch = /^([A-Za-z][A-Za-z0-9_]*)$/.exec(expression);
+
+      assert.ok(
+        encodedIdentifierMatch || identifierMatch,
+        `Unable to parse ${functionName} template path variable expression: ${expression}`,
+      );
+      fields.push((encodedIdentifierMatch ?? identifierMatch)[1]);
+    }
+  }
+
+  return fields;
+}
+
 function extractJavaMethodParts(relativePath, methodName) {
   const source = readRepoFile(relativePath);
   const methodPattern = new RegExp(`${escapeRegExp(methodName)}\\s*\\(`);
@@ -299,6 +325,21 @@ function extractJavaMethodParts(relativePath, methodName) {
     parameters: source.slice(openIndex + 1, closeIndex),
     body: source.slice(bodyOpenIndex + 1, bodyCloseIndex),
   };
+}
+
+function extractPathVariablesForMethod(relativePath, methodName) {
+  const { parameters } = extractJavaMethodParts(relativePath, methodName);
+  const fields = [];
+  const pathVariablePattern =
+    /@PathVariable(?:\(([^)]*)\))?\s+[A-Za-z0-9_.<>?]+\s+([A-Za-z][A-Za-z0-9_]*)/g;
+  let match;
+
+  while ((match = pathVariablePattern.exec(parameters)) !== null) {
+    const explicitName = match[1]?.match(/(?:^|[,\s])(?:value\s*=\s*|name\s*=\s*)?"([^"]+)"/)?.[1];
+    fields.push(explicitName ?? match[2]);
+  }
+
+  return fields;
 }
 
 function assertApiFunctionUsesAuthToken(functionName) {
@@ -366,6 +407,14 @@ function assertCloudConsoleEndpointContract(contract) {
   if (contract.uploadPost) {
     assertApiUploadFunctionUsesPost(contract.tsFunction);
   }
+
+  if (contract.pathVariableLabel) {
+    assertSameFields(
+      contract.pathVariableLabel,
+      extractTemplatePathVariablesForFunction(contract.tsFunction),
+      extractPathVariablesForMethod(contract.controller, contract.javaMethod),
+    );
+  }
 }
 
 const dtoRoot = 'CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/dto';
@@ -429,6 +478,7 @@ const cloudConsoleEndpointContracts = [
     endpointNeedle: '`/api/admin/cloud-users/${userId}/quota`',
     httpMethod: 'PUT',
     requiresAuthToken: true,
+    pathVariableLabel: 'updateUserStorageQuota path variables',
   },
   {
     controller: operationsController,

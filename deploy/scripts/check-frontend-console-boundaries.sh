@@ -650,6 +650,24 @@ require_source_match \
     "Cloud console contract verifier must ensure operations APIs use the query helper."
 
 require_source_match \
+    "cloud console contract verifier reads frontend path variables" \
+    "sysManage/scripts/verify-api-contracts.mjs" \
+    'extractTemplatePathVariablesForFunction' \
+    "Cloud console contract verifier must read frontend path variables."
+
+require_source_match \
+    "cloud console contract verifier reads backend path variables" \
+    "sysManage/scripts/verify-api-contracts.mjs" \
+    'extractPathVariablesForMethod' \
+    "Cloud console contract verifier must read backend path variables."
+
+require_source_match \
+    "cloud console contract verifier compares quota path variables" \
+    "sysManage/scripts/verify-api-contracts.mjs" \
+    'updateUserStorageQuota path variables' \
+    "Cloud console contract verifier must compare quota path variables."
+
+require_source_match \
     "cloud console contract verifier compares user profile responses" \
     "sysManage/scripts/verify-api-contracts.mjs" \
     'UserProfileResponse' \
