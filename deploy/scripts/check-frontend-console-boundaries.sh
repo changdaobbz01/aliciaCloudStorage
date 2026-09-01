@@ -704,6 +704,42 @@ require_source_match \
     "Cloud console boundary verifier must keep operations refresh complete."
 
 require_source_match \
+    "cloud console storage user loading keeps backend pagination" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console storage user loading must keep backend pagination state' \
+    "Cloud console boundary verifier must keep storage user backend pagination state."
+
+require_source_match \
+    "cloud console trash loading keeps backend pagination" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console trash loading must keep backend pagination state' \
+    "Cloud console boundary verifier must keep trash backend pagination state."
+
+require_source_match \
+    "cloud console share loading keeps backend pagination" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console share loading must keep backend pagination state' \
+    "Cloud console boundary verifier must keep share backend pagination state."
+
+require_source_match \
+    "cloud console storage user pagination keeps filters" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console storage user pagination must reload with current filters and pagination' \
+    "Cloud console boundary verifier must preserve storage user filters during pagination."
+
+require_source_match \
+    "cloud console trash pagination keeps filters" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console trash pagination must reload with current filters and pagination' \
+    "Cloud console boundary verifier must preserve trash filters during pagination."
+
+require_source_match \
+    "cloud console share pagination keeps filters" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console share pagination must reload with current filters and pagination' \
+    "Cloud console boundary verifier must preserve share filters during pagination."
+
+require_source_match \
     "cloud console APK uploads keep admin gate" \
     "sysManage/scripts/verify-console-boundary.mjs" \
     'cloud console APK upload mutations must stay behind the cloud admin gate' \

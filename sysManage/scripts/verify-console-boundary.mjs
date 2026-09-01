@@ -318,12 +318,42 @@ assertIncludesInOrder(
 assertIncludesInOrder(
   driveOperationsHookSource,
   [
+    'async function loadStorageUsers(query: AdminCloudStorageUsersQuery = storageUsersQuery) {',
+    'const page = await fetchAdminCloudStorageUsers(query, authToken);',
+    'setStorageUsersPage(page);',
+    'setStorageUsersQuery({',
+    '...query,',
+    'page: page.page,',
+    'size: page.size,',
+    'sortBy: page.sortBy,',
+    'sortDirection: page.sortDirection,',
+  ],
+  'cloud console storage user loading must keep backend pagination state',
+);
+assertIncludesInOrder(
+  driveOperationsHookSource,
+  [
     'async function loadTrashNodes(query: AdminCloudTrashNodesQuery = trashNodesQuery) {',
     'if (!authToken || !isAdmin) {',
     'setTrashNodesPage(null);',
     'const page = await fetchAdminCloudOperationTrash(query, authToken);',
   ],
   'cloud console trash operations must stay behind the cloud admin gate',
+);
+assertIncludesInOrder(
+  driveOperationsHookSource,
+  [
+    'async function loadTrashNodes(query: AdminCloudTrashNodesQuery = trashNodesQuery) {',
+    'const page = await fetchAdminCloudOperationTrash(query, authToken);',
+    'setTrashNodesPage(page);',
+    'setTrashNodesQuery({',
+    '...query,',
+    'page: page.page,',
+    'size: page.size,',
+    'sortBy: page.sortBy,',
+    'sortDirection: page.sortDirection,',
+  ],
+  'cloud console trash loading must keep backend pagination state',
 );
 assertIncludesInOrder(
   driveOperationsHookSource,
@@ -338,6 +368,21 @@ assertIncludesInOrder(
 assertIncludesInOrder(
   driveOperationsHookSource,
   [
+    'async function loadShareLinks(query: AdminCloudShareLinksQuery = shareLinksQuery) {',
+    'const page = await fetchAdminCloudOperationShares(query, authToken);',
+    'setShareLinksPage(page);',
+    'setShareLinksQuery({',
+    '...query,',
+    'page: page.page,',
+    'size: page.size,',
+    'sortBy: page.sortBy,',
+    'sortDirection: page.sortDirection,',
+  ],
+  'cloud console share loading must keep backend pagination state',
+);
+assertIncludesInOrder(
+  driveOperationsHookSource,
+  [
     'async function loadAll() {',
     'loadOverview(),',
     'loadStorageUsers(),',
@@ -345,6 +390,66 @@ assertIncludesInOrder(
     'loadShareLinks(),',
   ],
   'cloud console operations refresh must keep overview, storage users, trash, and shares together',
+);
+assertIncludesInOrder(
+  driveOperationsHookSource,
+  [
+    'function applyStorageUsersQuery(query: AdminCloudStorageUsersQuery) {',
+    '...initialStorageUsersQuery,',
+    '...storageUsersQuery,',
+    '...query,',
+    'page: query.page ?? 1,',
+    'size: query.size ?? storageUsersQuery.size ?? DEFAULT_PAGE_SIZE,',
+  ],
+  'cloud console storage user filters must reset page while preserving page size',
+);
+assertIncludesInOrder(
+  driveOperationsHookSource,
+  [
+    'function changeStorageUsersPage(page: number, size: number) {',
+    'applyStorageUsersQuery({ ...storageUsersQuery, page, size });',
+  ],
+  'cloud console storage user pagination must reload with current filters and pagination',
+);
+assertIncludesInOrder(
+  driveOperationsHookSource,
+  [
+    'function applyTrashNodesQuery(query: AdminCloudTrashNodesQuery) {',
+    '...initialTrashNodesQuery,',
+    '...trashNodesQuery,',
+    '...query,',
+    'page: query.page ?? 1,',
+    'size: query.size ?? trashNodesQuery.size ?? DEFAULT_PAGE_SIZE,',
+  ],
+  'cloud console trash filters must reset page while preserving page size',
+);
+assertIncludesInOrder(
+  driveOperationsHookSource,
+  [
+    'function changeTrashNodesPage(page: number, size: number) {',
+    'applyTrashNodesQuery({ ...trashNodesQuery, page, size });',
+  ],
+  'cloud console trash pagination must reload with current filters and pagination',
+);
+assertIncludesInOrder(
+  driveOperationsHookSource,
+  [
+    'function applyShareLinksQuery(query: AdminCloudShareLinksQuery) {',
+    '...initialShareLinksQuery,',
+    '...shareLinksQuery,',
+    '...query,',
+    'page: query.page ?? 1,',
+    'size: query.size ?? shareLinksQuery.size ?? DEFAULT_PAGE_SIZE,',
+  ],
+  'cloud console share filters must reset page while preserving page size',
+);
+assertIncludesInOrder(
+  driveOperationsHookSource,
+  [
+    'function changeShareLinksPage(page: number, size: number) {',
+    'applyShareLinksQuery({ ...shareLinksQuery, page, size });',
+  ],
+  'cloud console share pagination must reload with current filters and pagination',
 );
 assertIncludesInOrder(
   appPackageHookSource,
