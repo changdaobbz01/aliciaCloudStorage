@@ -165,6 +165,8 @@ Invoke-Step "verify cloud frontend split wiring" {
     Require-Contains "webApp/scripts/verify-client-boundary.mjs" "cloudWebApiScopeFiles = files" "cloud web boundary verifier must scan all source files for API ownership"
     Require-Contains "webApp/scripts/verify-client-boundary.mjs" "cloud web source" "cloud web boundary verifier must report full-source API ownership failures"
     Require-Contains "webApp/scripts/verify-client-boundary.mjs" "isReturnPathBoundarySentinel" "cloud web boundary verifier must keep returnTo sentinels out of API ownership matches"
+    Require-Contains "webApp/scripts/verify-client-boundary.mjs" "assertNoForeignRoutePathLiterals" "cloud web boundary verifier must scan source files for foreign route exposure"
+    Require-Contains "webApp/scripts/verify-client-boundary.mjs" "must not expose foreign route paths from the cloud web user client" "cloud web boundary verifier must reject console and RAG route exposure"
     Require-Contains "webApp/scripts/verify-client-boundary.mjs" "cloud drive page must describe user-facing profile tools without admin management wording" "cloud web boundary verifier must reject admin management wording in user-facing drive page copy"
     Require-Contains "webApp/scripts/verify-client-boundary.mjs" "cloud web app download panel must use Android installer copy without APK upload/admin wording" "cloud web boundary verifier must reject APK artifact wording in the user-facing download panel"
     Require-Contains "webApp/scripts/verify-client-boundary.mjs" "cloud app download page must describe package availability as a user-facing download state" "cloud web boundary verifier must reject release workflow wording in the app download page"

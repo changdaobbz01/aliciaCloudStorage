@@ -212,6 +212,18 @@ require_source_match \
     "Cloud web boundary verifier must keep returnTo sentinels out of API ownership matches."
 
 require_source_match \
+    "cloud web route boundary scans source files" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'assertNoForeignRoutePathLiterals' \
+    "Cloud web boundary verifier must scan source files for foreign route exposure."
+
+require_source_match \
+    "cloud web route boundary rejects foreign routes" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'must not expose foreign route paths from the cloud web user client' \
+    "Cloud web boundary verifier must reject console and RAG route exposure."
+
+require_source_match \
     "cloud web API allowlist keeps personal storage ownership" \
     "webApp/scripts/verify-client-boundary.mjs" \
     "'/api/storage/'" \

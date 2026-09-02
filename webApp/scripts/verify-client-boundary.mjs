@@ -61,6 +61,23 @@ function extractApiPathLiterals(fileUrl) {
   return paths;
 }
 
+function extractForeignRoutePathLiterals(fileUrl) {
+  const source = readFileSync(fileUrl, 'utf8');
+  const routePathPattern = /(['"`])(\/(?:console|rag)(?:[^'"`]*)?)\1/g;
+  const paths = [];
+  let match;
+
+  while ((match = routePathPattern.exec(source)) !== null) {
+    paths.push({
+      path: match[2],
+      relativePath: relative(srcRootPath, fileURLToPath(fileUrl)).replaceAll('\\', '/'),
+      line: source.slice(0, match.index).split('\n').length,
+    });
+  }
+
+  return paths;
+}
+
 function matchesOwnedApiPrefix(path, allowedPrefix) {
   if (allowedPrefix.endsWith('/')) {
     return path.startsWith(allowedPrefix);
@@ -90,7 +107,24 @@ function assertApiPathsMatchAllowedPrefixes(fileUrls, allowedPrefixes, label) {
 }
 
 function isReturnPathBoundarySentinel(relativePath, path) {
-  return relativePath === 'lib/unifiedLogin.ts' && (path === '/api' || path === '/api/');
+  return (
+    relativePath === 'lib/unifiedLogin.ts' &&
+    ['/api', '/api/', '/console', '/console/', '/rag', '/rag/'].includes(path)
+  );
+}
+
+function assertNoForeignRoutePathLiterals(fileUrls, label) {
+  const violations = fileUrls
+    .flatMap((fileUrl) => extractForeignRoutePathLiterals(fileUrl))
+    .filter(({ path, relativePath }) => !isReturnPathBoundarySentinel(relativePath, path));
+
+  assert.deepEqual(
+    violations,
+    [],
+    `${label} must not expose foreign route paths from the cloud web user client:\n${violations
+      .map(({ relativePath, line, path }) => `  ${relativePath}:${line} ${path}`)
+      .join('\n')}`,
+  );
 }
 
 const files = listSourceFiles(srcRoot);
@@ -119,6 +153,7 @@ assertApiPathsMatchAllowedPrefixes(
   cloudWebAllowedApiPrefixes,
   'cloud web source',
 );
+assertNoForeignRoutePathLiterals(files, 'cloud web source');
 
 for (const entry of readdirSync(srcRoot, { recursive: true })) {
   const relativePath = String(entry).replaceAll('\\', '/');
