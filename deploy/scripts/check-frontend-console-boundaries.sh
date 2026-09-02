@@ -1970,16 +1970,34 @@ require_source_match \
     "Production status snapshot must run platform frontend split verification without rebuilding frontends."
 
 require_source_match \
+    "production status disables TypeScript package dependency for platform split" \
+    "deploy/scripts/collect-production-status.sh" \
+    'ALICIA_VERIFY_RETURN_TO_DISABLE_TYPESCRIPT="\$\{ALICIA_VERIFY_RETURN_TO_DISABLE_TYPESCRIPT:-1\}"' \
+    "Production status platform frontend split snapshot must avoid requiring local TypeScript packages."
+
+require_source_match \
     "production docs expose platform frontend split snapshot" \
     "docs/production-verification-scripts.md" \
     'ALICIA_STATUS_RUN_FRONTEND_SPLIT_CHECK=true' \
     "Production verification docs must describe the platform frontend split snapshot switch."
 
 require_source_match \
+    "production docs describe TypeScript-free frontend split snapshot" \
+    "docs/production-verification-scripts.md" \
+    'ALICIA_VERIFY_RETURN_TO_DISABLE_TYPESCRIPT' \
+    "Production verification docs must describe that frontend split snapshots avoid local TypeScript package dependency."
+
+require_source_match \
     "root README exposes platform frontend split snapshot" \
     "README.md" \
     'ALICIA_STATUS_RUN_FRONTEND_SPLIT_CHECK=true' \
     "Root README must describe the platform frontend split snapshot switch."
+
+require_source_match \
+    "root README describes TypeScript-free frontend split snapshot" \
+    "README.md" \
+    'ALICIA_VERIFY_RETURN_TO_DISABLE_TYPESCRIPT' \
+    "Root README must describe that frontend split snapshots avoid local TypeScript package dependency."
 
 require_source_match \
     "production status exposes canonical redirect probes" \
