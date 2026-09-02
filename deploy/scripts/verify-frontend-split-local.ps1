@@ -215,6 +215,8 @@ Invoke-Step "verify cloud frontend split wiring" {
     Require-Contains "sysManage/scripts/verify-console-boundary.mjs" "cloudConsoleApiScopeFiles = files" "cloud console boundary verifier must scan all source files for API ownership"
     Require-Contains "sysManage/scripts/verify-console-boundary.mjs" "cloud console source" "cloud console boundary verifier must report full-source API ownership failures"
     Require-Contains "sysManage/scripts/verify-console-boundary.mjs" "isReturnPathBoundarySentinel" "cloud console boundary verifier must keep returnTo sentinels out of API ownership matches"
+    Require-Contains "sysManage/scripts/verify-console-boundary.mjs" "assertNoForbiddenRoutePathLiterals" "cloud console boundary verifier must scan source files for forbidden route exposure"
+    Require-Contains "sysManage/scripts/verify-console-boundary.mjs" "must not expose identity console or RAG routes from the cloud console" "cloud console boundary verifier must reject identity console and RAG route exposure"
     Require-Contains "sysManage/scripts/verify-console-boundary.mjs" "'/api/admin/cloud-users'" "cloud console API allowlist must include cloud users admin APIs"
     Require-Contains "sysManage/scripts/verify-console-boundary.mjs" "'/api/admin/cloud-operations'" "cloud console API allowlist must include cloud operations admin APIs"
     Require-Contains "sysManage/scripts/verify-console-boundary.mjs" "'/api/identity/auth/token/refresh'" "cloud console API allowlist must include identity refresh only for session continuity"

@@ -49,6 +49,23 @@ function extractApiPathLiterals(fileUrl) {
   return paths;
 }
 
+function extractForbiddenRoutePathLiterals(fileUrl) {
+  const source = readFileSync(fileUrl, 'utf8');
+  const routePathPattern = /(['"`])(\/(?:console\/identity|rag)(?:[^'"`]*)?)\1/g;
+  const paths = [];
+  let match;
+
+  while ((match = routePathPattern.exec(source)) !== null) {
+    paths.push({
+      path: match[2],
+      relativePath: relative(srcRootPath, fileURLToPath(fileUrl)).replaceAll('\\', '/'),
+      line: source.slice(0, match.index).split('\n').length,
+    });
+  }
+
+  return paths;
+}
+
 function matchesOwnedApiPrefix(path, allowedPrefix) {
   if (allowedPrefix.endsWith('/')) {
     return path.startsWith(allowedPrefix);
@@ -78,7 +95,24 @@ function assertApiPathsMatchAllowedPrefixes(fileUrls, allowedPrefixes, label) {
 }
 
 function isReturnPathBoundarySentinel(relativePath, path) {
-  return relativePath === 'lib/unifiedLogin.ts' && (path === '/api' || path === '/api/');
+  return (
+    relativePath === 'lib/unifiedLogin.ts' &&
+    ['/api', '/api/', '/console/identity', '/console/identity/', '/rag', '/rag/'].includes(path)
+  );
+}
+
+function assertNoForbiddenRoutePathLiterals(fileUrls, label) {
+  const violations = fileUrls
+    .flatMap((fileUrl) => extractForbiddenRoutePathLiterals(fileUrl))
+    .filter(({ path, relativePath }) => !isReturnPathBoundarySentinel(relativePath, path));
+
+  assert.deepEqual(
+    violations,
+    [],
+    `${label} must not expose identity console or RAG routes from the cloud console:\n${violations
+      .map(({ relativePath, line, path }) => `  ${relativePath}:${line} ${path}`)
+      .join('\n')}`,
+  );
 }
 
 function assertIncludesInOrder(source, snippets, message) {
@@ -148,6 +182,7 @@ assertApiPathsMatchAllowedPrefixes(
   cloudConsoleAllowedApiPrefixes,
   'cloud console source',
 );
+assertNoForbiddenRoutePathLiterals(files, 'cloud console source');
 
 const consolePageSource = readFileSync(new URL('../src/pages/CloudConsolePage.tsx', import.meta.url), 'utf8');
 const cloudUsersViewSource = readFileSync(new URL('../src/features/drive/CloudUsersView.tsx', import.meta.url), 'utf8');

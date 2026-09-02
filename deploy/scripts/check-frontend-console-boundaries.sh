@@ -728,6 +728,18 @@ require_source_match \
     "Cloud console boundary verifier must keep returnTo sentinels out of API ownership matches."
 
 require_source_match \
+    "cloud console route boundary scans source files" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'assertNoForbiddenRoutePathLiterals' \
+    "Cloud console boundary verifier must scan source files for forbidden route exposure."
+
+require_source_match \
+    "cloud console route boundary rejects foreign routes" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'must not expose identity console or RAG routes from the cloud console' \
+    "Cloud console boundary verifier must reject identity console and RAG route exposure."
+
+require_source_match \
     "cloud console API allowlist keeps cloud-users ownership" \
     "sysManage/scripts/verify-console-boundary.mjs" \
     "'/api/admin/cloud-users'" \
