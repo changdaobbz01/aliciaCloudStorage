@@ -29,6 +29,102 @@ function Resolve-Directory {
     return $resolved.Path
 }
 
+function Get-GitRevision {
+    param([string]$ProjectDir)
+
+    try {
+        $revision = & git -C $ProjectDir rev-parse --short HEAD 2>$null
+        if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($revision)) {
+            return $revision.Trim()
+        }
+    } catch {
+        return "unknown"
+    }
+
+    return "unknown"
+}
+
+function Invoke-Step {
+    param(
+        [string]$Name,
+        [scriptblock]$Script
+    )
+
+    Write-Host "[RUN] $Name"
+    & $Script
+    Write-Host "[OK] $Name"
+}
+
+function Assert-CommandAvailable {
+    param(
+        [string]$Label,
+        [string[]]$Candidates,
+        [string]$Message
+    )
+
+    foreach ($candidate in $Candidates) {
+        if (Get-Command $candidate -ErrorAction SilentlyContinue) {
+            return
+        }
+    }
+
+    Fail "$Label is not available. $Message"
+}
+
+function Test-FrontendBuildBinary {
+    param(
+        [string]$PackageDir,
+        [string]$BinaryName
+    )
+
+    $binDir = Join-Path $PackageDir "node_modules\.bin"
+    $candidates = @(
+        (Join-Path $binDir $BinaryName)
+        (Join-Path $binDir "$BinaryName.cmd")
+        (Join-Path $binDir "$BinaryName.ps1")
+    )
+
+    foreach ($candidate in $candidates) {
+        if (Test-Path -LiteralPath $candidate -PathType Leaf) {
+            return $true
+        }
+    }
+
+    return $false
+}
+
+function Assert-FrontendBuildDependencies {
+    param(
+        [string]$Label,
+        [string]$PackageDir
+    )
+
+    if (-not (Test-Path -LiteralPath $PackageDir -PathType Container)) {
+        Fail "Missing $Label npm package directory: $PackageDir"
+    }
+
+    $missing = @()
+    foreach ($binaryName in @("tsc", "vite")) {
+        if (-not (Test-FrontendBuildBinary $PackageDir $binaryName)) {
+            $missing += "node_modules\.bin\$binaryName"
+        }
+    }
+
+    if ($missing.Count -gt 0) {
+        Fail "$Label frontend dependencies are not installed: missing $($missing -join ', '). Run: Set-Location '$PackageDir'; npm ci --no-audit --no-fund"
+    }
+}
+
+function Invoke-FrontendBuildDependencyPreflight {
+    Assert-CommandAvailable "Node.js" @("node.exe", "node") "Install Node.js or rerun with -SkipBuild for static/API-only verification."
+    Assert-CommandAvailable "npm" @("npm.cmd", "npm") "Install npm or rerun with -SkipBuild for static/API-only verification."
+
+    Assert-FrontendBuildDependencies "main site webApp" (Join-Path $MainSiteProjectDir "webApp")
+    Assert-FrontendBuildDependencies "main site userSite" (Join-Path $MainSiteProjectDir "userSite")
+    Assert-FrontendBuildDependencies "cloud webApp" (Join-Path $CloudProjectDir "webApp")
+    Assert-FrontendBuildDependencies "cloud sysManage" (Join-Path $CloudProjectDir "sysManage")
+}
+
 function Invoke-FrontendSplitVerification {
     param(
         [string]$Label,
@@ -228,7 +324,15 @@ $MainSiteProjectDir = Resolve-Directory "Main site project" $MainSiteProjectDir
 
 Write-Host "[RUN] Alicia platform frontend split local verification"
 Write-Host "Main site project: $MainSiteProjectDir"
+Write-Host "Main site commit: $(Get-GitRevision $MainSiteProjectDir)"
 Write-Host "Cloud project: $CloudProjectDir"
+Write-Host "Cloud commit: $(Get-GitRevision $CloudProjectDir)"
+
+if (-not $SkipBuild) {
+    Invoke-Step "preflight frontend build dependencies" {
+        Invoke-FrontendBuildDependencyPreflight
+    }
+}
 
 Invoke-FrontendSplitVerification "main site" $MainSiteProjectDir
 Invoke-FrontendSplitVerification "cloud" $CloudProjectDir

@@ -1526,6 +1526,18 @@ require_source_match \
     "Platform local verifier must default to a sibling mainSite repository."
 
 require_source_match \
+    "platform local verifier prints main site commit" \
+    "deploy/scripts/verify-platform-frontend-split-local.ps1" \
+    'Write-Host "Main site commit:' \
+    "Platform local verifier must print the main site commit for diagnostics."
+
+require_source_match \
+    "platform local verifier prints cloud commit" \
+    "deploy/scripts/verify-platform-frontend-split-local.ps1" \
+    'Write-Host "Cloud commit:' \
+    "Platform local verifier must print the cloud commit for diagnostics."
+
+require_source_match \
     "platform local verifier runs repository split verifiers" \
     "deploy/scripts/verify-platform-frontend-split-local.ps1" \
     'deploy\\scripts\\verify-frontend-split-local.ps1' \
@@ -1536,6 +1548,24 @@ require_source_match \
     "deploy/scripts/verify-platform-frontend-split-local.ps1" \
     '\$verificationArgs\["SkipBuild"\] = \$true' \
     "Platform local verifier must pass through the SkipBuild switch."
+
+require_source_match \
+    "platform local verifier preflights build dependencies" \
+    "deploy/scripts/verify-platform-frontend-split-local.ps1" \
+    'Invoke-FrontendBuildDependencyPreflight' \
+    "Platform local verifier must preflight frontend build dependencies before running full builds."
+
+require_source_match \
+    "platform local verifier diagnoses missing frontend tsc" \
+    "deploy/scripts/verify-platform-frontend-split-local.ps1" \
+    'foreach \(\$binaryName in @\("tsc", "vite"\)\)' \
+    "Platform local verifier must diagnose missing TypeScript and Vite build dependencies before npm build."
+
+require_source_match \
+    "platform local verifier reports npm ci fix" \
+    "deploy/scripts/verify-platform-frontend-split-local.ps1" \
+    'npm ci --no-audit --no-fund' \
+    "Platform local verifier must tell operators how to install missing frontend dependencies."
 
 require_source_match \
     "platform local verifier checks shared account profile contract" \
