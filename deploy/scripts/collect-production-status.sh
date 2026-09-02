@@ -90,6 +90,8 @@ git_snapshot() {
     local label="$1"
     local directory="$2"
     local tracked_status
+    local tracked_summary
+    local tracked_names
 
     printf '\n-- %s: %s --\n' "$label" "$directory"
 
@@ -105,6 +107,20 @@ git_snapshot() {
     elif [[ -n "$tracked_status" ]]; then
         warn "$label tracked server files have local changes"
         printf '%s\n' "$tracked_status"
+        if tracked_summary="$(git diff --summary)"; then
+            if [[ -n "$tracked_summary" ]]; then
+                printf '\nTracked change summary:\n%s\n' "$tracked_summary"
+            fi
+        else
+            warn "$label tracked diff summary failed"
+        fi
+        if tracked_names="$(git diff --name-status)"; then
+            if [[ -n "$tracked_names" ]]; then
+                printf '\nTracked changed files:\n%s\n' "$tracked_names"
+            fi
+        else
+            warn "$label tracked diff name-status failed"
+        fi
     else
         ok "$label tracked server files are clean"
     fi

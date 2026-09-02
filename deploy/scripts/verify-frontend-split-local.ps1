@@ -403,6 +403,8 @@ Invoke-Step "verify cloud frontend split wiring" {
     Require-Contains "deploy/scripts/verify-identity-console-api-contracts.mjs" "assertCloudProfileAvatarInterceptorContract" "identity console contract verifier must ensure avatar uploads stay protected by CurrentPrincipalInterceptor"
     Require-Contains "deploy/scripts/collect-production-status.sh" 'MAIN_SITE_PROJECT_DIR="${ALICIA_MAIN_SITE_PROJECT_DIR:-$HOME/mainSite}"' "production status snapshot must locate the main site repository"
     Require-Contains "deploy/scripts/collect-production-status.sh" 'git_snapshot "main site repository" "$MAIN_SITE_PROJECT_DIR"' "production status snapshot must include main site Git state"
+    Require-Contains "deploy/scripts/collect-production-status.sh" "git diff --summary" "production status snapshot must summarize tracked change modes"
+    Require-Contains "deploy/scripts/collect-production-status.sh" "git diff --name-status" "production status snapshot must list tracked changed files"
     Require-Contains "deploy/scripts/collect-production-status.sh" "run_main_site_route_verify()" "production status snapshot must expose optional main site route verification"
     Require-Contains "deploy/scripts/collect-production-status.sh" "run_main_site_boundary_check()" "production status snapshot must expose optional main site boundary verification"
     Require-Contains "deploy/scripts/collect-production-status.sh" 'run_optional "main site route verification" run_main_site_route_verify' "production status snapshot must run main site route verification when full route checks are requested"

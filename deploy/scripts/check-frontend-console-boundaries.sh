@@ -1928,6 +1928,18 @@ require_source_match \
     "Production status snapshot must include main site Git state."
 
 require_source_match \
+    "production status summarizes tracked change modes" \
+    "deploy/scripts/collect-production-status.sh" \
+    'git diff --summary' \
+    "Production status snapshot must summarize tracked file mode changes."
+
+require_source_match \
+    "production status lists tracked changed files" \
+    "deploy/scripts/collect-production-status.sh" \
+    'git diff --name-status' \
+    "Production status snapshot must list tracked changed files."
+
+require_source_match \
     "production status exposes main site route verification" \
     "deploy/scripts/collect-production-status.sh" \
     'run_main_site_route_verify\(\)' \
