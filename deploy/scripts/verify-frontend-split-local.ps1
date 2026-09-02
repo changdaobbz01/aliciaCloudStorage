@@ -66,6 +66,21 @@ function Require-Match {
     }
 }
 
+function Require-MatchCountAtLeast {
+    param(
+        [string]$RelativePath,
+        [string]$Pattern,
+        [int]$MinimumCount,
+        [string]$Message
+    )
+
+    $source = Read-RepoText $RelativePath
+    $count = [regex]::Matches($source, $Pattern, [System.Text.RegularExpressions.RegexOptions]::Singleline).Count
+    if ($count -lt $MinimumCount) {
+        Fail "$Message Found $count, expected at least $MinimumCount."
+    }
+}
+
 function Invoke-Step {
     param(
         [string]$Name,
@@ -136,6 +151,8 @@ Invoke-Step "verify cloud frontend split wiring" {
     Require-Contains "webApp/Dockerfile" "COPY --from=cloud-builder /app/webApp/dist /usr/share/nginx/html/cloudPan" "cloud Dockerfile must package webApp under /cloudPan"
     Require-Contains "webApp/Dockerfile" "COPY --from=cloud-builder /app/webApp/dist/.well-known /usr/share/nginx/html/.well-known" "cloud Dockerfile must publish Android asset links at the domain root"
     Require-Contains "webApp/Dockerfile" "COPY --from=cloud-console-builder /app/sysManage/dist /usr/share/nginx/html/console/cloud" "cloud Dockerfile must package sysManage under /console/cloud"
+    Require-MatchCountAtLeast "webApp/Dockerfile" "COPY CloudStorageApi/src /app/CloudStorageApi/src" 2 "cloud Dockerfile must copy CloudStorageApi source into both frontend build stages for API contract verification."
+    Require-MatchCountAtLeast "webApp/Dockerfile" "COPY identityApi/src /app/identityApi/src" 2 "cloud Dockerfile must copy identityApi source into both frontend build stages for API contract verification."
     Require-Contains "webApp/vite.config.ts" "base: '/cloudPan/'" "cloud web Vite base must stay mounted under /cloudPan/"
     Require-Contains "sysManage/vite.config.ts" "base: '/console/cloud/'" "cloud console Vite base must stay mounted under /console/cloud/"
     Require-Contains "webApp/package.json" '"verify:return-to": "node scripts/verify-unified-login-return-to.mjs"' "cloud web package must expose the unified login returnTo verifier"

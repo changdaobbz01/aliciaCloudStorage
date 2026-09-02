@@ -10,6 +10,8 @@ COPY webApp/index.html webApp/tsconfig.json webApp/tsconfig.app.json webApp/tsco
 COPY webApp/public public
 COPY webApp/scripts scripts
 COPY webApp/src src
+COPY CloudStorageApi/src /app/CloudStorageApi/src
+COPY identityApi/src /app/identityApi/src
 
 RUN npm run build
 
@@ -23,6 +25,8 @@ COPY sysManage/index.html sysManage/tsconfig.json sysManage/tsconfig.app.json sy
 COPY sysManage/public public
 COPY sysManage/scripts scripts
 COPY sysManage/src src
+COPY CloudStorageApi/src /app/CloudStorageApi/src
+COPY identityApi/src /app/identityApi/src
 
 RUN npm run build
 

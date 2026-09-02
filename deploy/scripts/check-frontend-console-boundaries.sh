@@ -77,6 +77,30 @@ require_source_match() {
     ok "$label"
 }
 
+require_source_count_at_least() {
+    local label="$1"
+    local target="$2"
+    local pattern="$3"
+    local minimum_count="$4"
+    local message="$5"
+    local count
+
+    [[ -e "$target" ]] || fail "$label source target does not exist: $target"
+
+    if command -v rg >/dev/null 2>&1; then
+        count="$( (rg -o "$pattern" "$target" || true) | wc -l | tr -d '[:space:]')"
+    else
+        command -v grep >/dev/null 2>&1 || fail "Either ripgrep (rg) or grep is required."
+        count="$( (grep -Eo "$pattern" "$target" || true) | wc -l | tr -d '[:space:]')"
+    fi
+
+    if (( count < minimum_count )); then
+        fail "$message Found $count, expected at least $minimum_count."
+    fi
+
+    ok "$label"
+}
+
 require_source_no_match() {
     local label="$1"
     local target="$2"
@@ -2070,6 +2094,20 @@ require_source_match \
     "webApp/Dockerfile" \
     'COPY --from=cloud-builder /app/webApp/dist/\.well-known /usr/share/nginx/html/\.well-known' \
     "Cloud web Dockerfile must publish Android asset links at the domain root."
+
+require_source_count_at_least \
+    "cloud Dockerfile copies CloudStorageApi source for frontend contracts" \
+    "webApp/Dockerfile" \
+    'COPY CloudStorageApi/src /app/CloudStorageApi/src' \
+    2 \
+    "Cloud Dockerfile must copy CloudStorageApi source into both frontend build stages for API contract verification."
+
+require_source_count_at_least \
+    "cloud Dockerfile copies identityApi source for frontend contracts" \
+    "webApp/Dockerfile" \
+    'COPY identityApi/src /app/identityApi/src' \
+    2 \
+    "Cloud Dockerfile must copy identityApi source into both frontend build stages for API contract verification."
 
 for nginx_conf in webApp/nginx/default.conf webApp/nginx/default.ssl.conf; do
     require_source_match \
