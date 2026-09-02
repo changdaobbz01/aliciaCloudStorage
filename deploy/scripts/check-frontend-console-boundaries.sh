@@ -2030,6 +2030,12 @@ require_source_match \
     "Production status snapshot must verify the cloud web canonical redirect."
 
 require_source_match \
+    "production status probes cloud app download route" \
+    "deploy/scripts/collect-production-status.sh" \
+    'curl_probe "cloudPan app download route" "\$PUBLIC_BASE_URL/cloudPan/app-download"' \
+    "Production status snapshot must probe the cloud app download route."
+
+require_source_match \
     "production status verifies cloud console canonical redirect" \
     "deploy/scripts/collect-production-status.sh" \
     'curl_redirect_probe "cloud console bare path" "\$PUBLIC_BASE_URL/console/cloud" "/console/cloud/"' \
@@ -2410,6 +2416,18 @@ require_source_match \
     "Cloud route verifier must assert cloud share deep links serve the cloud web shell."
 
 require_source_match \
+    "cloud route verifier asserts app download route status" \
+    "deploy/scripts/verify-identity-cloud-routes.sh" \
+    'curl_ok "cloudPan app download route"' \
+    "Cloud route verifier must assert cloud app download route remains mounted."
+
+require_source_match \
+    "cloud route verifier asserts app download route shell" \
+    "deploy/scripts/verify-identity-cloud-routes.sh" \
+    'expect_spa_shell "cloudPan app download route"' \
+    "Cloud route verifier must assert cloud app download route serves the cloud web shell."
+
+require_source_match \
     "cloud route verifier asserts main no-store cache" \
     "deploy/scripts/verify-identity-cloud-routes.sh" \
     'expect_no_store_index "main site index"' \
@@ -2432,6 +2450,12 @@ require_source_match \
     "deploy/scripts/verify-identity-cloud-routes.sh" \
     'expect_no_store_index "cloudPan index"' \
     "Cloud route verifier must assert cloud web index no-store cache."
+
+require_source_match \
+    "cloud route verifier asserts app download no-store cache" \
+    "deploy/scripts/verify-identity-cloud-routes.sh" \
+    'expect_no_store_index "cloudPan app download index"' \
+    "Cloud route verifier must assert cloud app download route no-store cache."
 
 require_source_match \
     "cloud route verifier asserts cloud console no-store cache" \
