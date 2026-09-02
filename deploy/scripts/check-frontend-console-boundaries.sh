@@ -698,6 +698,24 @@ require_source_match \
     "Cloud console boundary verifier must enforce API ownership allowlists."
 
 require_source_match \
+    "cloud console API allowlist scans source files" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloudConsoleApiScopeFiles = files' \
+    "Cloud console boundary verifier must scan all source files for API ownership."
+
+require_source_match \
+    "cloud console API allowlist reports source scope" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console source' \
+    "Cloud console boundary verifier must report full-source API ownership failures."
+
+require_source_match \
+    "cloud console API allowlist separates returnTo sentinels" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'isReturnPathBoundarySentinel' \
+    "Cloud console boundary verifier must keep returnTo sentinels out of API ownership matches."
+
+require_source_match \
     "cloud console API allowlist keeps cloud-users ownership" \
     "sysManage/scripts/verify-console-boundary.mjs" \
     "'/api/admin/cloud-users'" \

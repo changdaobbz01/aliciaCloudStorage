@@ -65,6 +65,7 @@ function matchesOwnedApiPrefix(path, allowedPrefix) {
 function assertApiPathsMatchAllowedPrefixes(fileUrls, allowedPrefixes, label) {
   const violations = fileUrls
     .flatMap((fileUrl) => extractApiPathLiterals(fileUrl))
+    .filter(({ path, relativePath }) => !isReturnPathBoundarySentinel(relativePath, path))
     .filter(({ path }) => !allowedPrefixes.some((allowedPrefix) => matchesOwnedApiPrefix(path, allowedPrefix)));
 
   assert.deepEqual(
@@ -74,6 +75,10 @@ function assertApiPathsMatchAllowedPrefixes(fileUrls, allowedPrefixes, label) {
       .map(({ relativePath, line, path }) => `  ${relativePath}:${line} ${path}`)
       .join('\n')}\nAllowed prefixes: ${allowedPrefixes.join(', ')}`,
   );
+}
+
+function isReturnPathBoundarySentinel(relativePath, path) {
+  return relativePath === 'lib/unifiedLogin.ts' && (path === '/api' || path === '/api/');
 }
 
 function assertIncludesInOrder(source, snippets, message) {
@@ -114,7 +119,22 @@ function extractApiFunctionBody(functionName) {
   return apiSource.slice(openIndex + 1, findMatchingBrace(apiSource, openIndex));
 }
 
-for (const fileUrl of listSourceFiles(srcRoot)) {
+const files = listSourceFiles(srcRoot);
+const cloudConsoleApiScopeFiles = files;
+const cloudConsoleAllowedApiPrefixes = [
+  '/api/health',
+  '/api/cloud-profile/me',
+  '/api/cloud-profile/avatar',
+  '/api/identity/auth/profile',
+  '/api/identity/auth/token/refresh',
+  '/api/identity/auth/logout',
+  '/api/admin/cloud-users',
+  '/api/admin/cloud-operations',
+  '/api/admin/app-package',
+  '/api/app-package',
+];
+
+for (const fileUrl of files) {
   const relativePath = relative(srcRootPath, fileURLToPath(fileUrl)).replaceAll('\\', '/');
   const source = readFileSync(fileUrl, 'utf8');
 
@@ -124,24 +144,9 @@ for (const fileUrl of listSourceFiles(srcRoot)) {
 }
 
 assertApiPathsMatchAllowedPrefixes(
-  [
-    new URL('../src/lib/api.ts', import.meta.url),
-    new URL('../src/features/drive/driveShared.ts', import.meta.url),
-    new URL('../src/components/AppPackagePanel.tsx', import.meta.url),
-  ],
-  [
-    '/api/health',
-    '/api/cloud-profile/me',
-    '/api/cloud-profile/avatar',
-    '/api/identity/auth/profile',
-    '/api/identity/auth/token/refresh',
-    '/api/identity/auth/logout',
-    '/api/admin/cloud-users',
-    '/api/admin/cloud-operations',
-    '/api/admin/app-package',
-    '/api/app-package',
-  ],
-  'cloud console',
+  cloudConsoleApiScopeFiles,
+  cloudConsoleAllowedApiPrefixes,
+  'cloud console source',
 );
 
 const consolePageSource = readFileSync(new URL('../src/pages/CloudConsolePage.tsx', import.meta.url), 'utf8');
