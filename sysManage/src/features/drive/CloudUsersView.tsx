@@ -257,6 +257,9 @@ export default function CloudUsersView({
         confirmLoading={quotaSaving}
         onCancel={onCloseQuotaModal}
         onOk={() => void onSubmitQuotaUpdate()}
+        maskClosable={!quotaSaving}
+        closable={!quotaSaving}
+        cancelButtonProps={{ disabled: quotaSaving }}
         destroyOnHidden
       >
         {quotaTarget ? (

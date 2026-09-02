@@ -968,6 +968,18 @@ require_source_match \
     "Cloud console boundary verifier must reject quota writes below current usage."
 
 require_source_match \
+    "cloud console quota modal close waits for save" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console quota modal close must respect pending quota submissions' \
+    "Cloud console boundary verifier must keep quota modal close safe while saving."
+
+require_source_match \
+    "cloud console quota modal blocks duplicates" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console quota modal must block duplicate submissions' \
+    "Cloud console boundary verifier must block duplicate quota submissions."
+
+require_source_match \
     "cloud console operations overview contract is pinned" \
     "sysManage/scripts/verify-console-boundary.mjs" \
     'cloud console operations view must load CloudStorageApi operations overview' \

@@ -295,6 +295,26 @@ assertIncludesInOrder(
   'cloud console quota submit must reject quotas below current usage',
 );
 assertIncludesInOrder(
+  cloudUsersHookSource,
+  [
+    'function closeQuotaModal() {',
+    'if (quotaSaving) {',
+    'return;',
+    'resetQuotaModal();',
+  ],
+  'cloud console quota modal close must respect pending quota submissions',
+);
+assertIncludesInOrder(
+  cloudUsersViewSource,
+  [
+    'confirmLoading={quotaSaving}',
+    'maskClosable={!quotaSaving}',
+    'closable={!quotaSaving}',
+    'cancelButtonProps={{ disabled: quotaSaving }}',
+  ],
+  'cloud console quota modal must block duplicate submissions',
+);
+assertIncludesInOrder(
   apiSource,
   [
     'export function fetchAdminCloudOperationsOverview(token: string)',
@@ -493,7 +513,7 @@ assertIncludesInOrder(
   cloudUsersHookSource,
   [
     'async function submitQuotaUpdate() {',
-    'if (!authToken || !quotaTarget || !isAdmin) {',
+    'if (!authToken || !quotaTarget || !isAdmin || quotaSaving) {',
     'const updatedUser = await updateUserStorageQuota(',
   ],
   'cloud console quota mutations must stay behind the cloud admin gate',

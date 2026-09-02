@@ -67,14 +67,22 @@ export function useCloudUsersAdmin({
     setQuotaModalOpen(true);
   }
 
-  function closeQuotaModal() {
+  function resetQuotaModal() {
     setQuotaModalOpen(false);
     setQuotaTarget(null);
     quotaForm.resetFields();
   }
 
+  function closeQuotaModal() {
+    if (quotaSaving) {
+      return;
+    }
+
+    resetQuotaModal();
+  }
+
   async function submitQuotaUpdate() {
-    if (!authToken || !quotaTarget || !isAdmin) {
+    if (!authToken || !quotaTarget || !isAdmin || quotaSaving) {
       return;
     }
 
@@ -100,7 +108,7 @@ export function useCloudUsersAdmin({
       }
 
       message.success('已更新用户云盘额度。');
-      closeQuotaModal();
+      resetQuotaModal();
       await loadUsers();
     } catch (saveError) {
       message.error(saveError instanceof Error ? saveError.message : '更新用户云盘额度失败。');
