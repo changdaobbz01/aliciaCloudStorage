@@ -405,6 +405,7 @@ Invoke-Step "verify cloud frontend split wiring" {
     Require-Contains "deploy/scripts/collect-production-status.sh" "run_platform_frontend_split_check()" "production status snapshot must expose platform frontend split verification"
     Require-Contains "deploy/scripts/collect-production-status.sh" 'bash "$PLATFORM_FRONTEND_SPLIT_SCRIPT" --skip-build' "production status snapshot must run platform frontend split verification without rebuilding"
     Require-Contains "docs/production-verification-scripts.md" "ALICIA_STATUS_RUN_FRONTEND_SPLIT_CHECK=true" "production verification docs must describe the platform frontend split snapshot switch"
+    Require-Contains "README.md" "ALICIA_STATUS_RUN_FRONTEND_SPLIT_CHECK=true" "root README must describe the platform frontend split snapshot switch"
     Require-Contains "deploy/scripts/collect-production-status.sh" "curl_redirect_probe()" "production status snapshot must include canonical redirect probes"
     Require-Contains "deploy/scripts/collect-production-status.sh" 'curl_redirect_probe "console gateway bare path" "$PUBLIC_BASE_URL/console" "/console/"' "production status snapshot must verify the shared console gateway redirect"
     Require-Contains "deploy/scripts/collect-production-status.sh" 'curl_redirect_probe "cloudPan bare path" "$PUBLIC_BASE_URL/cloudPan" "/cloudPan/"' "production status snapshot must verify the cloud web canonical redirect"

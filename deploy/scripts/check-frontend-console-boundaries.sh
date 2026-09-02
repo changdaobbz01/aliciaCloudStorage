@@ -1946,6 +1946,12 @@ require_source_match \
     "Production verification docs must describe the platform frontend split snapshot switch."
 
 require_source_match \
+    "root README exposes platform frontend split snapshot" \
+    "README.md" \
+    'ALICIA_STATUS_RUN_FRONTEND_SPLIT_CHECK=true' \
+    "Root README must describe the platform frontend split snapshot switch."
+
+require_source_match \
     "production status exposes canonical redirect probes" \
     "deploy/scripts/collect-production-status.sh" \
     'curl_redirect_probe\(\)' \

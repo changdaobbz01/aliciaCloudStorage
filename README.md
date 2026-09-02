@@ -329,7 +329,7 @@ bash deploy/scripts/update-main-and-cloud-production.sh
 bash deploy/scripts/collect-production-status.sh
 ```
 
-该脚本会汇总云盘仓库和 `~/mainSite` 的 Git 版本、tracked 文件状态、Compose 容器、磁盘与 Docker 占用、Cloud/Identity/RAG 直连与前端健康、主站/云盘/控制台入口探针、`/console`、`/cloudPan`、`/console/cloud` 和旧 `/cloudPan/login` 的规范化跳转、三侧依赖健康 JSON、Identity 审计日志脱敏摘要、Identity Flyway 历史、云盘库身份残留边界和 COS 对象清理补偿队列摘要。默认不要求输入账号密码；如需在快照中追加完整登录链路验证，可设置 `ALICIA_STATUS_RUN_ROUTE_VERIFY=true`，此时会先跑主站路由验证再跑云盘/Identity/RAG 统一路由验证；如需追加静态边界检查可设置 `ALICIA_STATUS_RUN_BOUNDARY_CHECK=true`，此时会同时跑主站前端边界、云盘前端边界和后端 API 边界检查。生产更新脚本也支持 `ALICIA_COLLECT_STATUS_AFTER_UPDATE=true bash deploy/scripts/update-cloud-production.sh` 或 `ALICIA_COLLECT_STATUS_AFTER_UPDATE=true bash deploy/scripts/update-main-and-cloud-production.sh` 在更新后自动生成快照。
+该脚本会汇总云盘仓库和 `~/mainSite` 的 Git 版本、tracked 文件状态、Compose 容器、磁盘与 Docker 占用、Cloud/Identity/RAG 直连与前端健康、主站/云盘/控制台入口探针、`/console`、`/cloudPan`、`/console/cloud` 和旧 `/cloudPan/login` 的规范化跳转、三侧依赖健康 JSON、Identity 审计日志脱敏摘要、Identity Flyway 历史、云盘库身份残留边界和 COS 对象清理补偿队列摘要。默认不要求输入账号密码；如需在快照中追加完整登录链路验证，可设置 `ALICIA_STATUS_RUN_ROUTE_VERIFY=true`，此时会先跑主站路由验证再跑云盘/Identity/RAG 统一路由验证；如需追加静态边界检查可设置 `ALICIA_STATUS_RUN_BOUNDARY_CHECK=true`，此时会同时跑主站前端边界、云盘前端边界和后端 API 边界检查；如需把平台级四端前端拆分验收也纳入快照，可设置 `ALICIA_STATUS_RUN_FRONTEND_SPLIT_CHECK=true`，此时会以 `--skip-build` 复用平台级验收链路，确认主站门户、身份后台、普通云盘和云盘后台的 `returnTo`、session 同步、源码边界、共享个人资料弹窗和字段级 API 契约。生产更新脚本也支持 `ALICIA_COLLECT_STATUS_AFTER_UPDATE=true bash deploy/scripts/update-cloud-production.sh` 或 `ALICIA_COLLECT_STATUS_AFTER_UPDATE=true bash deploy/scripts/update-main-and-cloud-production.sh` 在更新后自动生成快照。
 
 大更新或迁移前建议先生成一次只读生产备份：
 
