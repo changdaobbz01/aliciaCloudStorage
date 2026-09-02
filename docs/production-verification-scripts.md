@@ -216,6 +216,15 @@ ALICIA_STATUS_RUN_BOUNDARY_CHECK=true \
 
 开启后会同时运行主站前端边界、云盘前端边界、旧身份路径边界和后端 API 归属边界检查，避免只看云盘仓库而漏掉 `mainSite/webApp` 或 `mainSite/userSite` 的拆分回退。
 
+需要把平台级四端前端拆分验收也纳入快照：
+
+```bash
+ALICIA_STATUS_RUN_FRONTEND_SPLIT_CHECK=true \
+  bash deploy/scripts/collect-production-status.sh
+```
+
+开启后会调用 `deploy/scripts/verify-platform-frontend-split-local.sh --skip-build`，复用四端 `returnTo`、session 同步、源码边界、共享个人资料弹窗和字段级 API 契约检查；它不重新构建前端，适合发布后留档或服务器侧快速确认当前源码边界。
+
 ## 10. 生产备份与备份校验
 
 大更新、数据库迁移或密钥调整前先备份：

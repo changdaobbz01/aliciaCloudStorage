@@ -1922,6 +1922,30 @@ require_source_match \
     "Production status snapshot must run main site frontend boundary checks when static boundary checks are requested."
 
 require_source_match \
+    "production status exposes platform frontend split check" \
+    "deploy/scripts/collect-production-status.sh" \
+    'ALICIA_STATUS_RUN_FRONTEND_SPLIT_CHECK' \
+    "Production status snapshot must expose optional platform frontend split verification."
+
+require_source_match \
+    "production status runs platform frontend split check" \
+    "deploy/scripts/collect-production-status.sh" \
+    'run_platform_frontend_split_check()' \
+    "Production status snapshot must run platform frontend split verification when requested."
+
+require_source_match \
+    "production status skips frontend rebuilds" \
+    "deploy/scripts/collect-production-status.sh" \
+    'bash "\$PLATFORM_FRONTEND_SPLIT_SCRIPT" --skip-build' \
+    "Production status snapshot must run platform frontend split verification without rebuilding frontends."
+
+require_source_match \
+    "production docs expose platform frontend split snapshot" \
+    "docs/production-verification-scripts.md" \
+    'ALICIA_STATUS_RUN_FRONTEND_SPLIT_CHECK=true' \
+    "Production verification docs must describe the platform frontend split snapshot switch."
+
+require_source_match \
     "production status exposes canonical redirect probes" \
     "deploy/scripts/collect-production-status.sh" \
     'curl_redirect_probe\(\)' \

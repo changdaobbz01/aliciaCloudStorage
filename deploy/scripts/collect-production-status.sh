@@ -13,8 +13,10 @@ SKIP_DB="${ALICIA_STATUS_SKIP_DB:-false}"
 SKIP_DOCKER_DF="${ALICIA_STATUS_SKIP_DOCKER_DF:-false}"
 RUN_ROUTE_VERIFY="${ALICIA_STATUS_RUN_ROUTE_VERIFY:-false}"
 RUN_BOUNDARY_CHECK="${ALICIA_STATUS_RUN_BOUNDARY_CHECK:-false}"
+RUN_FRONTEND_SPLIT_CHECK="${ALICIA_STATUS_RUN_FRONTEND_SPLIT_CHECK:-false}"
 MAIN_SITE_ROUTE_VERIFY_SCRIPT="$MAIN_SITE_PROJECT_DIR/deploy/scripts/verify-main-site-routes.sh"
 MAIN_SITE_BOUNDARY_SCRIPT="$MAIN_SITE_PROJECT_DIR/deploy/scripts/check-main-site-frontend-boundaries.sh"
+PLATFORM_FRONTEND_SPLIT_SCRIPT="$PROJECT_DIR/deploy/scripts/verify-platform-frontend-split-local.sh"
 
 CLOUD_BASE_URL="${CLOUD_BASE_URL%/}"
 IDENTITY_BASE_URL="${IDENTITY_BASE_URL%/}"
@@ -125,6 +127,17 @@ run_main_site_boundary_check() {
     }
 
     (cd "$MAIN_SITE_PROJECT_DIR" && bash deploy/scripts/check-main-site-frontend-boundaries.sh)
+}
+
+run_platform_frontend_split_check() {
+    [[ -f "$PLATFORM_FRONTEND_SPLIT_SCRIPT" ]] || {
+        printf 'Missing platform frontend split verifier: %s\n' "$PLATFORM_FRONTEND_SPLIT_SCRIPT" >&2
+        return 1
+    }
+
+    ALICIA_MAIN_SITE_PROJECT_DIR="$MAIN_SITE_PROJECT_DIR" \
+    ALICIA_CLOUD_PROJECT_DIR="$PROJECT_DIR" \
+        bash "$PLATFORM_FRONTEND_SPLIT_SCRIPT" --skip-build
 }
 
 curl_probe() {
@@ -369,6 +382,11 @@ if [[ "$RUN_BOUNDARY_CHECK" == "true" ]]; then
     run_optional "identity route boundary check" bash deploy/scripts/check-identity-route-boundary.sh
     run_optional "frontend console boundary check" bash deploy/scripts/check-frontend-console-boundaries.sh
     run_optional "backend API ownership boundary check" bash deploy/scripts/verify-backend-api-boundaries.sh
+fi
+
+if [[ "$RUN_FRONTEND_SPLIT_CHECK" == "true" ]]; then
+    print_section "Platform Frontend Split Check"
+    run_optional "platform frontend split verification" run_platform_frontend_split_check
 fi
 
 print_section "Result"
