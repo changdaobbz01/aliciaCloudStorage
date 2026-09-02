@@ -2030,6 +2030,12 @@ require_source_match \
     "Production status snapshot must verify the cloud web canonical redirect."
 
 require_source_match \
+    "production status probes cloud share route" \
+    "deploy/scripts/collect-production-status.sh" \
+    'curl_probe "cloudPan share route" "\$PUBLIC_BASE_URL/cloudPan/share/cache-probe"' \
+    "Production status snapshot must probe cloud share deep links."
+
+require_source_match \
     "production status probes cloud app download route" \
     "deploy/scripts/collect-production-status.sh" \
     'curl_probe "cloudPan app download route" "\$PUBLIC_BASE_URL/cloudPan/app-download"' \

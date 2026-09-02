@@ -303,6 +303,7 @@ curl_probe "identity dependency health direct" "$IDENTITY_BASE_URL/api/identity/
 curl_probe "main site home through frontend" "$PUBLIC_BASE_URL/"
 curl_probe "main site login through frontend" "$PUBLIC_BASE_URL/login"
 curl_probe "cloudPan frontend entry" "$PUBLIC_BASE_URL/cloudPan/"
+curl_probe "cloudPan share route" "$PUBLIC_BASE_URL/cloudPan/share/cache-probe"
 curl_probe "cloudPan app download route" "$PUBLIC_BASE_URL/cloudPan/app-download"
 curl_redirect_probe "cloudPan bare path" "$PUBLIC_BASE_URL/cloudPan" "/cloudPan/"
 curl_redirect_probe "cloudPan legacy login" "$PUBLIC_BASE_URL/cloudPan/login" "/login?returnTo=/cloudPan/"

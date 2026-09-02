@@ -196,7 +196,7 @@ bash deploy/scripts/verify-backend-api-boundaries.sh
 bash deploy/scripts/collect-production-status.sh
 ```
 
-默认快照会同时输出云盘仓库和 `~/mainSite` 仓库的最近提交与 tracked 文件状态，并探测主站、统一登录、普通云盘、身份后台、云盘后台、Identity、CloudStorageApi 和 RAG 的主要入口；同时会检查 `/console`、`/cloudPan`、`/console/cloud` 和旧 `/cloudPan/login` 是否按平台规范跳转，避免入口虽然可访问但 Location 已经漂移。
+默认快照会同时输出云盘仓库和 `~/mainSite` 仓库的最近提交与 tracked 文件状态，并探测主站、统一登录、普通云盘、云盘分享深链、app下载页、身份后台、云盘后台、Identity、CloudStorageApi 和 RAG 的主要入口；同时会检查 `/console`、`/cloudPan`、`/console/cloud` 和旧 `/cloudPan/login` 是否按平台规范跳转，避免入口虽然可访问但 Location 已经漂移。
 
 需要把完整路由验证也纳入快照：
 
