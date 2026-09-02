@@ -105,6 +105,32 @@ run_npm_script() {
     (cd "$package_dir" && npm run "$script_name")
 }
 
+require_frontend_build_dependencies() {
+    local label="$1"
+    local package_dir="$2"
+    local missing=()
+    local binary_name
+
+    [[ -d "$package_dir" ]] || fail "Missing npm package directory: $package_dir"
+
+    for binary_name in tsc vite; do
+        if [[ ! -f "$package_dir/node_modules/.bin/$binary_name" && ! -f "$package_dir/node_modules/.bin/$binary_name.cmd" ]]; then
+            missing+=("node_modules/.bin/$binary_name")
+        fi
+    done
+
+    if [[ ${#missing[@]} -gt 0 ]]; then
+        fail "$label frontend dependencies are not installed: missing ${missing[*]}. Run: cd \"$package_dir\" && npm ci --no-audit --no-fund"
+    fi
+}
+
+verify_frontend_build_dependencies() {
+    require_frontend_build_dependencies "main site webApp" "$MAIN_SITE_PROJECT_DIR/webApp"
+    require_frontend_build_dependencies "identity userSite" "$MAIN_SITE_PROJECT_DIR/userSite"
+    require_frontend_build_dependencies "cloud webApp" "$CLOUD_PROJECT_DIR/webApp"
+    require_frontend_build_dependencies "cloud sysManage" "$CLOUD_PROJECT_DIR/sysManage"
+}
+
 run_bash_script() {
     local project_dir="$1"
     local relative_script="$2"
@@ -270,7 +296,9 @@ printf 'Cloud project: %s\n' "$CLOUD_PROJECT_DIR"
 printf 'Cloud commit: %s\n' "$(git_revision "$CLOUD_PROJECT_DIR")"
 
 if [[ "$SKIP_BUILD" != "true" ]]; then
+    require_command node "Node.js is required unless --skip-build is used."
     require_command npm "npm is required unless --skip-build is used."
+    run_step "preflight frontend build dependencies" verify_frontend_build_dependencies
     run_step "build main site webApp" run_npm_script "$MAIN_SITE_PROJECT_DIR/webApp" build
     run_step "build identity userSite" run_npm_script "$MAIN_SITE_PROJECT_DIR/userSite" build
     run_step "build cloud webApp" run_npm_script "$CLOUD_PROJECT_DIR/webApp" build

@@ -1628,6 +1628,24 @@ require_source_match \
     "Platform bash verifier must allow static/API-only checks."
 
 require_source_match \
+    "platform bash verifier preflights build dependencies" \
+    "deploy/scripts/verify-platform-frontend-split-local.sh" \
+    'verify_frontend_build_dependencies' \
+    "Platform bash verifier must preflight frontend build dependencies before running full builds."
+
+require_source_match \
+    "platform bash verifier diagnoses missing frontend tsc" \
+    "deploy/scripts/verify-platform-frontend-split-local.sh" \
+    'for binary_name in tsc vite' \
+    "Platform bash verifier must diagnose missing TypeScript and Vite build dependencies before npm build."
+
+require_source_match \
+    "platform bash verifier reports npm ci fix" \
+    "deploy/scripts/verify-platform-frontend-split-local.sh" \
+    'npm ci --no-audit --no-fund' \
+    "Platform bash verifier must tell operators how to install missing frontend dependencies."
+
+require_source_match \
     "main site portal contract verifier compares login responses" \
     "deploy/scripts/verify-main-site-portal-api-contracts.mjs" \
     'IdentityLoginResponse' \
