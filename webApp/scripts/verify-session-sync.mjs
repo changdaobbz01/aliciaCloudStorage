@@ -218,13 +218,89 @@ assertIncludesInOrder(
   [
     'async function revokeSession(sessionId: number) {',
     'if (!authToken) {',
-    'if (identitySessionRevokingId !== null) {',
+    'if (identitySessionRevokingIdRef.current !== null) {',
+    'identitySessionRevokingIdRef.current = sessionId;',
     'setIdentitySessionRevokingId(sessionId);',
     'await revokeIdentitySession(authToken, sessionId);',
     'message.success',
     'await loadIdentitySessions(includeRevokedSessions);',
+    '} finally {',
+    'identitySessionRevokingIdRef.current = null;',
+    'setIdentitySessionRevokingId(null);',
   ],
   'cloud web profile session revocation must preserve the current revoked filter and block duplicate submissions',
+);
+assertIncludesInOrder(
+  driveProfileSettings,
+  [
+    'const [identitySessionRevokingId, setIdentitySessionRevokingId] = useState<number | null>(null);',
+    'const identitySessionRevokingIdRef = useRef<number | null>(null);',
+  ],
+  'cloud web profile session revocation must track pending submissions',
+);
+assertIncludesInOrder(
+  driveProfileSettings,
+  [
+    'function closeSessionsModal() {',
+    'if (identitySessionsLoading || identitySessionRevokingIdRef.current !== null) {',
+    'setSessionsOpen(false);',
+  ],
+  'cloud web profile session modal close must pause during session revocation',
+);
+assertIncludesInOrder(
+  driveProfileSettings,
+  [
+    'function changeIncludeRevokedSessions(checked: boolean) {',
+    'if (identitySessionsLoading || identitySessionRevokingIdRef.current !== null) {',
+    'setIncludeRevokedSessions(checked);',
+    'void loadIdentitySessions(checked);',
+  ],
+  'cloud web profile session filter must pause during session revocation',
+);
+assertIncludesInOrder(
+  driveProfileSettings,
+  [
+    'async function refreshIdentitySessions() {',
+    'if (identitySessionsLoading || identitySessionRevokingIdRef.current !== null) {',
+    'await loadIdentitySessions();',
+  ],
+  'cloud web profile session refresh must pause during session revocation',
+);
+assertIncludesInOrder(
+  drivePage,
+  [
+    'onRefreshSessions={profileSettings.refreshIdentitySessions}',
+  ],
+  'cloud web drive page must route session refresh through the guarded profile action',
+);
+assertIncludesInOrder(
+  driveProfileSettings,
+  [
+    'const [profileSaving, setProfileSaving] = useState(false);',
+    'const profileSavingRef = useRef(false);',
+    'function closeProfileModal() {',
+    'if (profileSavingRef.current || avatarUploading || backgroundUploading || backgroundClearing) {',
+    'async function submitProfile(values: UpdateProfilePayload)',
+    'if (!authToken || profileSavingRef.current) {',
+    'profileSavingRef.current = true;',
+    'setProfileSaving(true);',
+    'await updateProfile(',
+    '} finally {',
+    'profileSavingRef.current = false;',
+    'setProfileSaving(false);',
+  ],
+  'cloud web profile updates must block duplicate submissions and surface pending state',
+);
+assertIncludesInOrder(
+  driveProfileModals,
+  [
+    'confirmLoading={profileSaving}',
+    'maskClosable={!profileSaving && !avatarUploading}',
+    'closable={!profileSaving && !avatarUploading}',
+    'cancelButtonProps={{ disabled: profileSaving || avatarUploading }}',
+    'disabled={profileSaving}',
+  ],
+  'cloud web profile modal must surface pending profile updates',
 );
 assertIncludesInOrder(
   driveProfileSettings,
@@ -277,15 +353,26 @@ assertIncludesInOrder(
   driveProfileModals,
   [
     'okButtonProps={{',
-    'loading: identitySessionRevokingId === session.id,',
-    'disabled: identitySessionRevokingId !== null,',
-    'cancelButtonProps={{ disabled: identitySessionRevokingId === session.id }}',
-    'disabled={identitySessionRevokingId !== null && identitySessionRevokingId !== session.id}',
+    'loading: revokingThisSession,',
+    'disabled: identitySessionRevokingId !== null && !revokingThisSession,',
+    'cancelButtonProps={{ disabled: revokingThisSession }}',
+    'loading={revokingThisSession}',
+    'disabled={identitySessionRevokingId !== null && !revokingThisSession}',
     'maskClosable={!identitySessionsLoading && identitySessionRevokingId === null}',
     'closable={!identitySessionsLoading && identitySessionRevokingId === null}',
     'disabled={identitySessionsLoading || identitySessionRevokingId !== null}',
   ],
   'cloud web session modal must surface pending session revocation',
+);
+assertIncludesInOrder(
+  driveProfileModals,
+  [
+    'const revokingThisSession = identitySessionRevokingId === session.id;',
+    'loading: revokingThisSession,',
+    'disabled: identitySessionRevokingId !== null && !revokingThisSession,',
+    'disabled={identitySessionRevokingId !== null && !revokingThisSession}',
+  ],
+  'cloud web session modal must disable competing rows during session revocation',
 );
 assertIncludesInOrder(
   statusPanel,

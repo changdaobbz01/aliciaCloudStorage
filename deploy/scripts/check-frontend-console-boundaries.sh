@@ -758,6 +758,54 @@ require_source_match \
     "Cloud web profile session revocation must preserve the selected revoked filter and block duplicates."
 
 require_source_match \
+    "cloud web profile session revocation tracks pending state" \
+    "webApp/scripts/verify-session-sync.mjs" \
+    'cloud web profile session revocation must track pending submissions' \
+    "Cloud web profile session revocation must track pending state."
+
+require_source_match \
+    "cloud web profile session modal close pauses during revocation" \
+    "webApp/scripts/verify-session-sync.mjs" \
+    'cloud web profile session modal close must pause during session revocation' \
+    "Cloud web profile session modal close must pause during revocation."
+
+require_source_match \
+    "cloud web profile session filter pauses during revocation" \
+    "webApp/scripts/verify-session-sync.mjs" \
+    'cloud web profile session filter must pause during session revocation' \
+    "Cloud web profile session filter must pause during revocation."
+
+require_source_match \
+    "cloud web profile session refresh pauses during revocation" \
+    "webApp/scripts/verify-session-sync.mjs" \
+    'cloud web profile session refresh must pause during session revocation' \
+    "Cloud web profile session refresh must pause during revocation."
+
+require_source_match \
+    "cloud web drive page routes guarded session refresh" \
+    "webApp/scripts/verify-session-sync.mjs" \
+    'cloud web drive page must route session refresh through the guarded profile action' \
+    "Cloud web drive page must route session refresh through the guarded profile action."
+
+require_source_match \
+    "cloud web profile session modal disables competing rows" \
+    "webApp/scripts/verify-session-sync.mjs" \
+    'cloud web session modal must disable competing rows during session revocation' \
+    "Cloud web profile session modal must disable competing revocation rows."
+
+require_source_match \
+    "cloud web profile updates block duplicates" \
+    "webApp/scripts/verify-session-sync.mjs" \
+    'cloud web profile updates must block duplicate submissions and surface pending state' \
+    "Cloud web profile updates must block duplicate submissions."
+
+require_source_match \
+    "cloud web profile modal shows pending updates" \
+    "webApp/scripts/verify-session-sync.mjs" \
+    'cloud web profile modal must surface pending profile updates' \
+    "Cloud web profile modal must surface pending profile updates."
+
+require_source_match \
     "cloud web background mutations block duplicates" \
     "webApp/scripts/verify-session-sync.mjs" \
     'cloud web home background mutations must block duplicate submissions and surface pending state' \

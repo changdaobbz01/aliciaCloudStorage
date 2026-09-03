@@ -150,6 +150,7 @@ export function DriveProfileModals({
       width: 130,
       render: (_, session) => {
         const canRevoke = !session.current && !session.revokedAt && !isExpired(session);
+        const revokingThisSession = identitySessionRevokingId === session.id;
 
         if (!canRevoke) {
           return (
@@ -166,18 +167,18 @@ export function DriveProfileModals({
             cancelText="取消"
             okButtonProps={{
               danger: true,
-              loading: identitySessionRevokingId === session.id,
-              disabled: identitySessionRevokingId !== null,
+              loading: revokingThisSession,
+              disabled: identitySessionRevokingId !== null && !revokingThisSession,
             }}
-            cancelButtonProps={{ disabled: identitySessionRevokingId === session.id }}
+            cancelButtonProps={{ disabled: revokingThisSession }}
             onConfirm={() => void onRevokeSession(session.id)}
           >
             <Button
               danger
               size="small"
               icon={<Icon icon={LogOut} />}
-              loading={identitySessionRevokingId === session.id}
-              disabled={identitySessionRevokingId !== null && identitySessionRevokingId !== session.id}
+              loading={revokingThisSession}
+              disabled={identitySessionRevokingId !== null && !revokingThisSession}
             >
               撤销
             </Button>
@@ -206,6 +207,7 @@ export function DriveProfileModals({
         <Form
           form={profileForm}
           layout="vertical"
+          disabled={profileSaving}
           className="account-profile-form"
           onFinish={(values) => void onSubmitProfile(values)}
         >

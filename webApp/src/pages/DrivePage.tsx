@@ -634,7 +634,7 @@ export function DrivePage() {
         onClosePassword={profileSettings.closePasswordModal}
         onSubmitPassword={profileSettings.submitPassword}
         onCloseSessions={profileSettings.closeSessionsModal}
-        onRefreshSessions={() => profileSettings.loadIdentitySessions()}
+        onRefreshSessions={profileSettings.refreshIdentitySessions}
         onIncludeRevokedSessionsChange={profileSettings.changeIncludeRevokedSessions}
         onRevokeSession={profileSettings.revokeSession}
       />

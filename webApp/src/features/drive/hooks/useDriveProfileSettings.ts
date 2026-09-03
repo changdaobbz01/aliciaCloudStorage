@@ -53,6 +53,8 @@ export function useDriveProfileSettings({
   const [passwordForm] = Form.useForm<PasswordFormValues>();
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const backgroundInputRef = useRef<HTMLInputElement | null>(null);
+  const profileSavingRef = useRef(false);
+  const identitySessionRevokingIdRef = useRef<number | null>(null);
 
   function openProfileModal() {
     if (!currentUser) {
@@ -68,7 +70,7 @@ export function useDriveProfileSettings({
   }
 
   function closeProfileModal() {
-    if (profileSaving || avatarUploading || backgroundUploading || backgroundClearing) {
+    if (profileSavingRef.current || avatarUploading || backgroundUploading || backgroundClearing) {
       return;
     }
 
@@ -226,11 +228,27 @@ export function useDriveProfileSettings({
     void loadIdentitySessions();
   }
 
+  async function refreshIdentitySessions() {
+    if (identitySessionsLoading || identitySessionRevokingIdRef.current !== null) {
+      return;
+    }
+
+    await loadIdentitySessions();
+  }
+
   function closeSessionsModal() {
+    if (identitySessionsLoading || identitySessionRevokingIdRef.current !== null) {
+      return;
+    }
+
     setSessionsOpen(false);
   }
 
   function changeIncludeRevokedSessions(checked: boolean) {
+    if (identitySessionsLoading || identitySessionRevokingIdRef.current !== null) {
+      return;
+    }
+
     setIncludeRevokedSessions(checked);
     void loadIdentitySessions(checked);
   }
@@ -240,10 +258,11 @@ export function useDriveProfileSettings({
       return;
     }
 
-    if (identitySessionRevokingId !== null) {
+    if (identitySessionRevokingIdRef.current !== null) {
       return;
     }
 
+    identitySessionRevokingIdRef.current = sessionId;
     setIdentitySessionRevokingId(sessionId);
 
     try {
@@ -253,12 +272,13 @@ export function useDriveProfileSettings({
     } catch (sessionError) {
       message.error(sessionError instanceof Error ? sessionError.message : '登录会话撤销失败。');
     } finally {
+      identitySessionRevokingIdRef.current = null;
       setIdentitySessionRevokingId(null);
     }
   }
 
   async function submitProfile(values: UpdateProfilePayload) {
-    if (!authToken) {
+    if (!authToken || profileSavingRef.current) {
       return false;
     }
 
@@ -272,6 +292,7 @@ export function useDriveProfileSettings({
     const avatarUrl = values.avatarUrl?.trim() ? values.avatarUrl.trim() : null;
     const phoneNumber = values.phoneNumber?.trim() ? values.phoneNumber.trim() : null;
 
+    profileSavingRef.current = true;
     setProfileSaving(true);
 
     try {
@@ -292,6 +313,7 @@ export function useDriveProfileSettings({
       message.error(profileError instanceof Error ? profileError.message : '个人资料保存失败。');
       return false;
     } finally {
+      profileSavingRef.current = false;
       setProfileSaving(false);
     }
   }
@@ -381,6 +403,7 @@ export function useDriveProfileSettings({
     openSessionsModal,
     closeSessionsModal,
     loadIdentitySessions,
+    refreshIdentitySessions,
     changeIncludeRevokedSessions,
     revokeSession,
     submitProfile,
