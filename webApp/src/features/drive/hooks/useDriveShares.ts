@@ -19,7 +19,9 @@ export function useDriveShares({ authToken, isSharesView, message }: UseDriveSha
   const [shareCreateTargets, setShareCreateTargets] = useState<StorageNode[]>([]);
   const [lastCreatedShare, setLastCreatedShare] = useState<ShareLinkSummary | null>(null);
   const [lastCreatedPassword, setLastCreatedPassword] = useState<string | null>(null);
+  const [shareRevokingId, setShareRevokingId] = useState<number | null>(null);
   const shareCreatingRef = useRef(false);
+  const shareRevokingIdRef = useRef<number | null>(null);
   const [createShareForm] = Form.useForm<CreateShareFormValues>();
 
   async function loadShareLinks() {
@@ -131,12 +133,22 @@ export function useDriveShares({ authToken, isSharesView, message }: UseDriveSha
       return;
     }
 
+    if (shareRevokingIdRef.current !== null) {
+      return;
+    }
+
+    shareRevokingIdRef.current = shareId;
+    setShareRevokingId(shareId);
+
     try {
       await revokeShareLink(shareId, authToken);
       await loadShareLinks();
       message.success('分享已取消。');
     } catch (error) {
       message.error(error instanceof Error ? error.message : '取消分享失败。');
+    } finally {
+      shareRevokingIdRef.current = null;
+      setShareRevokingId(null);
     }
   }
 
@@ -152,6 +164,7 @@ export function useDriveShares({ authToken, isSharesView, message }: UseDriveSha
     shareLinks,
     shareLinksLoading,
     shareCreating,
+    shareRevokingId,
     shareCreateTargets,
     createShareForm,
     lastCreatedShare,

@@ -8,6 +8,7 @@ import { Icon } from '../../components/Icon';
 type DriveSharesViewProps = {
   shareLinks: ShareLinkSummary[];
   loading: boolean;
+  shareRevokingId: number | null;
   onRefresh: () => void;
   onRevokeShare: (shareId: number) => void | Promise<void>;
 };
@@ -44,7 +45,7 @@ function renderStatus(share: ShareLinkSummary) {
   return <Tag>已取消</Tag>;
 }
 
-export default function DriveSharesView({ shareLinks, loading, onRefresh, onRevokeShare }: DriveSharesViewProps) {
+export default function DriveSharesView({ shareLinks, loading, shareRevokingId, onRefresh, onRevokeShare }: DriveSharesViewProps) {
   const { message } = AntApp.useApp();
 
   async function handleCopy(value: string) {
@@ -119,27 +120,43 @@ export default function DriveSharesView({ shareLinks, loading, onRefresh, onRevo
       title: '操作',
       key: 'actions',
       width: 220,
-      render: (_, share) => (
-        <Space size="small" wrap>
-          <Button type="link" icon={<Icon icon={Copy} />} onClick={() => void handleCopy(resolveShareUrl(share.shareCode))}>
-            复制链接
-          </Button>
-          {share.status === 'ACTIVE' ? (
-            <Popconfirm
-              title="取消分享"
-              description="取消后，原分享链接将无法继续访问。"
-              okText="取消分享"
-              cancelText="保留"
-              okButtonProps={{ danger: true }}
-              onConfirm={() => onRevokeShare(share.id)}
+      render: (_, share) => {
+        const shareRevoking = shareRevokingId === share.id;
+
+        return (
+          <Space size="small" wrap>
+            <Button
+              type="link"
+              icon={<Icon icon={Copy} />}
+              disabled={shareRevokingId !== null}
+              onClick={() => void handleCopy(resolveShareUrl(share.shareCode))}
             >
-              <Button type="link" danger icon={<Icon icon={Trash2} />}>
-                取消
-              </Button>
-            </Popconfirm>
-          ) : null}
-        </Space>
-      ),
+              复制链接
+            </Button>
+            {share.status === 'ACTIVE' ? (
+              <Popconfirm
+                title="取消分享"
+                description="取消后，原分享链接将无法继续访问。"
+                okText="取消分享"
+                cancelText="保留"
+                okButtonProps={{ danger: true, loading: shareRevoking, disabled: shareRevokingId !== null && !shareRevoking }}
+                cancelButtonProps={{ disabled: shareRevoking }}
+                onConfirm={() => onRevokeShare(share.id)}
+              >
+                <Button
+                  type="link"
+                  danger
+                  icon={<Icon icon={Trash2} />}
+                  loading={shareRevoking}
+                  disabled={shareRevokingId !== null && !shareRevoking}
+                >
+                  取消
+                </Button>
+              </Popconfirm>
+            ) : null}
+          </Space>
+        );
+      },
     },
   ];
 
@@ -153,7 +170,7 @@ export default function DriveSharesView({ shareLinks, loading, onRefresh, onRevo
           </Typography.Paragraph>
         </div>
         <div className="panel-actions">
-          <Button icon={<Icon icon={RefreshCw} />} onClick={onRefresh}>
+          <Button icon={<Icon icon={RefreshCw} />} disabled={shareRevokingId !== null} onClick={onRefresh}>
             刷新
           </Button>
         </div>

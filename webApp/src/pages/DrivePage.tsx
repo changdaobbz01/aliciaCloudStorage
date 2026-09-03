@@ -420,6 +420,7 @@ export function DrivePage() {
         <LazyDriveSharesView
           shareLinks={shares.shareLinks}
           loading={shares.shareLinksLoading}
+          shareRevokingId={shares.shareRevokingId}
           onRefresh={() => void shares.loadShareLinks()}
           onRevokeShare={(shareId) => void shares.revokeShare(shareId)}
         />

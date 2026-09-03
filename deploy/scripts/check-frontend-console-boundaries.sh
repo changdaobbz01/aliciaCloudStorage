@@ -205,6 +205,36 @@ require_source_match \
     'cloud web app download URL resolver must produce same-origin public download URLs' \
     "Cloud web boundary verifier must keep app downloads same-origin."
 
+require_source_match \
+    "cloud web share revocation tracks pending row" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web share revocation must track the pending share id' \
+    "Cloud web boundary verifier must track pending share revocation."
+
+require_source_match \
+    "cloud web share revocation blocks duplicates" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web share revocation must block duplicate submissions and clear pending state' \
+    "Cloud web boundary verifier must block duplicate share revocation."
+
+require_source_match \
+    "cloud web shares view shows pending revocation" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web shares view must surface pending share revocation' \
+    "Cloud web shares view must surface pending share revocation."
+
+require_source_match \
+    "cloud web shares view blocks refresh during revocation" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web shares view must not refresh while a share revocation is pending' \
+    "Cloud web shares view must avoid refresh while share revocation is pending."
+
+require_source_match \
+    "cloud drive page wires share revocation pending state" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud drive page must wire share revocation pending state to the UI' \
+    "Cloud drive page must wire share revocation pending state."
+
 require_source_no_match \
     "cloud web has no admin style leftovers" \
     "webApp/src/index.css" \

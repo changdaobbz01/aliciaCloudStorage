@@ -176,6 +176,8 @@ assert.doesNotMatch(rootApp, /path="\/console/, 'cloud web must not mount consol
 
 const drivePage = readFileSync(new URL('../src/pages/DrivePage.tsx', import.meta.url), 'utf8');
 const driveProfileModals = readFileSync(new URL('../src/features/drive/DriveProfileModals.tsx', import.meta.url), 'utf8');
+const driveSharesView = readFileSync(new URL('../src/features/drive/DriveSharesView.tsx', import.meta.url), 'utf8');
+const useDriveShares = readFileSync(new URL('../src/features/drive/hooks/useDriveShares.ts', import.meta.url), 'utf8');
 const driveShared = readFileSync(new URL('../src/features/drive/driveShared.ts', import.meta.url), 'utf8');
 const appDownloadPage = readFileSync(new URL('../src/pages/AppDownloadPage.tsx', import.meta.url), 'utf8');
 const sharePage = readFileSync(new URL('../src/pages/SharePage.tsx', import.meta.url), 'utf8');
@@ -217,6 +219,31 @@ assert.match(
   driveShared,
   /return new URL\(safeDownloadPath, window\.location\.origin\)\.toString\(\);/,
   'cloud web app download URL resolver must produce same-origin public download URLs',
+);
+assert.match(
+  useDriveShares,
+  /const \[shareRevokingId, setShareRevokingId\] = useState<number \| null>\(null\);[\s\S]*shareRevokingIdRef = useRef<number \| null>\(null\);/,
+  'cloud web share revocation must track the pending share id',
+);
+assert.match(
+  useDriveShares,
+  /if \(shareRevokingIdRef\.current !== null\) \{[\s\S]*?return;[\s\S]*?\}[\s\S]*shareRevokingIdRef\.current = shareId;[\s\S]*setShareRevokingId\(shareId\);[\s\S]*finally \{[\s\S]*shareRevokingIdRef\.current = null;[\s\S]*setShareRevokingId\(null\);/,
+  'cloud web share revocation must block duplicate submissions and clear pending state',
+);
+assert.match(
+  driveSharesView,
+  /okButtonProps=\{\{ danger: true, loading: shareRevoking, disabled: shareRevokingId !== null && !shareRevoking \}\}[\s\S]*cancelButtonProps=\{\{ disabled: shareRevoking \}\}[\s\S]*loading=\{shareRevoking\}[\s\S]*disabled=\{shareRevokingId !== null && !shareRevoking\}/,
+  'cloud web shares view must surface pending share revocation',
+);
+assert.match(
+  driveSharesView,
+  /<Button icon=\{<Icon icon=\{RefreshCw\} \/>\} disabled=\{shareRevokingId !== null\} onClick=\{onRefresh\}>/,
+  'cloud web shares view must not refresh while a share revocation is pending',
+);
+assert.match(
+  drivePage,
+  /shareRevokingId=\{shares\.shareRevokingId\}/,
+  'cloud drive page must wire share revocation pending state to the UI',
 );
 assert.match(
   driveProfileModals,
