@@ -1382,6 +1382,24 @@ require_source_match \
     "Cloud console profile modal must reject legacy profile layout aliases."
 
 require_source_match \
+    "cloud console profile updates block duplicates" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console profile updates must block duplicate submissions and surface pending state' \
+    "Cloud console profile updates must block duplicate submissions."
+
+require_source_match \
+    "cloud console profile avatar upload blocks duplicates" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console profile avatar upload must block duplicate submissions and surface pending state' \
+    "Cloud console profile avatar upload must block duplicate submissions."
+
+require_source_match \
+    "cloud console profile modal shows pending updates" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console profile modal must surface pending profile updates' \
+    "Cloud console profile modal must surface pending profile updates."
+
+require_source_match \
     "cloud console profile styles reject legacy aliases" \
     "sysManage/scripts/verify-console-boundary.mjs" \
     'cloud console styles must not keep legacy profile layout aliases' \

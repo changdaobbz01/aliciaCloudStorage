@@ -95,6 +95,8 @@ export function CloudConsolePage() {
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [profileForm] = Form.useForm<UpdateProfilePayload>();
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
+  const profileSavingRef = useRef(false);
+  const avatarUploadingRef = useRef(false);
   const activeView = viewFromRoute(view);
   const isAdmin = isCloudAdmin(currentUser);
   const activeMeta = viewMeta[activeView];
@@ -183,7 +185,7 @@ export function CloudConsolePage() {
   }
 
   function closeProfileModal() {
-    if (profileSaving || avatarUploading) {
+    if (profileSavingRef.current || avatarUploadingRef.current) {
       return;
     }
 
@@ -191,11 +193,16 @@ export function CloudConsolePage() {
   }
 
   function handleAvatarButtonClick() {
+    if (profileSavingRef.current || avatarUploadingRef.current) {
+      return;
+    }
+
     avatarInputRef.current?.click();
   }
 
   async function handleAvatarFileChange(event: ChangeEvent<HTMLInputElement>) {
-    if (!authToken) {
+    if (!authToken || profileSavingRef.current || avatarUploadingRef.current) {
+      event.target.value = '';
       return;
     }
 
@@ -211,6 +218,7 @@ export function CloudConsolePage() {
       return;
     }
 
+    avatarUploadingRef.current = true;
     setAvatarUploading(true);
 
     try {
@@ -221,12 +229,13 @@ export function CloudConsolePage() {
     } catch (avatarError) {
       message.error(avatarError instanceof Error ? avatarError.message : '头像上传失败。');
     } finally {
+      avatarUploadingRef.current = false;
       setAvatarUploading(false);
     }
   }
 
   async function submitProfile(values: UpdateProfilePayload) {
-    if (!authToken) {
+    if (!authToken || profileSavingRef.current) {
       return false;
     }
 
@@ -237,6 +246,7 @@ export function CloudConsolePage() {
       return false;
     }
 
+    profileSavingRef.current = true;
     setProfileSaving(true);
 
     try {
@@ -256,6 +266,7 @@ export function CloudConsolePage() {
       message.error(profileError instanceof Error ? profileError.message : '个人资料保存失败。');
       return false;
     } finally {
+      profileSavingRef.current = false;
       setProfileSaving(false);
     }
   }
@@ -496,6 +507,7 @@ export function CloudConsolePage() {
         <Form
           form={profileForm}
           layout="vertical"
+          disabled={profileSaving}
           className="account-profile-form"
           onFinish={(values) => void submitProfile(values)}
         >

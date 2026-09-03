@@ -790,6 +790,55 @@ assert.doesNotMatch(
 );
 assert.match(consolePageSource, /className="account-profile-form"/, 'cloud console profile modal must use the unified account profile form layout');
 assert.match(consolePageSource, /name="avatarUrl"/, 'cloud console profile modal must keep the shared avatar URL field');
+assertIncludesInOrder(
+  consolePageSource,
+  [
+    'const [profileSaving, setProfileSaving] = useState(false);',
+    'const [avatarUploading, setAvatarUploading] = useState(false);',
+    'const profileSavingRef = useRef(false);',
+    'const avatarUploadingRef = useRef(false);',
+    'function closeProfileModal() {',
+    'if (profileSavingRef.current || avatarUploadingRef.current) {',
+    'async function submitProfile(values: UpdateProfilePayload) {',
+    'if (!authToken || profileSavingRef.current) {',
+    'profileSavingRef.current = true;',
+    'setProfileSaving(true);',
+    'await updateProfile(',
+    '} finally {',
+    'profileSavingRef.current = false;',
+    'setProfileSaving(false);',
+  ],
+  'cloud console profile updates must block duplicate submissions and surface pending state',
+);
+assertIncludesInOrder(
+  consolePageSource,
+  [
+    'function handleAvatarButtonClick() {',
+    'if (profileSavingRef.current || avatarUploadingRef.current) {',
+    'async function handleAvatarFileChange(event: ChangeEvent<HTMLInputElement>)',
+    'if (!authToken || profileSavingRef.current || avatarUploadingRef.current) {',
+    'avatarUploadingRef.current = true;',
+    'setAvatarUploading(true);',
+    'await uploadCurrentUserAvatar(selectedFile, authToken);',
+    '} finally {',
+    'avatarUploadingRef.current = false;',
+    'setAvatarUploading(false);',
+  ],
+  'cloud console profile avatar upload must block duplicate submissions and surface pending state',
+);
+assertIncludesInOrder(
+  consolePageSource,
+  [
+    'confirmLoading={profileSaving}',
+    'maskClosable={!profileSaving && !avatarUploading}',
+    'closable={!profileSaving && !avatarUploading}',
+    'cancelButtonProps={{ disabled: profileSaving || avatarUploading }}',
+    'disabled={profileSaving}',
+    'loading={avatarUploading}',
+    'disabled={profileSaving}',
+  ],
+  'cloud console profile modal must surface pending profile updates',
+);
 assert.match(consoleStyles, /\.account-profile-form/, 'cloud console styles must define the unified account profile form');
 assert.match(consoleStyles, /\.account-profile-hero/, 'cloud console styles must define the unified profile avatar function area');
 assert.match(consoleStyles, /\.account-profile-copy/, 'cloud console styles must define the unified profile explanatory copy');
