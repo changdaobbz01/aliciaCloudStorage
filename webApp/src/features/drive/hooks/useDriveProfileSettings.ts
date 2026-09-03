@@ -46,6 +46,9 @@ export function useDriveProfileSettings({
   const [includeRevokedSessions, setIncludeRevokedSessions] = useState(false);
   const [profileSaving, setProfileSaving] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
+  const [backgroundUploading, setBackgroundUploading] = useState(false);
+  const [backgroundClearing, setBackgroundClearing] = useState(false);
+  const [passwordSaving, setPasswordSaving] = useState(false);
   const [profileForm] = Form.useForm<UpdateProfilePayload>();
   const [passwordForm] = Form.useForm<PasswordFormValues>();
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
@@ -65,15 +68,23 @@ export function useDriveProfileSettings({
   }
 
   function closeProfileModal() {
+    if (profileSaving || avatarUploading || backgroundUploading || backgroundClearing) {
+      return;
+    }
+
     setProfileOpen(false);
   }
 
   function handleAvatarButtonClick() {
+    if (profileSaving || avatarUploading) {
+      return;
+    }
+
     avatarInputRef.current?.click();
   }
 
   async function handleAvatarFileChange(event: ChangeEvent<HTMLInputElement>) {
-    if (!authToken) {
+    if (!authToken || profileSaving || avatarUploading) {
       return;
     }
 
@@ -104,6 +115,10 @@ export function useDriveProfileSettings({
   }
 
   function handleHomeBackgroundButtonClick() {
+    if (backgroundUploading || backgroundClearing) {
+      return;
+    }
+
     const input = backgroundInputRef.current;
 
     if (!input) {
@@ -124,7 +139,8 @@ export function useDriveProfileSettings({
   }
 
   async function handleHomeBackgroundFileChange(event: ChangeEvent<HTMLInputElement>) {
-    if (!authToken) {
+    if (!authToken || backgroundUploading || backgroundClearing) {
+      event.target.value = '';
       return;
     }
 
@@ -145,19 +161,25 @@ export function useDriveProfileSettings({
       return;
     }
 
+    setBackgroundUploading(true);
+
     try {
       const updatedUser = await uploadCurrentUserHomeBackground(selectedFile, authToken);
       updateCurrentUser(updatedUser);
       message.success('主页背景图已更新。');
     } catch (backgroundError) {
       message.error(backgroundError instanceof Error ? backgroundError.message : '背景图上传失败。');
+    } finally {
+      setBackgroundUploading(false);
     }
   }
 
   async function clearHomeBackground() {
-    if (!authToken) {
+    if (!authToken || backgroundUploading || backgroundClearing) {
       return;
     }
+
+    setBackgroundClearing(true);
 
     try {
       const updatedUser = await clearCurrentUserHomeBackground(authToken);
@@ -165,6 +187,8 @@ export function useDriveProfileSettings({
       message.success('主页背景图已移除。');
     } catch (backgroundError) {
       message.error(backgroundError instanceof Error ? backgroundError.message : '移除背景图失败。');
+    } finally {
+      setBackgroundClearing(false);
     }
   }
 
@@ -174,6 +198,10 @@ export function useDriveProfileSettings({
   }
 
   function closePasswordModal() {
+    if (passwordSaving) {
+      return;
+    }
+
     setPasswordOpen(false);
   }
 
@@ -209,6 +237,10 @@ export function useDriveProfileSettings({
 
   async function revokeSession(sessionId: number) {
     if (!authToken) {
+      return;
+    }
+
+    if (identitySessionRevokingId !== null) {
       return;
     }
 
@@ -265,24 +297,33 @@ export function useDriveProfileSettings({
   }
 
   async function submitPassword(values: PasswordFormValues) {
-    if (!authToken) {
+    if (!authToken || passwordSaving) {
       return false;
     }
 
-    await changePassword(
-      {
-        oldPassword: values.oldPassword,
-        newPassword: values.newPassword,
-      },
-      authToken,
-    );
+    setPasswordSaving(true);
 
-    passwordForm.resetFields();
-    setPasswordOpen(false);
-    message.success('密码修改成功，请重新登录。');
-    clearCurrentSession();
-    onNavigateToLogin();
-    return true;
+    try {
+      await changePassword(
+        {
+          oldPassword: values.oldPassword,
+          newPassword: values.newPassword,
+        },
+        authToken,
+      );
+
+      passwordForm.resetFields();
+      setPasswordOpen(false);
+      message.success('密码修改成功，请重新登录。');
+      clearCurrentSession();
+      onNavigateToLogin();
+      return true;
+    } catch (passwordError) {
+      message.error(passwordError instanceof Error ? passwordError.message : '密码修改失败。');
+      return false;
+    } finally {
+      setPasswordSaving(false);
+    }
   }
 
   async function handleLogout() {
@@ -321,6 +362,9 @@ export function useDriveProfileSettings({
     includeRevokedSessions,
     profileSaving,
     avatarUploading,
+    backgroundUploading,
+    backgroundClearing,
+    passwordSaving,
     profileForm,
     passwordForm,
     avatarInputRef,

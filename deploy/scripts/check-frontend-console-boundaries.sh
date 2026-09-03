@@ -676,8 +676,44 @@ require_source_match \
 require_source_match \
     "cloud web profile session revocation keeps selected state" \
     "webApp/scripts/verify-session-sync.mjs" \
-    'cloud web profile session revocation must preserve the current revoked filter' \
-    "Cloud web profile session revocation must preserve the selected revoked filter."
+    'cloud web profile session revocation must preserve the current revoked filter and block duplicate submissions' \
+    "Cloud web profile session revocation must preserve the selected revoked filter and block duplicates."
+
+require_source_match \
+    "cloud web background mutations block duplicates" \
+    "webApp/scripts/verify-session-sync.mjs" \
+    'cloud web home background mutations must block duplicate submissions and surface pending state' \
+    "Cloud web home background mutations must block duplicate submissions."
+
+require_source_match \
+    "cloud web password change blocks duplicates" \
+    "webApp/scripts/verify-session-sync.mjs" \
+    'cloud web password change must block duplicate submissions and report failures' \
+    "Cloud web password changes must block duplicate submissions."
+
+require_source_match \
+    "cloud web password modal shows pending state" \
+    "webApp/scripts/verify-session-sync.mjs" \
+    'cloud web password modal must surface pending password changes' \
+    "Cloud web password modal must surface pending password changes."
+
+require_source_match \
+    "cloud web session modal shows pending revocation" \
+    "webApp/scripts/verify-session-sync.mjs" \
+    'cloud web session modal must surface pending session revocation' \
+    "Cloud web session modal must surface pending session revocation."
+
+require_source_match \
+    "cloud web background controls show pending state" \
+    "webApp/scripts/verify-session-sync.mjs" \
+    'cloud web home background controls must surface pending state' \
+    "Cloud web home background controls must surface pending state."
+
+require_source_match \
+    "cloud web drive page wires profile pending states" \
+    "webApp/scripts/verify-session-sync.mjs" \
+    'cloud web drive page must wire profile pending states to the UI' \
+    "Cloud web drive page must wire profile pending states to the UI."
 
 require_source_match \
     "cloud console reads current cloud profile" \

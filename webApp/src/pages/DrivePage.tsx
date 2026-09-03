@@ -354,6 +354,8 @@ export function DrivePage() {
           overview={dashboard.overview}
           usageHistory={dashboard.usageHistory}
           backgroundImage={homeBackgroundImage}
+          backgroundUploading={profileSettings.backgroundUploading}
+          backgroundClearing={profileSettings.backgroundClearing}
           onChooseBackground={profileSettings.handleHomeBackgroundButtonClick}
           onClearBackground={() => void profileSettings.clearHomeBackground()}
         />
@@ -578,6 +580,7 @@ export function DrivePage() {
             type="file"
             accept="image/png,image/jpeg,image/gif,image/webp"
             className="upload-input"
+            disabled={profileSettings.backgroundUploading || profileSettings.backgroundClearing}
             onChange={(event) => void profileSettings.handleHomeBackgroundFileChange(event)}
           />
 
@@ -616,6 +619,7 @@ export function DrivePage() {
         includeRevokedSessions={profileSettings.includeRevokedSessions}
         profileSaving={profileSettings.profileSaving}
         avatarUploading={profileSettings.avatarUploading}
+        passwordSaving={profileSettings.passwordSaving}
         profileForm={profileSettings.profileForm}
         passwordForm={profileSettings.passwordForm}
         avatarInputRef={profileSettings.avatarInputRef}

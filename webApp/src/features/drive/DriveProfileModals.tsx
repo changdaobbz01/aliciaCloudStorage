@@ -23,6 +23,7 @@ type DriveProfileModalsProps = {
   includeRevokedSessions: boolean;
   profileSaving: boolean;
   avatarUploading: boolean;
+  passwordSaving: boolean;
   profileForm: FormInstance<UpdateProfilePayload>;
   passwordForm: FormInstance<PasswordFormValues>;
   avatarInputRef: MutableRefObject<HTMLInputElement | null>;
@@ -88,6 +89,7 @@ export function DriveProfileModals({
   includeRevokedSessions,
   profileSaving,
   avatarUploading,
+  passwordSaving,
   profileForm,
   passwordForm,
   avatarInputRef,
@@ -162,6 +164,12 @@ export function DriveProfileModals({
             title="撤销这个登录会话？"
             okText="撤销"
             cancelText="取消"
+            okButtonProps={{
+              danger: true,
+              loading: identitySessionRevokingId === session.id,
+              disabled: identitySessionRevokingId !== null,
+            }}
+            cancelButtonProps={{ disabled: identitySessionRevokingId === session.id }}
             onConfirm={() => void onRevokeSession(session.id)}
           >
             <Button
@@ -169,6 +177,7 @@ export function DriveProfileModals({
               size="small"
               icon={<Icon icon={LogOut} />}
               loading={identitySessionRevokingId === session.id}
+              disabled={identitySessionRevokingId !== null && identitySessionRevokingId !== session.id}
             >
               撤销
             </Button>
@@ -258,9 +267,13 @@ export function DriveProfileModals({
         onOk={() => void passwordForm.submit()}
         okText="确认修改"
         cancelText="取消"
+        confirmLoading={passwordSaving}
+        maskClosable={!passwordSaving}
+        closable={!passwordSaving}
+        cancelButtonProps={{ disabled: passwordSaving }}
         destroyOnHidden
       >
-        <Form form={passwordForm} layout="vertical" onFinish={(values) => void onSubmitPassword(values)}>
+        <Form form={passwordForm} layout="vertical" disabled={passwordSaving} onFinish={(values) => void onSubmitPassword(values)}>
           <Form.Item
             name="oldPassword"
             label="旧密码"
@@ -307,6 +320,8 @@ export function DriveProfileModals({
         onCancel={onCloseSessions}
         footer={null}
         width={920}
+        maskClosable={!identitySessionsLoading && identitySessionRevokingId === null}
+        closable={!identitySessionsLoading && identitySessionRevokingId === null}
         destroyOnHidden
       >
         <div className="session-modal-toolbar">
@@ -314,12 +329,14 @@ export function DriveProfileModals({
             <Switch
               checked={includeRevokedSessions}
               onChange={onIncludeRevokedSessionsChange}
+              disabled={identitySessionsLoading || identitySessionRevokingId !== null}
             />
             <Typography.Text>显示已撤销</Typography.Text>
           </Space>
           <Button
             icon={<Icon icon={RefreshCw} />}
             loading={identitySessionsLoading}
+            disabled={identitySessionRevokingId !== null}
             onClick={() => void onRefreshSessions()}
           >
             刷新

@@ -6,6 +6,8 @@ type DriveHomeViewProps = {
   overview: DriveOverview | null;
   usageHistory: UsageHistoryPoint[];
   backgroundImage: string | null;
+  backgroundUploading: boolean;
+  backgroundClearing: boolean;
   onChooseBackground: () => void;
   onClearBackground: () => void;
 };
@@ -15,6 +17,8 @@ export default function DriveHomeView({
   overview,
   usageHistory,
   backgroundImage,
+  backgroundUploading,
+  backgroundClearing,
   onChooseBackground,
   onClearBackground,
 }: DriveHomeViewProps) {
@@ -25,6 +29,8 @@ export default function DriveHomeView({
         overview={overview}
         usageHistory={usageHistory}
         backgroundImage={backgroundImage}
+        backgroundUploading={backgroundUploading}
+        backgroundClearing={backgroundClearing}
         onChooseBackground={onChooseBackground}
         onClearBackground={onClearBackground}
       />

@@ -7,6 +7,9 @@ const sessionContext = readFileSync(new URL('../src/context/session-context.tsx'
 const protectedRoute = readFileSync(new URL('../src/components/protected-route.tsx', import.meta.url), 'utf8');
 const unifiedLogin = readFileSync(new URL('../src/lib/unifiedLogin.ts', import.meta.url), 'utf8');
 const driveProfileSettings = readFileSync(new URL('../src/features/drive/hooks/useDriveProfileSettings.ts', import.meta.url), 'utf8');
+const driveProfileModals = readFileSync(new URL('../src/features/drive/DriveProfileModals.tsx', import.meta.url), 'utf8');
+const drivePage = readFileSync(new URL('../src/pages/DrivePage.tsx', import.meta.url), 'utf8');
+const statusPanel = readFileSync(new URL('../src/components/StatusPanel.tsx', import.meta.url), 'utf8');
 
 function findMatching(source, openIndex, openChar, closeChar) {
   let depth = 0;
@@ -214,11 +217,97 @@ assertIncludesInOrder(
   driveProfileSettings,
   [
     'async function revokeSession(sessionId: number) {',
+    'if (!authToken) {',
+    'if (identitySessionRevokingId !== null) {',
+    'setIdentitySessionRevokingId(sessionId);',
     'await revokeIdentitySession(authToken, sessionId);',
     'message.success',
     'await loadIdentitySessions(includeRevokedSessions);',
   ],
-  'cloud web profile session revocation must preserve the current revoked filter',
+  'cloud web profile session revocation must preserve the current revoked filter and block duplicate submissions',
+);
+assertIncludesInOrder(
+  driveProfileSettings,
+  [
+    'const [backgroundUploading, setBackgroundUploading] = useState(false);',
+    'const [backgroundClearing, setBackgroundClearing] = useState(false);',
+    'function handleHomeBackgroundButtonClick() {',
+    'if (backgroundUploading || backgroundClearing) {',
+    'async function handleHomeBackgroundFileChange(event: ChangeEvent<HTMLInputElement>)',
+    'if (!authToken || backgroundUploading || backgroundClearing) {',
+    'setBackgroundUploading(true);',
+    'await uploadCurrentUserHomeBackground(selectedFile, authToken);',
+    'setBackgroundUploading(false);',
+    'async function clearHomeBackground()',
+    'if (!authToken || backgroundUploading || backgroundClearing) {',
+    'setBackgroundClearing(true);',
+    'await clearCurrentUserHomeBackground(authToken);',
+    'setBackgroundClearing(false);',
+  ],
+  'cloud web home background mutations must block duplicate submissions and surface pending state',
+);
+assertIncludesInOrder(
+  driveProfileSettings,
+  [
+    'const [passwordSaving, setPasswordSaving] = useState(false);',
+    'function closePasswordModal() {',
+    'if (passwordSaving) {',
+    'async function submitPassword(values: PasswordFormValues)',
+    'if (!authToken || passwordSaving) {',
+    'setPasswordSaving(true);',
+    'await changePassword(',
+    "message.error(passwordError instanceof Error ? passwordError.message : '密码修改失败。');",
+    'setPasswordSaving(false);',
+  ],
+  'cloud web password change must block duplicate submissions and report failures',
+);
+assertIncludesInOrder(
+  driveProfileModals,
+  [
+    'passwordSaving,',
+    'confirmLoading={passwordSaving}',
+    'maskClosable={!passwordSaving}',
+    'closable={!passwordSaving}',
+    'cancelButtonProps={{ disabled: passwordSaving }}',
+    'disabled={passwordSaving}',
+  ],
+  'cloud web password modal must surface pending password changes',
+);
+assertIncludesInOrder(
+  driveProfileModals,
+  [
+    'okButtonProps={{',
+    'loading: identitySessionRevokingId === session.id,',
+    'disabled: identitySessionRevokingId !== null,',
+    'cancelButtonProps={{ disabled: identitySessionRevokingId === session.id }}',
+    'disabled={identitySessionRevokingId !== null && identitySessionRevokingId !== session.id}',
+    'maskClosable={!identitySessionsLoading && identitySessionRevokingId === null}',
+    'closable={!identitySessionsLoading && identitySessionRevokingId === null}',
+    'disabled={identitySessionsLoading || identitySessionRevokingId !== null}',
+  ],
+  'cloud web session modal must surface pending session revocation',
+);
+assertIncludesInOrder(
+  statusPanel,
+  [
+    'backgroundUploading,',
+    'backgroundClearing,',
+    'loading={backgroundUploading}',
+    'disabled={backgroundClearing}',
+    'loading={backgroundClearing}',
+    'disabled={backgroundUploading || backgroundClearing}',
+  ],
+  'cloud web home background controls must surface pending state',
+);
+assertIncludesInOrder(
+  drivePage,
+  [
+    'backgroundUploading={profileSettings.backgroundUploading}',
+    'backgroundClearing={profileSettings.backgroundClearing}',
+    'disabled={profileSettings.backgroundUploading || profileSettings.backgroundClearing}',
+    'passwordSaving={profileSettings.passwordSaving}',
+  ],
+  'cloud web drive page must wire profile pending states to the UI',
 );
 
 for (const reason of ['profile', 'logout', 'expired']) {

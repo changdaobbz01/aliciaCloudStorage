@@ -9,6 +9,8 @@ type StatusPanelProps = {
   overview: DriveOverview | null;
   usageHistory: UsageHistoryPoint[];
   backgroundImage: string | null;
+  backgroundUploading: boolean;
+  backgroundClearing: boolean;
   onChooseBackground: () => void;
   onClearBackground: () => void;
 };
@@ -125,6 +127,8 @@ export function StatusPanel({
   overview,
   usageHistory,
   backgroundImage,
+  backgroundUploading,
+  backgroundClearing,
   onChooseBackground,
   onClearBackground,
 }: StatusPanelProps) {
@@ -157,11 +161,21 @@ export function StatusPanel({
           </div>
 
           <Space wrap className="home-card-actions">
-            <Button icon={<Icon icon={Image} />} onClick={onChooseBackground}>
+            <Button
+              icon={<Icon icon={Image} />}
+              loading={backgroundUploading}
+              disabled={backgroundClearing}
+              onClick={onChooseBackground}
+            >
               设置背景图
             </Button>
             {backgroundImage ? (
-              <Button icon={<Icon icon={Trash2} />} onClick={onClearBackground}>
+              <Button
+                icon={<Icon icon={Trash2} />}
+                loading={backgroundClearing}
+                disabled={backgroundUploading || backgroundClearing}
+                onClick={onClearBackground}
+              >
                 移除背景
               </Button>
             ) : null}
