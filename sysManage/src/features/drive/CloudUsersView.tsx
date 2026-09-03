@@ -276,7 +276,7 @@ export default function CloudUsersView({
           </div>
         ) : null}
 
-        <Form form={quotaForm} layout="vertical" onFinish={onSubmitQuotaUpdate}>
+        <Form form={quotaForm} layout="vertical" disabled={quotaSaving} onFinish={onSubmitQuotaUpdate}>
           <Form.Item
             name="storageQuotaGb"
             label="最大容量"

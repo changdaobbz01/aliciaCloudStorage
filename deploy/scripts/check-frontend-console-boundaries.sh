@@ -1166,6 +1166,12 @@ require_source_match \
     "Cloud console boundary verifier must block duplicate quota submissions."
 
 require_source_match \
+    "cloud console quota updates block duplicates" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console quota updates must block duplicate submissions and surface pending state' \
+    "Cloud console quota updates must block duplicate submissions."
+
+require_source_match \
     "cloud console operations overview contract is pinned" \
     "sysManage/scripts/verify-console-boundary.mjs" \
     'cloud console operations view must load CloudStorageApi operations overview' \

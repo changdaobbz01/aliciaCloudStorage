@@ -1,6 +1,6 @@
 import { Form } from 'antd';
 import type { MessageInstance } from 'antd/es/message/interface';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { fetchUsers, updateUserStorageQuota } from '../../../lib/api';
 import type { User } from '../../../types';
 import { bytesToGigabytes, formatFileSize, gigabytesToBytes } from '../driveShared';
@@ -32,6 +32,7 @@ export function useCloudUsersAdmin({
   const [quotaModalOpen, setQuotaModalOpen] = useState(false);
   const [quotaSaving, setQuotaSaving] = useState(false);
   const [quotaForm] = Form.useForm<CloudQuotaFormValues>();
+  const quotaSavingRef = useRef(false);
 
   async function loadUsers() {
     if (!authToken || !isAdmin) {
@@ -55,6 +56,10 @@ export function useCloudUsersAdmin({
       return;
     }
 
+    if (quotaSavingRef.current) {
+      return;
+    }
+
     if (user.storageQuotaBytes === null) {
       message.info('当前账号缺少云盘额度配置，请刷新后再试。');
       return;
@@ -74,7 +79,7 @@ export function useCloudUsersAdmin({
   }
 
   function closeQuotaModal() {
-    if (quotaSaving) {
+    if (quotaSavingRef.current) {
       return;
     }
 
@@ -82,21 +87,22 @@ export function useCloudUsersAdmin({
   }
 
   async function submitQuotaUpdate() {
-    if (!authToken || !quotaTarget || !isAdmin || quotaSaving) {
+    if (!authToken || !quotaTarget || !isAdmin || quotaSavingRef.current) {
       return;
     }
 
-    const values = await quotaForm.validateFields();
-    const storageQuotaBytes = gigabytesToBytes(values.storageQuotaGb);
-
-    if (storageQuotaBytes < quotaTarget.usedBytes) {
-      message.error(`最大额度不能低于当前已用空间 ${formatFileSize(quotaTarget.usedBytes)}。`);
-      return;
-    }
-
+    quotaSavingRef.current = true;
     setQuotaSaving(true);
 
     try {
+      const values = await quotaForm.validateFields();
+      const storageQuotaBytes = gigabytesToBytes(values.storageQuotaGb);
+
+      if (storageQuotaBytes < quotaTarget.usedBytes) {
+        message.error(`最大额度不能低于当前已用空间 ${formatFileSize(quotaTarget.usedBytes)}。`);
+        return;
+      }
+
       const updatedUser = await updateUserStorageQuota(quotaTarget.id, { storageQuotaBytes }, authToken);
 
       setUsers((currentUsers) =>
@@ -111,8 +117,13 @@ export function useCloudUsersAdmin({
       resetQuotaModal();
       await loadUsers();
     } catch (saveError) {
+      if (typeof saveError === 'object' && saveError !== null && 'errorFields' in saveError) {
+        return;
+      }
+
       message.error(saveError instanceof Error ? saveError.message : '更新用户云盘额度失败。');
     } finally {
+      quotaSavingRef.current = false;
       setQuotaSaving(false);
     }
   }

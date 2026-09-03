@@ -290,7 +290,7 @@ assertIncludesInOrder(
     'if (storageQuotaBytes < quotaTarget.usedBytes) {',
     '最大额度不能低于当前已用空间',
     'return;',
-    'setQuotaSaving(true);',
+    'const updatedUser = await updateUserStorageQuota(',
   ],
   'cloud console quota submit must reject quotas below current usage',
 );
@@ -298,7 +298,7 @@ assertIncludesInOrder(
   cloudUsersHookSource,
   [
     'function closeQuotaModal() {',
-    'if (quotaSaving) {',
+    'if (quotaSavingRef.current) {',
     'return;',
     'resetQuotaModal();',
   ],
@@ -311,8 +311,31 @@ assertIncludesInOrder(
     'maskClosable={!quotaSaving}',
     'closable={!quotaSaving}',
     'cancelButtonProps={{ disabled: quotaSaving }}',
+    'disabled={quotaSaving}',
   ],
   'cloud console quota modal must block duplicate submissions',
+);
+assertIncludesInOrder(
+  cloudUsersHookSource,
+  [
+    'const [quotaSaving, setQuotaSaving] = useState(false);',
+    'const quotaSavingRef = useRef(false);',
+    'function openQuotaModal(user: User) {',
+    'if (quotaSavingRef.current) {',
+    'async function submitQuotaUpdate() {',
+    'if (!authToken || !quotaTarget || !isAdmin || quotaSavingRef.current) {',
+    'quotaSavingRef.current = true;',
+    'setQuotaSaving(true);',
+    'const values = await quotaForm.validateFields();',
+    'const updatedUser = await updateUserStorageQuota(',
+    'if (typeof saveError ===',
+    'errorFields',
+    'return;',
+    '} finally {',
+    'quotaSavingRef.current = false;',
+    'setQuotaSaving(false);',
+  ],
+  'cloud console quota updates must block duplicate submissions and surface pending state',
 );
 assertIncludesInOrder(
   apiSource,
@@ -513,7 +536,7 @@ assertIncludesInOrder(
   cloudUsersHookSource,
   [
     'async function submitQuotaUpdate() {',
-    'if (!authToken || !quotaTarget || !isAdmin || quotaSaving) {',
+    'if (!authToken || !quotaTarget || !isAdmin || quotaSavingRef.current) {',
     'const updatedUser = await updateUserStorageQuota(',
   ],
   'cloud console quota mutations must stay behind the cloud admin gate',
