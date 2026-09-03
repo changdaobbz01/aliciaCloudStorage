@@ -236,6 +236,54 @@ require_source_match \
     "Cloud drive page must wire share revocation pending state."
 
 require_source_match \
+    "cloud share page tracks synchronous pending guards" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud share page must track synchronous pending guards' \
+    "Cloud share page must track synchronous pending guards."
+
+require_source_match \
+    "cloud share page password check blocks duplicates" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud share page password check must block duplicate submissions' \
+    "Cloud share page password check must block duplicate submissions."
+
+require_source_match \
+    "cloud share page save flow blocks duplicates" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud share page save flow must block duplicate submissions and pending close' \
+    "Cloud share page save flow must block duplicate submissions."
+
+require_source_match \
+    "cloud share page downloads block competing submissions" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud share page downloads must block competing submissions' \
+    "Cloud share page downloads must block competing submissions."
+
+require_source_match \
+    "cloud share page row downloads show pending state" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud share page row downloads must surface pending state' \
+    "Cloud share page row downloads must surface pending state."
+
+require_source_match \
+    "cloud share page password form shows pending state" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud share page password form must surface pending state' \
+    "Cloud share page password form must surface pending state."
+
+require_source_match \
+    "cloud share page toolbar actions show pending state" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud share page toolbar actions must surface pending save and download state' \
+    "Cloud share page toolbar actions must surface pending state."
+
+require_source_match \
+    "cloud share page save modal blocks pending close" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud share page save modal must block pending close' \
+    "Cloud share page save modal must block pending close."
+
+require_source_match \
     "cloud web storage mutation state covers file actions" \
     "webApp/scripts/verify-client-boundary.mjs" \
     'cloud web storage mutation state must cover all personal file mutations' \

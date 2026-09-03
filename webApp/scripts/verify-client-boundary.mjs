@@ -256,6 +256,46 @@ assert.match(
   'cloud drive page must wire share revocation pending state to the UI',
 );
 assert.match(
+  sharePage,
+  /import \{ useEffect, useMemo, useRef, useState \} from 'react';[\s\S]*const passwordCheckingRef = useRef\(false\);[\s\S]*const savingRef = useRef\(false\);[\s\S]*const downloadingNodeIdRef = useRef<number \| null>\(null\);[\s\S]*const downloadingSelectionRef = useRef\(false\);[\s\S]*const saveFolderOptionsLoadingRef = useRef\(false\);/,
+  'cloud share page must track synchronous pending guards',
+);
+assert.match(
+  sharePage,
+  /async function handlePasswordSubmit\(values: VerifySharePasswordPayload\) \{[\s\S]*if \(passwordCheckingRef\.current\) \{[\s\S]*return;[\s\S]*passwordCheckingRef\.current = true;[\s\S]*setPasswordChecking\(true\);[\s\S]*await verifySharePassword\(normalizedShareCode, values\);[\s\S]*finally \{[\s\S]*passwordCheckingRef\.current = false;[\s\S]*setPasswordChecking\(false\);/,
+  'cloud share page password check must block duplicate submissions',
+);
+assert.match(
+  sharePage,
+  /async function loadSaveFolderOptions\(\) \{[\s\S]*if \(!authToken \|\| saveFolderOptionsLoadingRef\.current\) \{[\s\S]*saveFolderOptionsLoadingRef\.current = true;[\s\S]*setSaveFolderOptionsLoading\(true\);[\s\S]*finally \{[\s\S]*saveFolderOptionsLoadingRef\.current = false;[\s\S]*setSaveFolderOptionsLoading\(false\);[\s\S]*function closeSaveTargetModal\(\) \{[\s\S]*if \(savingRef\.current\) \{[\s\S]*function openSaveTargetModal\(\) \{[\s\S]*if \(!authToken \|\| !detail \|\| savingRef\.current \|\| downloadingSelectionRef\.current \|\| downloadingNodeIdRef\.current !== null\) \{[\s\S]*async function handleSaveShare\(\) \{[\s\S]*if \(!authToken \|\| !detail \|\| savingRef\.current \|\| downloadingSelectionRef\.current \|\| downloadingNodeIdRef\.current !== null\) \{[\s\S]*savingRef\.current = true;[\s\S]*setSaving\(true\);[\s\S]*await saveShareToDrive\([\s\S]*finally \{[\s\S]*savingRef\.current = false;[\s\S]*setSaving\(false\);/,
+  'cloud share page save flow must block duplicate submissions and pending close',
+);
+assert.match(
+  sharePage,
+  /async function handleDownloadFile\(item: ShareTreeNode\) \{[\s\S]*if \(!authToken \|\| !detail \|\| savingRef\.current \|\| downloadingSelectionRef\.current \|\| downloadingNodeIdRef\.current !== null\) \{[\s\S]*downloadingNodeIdRef\.current = item\.id;[\s\S]*setDownloadingNodeId\(item\.id\);[\s\S]*finally \{[\s\S]*downloadingNodeIdRef\.current = null;[\s\S]*setDownloadingNodeId\(null\);[\s\S]*async function handleDownloadArchive\(nodeIds: number\[], busyNodeId: number \| null = null\) \{[\s\S]*if \(!authToken \|\| !detail \|\| savingRef\.current \|\| downloadingSelectionRef\.current \|\| downloadingNodeIdRef\.current !== null\) \{[\s\S]*downloadingSelectionRef\.current = true;[\s\S]*setDownloadingSelection\(true\);[\s\S]*downloadingNodeIdRef\.current = busyNodeId;[\s\S]*setDownloadingNodeId\(busyNodeId\);[\s\S]*finally \{[\s\S]*downloadingSelectionRef\.current = false;[\s\S]*setDownloadingSelection\(false\);[\s\S]*downloadingNodeIdRef\.current = null;[\s\S]*setDownloadingNodeId\(null\);/,
+  'cloud share page downloads must block competing submissions',
+);
+assert.match(
+  sharePage,
+  /loading=\{downloadingNodeId === item\.id\}[\s\S]*disabled=\{saving \|\| downloadingSelection \|\| \(downloadingNodeId !== null && downloadingNodeId !== item\.id\)\}/,
+  'cloud share page row downloads must surface pending state',
+);
+assert.match(
+  sharePage,
+  /<Form form=\{passwordForm\} layout="vertical" disabled=\{passwordChecking\}[\s\S]*loading=\{passwordChecking\} disabled=\{passwordChecking\}/,
+  'cloud share page password form must surface pending state',
+);
+assert.match(
+  sharePage,
+  /loading=\{downloadingSelection\}[\s\S]*disabled=\{selectedShareRootNodeIds\.length === 0 \|\| saving \|\| downloadingNodeId !== null\}[\s\S]*loading=\{saving\}[\s\S]*disabled=\{selectedShareRootNodeIds\.length === 0 \|\| saving \|\| downloadingSelection \|\| downloadingNodeId !== null\}[\s\S]*getCheckboxProps: \(\) => \(\{ disabled: saving \|\| downloadingSelection \|\| downloadingNodeId !== null \}\)/,
+  'cloud share page toolbar actions must surface pending save and download state',
+);
+assert.match(
+  sharePage,
+  /onCancel=\{closeSaveTargetModal\}[\s\S]*confirmLoading=\{saving\}[\s\S]*maskClosable=\{!saving\}[\s\S]*closable=\{!saving\}[\s\S]*cancelButtonProps=\{\{ disabled: saving \}\}/,
+  'cloud share page save modal must block pending close',
+);
+assert.match(
   driveTypes,
   /DriveStorageMutationKind = 'create-folder' \| 'rename' \| 'move' \| 'delete' \| 'restore' \| 'permanent-delete'/,
   'cloud web storage mutation state must cover all personal file mutations',

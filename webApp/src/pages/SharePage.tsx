@@ -2,7 +2,7 @@ import { Download, File, FolderOpen, LogIn, Save, Smartphone } from 'lucide-reac
 import { Alert, App as AntApp, Button, Card, Form, Input, Modal, Result, Space, Spin, Table, TreeSelect, Typography } from 'antd';
 import type { TableProps } from 'antd';
 import type { Key } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { AliciaModalTitle } from '../components/AliciaModalTitle';
 import { RegulatoryFooter } from '../components/RegulatoryFooter';
@@ -232,6 +232,11 @@ export function SharePage() {
   const [saveFolderOptionsLoading, setSaveFolderOptionsLoading] = useState(false);
   const [saveParentKey, setSaveParentKey] = useState(ROOT_PARENT_KEY);
   const [selectedShareRowKeys, setSelectedShareRowKeys] = useState<Key[]>([]);
+  const passwordCheckingRef = useRef(false);
+  const savingRef = useRef(false);
+  const downloadingNodeIdRef = useRef<number | null>(null);
+  const downloadingSelectionRef = useRef(false);
+  const saveFolderOptionsLoadingRef = useRef(false);
   const shareTree = useMemo(() => buildShareTree(detail), [detail]);
   const saveFolderTreeData = useMemo(() => buildFolderTree(saveFolderOptions), [saveFolderOptions]);
   const selectedShareNodeIds = useMemo(
@@ -349,6 +354,11 @@ export function SharePage() {
   }
 
   async function handlePasswordSubmit(values: VerifySharePasswordPayload) {
+    if (passwordCheckingRef.current) {
+      return;
+    }
+
+    passwordCheckingRef.current = true;
     setPasswordChecking(true);
 
     try {
@@ -362,6 +372,7 @@ export function SharePage() {
     } catch (error) {
       message.error(error instanceof Error ? error.message : '提取码校验失败。');
     } finally {
+      passwordCheckingRef.current = false;
       setPasswordChecking(false);
     }
   }
@@ -379,10 +390,11 @@ export function SharePage() {
   }
 
   async function loadSaveFolderOptions() {
-    if (!authToken) {
+    if (!authToken || saveFolderOptionsLoadingRef.current) {
       return;
     }
 
+    saveFolderOptionsLoadingRef.current = true;
     setSaveFolderOptionsLoading(true);
 
     try {
@@ -390,12 +402,21 @@ export function SharePage() {
     } catch (error) {
       message.error(error instanceof Error ? error.message : '加载文件夹目录失败。');
     } finally {
+      saveFolderOptionsLoadingRef.current = false;
       setSaveFolderOptionsLoading(false);
     }
   }
 
+  function closeSaveTargetModal() {
+    if (savingRef.current) {
+      return;
+    }
+
+    setSaveTargetOpen(false);
+  }
+
   function openSaveTargetModal() {
-    if (!authToken || !detail) {
+    if (!authToken || !detail || savingRef.current || downloadingSelectionRef.current || downloadingNodeIdRef.current !== null) {
       return;
     }
 
@@ -411,7 +432,7 @@ export function SharePage() {
   }
 
   async function handleSaveShare() {
-    if (!authToken || !detail) {
+    if (!authToken || !detail || savingRef.current || downloadingSelectionRef.current || downloadingNodeIdRef.current !== null) {
       return;
     }
 
@@ -427,6 +448,7 @@ export function SharePage() {
       return;
     }
 
+    savingRef.current = true;
     setSaving(true);
 
     try {
@@ -448,12 +470,13 @@ export function SharePage() {
         message.error(error instanceof Error ? error.message : '保存失败。');
       }
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   }
 
   async function handleDownloadFile(item: ShareTreeNode) {
-    if (!authToken || !detail) {
+    if (!authToken || !detail || savingRef.current || downloadingSelectionRef.current || downloadingNodeIdRef.current !== null) {
       return;
     }
 
@@ -462,6 +485,7 @@ export function SharePage() {
       return;
     }
 
+    downloadingNodeIdRef.current = item.id;
     setDownloadingNodeId(item.id);
 
     try {
@@ -481,12 +505,13 @@ export function SharePage() {
         message.error(error instanceof Error ? error.message : '下载失败。');
       }
     } finally {
+      downloadingNodeIdRef.current = null;
       setDownloadingNodeId(null);
     }
   }
 
   async function handleDownloadArchive(nodeIds: number[], busyNodeId: number | null = null) {
-    if (!authToken || !detail) {
+    if (!authToken || !detail || savingRef.current || downloadingSelectionRef.current || downloadingNodeIdRef.current !== null) {
       return;
     }
 
@@ -502,8 +527,10 @@ export function SharePage() {
     }
 
     if (busyNodeId === null) {
+      downloadingSelectionRef.current = true;
       setDownloadingSelection(true);
     } else {
+      downloadingNodeIdRef.current = busyNodeId;
       setDownloadingNodeId(busyNodeId);
     }
 
@@ -524,8 +551,10 @@ export function SharePage() {
       }
     } finally {
       if (busyNodeId === null) {
+        downloadingSelectionRef.current = false;
         setDownloadingSelection(false);
       } else {
+        downloadingNodeIdRef.current = null;
         setDownloadingNodeId(null);
       }
     }
@@ -583,7 +612,7 @@ export function SharePage() {
             type="link"
             icon={<Icon icon={Download} />}
             loading={downloadingNodeId === item.id}
-            disabled={saving || downloadingSelection}
+            disabled={saving || downloadingSelection || (downloadingNodeId !== null && downloadingNodeId !== item.id)}
             onClick={(event) => {
               event.stopPropagation();
               if (item.type === 'FILE') {
@@ -625,11 +654,11 @@ export function SharePage() {
         <Typography.Paragraph className="panel-subtitle">
           这个分享设置了访问保护，通过校验后可继续登录查看。
         </Typography.Paragraph>
-        <Form form={passwordForm} layout="vertical" onFinish={(values) => void handlePasswordSubmit(values)}>
+        <Form form={passwordForm} layout="vertical" disabled={passwordChecking} onFinish={(values) => void handlePasswordSubmit(values)}>
           <Form.Item name="password" label="提取码" rules={[{ required: true, message: '请输入提取码。' }]}>
             <Input.Password autoFocus placeholder="请输入提取码" />
           </Form.Item>
-          <Button type="primary" htmlType="button" loading={passwordChecking} onClick={() => void passwordForm.submit()}>
+          <Button type="primary" htmlType="button" loading={passwordChecking} disabled={passwordChecking} onClick={() => void passwordForm.submit()}>
             校验提取码
           </Button>
         </Form>
@@ -669,7 +698,7 @@ export function SharePage() {
               <Button
                 icon={<Icon icon={Download} />}
                 loading={downloadingSelection}
-                disabled={selectedShareRootNodeIds.length === 0 || saving}
+                disabled={selectedShareRootNodeIds.length === 0 || saving || downloadingNodeId !== null}
                 onClick={() => void handleDownloadArchive(selectedShareRootNodeIds)}
               >
                 下载选中
@@ -680,7 +709,7 @@ export function SharePage() {
                 type="primary"
                 icon={<Icon icon={Save} />}
                 loading={saving}
-                disabled={selectedShareRootNodeIds.length === 0 || downloadingSelection}
+                disabled={selectedShareRootNodeIds.length === 0 || saving || downloadingSelection || downloadingNodeId !== null}
                 onClick={openSaveTargetModal}
               >
                 保存到我的网盘
@@ -705,7 +734,7 @@ export function SharePage() {
                   selectedRowKeys: selectedShareRowKeys,
                   checkStrictly: false,
                   onChange: (nextSelectedRowKeys) => setSelectedShareRowKeys(nextSelectedRowKeys),
-                  getCheckboxProps: () => ({ disabled: saving || downloadingSelection }),
+                  getCheckboxProps: () => ({ disabled: saving || downloadingSelection || downloadingNodeId !== null }),
                 }
               : undefined
           }
@@ -771,11 +800,14 @@ export function SharePage() {
         title={<AliciaModalTitle eyebrow="Share">选择保存位置</AliciaModalTitle>}
         rootClassName="alicia-modal alicia-share-modal"
         open={saveTargetOpen}
-        onCancel={() => setSaveTargetOpen(false)}
+        onCancel={closeSaveTargetModal}
         onOk={() => void handleSaveShare()}
         okText="保存到这里"
         cancelText="取消"
         confirmLoading={saving}
+        maskClosable={!saving}
+        closable={!saving}
+        cancelButtonProps={{ disabled: saving }}
         destroyOnHidden
       >
         <Typography.Paragraph className="panel-subtitle">
