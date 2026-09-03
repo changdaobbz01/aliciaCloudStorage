@@ -8,8 +8,9 @@ type AppPackagePanelProps = {
   packageInfo: AppPackageInfo | null;
   loading: boolean;
   uploading: boolean;
+  deleting: boolean;
   onUploadClick: () => void;
-  onDeletePackage: () => void;
+  onDeletePackage: () => Promise<unknown> | void;
 };
 
 function formatBytes(value: number | null) {
@@ -37,6 +38,7 @@ export function AppPackagePanel({
   packageInfo,
   loading,
   uploading,
+  deleting,
   onUploadClick,
   onDeletePackage,
 }: AppPackagePanelProps) {
@@ -56,7 +58,13 @@ export function AppPackagePanel({
         </div>
 
         <div className="panel-actions">
-          <Button type="primary" icon={<Icon icon={Upload} />} loading={uploading} onClick={onUploadClick}>
+          <Button
+            type="primary"
+            icon={<Icon icon={Upload} />}
+            loading={uploading}
+            disabled={deleting}
+            onClick={onUploadClick}
+          >
             上传新版本
           </Button>
           {packageAvailable ? (
@@ -65,10 +73,11 @@ export function AppPackagePanel({
               description="移除后，首页下载入口和 APP 更新检查都会暂时失效。"
               okText="移除"
               cancelText="取消"
-              okButtonProps={{ danger: true }}
+              okButtonProps={{ danger: true, loading: deleting, disabled: uploading || deleting }}
+              cancelButtonProps={{ disabled: deleting }}
               onConfirm={onDeletePackage}
             >
-              <Button danger icon={<Icon icon={Trash2} />} disabled={uploading}>
+              <Button danger icon={<Icon icon={Trash2} />} loading={deleting} disabled={uploading || deleting}>
                 移除当前包
               </Button>
             </Popconfirm>

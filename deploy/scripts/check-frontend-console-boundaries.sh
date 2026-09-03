@@ -1106,6 +1106,30 @@ require_source_match \
     "Cloud console boundary verifier must clear APK admin and public state together."
 
 require_source_match \
+    "cloud console APK upload blocks duplicate submissions" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console APK upload mutations must stay behind the cloud admin gate and block duplicate submissions' \
+    "Cloud console boundary verifier must block duplicate APK uploads."
+
+require_source_match \
+    "cloud console APK deletion blocks duplicate submissions" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console APK delete mutations must stay behind the cloud admin gate and block duplicate submissions' \
+    "Cloud console boundary verifier must block duplicate APK deletion."
+
+require_source_match \
+    "cloud console APK panel surfaces pending deletion" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console APK package panel must surface pending delete state' \
+    "Cloud console boundary verifier must require pending delete UI state."
+
+require_source_match \
+    "cloud console APK delete confirmation shows pending state" \
+    "sysManage/src/components/AppPackagePanel.tsx" \
+    'okButtonProps=\{\{ danger: true, loading: deleting, disabled: uploading \|\| deleting \}\}' \
+    "Cloud console APK delete confirmation must surface pending delete state."
+
+require_source_match \
     "cloud console header refresh keeps admin gate" \
     "sysManage/scripts/verify-console-boundary.mjs" \
     'cloud console header refresh must not load admin view data without cloud admin access' \

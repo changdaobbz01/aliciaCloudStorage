@@ -7,8 +7,9 @@ type DriveAppPackageViewProps = {
   packageInfo: AppPackageInfo | null;
   loading: boolean;
   uploading: boolean;
+  deleting: boolean;
   onUploadClick: () => void;
-  onDeletePackage: () => void;
+  onDeletePackage: () => Promise<unknown> | void;
 };
 
 export default function DriveAppPackageView({
@@ -16,6 +17,7 @@ export default function DriveAppPackageView({
   packageInfo,
   loading,
   uploading,
+  deleting,
   onUploadClick,
   onDeletePackage,
 }: DriveAppPackageViewProps) {
@@ -37,6 +39,7 @@ export default function DriveAppPackageView({
       packageInfo={packageInfo}
       loading={loading}
       uploading={uploading}
+      deleting={deleting}
       onUploadClick={onUploadClick}
       onDeletePackage={onDeletePackage}
     />

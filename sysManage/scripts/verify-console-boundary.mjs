@@ -688,7 +688,7 @@ assertIncludesInOrder(
   appPackageHookSource,
   [
     'function openAppPackageUploadModal() {',
-    'if (!authToken || !isAdmin) {',
+    'if (!authToken || !isAdmin || appPackageUploading || appPackageDeleting) {',
     'return;',
     'setAppPackageUploadOpen(true);',
   ],
@@ -698,7 +698,7 @@ assertIncludesInOrder(
   appPackageHookSource,
   [
     'function handleAppPackageFileChange(event: ChangeEvent<HTMLInputElement>)',
-    'if (!authToken || !isAdmin) {',
+    'if (!authToken || !isAdmin || appPackageUploading || appPackageDeleting) {',
     "event.target.value = '';",
     'return;',
   ],
@@ -708,19 +708,43 @@ assertIncludesInOrder(
   appPackageHookSource,
   [
     'async function submitAppPackageUpload(values: AppPackageUploadFormValues)',
-    'if (!authToken || !isAdmin) {',
+    'if (!authToken || !isAdmin || appPackageUploading || appPackageDeleting) {',
     'const nextPackageInfo = await uploadAdminAppPackage(',
   ],
-  'cloud console APK upload mutations must stay behind the cloud admin gate',
+  'cloud console APK upload mutations must stay behind the cloud admin gate and block duplicate submissions',
 );
 assertIncludesInOrder(
   appPackageHookSource,
   [
+    'const [appPackageDeleting, setAppPackageDeleting] = useState(false);',
     'async function deleteCurrentAppPackage()',
-    'if (!authToken || !isAdmin) {',
+    'if (!authToken || !isAdmin || appPackageUploading || appPackageDeleting) {',
+    'setAppPackageDeleting(true);',
     'await deleteAdminAppPackage(authToken);',
+    'setAppPackageDeleting(false);',
   ],
-  'cloud console APK delete mutations must stay behind the cloud admin gate',
+  'cloud console APK delete mutations must stay behind the cloud admin gate and block duplicate submissions',
+);
+assertIncludesInOrder(
+  appPackagePanelSource,
+  [
+    'deleting,',
+    'disabled={deleting}',
+    'okButtonProps={{ danger: true, loading: deleting, disabled: uploading || deleting }}',
+    'cancelButtonProps={{ disabled: deleting }}',
+    'loading={deleting}',
+    'disabled={uploading || deleting}',
+  ],
+  'cloud console APK package panel must surface pending delete state',
+);
+assertIncludesInOrder(
+  consolePageSource,
+  [
+    'deleting={appPackages.appPackageDeleting}',
+    'onDeletePackage={appPackages.deleteCurrentAppPackage}',
+    'appPackages.appPackageLoading || appPackages.appPackageUploading || appPackages.appPackageDeleting',
+  ],
+  'cloud console APK package view must wire pending delete state through the page',
 );
 assert.match(
   consolePageSource,

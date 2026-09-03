@@ -353,8 +353,9 @@ export function CloudConsolePage() {
             packageInfo={appPackages.appPackageInfo}
             loading={appPackages.appPackageLoading}
             uploading={appPackages.appPackageUploading}
+            deleting={appPackages.appPackageDeleting}
             onUploadClick={appPackages.openAppPackageUploadModal}
-            onDeletePackage={() => void appPackages.deleteCurrentAppPackage()}
+            onDeletePackage={appPackages.deleteCurrentAppPackage}
           />
         ) : null}
       </Suspense>
@@ -442,7 +443,7 @@ export function CloudConsolePage() {
                     operations.storageUsersLoading ||
                     operations.trashNodesLoading ||
                     operations.shareLinksLoading
-                  : appPackages.appPackageLoading
+                  : appPackages.appPackageLoading || appPackages.appPackageUploading || appPackages.appPackageDeleting
               }
             >
               刷新

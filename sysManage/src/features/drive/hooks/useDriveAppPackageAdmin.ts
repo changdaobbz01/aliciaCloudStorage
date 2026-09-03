@@ -29,6 +29,7 @@ export function useDriveAppPackageAdmin({
   const [appPackageLoading, setAppPackageLoading] = useState(false);
   const [publicAppPackageLoading, setPublicAppPackageLoading] = useState(false);
   const [appPackageUploading, setAppPackageUploading] = useState(false);
+  const [appPackageDeleting, setAppPackageDeleting] = useState(false);
   const [appPackageUploadOpen, setAppPackageUploadOpen] = useState(false);
   const [selectedAppPackageFile, setSelectedAppPackageFile] = useState<File | null>(null);
   const [publicAppPackageError, setPublicAppPackageError] = useState<string | null>(null);
@@ -73,7 +74,7 @@ export function useDriveAppPackageAdmin({
   }
 
   function closeAppPackageUploadModal() {
-    if (appPackageUploading) {
+    if (appPackageUploading || appPackageDeleting) {
       return;
     }
 
@@ -82,7 +83,7 @@ export function useDriveAppPackageAdmin({
   }
 
   function openAppPackageUploadModal() {
-    if (!authToken || !isAdmin) {
+    if (!authToken || !isAdmin || appPackageUploading || appPackageDeleting) {
       return;
     }
 
@@ -91,6 +92,10 @@ export function useDriveAppPackageAdmin({
   }
 
   function handleAppPackageFilePickerClick() {
+    if (appPackageUploading || appPackageDeleting) {
+      return;
+    }
+
     const input = appPackageInputRef.current;
 
     if (!input) {
@@ -110,7 +115,7 @@ export function useDriveAppPackageAdmin({
   }
 
   function handleAppPackageFileChange(event: ChangeEvent<HTMLInputElement>) {
-    if (!authToken || !isAdmin) {
+    if (!authToken || !isAdmin || appPackageUploading || appPackageDeleting) {
       event.target.value = '';
       return;
     }
@@ -131,7 +136,7 @@ export function useDriveAppPackageAdmin({
   }
 
   async function submitAppPackageUpload(values: AppPackageUploadFormValues) {
-    if (!authToken || !isAdmin) {
+    if (!authToken || !isAdmin || appPackageUploading || appPackageDeleting) {
       return false;
     }
 
@@ -165,9 +170,11 @@ export function useDriveAppPackageAdmin({
   }
 
   async function deleteCurrentAppPackage() {
-    if (!authToken || !isAdmin) {
+    if (!authToken || !isAdmin || appPackageUploading || appPackageDeleting) {
       return false;
     }
+
+    setAppPackageDeleting(true);
 
     try {
       await deleteAdminAppPackage(authToken);
@@ -179,6 +186,8 @@ export function useDriveAppPackageAdmin({
     } catch (deleteError) {
       message.error(deleteError instanceof Error ? deleteError.message : '移除安装包失败。');
       return false;
+    } finally {
+      setAppPackageDeleting(false);
     }
   }
 
@@ -200,6 +209,7 @@ export function useDriveAppPackageAdmin({
     appPackageLoading,
     publicAppPackageLoading,
     appPackageUploading,
+    appPackageDeleting,
     appPackageUploadOpen,
     selectedAppPackageFile,
     publicAppPackageError,
