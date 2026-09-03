@@ -800,6 +800,12 @@ require_source_match \
     "Cloud web profile updates must block duplicate submissions."
 
 require_source_match \
+    "cloud web avatar upload blocks duplicates" \
+    "webApp/scripts/verify-session-sync.mjs" \
+    'cloud web avatar upload must block duplicate submissions and surface pending state' \
+    "Cloud web avatar upload must block duplicate submissions."
+
+require_source_match \
     "cloud web profile modal shows pending updates" \
     "webApp/scripts/verify-session-sync.mjs" \
     'cloud web profile modal must surface pending profile updates' \

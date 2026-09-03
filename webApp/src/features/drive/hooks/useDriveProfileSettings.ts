@@ -54,6 +54,10 @@ export function useDriveProfileSettings({
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const backgroundInputRef = useRef<HTMLInputElement | null>(null);
   const profileSavingRef = useRef(false);
+  const avatarUploadingRef = useRef(false);
+  const backgroundUploadingRef = useRef(false);
+  const backgroundClearingRef = useRef(false);
+  const passwordSavingRef = useRef(false);
   const identitySessionRevokingIdRef = useRef<number | null>(null);
 
   function openProfileModal() {
@@ -70,7 +74,12 @@ export function useDriveProfileSettings({
   }
 
   function closeProfileModal() {
-    if (profileSavingRef.current || avatarUploading || backgroundUploading || backgroundClearing) {
+    if (
+      profileSavingRef.current ||
+      avatarUploadingRef.current ||
+      backgroundUploadingRef.current ||
+      backgroundClearingRef.current
+    ) {
       return;
     }
 
@@ -78,7 +87,7 @@ export function useDriveProfileSettings({
   }
 
   function handleAvatarButtonClick() {
-    if (profileSaving || avatarUploading) {
+    if (profileSavingRef.current || avatarUploadingRef.current) {
       return;
     }
 
@@ -86,7 +95,8 @@ export function useDriveProfileSettings({
   }
 
   async function handleAvatarFileChange(event: ChangeEvent<HTMLInputElement>) {
-    if (!authToken || profileSaving || avatarUploading) {
+    if (!authToken || profileSavingRef.current || avatarUploadingRef.current) {
+      event.target.value = '';
       return;
     }
 
@@ -102,6 +112,7 @@ export function useDriveProfileSettings({
       return;
     }
 
+    avatarUploadingRef.current = true;
     setAvatarUploading(true);
 
     try {
@@ -112,12 +123,13 @@ export function useDriveProfileSettings({
     } catch (avatarError) {
       message.error(avatarError instanceof Error ? avatarError.message : '头像上传失败。');
     } finally {
+      avatarUploadingRef.current = false;
       setAvatarUploading(false);
     }
   }
 
   function handleHomeBackgroundButtonClick() {
-    if (backgroundUploading || backgroundClearing) {
+    if (backgroundUploadingRef.current || backgroundClearingRef.current) {
       return;
     }
 
@@ -141,7 +153,7 @@ export function useDriveProfileSettings({
   }
 
   async function handleHomeBackgroundFileChange(event: ChangeEvent<HTMLInputElement>) {
-    if (!authToken || backgroundUploading || backgroundClearing) {
+    if (!authToken || backgroundUploadingRef.current || backgroundClearingRef.current) {
       event.target.value = '';
       return;
     }
@@ -163,6 +175,7 @@ export function useDriveProfileSettings({
       return;
     }
 
+    backgroundUploadingRef.current = true;
     setBackgroundUploading(true);
 
     try {
@@ -172,15 +185,17 @@ export function useDriveProfileSettings({
     } catch (backgroundError) {
       message.error(backgroundError instanceof Error ? backgroundError.message : '背景图上传失败。');
     } finally {
+      backgroundUploadingRef.current = false;
       setBackgroundUploading(false);
     }
   }
 
   async function clearHomeBackground() {
-    if (!authToken || backgroundUploading || backgroundClearing) {
+    if (!authToken || backgroundUploadingRef.current || backgroundClearingRef.current) {
       return;
     }
 
+    backgroundClearingRef.current = true;
     setBackgroundClearing(true);
 
     try {
@@ -190,6 +205,7 @@ export function useDriveProfileSettings({
     } catch (backgroundError) {
       message.error(backgroundError instanceof Error ? backgroundError.message : '移除背景图失败。');
     } finally {
+      backgroundClearingRef.current = false;
       setBackgroundClearing(false);
     }
   }
@@ -200,7 +216,7 @@ export function useDriveProfileSettings({
   }
 
   function closePasswordModal() {
-    if (passwordSaving) {
+    if (passwordSavingRef.current) {
       return;
     }
 
@@ -319,10 +335,11 @@ export function useDriveProfileSettings({
   }
 
   async function submitPassword(values: PasswordFormValues) {
-    if (!authToken || passwordSaving) {
+    if (!authToken || passwordSavingRef.current) {
       return false;
     }
 
+    passwordSavingRef.current = true;
     setPasswordSaving(true);
 
     try {
@@ -344,6 +361,7 @@ export function useDriveProfileSettings({
       message.error(passwordError instanceof Error ? passwordError.message : '密码修改失败。');
       return false;
     } finally {
+      passwordSavingRef.current = false;
       setPasswordSaving(false);
     }
   }

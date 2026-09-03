@@ -239,6 +239,7 @@ Invoke-Step "verify cloud frontend split wiring" {
     Require-Contains "webApp/scripts/verify-session-sync.mjs" "cloud web drive page must route session refresh through the guarded profile action" "cloud web drive page must route session refresh through the guarded profile action"
     Require-Contains "webApp/scripts/verify-session-sync.mjs" "cloud web session modal must disable competing rows during session revocation" "cloud web profile session modal must disable competing revocation rows"
     Require-Contains "webApp/scripts/verify-session-sync.mjs" "cloud web profile updates must block duplicate submissions and surface pending state" "cloud web profile updates must block duplicate submissions"
+    Require-Contains "webApp/scripts/verify-session-sync.mjs" "cloud web avatar upload must block duplicate submissions and surface pending state" "cloud web avatar upload must block duplicate submissions"
     Require-Contains "webApp/scripts/verify-session-sync.mjs" "cloud web profile modal must surface pending profile updates" "cloud web profile modal must surface pending profile updates"
     Require-Contains "webApp/scripts/verify-session-sync.mjs" "cloud web home background mutations must block duplicate submissions and surface pending state" "cloud web home background mutations must block duplicate submissions"
     Require-Contains "webApp/scripts/verify-session-sync.mjs" "cloud web password change must block duplicate submissions and report failures" "cloud web password changes must block duplicate submissions"
