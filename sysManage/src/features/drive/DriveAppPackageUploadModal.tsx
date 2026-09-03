@@ -45,7 +45,7 @@ export function DriveAppPackageUploadModal({
       closable={!uploading}
       cancelButtonProps={{ disabled: uploading }}
     >
-      <Form form={form} layout="vertical" onFinish={(values) => void onSubmit(values)}>
+      <Form form={form} layout="vertical" disabled={uploading} onFinish={(values) => void onSubmit(values)}>
         <Form.Item label="安装包文件" required>
           <Space direction="vertical" size={8} style={{ display: 'flex' }}>
             <Button icon={<Icon icon={Upload} />} onClick={onPickFile} disabled={uploading}>

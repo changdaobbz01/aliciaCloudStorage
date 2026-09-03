@@ -711,7 +711,7 @@ assertIncludesInOrder(
   appPackageHookSource,
   [
     'function openAppPackageUploadModal() {',
-    'if (!authToken || !isAdmin || appPackageUploading || appPackageDeleting) {',
+    'if (!authToken || !isAdmin || appPackageMutationRef.current !== null) {',
     'return;',
     'setAppPackageUploadOpen(true);',
   ],
@@ -721,7 +721,7 @@ assertIncludesInOrder(
   appPackageHookSource,
   [
     'function handleAppPackageFileChange(event: ChangeEvent<HTMLInputElement>)',
-    'if (!authToken || !isAdmin || appPackageUploading || appPackageDeleting) {',
+    'if (!authToken || !isAdmin || appPackageMutationRef.current !== null) {',
     "event.target.value = '';",
     'return;',
   ],
@@ -730,9 +730,15 @@ assertIncludesInOrder(
 assertIncludesInOrder(
   appPackageHookSource,
   [
+    "const appPackageMutationRef = useRef<'upload' | 'delete' | null>(null);",
     'async function submitAppPackageUpload(values: AppPackageUploadFormValues)',
-    'if (!authToken || !isAdmin || appPackageUploading || appPackageDeleting) {',
+    'if (!authToken || !isAdmin || appPackageMutationRef.current !== null) {',
+    "appPackageMutationRef.current = 'upload';",
+    'setAppPackageUploading(true);',
     'const nextPackageInfo = await uploadAdminAppPackage(',
+    '} finally {',
+    'appPackageMutationRef.current = null;',
+    'setAppPackageUploading(false);',
   ],
   'cloud console APK upload mutations must stay behind the cloud admin gate and block duplicate submissions',
 );
@@ -740,13 +746,39 @@ assertIncludesInOrder(
   appPackageHookSource,
   [
     'const [appPackageDeleting, setAppPackageDeleting] = useState(false);',
+    "const appPackageMutationRef = useRef<'upload' | 'delete' | null>(null);",
     'async function deleteCurrentAppPackage()',
-    'if (!authToken || !isAdmin || appPackageUploading || appPackageDeleting) {',
+    'if (!authToken || !isAdmin || appPackageMutationRef.current !== null) {',
+    "appPackageMutationRef.current = 'delete';",
     'setAppPackageDeleting(true);',
     'await deleteAdminAppPackage(authToken);',
+    '} finally {',
+    'appPackageMutationRef.current = null;',
     'setAppPackageDeleting(false);',
   ],
   'cloud console APK delete mutations must stay behind the cloud admin gate and block duplicate submissions',
+);
+assertIncludesInOrder(
+  appPackageHookSource,
+  [
+    'function closeAppPackageUploadModal() {',
+    'if (appPackageMutationRef.current !== null) {',
+    'function handleAppPackageFilePickerClick() {',
+    'if (appPackageMutationRef.current !== null) {',
+  ],
+  'cloud console APK upload modal controls must pause during package mutations',
+);
+assertIncludesInOrder(
+  appPackageUploadModalSource,
+  [
+    'confirmLoading={uploading}',
+    'maskClosable={!uploading}',
+    'closable={!uploading}',
+    'cancelButtonProps={{ disabled: uploading }}',
+    'disabled={uploading}',
+    'disabled={uploading}',
+  ],
+  'cloud console APK upload modal must surface pending upload state',
 );
 assertIncludesInOrder(
   appPackagePanelSource,

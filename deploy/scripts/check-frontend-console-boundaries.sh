@@ -1286,6 +1286,18 @@ require_source_match \
     "Cloud console boundary verifier must block duplicate APK deletion."
 
 require_source_match \
+    "cloud console APK upload modal controls pause during mutations" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console APK upload modal controls must pause during package mutations' \
+    "Cloud console APK upload modal controls must pause during package mutations."
+
+require_source_match \
+    "cloud console APK upload modal shows pending upload" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console APK upload modal must surface pending upload state' \
+    "Cloud console APK upload modal must surface pending upload state."
+
+require_source_match \
     "cloud console APK panel surfaces pending deletion" \
     "sysManage/scripts/verify-console-boundary.mjs" \
     'cloud console APK package panel must surface pending delete state' \

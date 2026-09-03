@@ -36,6 +36,7 @@ export function useDriveAppPackageAdmin({
 
   const [appPackageUploadForm] = Form.useForm<AppPackageUploadFormValues>();
   const appPackageInputRef = useRef<HTMLInputElement | null>(null);
+  const appPackageMutationRef = useRef<'upload' | 'delete' | null>(null);
 
   async function loadAppPackageInfo() {
     if (!authToken || !isAdmin) {
@@ -74,7 +75,7 @@ export function useDriveAppPackageAdmin({
   }
 
   function closeAppPackageUploadModal() {
-    if (appPackageUploading || appPackageDeleting) {
+    if (appPackageMutationRef.current !== null) {
       return;
     }
 
@@ -83,7 +84,7 @@ export function useDriveAppPackageAdmin({
   }
 
   function openAppPackageUploadModal() {
-    if (!authToken || !isAdmin || appPackageUploading || appPackageDeleting) {
+    if (!authToken || !isAdmin || appPackageMutationRef.current !== null) {
       return;
     }
 
@@ -92,7 +93,7 @@ export function useDriveAppPackageAdmin({
   }
 
   function handleAppPackageFilePickerClick() {
-    if (appPackageUploading || appPackageDeleting) {
+    if (appPackageMutationRef.current !== null) {
       return;
     }
 
@@ -115,7 +116,7 @@ export function useDriveAppPackageAdmin({
   }
 
   function handleAppPackageFileChange(event: ChangeEvent<HTMLInputElement>) {
-    if (!authToken || !isAdmin || appPackageUploading || appPackageDeleting) {
+    if (!authToken || !isAdmin || appPackageMutationRef.current !== null) {
       event.target.value = '';
       return;
     }
@@ -136,7 +137,7 @@ export function useDriveAppPackageAdmin({
   }
 
   async function submitAppPackageUpload(values: AppPackageUploadFormValues) {
-    if (!authToken || !isAdmin || appPackageUploading || appPackageDeleting) {
+    if (!authToken || !isAdmin || appPackageMutationRef.current !== null) {
       return false;
     }
 
@@ -145,6 +146,7 @@ export function useDriveAppPackageAdmin({
       return false;
     }
 
+    appPackageMutationRef.current = 'upload';
     setAppPackageUploading(true);
 
     try {
@@ -165,15 +167,17 @@ export function useDriveAppPackageAdmin({
       message.error(uploadError instanceof Error ? uploadError.message : 'APK 上传失败。');
       return false;
     } finally {
+      appPackageMutationRef.current = null;
       setAppPackageUploading(false);
     }
   }
 
   async function deleteCurrentAppPackage() {
-    if (!authToken || !isAdmin || appPackageUploading || appPackageDeleting) {
+    if (!authToken || !isAdmin || appPackageMutationRef.current !== null) {
       return false;
     }
 
+    appPackageMutationRef.current = 'delete';
     setAppPackageDeleting(true);
 
     try {
@@ -187,6 +191,7 @@ export function useDriveAppPackageAdmin({
       message.error(deleteError instanceof Error ? deleteError.message : '移除安装包失败。');
       return false;
     } finally {
+      appPackageMutationRef.current = null;
       setAppPackageDeleting(false);
     }
   }
