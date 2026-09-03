@@ -87,7 +87,7 @@ function resolveProfileAvatarSrc(user: User | null, avatarUrl: string | null | u
 
 export function CloudConsolePage() {
   const { message } = AntApp.useApp();
-  const { authToken, currentUser, logoutCurrentSession, updateCurrentUser } = useSession();
+  const { authToken, currentUser, isLoggingOut, logoutCurrentSession, updateCurrentUser } = useSession();
   const navigate = useNavigate();
   const { view } = useParams<{ view?: string }>();
   const [profileOpen, setProfileOpen] = useState(false);
@@ -97,6 +97,7 @@ export function CloudConsolePage() {
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const profileSavingRef = useRef(false);
   const avatarUploadingRef = useRef(false);
+  const logoutNavigatingRef = useRef(false);
   const activeView = viewFromRoute(view);
   const isAdmin = isCloudAdmin(currentUser);
   const activeMeta = viewMeta[activeView];
@@ -136,7 +137,7 @@ export function CloudConsolePage() {
     { key: 'mainSite', icon: <Icon icon={Home} />, label: '返回主站' },
     { key: 'cloudPan', icon: <Icon icon={Cloud} />, label: '进入云盘' },
     { type: 'divider' },
-    { key: 'logout', icon: <Icon icon={LogOut} />, label: '退出登录', danger: true },
+    { key: 'logout', icon: <Icon icon={LogOut} />, label: isLoggingOut ? '退出中' : '退出登录', danger: true, disabled: isLoggingOut },
   ];
 
   useEffect(() => {
@@ -293,6 +294,11 @@ export function CloudConsolePage() {
     }
 
     if (event.key === 'logout') {
+      if (isLoggingOut || logoutNavigatingRef.current) {
+        return;
+      }
+
+      logoutNavigatingRef.current = true;
       await logoutCurrentSession();
       window.location.assign('/');
     }
@@ -462,11 +468,12 @@ export function CloudConsolePage() {
 
             <Dropdown
               menu={{ items: avatarMenuItems, onClick: (event) => void handleAccountMenuClick(event) }}
+              disabled={isLoggingOut}
               trigger={['click']}
               placement="bottomRight"
               overlayClassName="avatar-account-dropdown"
             >
-              <button type="button" className="avatar-menu-button" aria-label="打开用户菜单">
+              <button type="button" className="avatar-menu-button" aria-label="打开用户菜单" disabled={isLoggingOut}>
                 <Avatar size={44} src={currentAvatarSrc}>
                   {currentUser?.nickname?.slice(0, 1).toUpperCase() ?? 'A'}
                 </Avatar>

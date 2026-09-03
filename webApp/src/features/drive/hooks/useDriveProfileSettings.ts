@@ -19,6 +19,7 @@ type PasswordFormValues = ChangePasswordPayload & {
 type UseDriveProfileSettingsOptions = {
   authToken: string | null;
   currentUser: User | null;
+  isLoggingOut: boolean;
   message: MessageInstance;
   updateCurrentUser: (user: User) => void;
   clearCurrentSession: () => void;
@@ -30,6 +31,7 @@ type UseDriveProfileSettingsOptions = {
 export function useDriveProfileSettings({
   authToken,
   currentUser,
+  isLoggingOut,
   message,
   updateCurrentUser,
   clearCurrentSession,
@@ -59,6 +61,7 @@ export function useDriveProfileSettings({
   const backgroundClearingRef = useRef(false);
   const passwordSavingRef = useRef(false);
   const identitySessionRevokingIdRef = useRef<number | null>(null);
+  const logoutNavigatingRef = useRef(false);
 
   function openProfileModal() {
     if (!currentUser) {
@@ -367,8 +370,18 @@ export function useDriveProfileSettings({
   }
 
   async function handleLogout() {
-    await logoutCurrentSession();
-    onNavigateToLogin();
+    if (isLoggingOut || logoutNavigatingRef.current) {
+      return;
+    }
+
+    logoutNavigatingRef.current = true;
+
+    try {
+      await logoutCurrentSession();
+      onNavigateToLogin();
+    } finally {
+      logoutNavigatingRef.current = false;
+    }
   }
 
   function handleAvatarMenuClick(event: { key: string }) {
@@ -405,6 +418,7 @@ export function useDriveProfileSettings({
     backgroundUploading,
     backgroundClearing,
     passwordSaving,
+    isLoggingOut,
     profileForm,
     passwordForm,
     avatarInputRef,

@@ -432,6 +432,54 @@ assertIncludesInOrder(
   ],
   'cloud web drive page must wire profile pending states to the UI',
 );
+assertIncludesInOrder(
+  sessionContext,
+  [
+    'isLoggingOut: boolean;',
+    'const logoutSubmittingRef = useRef(false);',
+    'const [isLoggingOut, setIsLoggingOut] = useState(false);',
+    'async function logoutCurrentSession() {',
+    'if (logoutSubmittingRef.current) {',
+    'logoutSubmittingRef.current = true;',
+    'setIsLoggingOut(true);',
+    'await logoutAuthToken(token, refreshToken);',
+    '} finally {',
+    'resetSessionState();',
+    "notifySessionChanged('logout');",
+    'logoutSubmittingRef.current = false;',
+    'setIsLoggingOut(false);',
+    'isLoggingOut,',
+  ],
+  'cloud web logout must block duplicate submissions and surface pending state',
+);
+assertIncludesInOrder(
+  driveProfileSettings,
+  [
+    'isLoggingOut: boolean;',
+    'isLoggingOut,',
+    'const logoutNavigatingRef = useRef(false);',
+    'async function handleLogout() {',
+    'if (isLoggingOut || logoutNavigatingRef.current) {',
+    'logoutNavigatingRef.current = true;',
+    'await logoutCurrentSession();',
+    'onNavigateToLogin();',
+    'logoutNavigatingRef.current = false;',
+    'isLoggingOut,',
+  ],
+  'cloud web profile menu logout must block duplicate submissions',
+);
+assertIncludesInOrder(
+  drivePage,
+  [
+    'const { authToken, currentUser, clearCurrentSession, isLoggingOut, logoutCurrentSession, updateCurrentUser } = useSession();',
+    'isLoggingOut,',
+    "{ key: 'logout', icon: <Icon icon={LogOut} />, label: isLoggingOut ? '退出中' : '退出登录', danger: true, disabled: isLoggingOut },",
+    '<Dropdown',
+    'disabled={isLoggingOut}',
+    '<button type="button" className="avatar-menu-button" aria-label="打开用户菜单" disabled={isLoggingOut}>',
+  ],
+  'cloud web account menu must surface pending logout state',
+);
 
 for (const reason of ['profile', 'logout', 'expired']) {
   assert.match(

@@ -55,7 +55,7 @@ const baseMenuItems = [
 export function DrivePage() {
   const { message } = AntApp.useApp();
   const navigate = useNavigate();
-  const { authToken, currentUser, clearCurrentSession, logoutCurrentSession, updateCurrentUser } = useSession();
+  const { authToken, currentUser, clearCurrentSession, isLoggingOut, logoutCurrentSession, updateCurrentUser } = useSession();
 
   const [activeView, setActiveView] = useState<StorageViewMode>('home');
   const isHomeView = activeView === 'home';
@@ -87,6 +87,7 @@ export function DrivePage() {
   const profileSettings = useDriveProfileSettings({
     authToken,
     currentUser,
+    isLoggingOut,
     message,
     updateCurrentUser,
     clearCurrentSession,
@@ -338,7 +339,7 @@ export function DrivePage() {
     { key: 'password', icon: <Icon icon={KeyRound} />, label: '修改密码' },
     { key: 'sessions', icon: <Icon icon={Monitor} />, label: '登录会话' },
     { type: 'divider' },
-    { key: 'logout', icon: <Icon icon={LogOut} />, label: '退出登录', danger: true },
+    { key: 'logout', icon: <Icon icon={LogOut} />, label: isLoggingOut ? '退出中' : '退出登录', danger: true, disabled: isLoggingOut },
   ];
 
   const viewLoadingFallback = (
@@ -557,11 +558,12 @@ export function DrivePage() {
 
             <Dropdown
               menu={{ items: avatarMenuItems, onClick: profileSettings.handleAvatarMenuClick }}
+              disabled={isLoggingOut}
               trigger={['click']}
               placement="bottomRight"
               overlayClassName="avatar-account-dropdown"
             >
-              <button type="button" className="avatar-menu-button" aria-label="打开用户菜单">
+              <button type="button" className="avatar-menu-button" aria-label="打开用户菜单" disabled={isLoggingOut}>
                 <Avatar size={44} src={currentAvatarSrc}>
                   {currentUser?.nickname?.slice(0, 1).toUpperCase() ?? 'U'}
                 </Avatar>

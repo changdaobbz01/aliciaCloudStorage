@@ -6,6 +6,17 @@ const api = readFileSync(new URL('../src/lib/api.ts', import.meta.url), 'utf8');
 const sessionContext = readFileSync(new URL('../src/context/session-context.tsx', import.meta.url), 'utf8');
 const protectedRoute = readFileSync(new URL('../src/components/protected-route.tsx', import.meta.url), 'utf8');
 const unifiedLogin = readFileSync(new URL('../src/lib/unifiedLogin.ts', import.meta.url), 'utf8');
+const cloudConsolePage = readFileSync(new URL('../src/pages/CloudConsolePage.tsx', import.meta.url), 'utf8');
+
+function assertIncludesInOrder(source, snippets, message) {
+  let searchFrom = 0;
+
+  for (const snippet of snippets) {
+    const foundAt = source.indexOf(snippet, searchFrom);
+    assert.notEqual(foundAt, -1, `${message}: missing ${snippet}`);
+    searchFrom = foundAt + snippet.length;
+  }
+}
 
 function findMatching(source, openIndex, openChar, closeChar) {
   let depth = 0;
@@ -179,6 +190,42 @@ assert.match(
   protectedRoute,
   /loginRedirectReason/,
   'ProtectedRoute must pass the session expiry reason to unified login',
+);
+assertIncludesInOrder(
+  sessionContext,
+  [
+    'isLoggingOut: boolean;',
+    'const logoutSubmittingRef = useRef(false);',
+    'const [isLoggingOut, setIsLoggingOut] = useState(false);',
+    'async function logoutCurrentSession() {',
+    'if (logoutSubmittingRef.current) {',
+    'logoutSubmittingRef.current = true;',
+    'setIsLoggingOut(true);',
+    'await logoutAuthToken(token, refreshToken);',
+    '} finally {',
+    'resetSessionState();',
+    "notifySessionChanged('logout');",
+    'logoutSubmittingRef.current = false;',
+    'setIsLoggingOut(false);',
+    'isLoggingOut,',
+  ],
+  'cloud console logout must block duplicate submissions and surface pending state',
+);
+assertIncludesInOrder(
+  cloudConsolePage,
+  [
+    'const { authToken, currentUser, isLoggingOut, logoutCurrentSession, updateCurrentUser } = useSession();',
+    'const logoutNavigatingRef = useRef(false);',
+    "{ key: 'logout', icon: <Icon icon={LogOut} />, label: isLoggingOut ? '退出中' : '退出登录', danger: true, disabled: isLoggingOut },",
+    "if (event.key === 'logout') {",
+    'if (isLoggingOut || logoutNavigatingRef.current) {',
+    'logoutNavigatingRef.current = true;',
+    'await logoutCurrentSession();',
+    '<Dropdown',
+    'disabled={isLoggingOut}',
+    '<button type="button" className="avatar-menu-button" aria-label="打开用户菜单" disabled={isLoggingOut}>',
+  ],
+  'cloud console account menu must surface pending logout state',
 );
 
 for (const reason of ['profile', 'logout', 'expired']) {

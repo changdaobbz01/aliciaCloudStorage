@@ -746,6 +746,24 @@ require_source_match \
     "Cloud web logout must clear local session state before broadcasting logout."
 
 require_source_match \
+    "cloud web logout blocks duplicate submissions" \
+    "webApp/scripts/verify-session-sync.mjs" \
+    'cloud web logout must block duplicate submissions and surface pending state' \
+    "Cloud web logout must block duplicate submissions."
+
+require_source_match \
+    "cloud web profile menu logout blocks duplicates" \
+    "webApp/scripts/verify-session-sync.mjs" \
+    'cloud web profile menu logout must block duplicate submissions' \
+    "Cloud web profile menu logout must block duplicate submissions."
+
+require_source_match \
+    "cloud web account menu shows logout pending state" \
+    "webApp/scripts/verify-session-sync.mjs" \
+    'cloud web account menu must surface pending logout state' \
+    "Cloud web account menu must surface pending logout state."
+
+require_source_match \
     "cloud web seeds cached user from identity session" \
     "webApp/scripts/verify-session-sync.mjs" \
     'cloud-safe cached user from identity login sessions' \
@@ -1626,6 +1644,18 @@ require_source_match \
     "sysManage/scripts/verify-session-sync.mjs" \
     'clear the local session before notifying logout' \
     "Cloud console logout must clear local session state before broadcasting logout."
+
+require_source_match \
+    "cloud console logout blocks duplicate submissions" \
+    "sysManage/scripts/verify-session-sync.mjs" \
+    'cloud console logout must block duplicate submissions and surface pending state' \
+    "Cloud console logout must block duplicate submissions."
+
+require_source_match \
+    "cloud console account menu shows logout pending state" \
+    "sysManage/scripts/verify-session-sync.mjs" \
+    'cloud console account menu must surface pending logout state' \
+    "Cloud console account menu must surface pending logout state."
 
 require_source_match \
     "cloud console seeds cached user from identity session" \

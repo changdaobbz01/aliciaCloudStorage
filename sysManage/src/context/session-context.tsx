@@ -28,6 +28,7 @@ type SessionContextValue = {
   currentUser: User | null;
   authToken: string | null;
   isSessionChecking: boolean;
+  isLoggingOut: boolean;
   loginRedirectReason: LoginRedirectReason | null;
   clearCurrentSession: () => void;
   logoutCurrentSession: () => Promise<void>;
@@ -73,11 +74,13 @@ function toCachedCloudUser(sessionUser: { id: number; phoneNumber: string | null
 export function SessionProvider({ children }: { children: ReactNode }) {
   const location = useLocation();
   const loginRedirectingRef = useRef(false);
+  const logoutSubmittingRef = useRef(false);
   const [currentUser, setCurrentUser] = useState<User | null>(() =>
     loadAuthToken() && loadRefreshToken() ? loadCurrentUser() : null,
   );
   const [authToken, setAuthToken] = useState<string | null>(() => loadAuthToken());
   const [isSessionChecking, setIsSessionChecking] = useState(() => hasStoredSessionTokens());
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [loginRedirectReason, setLoginRedirectReason] = useState<LoginRedirectReason | null>(null);
   const authTokenRef = useRef(authToken);
 
@@ -413,19 +416,28 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }
 
   async function logoutCurrentSession() {
+    if (logoutSubmittingRef.current) {
+      return;
+    }
+
     const token = loadAuthToken();
     const refreshToken = loadRefreshToken();
 
-    if (token) {
-      try {
-        await logoutAuthToken(token, refreshToken);
-      } catch {
-        // 本地退出不依赖服务端响应；过期或网络失败时仍清掉本地会话。
-      }
-    }
+    logoutSubmittingRef.current = true;
+    setIsLoggingOut(true);
 
-    resetSessionState();
-    notifySessionChanged('logout');
+    try {
+      if (token) {
+        await logoutAuthToken(token, refreshToken);
+      }
+    } catch {
+      // 本地退出不依赖服务端响应；过期或网络失败时仍清掉本地会话。
+    } finally {
+      resetSessionState();
+      notifySessionChanged('logout');
+      logoutSubmittingRef.current = false;
+      setIsLoggingOut(false);
+    }
   }
 
   return (
@@ -434,6 +446,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         currentUser,
         authToken,
         isSessionChecking,
+        isLoggingOut,
         loginRedirectReason,
         clearCurrentSession,
         logoutCurrentSession,
