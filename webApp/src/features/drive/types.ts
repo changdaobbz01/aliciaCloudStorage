@@ -20,6 +20,13 @@ export type DriveListState = {
   sortDirection: SortDirection;
 };
 
+export type DriveStorageMutationKind = 'create-folder' | 'rename' | 'move' | 'delete' | 'restore' | 'permanent-delete';
+
+export type DriveStorageMutationState = {
+  kind: DriveStorageMutationKind;
+  nodeIds: number[];
+} | null;
+
 export type DriveUploadTaskStatus = 'queued' | 'uploading' | 'retrying' | 'completing' | 'success' | 'error' | 'canceled';
 
 export type DriveUploadTask = {

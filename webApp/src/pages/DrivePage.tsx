@@ -97,6 +97,7 @@ export function DrivePage() {
   const storageDialogs = useDriveStorageDialogs({
     selectedItems: explorer.selectedItems,
     folderOptions: explorer.folderOptions,
+    storageMutation: explorer.storageMutation,
     loadFolderOptions: explorer.loadFolderOptions,
     createFolderNode: explorer.createFolderNode,
     renameNode: explorer.renameNode,
@@ -212,6 +213,7 @@ export function DrivePage() {
   const downloadSelectionState = downloads.getSelectionDownloadButtonState(selectedItems);
   const folderOptionsLoading = explorer.folderOptionsLoading;
   const overallUploadProgress = explorer.overallUploadProgress;
+  const storageMutation = explorer.storageMutation;
   const profileUsedBytes = dashboard.overview?.usedBytes ?? 0;
   const profileTotalBytes = dashboard.overview?.totalSpaceBytes ?? currentUser?.storageQuotaBytes ?? null;
   const profileUsagePercent =
@@ -389,6 +391,7 @@ export function DrivePage() {
           listState={listState}
           downloadSelectionState={downloadSelectionState}
           previewingFileId={previewingFileId}
+          storageMutation={storageMutation}
           onRefresh={() => void refreshCurrentView()}
           onUploadClick={handleUploadButtonClick}
           onCreateFolderClick={storageDialogs.openCreateFolderModal}
@@ -653,6 +656,7 @@ export function DrivePage() {
         moveTargetsCount={storageDialogs.moveTargets.length}
         moveDialogTitle={storageDialogs.moveDialogTitle}
         folderOptionsLoading={folderOptionsLoading}
+        storageMutation={storageMutation}
         folderTreeData={storageDialogs.folderTreeData}
         createFolderForm={storageDialogs.createFolderForm}
         renameForm={storageDialogs.renameForm}

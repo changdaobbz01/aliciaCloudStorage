@@ -2,7 +2,7 @@ import { Form } from 'antd';
 import { useMemo, useState } from 'react';
 import type { CreateFolderPayload, RenameNodePayload, StorageNode } from '../../../types';
 import { ROOT_PARENT_KEY } from '../driveShared';
-import type { FolderTreeNode } from '../types';
+import type { DriveStorageMutationState, FolderTreeNode } from '../types';
 
 type MoveNodeFormValues = {
   parentKey: string;
@@ -11,6 +11,7 @@ type MoveNodeFormValues = {
 type UseDriveStorageDialogsOptions = {
   selectedItems: StorageNode[];
   folderOptions: StorageNode[];
+  storageMutation: DriveStorageMutationState;
   loadFolderOptions: () => Promise<void>;
   createFolderNode: (values: CreateFolderPayload) => Promise<boolean>;
   renameNode: (target: StorageNode | null, values: RenameNodePayload) => Promise<boolean>;
@@ -20,6 +21,7 @@ type UseDriveStorageDialogsOptions = {
 export function useDriveStorageDialogs({
   selectedItems,
   folderOptions,
+  storageMutation,
   loadFolderOptions,
   createFolderNode,
   renameNode,
@@ -88,24 +90,44 @@ export function useDriveStorageDialogs({
   }, [folderOptions, moveTargets]);
 
   function openCreateFolderModal() {
+    if (storageMutation) {
+      return;
+    }
+
     createFolderForm.resetFields();
     setCreateFolderOpen(true);
   }
 
   function closeCreateFolderModal() {
+    if (storageMutation) {
+      return;
+    }
+
     setCreateFolderOpen(false);
   }
 
   function openRenameModal(item: StorageNode) {
+    if (storageMutation) {
+      return;
+    }
+
     renameForm.setFieldsValue({ name: item.name });
     setRenameTarget(item);
   }
 
   function closeRenameModal() {
+    if (storageMutation) {
+      return;
+    }
+
     setRenameTarget(null);
   }
 
   function openMoveModal(targets: StorageNode[] | StorageNode) {
+    if (storageMutation) {
+      return;
+    }
+
     const normalizedTargets = Array.isArray(targets) ? targets : [targets];
     const firstTarget = normalizedTargets[0];
 
@@ -126,10 +148,18 @@ export function useDriveStorageDialogs({
   }
 
   function closeMoveModal() {
+    if (storageMutation) {
+      return;
+    }
+
     setMoveTargets([]);
   }
 
   function openBatchMoveModal() {
+    if (storageMutation) {
+      return;
+    }
+
     if (selectedItems.length === 0) {
       return;
     }
@@ -138,6 +168,10 @@ export function useDriveStorageDialogs({
   }
 
   async function submitCreateFolder(values: CreateFolderPayload) {
+    if (storageMutation) {
+      return false;
+    }
+
     const success = await createFolderNode(values);
     if (!success) {
       return false;
@@ -149,6 +183,10 @@ export function useDriveStorageDialogs({
   }
 
   async function submitRename(values: RenameNodePayload) {
+    if (storageMutation) {
+      return false;
+    }
+
     const success = await renameNode(renameTarget, values);
     if (!success) {
       return false;
@@ -160,6 +198,10 @@ export function useDriveStorageDialogs({
   }
 
   async function submitMove(values: MoveNodeFormValues) {
+    if (storageMutation) {
+      return false;
+    }
+
     const success = await moveNodes(moveTargets, values.parentKey);
     if (!success) {
       return false;

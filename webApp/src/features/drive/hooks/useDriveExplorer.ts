@@ -37,7 +37,15 @@ import {
   validateStorageNodeName,
 } from '../cloudOperationPolicy';
 import { ROOT_PARENT_KEY, createDefaultListState } from '../driveShared';
-import type { DriveListState, DrivePreviewKind, DrivePreviewState, DriveUploadTask, FolderCrumb } from '../types';
+import type {
+  DriveListState,
+  DrivePreviewKind,
+  DrivePreviewState,
+  DriveStorageMutationKind,
+  DriveStorageMutationState,
+  DriveUploadTask,
+  FolderCrumb,
+} from '../types';
 
 type UseDriveExplorerOptions = {
   authToken: string | null;
@@ -245,11 +253,13 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
   const [nodeTypeFilter, setNodeTypeFilter] = useState<StorageNodeFilter>('ALL');
   const [fileCategory, setFileCategoryState] = useState<StorageFileCategory | null>(null);
   const [selectedItems, setSelectedItems] = useState<StorageNode[]>([]);
+  const [storageMutation, setStorageMutation] = useState<DriveStorageMutationState>(null);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const previewObjectUrlRef = useRef<string | null>(null);
   const previewRequestIdRef = useRef(0);
   const uploadControllersRef = useRef<Map<string, AbortController>>(new Map());
+  const storageMutationRef = useRef<DriveStorageMutationState>(null);
 
   const isDriveView = activeView === 'drive';
   const isTrashView = activeView === 'trash';
@@ -281,6 +291,25 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
 
   function clearSelection() {
     setSelectedItems([]);
+  }
+
+  function beginStorageMutation(kind: DriveStorageMutationKind, nodeIds: number[]) {
+    if (storageMutationRef.current !== null) {
+      return false;
+    }
+
+    const nextStorageMutation = {
+      kind,
+      nodeIds: [...new Set(nodeIds)].sort((left, right) => left - right),
+    };
+    storageMutationRef.current = nextStorageMutation;
+    setStorageMutation(nextStorageMutation);
+    return true;
+  }
+
+  function clearStorageMutation() {
+    storageMutationRef.current = null;
+    setStorageMutation(null);
   }
 
   function revokePreviewObjectUrl() {
@@ -905,6 +934,10 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
       return;
     }
 
+    if (!beginStorageMutation('delete', selection.value.nodeIds)) {
+      return;
+    }
+
     try {
       await deleteStorageNodes({ nodeIds: selection.value.nodeIds }, authToken);
       clearSelection();
@@ -914,6 +947,8 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
       );
     } catch (deleteError) {
       message.error(deleteError instanceof Error ? deleteError.message : '删除失败。');
+    } finally {
+      clearStorageMutation();
     }
   }
 
@@ -928,6 +963,10 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
       return;
     }
 
+    if (!beginStorageMutation('restore', selection.value.nodeIds)) {
+      return;
+    }
+
     try {
       await restoreStorageNodes({ nodeIds: selection.value.nodeIds }, authToken);
       clearSelection();
@@ -935,6 +974,8 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
       message.success(selection.value.targets.length === 1 ? '已恢复。' : `已恢复 ${selection.value.targets.length} 项。`);
     } catch (restoreError) {
       message.error(restoreError instanceof Error ? restoreError.message : '恢复失败。');
+    } finally {
+      clearStorageMutation();
     }
   }
 
@@ -949,6 +990,10 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
       return;
     }
 
+    if (!beginStorageMutation('permanent-delete', selection.value.nodeIds)) {
+      return;
+    }
+
     try {
       await permanentlyDeleteStorageNodes({ nodeIds: selection.value.nodeIds }, authToken);
       clearSelection();
@@ -958,6 +1003,8 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
       );
     } catch (deleteError) {
       message.error(deleteError instanceof Error ? deleteError.message : '彻底删除失败。');
+    } finally {
+      clearStorageMutation();
     }
   }
 
@@ -969,6 +1016,10 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
     const nameValidation = validateStorageNodeName(values.folderName);
     if (!nameValidation.valid) {
       message.warning(nameValidation.message);
+      return false;
+    }
+
+    if (!beginStorageMutation('create-folder', [])) {
       return false;
     }
 
@@ -988,6 +1039,8 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
     } catch (createError) {
       message.error(createError instanceof Error ? createError.message : '文件夹创建失败。');
       return false;
+    } finally {
+      clearStorageMutation();
     }
   }
 
@@ -1002,6 +1055,10 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
       return false;
     }
 
+    if (!beginStorageMutation('rename', [target.id])) {
+      return false;
+    }
+
     try {
       await renameStorageNode(target.id, { name: nameValidation.value }, authToken);
       clearSelection();
@@ -1011,6 +1068,8 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
     } catch (renameError) {
       message.error(renameError instanceof Error ? renameError.message : '重命名失败。');
       return false;
+    } finally {
+      clearStorageMutation();
     }
   }
 
@@ -1036,6 +1095,10 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
       parentId: parent.value,
     };
 
+    if (!beginStorageMutation('move', selection.value.nodeIds)) {
+      return false;
+    }
+
     try {
       await moveStorageNodes(payload, authToken);
       clearSelection();
@@ -1045,6 +1108,8 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
     } catch (moveError) {
       message.error(moveError instanceof Error ? moveError.message : '移动失败。');
       return false;
+    } finally {
+      clearStorageMutation();
     }
   }
 
@@ -1127,6 +1192,7 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
     keywordInput,
     selectedItems,
     selectedRowKeys,
+    storageMutation,
     loading,
     uploading,
     uploadTasks,

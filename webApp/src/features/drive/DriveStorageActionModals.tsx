@@ -3,7 +3,7 @@ import type { FormInstance } from 'antd/es/form';
 import { AliciaModalTitle } from '../../components/AliciaModalTitle';
 import type { CreateFolderPayload, RenameNodePayload, StorageNode } from '../../types';
 import { validateStorageNodeName } from './cloudOperationPolicy';
-import type { FolderTreeNode } from './types';
+import type { DriveStorageMutationState, FolderTreeNode } from './types';
 
 type MoveNodeFormValues = {
   parentKey: string;
@@ -15,6 +15,7 @@ type DriveStorageActionModalsProps = {
   moveTargetsCount: number;
   moveDialogTitle: string;
   folderOptionsLoading: boolean;
+  storageMutation: DriveStorageMutationState;
   folderTreeData: FolderTreeNode[];
   createFolderForm: FormInstance<CreateFolderPayload>;
   renameForm: FormInstance<RenameNodePayload>;
@@ -44,6 +45,7 @@ export function DriveStorageActionModals({
   moveTargetsCount,
   moveDialogTitle,
   folderOptionsLoading,
+  storageMutation,
   folderTreeData,
   createFolderForm,
   renameForm,
@@ -55,6 +57,10 @@ export function DriveStorageActionModals({
   onCloseMove,
   onSubmitMove,
 }: DriveStorageActionModalsProps) {
+  const createFolderSaving = storageMutation?.kind === 'create-folder';
+  const renameSaving = storageMutation?.kind === 'rename';
+  const moveSaving = storageMutation?.kind === 'move';
+
   return (
     <>
       <Modal
@@ -65,9 +71,14 @@ export function DriveStorageActionModals({
         onOk={() => void createFolderForm.submit()}
         okText="创建"
         cancelText="取消"
+        confirmLoading={createFolderSaving}
+        closable={!createFolderSaving}
+        maskClosable={!createFolderSaving}
+        keyboard={!createFolderSaving}
+        cancelButtonProps={{ disabled: createFolderSaving }}
         destroyOnHidden
       >
-        <Form form={createFolderForm} layout="vertical" onFinish={(values) => void onSubmitCreateFolder(values)}>
+        <Form form={createFolderForm} layout="vertical" disabled={createFolderSaving} onFinish={(values) => void onSubmitCreateFolder(values)}>
           <Form.Item
             name="folderName"
             label="文件夹名称"
@@ -86,9 +97,14 @@ export function DriveStorageActionModals({
         onOk={() => void renameForm.submit()}
         okText="保存"
         cancelText="取消"
+        confirmLoading={renameSaving}
+        closable={!renameSaving}
+        maskClosable={!renameSaving}
+        keyboard={!renameSaving}
+        cancelButtonProps={{ disabled: renameSaving }}
         destroyOnHidden
       >
-        <Form form={renameForm} layout="vertical" onFinish={(values) => void onSubmitRename(values)}>
+        <Form form={renameForm} layout="vertical" disabled={renameSaving} onFinish={(values) => void onSubmitRename(values)}>
           <Form.Item
             name="name"
             label="名称"
@@ -107,9 +123,14 @@ export function DriveStorageActionModals({
         onOk={() => void moveForm.submit()}
         okText="移动"
         cancelText="取消"
+        confirmLoading={moveSaving}
+        closable={!moveSaving}
+        maskClosable={!moveSaving}
+        keyboard={!moveSaving}
+        cancelButtonProps={{ disabled: moveSaving }}
         destroyOnHidden
       >
-        <Form form={moveForm} layout="vertical" onFinish={(values) => void onSubmitMove(values)}>
+        <Form form={moveForm} layout="vertical" disabled={moveSaving} onFinish={(values) => void onSubmitMove(values)}>
           <Form.Item
             name="parentKey"
             label="目标文件夹"
@@ -120,7 +141,7 @@ export function DriveStorageActionModals({
               treeDefaultExpandAll
               treeData={folderTreeData}
               treeNodeFilterProp="title"
-              disabled={folderOptionsLoading}
+              disabled={folderOptionsLoading || moveSaving}
               placeholder="选择目标文件夹"
             />
           </Form.Item>

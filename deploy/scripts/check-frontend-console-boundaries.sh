@@ -235,6 +235,54 @@ require_source_match \
     'cloud drive page must wire share revocation pending state to the UI' \
     "Cloud drive page must wire share revocation pending state."
 
+require_source_match \
+    "cloud web storage mutation state covers file actions" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web storage mutation state must cover all personal file mutations' \
+    "Cloud web storage mutation state must cover all personal file mutations."
+
+require_source_match \
+    "cloud web storage mutations track pending operation" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web storage mutations must track a single pending operation' \
+    "Cloud web storage mutations must track a single pending operation."
+
+require_source_match \
+    "cloud web storage mutations block duplicates" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web storage mutations must block duplicate submissions' \
+    "Cloud web storage mutations must block duplicate submissions."
+
+require_source_match \
+    "cloud web storage dialogs block pending close and submit" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web storage dialogs must block close and submit while a storage mutation is pending' \
+    "Cloud web storage dialogs must block pending close and submit."
+
+require_source_match \
+    "cloud web storage modals show pending state" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web storage modals must surface pending create, rename, and move submissions' \
+    "Cloud web storage modals must surface pending create, rename, and move submissions."
+
+require_source_match \
+    "cloud web explorer toolbar shows storage pending state" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web explorer toolbar must surface pending storage mutations' \
+    "Cloud web explorer toolbar must surface pending storage mutations."
+
+require_source_match \
+    "cloud web storage table shows pending row mutations" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web storage table must surface pending row mutations and freeze selection' \
+    "Cloud web storage table must surface pending row mutations and freeze selection."
+
+require_source_match \
+    "cloud drive page wires storage mutation pending state" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud drive page must wire storage mutation pending state to dialogs and tables' \
+    "Cloud drive page must wire storage mutation pending state."
+
 require_source_no_match \
     "cloud web has no admin style leftovers" \
     "webApp/src/index.css" \

@@ -127,6 +127,10 @@ function assertNoForeignRoutePathLiterals(fileUrls, label) {
   );
 }
 
+function countMatches(source, pattern) {
+  return [...source.matchAll(pattern)].length;
+}
+
 const files = listSourceFiles(srcRoot);
 const cloudWebApiScopeFiles = files;
 const cloudWebAllowedApiPrefixes = [
@@ -176,8 +180,14 @@ assert.doesNotMatch(rootApp, /path="\/console/, 'cloud web must not mount consol
 
 const drivePage = readFileSync(new URL('../src/pages/DrivePage.tsx', import.meta.url), 'utf8');
 const driveProfileModals = readFileSync(new URL('../src/features/drive/DriveProfileModals.tsx', import.meta.url), 'utf8');
+const driveExplorerView = readFileSync(new URL('../src/features/drive/DriveExplorerView.tsx', import.meta.url), 'utf8');
+const driveStorageActionModals = readFileSync(new URL('../src/features/drive/DriveStorageActionModals.tsx', import.meta.url), 'utf8');
 const driveSharesView = readFileSync(new URL('../src/features/drive/DriveSharesView.tsx', import.meta.url), 'utf8');
+const storageTable = readFileSync(new URL('../src/components/StorageTable.tsx', import.meta.url), 'utf8');
+const driveTypes = readFileSync(new URL('../src/features/drive/types.ts', import.meta.url), 'utf8');
+const useDriveExplorer = readFileSync(new URL('../src/features/drive/hooks/useDriveExplorer.ts', import.meta.url), 'utf8');
 const useDriveShares = readFileSync(new URL('../src/features/drive/hooks/useDriveShares.ts', import.meta.url), 'utf8');
+const useDriveStorageDialogs = readFileSync(new URL('../src/features/drive/hooks/useDriveStorageDialogs.ts', import.meta.url), 'utf8');
 const driveShared = readFileSync(new URL('../src/features/drive/driveShared.ts', import.meta.url), 'utf8');
 const appDownloadPage = readFileSync(new URL('../src/pages/AppDownloadPage.tsx', import.meta.url), 'utf8');
 const sharePage = readFileSync(new URL('../src/pages/SharePage.tsx', import.meta.url), 'utf8');
@@ -244,6 +254,51 @@ assert.match(
   drivePage,
   /shareRevokingId=\{shares\.shareRevokingId\}/,
   'cloud drive page must wire share revocation pending state to the UI',
+);
+assert.match(
+  driveTypes,
+  /DriveStorageMutationKind = 'create-folder' \| 'rename' \| 'move' \| 'delete' \| 'restore' \| 'permanent-delete'/,
+  'cloud web storage mutation state must cover all personal file mutations',
+);
+assert.match(
+  useDriveExplorer,
+  /const \[storageMutation, setStorageMutation\] = useState<DriveStorageMutationState>\(null\);[\s\S]*const storageMutationRef = useRef<DriveStorageMutationState>\(null\);/,
+  'cloud web storage mutations must track a single pending operation',
+);
+assert.match(
+  useDriveExplorer,
+  /function beginStorageMutation\(kind: DriveStorageMutationKind, nodeIds: number\[]\)[\s\S]*if \(storageMutationRef\.current !== null\) \{[\s\S]*return false;[\s\S]*setStorageMutation\(nextStorageMutation\);/,
+  'cloud web storage mutations must block duplicate submissions',
+);
+assert.equal(
+  countMatches(useDriveExplorer, /clearStorageMutation\(\);/g),
+  6,
+  'cloud web storage mutations must clear pending state after each personal file mutation',
+);
+assert.match(
+  useDriveStorageDialogs,
+  /storageMutation: DriveStorageMutationState[\s\S]*function closeCreateFolderModal\(\) \{[\s\S]*if \(storageMutation\) \{[\s\S]*return;[\s\S]*function submitMove\(values: MoveNodeFormValues\) \{[\s\S]*if \(storageMutation\) \{/,
+  'cloud web storage dialogs must block close and submit while a storage mutation is pending',
+);
+assert.match(
+  driveStorageActionModals,
+  /confirmLoading=\{createFolderSaving\}[\s\S]*disabled=\{createFolderSaving\}[\s\S]*confirmLoading=\{renameSaving\}[\s\S]*disabled=\{renameSaving\}[\s\S]*confirmLoading=\{moveSaving\}[\s\S]*disabled=\{folderOptionsLoading \|\| moveSaving\}/,
+  'cloud web storage modals must surface pending create, rename, and move submissions',
+);
+assert.match(
+  driveExplorerView,
+  /const storageMutationPending = storageMutation !== null;[\s\S]*loading=\{creatingFolder\}[\s\S]*disabled=\{storageMutationPending\}[\s\S]*loading=\{restoringSelection\}[\s\S]*loading=\{movingSelection\}[\s\S]*loading=\{deletingSelection\}/,
+  'cloud web explorer toolbar must surface pending storage mutations',
+);
+assert.match(
+  storageTable,
+  /storageMutation: DriveStorageMutationState[\s\S]*function isNodeStorageMutating\(item: StorageNode, kind: DriveStorageMutationKind\)[\s\S]*loading=\{restoring\}[\s\S]*loading=\{permanentlyDeleting\}[\s\S]*loading=\{renaming\}[\s\S]*loading=\{moving\}[\s\S]*loading=\{deleting\}[\s\S]*getCheckboxProps: \(\) => \(\{ disabled: storageMutation !== null \}\)/,
+  'cloud web storage table must surface pending row mutations and freeze selection',
+);
+assert.match(
+  drivePage,
+  /storageMutation: explorer\.storageMutation[\s\S]*const storageMutation = explorer\.storageMutation;[\s\S]*storageMutation=\{storageMutation\}/,
+  'cloud drive page must wire storage mutation pending state to dialogs and tables',
 );
 assert.match(
   driveProfileModals,

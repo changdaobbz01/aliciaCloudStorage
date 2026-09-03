@@ -3,7 +3,7 @@ import { Button, Popconfirm, Space, Table, Typography } from 'antd';
 import type { TablePaginationConfig, TableProps } from 'antd';
 import type { SorterResult } from 'antd/es/table/interface';
 import type { SortDirection, StorageNode, StorageNodeSortField, StorageViewMode } from '../types';
-import type { DriveDownloadButtonState } from '../features/drive/types';
+import type { DriveDownloadButtonState, DriveStorageMutationKind, DriveStorageMutationState } from '../features/drive/types';
 import { Icon } from './Icon';
 
 type StorageTableProps = {
@@ -11,6 +11,7 @@ type StorageTableProps = {
   items: StorageNode[];
   loading: boolean;
   previewingFileId: number | null;
+  storageMutation: DriveStorageMutationState;
   getDownloadButtonState: (item: StorageNode) => DriveDownloadButtonState;
   selectedRowKeys: number[];
   page: number;
@@ -107,6 +108,7 @@ export function StorageTable({
   items,
   loading,
   previewingFileId,
+  storageMutation,
   getDownloadButtonState,
   selectedRowKeys,
   page,
@@ -128,6 +130,11 @@ export function StorageTable({
 }: StorageTableProps) {
   const isTrashMode = mode === 'trash';
   const timeTitle = isTrashMode ? '删除时间' : '更新时间';
+  const storageMutationPending = storageMutation !== null;
+
+  function isNodeStorageMutating(item: StorageNode, kind: DriveStorageMutationKind) {
+    return storageMutation?.kind === kind && storageMutation.nodeIds.includes(item.id);
+  }
 
   const columns: TableProps<StorageNode>['columns'] = [
     {
@@ -161,7 +168,12 @@ export function StorageTable({
 
         if (!isTrashMode && item.type === 'FOLDER') {
           return (
-            <button type="button" className="storage-name-cell storage-folder-entry" onClick={() => onOpenFolder(item)}>
+            <button
+              type="button"
+              className="storage-name-cell storage-folder-entry"
+              disabled={storageMutationPending}
+              onClick={() => onOpenFolder(item)}
+            >
               {content}
             </button>
           );
@@ -199,10 +211,21 @@ export function StorageTable({
       width: isTrashMode ? 240 : 450,
       render: (_, item) => {
         const downloadState = getDownloadButtonState(item);
+        const restoring = isNodeStorageMutating(item, 'restore');
+        const deleting = isNodeStorageMutating(item, 'delete');
+        const permanentlyDeleting = isNodeStorageMutating(item, 'permanent-delete');
+        const renaming = isNodeStorageMutating(item, 'rename');
+        const moving = isNodeStorageMutating(item, 'move');
 
         return isTrashMode ? (
           <Space size="small" wrap>
-            <Button type="link" icon={<Icon icon={Undo2} />} onClick={() => onRestoreNode(item)}>
+            <Button
+              type="link"
+              icon={<Icon icon={Undo2} />}
+              loading={restoring}
+              disabled={storageMutationPending && !restoring}
+              onClick={() => onRestoreNode(item)}
+            >
               恢复
             </Button>
             <Popconfirm
@@ -210,10 +233,18 @@ export function StorageTable({
               description="彻底删除后无法从回收站恢复。"
               okText="删除"
               cancelText="取消"
-              okButtonProps={{ danger: true }}
+              okButtonProps={{ danger: true, loading: permanentlyDeleting, disabled: storageMutationPending && !permanentlyDeleting }}
+              cancelButtonProps={{ disabled: permanentlyDeleting }}
+              disabled={storageMutationPending && !permanentlyDeleting}
               onConfirm={() => onPermanentlyDeleteNode(item)}
             >
-              <Button type="link" danger icon={<Icon icon={Trash2} />}>
+              <Button
+                type="link"
+                danger
+                icon={<Icon icon={Trash2} />}
+                loading={permanentlyDeleting}
+                disabled={storageMutationPending && !permanentlyDeleting}
+              >
                 彻底删除
               </Button>
             </Popconfirm>
@@ -225,6 +256,7 @@ export function StorageTable({
                 type="link"
                 icon={<Icon icon={Eye} />}
                 loading={previewingFileId === item.id}
+                disabled={storageMutationPending}
                 onClick={() => onPreviewFile(item)}
               >
                 预览
@@ -233,18 +265,30 @@ export function StorageTable({
             <Button
               type="link"
               icon={<Icon icon={Download} />}
-              disabled={downloadState.busy}
+              disabled={downloadState.busy || storageMutationPending}
               onClick={() => onDownloadNode(item)}
             >
               {downloadState.label}
             </Button>
-            <Button type="link" icon={<Icon icon={Share2} />} onClick={() => onShareNode(item)}>
+            <Button type="link" icon={<Icon icon={Share2} />} disabled={storageMutationPending} onClick={() => onShareNode(item)}>
               分享
             </Button>
-            <Button type="link" icon={<Icon icon={Pencil} />} onClick={() => onRenameNode(item)}>
+            <Button
+              type="link"
+              icon={<Icon icon={Pencil} />}
+              loading={renaming}
+              disabled={storageMutationPending && !renaming}
+              onClick={() => onRenameNode(item)}
+            >
               重命名
             </Button>
-            <Button type="link" icon={<Icon icon={Move} />} onClick={() => onMoveNode(item)}>
+            <Button
+              type="link"
+              icon={<Icon icon={Move} />}
+              loading={moving}
+              disabled={storageMutationPending && !moving}
+              onClick={() => onMoveNode(item)}
+            >
               移动
             </Button>
             <Popconfirm
@@ -252,10 +296,18 @@ export function StorageTable({
               description="稍后仍可在回收站中恢复或彻底删除。"
               okText="删除"
               cancelText="取消"
-              okButtonProps={{ danger: true }}
+              okButtonProps={{ danger: true, loading: deleting, disabled: storageMutationPending && !deleting }}
+              cancelButtonProps={{ disabled: deleting }}
+              disabled={storageMutationPending && !deleting}
               onConfirm={() => onDeleteNode(item)}
             >
-              <Button type="link" danger icon={<Icon icon={Trash2} />}>
+              <Button
+                type="link"
+                danger
+                icon={<Icon icon={Trash2} />}
+                loading={deleting}
+                disabled={storageMutationPending && !deleting}
+              >
                 删除
               </Button>
             </Popconfirm>
@@ -273,6 +325,7 @@ export function StorageTable({
         rowSelection={{
           selectedRowKeys,
           onChange: (_, selectedRows) => onSelectionChange(selectedRows),
+          getCheckboxProps: () => ({ disabled: storageMutation !== null }),
         }}
         loading={loading}
         columns={columns}

@@ -2,7 +2,7 @@ import { CloudDownload, FileArchive, FileImage, FileText, FolderPlus, LayoutGrid
 import { Alert, Breadcrumb, Button, Popconfirm, Segmented, Spin, Typography } from 'antd';
 import { StorageTable } from '../../components/StorageTable';
 import type { SortDirection, StorageFileCategory, StorageNode, StorageNodeFilter, StorageNodeSortField } from '../../types';
-import type { DriveDownloadButtonState, DriveListState, FolderCrumb } from './types';
+import type { DriveDownloadButtonState, DriveListState, DriveStorageMutationKind, DriveStorageMutationState, FolderCrumb } from './types';
 import { Icon } from '../../components/Icon';
 import { MAX_SHARE_TARGETS } from './cloudOperationPolicy';
 
@@ -22,6 +22,7 @@ type DriveExplorerViewProps = {
   listState: DriveListState;
   downloadSelectionState: DriveDownloadButtonState;
   previewingFileId: number | null;
+  storageMutation: DriveStorageMutationState;
   onRefresh: () => void;
   onUploadClick: () => void;
   onCreateFolderClick: () => void;
@@ -78,6 +79,7 @@ export default function DriveExplorerView({
   listState,
   downloadSelectionState,
   previewingFileId,
+  storageMutation,
   onRefresh,
   onUploadClick,
   onCreateFolderClick,
@@ -106,6 +108,13 @@ export default function DriveExplorerView({
   const isTrashMode = mode === 'trash';
   const selectedCount = selectedItems.length;
   const activeCategory = fileCategory;
+  const storageMutationPending = storageMutation !== null;
+  const isStorageMutation = (kind: DriveStorageMutationKind) => storageMutation?.kind === kind;
+  const creatingFolder = isStorageMutation('create-folder');
+  const movingSelection = isStorageMutation('move');
+  const deletingSelection = isStorageMutation('delete');
+  const restoringSelection = isStorageMutation('restore');
+  const permanentlyDeletingSelection = isStorageMutation('permanent-delete');
 
   return (
     <section className="content-panel drive-panel">
@@ -121,19 +130,29 @@ export default function DriveExplorerView({
               <Button type="primary" icon={<Icon icon={Upload} />} loading={uploading} onClick={onUploadClick}>
                 上传文件
               </Button>
-              <Button icon={<Icon icon={FolderPlus} />} onClick={onCreateFolderClick}>
+              <Button
+                icon={<Icon icon={FolderPlus} />}
+                loading={creatingFolder}
+                disabled={storageMutationPending && !creatingFolder}
+                onClick={onCreateFolderClick}
+              >
                 新建文件夹
               </Button>
             </>
           ) : null}
 
-          <Button icon={<Icon icon={RefreshCw} />} onClick={onRefresh}>
+          <Button icon={<Icon icon={RefreshCw} />} disabled={storageMutationPending} onClick={onRefresh}>
             刷新
           </Button>
 
           {isTrashMode ? (
             <>
-              <Button icon={<Icon icon={Undo2} />} disabled={selectedCount === 0} onClick={onRestoreSelection}>
+              <Button
+                icon={<Icon icon={Undo2} />}
+                loading={restoringSelection}
+                disabled={selectedCount === 0 || (storageMutationPending && !restoringSelection)}
+                onClick={onRestoreSelection}
+              >
                 恢复所选
               </Button>
               <Popconfirm
@@ -141,11 +160,17 @@ export default function DriveExplorerView({
                 description="彻底删除后无法从回收站恢复。"
                 okText="删除"
                 cancelText="取消"
-                okButtonProps={{ danger: true }}
-                disabled={selectedCount === 0}
+                okButtonProps={{ danger: true, loading: permanentlyDeletingSelection, disabled: storageMutationPending && !permanentlyDeletingSelection }}
+                cancelButtonProps={{ disabled: permanentlyDeletingSelection }}
+                disabled={selectedCount === 0 || (storageMutationPending && !permanentlyDeletingSelection)}
                 onConfirm={onPermanentDeleteSelection}
               >
-                <Button danger icon={<Icon icon={Trash2} />} disabled={selectedCount === 0}>
+                <Button
+                  danger
+                  icon={<Icon icon={Trash2} />}
+                  loading={permanentlyDeletingSelection}
+                  disabled={selectedCount === 0 || (storageMutationPending && !permanentlyDeletingSelection)}
+                >
                   彻底删除所选
                 </Button>
               </Popconfirm>
@@ -154,20 +179,25 @@ export default function DriveExplorerView({
             <>
               <Button
                 icon={<Icon icon={CloudDownload} />}
-                disabled={selectedCount === 0 || downloadSelectionState.busy}
+                disabled={selectedCount === 0 || downloadSelectionState.busy || storageMutationPending}
                 onClick={onDownloadSelection}
               >
                 {downloadSelectionState.label}
               </Button>
               <Button
                 icon={<Icon icon={Share2} />}
-                disabled={selectedCount === 0}
+                disabled={selectedCount === 0 || storageMutationPending}
                 title={selectedCount > MAX_SHARE_TARGETS ? `单个分享最多包含 ${MAX_SHARE_TARGETS} 个项目` : undefined}
                 onClick={onShareSelection}
               >
                 分享所选
               </Button>
-              <Button icon={<Icon icon={Move} />} disabled={selectedCount === 0} onClick={onOpenBatchMove}>
+              <Button
+                icon={<Icon icon={Move} />}
+                loading={movingSelection}
+                disabled={selectedCount === 0 || (storageMutationPending && !movingSelection)}
+                onClick={onOpenBatchMove}
+              >
                 移动所选
               </Button>
               <Popconfirm
@@ -175,11 +205,17 @@ export default function DriveExplorerView({
                 description="可稍后在回收站中恢复或彻底删除。"
                 okText="删除"
                 cancelText="取消"
-                okButtonProps={{ danger: true }}
-                disabled={selectedCount === 0}
+                okButtonProps={{ danger: true, loading: deletingSelection, disabled: storageMutationPending && !deletingSelection }}
+                cancelButtonProps={{ disabled: deletingSelection }}
+                disabled={selectedCount === 0 || (storageMutationPending && !deletingSelection)}
                 onConfirm={onDeleteSelection}
               >
-                <Button danger icon={<Icon icon={Trash2} />} disabled={selectedCount === 0}>
+                <Button
+                  danger
+                  icon={<Icon icon={Trash2} />}
+                  loading={deletingSelection}
+                  disabled={selectedCount === 0 || (storageMutationPending && !deletingSelection)}
+                >
                   删除所选
                 </Button>
               </Popconfirm>
@@ -257,6 +293,7 @@ export default function DriveExplorerView({
           items={items}
           loading={false}
           previewingFileId={previewingFileId}
+          storageMutation={storageMutation}
           getDownloadButtonState={getNodeDownloadButtonState}
           selectedRowKeys={selectedRowKeys}
           page={listState.page}
