@@ -32,6 +32,7 @@ export function useCloudUsersAdmin({
   const [quotaModalOpen, setQuotaModalOpen] = useState(false);
   const [quotaSaving, setQuotaSaving] = useState(false);
   const [quotaForm] = Form.useForm<CloudQuotaFormValues>();
+  const usersLoadingRef = useRef(false);
   const quotaSavingRef = useRef(false);
 
   async function loadUsers() {
@@ -40,6 +41,11 @@ export function useCloudUsersAdmin({
       return;
     }
 
+    if (usersLoadingRef.current) {
+      return;
+    }
+
+    usersLoadingRef.current = true;
     setUsersLoading(true);
 
     try {
@@ -47,6 +53,7 @@ export function useCloudUsersAdmin({
     } catch (loadError) {
       message.error(loadError instanceof Error ? loadError.message : '加载云盘用户失败。');
     } finally {
+      usersLoadingRef.current = false;
       setUsersLoading(false);
     }
   }
@@ -56,7 +63,7 @@ export function useCloudUsersAdmin({
       return;
     }
 
-    if (quotaSavingRef.current) {
+    if (usersLoadingRef.current || quotaSavingRef.current) {
       return;
     }
 

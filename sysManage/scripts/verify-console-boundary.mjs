@@ -540,12 +540,49 @@ assertIncludesInOrder(
 assertIncludesInOrder(
   cloudUsersHookSource,
   [
+    'const usersLoadingRef = useRef(false);',
+    'async function loadUsers() {',
+    'if (usersLoadingRef.current) {',
+    'usersLoadingRef.current = true;',
+    'setUsersLoading(true);',
+    '} finally {',
+    'usersLoadingRef.current = false;',
+    'setUsersLoading(false);',
+  ],
+  'cloud console users reads must keep synchronous loading guards',
+);
+assertIncludesInOrder(
+  cloudUsersHookSource,
+  [
     'function openQuotaModal(user: User) {',
     'if (!authToken || !isAdmin) {',
     'return;',
     'setQuotaTarget(user);',
   ],
   'cloud console quota modal must stay behind the cloud admin gate',
+);
+assertIncludesInOrder(
+  cloudUsersHookSource,
+  [
+    'function openQuotaModal(user: User) {',
+    'if (usersLoadingRef.current || quotaSavingRef.current) {',
+    'return;',
+    'setQuotaTarget(user);',
+  ],
+  'cloud console quota modal must pause during user refreshes',
+);
+assertIncludesInOrder(
+  cloudUsersViewSource,
+  [
+    'const usersBusy = loading || quotaSaving;',
+    'const adjustingThisUser = quotaSaving && quotaTarget?.id === user.id;',
+    'disabled={usersBusy || user.storageQuotaBytes === null}',
+    'loading={adjustingThisUser}',
+    'loading={loading}',
+    'disabled={loading}',
+    'pagination={{ pageSize: 10, showSizeChanger: true, disabled: loading }}',
+  ],
+  'cloud console users controls must surface pending loading state',
 );
 assertIncludesInOrder(
   cloudUsersHookSource,

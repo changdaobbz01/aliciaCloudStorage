@@ -1184,6 +1184,24 @@ require_source_match \
     "Cloud console boundary verifier must pin the users view to CloudStorageApi cloud-users."
 
 require_source_match \
+    "cloud console users reads keep synchronous guards" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console users reads must keep synchronous loading guards' \
+    "Cloud console boundary verifier must guard duplicate cloud users reads."
+
+require_source_match \
+    "cloud console quota modal pauses during user refreshes" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console quota modal must pause during user refreshes' \
+    "Cloud console boundary verifier must pause quota modal while users refresh."
+
+require_source_match \
+    "cloud console users controls surface pending state" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console users controls must surface pending loading state' \
+    "Cloud console boundary verifier must surface cloud users loading state."
+
+require_source_match \
     "cloud console rejects sysManage user creation API" \
     "sysManage/scripts/verify-console-boundary.mjs" \
     'cloud console user directory must not expose identity user creation from sysManage' \

@@ -102,6 +102,7 @@ export default function CloudUsersView({
 
   const summary = summarizeUsers(users);
   const quotaMinimum = quotaInputMinimum(quotaTarget);
+  const usersBusy = loading || quotaSaving;
   const columns: ColumnsType<User> = [
     {
       title: '用户',
@@ -188,17 +189,22 @@ export default function CloudUsersView({
       key: 'actions',
       fixed: 'right',
       width: 140,
-      render: (_, user) => (
-        <Button
-          type="link"
-          icon={<Icon icon={Edit3} />}
-          disabled={user.storageQuotaBytes === null}
-          title={user.storageQuotaBytes === null ? '当前账号未初始化云盘额度' : undefined}
-          onClick={() => onOpenQuotaModal(user)}
-        >
-          调整额度
-        </Button>
-      ),
+      render: (_, user) => {
+        const adjustingThisUser = quotaSaving && quotaTarget?.id === user.id;
+
+        return (
+          <Button
+            type="link"
+            icon={<Icon icon={Edit3} />}
+            disabled={usersBusy || user.storageQuotaBytes === null}
+            loading={adjustingThisUser}
+            title={user.storageQuotaBytes === null ? '当前账号未初始化云盘额度' : undefined}
+            onClick={() => onOpenQuotaModal(user)}
+          >
+            调整额度
+          </Button>
+        );
+      },
     },
   ];
 
@@ -212,7 +218,7 @@ export default function CloudUsersView({
           </Typography.Paragraph>
         </div>
         <div className="panel-actions">
-          <Button icon={<Icon icon={RefreshCw} />} onClick={onRefresh} loading={loading}>
+          <Button icon={<Icon icon={RefreshCw} />} onClick={onRefresh} loading={loading} disabled={loading}>
             刷新
           </Button>
         </div>
@@ -243,7 +249,7 @@ export default function CloudUsersView({
         loading={loading}
         columns={columns}
         dataSource={users}
-        pagination={{ pageSize: 10, showSizeChanger: true }}
+        pagination={{ pageSize: 10, showSizeChanger: true, disabled: loading }}
         scroll={{ x: 1200 }}
         locale={{ emptyText: '暂无云盘用户。' }}
       />
