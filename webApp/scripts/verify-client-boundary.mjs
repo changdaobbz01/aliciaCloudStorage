@@ -189,6 +189,7 @@ const storageTable = readFileSync(new URL('../src/components/StorageTable.tsx', 
 const driveTypes = readFileSync(new URL('../src/features/drive/types.ts', import.meta.url), 'utf8');
 const useDriveDownloads = readFileSync(new URL('../src/features/drive/hooks/useDriveDownloads.ts', import.meta.url), 'utf8');
 const useDriveExplorer = readFileSync(new URL('../src/features/drive/hooks/useDriveExplorer.ts', import.meta.url), 'utf8');
+const useDriveProfileSettings = readFileSync(new URL('../src/features/drive/hooks/useDriveProfileSettings.ts', import.meta.url), 'utf8');
 const useDriveShares = readFileSync(new URL('../src/features/drive/hooks/useDriveShares.ts', import.meta.url), 'utf8');
 const useDriveStorageDialogs = readFileSync(new URL('../src/features/drive/hooks/useDriveStorageDialogs.ts', import.meta.url), 'utf8');
 const driveShared = readFileSync(new URL('../src/features/drive/driveShared.ts', import.meta.url), 'utf8');
@@ -337,6 +338,41 @@ assert.match(
   driveSharesView,
   /const shareCopying = shareCopyingId === share\.id;[\s\S]*loading=\{shareCopying\}[\s\S]*disabled=\{shareRevokingId !== null \|\| \(shareCopyingId !== null && !shareCopying\)\}[\s\S]*onClick=\{\(\) => void handleCopy\(share\.id, resolveShareUrl\(share\.shareCode\)\)\}/,
   'cloud web shares view must surface pending share link copies',
+);
+assert.match(
+  useDriveProfileSettings,
+  /type IdentitySessionsLoadOptions = \{[\s\S]*force\?: boolean;[\s\S]*const identitySessionsLoadingRef = useRef\(false\);[\s\S]*const identitySessionsRequestIdRef = useRef\(0\);[\s\S]*const identitySessionsLoadingKeyRef = useRef<string \| null>\(null\);[\s\S]*const authTokenRef = useRef\(authToken\);[\s\S]*const includeRevokedSessionsRef = useRef\(includeRevokedSessions\);/,
+  'cloud web identity session reads must track request identity',
+);
+assert.match(
+  useDriveProfileSettings,
+  /function createIdentitySessionsRequestKey\(token: string \| null = authToken, includeRevoked = includeRevokedSessions\) \{[\s\S]*return JSON\.stringify\(\[token, includeRevoked\]\);[\s\S]*function isCurrentIdentitySessionsRequest\(requestId: number, requestKey: string\) \{[\s\S]*identitySessionsRequestIdRef\.current === requestId[\s\S]*identitySessionsLoadingKeyRef\.current === requestKey[\s\S]*createIdentitySessionsRequestKey\(authTokenRef\.current, includeRevokedSessionsRef\.current\) === requestKey/,
+  'cloud web identity session reads must compare auth and revoked-filter scope',
+);
+assert.match(
+  useDriveProfileSettings,
+  /async function loadIdentitySessions\(nextIncludeRevoked = includeRevokedSessions, options: IdentitySessionsLoadOptions = \{\}\) \{[\s\S]*if \(!authToken\) \{[\s\S]*identitySessionsRequestIdRef\.current \+= 1;[\s\S]*identitySessionsLoadingKeyRef\.current = null;[\s\S]*identitySessionsLoadingRef\.current = false;[\s\S]*const requestKey = createIdentitySessionsRequestKey\(authToken, nextIncludeRevoked\);[\s\S]*if \(!options\.force && identitySessionsLoadingKeyRef\.current === requestKey\) \{[\s\S]*return;[\s\S]*identitySessionsRequestIdRef\.current \+= 1;[\s\S]*const requestId = identitySessionsRequestIdRef\.current;[\s\S]*identitySessionsLoadingKeyRef\.current = requestKey;[\s\S]*identitySessionsLoadingRef\.current = true;/,
+  'cloud web identity session reads must block duplicate same-scope requests',
+);
+assert.match(
+  useDriveProfileSettings,
+  /const nextSessions = await fetchIdentitySessions\(authToken, nextIncludeRevoked\);[\s\S]*if \(!isCurrentIdentitySessionsRequest\(requestId, requestKey\)\) \{[\s\S]*return;[\s\S]*setIdentitySessions\(nextSessions\);[\s\S]*catch \(sessionError\) \{[\s\S]*if \(isCurrentIdentitySessionsRequest\(requestId, requestKey\)\) \{[\s\S]*message\.error[\s\S]*finally \{[\s\S]*if \(isCurrentIdentitySessionsRequest\(requestId, requestKey\)\) \{[\s\S]*identitySessionsLoadingKeyRef\.current = null;[\s\S]*identitySessionsLoadingRef\.current = false;[\s\S]*setIdentitySessionsLoading\(false\);/,
+  'cloud web identity session reads must ignore stale responses',
+);
+assert.match(
+  useDriveProfileSettings,
+  /useEffect\(\(\) => \{[\s\S]*identitySessionsRequestIdRef\.current \+= 1;[\s\S]*identitySessionsLoadingKeyRef\.current = null;[\s\S]*identitySessionsLoadingRef\.current = false;[\s\S]*setIdentitySessionsLoading\(false\);[\s\S]*if \(!authToken\) \{[\s\S]*setIdentitySessions\(\[\]\);[\s\S]*\}, \[authToken\]\);/,
+  'cloud web identity session reads must invalidate when auth scope changes',
+);
+assert.match(
+  useDriveProfileSettings,
+  /identitySessionsLoadingRef\.current \|\| identitySessionRevokingIdRef\.current !== null[\s\S]*await loadIdentitySessions\(includeRevokedSessionsRef\.current, \{ force: true \}\);[\s\S]*includeRevokedSessionsRef\.current = checked;[\s\S]*void loadIdentitySessions\(checked, \{ force: true \}\);[\s\S]*await loadIdentitySessions\(includeRevokedSessionsRef\.current, \{ force: true \}\);/,
+  'cloud web identity session actions must use synchronous loading guards and force refreshes',
+);
+assert.match(
+  driveProfileModals,
+  /loading=\{identitySessionsLoading\}[\s\S]*disabled=\{identitySessionsLoading \|\| identitySessionRevokingId !== null\}[\s\S]*onClick=\{\(\) => void onRefreshSessions\(\)\}/,
+  'cloud web identity session modal must surface refresh pending state',
 );
 assert.match(
   sharePage,

@@ -1,6 +1,6 @@
 import { Form } from 'antd';
 import type { MessageInstance } from 'antd/es/message/interface';
-import { useRef, useState, type ChangeEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import {
   changePassword,
   clearCurrentUserHomeBackground,
@@ -26,6 +26,10 @@ type UseDriveProfileSettingsOptions = {
   logoutCurrentSession: () => Promise<void>;
   onNavigateToLogin: () => void;
   maxHomeBackgroundBytes: number;
+};
+
+type IdentitySessionsLoadOptions = {
+  force?: boolean;
 };
 
 export function useDriveProfileSettings({
@@ -61,7 +65,14 @@ export function useDriveProfileSettings({
   const backgroundClearingRef = useRef(false);
   const passwordSavingRef = useRef(false);
   const identitySessionRevokingIdRef = useRef<number | null>(null);
+  const identitySessionsLoadingRef = useRef(false);
+  const identitySessionsRequestIdRef = useRef(0);
+  const identitySessionsLoadingKeyRef = useRef<string | null>(null);
+  const authTokenRef = useRef(authToken);
+  const includeRevokedSessionsRef = useRef(includeRevokedSessions);
   const logoutNavigatingRef = useRef(false);
+  authTokenRef.current = authToken;
+  includeRevokedSessionsRef.current = includeRevokedSessions;
 
   function openProfileModal() {
     if (!currentUser) {
@@ -226,19 +237,56 @@ export function useDriveProfileSettings({
     setPasswordOpen(false);
   }
 
-  async function loadIdentitySessions(nextIncludeRevoked = includeRevokedSessions) {
+  function createIdentitySessionsRequestKey(token: string | null = authToken, includeRevoked = includeRevokedSessions) {
+    return JSON.stringify([token, includeRevoked]);
+  }
+
+  function isCurrentIdentitySessionsRequest(requestId: number, requestKey: string) {
+    return (
+      identitySessionsRequestIdRef.current === requestId
+      && identitySessionsLoadingKeyRef.current === requestKey
+      && createIdentitySessionsRequestKey(authTokenRef.current, includeRevokedSessionsRef.current) === requestKey
+    );
+  }
+
+  async function loadIdentitySessions(nextIncludeRevoked = includeRevokedSessions, options: IdentitySessionsLoadOptions = {}) {
     if (!authToken) {
+      identitySessionsRequestIdRef.current += 1;
+      identitySessionsLoadingKeyRef.current = null;
+      identitySessionsLoadingRef.current = false;
+      setIdentitySessionsLoading(false);
+      setIdentitySessions([]);
       return;
     }
 
+    const requestKey = createIdentitySessionsRequestKey(authToken, nextIncludeRevoked);
+    if (!options.force && identitySessionsLoadingKeyRef.current === requestKey) {
+      return;
+    }
+
+    identitySessionsRequestIdRef.current += 1;
+    const requestId = identitySessionsRequestIdRef.current;
+    identitySessionsLoadingKeyRef.current = requestKey;
+    identitySessionsLoadingRef.current = true;
     setIdentitySessionsLoading(true);
 
     try {
-      setIdentitySessions(await fetchIdentitySessions(authToken, nextIncludeRevoked));
+      const nextSessions = await fetchIdentitySessions(authToken, nextIncludeRevoked);
+      if (!isCurrentIdentitySessionsRequest(requestId, requestKey)) {
+        return;
+      }
+
+      setIdentitySessions(nextSessions);
     } catch (sessionError) {
-      message.error(sessionError instanceof Error ? sessionError.message : '登录会话加载失败。');
+      if (isCurrentIdentitySessionsRequest(requestId, requestKey)) {
+        message.error(sessionError instanceof Error ? sessionError.message : '登录会话加载失败。');
+      }
     } finally {
-      setIdentitySessionsLoading(false);
+      if (isCurrentIdentitySessionsRequest(requestId, requestKey)) {
+        identitySessionsLoadingKeyRef.current = null;
+        identitySessionsLoadingRef.current = false;
+        setIdentitySessionsLoading(false);
+      }
     }
   }
 
@@ -248,15 +296,15 @@ export function useDriveProfileSettings({
   }
 
   async function refreshIdentitySessions() {
-    if (identitySessionsLoading || identitySessionRevokingIdRef.current !== null) {
+    if (identitySessionsLoadingRef.current || identitySessionRevokingIdRef.current !== null) {
       return;
     }
 
-    await loadIdentitySessions();
+    await loadIdentitySessions(includeRevokedSessionsRef.current, { force: true });
   }
 
   function closeSessionsModal() {
-    if (identitySessionsLoading || identitySessionRevokingIdRef.current !== null) {
+    if (identitySessionsLoadingRef.current || identitySessionRevokingIdRef.current !== null) {
       return;
     }
 
@@ -264,12 +312,13 @@ export function useDriveProfileSettings({
   }
 
   function changeIncludeRevokedSessions(checked: boolean) {
-    if (identitySessionsLoading || identitySessionRevokingIdRef.current !== null) {
+    if (identitySessionsLoadingRef.current || identitySessionRevokingIdRef.current !== null) {
       return;
     }
 
+    includeRevokedSessionsRef.current = checked;
     setIncludeRevokedSessions(checked);
-    void loadIdentitySessions(checked);
+    void loadIdentitySessions(checked, { force: true });
   }
 
   async function revokeSession(sessionId: number) {
@@ -287,7 +336,7 @@ export function useDriveProfileSettings({
     try {
       await revokeIdentitySession(authToken, sessionId);
       message.success('登录会话已撤销。');
-      await loadIdentitySessions(includeRevokedSessions);
+      await loadIdentitySessions(includeRevokedSessionsRef.current, { force: true });
     } catch (sessionError) {
       message.error(sessionError instanceof Error ? sessionError.message : '登录会话撤销失败。');
     } finally {
@@ -383,6 +432,17 @@ export function useDriveProfileSettings({
       logoutNavigatingRef.current = false;
     }
   }
+
+  useEffect(() => {
+    identitySessionsRequestIdRef.current += 1;
+    identitySessionsLoadingKeyRef.current = null;
+    identitySessionsLoadingRef.current = false;
+    setIdentitySessionsLoading(false);
+
+    if (!authToken) {
+      setIdentitySessions([]);
+    }
+  }, [authToken]);
 
   function handleAvatarMenuClick(event: { key: string }) {
     if (event.key === 'profile') {

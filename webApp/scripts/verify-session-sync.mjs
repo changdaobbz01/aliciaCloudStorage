@@ -197,10 +197,12 @@ assert.match(
 assertIncludesInOrder(
   driveProfileSettings,
   [
-    'async function loadIdentitySessions(nextIncludeRevoked = includeRevokedSessions) {',
+    'async function loadIdentitySessions(nextIncludeRevoked = includeRevokedSessions, options: IdentitySessionsLoadOptions = {}) {',
     'if (!authToken) {',
+    'const requestKey = createIdentitySessionsRequestKey(authToken, nextIncludeRevoked);',
     'setIdentitySessionsLoading(true);',
-    'setIdentitySessions(await fetchIdentitySessions(authToken, nextIncludeRevoked));',
+    'const nextSessions = await fetchIdentitySessions(authToken, nextIncludeRevoked);',
+    'setIdentitySessions(nextSessions);',
   ],
   'cloud web profile sessions must load current identity sessions with the selected revoked filter',
 );
@@ -208,8 +210,9 @@ assertIncludesInOrder(
   driveProfileSettings,
   [
     'function changeIncludeRevokedSessions(checked: boolean) {',
+    'includeRevokedSessionsRef.current = checked;',
     'setIncludeRevokedSessions(checked);',
-    'void loadIdentitySessions(checked);',
+    'void loadIdentitySessions(checked, { force: true });',
   ],
   'cloud web profile sessions include-revoked toggle must reload with the selected state',
 );
@@ -223,7 +226,7 @@ assertIncludesInOrder(
     'setIdentitySessionRevokingId(sessionId);',
     'await revokeIdentitySession(authToken, sessionId);',
     'message.success',
-    'await loadIdentitySessions(includeRevokedSessions);',
+    'await loadIdentitySessions(includeRevokedSessionsRef.current, { force: true });',
     '} finally {',
     'identitySessionRevokingIdRef.current = null;',
     'setIdentitySessionRevokingId(null);',
@@ -242,7 +245,7 @@ assertIncludesInOrder(
   driveProfileSettings,
   [
     'function closeSessionsModal() {',
-    'if (identitySessionsLoading || identitySessionRevokingIdRef.current !== null) {',
+    'if (identitySessionsLoadingRef.current || identitySessionRevokingIdRef.current !== null) {',
     'setSessionsOpen(false);',
   ],
   'cloud web profile session modal close must pause during session revocation',
@@ -251,9 +254,9 @@ assertIncludesInOrder(
   driveProfileSettings,
   [
     'function changeIncludeRevokedSessions(checked: boolean) {',
-    'if (identitySessionsLoading || identitySessionRevokingIdRef.current !== null) {',
+    'if (identitySessionsLoadingRef.current || identitySessionRevokingIdRef.current !== null) {',
     'setIncludeRevokedSessions(checked);',
-    'void loadIdentitySessions(checked);',
+    'void loadIdentitySessions(checked, { force: true });',
   ],
   'cloud web profile session filter must pause during session revocation',
 );
@@ -261,8 +264,8 @@ assertIncludesInOrder(
   driveProfileSettings,
   [
     'async function refreshIdentitySessions() {',
-    'if (identitySessionsLoading || identitySessionRevokingIdRef.current !== null) {',
-    'await loadIdentitySessions();',
+    'if (identitySessionsLoadingRef.current || identitySessionRevokingIdRef.current !== null) {',
+    'await loadIdentitySessions(includeRevokedSessionsRef.current, { force: true });',
   ],
   'cloud web profile session refresh must pause during session revocation',
 );

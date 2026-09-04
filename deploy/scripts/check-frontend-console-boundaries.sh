@@ -332,6 +332,48 @@ require_source_match \
     "Cloud web shares view must surface pending share link copies."
 
 require_source_match \
+    "cloud web identity session reads track request identity" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web identity session reads must track request identity' \
+    "Cloud web identity session reads must track request identity."
+
+require_source_match \
+    "cloud web identity session reads compare auth and revoked filter" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web identity session reads must compare auth and revoked-filter scope' \
+    "Cloud web identity session reads must compare auth and revoked-filter scope."
+
+require_source_match \
+    "cloud web identity session reads block duplicate scope" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web identity session reads must block duplicate same-scope requests' \
+    "Cloud web identity session reads must block duplicate same-scope requests."
+
+require_source_match \
+    "cloud web identity session reads ignore stale responses" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web identity session reads must ignore stale responses' \
+    "Cloud web identity session reads must ignore stale responses."
+
+require_source_match \
+    "cloud web identity session reads invalidate auth scope changes" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web identity session reads must invalidate when auth scope changes' \
+    "Cloud web identity session reads must invalidate when auth scope changes."
+
+require_source_match \
+    "cloud web identity session actions use synchronous guards" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web identity session actions must use synchronous loading guards and force refreshes' \
+    "Cloud web identity session actions must use synchronous loading guards and force refreshes."
+
+require_source_match \
+    "cloud web identity session modal surfaces refresh pending state" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web identity session modal must surface refresh pending state' \
+    "Cloud web identity session modal must surface refresh pending state."
+
+require_source_match \
     "cloud share page tracks synchronous pending guards" \
     "webApp/scripts/verify-client-boundary.mjs" \
     'cloud share page must track synchronous pending guards' \

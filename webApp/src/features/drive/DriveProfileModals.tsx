@@ -338,7 +338,7 @@ export function DriveProfileModals({
           <Button
             icon={<Icon icon={RefreshCw} />}
             loading={identitySessionsLoading}
-            disabled={identitySessionRevokingId !== null}
+            disabled={identitySessionsLoading || identitySessionRevokingId !== null}
             onClick={() => void onRefreshSessions()}
           >
             刷新
