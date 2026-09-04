@@ -410,6 +410,36 @@ require_source_match \
     "Cloud web downloads view must hide cancel for non-cancelable states."
 
 require_source_match \
+    "cloud web list reads track request identity" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web list reads must track request identity' \
+    "Cloud web list reads must track request identity."
+
+require_source_match \
+    "cloud web list reads compare visible scope" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web list reads must compare the full visible list scope' \
+    "Cloud web list reads must compare the visible list scope."
+
+require_source_match \
+    "cloud web list reads block duplicate scope" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web list reads must block duplicate same-scope requests' \
+    "Cloud web list reads must block duplicate same-scope requests."
+
+require_source_match \
+    "cloud web list reads ignore stale responses" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web list reads must ignore stale responses' \
+    "Cloud web list reads must ignore stale responses."
+
+require_source_match \
+    "cloud web storage mutations force list refresh" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web storage mutations must force list refresh after successful changes' \
+    "Cloud web storage mutations must force list refresh after successful changes."
+
+require_source_match \
     "cloud web storage mutation state covers file actions" \
     "webApp/scripts/verify-client-boundary.mjs" \
     'cloud web storage mutation state must cover all personal file mutations' \

@@ -54,6 +54,10 @@ type UseDriveExplorerOptions = {
   onStorageChanged: () => Promise<unknown>;
 };
 
+type DriveListLoadOptions = {
+  force?: boolean;
+};
+
 const MAX_TEXT_PREVIEW_BYTES = 2 * 1024 * 1024;
 const MULTIPART_UPLOAD_THRESHOLD_BYTES = 20 * 1024 * 1024;
 const MULTIPART_CHUNK_SIZE_BYTES = 8 * 1024 * 1024;
@@ -260,6 +264,8 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
   const previewRequestIdRef = useRef(0);
   const uploadControllersRef = useRef<Map<string, AbortController>>(new Map());
   const storageMutationRef = useRef<DriveStorageMutationState>(null);
+  const listRequestIdRef = useRef(0);
+  const listLoadingKeyRef = useRef<string | null>(null);
 
   const isDriveView = activeView === 'drive';
   const isTrashView = activeView === 'trash';
@@ -494,11 +500,41 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
     return '等待上传';
   }
 
-  async function loadDrive() {
+  function createListRequestKey() {
+    return JSON.stringify([
+      authToken,
+      activeView,
+      currentFolderId,
+      fileCategory,
+      keyword,
+      nodeTypeFilter,
+      listState.page,
+      listState.size,
+      listState.sortBy,
+      listState.sortDirection,
+    ]);
+  }
+
+  function isCurrentListRequest(requestId: number, requestKey: string) {
+    return listRequestIdRef.current === requestId && listLoadingKeyRef.current === requestKey;
+  }
+
+  async function loadDrive(options: DriveListLoadOptions = {}) {
     if (!authToken || !isListView) {
+      listRequestIdRef.current += 1;
+      listLoadingKeyRef.current = null;
+      setLoading(false);
       return;
     }
 
+    const requestKey = createListRequestKey();
+    if (!options.force && listLoadingKeyRef.current === requestKey) {
+      return;
+    }
+
+    listRequestIdRef.current += 1;
+    const requestId = listRequestIdRef.current;
+    listLoadingKeyRef.current = requestKey;
     setLoading(true);
     setError(null);
 
@@ -517,6 +553,10 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
             },
           );
       const nodeData = await nodeRequest;
+      if (!isCurrentListRequest(requestId, requestKey)) {
+        return;
+      }
+
       setItems(nodeData.items);
       setListState((current) => ({
         ...current,
@@ -528,9 +568,14 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
         sortDirection: nodeData.sortDirection,
       }));
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : '加载文件列表失败。');
+      if (isCurrentListRequest(requestId, requestKey)) {
+        setError(loadError instanceof Error ? loadError.message : '加载文件列表失败。');
+      }
     } finally {
-      setLoading(false);
+      if (isCurrentListRequest(requestId, requestKey)) {
+        listLoadingKeyRef.current = null;
+        setLoading(false);
+      }
     }
   }
 
@@ -721,7 +766,7 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
 
     if (successCount > 0) {
       clearSelection();
-      await Promise.all([loadDrive(), onStorageChanged()]);
+      await Promise.all([loadDrive({ force: true }), onStorageChanged()]);
     }
 
     const failedCount = tasksToRun.length - successCount - canceledCount;
@@ -941,7 +986,7 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
     try {
       await deleteStorageNodes({ nodeIds: selection.value.nodeIds }, authToken);
       clearSelection();
-      await Promise.all([loadDrive(), onStorageChanged()]);
+      await Promise.all([loadDrive({ force: true }), onStorageChanged()]);
       message.success(
         selection.value.targets.length === 1 ? '已移入回收站。' : `已将 ${selection.value.targets.length} 项移入回收站。`,
       );
@@ -970,7 +1015,7 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
     try {
       await restoreStorageNodes({ nodeIds: selection.value.nodeIds }, authToken);
       clearSelection();
-      await Promise.all([loadDrive(), onStorageChanged()]);
+      await Promise.all([loadDrive({ force: true }), onStorageChanged()]);
       message.success(selection.value.targets.length === 1 ? '已恢复。' : `已恢复 ${selection.value.targets.length} 项。`);
     } catch (restoreError) {
       message.error(restoreError instanceof Error ? restoreError.message : '恢复失败。');
@@ -997,7 +1042,7 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
     try {
       await permanentlyDeleteStorageNodes({ nodeIds: selection.value.nodeIds }, authToken);
       clearSelection();
-      await Promise.all([loadDrive(), onStorageChanged()]);
+      await Promise.all([loadDrive({ force: true }), onStorageChanged()]);
       message.success(
         selection.value.targets.length === 1 ? '已彻底删除。' : `已彻底删除 ${selection.value.targets.length} 项。`,
       );
@@ -1033,7 +1078,7 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
       );
 
       clearSelection();
-      await Promise.all([loadDrive(), onStorageChanged()]);
+      await Promise.all([loadDrive({ force: true }), onStorageChanged()]);
       message.success('文件夹创建成功。');
       return true;
     } catch (createError) {
@@ -1062,7 +1107,7 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
     try {
       await renameStorageNode(target.id, { name: nameValidation.value }, authToken);
       clearSelection();
-      await loadDrive();
+      await loadDrive({ force: true });
       message.success('重命名成功。');
       return true;
     } catch (renameError) {
@@ -1102,7 +1147,7 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
     try {
       await moveStorageNodes(payload, authToken);
       clearSelection();
-      await loadDrive();
+      await loadDrive({ force: true });
       message.success(selection.value.targets.length === 1 ? '移动成功。' : `已移动 ${selection.value.targets.length} 项。`);
       return true;
     } catch (moveError) {

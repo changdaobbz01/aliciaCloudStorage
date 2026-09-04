@@ -404,6 +404,31 @@ assert.match(
   'cloud web downloads view must hide cancel for non-cancelable download states',
 );
 assert.match(
+  useDriveExplorer,
+  /type DriveListLoadOptions = \{[\s\S]*force\?: boolean;[\s\S]*const listRequestIdRef = useRef\(0\);[\s\S]*const listLoadingKeyRef = useRef<string \| null>\(null\);/,
+  'cloud web list reads must track request identity',
+);
+assert.match(
+  useDriveExplorer,
+  /function createListRequestKey\(\) \{[\s\S]*return JSON\.stringify\(\[[\s\S]*authToken,[\s\S]*activeView,[\s\S]*currentFolderId,[\s\S]*fileCategory,[\s\S]*keyword,[\s\S]*nodeTypeFilter,[\s\S]*listState\.sortDirection,[\s\S]*function isCurrentListRequest\(requestId: number, requestKey: string\) \{[\s\S]*listRequestIdRef\.current === requestId && listLoadingKeyRef\.current === requestKey;/,
+  'cloud web list reads must compare the full visible list scope',
+);
+assert.match(
+  useDriveExplorer,
+  /async function loadDrive\(options: DriveListLoadOptions = \{\}\) \{[\s\S]*if \(!authToken \|\| !isListView\) \{[\s\S]*listRequestIdRef\.current \+= 1;[\s\S]*listLoadingKeyRef\.current = null;[\s\S]*const requestKey = createListRequestKey\(\);[\s\S]*if \(!options\.force && listLoadingKeyRef\.current === requestKey\) \{[\s\S]*return;[\s\S]*listRequestIdRef\.current \+= 1;[\s\S]*const requestId = listRequestIdRef\.current;[\s\S]*listLoadingKeyRef\.current = requestKey;/,
+  'cloud web list reads must block duplicate same-scope requests',
+);
+assert.match(
+  useDriveExplorer,
+  /const nodeData = await nodeRequest;[\s\S]*if \(!isCurrentListRequest\(requestId, requestKey\)\) \{[\s\S]*return;[\s\S]*setItems\(nodeData\.items\);[\s\S]*catch \(loadError\) \{[\s\S]*if \(isCurrentListRequest\(requestId, requestKey\)\) \{[\s\S]*setError\([\s\S]*finally \{[\s\S]*if \(isCurrentListRequest\(requestId, requestKey\)\) \{[\s\S]*listLoadingKeyRef\.current = null;[\s\S]*setLoading\(false\);/,
+  'cloud web list reads must ignore stale responses',
+);
+assert.equal(
+  countMatches(useDriveExplorer, /loadDrive\(\{ force: true \}\)/g),
+  7,
+  'cloud web storage mutations must force list refresh after successful changes',
+);
+assert.match(
   driveTypes,
   /DriveStorageMutationKind = 'create-folder' \| 'rename' \| 'move' \| 'delete' \| 'restore' \| 'permanent-delete'/,
   'cloud web storage mutation state must cover all personal file mutations',
