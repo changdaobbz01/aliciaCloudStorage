@@ -308,6 +308,36 @@ require_source_match \
     "Cloud share page save modal must block pending close."
 
 require_source_match \
+    "cloud web download tasks update synchronous ref" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web download tasks must update the synchronous task ref before React state' \
+    "Cloud web download tasks must update synchronous task refs."
+
+require_source_match \
+    "cloud web download cancellation targets transfer states" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web download cancellation must only target cancelable transfer states' \
+    "Cloud web download cancellation must only target cancelable transfer states."
+
+require_source_match \
+    "cloud web download progress ignores aborted transfers" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web download progress must ignore aborted transfers' \
+    "Cloud web download progress must ignore aborted transfers."
+
+require_source_match \
+    "cloud web download cancellation marks canceled tasks" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web download cancellation must synchronously mark tasks canceled' \
+    "Cloud web download cancellation must synchronously mark canceled tasks."
+
+require_source_match \
+    "cloud web downloads view hides non-cancelable cancel" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web downloads view must hide cancel for non-cancelable download states' \
+    "Cloud web downloads view must hide cancel for non-cancelable states."
+
+require_source_match \
     "cloud web storage mutation state covers file actions" \
     "webApp/scripts/verify-client-boundary.mjs" \
     'cloud web storage mutation state must cover all personal file mutations' \

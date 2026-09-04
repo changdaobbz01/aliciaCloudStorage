@@ -93,8 +93,16 @@ function isActiveDownloadStatus(status: DriveDownloadTaskStatus) {
   return ACTIVE_DOWNLOAD_STATUSES.has(status);
 }
 
+function isCancelableDownloadStatus(status: DriveDownloadTaskStatus) {
+  return status === 'queued' || status === 'preparing' || status === 'downloading';
+}
+
 function isAbortError(error: unknown) {
   return error instanceof Error && error.name === 'AbortError';
+}
+
+function createAbortError() {
+  return new DOMException('下载已取消。', 'AbortError');
 }
 
 function formatDownloadButtonLabel(task: DriveDownloadTask | null, idleLabel: string) {
@@ -137,11 +145,9 @@ export function useDriveDownloads({ authToken, message }: UseDriveDownloadsOptio
   const downloadChainRef = useRef<Promise<void>>(Promise.resolve());
 
   function commitDownloadTasks(updater: (tasks: DriveDownloadTask[]) => DriveDownloadTask[]) {
-    setDownloadTasksState((current) => {
-      const nextTasks = updater(current);
-      downloadTasksRef.current = nextTasks;
-      return nextTasks;
-    });
+    const nextTasks = updater(downloadTasksRef.current);
+    downloadTasksRef.current = nextTasks;
+    setDownloadTasksState(nextTasks);
   }
 
   function updateDownloadTask(taskId: string, updater: (task: DriveDownloadTask) => DriveDownloadTask) {
@@ -195,6 +201,10 @@ export function useDriveDownloads({ authToken, message }: UseDriveDownloadsOptio
           ? await downloadStorageFile(task.nodeIds[0], token, task.version ?? undefined, {
               signal: controller.signal,
               onProgress: ({ loaded, total, percent }) => {
+                if (controller.signal.aborted) {
+                  return;
+                }
+
                 updateDownloadTask(taskId, (current) => ({
                   ...current,
                   status: 'downloading',
@@ -211,6 +221,10 @@ export function useDriveDownloads({ authToken, message }: UseDriveDownloadsOptio
               {
                 signal: controller.signal,
                 onProgress: ({ loaded, total, percent }) => {
+                  if (controller.signal.aborted) {
+                    return;
+                  }
+
                   updateDownloadTask(taskId, (current) => ({
                     ...current,
                     status: 'downloading',
@@ -222,6 +236,10 @@ export function useDriveDownloads({ authToken, message }: UseDriveDownloadsOptio
                 },
               },
             );
+
+      if (controller.signal.aborted) {
+        throw createAbortError();
+      }
 
       updateDownloadTask(taskId, (current) => ({
         ...current,
@@ -247,7 +265,7 @@ export function useDriveDownloads({ authToken, message }: UseDriveDownloadsOptio
       }));
       message.success(`已下载「${task.displayName}」。`);
     } catch (downloadError) {
-      if (isAbortError(downloadError)) {
+      if (isAbortError(downloadError) || controller.signal.aborted) {
         updateDownloadTask(taskId, (current) => ({
           ...current,
           status: 'canceled',
@@ -344,16 +362,15 @@ export function useDriveDownloads({ authToken, message }: UseDriveDownloadsOptio
   }
 
   function cancelDownloadTask(taskId: string) {
+    const task = downloadTasksRef.current.find((candidate) => candidate.id === taskId);
+    if (!task || !isCancelableDownloadStatus(task.status)) {
+      return;
+    }
+
     const controller = controllersRef.current.get(taskId);
 
     if (controller) {
       controller.abort();
-      return;
-    }
-
-    const task = downloadTasksRef.current.find((candidate) => candidate.id === taskId);
-    if (!task || task.status !== 'queued') {
-      return;
     }
 
     updateDownloadTask(taskId, (current) => ({

@@ -19,9 +19,18 @@ const ACTIVE_DOWNLOAD_STATUSES = new Set<DriveDownloadTaskStatus>([
   'downloading',
   'saving',
 ]);
+const CANCELABLE_DOWNLOAD_STATUSES = new Set<DriveDownloadTaskStatus>([
+  'queued',
+  'preparing',
+  'downloading',
+]);
 
 function isActiveTask(task: DriveDownloadTask) {
   return ACTIVE_DOWNLOAD_STATUSES.has(task.status);
+}
+
+function isCancelableTask(task: DriveDownloadTask) {
+  return CANCELABLE_DOWNLOAD_STATUSES.has(task.status);
 }
 
 function formatTaskStatus(task: DriveDownloadTask) {
@@ -107,7 +116,7 @@ function renderTaskRow(
   onCancelTask: (taskId: string) => void,
   onRetryTask: (taskId: string) => void,
 ) {
-  const active = isActiveTask(task);
+  const cancelable = isCancelableTask(task);
 
   return (
     <div key={task.id} className="download-task-row">
@@ -133,7 +142,7 @@ function renderTaskRow(
       </div>
 
       <Space size="small" className="download-task-actions">
-        {active ? (
+        {cancelable ? (
           <Button size="small" danger icon={<Icon icon={CircleX} />} onClick={() => onCancelTask(task.id)}>
             取消
           </Button>

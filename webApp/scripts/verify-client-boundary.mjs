@@ -183,8 +183,10 @@ const driveProfileModals = readFileSync(new URL('../src/features/drive/DriveProf
 const driveExplorerView = readFileSync(new URL('../src/features/drive/DriveExplorerView.tsx', import.meta.url), 'utf8');
 const driveStorageActionModals = readFileSync(new URL('../src/features/drive/DriveStorageActionModals.tsx', import.meta.url), 'utf8');
 const driveSharesView = readFileSync(new URL('../src/features/drive/DriveSharesView.tsx', import.meta.url), 'utf8');
+const driveDownloadsView = readFileSync(new URL('../src/features/drive/DriveDownloadsView.tsx', import.meta.url), 'utf8');
 const storageTable = readFileSync(new URL('../src/components/StorageTable.tsx', import.meta.url), 'utf8');
 const driveTypes = readFileSync(new URL('../src/features/drive/types.ts', import.meta.url), 'utf8');
+const useDriveDownloads = readFileSync(new URL('../src/features/drive/hooks/useDriveDownloads.ts', import.meta.url), 'utf8');
 const useDriveExplorer = readFileSync(new URL('../src/features/drive/hooks/useDriveExplorer.ts', import.meta.url), 'utf8');
 const useDriveShares = readFileSync(new URL('../src/features/drive/hooks/useDriveShares.ts', import.meta.url), 'utf8');
 const useDriveStorageDialogs = readFileSync(new URL('../src/features/drive/hooks/useDriveStorageDialogs.ts', import.meta.url), 'utf8');
@@ -314,6 +316,31 @@ assert.match(
   sharePage,
   /onCancel=\{closeSaveTargetModal\}[\s\S]*confirmLoading=\{saving\}[\s\S]*maskClosable=\{!saving\}[\s\S]*closable=\{!saving\}[\s\S]*cancelButtonProps=\{\{ disabled: saving \}\}/,
   'cloud share page save modal must block pending close',
+);
+assert.match(
+  useDriveDownloads,
+  /function commitDownloadTasks\(updater: \(tasks: DriveDownloadTask\[]\) => DriveDownloadTask\[]\) \{[\s\S]*const nextTasks = updater\(downloadTasksRef\.current\);[\s\S]*downloadTasksRef\.current = nextTasks;[\s\S]*setDownloadTasksState\(nextTasks\);/,
+  'cloud web download tasks must update the synchronous task ref before React state',
+);
+assert.match(
+  useDriveDownloads,
+  /function isCancelableDownloadStatus\(status: DriveDownloadTaskStatus\) \{[\s\S]*return status === 'queued' \|\| status === 'preparing' \|\| status === 'downloading';/,
+  'cloud web download cancellation must only target cancelable transfer states',
+);
+assert.match(
+  useDriveDownloads,
+  /onProgress: \(\{ loaded, total, percent \}\) => \{[\s\S]*if \(controller\.signal\.aborted\) \{[\s\S]*return;[\s\S]*if \(controller\.signal\.aborted\) \{[\s\S]*throw createAbortError\(\);[\s\S]*if \(isAbortError\(downloadError\) \|\| controller\.signal\.aborted\) \{/,
+  'cloud web download progress must ignore aborted transfers',
+);
+assert.match(
+  useDriveDownloads,
+  /function cancelDownloadTask\(taskId: string\) \{[\s\S]*const task = downloadTasksRef\.current\.find[\s\S]*if \(!task \|\| !isCancelableDownloadStatus\(task\.status\)\) \{[\s\S]*const controller = controllersRef\.current\.get\(taskId\);[\s\S]*controller\.abort\(\);[\s\S]*status: 'canceled'/,
+  'cloud web download cancellation must synchronously mark tasks canceled',
+);
+assert.match(
+  driveDownloadsView,
+  /const CANCELABLE_DOWNLOAD_STATUSES = new Set<DriveDownloadTaskStatus>\(\[[\s\S]*'queued',[\s\S]*'preparing',[\s\S]*'downloading',[\s\S]*function isCancelableTask\(task: DriveDownloadTask\)[\s\S]*const cancelable = isCancelableTask\(task\);[\s\S]*\{cancelable \? \(/,
+  'cloud web downloads view must hide cancel for non-cancelable download states',
 );
 assert.match(
   driveTypes,
