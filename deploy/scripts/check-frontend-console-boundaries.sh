@@ -254,6 +254,42 @@ require_source_match \
     "Cloud web boundary verifier must track pending share revocation."
 
 require_source_match \
+    "cloud web share list reads track request identity" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web share list reads must track request identity' \
+    "Cloud web share list reads must track request identity."
+
+require_source_match \
+    "cloud web share list reads compare auth scope" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web share list reads must compare the visible auth scope' \
+    "Cloud web share list reads must compare the visible auth scope."
+
+require_source_match \
+    "cloud web share list reads invalidate auth scope changes" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web share list reads must invalidate when auth scope changes' \
+    "Cloud web share list reads must invalidate when auth scope changes."
+
+require_source_match \
+    "cloud web share list reads block duplicate scope" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web share list reads must block duplicate same-scope requests' \
+    "Cloud web share list reads must block duplicate same-scope requests."
+
+require_source_match \
+    "cloud web share list reads ignore stale responses" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web share list reads must ignore stale responses' \
+    "Cloud web share list reads must ignore stale responses."
+
+require_source_match \
+    "cloud web share mutations force list refresh" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web share mutations must force share list refresh after successful changes' \
+    "Cloud web share mutations must force share list refresh after successful changes."
+
+require_source_match \
     "cloud web share revocation blocks duplicates" \
     "webApp/scripts/verify-client-boundary.mjs" \
     'cloud web share revocation must block duplicate submissions and clear pending state' \
@@ -266,10 +302,10 @@ require_source_match \
     "Cloud web shares view must surface pending share revocation."
 
 require_source_match \
-    "cloud web shares view blocks refresh during revocation" \
+    "cloud web shares view blocks refresh during loading or revocation" \
     "webApp/scripts/verify-client-boundary.mjs" \
-    'cloud web shares view must not refresh while a share revocation is pending' \
-    "Cloud web shares view must avoid refresh while share revocation is pending."
+    'cloud web shares view must not refresh while list loading or revocation is pending' \
+    "Cloud web shares view must avoid refresh while list loading or share revocation is pending."
 
 require_source_match \
     "cloud drive page wires share revocation pending state" \

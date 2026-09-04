@@ -185,7 +185,12 @@ export default function DriveSharesView({ shareLinks, loading, shareRevokingId, 
           </Typography.Paragraph>
         </div>
         <div className="panel-actions">
-          <Button icon={<Icon icon={RefreshCw} />} disabled={shareRevokingId !== null} onClick={onRefresh}>
+          <Button
+            icon={<Icon icon={RefreshCw} />}
+            loading={loading}
+            disabled={loading || shareRevokingId !== null}
+            onClick={onRefresh}
+          >
             刷新
           </Button>
         </div>

@@ -12,6 +12,10 @@ type UseDriveSharesOptions = {
   message: MessageInstance;
 };
 
+type ShareLinksLoadOptions = {
+  force?: boolean;
+};
+
 export function useDriveShares({ authToken, isSharesView, message }: UseDriveSharesOptions) {
   const [shareLinks, setShareLinks] = useState<ShareLinkSummary[]>([]);
   const [shareLinksLoading, setShareLinksLoading] = useState(false);
@@ -22,22 +26,59 @@ export function useDriveShares({ authToken, isSharesView, message }: UseDriveSha
   const [shareRevokingId, setShareRevokingId] = useState<number | null>(null);
   const shareCreatingRef = useRef(false);
   const shareRevokingIdRef = useRef<number | null>(null);
+  const authTokenRef = useRef(authToken);
+  const shareLinksRequestIdRef = useRef(0);
+  const shareLinksLoadingKeyRef = useRef<string | null>(null);
   const [createShareForm] = Form.useForm<CreateShareFormValues>();
+  authTokenRef.current = authToken;
 
-  async function loadShareLinks() {
+  function createShareLinksRequestKey(token: string | null = authToken) {
+    return JSON.stringify([token]);
+  }
+
+  function isCurrentShareLinksRequest(requestId: number, requestKey: string) {
+    return (
+      shareLinksRequestIdRef.current === requestId
+      && shareLinksLoadingKeyRef.current === requestKey
+      && createShareLinksRequestKey(authTokenRef.current) === requestKey
+    );
+  }
+
+  async function loadShareLinks(options: ShareLinksLoadOptions = {}) {
     if (!authToken) {
+      shareLinksRequestIdRef.current += 1;
+      shareLinksLoadingKeyRef.current = null;
+      setShareLinksLoading(false);
       setShareLinks([]);
       return;
     }
 
+    const requestKey = createShareLinksRequestKey();
+    if (!options.force && shareLinksLoadingKeyRef.current === requestKey) {
+      return;
+    }
+
+    shareLinksRequestIdRef.current += 1;
+    const requestId = shareLinksRequestIdRef.current;
+    shareLinksLoadingKeyRef.current = requestKey;
     setShareLinksLoading(true);
 
     try {
-      setShareLinks(await fetchMyShareLinks(authToken));
+      const nextShareLinks = await fetchMyShareLinks(authToken);
+      if (!isCurrentShareLinksRequest(requestId, requestKey)) {
+        return;
+      }
+
+      setShareLinks(nextShareLinks);
     } catch (error) {
-      message.error(error instanceof Error ? error.message : '加载分享列表失败。');
+      if (isCurrentShareLinksRequest(requestId, requestKey)) {
+        message.error(error instanceof Error ? error.message : '加载分享列表失败。');
+      }
     } finally {
-      setShareLinksLoading(false);
+      if (isCurrentShareLinksRequest(requestId, requestKey)) {
+        shareLinksLoadingKeyRef.current = null;
+        setShareLinksLoading(false);
+      }
     }
   }
 
@@ -116,7 +157,7 @@ export function useDriveShares({ authToken, isSharesView, message }: UseDriveSha
 
       setLastCreatedShare(shareLink);
       setLastCreatedPassword(values.passwordEnabled ? normalizedPassword : null);
-      await loadShareLinks();
+      await loadShareLinks({ force: true });
       message.success('分享链接已创建。');
       return true;
     } catch (error) {
@@ -142,7 +183,7 @@ export function useDriveShares({ authToken, isSharesView, message }: UseDriveSha
 
     try {
       await revokeShareLink(shareId, authToken);
-      await loadShareLinks();
+      await loadShareLinks({ force: true });
       message.success('分享已取消。');
     } catch (error) {
       message.error(error instanceof Error ? error.message : '取消分享失败。');
@@ -151,6 +192,16 @@ export function useDriveShares({ authToken, isSharesView, message }: UseDriveSha
       setShareRevokingId(null);
     }
   }
+
+  useEffect(() => {
+    shareLinksRequestIdRef.current += 1;
+    shareLinksLoadingKeyRef.current = null;
+    setShareLinksLoading(false);
+
+    if (!authToken) {
+      setShareLinks([]);
+    }
+  }, [authToken]);
 
   useEffect(() => {
     if (!isSharesView) {

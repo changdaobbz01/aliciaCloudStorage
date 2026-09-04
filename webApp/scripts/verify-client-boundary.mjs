@@ -275,6 +275,36 @@ assert.match(
 );
 assert.match(
   useDriveShares,
+  /type ShareLinksLoadOptions = \{[\s\S]*force\?: boolean;[\s\S]*const authTokenRef = useRef\(authToken\);[\s\S]*const shareLinksRequestIdRef = useRef\(0\);[\s\S]*const shareLinksLoadingKeyRef = useRef<string \| null>\(null\);[\s\S]*authTokenRef\.current = authToken;/,
+  'cloud web share list reads must track request identity',
+);
+assert.match(
+  useDriveShares,
+  /function createShareLinksRequestKey\(token: string \| null = authToken\) \{[\s\S]*return JSON\.stringify\(\[token\]\);[\s\S]*function isCurrentShareLinksRequest\(requestId: number, requestKey: string\) \{[\s\S]*shareLinksRequestIdRef\.current === requestId[\s\S]*shareLinksLoadingKeyRef\.current === requestKey[\s\S]*createShareLinksRequestKey\(authTokenRef\.current\) === requestKey/,
+  'cloud web share list reads must compare the visible auth scope',
+);
+assert.match(
+  useDriveShares,
+  /useEffect\(\(\) => \{[\s\S]*shareLinksRequestIdRef\.current \+= 1;[\s\S]*shareLinksLoadingKeyRef\.current = null;[\s\S]*setShareLinksLoading\(false\);[\s\S]*if \(!authToken\) \{[\s\S]*setShareLinks\(\[\]\);[\s\S]*\}, \[authToken\]\);/,
+  'cloud web share list reads must invalidate when auth scope changes',
+);
+assert.match(
+  useDriveShares,
+  /async function loadShareLinks\(options: ShareLinksLoadOptions = \{\}\) \{[\s\S]*if \(!authToken\) \{[\s\S]*shareLinksRequestIdRef\.current \+= 1;[\s\S]*shareLinksLoadingKeyRef\.current = null;[\s\S]*const requestKey = createShareLinksRequestKey\(\);[\s\S]*if \(!options\.force && shareLinksLoadingKeyRef\.current === requestKey\) \{[\s\S]*return;[\s\S]*shareLinksRequestIdRef\.current \+= 1;[\s\S]*const requestId = shareLinksRequestIdRef\.current;[\s\S]*shareLinksLoadingKeyRef\.current = requestKey;/,
+  'cloud web share list reads must block duplicate same-scope requests',
+);
+assert.match(
+  useDriveShares,
+  /const nextShareLinks = await fetchMyShareLinks\(authToken\);[\s\S]*if \(!isCurrentShareLinksRequest\(requestId, requestKey\)\) \{[\s\S]*return;[\s\S]*setShareLinks\(nextShareLinks\);[\s\S]*catch \(error\) \{[\s\S]*if \(isCurrentShareLinksRequest\(requestId, requestKey\)\) \{[\s\S]*message\.error[\s\S]*finally \{[\s\S]*if \(isCurrentShareLinksRequest\(requestId, requestKey\)\) \{[\s\S]*shareLinksLoadingKeyRef\.current = null;[\s\S]*setShareLinksLoading\(false\);/,
+  'cloud web share list reads must ignore stale responses',
+);
+assert.equal(
+  countMatches(useDriveShares, /loadShareLinks\(\{ force: true \}\)/g),
+  2,
+  'cloud web share mutations must force share list refresh after successful changes',
+);
+assert.match(
+  useDriveShares,
   /if \(shareRevokingIdRef\.current !== null\) \{[\s\S]*?return;[\s\S]*?\}[\s\S]*shareRevokingIdRef\.current = shareId;[\s\S]*setShareRevokingId\(shareId\);[\s\S]*finally \{[\s\S]*shareRevokingIdRef\.current = null;[\s\S]*setShareRevokingId\(null\);/,
   'cloud web share revocation must block duplicate submissions and clear pending state',
 );
@@ -285,8 +315,8 @@ assert.match(
 );
 assert.match(
   driveSharesView,
-  /<Button icon=\{<Icon icon=\{RefreshCw\} \/>\} disabled=\{shareRevokingId !== null\} onClick=\{onRefresh\}>/,
-  'cloud web shares view must not refresh while a share revocation is pending',
+  /icon=\{<Icon icon=\{RefreshCw\} \/>\}[\s\S]*loading=\{loading\}[\s\S]*disabled=\{loading \|\| shareRevokingId !== null\}[\s\S]*onClick=\{onRefresh\}/,
+  'cloud web shares view must not refresh while list loading or revocation is pending',
 );
 assert.match(
   drivePage,
