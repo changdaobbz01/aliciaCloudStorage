@@ -182,6 +182,7 @@ const drivePage = readFileSync(new URL('../src/pages/DrivePage.tsx', import.meta
 const driveProfileModals = readFileSync(new URL('../src/features/drive/DriveProfileModals.tsx', import.meta.url), 'utf8');
 const driveExplorerView = readFileSync(new URL('../src/features/drive/DriveExplorerView.tsx', import.meta.url), 'utf8');
 const driveStorageActionModals = readFileSync(new URL('../src/features/drive/DriveStorageActionModals.tsx', import.meta.url), 'utf8');
+const driveShareCreateModal = readFileSync(new URL('../src/features/drive/DriveShareCreateModal.tsx', import.meta.url), 'utf8');
 const driveSharesView = readFileSync(new URL('../src/features/drive/DriveSharesView.tsx', import.meta.url), 'utf8');
 const driveDownloadsView = readFileSync(new URL('../src/features/drive/DriveDownloadsView.tsx', import.meta.url), 'utf8');
 const storageTable = readFileSync(new URL('../src/components/StorageTable.tsx', import.meta.url), 'utf8');
@@ -278,6 +279,21 @@ assert.match(
   'cloud drive page must wire share revocation pending state to the UI',
 );
 assert.match(
+  driveSharesView,
+  /import \{ useRef, useState \} from 'react';[\s\S]*const shareCopyingIdRef = useRef<number \| null>\(null\);[\s\S]*const \[shareCopyingId, setShareCopyingId\] = useState<number \| null>\(null\);/,
+  'cloud web shares view must track pending share link copies',
+);
+assert.match(
+  driveSharesView,
+  /async function handleCopy\(shareId: number, value: string\) \{[\s\S]*if \(shareCopyingIdRef\.current !== null \|\| shareRevokingId !== null\) \{[\s\S]*return;[\s\S]*shareCopyingIdRef\.current = shareId;[\s\S]*setShareCopyingId\(shareId\);[\s\S]*await copyText\(value\);[\s\S]*finally \{[\s\S]*shareCopyingIdRef\.current = null;[\s\S]*setShareCopyingId\(null\);/,
+  'cloud web share link copies must block duplicate submissions',
+);
+assert.match(
+  driveSharesView,
+  /const shareCopying = shareCopyingId === share\.id;[\s\S]*loading=\{shareCopying\}[\s\S]*disabled=\{shareRevokingId !== null \|\| \(shareCopyingId !== null && !shareCopying\)\}[\s\S]*onClick=\{\(\) => void handleCopy\(share\.id, resolveShareUrl\(share\.shareCode\)\)\}/,
+  'cloud web shares view must surface pending share link copies',
+);
+assert.match(
   sharePage,
   /import \{ useEffect, useMemo, useRef, useState \} from 'react';[\s\S]*const passwordCheckingRef = useRef\(false\);[\s\S]*const savingRef = useRef\(false\);[\s\S]*const downloadingNodeIdRef = useRef<number \| null>\(null\);[\s\S]*const downloadingSelectionRef = useRef\(false\);[\s\S]*const saveFolderOptionsLoadingRef = useRef\(false\);/,
   'cloud share page must track synchronous pending guards',
@@ -331,6 +347,21 @@ assert.match(
   sharePage,
   /onCancel=\{closeSaveTargetModal\}[\s\S]*confirmLoading=\{saving\}[\s\S]*maskClosable=\{!saving\}[\s\S]*closable=\{!saving\}[\s\S]*cancelButtonProps=\{\{ disabled: saving \}\}/,
   'cloud share page save modal must block pending close',
+);
+assert.match(
+  driveShareCreateModal,
+  /import \{ useEffect, useMemo, useRef, useState \} from 'react';[\s\S]*type ShareCopyAction = 'link' \| 'password';[\s\S]*const copyActionRef = useRef<ShareCopyAction \| null>\(null\);[\s\S]*const \[copyAction, setCopyAction\] = useState<ShareCopyAction \| null>\(null\);/,
+  'cloud share create modal must track pending copy actions',
+);
+assert.match(
+  driveShareCreateModal,
+  /function closeModal\(\) \{[\s\S]*if \(copyActionRef\.current !== null\) \{[\s\S]*return;[\s\S]*onClose\(\);[\s\S]*async function handleCopy\(action: ShareCopyAction, value: string, successText: string\) \{[\s\S]*if \(copyActionRef\.current !== null\) \{[\s\S]*copyActionRef\.current = action;[\s\S]*setCopyAction\(action\);[\s\S]*await copyText\(value\);[\s\S]*finally \{[\s\S]*copyActionRef\.current = null;[\s\S]*setCopyAction\(null\);/,
+  'cloud share create modal copy actions must block duplicate submissions and pending close',
+);
+assert.match(
+  driveShareCreateModal,
+  /const copyPending = copyAction !== null;[\s\S]*onCancel=\{closeModal\}[\s\S]*closable=\{!creating && !copyPending\}[\s\S]*maskClosable=\{!creating && !copyPending\}[\s\S]*keyboard=\{!creating && !copyPending\}[\s\S]*cancelButtonProps=\{\{ disabled: creating \|\| copyPending \}\}[\s\S]*disabled=\{copyPending\}[\s\S]*onClick=\{closeModal\}[\s\S]*loading=\{copyAction === 'link'\}[\s\S]*disabled=\{copyAction === 'password'\}[\s\S]*loading=\{copyAction === 'password'\}[\s\S]*disabled=\{copyAction === 'link'\}/,
+  'cloud share create modal copy controls must surface pending state',
 );
 assert.match(
   useDriveDownloads,

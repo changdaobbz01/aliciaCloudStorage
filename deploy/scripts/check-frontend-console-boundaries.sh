@@ -260,6 +260,24 @@ require_source_match \
     "Cloud drive page must wire share revocation pending state."
 
 require_source_match \
+    "cloud web shares view tracks pending link copies" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web shares view must track pending share link copies' \
+    "Cloud web shares view must track pending share link copies."
+
+require_source_match \
+    "cloud web share link copies block duplicates" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web share link copies must block duplicate submissions' \
+    "Cloud web share link copies must block duplicate submissions."
+
+require_source_match \
+    "cloud web shares view surfaces pending link copies" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web shares view must surface pending share link copies' \
+    "Cloud web shares view must surface pending share link copies."
+
+require_source_match \
     "cloud share page tracks synchronous pending guards" \
     "webApp/scripts/verify-client-boundary.mjs" \
     'cloud share page must track synchronous pending guards' \
@@ -324,6 +342,24 @@ require_source_match \
     "webApp/scripts/verify-client-boundary.mjs" \
     'cloud share page save modal must block pending close' \
     "Cloud share page save modal must block pending close."
+
+require_source_match \
+    "cloud share create modal tracks pending copies" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud share create modal must track pending copy actions' \
+    "Cloud share create modal must track pending copy actions."
+
+require_source_match \
+    "cloud share create modal copy actions block duplicates" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud share create modal copy actions must block duplicate submissions and pending close' \
+    "Cloud share create modal copy actions must block duplicates and pending close."
+
+require_source_match \
+    "cloud share create modal copy controls surface pending state" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud share create modal copy controls must surface pending state' \
+    "Cloud share create modal copy controls must surface pending state."
 
 require_source_match \
     "cloud web download tasks update synchronous ref" \

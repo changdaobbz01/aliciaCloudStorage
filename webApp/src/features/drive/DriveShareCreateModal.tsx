@@ -1,7 +1,7 @@
 import { Copy, File, FileArchive, FileImage, FileText, FolderOpen, Link, Lock, Music, Video } from 'lucide-react';
 import { Alert, App as AntApp, Button, Form, Input, Modal, Select, Space, Switch, Typography } from 'antd';
 import type { FormInstance } from 'antd/es/form';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AliciaModalTitle } from '../../components/AliciaModalTitle';
 import { fetchStorageFileAccessUrl } from '../../lib/api';
 import type { ShareLinkSummary, StorageNode } from '../../types';
@@ -19,6 +19,8 @@ type DriveShareCreateModalProps = {
   onClose: () => void;
   onSubmit: (values: CreateShareFormValues) => void | Promise<unknown>;
 };
+
+type ShareCopyAction = 'link' | 'password';
 
 const imageExtensions = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'heic', 'heif']);
 const videoExtensions = new Set(['mp4', 'mov', 'm4v', 'webm', 'avi', 'mkv']);
@@ -106,8 +108,11 @@ export function DriveShareCreateModal({
   onSubmit,
 }: DriveShareCreateModalProps) {
   const { message } = AntApp.useApp();
+  const copyActionRef = useRef<ShareCopyAction | null>(null);
+  const [copyAction, setCopyAction] = useState<ShareCopyAction | null>(null);
   const passwordEnabled = Form.useWatch('passwordEnabled', form);
   const shareUrl = lastCreatedShare ? resolveShareUrl(lastCreatedShare.shareCode) : '';
+  const copyPending = copyAction !== null;
   const selectionSummary = useMemo(() => {
     const files = targets.filter((target) => target.type === 'FILE');
     return {
@@ -116,12 +121,30 @@ export function DriveShareCreateModal({
     };
   }, [targets]);
 
-  async function handleCopy(value: string, successText: string) {
+  function closeModal() {
+    if (copyActionRef.current !== null) {
+      return;
+    }
+
+    onClose();
+  }
+
+  async function handleCopy(action: ShareCopyAction, value: string, successText: string) {
+    if (copyActionRef.current !== null) {
+      return;
+    }
+
+    copyActionRef.current = action;
+    setCopyAction(action);
+
     try {
       await copyText(value);
       message.success(successText);
     } catch {
       message.error('复制失败，请手动复制。');
+    } finally {
+      copyActionRef.current = null;
+      setCopyAction(null);
     }
   }
 
@@ -134,21 +157,21 @@ export function DriveShareCreateModal({
       )}
       rootClassName="alicia-modal alicia-share-modal"
       open={targets.length > 0}
-      onCancel={onClose}
+      onCancel={closeModal}
       onOk={() => void form.submit()}
       okText="创建分享"
       cancelText={lastCreatedShare ? '关闭' : '取消'}
       confirmLoading={creating}
-      closable={!creating}
-      maskClosable={!creating}
-      keyboard={!creating}
-      cancelButtonProps={{ disabled: creating }}
+      closable={!creating && !copyPending}
+      maskClosable={!creating && !copyPending}
+      keyboard={!creating && !copyPending}
+      cancelButtonProps={{ disabled: creating || copyPending }}
       destroyOnHidden
       width={580}
       footer={
         lastCreatedShare
           ? [
-              <Button key="done" type="primary" onClick={onClose}>
+              <Button key="done" type="primary" disabled={copyPending} onClick={closeModal}>
                 完成
               </Button>,
             ]
@@ -167,7 +190,12 @@ export function DriveShareCreateModal({
           <div className="share-copy-row">
             <Typography.Text className="share-copy-label">分享链接</Typography.Text>
             <Input readOnly value={shareUrl} prefix={<Icon icon={Link} />} />
-            <Button icon={<Icon icon={Copy} />} onClick={() => void handleCopy(shareUrl, '分享链接已复制。')}>
+            <Button
+              icon={<Icon icon={Copy} />}
+              loading={copyAction === 'link'}
+              disabled={copyAction === 'password'}
+              onClick={() => void handleCopy('link', shareUrl, '分享链接已复制。')}
+            >
               复制链接
             </Button>
           </div>
@@ -176,7 +204,12 @@ export function DriveShareCreateModal({
             <div className="share-copy-row">
               <Typography.Text className="share-copy-label">提取码</Typography.Text>
               <Input readOnly value={lastCreatedPassword} prefix={<Icon icon={Lock} />} />
-              <Button icon={<Icon icon={Copy} />} onClick={() => void handleCopy(lastCreatedPassword, '提取码已复制。')}>
+              <Button
+                icon={<Icon icon={Copy} />}
+                loading={copyAction === 'password'}
+                disabled={copyAction === 'link'}
+                onClick={() => void handleCopy('password', lastCreatedPassword, '提取码已复制。')}
+              >
                 复制提取码
               </Button>
             </div>

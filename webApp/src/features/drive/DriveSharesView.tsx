@@ -1,6 +1,7 @@
 import { Copy, Link, RefreshCw, Trash2 } from 'lucide-react';
 import { App as AntApp, Button, Popconfirm, Space, Table, Tag, Typography } from 'antd';
 import type { TableProps } from 'antd';
+import { useRef, useState } from 'react';
 import type { ShareLinkSummary } from '../../types';
 import { resolveShareUrl } from './driveShared';
 import { Icon } from '../../components/Icon';
@@ -47,13 +48,25 @@ function renderStatus(share: ShareLinkSummary) {
 
 export default function DriveSharesView({ shareLinks, loading, shareRevokingId, onRefresh, onRevokeShare }: DriveSharesViewProps) {
   const { message } = AntApp.useApp();
+  const shareCopyingIdRef = useRef<number | null>(null);
+  const [shareCopyingId, setShareCopyingId] = useState<number | null>(null);
 
-  async function handleCopy(value: string) {
+  async function handleCopy(shareId: number, value: string) {
+    if (shareCopyingIdRef.current !== null || shareRevokingId !== null) {
+      return;
+    }
+
+    shareCopyingIdRef.current = shareId;
+    setShareCopyingId(shareId);
+
     try {
       await copyText(value);
       message.success('分享链接已复制。');
     } catch {
       message.error('复制失败，请手动复制。');
+    } finally {
+      shareCopyingIdRef.current = null;
+      setShareCopyingId(null);
     }
   }
 
@@ -122,14 +135,16 @@ export default function DriveSharesView({ shareLinks, loading, shareRevokingId, 
       width: 220,
       render: (_, share) => {
         const shareRevoking = shareRevokingId === share.id;
+        const shareCopying = shareCopyingId === share.id;
 
         return (
           <Space size="small" wrap>
             <Button
               type="link"
               icon={<Icon icon={Copy} />}
-              disabled={shareRevokingId !== null}
-              onClick={() => void handleCopy(resolveShareUrl(share.shareCode))}
+              loading={shareCopying}
+              disabled={shareRevokingId !== null || (shareCopyingId !== null && !shareCopying)}
+              onClick={() => void handleCopy(share.id, resolveShareUrl(share.shareCode))}
             >
               复制链接
             </Button>
