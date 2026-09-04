@@ -266,6 +266,24 @@ require_source_match \
     "Cloud share page must track synchronous pending guards."
 
 require_source_match \
+    "cloud share page mobile app handoff tracks pending navigation" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud share page mobile app handoff must track pending navigation' \
+    "Cloud share page mobile app handoff must track pending navigation."
+
+require_source_match \
+    "cloud share page mobile app handoff blocks duplicate navigation" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud share page mobile app handoff must block duplicate navigation' \
+    "Cloud share page mobile app handoff must block duplicate navigation."
+
+require_source_match \
+    "cloud share page mobile app handoff controls surface pending navigation" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud share page mobile app handoff controls must surface pending navigation' \
+    "Cloud share page mobile app handoff controls must surface pending navigation."
+
+require_source_match \
     "cloud share page password check blocks duplicates" \
     "webApp/scripts/verify-client-boundary.mjs" \
     'cloud share page password check must block duplicate submissions' \

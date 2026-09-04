@@ -284,6 +284,21 @@ assert.match(
 );
 assert.match(
   sharePage,
+  /type ShareMobileOpenAction = 'intent' \| 'download';[\s\S]*const \[mobileOpenAction, setMobileOpenAction\] = useState<ShareMobileOpenAction \| null>\(null\);[\s\S]*const mobileOpenActionRef = useRef<ShareMobileOpenAction \| null>\(null\);/,
+  'cloud share page mobile app handoff must track pending navigation',
+);
+assert.match(
+  sharePage,
+  /function beginMobileOpenAction\(action: ShareMobileOpenAction\) \{[\s\S]*if \(mobileOpenActionRef\.current !== null\) \{[\s\S]*return false;[\s\S]*mobileOpenActionRef\.current = action;[\s\S]*setMobileOpenAction\(action\);[\s\S]*function openInAndroidApp\(\) \{[\s\S]*if \(!beginMobileOpenAction\('intent'\)\) \{[\s\S]*window\.location\.assign\(buildShareIntentUrl\(normalizedShareCode\)\);[\s\S]*scheduleMobileOpenReset\('intent'\);[\s\S]*function openAppDownloadPage\(\) \{[\s\S]*if \(!beginMobileOpenAction\('download'\)\) \{[\s\S]*window\.location\.assign\(buildAppDownloadUrl\(normalizedShareCode\)\);[\s\S]*scheduleMobileOpenReset\('download'\);/,
+  'cloud share page mobile app handoff must block duplicate navigation',
+);
+assert.match(
+  sharePage,
+  /setShowMobileOpenHint\(shareCodeValid && isLikelyMobileClient\(\)\);[\s\S]*mobileOpenActionRef\.current = null;[\s\S]*setMobileOpenAction\(null\);[\s\S]*loading=\{mobileOpenAction === 'intent'\}[\s\S]*disabled=\{mobileOpenAction === 'download'\}[\s\S]*loading=\{mobileOpenAction === 'download'\}[\s\S]*disabled=\{mobileOpenAction === 'intent'\}[\s\S]*disabled=\{mobileOpenAction !== null\}[\s\S]*onClick=\{hideMobileOpenHint\}/,
+  'cloud share page mobile app handoff controls must surface pending navigation',
+);
+assert.match(
+  sharePage,
   /async function handlePasswordSubmit\(values: VerifySharePasswordPayload\) \{[\s\S]*if \(passwordCheckingRef\.current\) \{[\s\S]*return;[\s\S]*passwordCheckingRef\.current = true;[\s\S]*setPasswordChecking\(true\);[\s\S]*await verifySharePassword\(normalizedShareCode, values\);[\s\S]*finally \{[\s\S]*passwordCheckingRef\.current = false;[\s\S]*setPasswordChecking\(false\);/,
   'cloud share page password check must block duplicate submissions',
 );

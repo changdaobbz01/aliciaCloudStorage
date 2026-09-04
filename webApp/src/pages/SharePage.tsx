@@ -36,6 +36,8 @@ type StoredShareAccess = {
   expiresAt: string;
 };
 
+type ShareMobileOpenAction = 'intent' | 'download';
+
 const SHARE_CODE_PATTERN = /^[A-Za-z0-9_-]{4,40}$/;
 
 function isLikelyMobileClient() {
@@ -227,6 +229,7 @@ export function SharePage() {
   const [downloadingSelection, setDownloadingSelection] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
   const [showMobileOpenHint, setShowMobileOpenHint] = useState(false);
+  const [mobileOpenAction, setMobileOpenAction] = useState<ShareMobileOpenAction | null>(null);
   const [saveTargetOpen, setSaveTargetOpen] = useState(false);
   const [saveFolderOptions, setSaveFolderOptions] = useState<StorageNode[]>([]);
   const [saveFolderOptionsLoading, setSaveFolderOptionsLoading] = useState(false);
@@ -237,6 +240,7 @@ export function SharePage() {
   const downloadingNodeIdRef = useRef<number | null>(null);
   const downloadingSelectionRef = useRef(false);
   const saveFolderOptionsLoadingRef = useRef(false);
+  const mobileOpenActionRef = useRef<ShareMobileOpenAction | null>(null);
   const shareTree = useMemo(() => buildShareTree(detail), [detail]);
   const saveFolderTreeData = useMemo(() => buildFolderTree(saveFolderOptions), [saveFolderOptions]);
   const selectedShareNodeIds = useMemo(
@@ -258,6 +262,8 @@ export function SharePage() {
     setDetail(null);
     setSelectedShareRowKeys([]);
     setShowMobileOpenHint(shareCodeValid && isLikelyMobileClient());
+    mobileOpenActionRef.current = null;
+    setMobileOpenAction(null);
   }, [normalizedShareCode, shareCodeValid]);
 
   useEffect(() => {
@@ -381,12 +387,51 @@ export function SharePage() {
     redirectToUnifiedLogin(cloudReturnTo(location.pathname, location.search, location.hash), false);
   }
 
+  function scheduleMobileOpenReset(action: ShareMobileOpenAction) {
+    window.setTimeout(() => {
+      if (mobileOpenActionRef.current !== action) {
+        return;
+      }
+
+      mobileOpenActionRef.current = null;
+      setMobileOpenAction(null);
+    }, 1500);
+  }
+
+  function beginMobileOpenAction(action: ShareMobileOpenAction) {
+    if (mobileOpenActionRef.current !== null) {
+      return false;
+    }
+
+    mobileOpenActionRef.current = action;
+    setMobileOpenAction(action);
+    return true;
+  }
+
   function openInAndroidApp() {
-    window.location.href = buildShareIntentUrl(normalizedShareCode);
+    if (!beginMobileOpenAction('intent')) {
+      return;
+    }
+
+    window.location.assign(buildShareIntentUrl(normalizedShareCode));
+    scheduleMobileOpenReset('intent');
   }
 
   function openAppDownloadPage() {
-    window.location.href = buildAppDownloadUrl(normalizedShareCode);
+    if (!beginMobileOpenAction('download')) {
+      return;
+    }
+
+    window.location.assign(buildAppDownloadUrl(normalizedShareCode));
+    scheduleMobileOpenReset('download');
+  }
+
+  function hideMobileOpenHint() {
+    if (mobileOpenActionRef.current !== null) {
+      return;
+    }
+
+    setShowMobileOpenHint(false);
   }
 
   async function loadSaveFolderOptions() {
@@ -781,13 +826,25 @@ export function SharePage() {
             </div>
           </div>
           <Space className="share-mobile-open-actions" wrap>
-            <Button type="primary" size="small" icon={<Icon icon={Smartphone} />} onClick={openInAndroidApp}>
+            <Button
+              type="primary"
+              size="small"
+              icon={<Icon icon={Smartphone} />}
+              loading={mobileOpenAction === 'intent'}
+              disabled={mobileOpenAction === 'download'}
+              onClick={openInAndroidApp}
+            >
               打开 App
             </Button>
-            <Button size="small" onClick={openAppDownloadPage}>
+            <Button
+              size="small"
+              loading={mobileOpenAction === 'download'}
+              disabled={mobileOpenAction === 'intent'}
+              onClick={openAppDownloadPage}
+            >
               下载 App
             </Button>
-            <Button type="text" size="small" onClick={() => setShowMobileOpenHint(false)}>
+            <Button type="text" size="small" disabled={mobileOpenAction !== null} onClick={hideMobileOpenHint}>
               继续网页查看
             </Button>
           </Space>
