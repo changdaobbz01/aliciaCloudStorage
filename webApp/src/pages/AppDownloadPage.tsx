@@ -1,6 +1,6 @@
 import { CloudDownload, ShieldCheck, Smartphone } from 'lucide-react';
 import { App as AntApp, Button, Card, Result, Space, Spin, Typography } from 'antd';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { fetchPublicAppPackage } from '../lib/api';
 import { publicAssetPath } from '../lib/appPaths';
@@ -14,43 +14,76 @@ export function AppDownloadPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const shareCode = searchParams.get('share')?.trim() || '';
+  const packageLoadingRef = useRef(false);
+  const downloadOpeningRef = useRef(false);
+  const shareOpeningRef = useRef(false);
   const [packageInfo, setPackageInfo] = useState<AppPackageInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [downloadOpening, setDownloadOpening] = useState(false);
+  const [shareOpening, setShareOpening] = useState(false);
+  const appDownloadActionPending = downloadOpening || shareOpening;
 
   useEffect(() => {
     document.title = '移动客户端下载 - Alicia 云盘';
   }, []);
 
+  async function loadPackage(shouldIgnoreResult: () => boolean = () => false) {
+    if (packageLoadingRef.current) {
+      return;
+    }
+
+    packageLoadingRef.current = true;
+    setLoading(true);
+    setError(null);
+
+    try {
+      const nextPackageInfo = await fetchPublicAppPackage();
+      if (!shouldIgnoreResult()) {
+        setPackageInfo(nextPackageInfo);
+      }
+    } catch (loadError) {
+      if (!shouldIgnoreResult()) {
+        setError(loadError instanceof Error ? loadError.message : '获取安装包信息失败。');
+      }
+    } finally {
+      packageLoadingRef.current = false;
+      if (!shouldIgnoreResult()) {
+        setLoading(false);
+      }
+    }
+  }
+
   useEffect(() => {
     let cancelled = false;
 
-    async function loadPackage() {
-      setLoading(true);
-      setError(null);
-
-      try {
-        const nextPackageInfo = await fetchPublicAppPackage();
-        if (!cancelled) {
-          setPackageInfo(nextPackageInfo);
-        }
-      } catch (loadError) {
-        if (!cancelled) {
-          setError(loadError instanceof Error ? loadError.message : '获取安装包信息失败。');
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    }
-
-    void loadPackage();
+    void loadPackage(() => cancelled);
 
     return () => {
       cancelled = true;
     };
   }, []);
+
+  function scheduleActionReset(action: 'download' | 'share') {
+    window.setTimeout(() => {
+      if (action === 'download') {
+        downloadOpeningRef.current = false;
+        setDownloadOpening(false);
+        return;
+      }
+
+      shareOpeningRef.current = false;
+      setShareOpening(false);
+    }, 1500);
+  }
+
+  function continueInBrowser() {
+    if (!shareCode || downloadOpeningRef.current || shareOpeningRef.current) {
+      return;
+    }
+
+    void navigate(`/share/${encodeURIComponent(shareCode)}`);
+  }
 
   const downloadUrl = useMemo(
     () => resolveAppDownloadUrl(packageInfo?.downloadUrl),
@@ -59,20 +92,30 @@ export function AppDownloadPage() {
   const canDownload = Boolean(packageInfo?.available && downloadUrl);
 
   function openShareInApp() {
-    if (!shareCode) {
+    if (!shareCode || shareOpeningRef.current || downloadOpeningRef.current) {
       return;
     }
 
-    window.location.href = buildShareIntentUrl(shareCode);
+    shareOpeningRef.current = true;
+    setShareOpening(true);
+    window.location.assign(buildShareIntentUrl(shareCode));
+    scheduleActionReset('share');
   }
 
   function handleDownload() {
+    if (downloadOpeningRef.current || shareOpeningRef.current) {
+      return;
+    }
+
     if (!canDownload) {
       message.warning('当前还没有可下载的 Android 安装包。');
       return;
     }
 
-    window.location.href = downloadUrl;
+    downloadOpeningRef.current = true;
+    setDownloadOpening(true);
+    window.location.assign(downloadUrl);
+    scheduleActionReset('download');
   }
 
   return (
@@ -98,7 +141,16 @@ export function AppDownloadPage() {
             <Spin size="large" />
           </div>
         ) : error ? (
-          <Result status="warning" title="安装包信息暂不可用" subTitle={error} />
+          <Result
+            status="warning"
+            title="安装包信息暂不可用"
+            subTitle={error}
+            extra={
+              <Button type="primary" loading={loading} disabled={loading} onClick={() => void loadPackage()}>
+                重新获取
+              </Button>
+            }
+          />
         ) : (
           <Card className="app-download-panel" bordered={false}>
             <div className="app-download-hero">
@@ -139,20 +191,28 @@ export function AppDownloadPage() {
 
             <Space className="app-download-actions" wrap>
               {shareCode ? (
-                <Button type="primary" size="large" icon={<Icon icon={Smartphone} />} onClick={openShareInApp}>
+                <Button
+                  type="primary"
+                  size="large"
+                  icon={<Icon icon={Smartphone} />}
+                  loading={shareOpening}
+                  disabled={downloadOpening}
+                  onClick={openShareInApp}
+                >
                   打开 App 查看分享
                 </Button>
               ) : null}
               <Button
                 size="large"
                 icon={<Icon icon={CloudDownload} />}
-                disabled={!canDownload}
+                loading={downloadOpening}
+                disabled={!canDownload || shareOpening}
                 onClick={handleDownload}
               >
                 下载 Android 安装包
               </Button>
               {shareCode ? (
-                <Button size="large" onClick={() => void navigate(`/share/${encodeURIComponent(shareCode)}`)}>
+                <Button size="large" disabled={appDownloadActionPending} onClick={continueInBrowser}>
                   继续网页查看
                 </Button>
               ) : null}

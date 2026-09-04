@@ -216,6 +216,26 @@ assert.doesNotMatch(
   'cloud app download page must describe package availability as a user-facing download state',
 );
 assert.match(
+  appDownloadPage,
+  /import \{ useEffect, useMemo, useRef, useState \} from 'react';[\s\S]*const packageLoadingRef = useRef\(false\);[\s\S]*const downloadOpeningRef = useRef\(false\);[\s\S]*const shareOpeningRef = useRef\(false\);/,
+  'cloud app download page must track synchronous pending guards',
+);
+assert.match(
+  appDownloadPage,
+  /async function loadPackage\(shouldIgnoreResult: \(\) => boolean = \(\) => false\) \{[\s\S]*if \(packageLoadingRef\.current\) \{[\s\S]*return;[\s\S]*packageLoadingRef\.current = true;[\s\S]*setLoading\(true\);[\s\S]*const nextPackageInfo = await fetchPublicAppPackage\(\);[\s\S]*finally \{[\s\S]*packageLoadingRef\.current = false;[\s\S]*setLoading\(false\);/,
+  'cloud app download package load must block duplicate reads and expose retry state',
+);
+assert.match(
+  appDownloadPage,
+  /function openShareInApp\(\) \{[\s\S]*if \(!shareCode \|\| shareOpeningRef\.current \|\| downloadOpeningRef\.current\) \{[\s\S]*shareOpeningRef\.current = true;[\s\S]*setShareOpening\(true\);[\s\S]*window\.location\.assign\(buildShareIntentUrl\(shareCode\)\);[\s\S]*function handleDownload\(\) \{[\s\S]*if \(downloadOpeningRef\.current \|\| shareOpeningRef\.current\) \{[\s\S]*downloadOpeningRef\.current = true;[\s\S]*setDownloadOpening\(true\);[\s\S]*window\.location\.assign\(downloadUrl\);/,
+  'cloud app download actions must block duplicate navigation',
+);
+assert.match(
+  appDownloadPage,
+  /extra=\{[\s\S]*loading=\{loading\}[\s\S]*disabled=\{loading\}[\s\S]*loading=\{shareOpening\}[\s\S]*disabled=\{downloadOpening\}[\s\S]*loading=\{downloadOpening\}[\s\S]*disabled=\{!canDownload \|\| shareOpening\}[\s\S]*disabled=\{appDownloadActionPending\}/,
+  'cloud app download controls must surface pending loading and navigation state',
+);
+assert.match(
   driveShared,
   /function normalizeAppDownloadPath\(downloadPath = APP_DOWNLOAD_PUBLIC_PATH\)/,
   'cloud web app download URL resolver must normalize download paths',

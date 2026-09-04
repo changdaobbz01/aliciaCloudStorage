@@ -188,6 +188,30 @@ require_source_match \
     "Cloud web boundary verifier must reject release workflow wording in the app download page."
 
 require_source_match \
+    "cloud web tracks app download pending guards" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud app download page must track synchronous pending guards' \
+    "Cloud web boundary verifier must track app download pending guards."
+
+require_source_match \
+    "cloud web blocks duplicate app package reads" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud app download package load must block duplicate reads and expose retry state' \
+    "Cloud web boundary verifier must block duplicate app package reads."
+
+require_source_match \
+    "cloud web blocks duplicate app download navigation" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud app download actions must block duplicate navigation' \
+    "Cloud web boundary verifier must block duplicate app download navigation."
+
+require_source_match \
+    "cloud web app download controls surface pending state" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud app download controls must surface pending loading and navigation state' \
+    "Cloud web app download controls must surface pending state."
+
+require_source_match \
     "cloud web normalizes app download paths" \
     "webApp/scripts/verify-client-boundary.mjs" \
     'cloud web app download URL resolver must normalize download paths' \
