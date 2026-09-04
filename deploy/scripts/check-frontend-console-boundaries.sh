@@ -434,6 +434,48 @@ require_source_match \
     "Cloud share page must track synchronous pending guards."
 
 require_source_match \
+    "cloud share page reads track request identity" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud share page reads must track request identity' \
+    "Cloud share page reads must track request identity."
+
+require_source_match \
+    "cloud share page status reads compare share code" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud share page status reads must compare share code scope' \
+    "Cloud share page status reads must compare share code scope."
+
+require_source_match \
+    "cloud share page status reads block stale responses" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud share page status reads must block duplicates and ignore stale responses' \
+    "Cloud share page status reads must block duplicates and ignore stale responses."
+
+require_source_match \
+    "cloud share page detail reads compare auth access and status" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud share page detail reads must compare auth access and status scope' \
+    "Cloud share page detail reads must compare auth access and status scope."
+
+require_source_match \
+    "cloud share page detail reads invalidate prerequisites" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud share page detail reads must invalidate when prerequisites change' \
+    "Cloud share page detail reads must invalidate when prerequisites change."
+
+require_source_match \
+    "cloud share page detail reads block stale responses" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud share page detail reads must block duplicates and ignore stale responses' \
+    "Cloud share page detail reads must block duplicates and ignore stale responses."
+
+require_source_match \
+    "cloud share page clears stale status and detail on code change" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud share page must clear stale status and detail when share code changes' \
+    "Cloud share page must clear stale status and detail when share code changes."
+
+require_source_match \
     "cloud share page mobile app handoff tracks pending navigation" \
     "webApp/scripts/verify-client-boundary.mjs" \
     'cloud share page mobile app handoff must track pending navigation' \

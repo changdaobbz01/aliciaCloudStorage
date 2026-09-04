@@ -427,6 +427,41 @@ assert.match(
 );
 assert.match(
   sharePage,
+  /const shareStatusRequestIdRef = useRef\(0\);[\s\S]*const shareStatusLoadingKeyRef = useRef<string \| null>\(null\);[\s\S]*const shareDetailRequestIdRef = useRef\(0\);[\s\S]*const shareDetailLoadingKeyRef = useRef<string \| null>\(null\);[\s\S]*const shareCodeRef = useRef\(normalizedShareCode\);[\s\S]*const authTokenRef = useRef\(authToken\);[\s\S]*const shareAccessTokenRef = useRef\(shareAccessToken\);[\s\S]*const shareStatusRef = useRef\(status\);/,
+  'cloud share page reads must track request identity',
+);
+assert.match(
+  sharePage,
+  /function createShareStatusRequestKey\(code = normalizedShareCode\) \{[\s\S]*return JSON\.stringify\(\[code\]\);[\s\S]*function isCurrentShareStatusRequest\(requestId: number, requestKey: string\) \{[\s\S]*shareStatusRequestIdRef\.current === requestId[\s\S]*shareStatusLoadingKeyRef\.current === requestKey[\s\S]*createShareStatusRequestKey\(shareCodeRef\.current\) === requestKey/,
+  'cloud share page status reads must compare share code scope',
+);
+assert.match(
+  sharePage,
+  /async function loadStatus\(\) \{[\s\S]*const requestKey = createShareStatusRequestKey\(\);[\s\S]*if \(shareStatusLoadingKeyRef\.current === requestKey\) \{[\s\S]*return;[\s\S]*shareStatusRequestIdRef\.current \+= 1;[\s\S]*const requestId = shareStatusRequestIdRef\.current;[\s\S]*shareStatusLoadingKeyRef\.current = requestKey;[\s\S]*const nextStatus = await fetchPublicShareStatus\(normalizedShareCode\);[\s\S]*if \(!isCurrentShareStatusRequest\(requestId, requestKey\)\) \{[\s\S]*return;[\s\S]*setStatus\(nextStatus\);[\s\S]*finally \{[\s\S]*if \(isCurrentShareStatusRequest\(requestId, requestKey\)\) \{[\s\S]*shareStatusLoadingKeyRef\.current = null;[\s\S]*setStatusLoading\(false\);/,
+  'cloud share page status reads must block duplicates and ignore stale responses',
+);
+assert.match(
+  sharePage,
+  /function createShareDetailRequestKey\([\s\S]*currentStatus = status,[\s\S]*code = normalizedShareCode,[\s\S]*token = authToken,[\s\S]*accessToken = shareAccessToken,[\s\S]*return JSON\.stringify\(\[[\s\S]*code,[\s\S]*token,[\s\S]*accessToken,[\s\S]*currentStatus\?\.shareCode \?\? null,[\s\S]*currentStatus\?\.available \?\? false,[\s\S]*currentStatus\?\.requiresPassword \?\? false,[\s\S]*function isCurrentShareDetailRequest\(requestId: number, requestKey: string\) \{[\s\S]*shareDetailRequestIdRef\.current === requestId[\s\S]*shareDetailLoadingKeyRef\.current === requestKey[\s\S]*createShareDetailRequestKey\([\s\S]*shareStatusRef\.current,[\s\S]*shareCodeRef\.current,[\s\S]*authTokenRef\.current,[\s\S]*shareAccessTokenRef\.current/,
+  'cloud share page detail reads must compare auth access and status scope',
+);
+assert.match(
+  sharePage,
+  /function invalidateShareDetailRequest\(clearDetail = false\) \{[\s\S]*shareDetailRequestIdRef\.current \+= 1;[\s\S]*shareDetailLoadingKeyRef\.current = null;[\s\S]*setDetailLoading\(false\);[\s\S]*if \(clearDetail\) \{[\s\S]*setDetail\(null\);/,
+  'cloud share page detail reads must invalidate when prerequisites change',
+);
+assert.match(
+  sharePage,
+  /if \(!status\?\.available \|\| isSessionChecking \|\| !authToken \|\| !currentUser\) \{[\s\S]*invalidateShareDetailRequest\(!status\?\.available \|\| !authToken \|\| !currentUser\);[\s\S]*if \(status\.requiresPassword && !shareAccessToken\) \{[\s\S]*invalidateShareDetailRequest\(true\);[\s\S]*const requestKey = createShareDetailRequestKey\(currentStatus\);[\s\S]*if \(shareDetailLoadingKeyRef\.current === requestKey\) \{[\s\S]*return;[\s\S]*shareDetailRequestIdRef\.current \+= 1;[\s\S]*const requestId = shareDetailRequestIdRef\.current;[\s\S]*const nextDetail = await fetchShareDetail\(normalizedShareCode, authToken!, shareAccessToken\);[\s\S]*if \(!isCurrentShareDetailRequest\(requestId, requestKey\)\) \{[\s\S]*return;[\s\S]*setDetail\(nextDetail\);/,
+  'cloud share page detail reads must block duplicates and ignore stale responses',
+);
+assert.match(
+  sharePage,
+  /setShareAccessToken\(loadStoredShareAccess\(normalizedShareCode\)\);[\s\S]*setStatus\(null\);[\s\S]*setDetail\(null\);[\s\S]*setDetailLoading\(false\);/,
+  'cloud share page must clear stale status and detail when share code changes',
+);
+assert.match(
+  sharePage,
   /type ShareMobileOpenAction = 'intent' \| 'download';[\s\S]*const \[mobileOpenAction, setMobileOpenAction\] = useState<ShareMobileOpenAction \| null>\(null\);[\s\S]*const mobileOpenActionRef = useRef<ShareMobileOpenAction \| null>\(null\);/,
   'cloud share page mobile app handoff must track pending navigation',
 );

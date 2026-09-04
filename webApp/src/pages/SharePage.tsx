@@ -241,6 +241,18 @@ export function SharePage() {
   const downloadingSelectionRef = useRef(false);
   const saveFolderOptionsLoadingRef = useRef(false);
   const mobileOpenActionRef = useRef<ShareMobileOpenAction | null>(null);
+  const shareStatusRequestIdRef = useRef(0);
+  const shareStatusLoadingKeyRef = useRef<string | null>(null);
+  const shareDetailRequestIdRef = useRef(0);
+  const shareDetailLoadingKeyRef = useRef<string | null>(null);
+  const shareCodeRef = useRef(normalizedShareCode);
+  const authTokenRef = useRef(authToken);
+  const shareAccessTokenRef = useRef(shareAccessToken);
+  const shareStatusRef = useRef(status);
+  shareCodeRef.current = normalizedShareCode;
+  authTokenRef.current = authToken;
+  shareAccessTokenRef.current = shareAccessToken;
+  shareStatusRef.current = status;
   const shareTree = useMemo(() => buildShareTree(detail), [detail]);
   const saveFolderTreeData = useMemo(() => buildFolderTree(saveFolderOptions), [saveFolderOptions]);
   const selectedShareNodeIds = useMemo(
@@ -258,40 +270,68 @@ export function SharePage() {
   }, [detail?.title]);
 
   useEffect(() => {
+    shareStatusRequestIdRef.current += 1;
+    shareStatusLoadingKeyRef.current = null;
+    shareDetailRequestIdRef.current += 1;
+    shareDetailLoadingKeyRef.current = null;
     setShareAccessToken(loadStoredShareAccess(normalizedShareCode));
+    setStatus(null);
     setDetail(null);
+    setDetailLoading(false);
     setSelectedShareRowKeys([]);
     setShowMobileOpenHint(shareCodeValid && isLikelyMobileClient());
     mobileOpenActionRef.current = null;
     setMobileOpenAction(null);
   }, [normalizedShareCode, shareCodeValid]);
 
-  useEffect(() => {
-    let cancelled = false;
+  function createShareStatusRequestKey(code = normalizedShareCode) {
+    return JSON.stringify([code]);
+  }
 
+  function isCurrentShareStatusRequest(requestId: number, requestKey: string) {
+    return (
+      shareStatusRequestIdRef.current === requestId
+      && shareStatusLoadingKeyRef.current === requestKey
+      && createShareStatusRequestKey(shareCodeRef.current) === requestKey
+    );
+  }
+
+  useEffect(() => {
     async function loadStatus() {
+      const requestKey = createShareStatusRequestKey();
+      if (shareStatusLoadingKeyRef.current === requestKey) {
+        return;
+      }
+
+      shareStatusRequestIdRef.current += 1;
+      const requestId = shareStatusRequestIdRef.current;
+      shareStatusLoadingKeyRef.current = requestKey;
       setStatusLoading(true);
       setPageError(null);
 
       if (!shareCodeValid) {
         setStatus(null);
         setPageError('分享链接格式不正确。');
+        shareStatusLoadingKeyRef.current = null;
         setStatusLoading(false);
         return;
       }
 
       try {
         const nextStatus = await fetchPublicShareStatus(normalizedShareCode);
-        if (!cancelled) {
-          setStatus(nextStatus);
+        if (!isCurrentShareStatusRequest(requestId, requestKey)) {
+          return;
         }
+
+        setStatus(nextStatus);
       } catch (error) {
-        if (!cancelled) {
+        if (isCurrentShareStatusRequest(requestId, requestKey)) {
           setStatus(null);
           setPageError(error instanceof Error ? error.message : '分享链接不可用。');
         }
       } finally {
-        if (!cancelled) {
+        if (isCurrentShareStatusRequest(requestId, requestKey)) {
+          shareStatusLoadingKeyRef.current = null;
           setStatusLoading(false);
         }
       }
@@ -300,33 +340,84 @@ export function SharePage() {
     void loadStatus();
 
     return () => {
-      cancelled = true;
+      shareStatusRequestIdRef.current += 1;
+      shareStatusLoadingKeyRef.current = null;
     };
   }, [normalizedShareCode, shareCodeValid]);
 
+  function createShareDetailRequestKey(
+    currentStatus = status,
+    code = normalizedShareCode,
+    token = authToken,
+    accessToken = shareAccessToken,
+  ) {
+    return JSON.stringify([
+      code,
+      token,
+      accessToken,
+      currentStatus?.shareCode ?? null,
+      currentStatus?.available ?? false,
+      currentStatus?.requiresPassword ?? false,
+    ]);
+  }
+
+  function isCurrentShareDetailRequest(requestId: number, requestKey: string) {
+    return (
+      shareDetailRequestIdRef.current === requestId
+      && shareDetailLoadingKeyRef.current === requestKey
+      && createShareDetailRequestKey(
+        shareStatusRef.current,
+        shareCodeRef.current,
+        authTokenRef.current,
+        shareAccessTokenRef.current,
+      ) === requestKey
+    );
+  }
+
+  function invalidateShareDetailRequest(clearDetail = false) {
+    shareDetailRequestIdRef.current += 1;
+    shareDetailLoadingKeyRef.current = null;
+    setDetailLoading(false);
+
+    if (clearDetail) {
+      setDetail(null);
+    }
+  }
+
   useEffect(() => {
     if (!status?.available || isSessionChecking || !authToken || !currentUser) {
+      invalidateShareDetailRequest(!status?.available || !authToken || !currentUser);
       return;
     }
 
     if (status.requiresPassword && !shareAccessToken) {
+      invalidateShareDetailRequest(true);
       return;
     }
 
-    let cancelled = false;
     const currentStatus = status;
 
     async function loadDetail() {
+      const requestKey = createShareDetailRequestKey(currentStatus);
+      if (shareDetailLoadingKeyRef.current === requestKey) {
+        return;
+      }
+
+      shareDetailRequestIdRef.current += 1;
+      const requestId = shareDetailRequestIdRef.current;
+      shareDetailLoadingKeyRef.current = requestKey;
       setDetailLoading(true);
       setPageError(null);
 
       try {
         const nextDetail = await fetchShareDetail(normalizedShareCode, authToken!, shareAccessToken);
-        if (!cancelled) {
-          setDetail(nextDetail);
+        if (!isCurrentShareDetailRequest(requestId, requestKey)) {
+          return;
         }
+
+        setDetail(nextDetail);
       } catch (error) {
-        if (!cancelled) {
+        if (isCurrentShareDetailRequest(requestId, requestKey)) {
           if (currentStatus.requiresPassword && isShareAccessInvalidError(error)) {
             clearStoredShareAccess(normalizedShareCode);
             setShareAccessToken(null);
@@ -335,7 +426,8 @@ export function SharePage() {
           setPageError(error instanceof Error ? error.message : '分享详情加载失败。');
         }
       } finally {
-        if (!cancelled) {
+        if (isCurrentShareDetailRequest(requestId, requestKey)) {
+          shareDetailLoadingKeyRef.current = null;
           setDetailLoading(false);
         }
       }
@@ -344,7 +436,8 @@ export function SharePage() {
     void loadDetail();
 
     return () => {
-      cancelled = true;
+      shareDetailRequestIdRef.current += 1;
+      shareDetailLoadingKeyRef.current = null;
     };
   }, [authToken, currentUser, isSessionChecking, normalizedShareCode, shareAccessToken, status]);
 
