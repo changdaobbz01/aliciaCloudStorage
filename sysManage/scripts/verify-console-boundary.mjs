@@ -837,8 +837,30 @@ assertIncludesInOrder(
 assertIncludesInOrder(
   appPackageHookSource,
   [
+    'const appPackageLoadingRef = useRef(false);',
+    'const publicAppPackageLoadingRef = useRef(false);',
+    'async function loadAppPackageInfo() {',
+    'if (appPackageLoadingRef.current || appPackageMutationRef.current !== null) {',
+    'appPackageLoadingRef.current = true;',
+    'setAppPackageLoading(true);',
+    '} finally {',
+    'appPackageLoadingRef.current = false;',
+    'setAppPackageLoading(false);',
+    'async function loadPublicAppPackageInfo() {',
+    'if (publicAppPackageLoadingRef.current) {',
+    'publicAppPackageLoadingRef.current = true;',
+    'setPublicAppPackageLoading(true);',
+    '} finally {',
+    'publicAppPackageLoadingRef.current = false;',
+    'setPublicAppPackageLoading(false);',
+  ],
+  'cloud console APK reads must keep synchronous loading guards',
+);
+assertIncludesInOrder(
+  appPackageHookSource,
+  [
     'function openAppPackageUploadModal() {',
-    'if (!authToken || !isAdmin || appPackageMutationRef.current !== null) {',
+    'if (!authToken || !isAdmin || appPackageLoadingRef.current || appPackageMutationRef.current !== null) {',
     'return;',
     'setAppPackageUploadOpen(true);',
   ],
@@ -848,7 +870,7 @@ assertIncludesInOrder(
   appPackageHookSource,
   [
     'function handleAppPackageFileChange(event: ChangeEvent<HTMLInputElement>)',
-    'if (!authToken || !isAdmin || appPackageMutationRef.current !== null) {',
+    'if (!authToken || !isAdmin || appPackageLoadingRef.current || appPackageMutationRef.current !== null) {',
     "event.target.value = '';",
     'return;',
   ],
@@ -859,7 +881,7 @@ assertIncludesInOrder(
   [
     "const appPackageMutationRef = useRef<'upload' | 'delete' | null>(null);",
     'async function submitAppPackageUpload(values: AppPackageUploadFormValues)',
-    'if (!authToken || !isAdmin || appPackageMutationRef.current !== null) {',
+    'if (!authToken || !isAdmin || appPackageLoadingRef.current || appPackageMutationRef.current !== null) {',
     "appPackageMutationRef.current = 'upload';",
     'setAppPackageUploading(true);',
     'const nextPackageInfo = await uploadAdminAppPackage(',
@@ -875,7 +897,7 @@ assertIncludesInOrder(
     'const [appPackageDeleting, setAppPackageDeleting] = useState(false);',
     "const appPackageMutationRef = useRef<'upload' | 'delete' | null>(null);",
     'async function deleteCurrentAppPackage()',
-    'if (!authToken || !isAdmin || appPackageMutationRef.current !== null) {',
+    'if (!authToken || !isAdmin || appPackageLoadingRef.current || appPackageMutationRef.current !== null) {',
     "appPackageMutationRef.current = 'delete';",
     'setAppPackageDeleting(true);',
     'await deleteAdminAppPackage(authToken);',
@@ -891,7 +913,7 @@ assertIncludesInOrder(
     'function closeAppPackageUploadModal() {',
     'if (appPackageMutationRef.current !== null) {',
     'function handleAppPackageFilePickerClick() {',
-    'if (appPackageMutationRef.current !== null) {',
+    'if (appPackageLoadingRef.current || appPackageMutationRef.current !== null) {',
   ],
   'cloud console APK upload modal controls must pause during package mutations',
 );
@@ -911,13 +933,24 @@ assertIncludesInOrder(
   appPackagePanelSource,
   [
     'deleting,',
-    'disabled={deleting}',
-    'okButtonProps={{ danger: true, loading: deleting, disabled: uploading || deleting }}',
-    'cancelButtonProps={{ disabled: deleting }}',
+    'const packageBusy = loading || uploading || deleting;',
+    'disabled={loading || deleting}',
+    'okButtonProps={{ danger: true, loading: deleting, disabled: packageBusy }}',
+    'cancelButtonProps={{ disabled: loading || deleting }}',
     'loading={deleting}',
-    'disabled={uploading || deleting}',
+    'disabled={packageBusy}',
   ],
   'cloud console APK package panel must surface pending delete state',
+);
+assertIncludesInOrder(
+  appPackagePanelSource,
+  [
+    'deleting,',
+    'const packageBusy = loading || uploading || deleting;',
+    'disabled={loading || deleting}',
+    'disabled={packageBusy}',
+  ],
+  'cloud console APK package panel must pause package actions during loading',
 );
 assertIncludesInOrder(
   consolePageSource,

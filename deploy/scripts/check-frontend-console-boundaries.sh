@@ -1394,9 +1394,21 @@ require_source_match \
     "Cloud console boundary verifier must require pending delete UI state."
 
 require_source_match \
+    "cloud console APK reads keep synchronous guards" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console APK reads must keep synchronous loading guards' \
+    "Cloud console boundary verifier must guard duplicate APK reads."
+
+require_source_match \
+    "cloud console APK actions pause while loading" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console APK package panel must pause package actions during loading' \
+    "Cloud console boundary verifier must pause APK package actions during loading."
+
+require_source_match \
     "cloud console APK delete confirmation shows pending state" \
     "sysManage/src/components/AppPackagePanel.tsx" \
-    'okButtonProps=\{\{ danger: true, loading: deleting, disabled: uploading \|\| deleting \}\}' \
+    'okButtonProps=\{\{ danger: true, loading: deleting, disabled: packageBusy \}\}' \
     "Cloud console APK delete confirmation must surface pending delete state."
 
 require_source_match \

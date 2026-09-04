@@ -43,6 +43,7 @@ export function AppPackagePanel({
   onDeletePackage,
 }: AppPackagePanelProps) {
   const packageAvailable = packageInfo?.available ?? false;
+  const packageBusy = loading || uploading || deleting;
   const downloadUrl = normalizeAppDownloadPath(packageInfo?.downloadUrl);
   const versionName = packageInfo?.versionName?.trim() || '未填写';
   const releaseNotes = packageInfo?.releaseNotes?.trim() || '当前安装包尚未填写更新说明。';
@@ -62,7 +63,7 @@ export function AppPackagePanel({
             type="primary"
             icon={<Icon icon={Upload} />}
             loading={uploading}
-            disabled={deleting}
+            disabled={loading || deleting}
             onClick={onUploadClick}
           >
             上传新版本
@@ -73,11 +74,11 @@ export function AppPackagePanel({
               description="移除后，首页下载入口和 APP 更新检查都会暂时失效。"
               okText="移除"
               cancelText="取消"
-              okButtonProps={{ danger: true, loading: deleting, disabled: uploading || deleting }}
-              cancelButtonProps={{ disabled: deleting }}
+              okButtonProps={{ danger: true, loading: deleting, disabled: packageBusy }}
+              cancelButtonProps={{ disabled: loading || deleting }}
               onConfirm={onDeletePackage}
             >
-              <Button danger icon={<Icon icon={Trash2} />} loading={deleting} disabled={uploading || deleting}>
+              <Button danger icon={<Icon icon={Trash2} />} loading={deleting} disabled={packageBusy}>
                 移除当前包
               </Button>
             </Popconfirm>

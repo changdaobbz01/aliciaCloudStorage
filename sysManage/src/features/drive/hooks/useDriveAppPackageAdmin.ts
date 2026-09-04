@@ -36,6 +36,8 @@ export function useDriveAppPackageAdmin({
 
   const [appPackageUploadForm] = Form.useForm<AppPackageUploadFormValues>();
   const appPackageInputRef = useRef<HTMLInputElement | null>(null);
+  const appPackageLoadingRef = useRef(false);
+  const publicAppPackageLoadingRef = useRef(false);
   const appPackageMutationRef = useRef<'upload' | 'delete' | null>(null);
 
   async function loadAppPackageInfo() {
@@ -44,6 +46,11 @@ export function useDriveAppPackageAdmin({
       return;
     }
 
+    if (appPackageLoadingRef.current || appPackageMutationRef.current !== null) {
+      return;
+    }
+
+    appPackageLoadingRef.current = true;
     setAppPackageLoading(true);
 
     try {
@@ -51,11 +58,17 @@ export function useDriveAppPackageAdmin({
     } catch (loadError) {
       message.error(loadError instanceof Error ? loadError.message : '加载 APK 信息失败。');
     } finally {
+      appPackageLoadingRef.current = false;
       setAppPackageLoading(false);
     }
   }
 
   async function loadPublicAppPackageInfo() {
+    if (publicAppPackageLoadingRef.current) {
+      return;
+    }
+
+    publicAppPackageLoadingRef.current = true;
     setPublicAppPackageLoading(true);
     setPublicAppPackageError(null);
 
@@ -65,6 +78,7 @@ export function useDriveAppPackageAdmin({
       setPublicAppPackageInfo(null);
       setPublicAppPackageError(loadError instanceof Error ? loadError.message : '加载 APK 下载信息失败。');
     } finally {
+      publicAppPackageLoadingRef.current = false;
       setPublicAppPackageLoading(false);
     }
   }
@@ -84,7 +98,7 @@ export function useDriveAppPackageAdmin({
   }
 
   function openAppPackageUploadModal() {
-    if (!authToken || !isAdmin || appPackageMutationRef.current !== null) {
+    if (!authToken || !isAdmin || appPackageLoadingRef.current || appPackageMutationRef.current !== null) {
       return;
     }
 
@@ -93,7 +107,7 @@ export function useDriveAppPackageAdmin({
   }
 
   function handleAppPackageFilePickerClick() {
-    if (appPackageMutationRef.current !== null) {
+    if (appPackageLoadingRef.current || appPackageMutationRef.current !== null) {
       return;
     }
 
@@ -116,7 +130,7 @@ export function useDriveAppPackageAdmin({
   }
 
   function handleAppPackageFileChange(event: ChangeEvent<HTMLInputElement>) {
-    if (!authToken || !isAdmin || appPackageMutationRef.current !== null) {
+    if (!authToken || !isAdmin || appPackageLoadingRef.current || appPackageMutationRef.current !== null) {
       event.target.value = '';
       return;
     }
@@ -137,7 +151,7 @@ export function useDriveAppPackageAdmin({
   }
 
   async function submitAppPackageUpload(values: AppPackageUploadFormValues) {
-    if (!authToken || !isAdmin || appPackageMutationRef.current !== null) {
+    if (!authToken || !isAdmin || appPackageLoadingRef.current || appPackageMutationRef.current !== null) {
       return false;
     }
 
@@ -173,7 +187,7 @@ export function useDriveAppPackageAdmin({
   }
 
   async function deleteCurrentAppPackage() {
-    if (!authToken || !isAdmin || appPackageMutationRef.current !== null) {
+    if (!authToken || !isAdmin || appPackageLoadingRef.current || appPackageMutationRef.current !== null) {
       return false;
     }
 
