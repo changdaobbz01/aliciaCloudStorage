@@ -188,6 +188,7 @@ const driveDownloadsView = readFileSync(new URL('../src/features/drive/DriveDown
 const storageTable = readFileSync(new URL('../src/components/StorageTable.tsx', import.meta.url), 'utf8');
 const driveTypes = readFileSync(new URL('../src/features/drive/types.ts', import.meta.url), 'utf8');
 const useDriveDownloads = readFileSync(new URL('../src/features/drive/hooks/useDriveDownloads.ts', import.meta.url), 'utf8');
+const useDriveDashboard = readFileSync(new URL('../src/features/drive/hooks/useDriveDashboard.ts', import.meta.url), 'utf8');
 const useDriveExplorer = readFileSync(new URL('../src/features/drive/hooks/useDriveExplorer.ts', import.meta.url), 'utf8');
 const useDriveProfileSettings = readFileSync(new URL('../src/features/drive/hooks/useDriveProfileSettings.ts', import.meta.url), 'utf8');
 const useDriveShares = readFileSync(new URL('../src/features/drive/hooks/useDriveShares.ts', import.meta.url), 'utf8');
@@ -253,6 +254,51 @@ assert.match(
   driveExplorerView,
   /refreshPending: boolean;[\s\S]*refreshPending,[\s\S]*loading=\{refreshPending\}[\s\S]*disabled=\{storageMutationPending \|\| refreshPending\}/,
   'cloud web explorer refresh must surface app package loading state',
+);
+assert.match(
+  useDriveDashboard,
+  /import \{ useEffect, useRef, useState \} from 'react';[\s\S]*type DashboardReadOptions = \{[\s\S]*force\?: boolean;[\s\S]*const authTokenRef = useRef\(authToken\);[\s\S]*const healthRequestIdRef = useRef\(0\);[\s\S]*const healthLoadingKeyRef = useRef<string \| null>\(null\);[\s\S]*const overviewRequestIdRef = useRef\(0\);[\s\S]*const overviewLoadingKeyRef = useRef<string \| null>\(null\);[\s\S]*const usageHistoryRequestIdRef = useRef\(0\);[\s\S]*const usageHistoryLoadingKeyRef = useRef<string \| null>\(null\);/,
+  'cloud web dashboard reads must track request identity',
+);
+assert.match(
+  useDriveDashboard,
+  /function createHealthRequestKey\(\) \{[\s\S]*return JSON\.stringify\(\['health'\]\);[\s\S]*function isCurrentHealthRequest\(requestId: number, requestKey: string\) \{[\s\S]*healthRequestIdRef\.current === requestId && healthLoadingKeyRef\.current === requestKey;/,
+  'cloud web dashboard health reads must compare request scope',
+);
+assert.match(
+  useDriveDashboard,
+  /async function loadHealth\(options: DashboardReadOptions = \{\}\) \{[\s\S]*if \(!options\.force && healthLoadingKeyRef\.current === requestKey\) \{[\s\S]*return;[\s\S]*healthRequestIdRef\.current \+= 1;[\s\S]*const requestId = healthRequestIdRef\.current;[\s\S]*const nextHealth = await fetchHealth\(\);[\s\S]*if \(!isCurrentHealthRequest\(requestId, requestKey\)\) \{[\s\S]*return;[\s\S]*setHealth\(nextHealth\);[\s\S]*finally \{[\s\S]*if \(isCurrentHealthRequest\(requestId, requestKey\)\) \{[\s\S]*healthLoadingKeyRef\.current = null;/,
+  'cloud web dashboard health reads must block duplicates and ignore stale responses',
+);
+assert.match(
+  useDriveDashboard,
+  /function createOverviewRequestKey\(token: string \| null = authToken\) \{[\s\S]*return JSON\.stringify\(\[token\]\);[\s\S]*function isCurrentOverviewRequest\(requestId: number, requestKey: string\) \{[\s\S]*overviewRequestIdRef\.current === requestId[\s\S]*overviewLoadingKeyRef\.current === requestKey[\s\S]*createOverviewRequestKey\(authTokenRef\.current\) === requestKey/,
+  'cloud web dashboard overview reads must compare auth scope',
+);
+assert.match(
+  useDriveDashboard,
+  /async function loadOverview\(options: DashboardReadOptions = \{\}\) \{[\s\S]*if \(!authToken\) \{[\s\S]*overviewRequestIdRef\.current \+= 1;[\s\S]*overviewLoadingKeyRef\.current = null;[\s\S]*const requestKey = createOverviewRequestKey\(authToken\);[\s\S]*if \(!options\.force && overviewLoadingKeyRef\.current === requestKey\) \{[\s\S]*return;[\s\S]*overviewRequestIdRef\.current \+= 1;[\s\S]*const requestId = overviewRequestIdRef\.current;[\s\S]*const nextOverview = await fetchDriveOverview\(authToken\);[\s\S]*if \(!isCurrentOverviewRequest\(requestId, requestKey\)\) \{[\s\S]*return;[\s\S]*setOverview\(nextOverview\);[\s\S]*finally \{[\s\S]*if \(isCurrentOverviewRequest\(requestId, requestKey\)\) \{[\s\S]*overviewLoadingKeyRef\.current = null;/,
+  'cloud web dashboard overview reads must block duplicates and ignore stale responses',
+);
+assert.match(
+  useDriveDashboard,
+  /function createUsageHistoryRequestKey\(token: string \| null = authToken\) \{[\s\S]*return JSON\.stringify\(\[token, 30\]\);[\s\S]*function isCurrentUsageHistoryRequest\(requestId: number, requestKey: string\) \{[\s\S]*usageHistoryRequestIdRef\.current === requestId[\s\S]*usageHistoryLoadingKeyRef\.current === requestKey[\s\S]*createUsageHistoryRequestKey\(authTokenRef\.current\) === requestKey/,
+  'cloud web dashboard usage history reads must compare auth scope',
+);
+assert.match(
+  useDriveDashboard,
+  /async function loadUsageHistory\(options: DashboardReadOptions = \{\}\) \{[\s\S]*if \(!authToken\) \{[\s\S]*usageHistoryRequestIdRef\.current \+= 1;[\s\S]*usageHistoryLoadingKeyRef\.current = null;[\s\S]*const requestKey = createUsageHistoryRequestKey\(authToken\);[\s\S]*if \(!options\.force && usageHistoryLoadingKeyRef\.current === requestKey\) \{[\s\S]*return;[\s\S]*usageHistoryRequestIdRef\.current \+= 1;[\s\S]*const requestId = usageHistoryRequestIdRef\.current;[\s\S]*const nextUsageHistory = await fetchUsageHistory\(authToken, 30\);[\s\S]*if \(!isCurrentUsageHistoryRequest\(requestId, requestKey\)\) \{[\s\S]*return;[\s\S]*setUsageHistory\(nextUsageHistory\);[\s\S]*finally \{[\s\S]*if \(isCurrentUsageHistoryRequest\(requestId, requestKey\)\) \{[\s\S]*usageHistoryLoadingKeyRef\.current = null;/,
+  'cloud web dashboard usage history reads must block duplicates and ignore stale responses',
+);
+assert.match(
+  useDriveDashboard,
+  /async function loadHomeDashboard\(options: DashboardReadOptions = \{\}\) \{[\s\S]*await Promise\.all\(\[loadHealth\(options\), loadOverview\(options\), loadUsageHistory\(options\)\]\);[\s\S]*useEffect\(\(\) => \{[\s\S]*overviewRequestIdRef\.current \+= 1;[\s\S]*overviewLoadingKeyRef\.current = null;[\s\S]*usageHistoryRequestIdRef\.current \+= 1;[\s\S]*usageHistoryLoadingKeyRef\.current = null;[\s\S]*if \(!authToken\) \{/,
+  'cloud web dashboard reads must invalidate auth scope changes',
+);
+assert.match(
+  drivePage,
+  /onStorageChanged: \(\) => dashboard\.loadOverview\(\{ force: true \}\),[\s\S]*tasks\.push\(dashboard\.loadHomeDashboard\(\{ force: true \}\)\);[\s\S]*tasks\.push\(dashboard\.loadOverview\(\{ force: true \}\)\);/,
+  'cloud drive dashboard refreshes must force reads after explicit refresh or storage mutations',
 );
 assert.match(
   driveShared,

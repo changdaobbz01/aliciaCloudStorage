@@ -74,7 +74,7 @@ export function DrivePage() {
     authToken,
     activeView,
     message,
-    onStorageChanged: dashboard.loadOverview,
+    onStorageChanged: () => dashboard.loadOverview({ force: true }),
   });
   const downloads = useDriveDownloads({
     authToken,
@@ -256,9 +256,9 @@ export function DrivePage() {
     const tasks: Promise<unknown>[] = [loadPublicAppPackageInfo()];
 
     if (isHomeView) {
-      tasks.push(dashboard.loadHomeDashboard());
+      tasks.push(dashboard.loadHomeDashboard({ force: true }));
     } else {
-      tasks.push(dashboard.loadOverview());
+      tasks.push(dashboard.loadOverview({ force: true }));
 
       if (isListView) {
         tasks.push(explorer.loadDrive());

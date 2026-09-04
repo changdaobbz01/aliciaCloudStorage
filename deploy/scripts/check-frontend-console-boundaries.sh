@@ -230,6 +230,60 @@ require_source_match \
     "Cloud web explorer refresh must surface app package loading state."
 
 require_source_match \
+    "cloud web dashboard reads track request identity" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web dashboard reads must track request identity' \
+    "Cloud web dashboard reads must track request identity."
+
+require_source_match \
+    "cloud web dashboard health reads compare scope" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web dashboard health reads must compare request scope' \
+    "Cloud web dashboard health reads must compare request scope."
+
+require_source_match \
+    "cloud web dashboard health reads block stale responses" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web dashboard health reads must block duplicates and ignore stale responses' \
+    "Cloud web dashboard health reads must block duplicates and ignore stale responses."
+
+require_source_match \
+    "cloud web dashboard overview reads compare auth scope" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web dashboard overview reads must compare auth scope' \
+    "Cloud web dashboard overview reads must compare auth scope."
+
+require_source_match \
+    "cloud web dashboard overview reads block stale responses" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web dashboard overview reads must block duplicates and ignore stale responses' \
+    "Cloud web dashboard overview reads must block duplicates and ignore stale responses."
+
+require_source_match \
+    "cloud web dashboard usage history reads compare auth scope" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web dashboard usage history reads must compare auth scope' \
+    "Cloud web dashboard usage history reads must compare auth scope."
+
+require_source_match \
+    "cloud web dashboard usage history reads block stale responses" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web dashboard usage history reads must block duplicates and ignore stale responses' \
+    "Cloud web dashboard usage history reads must block duplicates and ignore stale responses."
+
+require_source_match \
+    "cloud web dashboard reads invalidate auth scope changes" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web dashboard reads must invalidate auth scope changes' \
+    "Cloud web dashboard reads must invalidate auth scope changes."
+
+require_source_match \
+    "cloud drive dashboard refreshes force reads" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud drive dashboard refreshes must force reads after explicit refresh or storage mutations' \
+    "Cloud drive dashboard refreshes must force reads after explicit refresh or storage mutations."
+
+require_source_match \
     "cloud web normalizes app download paths" \
     "webApp/scripts/verify-client-boundary.mjs" \
     'cloud web app download URL resolver must normalize download paths' \

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { fetchDriveOverview, fetchHealth, fetchUsageHistory } from '../../../lib/api';
 import type { DriveOverview, HealthResponse, UsageHistoryPoint } from '../../../types';
 
@@ -167,48 +167,156 @@ type UseDriveDashboardOptions = {
   homeBackgroundImage: string | null;
 };
 
+type DashboardReadOptions = {
+  force?: boolean;
+};
+
 export function useDriveDashboard({ authToken, isHomeView, homeBackgroundImage }: UseDriveDashboardOptions) {
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [overview, setOverview] = useState<DriveOverview | null>(null);
   const [usageHistory, setUsageHistory] = useState<UsageHistoryPoint[]>([]);
   const [homeBackgroundAccent, setHomeBackgroundAccent] = useState(DEFAULT_HOME_BACKGROUND_ACCENT);
+  const authTokenRef = useRef(authToken);
+  const healthRequestIdRef = useRef(0);
+  const healthLoadingKeyRef = useRef<string | null>(null);
+  const overviewRequestIdRef = useRef(0);
+  const overviewLoadingKeyRef = useRef<string | null>(null);
+  const usageHistoryRequestIdRef = useRef(0);
+  const usageHistoryLoadingKeyRef = useRef<string | null>(null);
+  authTokenRef.current = authToken;
 
-  async function loadHealth() {
+  function createHealthRequestKey() {
+    return JSON.stringify(['health']);
+  }
+
+  function isCurrentHealthRequest(requestId: number, requestKey: string) {
+    return healthRequestIdRef.current === requestId && healthLoadingKeyRef.current === requestKey;
+  }
+
+  async function loadHealth(options: DashboardReadOptions = {}) {
+    const requestKey = createHealthRequestKey();
+    if (!options.force && healthLoadingKeyRef.current === requestKey) {
+      return;
+    }
+
+    healthRequestIdRef.current += 1;
+    const requestId = healthRequestIdRef.current;
+    healthLoadingKeyRef.current = requestKey;
+
     try {
-      setHealth(await fetchHealth());
+      const nextHealth = await fetchHealth();
+      if (!isCurrentHealthRequest(requestId, requestKey)) {
+        return;
+      }
+
+      setHealth(nextHealth);
     } catch {
-      setHealth(null);
+      if (isCurrentHealthRequest(requestId, requestKey)) {
+        setHealth(null);
+      }
+    } finally {
+      if (isCurrentHealthRequest(requestId, requestKey)) {
+        healthLoadingKeyRef.current = null;
+      }
     }
   }
 
-  async function loadOverview() {
+  function createOverviewRequestKey(token: string | null = authToken) {
+    return JSON.stringify([token]);
+  }
+
+  function isCurrentOverviewRequest(requestId: number, requestKey: string) {
+    return (
+      overviewRequestIdRef.current === requestId
+      && overviewLoadingKeyRef.current === requestKey
+      && createOverviewRequestKey(authTokenRef.current) === requestKey
+    );
+  }
+
+  async function loadOverview(options: DashboardReadOptions = {}) {
     if (!authToken) {
+      overviewRequestIdRef.current += 1;
+      overviewLoadingKeyRef.current = null;
       setOverview(null);
       return;
     }
 
+    const requestKey = createOverviewRequestKey(authToken);
+    if (!options.force && overviewLoadingKeyRef.current === requestKey) {
+      return;
+    }
+
+    overviewRequestIdRef.current += 1;
+    const requestId = overviewRequestIdRef.current;
+    overviewLoadingKeyRef.current = requestKey;
+
     try {
-      setOverview(await fetchDriveOverview(authToken));
+      const nextOverview = await fetchDriveOverview(authToken);
+      if (!isCurrentOverviewRequest(requestId, requestKey)) {
+        return;
+      }
+
+      setOverview(nextOverview);
     } catch {
-      setOverview(null);
+      if (isCurrentOverviewRequest(requestId, requestKey)) {
+        setOverview(null);
+      }
+    } finally {
+      if (isCurrentOverviewRequest(requestId, requestKey)) {
+        overviewLoadingKeyRef.current = null;
+      }
     }
   }
 
-  async function loadUsageHistory() {
+  function createUsageHistoryRequestKey(token: string | null = authToken) {
+    return JSON.stringify([token, 30]);
+  }
+
+  function isCurrentUsageHistoryRequest(requestId: number, requestKey: string) {
+    return (
+      usageHistoryRequestIdRef.current === requestId
+      && usageHistoryLoadingKeyRef.current === requestKey
+      && createUsageHistoryRequestKey(authTokenRef.current) === requestKey
+    );
+  }
+
+  async function loadUsageHistory(options: DashboardReadOptions = {}) {
     if (!authToken) {
+      usageHistoryRequestIdRef.current += 1;
+      usageHistoryLoadingKeyRef.current = null;
       setUsageHistory([]);
       return;
     }
 
+    const requestKey = createUsageHistoryRequestKey(authToken);
+    if (!options.force && usageHistoryLoadingKeyRef.current === requestKey) {
+      return;
+    }
+
+    usageHistoryRequestIdRef.current += 1;
+    const requestId = usageHistoryRequestIdRef.current;
+    usageHistoryLoadingKeyRef.current = requestKey;
+
     try {
-      setUsageHistory(await fetchUsageHistory(authToken, 30));
+      const nextUsageHistory = await fetchUsageHistory(authToken, 30);
+      if (!isCurrentUsageHistoryRequest(requestId, requestKey)) {
+        return;
+      }
+
+      setUsageHistory(nextUsageHistory);
     } catch {
-      setUsageHistory([]);
+      if (isCurrentUsageHistoryRequest(requestId, requestKey)) {
+        setUsageHistory([]);
+      }
+    } finally {
+      if (isCurrentUsageHistoryRequest(requestId, requestKey)) {
+        usageHistoryLoadingKeyRef.current = null;
+      }
     }
   }
 
-  async function loadHomeDashboard() {
-    await Promise.all([loadHealth(), loadOverview(), loadUsageHistory()]);
+  async function loadHomeDashboard(options: DashboardReadOptions = {}) {
+    await Promise.all([loadHealth(options), loadOverview(options), loadUsageHistory(options)]);
   }
 
   useEffect(() => {
@@ -231,6 +339,18 @@ export function useDriveDashboard({ authToken, isHomeView, homeBackgroundImage }
       cancelled = true;
     };
   }, [homeBackgroundImage]);
+
+  useEffect(() => {
+    overviewRequestIdRef.current += 1;
+    overviewLoadingKeyRef.current = null;
+    usageHistoryRequestIdRef.current += 1;
+    usageHistoryLoadingKeyRef.current = null;
+
+    if (!authToken) {
+      setOverview(null);
+      setUsageHistory([]);
+    }
+  }, [authToken]);
 
   useEffect(() => {
     if (isHomeView) {
