@@ -296,6 +296,7 @@ export function DriveOperationsView({
   const [storageUsersDraft, setStorageUsersDraft] = useState<AdminCloudStorageUsersQuery>(storageUsersQuery);
   const [trashNodesDraft, setTrashNodesDraft] = useState<AdminCloudTrashNodesQuery>(trashNodesQuery);
   const [shareLinksDraft, setShareLinksDraft] = useState<AdminCloudShareLinksQuery>(shareLinksQuery);
+  const operationsLoading = overviewLoading || storageUsersLoading || trashNodesLoading || shareLinksLoading;
 
   useEffect(() => {
     setStorageUsersDraft(storageUsersQuery);
@@ -548,10 +549,18 @@ export function DriveOperationsView({
   ];
 
   function submitStorageUsersFilter() {
+    if (storageUsersLoading) {
+      return;
+    }
+
     onApplyStorageUsersQuery({ ...storageUsersDraft, page: 1 });
   }
 
   function resetStorageUsersFilter() {
+    if (storageUsersLoading) {
+      return;
+    }
+
     onApplyStorageUsersQuery({
       page: 1,
       size: storageUsersQuery.size,
@@ -561,10 +570,18 @@ export function DriveOperationsView({
   }
 
   function submitTrashNodesFilter() {
+    if (trashNodesLoading) {
+      return;
+    }
+
     onApplyTrashNodesQuery({ ...trashNodesDraft, keyword: trashNodesDraft.keyword?.trim() || null, page: 1 });
   }
 
   function resetTrashNodesFilter() {
+    if (trashNodesLoading) {
+      return;
+    }
+
     onApplyTrashNodesQuery({
       page: 1,
       size: trashNodesQuery.size,
@@ -575,10 +592,18 @@ export function DriveOperationsView({
   }
 
   function submitShareLinksFilter() {
+    if (shareLinksLoading) {
+      return;
+    }
+
     onApplyShareLinksQuery({ ...shareLinksDraft, page: 1 });
   }
 
   function resetShareLinksFilter() {
+    if (shareLinksLoading) {
+      return;
+    }
+
     onApplyShareLinksQuery({
       page: 1,
       size: shareLinksQuery.size,
@@ -597,7 +622,7 @@ export function DriveOperationsView({
           </Typography.Paragraph>
         </div>
         <div className="panel-actions">
-          <Button icon={<Icon icon={RefreshCw} />} onClick={onRefresh} loading={overviewLoading || storageUsersLoading || trashNodesLoading || shareLinksLoading}>
+          <Button icon={<Icon icon={RefreshCw} />} onClick={onRefresh} loading={operationsLoading} disabled={operationsLoading}>
             刷新
           </Button>
         </div>
@@ -618,7 +643,12 @@ export function DriveOperationsView({
             ),
             children: (
               <>
-                <Form className="audit-filter-bar operations-filter-bar operations-filter-bar-compact" layout="vertical" onFinish={submitStorageUsersFilter}>
+                <Form
+                  className="audit-filter-bar operations-filter-bar operations-filter-bar-compact"
+                  layout="vertical"
+                  disabled={storageUsersLoading}
+                  onFinish={submitStorageUsersFilter}
+                >
                   <Form.Item label="排序字段">
                     <Select<AdminCloudStorageUserSortField>
                       value={storageUsersDraft.sortBy ?? 'usedBytes'}
@@ -635,10 +665,16 @@ export function DriveOperationsView({
                   </Form.Item>
                   <Form.Item label=" ">
                     <Space size="small" wrap>
-                      <Button type="primary" htmlType="submit" icon={<Icon icon={Search} />}>
+                      <Button
+                        type="primary"
+                        htmlType="submit"
+                        icon={<Icon icon={Search} />}
+                        loading={storageUsersLoading}
+                        disabled={storageUsersLoading}
+                      >
                         查询
                       </Button>
-                      <Button icon={<Icon icon={RotateCcw} />} onClick={resetStorageUsersFilter}>
+                      <Button icon={<Icon icon={RotateCcw} />} onClick={resetStorageUsersFilter} disabled={storageUsersLoading}>
                         重置
                       </Button>
                     </Space>
@@ -672,7 +708,7 @@ export function DriveOperationsView({
             ),
             children: (
               <>
-                <Form className="audit-filter-bar operations-filter-bar" layout="vertical" onFinish={submitTrashNodesFilter}>
+                <Form className="audit-filter-bar operations-filter-bar" layout="vertical" disabled={trashNodesLoading} onFinish={submitTrashNodesFilter}>
                   <Form.Item label="用户 ID">
                     <InputNumber
                       min={1}
@@ -726,10 +762,16 @@ export function DriveOperationsView({
                   </Form.Item>
                   <Form.Item label=" ">
                     <Space size="small" wrap>
-                      <Button type="primary" htmlType="submit" icon={<Icon icon={Search} />}>
+                      <Button
+                        type="primary"
+                        htmlType="submit"
+                        icon={<Icon icon={Search} />}
+                        loading={trashNodesLoading}
+                        disabled={trashNodesLoading}
+                      >
                         查询
                       </Button>
-                      <Button icon={<Icon icon={RotateCcw} />} onClick={resetTrashNodesFilter}>
+                      <Button icon={<Icon icon={RotateCcw} />} onClick={resetTrashNodesFilter} disabled={trashNodesLoading}>
                         重置
                       </Button>
                     </Space>
@@ -763,7 +805,7 @@ export function DriveOperationsView({
             ),
             children: (
               <>
-                <Form className="audit-filter-bar operations-filter-bar" layout="vertical" onFinish={submitShareLinksFilter}>
+                <Form className="audit-filter-bar operations-filter-bar" layout="vertical" disabled={shareLinksLoading} onFinish={submitShareLinksFilter}>
                   <Form.Item label="用户 ID">
                     <InputNumber
                       min={1}
@@ -812,10 +854,16 @@ export function DriveOperationsView({
                   </Form.Item>
                   <Form.Item label=" ">
                     <Space size="small" wrap>
-                      <Button type="primary" htmlType="submit" icon={<Icon icon={Search} />}>
+                      <Button
+                        type="primary"
+                        htmlType="submit"
+                        icon={<Icon icon={Search} />}
+                        loading={shareLinksLoading}
+                        disabled={shareLinksLoading}
+                      >
                         查询
                       </Button>
-                      <Button icon={<Icon icon={RotateCcw} />} onClick={resetShareLinksFilter}>
+                      <Button icon={<Icon icon={RotateCcw} />} onClick={resetShareLinksFilter} disabled={shareLinksLoading}>
                         重置
                       </Button>
                     </Space>

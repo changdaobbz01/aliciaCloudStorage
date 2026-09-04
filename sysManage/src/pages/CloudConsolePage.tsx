@@ -125,6 +125,14 @@ export function CloudConsolePage() {
     isAppPackageView: activeView === 'appPackage',
     message,
   });
+  const operationsLoading =
+    operations.overviewLoading ||
+    operations.storageUsersLoading ||
+    operations.trashNodesLoading ||
+    operations.shareLinksLoading;
+  const appPackageBusy = appPackages.appPackageLoading || appPackages.appPackageUploading || appPackages.appPackageDeleting;
+  const activeViewLoading =
+    activeView === 'users' ? cloudUsers.usersLoading : activeView === 'operations' ? operationsLoading : appPackageBusy;
   const viewLoadingFallback = (
     <div className="loading-box">
       <Spin size="large" />
@@ -151,7 +159,7 @@ export function CloudConsolePage() {
   }, [activeView, navigate, view]);
 
   async function refreshCurrentView() {
-    if (!isAdmin) {
+    if (!isAdmin || activeViewLoading) {
       return;
     }
 
@@ -451,17 +459,9 @@ export function CloudConsolePage() {
           <div className="header-actions">
             <Button
               icon={<Icon icon={RefreshCw} />}
+              disabled={activeViewLoading}
               onClick={() => void refreshCurrentView()}
-              loading={
-                activeView === 'users'
-                  ? cloudUsers.usersLoading
-                  : activeView === 'operations'
-                  ? operations.overviewLoading ||
-                    operations.storageUsersLoading ||
-                    operations.trashNodesLoading ||
-                    operations.shareLinksLoading
-                  : appPackages.appPackageLoading || appPackages.appPackageUploading || appPackages.appPackageDeleting
-              }
+              loading={activeViewLoading}
             >
               刷新
             </Button>

@@ -1,5 +1,5 @@
 import type { MessageInstance } from 'antd/es/message/interface';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   fetchAdminCloudOperationShares,
   fetchAdminCloudOperationTrash,
@@ -61,6 +61,10 @@ export function useDriveOperationsAdmin({
   const [shareLinksPage, setShareLinksPage] = useState<AdminCloudShareLinksPage | null>(null);
   const [shareLinksQuery, setShareLinksQuery] = useState<AdminCloudShareLinksQuery>(initialShareLinksQuery);
   const [shareLinksLoading, setShareLinksLoading] = useState(false);
+  const overviewLoadingRef = useRef(false);
+  const storageUsersLoadingRef = useRef(false);
+  const trashNodesLoadingRef = useRef(false);
+  const shareLinksLoadingRef = useRef(false);
 
   async function loadOverview() {
     if (!authToken || !isAdmin) {
@@ -68,6 +72,11 @@ export function useDriveOperationsAdmin({
       return;
     }
 
+    if (overviewLoadingRef.current) {
+      return;
+    }
+
+    overviewLoadingRef.current = true;
     setOverviewLoading(true);
 
     try {
@@ -75,6 +84,7 @@ export function useDriveOperationsAdmin({
     } catch (loadError) {
       message.error(loadError instanceof Error ? loadError.message : '加载运营概览失败。');
     } finally {
+      overviewLoadingRef.current = false;
       setOverviewLoading(false);
     }
   }
@@ -85,6 +95,11 @@ export function useDriveOperationsAdmin({
       return;
     }
 
+    if (storageUsersLoadingRef.current) {
+      return;
+    }
+
+    storageUsersLoadingRef.current = true;
     setStorageUsersLoading(true);
 
     try {
@@ -100,6 +115,7 @@ export function useDriveOperationsAdmin({
     } catch (loadError) {
       message.error(loadError instanceof Error ? loadError.message : '加载容量用户明细失败。');
     } finally {
+      storageUsersLoadingRef.current = false;
       setStorageUsersLoading(false);
     }
   }
@@ -110,6 +126,11 @@ export function useDriveOperationsAdmin({
       return;
     }
 
+    if (trashNodesLoadingRef.current) {
+      return;
+    }
+
+    trashNodesLoadingRef.current = true;
     setTrashNodesLoading(true);
 
     try {
@@ -125,6 +146,7 @@ export function useDriveOperationsAdmin({
     } catch (loadError) {
       message.error(loadError instanceof Error ? loadError.message : '加载回收站明细失败。');
     } finally {
+      trashNodesLoadingRef.current = false;
       setTrashNodesLoading(false);
     }
   }
@@ -135,6 +157,11 @@ export function useDriveOperationsAdmin({
       return;
     }
 
+    if (shareLinksLoadingRef.current) {
+      return;
+    }
+
+    shareLinksLoadingRef.current = true;
     setShareLinksLoading(true);
 
     try {
@@ -150,6 +177,7 @@ export function useDriveOperationsAdmin({
     } catch (loadError) {
       message.error(loadError instanceof Error ? loadError.message : '加载分享链接明细失败。');
     } finally {
+      shareLinksLoadingRef.current = false;
       setShareLinksLoading(false);
     }
   }
@@ -164,6 +192,10 @@ export function useDriveOperationsAdmin({
   }
 
   function applyStorageUsersQuery(query: AdminCloudStorageUsersQuery) {
+    if (storageUsersLoadingRef.current) {
+      return;
+    }
+
     const nextQuery = {
       ...initialStorageUsersQuery,
       ...storageUsersQuery,
@@ -180,6 +212,10 @@ export function useDriveOperationsAdmin({
   }
 
   function applyTrashNodesQuery(query: AdminCloudTrashNodesQuery) {
+    if (trashNodesLoadingRef.current) {
+      return;
+    }
+
     const nextQuery = {
       ...initialTrashNodesQuery,
       ...trashNodesQuery,
@@ -196,6 +232,10 @@ export function useDriveOperationsAdmin({
   }
 
   function applyShareLinksQuery(query: AdminCloudShareLinksQuery) {
+    if (shareLinksLoadingRef.current) {
+      return;
+    }
+
     const nextQuery = {
       ...initialShareLinksQuery,
       ...shareLinksQuery,

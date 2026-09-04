@@ -501,8 +501,11 @@ assertIncludesInOrder(
 assertIncludesInOrder(
   consolePageSource,
   [
+    'const operationsLoading =',
+    'const appPackageBusy =',
+    'const activeViewLoading =',
     'async function refreshCurrentView() {',
-    'if (!isAdmin) {',
+    'if (!isAdmin || activeViewLoading) {',
     'return;',
     "if (activeView === 'users')",
     'await cloudUsers.loadUsers();',
@@ -511,6 +514,18 @@ assertIncludesInOrder(
     'await appPackages.loadAppPackageInfo();',
   ],
   'cloud console header refresh must not load admin view data without cloud admin access',
+);
+assertIncludesInOrder(
+  consolePageSource,
+  [
+    'const operationsLoading =',
+    'const appPackageBusy =',
+    'const activeViewLoading =',
+    'disabled={activeViewLoading}',
+    'onClick={() => void refreshCurrentView()}',
+    'loading={activeViewLoading}',
+  ],
+  'cloud console header refresh must pause duplicate active-view refreshes',
 );
 assertIncludesInOrder(
   cloudUsersHookSource,
@@ -550,6 +565,45 @@ assertIncludesInOrder(
     'setOverview(await fetchAdminCloudOperationsOverview(authToken));',
   ],
   'cloud console operations overview must stay behind the cloud admin gate',
+);
+assertIncludesInOrder(
+  driveOperationsHookSource,
+  [
+    'import { useEffect, useRef, useState } from',
+    'const overviewLoadingRef = useRef(false);',
+    'const storageUsersLoadingRef = useRef(false);',
+    'const trashNodesLoadingRef = useRef(false);',
+    'const shareLinksLoadingRef = useRef(false);',
+    'async function loadOverview() {',
+    'if (overviewLoadingRef.current) {',
+    'overviewLoadingRef.current = true;',
+    'setOverviewLoading(true);',
+    '} finally {',
+    'overviewLoadingRef.current = false;',
+    'setOverviewLoading(false);',
+    'async function loadStorageUsers(query: AdminCloudStorageUsersQuery = storageUsersQuery) {',
+    'if (storageUsersLoadingRef.current) {',
+    'storageUsersLoadingRef.current = true;',
+    'setStorageUsersLoading(true);',
+    '} finally {',
+    'storageUsersLoadingRef.current = false;',
+    'setStorageUsersLoading(false);',
+    'async function loadTrashNodes(query: AdminCloudTrashNodesQuery = trashNodesQuery) {',
+    'if (trashNodesLoadingRef.current) {',
+    'trashNodesLoadingRef.current = true;',
+    'setTrashNodesLoading(true);',
+    '} finally {',
+    'trashNodesLoadingRef.current = false;',
+    'setTrashNodesLoading(false);',
+    'async function loadShareLinks(query: AdminCloudShareLinksQuery = shareLinksQuery) {',
+    'if (shareLinksLoadingRef.current) {',
+    'shareLinksLoadingRef.current = true;',
+    'setShareLinksLoading(true);',
+    '} finally {',
+    'shareLinksLoadingRef.current = false;',
+    'setShareLinksLoading(false);',
+  ],
+  'cloud console operations reads must keep synchronous loading guards',
 );
 assertIncludesInOrder(
   driveOperationsHookSource,
@@ -636,6 +690,42 @@ assertIncludesInOrder(
     'loadShareLinks(),',
   ],
   'cloud console operations refresh must keep overview, storage users, trash, and shares together',
+);
+assertIncludesInOrder(
+  driveOperationsHookSource,
+  [
+    'function applyStorageUsersQuery(query: AdminCloudStorageUsersQuery) {',
+    'if (storageUsersLoadingRef.current) {',
+    'return;',
+    'function changeStorageUsersPage(page: number, size: number) {',
+    'function applyTrashNodesQuery(query: AdminCloudTrashNodesQuery) {',
+    'if (trashNodesLoadingRef.current) {',
+    'return;',
+    'function changeTrashNodesPage(page: number, size: number) {',
+    'function applyShareLinksQuery(query: AdminCloudShareLinksQuery) {',
+    'if (shareLinksLoadingRef.current) {',
+    'return;',
+    'function changeShareLinksPage(page: number, size: number) {',
+  ],
+  'cloud console operations filters and pagination must pause during loading',
+);
+assertIncludesInOrder(
+  driveOperationsViewSource,
+  [
+    'const operationsLoading = overviewLoading || storageUsersLoading || trashNodesLoading || shareLinksLoading;',
+    'loading={operationsLoading}',
+    'disabled={operationsLoading}',
+    'disabled={storageUsersLoading}',
+    'loading={storageUsersLoading}',
+    'disabled={storageUsersLoading}',
+    'disabled={trashNodesLoading}',
+    'loading={trashNodesLoading}',
+    'disabled={trashNodesLoading}',
+    'disabled={shareLinksLoading}',
+    'loading={shareLinksLoading}',
+    'disabled={shareLinksLoading}',
+  ],
+  'cloud console operations controls must surface pending loading state',
 );
 assertIncludesInOrder(
   driveOperationsHookSource,
@@ -795,9 +885,10 @@ assertIncludesInOrder(
 assertIncludesInOrder(
   consolePageSource,
   [
+    'const appPackageBusy = appPackages.appPackageLoading || appPackages.appPackageUploading || appPackages.appPackageDeleting;',
     'deleting={appPackages.appPackageDeleting}',
     'onDeletePackage={appPackages.deleteCurrentAppPackage}',
-    'appPackages.appPackageLoading || appPackages.appPackageUploading || appPackages.appPackageDeleting',
+    'loading={activeViewLoading}',
   ],
   'cloud console APK package view must wire pending delete state through the page',
 );

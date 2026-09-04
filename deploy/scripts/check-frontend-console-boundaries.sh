@@ -1388,6 +1388,12 @@ require_source_match \
     "Cloud console boundary verifier must keep header refresh behind the cloud admin gate."
 
 require_source_match \
+    "cloud console header refresh pauses duplicate reads" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console header refresh must pause duplicate active-view refreshes' \
+    "Cloud console boundary verifier must pause duplicate active-view refreshes."
+
+require_source_match \
     "cloud console quota mutations keep admin gate" \
     "sysManage/scripts/verify-console-boundary.mjs" \
     'cloud console quota mutations must stay behind the cloud admin gate' \
@@ -1398,6 +1404,24 @@ require_source_match \
     "sysManage/scripts/verify-console-boundary.mjs" \
     'cloud console operations refresh must keep overview, storage users, trash, and shares together' \
     "Cloud console boundary verifier must keep operations refresh complete."
+
+require_source_match \
+    "cloud console operations reads keep synchronous guards" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console operations reads must keep synchronous loading guards' \
+    "Cloud console boundary verifier must guard duplicate operations reads."
+
+require_source_match \
+    "cloud console operations query changes pause while loading" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console operations filters and pagination must pause during loading' \
+    "Cloud console boundary verifier must pause operations query changes during loading."
+
+require_source_match \
+    "cloud console operations controls surface pending state" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console operations controls must surface pending loading state' \
+    "Cloud console boundary verifier must surface operations loading state."
 
 require_source_match \
     "cloud console storage user loading keeps backend pagination" \
