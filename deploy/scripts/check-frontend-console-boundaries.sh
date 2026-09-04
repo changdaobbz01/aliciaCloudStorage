@@ -212,6 +212,24 @@ require_source_match \
     "Cloud web app download controls must surface pending state."
 
 require_source_match \
+    "cloud drive app package reads keep synchronous guards" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud drive app package reads must keep synchronous loading guards' \
+    "Cloud drive app package reads must keep synchronous loading guards."
+
+require_source_match \
+    "cloud drive app package loading wires list refresh" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud drive app package loading must be wired to list refresh' \
+    "Cloud drive app package loading must be wired to list refresh."
+
+require_source_match \
+    "cloud web explorer refresh surfaces app package loading" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web explorer refresh must surface app package loading state' \
+    "Cloud web explorer refresh must surface app package loading state."
+
+require_source_match \
     "cloud web normalizes app download paths" \
     "webApp/scripts/verify-client-boundary.mjs" \
     'cloud web app download URL resolver must normalize download paths' \

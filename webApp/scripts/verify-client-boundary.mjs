@@ -239,6 +239,21 @@ assert.match(
   'cloud app download controls must surface pending loading and navigation state',
 );
 assert.match(
+  drivePage,
+  /import \{ Suspense, lazy, useEffect, useMemo, useRef, useState \} from 'react';[\s\S]*const publicAppPackageLoadingRef = useRef\(false\);[\s\S]*async function loadPublicAppPackageInfo\(shouldIgnoreResult: \(\) => boolean = \(\) => false\) \{[\s\S]*if \(publicAppPackageLoadingRef\.current\) \{[\s\S]*return;[\s\S]*publicAppPackageLoadingRef\.current = true;[\s\S]*setPublicAppPackageLoading\(true\);[\s\S]*const nextPackageInfo = await fetchPublicAppPackage\(\);[\s\S]*setPublicAppPackageInfo\(nextPackageInfo\);[\s\S]*finally \{[\s\S]*publicAppPackageLoadingRef\.current = false;[\s\S]*setPublicAppPackageLoading\(false\);/,
+  'cloud drive app package reads must keep synchronous loading guards',
+);
+assert.match(
+  drivePage,
+  /void loadPublicAppPackageInfo\(\(\) => cancelled\);[\s\S]*refreshPending=\{publicAppPackageLoading\}/,
+  'cloud drive app package loading must be wired to list refresh',
+);
+assert.match(
+  driveExplorerView,
+  /refreshPending: boolean;[\s\S]*refreshPending,[\s\S]*loading=\{refreshPending\}[\s\S]*disabled=\{storageMutationPending \|\| refreshPending\}/,
+  'cloud web explorer refresh must surface app package loading state',
+);
+assert.match(
   driveShared,
   /function normalizeAppDownloadPath\(downloadPath = APP_DOWNLOAD_PUBLIC_PATH\)/,
   'cloud web app download URL resolver must normalize download paths',
@@ -420,7 +435,7 @@ assert.match(
 );
 assert.match(
   driveExplorerView,
-  /const storageMutationPending = storageMutation !== null;[\s\S]*loading=\{creatingFolder\}[\s\S]*disabled=\{storageMutationPending\}[\s\S]*loading=\{restoringSelection\}[\s\S]*loading=\{movingSelection\}[\s\S]*loading=\{deletingSelection\}/,
+  /const storageMutationPending = storageMutation !== null;[\s\S]*loading=\{creatingFolder\}[\s\S]*disabled=\{storageMutationPending \|\| refreshPending\}[\s\S]*loading=\{restoringSelection\}[\s\S]*loading=\{movingSelection\}[\s\S]*loading=\{deletingSelection\}/,
   'cloud web explorer toolbar must surface pending storage mutations',
 );
 assert.match(

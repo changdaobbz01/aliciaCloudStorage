@@ -22,6 +22,7 @@ type DriveExplorerViewProps = {
   listState: DriveListState;
   downloadSelectionState: DriveDownloadButtonState;
   previewingFileId: number | null;
+  refreshPending: boolean;
   storageMutation: DriveStorageMutationState;
   onRefresh: () => void;
   onUploadClick: () => void;
@@ -79,6 +80,7 @@ export default function DriveExplorerView({
   listState,
   downloadSelectionState,
   previewingFileId,
+  refreshPending,
   storageMutation,
   onRefresh,
   onUploadClick,
@@ -141,7 +143,12 @@ export default function DriveExplorerView({
             </>
           ) : null}
 
-          <Button icon={<Icon icon={RefreshCw} />} disabled={storageMutationPending} onClick={onRefresh}>
+          <Button
+            icon={<Icon icon={RefreshCw} />}
+            loading={refreshPending}
+            disabled={storageMutationPending || refreshPending}
+            onClick={onRefresh}
+          >
             刷新
           </Button>
 

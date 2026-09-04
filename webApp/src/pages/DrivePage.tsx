@@ -2,7 +2,7 @@
 import { Download, FolderOpen, Home, KeyRound, LogOut, Monitor, Search, Share2, Trash2, UserCog } from 'lucide-react';
 import type { MenuProps } from 'antd';
 import type { CSSProperties, ChangeEvent } from 'react';
-import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Icon } from '../components/Icon';
 import { LazyChunkErrorBoundary } from '../components/lazy-chunk-error-boundary';
@@ -67,6 +67,7 @@ export function DrivePage() {
   const [publicAppPackageInfo, setPublicAppPackageInfo] = useState<AppPackageInfo | null>(null);
   const [publicAppPackageLoading, setPublicAppPackageLoading] = useState(false);
   const [publicAppPackageError, setPublicAppPackageError] = useState<string | null>(null);
+  const publicAppPackageLoadingRef = useRef(false);
   const homeBackgroundImage = resolveHomeBackgroundSrc(currentUser);
   const dashboard = useDriveDashboard({ authToken, isHomeView, homeBackgroundImage });
   const explorer = useDriveExplorer({
@@ -224,17 +225,30 @@ export function DrivePage() {
   const showProfileUsageMeter = profileTotalBytes !== null && profileTotalBytes > 0;
   const previewingFileId = explorer.previewingFileId;
 
-  async function loadPublicAppPackageInfo() {
+  async function loadPublicAppPackageInfo(shouldIgnoreResult: () => boolean = () => false) {
+    if (publicAppPackageLoadingRef.current) {
+      return;
+    }
+
+    publicAppPackageLoadingRef.current = true;
     setPublicAppPackageLoading(true);
     setPublicAppPackageError(null);
 
     try {
-      setPublicAppPackageInfo(await fetchPublicAppPackage());
+      const nextPackageInfo = await fetchPublicAppPackage();
+      if (!shouldIgnoreResult()) {
+        setPublicAppPackageInfo(nextPackageInfo);
+      }
     } catch (loadError) {
-      setPublicAppPackageInfo(null);
-      setPublicAppPackageError(loadError instanceof Error ? loadError.message : '加载移动端下载信息失败。');
+      if (!shouldIgnoreResult()) {
+        setPublicAppPackageInfo(null);
+        setPublicAppPackageError(loadError instanceof Error ? loadError.message : '加载移动端下载信息失败。');
+      }
     } finally {
-      setPublicAppPackageLoading(false);
+      publicAppPackageLoadingRef.current = false;
+      if (!shouldIgnoreResult()) {
+        setPublicAppPackageLoading(false);
+      }
     }
   }
 
@@ -259,7 +273,13 @@ export function DrivePage() {
   }
 
   useEffect(() => {
-    void loadPublicAppPackageInfo();
+    let cancelled = false;
+
+    void loadPublicAppPackageInfo(() => cancelled);
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   function handleMenuClick(event: { key: string }) {
@@ -392,6 +412,7 @@ export function DrivePage() {
           listState={listState}
           downloadSelectionState={downloadSelectionState}
           previewingFileId={previewingFileId}
+          refreshPending={publicAppPackageLoading}
           storageMutation={storageMutation}
           onRefresh={() => void refreshCurrentView()}
           onUploadClick={handleUploadButtonClick}
