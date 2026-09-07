@@ -581,6 +581,21 @@ assert.match(
   'cloud share create modal copy controls must surface pending state',
 );
 assert.match(
+  driveShareCreateModal,
+  /function ShareTargetThumbnail\([\s\S]*const previewRequestIdRef = useRef\(0\);[\s\S]*const previewRequestKeyRef = useRef<string \| null>\(null\);[\s\S]*const requestId = previewRequestIdRef\.current \+ 1;[\s\S]*const requestKey = JSON\.stringify\(\[[\s\S]*authToken,[\s\S]*target\.id,[\s\S]*target\.updatedAt,[\s\S]*target\.type,[\s\S]*target\.mimeType,[\s\S]*target\.extension,[\s\S]*\]\);/,
+  'cloud share create thumbnail reads must track request identity',
+);
+assert.match(
+  driveShareCreateModal,
+  /function isCurrentThumbnailRequest\(\) \{[\s\S]*previewRequestIdRef\.current === requestId && previewRequestKeyRef\.current === requestKey;/,
+  'cloud share create thumbnail reads must compare selected auth and target scope',
+);
+assert.match(
+  driveShareCreateModal,
+  /fetchStorageFileAccessUrl\(target\.id, authToken, 'inline', controller\.signal\)[\s\S]*if \(isCurrentThumbnailRequest\(\)\) \{[\s\S]*setPreviewUrl\(access\.url\);[\s\S]*if \(error instanceof DOMException && error\.name === 'AbortError'\) \{[\s\S]*return;[\s\S]*if \(isCurrentThumbnailRequest\(\)\) \{[\s\S]*setPreviewUrl\(null\);/,
+  'cloud share create thumbnail reads must ignore stale responses',
+);
+assert.match(
   useDriveDownloads,
   /function commitDownloadTasks\(updater: \(tasks: DriveDownloadTask\[]\) => DriveDownloadTask\[]\) \{[\s\S]*const nextTasks = updater\(downloadTasksRef\.current\);[\s\S]*downloadTasksRef\.current = nextTasks;[\s\S]*setDownloadTasksState\(nextTasks\);/,
   'cloud web download tasks must update the synchronous task ref before React state',

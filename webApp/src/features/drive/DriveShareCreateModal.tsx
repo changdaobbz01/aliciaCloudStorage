@@ -39,24 +39,51 @@ function isImageTarget(target: StorageNode) {
 
 function ShareTargetThumbnail({ target, authToken }: { target: StorageNode; authToken: string | null }) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const previewRequestIdRef = useRef(0);
+  const previewRequestKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
+    const requestId = previewRequestIdRef.current + 1;
+    const requestKey = JSON.stringify([
+      authToken,
+      target.id,
+      target.updatedAt,
+      target.type,
+      target.mimeType,
+      target.extension,
+    ]);
+
+    previewRequestIdRef.current = requestId;
+    previewRequestKeyRef.current = requestKey;
     setPreviewUrl(null);
+
     if (!authToken || !isImageTarget(target)) {
       return;
     }
 
+    function isCurrentThumbnailRequest() {
+      return previewRequestIdRef.current === requestId && previewRequestKeyRef.current === requestKey;
+    }
+
     const controller = new AbortController();
     void fetchStorageFileAccessUrl(target.id, authToken, 'inline', controller.signal)
-      .then((access) => setPreviewUrl(access.url))
+      .then((access) => {
+        if (isCurrentThumbnailRequest()) {
+          setPreviewUrl(access.url);
+        }
+      })
       .catch((error) => {
-        if (!(error instanceof DOMException && error.name === 'AbortError')) {
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          return;
+        }
+
+        if (isCurrentThumbnailRequest()) {
           setPreviewUrl(null);
         }
       });
 
     return () => controller.abort();
-  }, [authToken, target.id]);
+  }, [authToken, target.extension, target.id, target.mimeType, target.type, target.updatedAt]);
 
   if (previewUrl) {
     return <img className="share-target-preview" src={previewUrl} alt="" />;

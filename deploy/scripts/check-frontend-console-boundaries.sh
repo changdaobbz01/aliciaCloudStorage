@@ -620,6 +620,24 @@ require_source_match \
     "Cloud share create modal copy controls must surface pending state."
 
 require_source_match \
+    "cloud share create thumbnails track request identity" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud share create thumbnail reads must track request identity' \
+    "Cloud share create thumbnail reads must track request identity."
+
+require_source_match \
+    "cloud share create thumbnails compare selected scope" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud share create thumbnail reads must compare selected auth and target scope' \
+    "Cloud share create thumbnail reads must compare selected auth and target scope."
+
+require_source_match \
+    "cloud share create thumbnails ignore stale responses" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud share create thumbnail reads must ignore stale responses' \
+    "Cloud share create thumbnail reads must ignore stale responses."
+
+require_source_match \
     "cloud web download tasks update synchronous ref" \
     "webApp/scripts/verify-client-boundary.mjs" \
     'cloud web download tasks must update the synchronous task ref before React state' \
