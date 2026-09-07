@@ -164,7 +164,7 @@ export function CloudConsolePage() {
     }
 
     if (activeView === 'users') {
-      await cloudUsers.loadUsers();
+      await cloudUsers.loadUsers({ force: true });
       return;
     }
 

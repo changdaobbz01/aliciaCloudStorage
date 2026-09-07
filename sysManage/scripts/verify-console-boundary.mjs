@@ -508,7 +508,7 @@ assertIncludesInOrder(
     'if (!isAdmin || activeViewLoading) {',
     'return;',
     "if (activeView === 'users')",
-    'await cloudUsers.loadUsers();',
+    'await cloudUsers.loadUsers({ force: true });',
     "if (activeView === 'operations')",
     'await operations.loadAll();',
     'await appPackages.loadAppPackageInfo();',
@@ -530,10 +530,11 @@ assertIncludesInOrder(
 assertIncludesInOrder(
   cloudUsersHookSource,
   [
-    'async function loadUsers() {',
+    'async function loadUsers(options: CloudUsersLoadOptions = {}) {',
     'if (!authToken || !isAdmin) {',
     'setUsers([]);',
-    'setUsers(await fetchUsers(authToken));',
+    'const nextUsers = await fetchUsers(authToken);',
+    'setUsers(nextUsers);',
   ],
   'cloud console users hook must keep cloud-users reads behind the cloud admin gate',
 );
@@ -541,15 +542,43 @@ assertIncludesInOrder(
   cloudUsersHookSource,
   [
     'const usersLoadingRef = useRef(false);',
-    'async function loadUsers() {',
-    'if (usersLoadingRef.current) {',
+    'const usersRequestIdRef = useRef(0);',
+    'const usersLoadingKeyRef = useRef<string | null>(null);',
+    'async function loadUsers(options: CloudUsersLoadOptions = {}) {',
+    'if (!options.force && usersLoadingKeyRef.current === requestKey) {',
     'usersLoadingRef.current = true;',
     'setUsersLoading(true);',
     '} finally {',
+    'usersLoadingKeyRef.current = null;',
     'usersLoadingRef.current = false;',
     'setUsersLoading(false);',
   ],
   'cloud console users reads must keep synchronous loading guards',
+);
+assert.match(
+  cloudUsersHookSource,
+  /type CloudUsersLoadOptions = \{[\s\S]*force\?: boolean;[\s\S]*const authTokenRef = useRef\(authToken\);[\s\S]*const isAdminRef = useRef\(isAdmin\);[\s\S]*const usersRequestIdRef = useRef\(0\);[\s\S]*const usersLoadingKeyRef = useRef<string \| null>\(null\);/,
+  'cloud console users reads must track request identity',
+);
+assert.match(
+  cloudUsersHookSource,
+  /function createUsersRequestKey\(token: string \| null = authToken, admin = isAdmin\) \{[\s\S]*return JSON\.stringify\(\[token, admin\]\);[\s\S]*function isCurrentUsersRequest\(requestId: number, requestKey: string\) \{[\s\S]*usersRequestIdRef\.current === requestId[\s\S]*usersLoadingKeyRef\.current === requestKey[\s\S]*createUsersRequestKey\(authTokenRef\.current, isAdminRef\.current\) === requestKey/,
+  'cloud console users reads must compare auth admin scope',
+);
+assert.match(
+  cloudUsersHookSource,
+  /async function loadUsers\(options: CloudUsersLoadOptions = \{\}\) \{[\s\S]*if \(!authToken \|\| !isAdmin\) \{[\s\S]*usersRequestIdRef\.current \+= 1;[\s\S]*usersLoadingKeyRef\.current = null;[\s\S]*const requestKey = createUsersRequestKey\(authToken, isAdmin\);[\s\S]*if \(!options\.force && usersLoadingKeyRef\.current === requestKey\) \{[\s\S]*return;[\s\S]*usersRequestIdRef\.current \+= 1;[\s\S]*const requestId = usersRequestIdRef\.current;[\s\S]*const nextUsers = await fetchUsers\(authToken\);[\s\S]*if \(!isCurrentUsersRequest\(requestId, requestKey\)\) \{[\s\S]*return;[\s\S]*setUsers\(nextUsers\);[\s\S]*finally \{[\s\S]*if \(isCurrentUsersRequest\(requestId, requestKey\)\) \{[\s\S]*usersLoadingKeyRef\.current = null;/,
+  'cloud console users reads must block duplicate reads and ignore stale responses',
+);
+assert.match(
+  cloudUsersHookSource,
+  /useEffect\(\(\) => \{[\s\S]*usersRequestIdRef\.current \+= 1;[\s\S]*usersLoadingKeyRef\.current = null;[\s\S]*usersLoadingRef\.current = false;[\s\S]*setUsersLoading\(false\);[\s\S]*setUsers\(\[\]\);[\s\S]*\}, \[authToken, isAdmin\]\);/,
+  'cloud console users reads must invalidate auth admin scope changes',
+);
+assert.match(
+  `${consolePageSource}\n${cloudUsersHookSource}`,
+  /await cloudUsers\.loadUsers\(\{ force: true \}\);[\s\S]*await loadUsers\(\{ force: true \}\);/,
+  'cloud console users refreshes must force reads after header refresh or quota mutations',
 );
 assertIncludesInOrder(
   cloudUsersHookSource,

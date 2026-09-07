@@ -1616,6 +1616,36 @@ require_source_match \
     "Cloud console boundary verifier must guard duplicate cloud users reads."
 
 require_source_match \
+    "cloud console users reads track request identity" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console users reads must track request identity' \
+    "Cloud console users reads must track request identity."
+
+require_source_match \
+    "cloud console users reads compare auth admin scope" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console users reads must compare auth admin scope' \
+    "Cloud console users reads must compare auth admin scope."
+
+require_source_match \
+    "cloud console users reads block stale responses" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console users reads must block duplicate reads and ignore stale responses' \
+    "Cloud console users reads must block duplicate reads and ignore stale responses."
+
+require_source_match \
+    "cloud console users reads invalidate auth admin scope changes" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console users reads must invalidate auth admin scope changes' \
+    "Cloud console users reads must invalidate auth admin scope changes."
+
+require_source_match \
+    "cloud console users refreshes force reads" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console users refreshes must force reads after header refresh or quota mutations' \
+    "Cloud console users refreshes must force reads after header refresh or quota mutations."
+
+require_source_match \
     "cloud console quota modal pauses during user refreshes" \
     "sysManage/scripts/verify-console-boundary.mjs" \
     'cloud console quota modal must pause during user refreshes' \

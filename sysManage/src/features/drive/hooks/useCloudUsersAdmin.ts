@@ -18,6 +18,10 @@ type UseCloudUsersAdminOptions = {
   onCurrentUserUpdate: (user: User) => void;
 };
 
+type CloudUsersLoadOptions = {
+  force?: boolean;
+};
+
 export function useCloudUsersAdmin({
   authToken,
   currentUser,
@@ -34,27 +38,64 @@ export function useCloudUsersAdmin({
   const [quotaForm] = Form.useForm<CloudQuotaFormValues>();
   const usersLoadingRef = useRef(false);
   const quotaSavingRef = useRef(false);
+  const authTokenRef = useRef(authToken);
+  const isAdminRef = useRef(isAdmin);
+  const usersRequestIdRef = useRef(0);
+  const usersLoadingKeyRef = useRef<string | null>(null);
 
-  async function loadUsers() {
+  authTokenRef.current = authToken;
+  isAdminRef.current = isAdmin;
+
+  function createUsersRequestKey(token: string | null = authToken, admin = isAdmin) {
+    return JSON.stringify([token, admin]);
+  }
+
+  function isCurrentUsersRequest(requestId: number, requestKey: string) {
+    return (
+      usersRequestIdRef.current === requestId
+      && usersLoadingKeyRef.current === requestKey
+      && createUsersRequestKey(authTokenRef.current, isAdminRef.current) === requestKey
+    );
+  }
+
+  async function loadUsers(options: CloudUsersLoadOptions = {}) {
     if (!authToken || !isAdmin) {
+      usersRequestIdRef.current += 1;
+      usersLoadingKeyRef.current = null;
+      usersLoadingRef.current = false;
+      setUsersLoading(false);
       setUsers([]);
       return;
     }
 
-    if (usersLoadingRef.current) {
+    const requestKey = createUsersRequestKey(authToken, isAdmin);
+    if (!options.force && usersLoadingKeyRef.current === requestKey) {
       return;
     }
 
+    usersRequestIdRef.current += 1;
+    const requestId = usersRequestIdRef.current;
+    usersLoadingKeyRef.current = requestKey;
     usersLoadingRef.current = true;
     setUsersLoading(true);
 
     try {
-      setUsers(await fetchUsers(authToken));
+      const nextUsers = await fetchUsers(authToken);
+      if (!isCurrentUsersRequest(requestId, requestKey)) {
+        return;
+      }
+
+      setUsers(nextUsers);
     } catch (loadError) {
-      message.error(loadError instanceof Error ? loadError.message : '加载云盘用户失败。');
+      if (isCurrentUsersRequest(requestId, requestKey)) {
+        message.error(loadError instanceof Error ? loadError.message : '加载云盘用户失败。');
+      }
     } finally {
-      usersLoadingRef.current = false;
-      setUsersLoading(false);
+      if (isCurrentUsersRequest(requestId, requestKey)) {
+        usersLoadingKeyRef.current = null;
+        usersLoadingRef.current = false;
+        setUsersLoading(false);
+      }
     }
   }
 
@@ -122,7 +163,7 @@ export function useCloudUsersAdmin({
 
       message.success('已更新用户云盘额度。');
       resetQuotaModal();
-      await loadUsers();
+      await loadUsers({ force: true });
     } catch (saveError) {
       if (typeof saveError === 'object' && saveError !== null && 'errorFields' in saveError) {
         return;
@@ -134,6 +175,14 @@ export function useCloudUsersAdmin({
       setQuotaSaving(false);
     }
   }
+
+  useEffect(() => {
+    usersRequestIdRef.current += 1;
+    usersLoadingKeyRef.current = null;
+    usersLoadingRef.current = false;
+    setUsersLoading(false);
+    setUsers([]);
+  }, [authToken, isAdmin]);
 
   useEffect(() => {
     if (!isUsersView) {
