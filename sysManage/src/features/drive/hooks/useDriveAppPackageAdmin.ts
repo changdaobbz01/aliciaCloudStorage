@@ -18,6 +18,14 @@ type UseDriveAppPackageAdminOptions = {
   message: MessageInstance;
 };
 
+type AppPackageReadOptions = {
+  force?: boolean;
+};
+
+type RefState<T> = {
+  current: T;
+};
+
 export function useDriveAppPackageAdmin({
   authToken,
   isAdmin,
@@ -39,48 +47,160 @@ export function useDriveAppPackageAdmin({
   const appPackageLoadingRef = useRef(false);
   const publicAppPackageLoadingRef = useRef(false);
   const appPackageMutationRef = useRef<'upload' | 'delete' | null>(null);
+  const authTokenRef = useRef(authToken);
+  const isAdminRef = useRef(isAdmin);
+  const appPackageRequestIdRef = useRef(0);
+  const appPackageLoadingKeyRef = useRef<string | null>(null);
+  const publicAppPackageRequestIdRef = useRef(0);
+  const publicAppPackageLoadingKeyRef = useRef<string | null>(null);
 
-  async function loadAppPackageInfo() {
+  authTokenRef.current = authToken;
+  isAdminRef.current = isAdmin;
+
+  function createAppPackageRequestKey(scope: string, token: string | null = authToken, admin = isAdmin) {
+    return JSON.stringify([scope, token, admin]);
+  }
+
+  function isCurrentAppPackageRequest(
+    requestIdRef: RefState<number>,
+    loadingKeyRef: RefState<string | null>,
+    requestId: number,
+    requestKey: string,
+    scope: string,
+  ) {
+    const currentToken = scope === 'public' ? null : authTokenRef.current;
+    const currentAdmin = scope === 'public' ? true : isAdminRef.current;
+    return (
+      requestIdRef.current === requestId
+      && loadingKeyRef.current === requestKey
+      && createAppPackageRequestKey(scope, currentToken, currentAdmin) === requestKey
+    );
+  }
+
+  function cancelAppPackageReads() {
+    appPackageRequestIdRef.current += 1;
+    appPackageLoadingKeyRef.current = null;
+    appPackageLoadingRef.current = false;
+    setAppPackageLoading(false);
+
+    publicAppPackageRequestIdRef.current += 1;
+    publicAppPackageLoadingKeyRef.current = null;
+    publicAppPackageLoadingRef.current = false;
+    setPublicAppPackageLoading(false);
+  }
+
+  async function loadAppPackageInfo(options: AppPackageReadOptions = {}) {
     if (!authToken || !isAdmin) {
+      appPackageRequestIdRef.current += 1;
+      appPackageLoadingKeyRef.current = null;
+      appPackageLoadingRef.current = false;
+      setAppPackageLoading(false);
       setAppPackageInfo(null);
       return;
     }
 
-    if (appPackageLoadingRef.current || appPackageMutationRef.current !== null) {
+    if (appPackageMutationRef.current !== null) {
       return;
     }
 
+    const requestKey = createAppPackageRequestKey('admin', authToken, isAdmin);
+    if (!options.force && appPackageLoadingKeyRef.current === requestKey) {
+      return;
+    }
+
+    appPackageRequestIdRef.current += 1;
+    const requestId = appPackageRequestIdRef.current;
+    appPackageLoadingKeyRef.current = requestKey;
     appPackageLoadingRef.current = true;
     setAppPackageLoading(true);
 
     try {
-      setAppPackageInfo(await fetchAdminAppPackage(authToken));
+      const nextPackageInfo = await fetchAdminAppPackage(authToken);
+      if (!isCurrentAppPackageRequest(appPackageRequestIdRef, appPackageLoadingKeyRef, requestId, requestKey, 'admin')) {
+        return;
+      }
+
+      setAppPackageInfo(nextPackageInfo);
     } catch (loadError) {
-      message.error(loadError instanceof Error ? loadError.message : '加载 APK 信息失败。');
+      if (isCurrentAppPackageRequest(appPackageRequestIdRef, appPackageLoadingKeyRef, requestId, requestKey, 'admin')) {
+        message.error(loadError instanceof Error ? loadError.message : '加载 APK 信息失败。');
+      }
     } finally {
-      appPackageLoadingRef.current = false;
-      setAppPackageLoading(false);
+      if (isCurrentAppPackageRequest(appPackageRequestIdRef, appPackageLoadingKeyRef, requestId, requestKey, 'admin')) {
+        appPackageLoadingKeyRef.current = null;
+        appPackageLoadingRef.current = false;
+        setAppPackageLoading(false);
+      }
     }
   }
 
-  async function loadPublicAppPackageInfo() {
-    if (publicAppPackageLoadingRef.current) {
+  async function loadPublicAppPackageInfo(options: AppPackageReadOptions = {}) {
+    if (appPackageMutationRef.current !== null) {
       return;
     }
 
+    const requestKey = createAppPackageRequestKey('public', null, true);
+    if (!options.force && publicAppPackageLoadingKeyRef.current === requestKey) {
+      return;
+    }
+
+    publicAppPackageRequestIdRef.current += 1;
+    const requestId = publicAppPackageRequestIdRef.current;
+    publicAppPackageLoadingKeyRef.current = requestKey;
     publicAppPackageLoadingRef.current = true;
     setPublicAppPackageLoading(true);
     setPublicAppPackageError(null);
 
     try {
-      setPublicAppPackageInfo(await fetchPublicAppPackage());
+      const nextPackageInfo = await fetchPublicAppPackage();
+      if (
+        !isCurrentAppPackageRequest(
+          publicAppPackageRequestIdRef,
+          publicAppPackageLoadingKeyRef,
+          requestId,
+          requestKey,
+          'public',
+        )
+      ) {
+        return;
+      }
+
+      setPublicAppPackageInfo(nextPackageInfo);
     } catch (loadError) {
-      setPublicAppPackageInfo(null);
-      setPublicAppPackageError(loadError instanceof Error ? loadError.message : '加载 APK 下载信息失败。');
+      if (
+        isCurrentAppPackageRequest(
+          publicAppPackageRequestIdRef,
+          publicAppPackageLoadingKeyRef,
+          requestId,
+          requestKey,
+          'public',
+        )
+      ) {
+        setPublicAppPackageInfo(null);
+        setPublicAppPackageError(loadError instanceof Error ? loadError.message : '加载 APK 下载信息失败。');
+      }
     } finally {
-      publicAppPackageLoadingRef.current = false;
-      setPublicAppPackageLoading(false);
+      if (
+        isCurrentAppPackageRequest(
+          publicAppPackageRequestIdRef,
+          publicAppPackageLoadingKeyRef,
+          requestId,
+          requestKey,
+          'public',
+        )
+      ) {
+        publicAppPackageLoadingKeyRef.current = null;
+        publicAppPackageLoadingRef.current = false;
+        setPublicAppPackageLoading(false);
+      }
     }
+  }
+
+  async function loadAppPackageState(options: AppPackageReadOptions = {}) {
+    await Promise.all([
+      loadAppPackageInfo(options),
+      loadPublicAppPackageInfo(options),
+    ]);
   }
 
   function resetAppPackageUploadDraft() {
@@ -160,6 +280,7 @@ export function useDriveAppPackageAdmin({
       return false;
     }
 
+    cancelAppPackageReads();
     appPackageMutationRef.current = 'upload';
     setAppPackageUploading(true);
 
@@ -191,6 +312,7 @@ export function useDriveAppPackageAdmin({
       return false;
     }
 
+    cancelAppPackageReads();
     appPackageMutationRef.current = 'delete';
     setAppPackageDeleting(true);
 
@@ -215,11 +337,19 @@ export function useDriveAppPackageAdmin({
   }, []);
 
   useEffect(() => {
+    appPackageRequestIdRef.current += 1;
+    appPackageLoadingKeyRef.current = null;
+    appPackageLoadingRef.current = false;
+    setAppPackageLoading(false);
+    setAppPackageInfo(null);
+  }, [authToken, isAdmin]);
+
+  useEffect(() => {
     if (!isAppPackageView) {
       return;
     }
 
-    void loadAppPackageInfo();
+    void loadAppPackageState();
   }, [authToken, isAdmin, isAppPackageView]);
 
   return {
@@ -236,6 +366,7 @@ export function useDriveAppPackageAdmin({
     appPackageInputRef,
     loadAppPackageInfo,
     loadPublicAppPackageInfo,
+    loadAppPackageState,
     closeAppPackageUploadModal,
     openAppPackageUploadModal,
     handleAppPackageFilePickerClick,

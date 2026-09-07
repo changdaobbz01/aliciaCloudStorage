@@ -1856,6 +1856,42 @@ require_source_match \
     "Cloud console boundary verifier must guard duplicate APK reads."
 
 require_source_match \
+    "cloud console APK reads track request identity" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console APK reads must track request identity' \
+    "Cloud console APK reads must track request identity."
+
+require_source_match \
+    "cloud console APK reads compare auth admin public scope" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console APK reads must compare auth admin public scope' \
+    "Cloud console APK reads must compare auth admin public scope."
+
+require_source_match \
+    "cloud console APK reads block stale responses" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console APK reads must block duplicate reads and ignore stale responses' \
+    "Cloud console APK reads must block duplicate reads and ignore stale responses."
+
+require_source_match \
+    "cloud console APK mutations invalidate stale reads" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console APK mutations must invalidate stale package reads' \
+    "Cloud console APK mutations must invalidate stale package reads."
+
+require_source_match \
+    "cloud console APK admin reads invalidate auth admin scope changes" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console APK admin reads must invalidate auth admin scope changes' \
+    "Cloud console APK admin reads must invalidate auth admin scope changes."
+
+require_source_match \
+    "cloud console APK refreshes force paired reads" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console APK refreshes must force paired admin and public package reads' \
+    "Cloud console APK refreshes must force paired admin and public package reads."
+
+require_source_match \
     "cloud console APK actions pause while loading" \
     "sysManage/scripts/verify-console-boundary.mjs" \
     'cloud console APK package panel must pause package actions during loading' \

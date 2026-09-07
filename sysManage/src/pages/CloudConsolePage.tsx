@@ -130,7 +130,11 @@ export function CloudConsolePage() {
     operations.storageUsersLoading ||
     operations.trashNodesLoading ||
     operations.shareLinksLoading;
-  const appPackageBusy = appPackages.appPackageLoading || appPackages.appPackageUploading || appPackages.appPackageDeleting;
+  const appPackageBusy =
+    appPackages.appPackageLoading ||
+    appPackages.publicAppPackageLoading ||
+    appPackages.appPackageUploading ||
+    appPackages.appPackageDeleting;
   const activeViewLoading =
     activeView === 'users' ? cloudUsers.usersLoading : activeView === 'operations' ? operationsLoading : appPackageBusy;
   const viewLoadingFallback = (
@@ -173,7 +177,7 @@ export function CloudConsolePage() {
       return;
     }
 
-    await appPackages.loadAppPackageInfo();
+    await appPackages.loadAppPackageState({ force: true });
   }
 
   function handleMenuClick(event: { key: string }) {

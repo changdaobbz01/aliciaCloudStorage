@@ -511,7 +511,7 @@ assertIncludesInOrder(
     'await cloudUsers.loadUsers({ force: true });',
     "if (activeView === 'operations')",
     'await operations.loadAll({ force: true });',
-    'await appPackages.loadAppPackageInfo();',
+    'await appPackages.loadAppPackageState({ force: true });',
   ],
   'cloud console header refresh must not load admin view data without cloud admin access',
 );
@@ -900,10 +900,11 @@ assertIncludesInOrder(
 assertIncludesInOrder(
   appPackageHookSource,
   [
-    'async function loadAppPackageInfo() {',
+    'async function loadAppPackageInfo(options: AppPackageReadOptions = {}) {',
     'if (!authToken || !isAdmin) {',
     'setAppPackageInfo(null);',
-    'setAppPackageInfo(await fetchAdminAppPackage(authToken));',
+    'const nextPackageInfo = await fetchAdminAppPackage(authToken);',
+    'setAppPackageInfo(nextPackageInfo);',
   ],
   'cloud console APK admin reads must stay behind the cloud admin gate',
 );
@@ -912,22 +913,59 @@ assertIncludesInOrder(
   [
     'const appPackageLoadingRef = useRef(false);',
     'const publicAppPackageLoadingRef = useRef(false);',
-    'async function loadAppPackageInfo() {',
-    'if (appPackageLoadingRef.current || appPackageMutationRef.current !== null) {',
+    'const appPackageRequestIdRef = useRef(0);',
+    'const appPackageLoadingKeyRef = useRef<string | null>(null);',
+    'const publicAppPackageRequestIdRef = useRef(0);',
+    'const publicAppPackageLoadingKeyRef = useRef<string | null>(null);',
+    'async function loadAppPackageInfo(options: AppPackageReadOptions = {}) {',
+    'if (appPackageMutationRef.current !== null) {',
+    'if (!options.force && appPackageLoadingKeyRef.current === requestKey) {',
     'appPackageLoadingRef.current = true;',
     'setAppPackageLoading(true);',
     '} finally {',
+    'appPackageLoadingKeyRef.current = null;',
     'appPackageLoadingRef.current = false;',
     'setAppPackageLoading(false);',
-    'async function loadPublicAppPackageInfo() {',
-    'if (publicAppPackageLoadingRef.current) {',
+    'async function loadPublicAppPackageInfo(options: AppPackageReadOptions = {}) {',
+    'if (!options.force && publicAppPackageLoadingKeyRef.current === requestKey) {',
     'publicAppPackageLoadingRef.current = true;',
     'setPublicAppPackageLoading(true);',
     '} finally {',
+    'publicAppPackageLoadingKeyRef.current = null;',
     'publicAppPackageLoadingRef.current = false;',
     'setPublicAppPackageLoading(false);',
   ],
   'cloud console APK reads must keep synchronous loading guards',
+);
+assert.match(
+  appPackageHookSource,
+  /type AppPackageReadOptions = \{[\s\S]*force\?: boolean;[\s\S]*type RefState<T> = \{[\s\S]*current: T;[\s\S]*const authTokenRef = useRef\(authToken\);[\s\S]*const isAdminRef = useRef\(isAdmin\);[\s\S]*const appPackageRequestIdRef = useRef\(0\);[\s\S]*const appPackageLoadingKeyRef = useRef<string \| null>\(null\);[\s\S]*const publicAppPackageRequestIdRef = useRef\(0\);[\s\S]*const publicAppPackageLoadingKeyRef = useRef<string \| null>\(null\);/,
+  'cloud console APK reads must track request identity',
+);
+assert.match(
+  appPackageHookSource,
+  /function createAppPackageRequestKey\(scope: string, token: string \| null = authToken, admin = isAdmin\) \{[\s\S]*return JSON\.stringify\(\[scope, token, admin\]\);[\s\S]*function isCurrentAppPackageRequest\([\s\S]*const currentToken = scope === 'public' \? null : authTokenRef\.current;[\s\S]*const currentAdmin = scope === 'public' \? true : isAdminRef\.current;[\s\S]*createAppPackageRequestKey\(scope, currentToken, currentAdmin\) === requestKey/,
+  'cloud console APK reads must compare auth admin public scope',
+);
+assert.match(
+  appPackageHookSource,
+  /async function loadAppPackageInfo\(options: AppPackageReadOptions = \{\}\) \{[\s\S]*if \(appPackageMutationRef\.current !== null\) \{[\s\S]*return;[\s\S]*if \(!options\.force && appPackageLoadingKeyRef\.current === requestKey\) \{[\s\S]*return;[\s\S]*const nextPackageInfo = await fetchAdminAppPackage\(authToken\);[\s\S]*if \(!isCurrentAppPackageRequest\(appPackageRequestIdRef, appPackageLoadingKeyRef, requestId, requestKey, 'admin'\)\) \{[\s\S]*return;[\s\S]*setAppPackageInfo\(nextPackageInfo\);[\s\S]*async function loadPublicAppPackageInfo\(options: AppPackageReadOptions = \{\}\) \{[\s\S]*if \(appPackageMutationRef\.current !== null\) \{[\s\S]*return;[\s\S]*if \(!options\.force && publicAppPackageLoadingKeyRef\.current === requestKey\) \{[\s\S]*return;[\s\S]*const nextPackageInfo = await fetchPublicAppPackage\(\);[\s\S]*!isCurrentAppPackageRequest\([\s\S]*'public'[\s\S]*setPublicAppPackageInfo\(nextPackageInfo\);/,
+  'cloud console APK reads must block duplicate reads and ignore stale responses',
+);
+assert.match(
+  appPackageHookSource,
+  /function cancelAppPackageReads\(\) \{[\s\S]*appPackageRequestIdRef\.current \+= 1;[\s\S]*appPackageLoadingKeyRef\.current = null;[\s\S]*publicAppPackageRequestIdRef\.current \+= 1;[\s\S]*publicAppPackageLoadingKeyRef\.current = null;[\s\S]*cancelAppPackageReads\(\);[\s\S]*appPackageMutationRef\.current = 'upload';[\s\S]*cancelAppPackageReads\(\);[\s\S]*appPackageMutationRef\.current = 'delete';/,
+  'cloud console APK mutations must invalidate stale package reads',
+);
+assert.match(
+  appPackageHookSource,
+  /useEffect\(\(\) => \{[\s\S]*appPackageRequestIdRef\.current \+= 1;[\s\S]*appPackageLoadingKeyRef\.current = null;[\s\S]*appPackageLoadingRef\.current = false;[\s\S]*setAppPackageLoading\(false\);[\s\S]*setAppPackageInfo\(null\);[\s\S]*\}, \[authToken, isAdmin\]\);/,
+  'cloud console APK admin reads must invalidate auth admin scope changes',
+);
+assert.match(
+  `${consolePageSource}\n${appPackageHookSource}`,
+  /const appPackageBusy =[\s\S]*appPackages\.publicAppPackageLoading[\s\S]*await appPackages\.loadAppPackageState\(\{ force: true \}\);[\s\S]*async function loadAppPackageState\(options: AppPackageReadOptions = \{\}\) \{[\s\S]*loadAppPackageInfo\(options\),[\s\S]*loadPublicAppPackageInfo\(options\),[\s\S]*void loadAppPackageState\(\);/,
+  'cloud console APK refreshes must force paired admin and public package reads',
 );
 assertIncludesInOrder(
   appPackageHookSource,
@@ -1028,7 +1066,11 @@ assertIncludesInOrder(
 assertIncludesInOrder(
   consolePageSource,
   [
-    'const appPackageBusy = appPackages.appPackageLoading || appPackages.appPackageUploading || appPackages.appPackageDeleting;',
+    'const appPackageBusy =',
+    'appPackages.appPackageLoading ||',
+    'appPackages.publicAppPackageLoading ||',
+    'appPackages.appPackageUploading ||',
+    'appPackages.appPackageDeleting;',
     'deleting={appPackages.appPackageDeleting}',
     'onDeletePackage={appPackages.deleteCurrentAppPackage}',
     'loading={activeViewLoading}',
