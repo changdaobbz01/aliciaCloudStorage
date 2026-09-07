@@ -1196,6 +1196,36 @@ require_source_match \
     "Cloud web must seed a cached user snapshot from identity login sessions."
 
 require_source_match \
+    "cloud web current-user reads track request identity" \
+    "webApp/scripts/verify-session-sync.mjs" \
+    'cloud web current-user reads must track request identity' \
+    "Cloud web current-user reads must track request identity."
+
+require_source_match \
+    "cloud web current-user reads compare stored token" \
+    "webApp/scripts/verify-session-sync.mjs" \
+    'cloud web current-user reads must compare current stored token' \
+    "Cloud web current-user reads must compare the current stored token."
+
+require_source_match \
+    "cloud web auth token state syncs ref" \
+    "webApp/scripts/verify-session-sync.mjs" \
+    'cloud web auth token updates must keep ref and state synchronized' \
+    "Cloud web auth token updates must keep ref and state synchronized."
+
+require_source_match \
+    "cloud web current-user reads ignore stale responses" \
+    "webApp/scripts/verify-session-sync.mjs" \
+    'cloud web current-user reads must ignore stale responses' \
+    "Cloud web current-user reads must ignore stale responses."
+
+require_source_match \
+    "cloud web current-user reads invalidate on account changes" \
+    "webApp/scripts/verify-session-sync.mjs" \
+    'cloud web current-user reads must invalidate on logout and profile updates' \
+    "Cloud web current-user reads must invalidate on logout and profile updates."
+
+require_source_match \
     "cloud web sanitizes legacy sessions" \
     "webApp/scripts/verify-session-sync.mjs" \
     'sanitize legacy browser session residue' \
@@ -2238,6 +2268,36 @@ require_source_match \
     "sysManage/scripts/verify-session-sync.mjs" \
     'cloud-safe cached user from identity login sessions' \
     "Cloud console must seed a cached user snapshot from identity login sessions."
+
+require_source_match \
+    "cloud console current-user reads track request identity" \
+    "sysManage/scripts/verify-session-sync.mjs" \
+    'cloud console current-user reads must track request identity' \
+    "Cloud console current-user reads must track request identity."
+
+require_source_match \
+    "cloud console current-user reads compare stored token" \
+    "sysManage/scripts/verify-session-sync.mjs" \
+    'cloud console current-user reads must compare current stored token' \
+    "Cloud console current-user reads must compare the current stored token."
+
+require_source_match \
+    "cloud console auth token state syncs ref" \
+    "sysManage/scripts/verify-session-sync.mjs" \
+    'cloud console auth token updates must keep ref and state synchronized' \
+    "Cloud console auth token updates must keep ref and state synchronized."
+
+require_source_match \
+    "cloud console current-user reads ignore stale responses" \
+    "sysManage/scripts/verify-session-sync.mjs" \
+    'cloud console current-user reads must ignore stale responses' \
+    "Cloud console current-user reads must ignore stale responses."
+
+require_source_match \
+    "cloud console current-user reads invalidate on account changes" \
+    "sysManage/scripts/verify-session-sync.mjs" \
+    'cloud console current-user reads must invalidate on logout and profile updates' \
+    "Cloud console current-user reads must invalidate on logout and profile updates."
 
 require_source_match \
     "cloud console sanitizes legacy sessions" \

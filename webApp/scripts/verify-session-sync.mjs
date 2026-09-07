@@ -170,6 +170,48 @@ assert.match(sessionContext, /function toCachedCloudUser/, 'SessionProvider must
 assert.match(sessionContext, /saveCurrentUser\(toCachedCloudUser\(refreshedSession\.user\)\)/, 'SessionProvider token refresh must seed the cached current user snapshot');
 assert.match(
   sessionContext,
+  /const currentUserRequestIdRef = useRef\(0\);[\s\S]*function invalidateCurrentUserRead\(\) \{[\s\S]*currentUserRequestIdRef\.current \+= 1;/,
+  'cloud web current-user reads must track request identity',
+);
+assert.match(
+  sessionContext,
+  /function isCurrentUserReadForToken\(requestId: number, token: string\) \{[\s\S]*currentUserRequestIdRef\.current === requestId && loadAuthToken\(\) === token;/,
+  'cloud web current-user reads must compare current stored token',
+);
+assert.match(
+  sessionContext,
+  /function setAuthTokenState\(token: string \| null\) \{[\s\S]*authTokenRef\.current = token;[\s\S]*setAuthToken\(token\);/,
+  'cloud web auth token updates must keep ref and state synchronized',
+);
+assertIncludesInOrder(
+  sessionContext,
+  [
+    'function refreshCurrentUserFromToken(token: string) {',
+    'const requestId = currentUserRequestIdRef.current + 1;',
+    'currentUserRequestIdRef.current = requestId;',
+    'void fetchCurrentUser(token)',
+    'if (!isCurrentUserReadForToken(requestId, token)) {',
+    'return;',
+    'saveCurrentUser(user);',
+    'setCurrentUser(user);',
+  ],
+  'cloud web current-user reads must ignore stale responses',
+);
+assertIncludesInOrder(
+  sessionContext,
+  [
+    'function updateCurrentUser(user: User) {',
+    'invalidateCurrentUserRead();',
+    'saveCurrentUser(user);',
+    'function resetSessionState(reason: LoginRedirectReason | null = null) {',
+    'invalidateCurrentUserRead();',
+    'clearStoredSession();',
+    'setAuthTokenState(null);',
+  ],
+  'cloud web current-user reads must invalidate on logout and profile updates',
+);
+assert.match(
+  sessionContext,
   /window\.addEventListener\('pageshow', handlePageShow\)/,
   'SessionProvider must restore stored sessions after browser history cache restores',
 );

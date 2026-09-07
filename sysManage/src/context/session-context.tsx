@@ -83,10 +83,24 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [loginRedirectReason, setLoginRedirectReason] = useState<LoginRedirectReason | null>(null);
   const authTokenRef = useRef(authToken);
+  const currentUserRequestIdRef = useRef(0);
 
   useEffect(() => {
     authTokenRef.current = authToken;
   }, [authToken]);
+
+  function setAuthTokenState(token: string | null) {
+    authTokenRef.current = token;
+    setAuthToken(token);
+  }
+
+  function invalidateCurrentUserRead() {
+    currentUserRequestIdRef.current += 1;
+  }
+
+  function isCurrentUserReadForToken(requestId: number, token: string) {
+    return currentUserRequestIdRef.current === requestId && loadAuthToken() === token;
+  }
 
   async function restoreStoredSession(isCancelled: () => boolean = () => false) {
     if (isSessionWriteLocked()) {
@@ -145,7 +159,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       saveIdentityTokenSession(refreshedSession);
       saveCurrentUser(user);
       setCurrentUser(user);
-      setAuthToken(refreshedSession.token);
+      setAuthTokenState(refreshedSession.token);
       setLoginRedirectReason(null);
     } catch (error) {
       if (!isCancelled() && !hasStoredSessionChanged(snapshot) && isAuthenticationSessionError(error)) {
@@ -217,7 +231,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         saveIdentityTokenSession(refreshedSession);
         saveCurrentUser(user);
         setCurrentUser(user);
-        setAuthToken(refreshedSession.token);
+        setAuthTokenState(refreshedSession.token);
         setLoginRedirectReason(null);
       } catch (error) {
         if (!cancelled && !hasStoredSessionChanged(snapshot) && isAuthenticationSessionError(error)) {
@@ -261,8 +275,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     function refreshCurrentUserFromToken(token: string) {
+      const requestId = currentUserRequestIdRef.current + 1;
+      currentUserRequestIdRef.current = requestId;
+
       void fetchCurrentUser(token)
         .then((user) => {
+          if (!isCurrentUserReadForToken(requestId, token)) {
+            return;
+          }
+
           saveCurrentUser(user);
           setCurrentUser(user);
         })
@@ -289,7 +310,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         }
 
         if (isSessionRevisionStorageKey(key)) {
-          setAuthToken(token);
+          setAuthTokenState(token);
           refreshCurrentUserFromToken(token);
           return;
         }
@@ -300,7 +321,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         }
 
         if (token !== authTokenRef.current) {
-          setAuthToken(token);
+          setAuthTokenState(token);
           if (!cachedUser) {
             refreshCurrentUserFromToken(token);
           }
@@ -362,7 +383,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           if (!loadCurrentUser()) {
             saveCurrentUser(toCachedCloudUser(refreshedSession.user));
           }
-          setAuthToken(refreshedSession.token);
+          setAuthTokenState(refreshedSession.token);
           setLoginRedirectReason(null);
         }
       } catch (error) {
@@ -386,6 +407,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
    * 在用户修改资料后同步更新本地缓存中的用户信息。
    */
   function updateCurrentUser(user: User) {
+    invalidateCurrentUserRead();
     saveCurrentUser(user);
     setCurrentUser(user);
     notifySessionChanged('profile');
@@ -395,9 +417,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
    * 清空当前会话在内存和本地缓存中的全部状态。
    */
   function resetSessionState(reason: LoginRedirectReason | null = null) {
+    invalidateCurrentUserRead();
     clearStoredSession();
     setCurrentUser(null);
-    setAuthToken(null);
+    setAuthTokenState(null);
     setIsSessionChecking(false);
     setLoginRedirectReason(reason);
   }
