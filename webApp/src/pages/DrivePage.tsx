@@ -42,6 +42,11 @@ const { Header, Sider, Content } = Layout;
 
 const MAX_HOME_BACKGROUND_BYTES = 10 * 1024 * 1024;
 
+type PublicAppPackageReadOptions = {
+  force?: boolean;
+  shouldIgnoreResult?: () => boolean;
+};
+
 const baseMenuItems = [
   { key: 'home', icon: <Icon icon={Home} />, label: '主页' },
   { key: 'drive', icon: <Icon icon={FolderOpen} />, label: '我的文件' },
@@ -68,6 +73,8 @@ export function DrivePage() {
   const [publicAppPackageLoading, setPublicAppPackageLoading] = useState(false);
   const [publicAppPackageError, setPublicAppPackageError] = useState<string | null>(null);
   const publicAppPackageLoadingRef = useRef(false);
+  const publicAppPackageRequestIdRef = useRef(0);
+  const publicAppPackageLoadingKeyRef = useRef<string | null>(null);
   const homeBackgroundImage = resolveHomeBackgroundSrc(currentUser);
   const dashboard = useDriveDashboard({ authToken, isHomeView, homeBackgroundImage });
   const explorer = useDriveExplorer({
@@ -225,35 +232,58 @@ export function DrivePage() {
   const showProfileUsageMeter = profileTotalBytes !== null && profileTotalBytes > 0;
   const previewingFileId = explorer.previewingFileId;
 
-  async function loadPublicAppPackageInfo(shouldIgnoreResult: () => boolean = () => false) {
-    if (publicAppPackageLoadingRef.current) {
+  function createPublicAppPackageRequestKey() {
+    return JSON.stringify(['public-app-package']);
+  }
+
+  function isLatestPublicAppPackageRequest(requestId: number, requestKey: string) {
+    return publicAppPackageRequestIdRef.current === requestId && publicAppPackageLoadingKeyRef.current === requestKey;
+  }
+
+  function shouldCommitPublicAppPackageRequest(requestId: number, requestKey: string, shouldIgnoreResult: () => boolean) {
+    return isLatestPublicAppPackageRequest(requestId, requestKey) && !shouldIgnoreResult();
+  }
+
+  async function loadPublicAppPackageInfo(options: PublicAppPackageReadOptions = {}) {
+    const shouldIgnoreResult = options.shouldIgnoreResult ?? (() => false);
+    const requestKey = createPublicAppPackageRequestKey();
+
+    if (!options.force && publicAppPackageLoadingKeyRef.current === requestKey) {
       return;
     }
 
+    publicAppPackageRequestIdRef.current += 1;
+    const requestId = publicAppPackageRequestIdRef.current;
+    publicAppPackageLoadingKeyRef.current = requestKey;
     publicAppPackageLoadingRef.current = true;
     setPublicAppPackageLoading(true);
     setPublicAppPackageError(null);
 
     try {
       const nextPackageInfo = await fetchPublicAppPackage();
-      if (!shouldIgnoreResult()) {
-        setPublicAppPackageInfo(nextPackageInfo);
+      if (!shouldCommitPublicAppPackageRequest(requestId, requestKey, shouldIgnoreResult)) {
+        return;
       }
+
+      setPublicAppPackageInfo(nextPackageInfo);
     } catch (loadError) {
-      if (!shouldIgnoreResult()) {
+      if (shouldCommitPublicAppPackageRequest(requestId, requestKey, shouldIgnoreResult)) {
         setPublicAppPackageInfo(null);
         setPublicAppPackageError(loadError instanceof Error ? loadError.message : '加载移动端下载信息失败。');
       }
     } finally {
-      publicAppPackageLoadingRef.current = false;
-      if (!shouldIgnoreResult()) {
-        setPublicAppPackageLoading(false);
+      if (isLatestPublicAppPackageRequest(requestId, requestKey)) {
+        publicAppPackageLoadingKeyRef.current = null;
+        publicAppPackageLoadingRef.current = false;
+        if (!shouldIgnoreResult()) {
+          setPublicAppPackageLoading(false);
+        }
       }
     }
   }
 
   async function refreshCurrentView() {
-    const tasks: Promise<unknown>[] = [loadPublicAppPackageInfo()];
+    const tasks: Promise<unknown>[] = [loadPublicAppPackageInfo({ force: true })];
 
     if (isHomeView) {
       tasks.push(dashboard.loadHomeDashboard({ force: true }));
@@ -275,7 +305,7 @@ export function DrivePage() {
   useEffect(() => {
     let cancelled = false;
 
-    void loadPublicAppPackageInfo(() => cancelled);
+    void loadPublicAppPackageInfo({ shouldIgnoreResult: () => cancelled });
 
     return () => {
       cancelled = true;

@@ -9,12 +9,19 @@ import { formatFileSize, resolveAppDownloadUrl } from '../features/drive/driveSh
 import { buildShareIntentUrl } from '../lib/mobileApp';
 import { Icon } from '../components/Icon';
 
+type AppPackageReadOptions = {
+  force?: boolean;
+  shouldIgnoreResult?: () => boolean;
+};
+
 export function AppDownloadPage() {
   const { message } = AntApp.useApp();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const shareCode = searchParams.get('share')?.trim() || '';
   const packageLoadingRef = useRef(false);
+  const packageRequestIdRef = useRef(0);
+  const packageLoadingKeyRef = useRef<string | null>(null);
   const downloadOpeningRef = useRef(false);
   const shareOpeningRef = useRef(false);
   const [packageInfo, setPackageInfo] = useState<AppPackageInfo | null>(null);
@@ -28,28 +35,52 @@ export function AppDownloadPage() {
     document.title = '移动客户端下载 - Alicia 云盘';
   }, []);
 
-  async function loadPackage(shouldIgnoreResult: () => boolean = () => false) {
-    if (packageLoadingRef.current) {
+  function createPackageRequestKey() {
+    return JSON.stringify(['public-app-package']);
+  }
+
+  function isLatestPackageRequest(requestId: number, requestKey: string) {
+    return packageRequestIdRef.current === requestId && packageLoadingKeyRef.current === requestKey;
+  }
+
+  function shouldCommitPackageRequest(requestId: number, requestKey: string, shouldIgnoreResult: () => boolean) {
+    return isLatestPackageRequest(requestId, requestKey) && !shouldIgnoreResult();
+  }
+
+  async function loadPackage(options: AppPackageReadOptions = {}) {
+    const shouldIgnoreResult = options.shouldIgnoreResult ?? (() => false);
+    const requestKey = createPackageRequestKey();
+
+    if (!options.force && packageLoadingKeyRef.current === requestKey) {
       return;
     }
 
+    packageRequestIdRef.current += 1;
+    const requestId = packageRequestIdRef.current;
+    packageLoadingKeyRef.current = requestKey;
     packageLoadingRef.current = true;
     setLoading(true);
     setError(null);
 
     try {
       const nextPackageInfo = await fetchPublicAppPackage();
-      if (!shouldIgnoreResult()) {
-        setPackageInfo(nextPackageInfo);
+      if (!shouldCommitPackageRequest(requestId, requestKey, shouldIgnoreResult)) {
+        return;
       }
+
+      setPackageInfo(nextPackageInfo);
     } catch (loadError) {
-      if (!shouldIgnoreResult()) {
+      if (shouldCommitPackageRequest(requestId, requestKey, shouldIgnoreResult)) {
+        setPackageInfo(null);
         setError(loadError instanceof Error ? loadError.message : '获取安装包信息失败。');
       }
     } finally {
-      packageLoadingRef.current = false;
-      if (!shouldIgnoreResult()) {
-        setLoading(false);
+      if (isLatestPackageRequest(requestId, requestKey)) {
+        packageLoadingKeyRef.current = null;
+        packageLoadingRef.current = false;
+        if (!shouldIgnoreResult()) {
+          setLoading(false);
+        }
       }
     }
   }
@@ -57,7 +88,7 @@ export function AppDownloadPage() {
   useEffect(() => {
     let cancelled = false;
 
-    void loadPackage(() => cancelled);
+    void loadPackage({ shouldIgnoreResult: () => cancelled });
 
     return () => {
       cancelled = true;
@@ -146,7 +177,7 @@ export function AppDownloadPage() {
             title="安装包信息暂不可用"
             subTitle={error}
             extra={
-              <Button type="primary" loading={loading} disabled={loading} onClick={() => void loadPackage()}>
+              <Button type="primary" loading={loading} disabled={loading} onClick={() => void loadPackage({ force: true })}>
                 重新获取
               </Button>
             }

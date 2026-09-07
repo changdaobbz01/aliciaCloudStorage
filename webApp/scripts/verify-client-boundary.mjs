@@ -222,12 +222,27 @@ assert.doesNotMatch(
 );
 assert.match(
   appDownloadPage,
-  /import \{ useEffect, useMemo, useRef, useState \} from 'react';[\s\S]*const packageLoadingRef = useRef\(false\);[\s\S]*const downloadOpeningRef = useRef\(false\);[\s\S]*const shareOpeningRef = useRef\(false\);/,
+  /import \{ useEffect, useMemo, useRef, useState \} from 'react';[\s\S]*const packageLoadingRef = useRef\(false\);[\s\S]*const packageRequestIdRef = useRef\(0\);[\s\S]*const packageLoadingKeyRef = useRef<string \| null>\(null\);[\s\S]*const downloadOpeningRef = useRef\(false\);[\s\S]*const shareOpeningRef = useRef\(false\);/,
   'cloud app download page must track synchronous pending guards',
 );
 assert.match(
   appDownloadPage,
-  /async function loadPackage\(shouldIgnoreResult: \(\) => boolean = \(\) => false\) \{[\s\S]*if \(packageLoadingRef\.current\) \{[\s\S]*return;[\s\S]*packageLoadingRef\.current = true;[\s\S]*setLoading\(true\);[\s\S]*const nextPackageInfo = await fetchPublicAppPackage\(\);[\s\S]*finally \{[\s\S]*packageLoadingRef\.current = false;[\s\S]*setLoading\(false\);/,
+  /type AppPackageReadOptions = \{[\s\S]*force\?: boolean;[\s\S]*shouldIgnoreResult\?: \(\) => boolean;[\s\S]*const packageRequestIdRef = useRef\(0\);[\s\S]*const packageLoadingKeyRef = useRef<string \| null>\(null\);/,
+  'cloud app download package reads must track request identity',
+);
+assert.match(
+  appDownloadPage,
+  /function createPackageRequestKey\(\) \{[\s\S]*return JSON\.stringify\(\['public-app-package'\]\);[\s\S]*function isLatestPackageRequest\(requestId: number, requestKey: string\) \{[\s\S]*packageRequestIdRef\.current === requestId && packageLoadingKeyRef\.current === requestKey;/,
+  'cloud app download package reads must compare request scope',
+);
+assert.match(
+  appDownloadPage,
+  /async function loadPackage\(options: AppPackageReadOptions = \{\}\) \{[\s\S]*const shouldIgnoreResult = options\.shouldIgnoreResult \?\? \(\(\) => false\);[\s\S]*if \(!options\.force && packageLoadingKeyRef\.current === requestKey\) \{[\s\S]*return;[\s\S]*packageRequestIdRef\.current \+= 1;[\s\S]*const requestId = packageRequestIdRef\.current;[\s\S]*const nextPackageInfo = await fetchPublicAppPackage\(\);[\s\S]*if \(!shouldCommitPackageRequest\(requestId, requestKey, shouldIgnoreResult\)\) \{[\s\S]*return;[\s\S]*setPackageInfo\(nextPackageInfo\);[\s\S]*finally \{[\s\S]*if \(isLatestPackageRequest\(requestId, requestKey\)\) \{[\s\S]*packageLoadingKeyRef\.current = null;[\s\S]*setLoading\(false\);/,
+  'cloud app download package load must block duplicate reads and ignore stale responses',
+);
+assert.match(
+  appDownloadPage,
+  /void loadPackage\(\{ shouldIgnoreResult: \(\) => cancelled \}\);[\s\S]*onClick=\{\(\) => void loadPackage\(\{ force: true \}\)\}/,
   'cloud app download package load must block duplicate reads and expose retry state',
 );
 assert.match(
@@ -242,12 +257,27 @@ assert.match(
 );
 assert.match(
   drivePage,
-  /import \{ Suspense, lazy, useEffect, useMemo, useRef, useState \} from 'react';[\s\S]*const publicAppPackageLoadingRef = useRef\(false\);[\s\S]*async function loadPublicAppPackageInfo\(shouldIgnoreResult: \(\) => boolean = \(\) => false\) \{[\s\S]*if \(publicAppPackageLoadingRef\.current\) \{[\s\S]*return;[\s\S]*publicAppPackageLoadingRef\.current = true;[\s\S]*setPublicAppPackageLoading\(true\);[\s\S]*const nextPackageInfo = await fetchPublicAppPackage\(\);[\s\S]*setPublicAppPackageInfo\(nextPackageInfo\);[\s\S]*finally \{[\s\S]*publicAppPackageLoadingRef\.current = false;[\s\S]*setPublicAppPackageLoading\(false\);/,
+  /import \{ Suspense, lazy, useEffect, useMemo, useRef, useState \} from 'react';[\s\S]*const publicAppPackageLoadingRef = useRef\(false\);[\s\S]*const publicAppPackageRequestIdRef = useRef\(0\);[\s\S]*const publicAppPackageLoadingKeyRef = useRef<string \| null>\(null\);/,
   'cloud drive app package reads must keep synchronous loading guards',
 );
 assert.match(
   drivePage,
-  /void loadPublicAppPackageInfo\(\(\) => cancelled\);[\s\S]*refreshPending=\{publicAppPackageLoading\}/,
+  /type PublicAppPackageReadOptions = \{[\s\S]*force\?: boolean;[\s\S]*shouldIgnoreResult\?: \(\) => boolean;[\s\S]*const publicAppPackageRequestIdRef = useRef\(0\);[\s\S]*const publicAppPackageLoadingKeyRef = useRef<string \| null>\(null\);/,
+  'cloud drive app package reads must track request identity',
+);
+assert.match(
+  drivePage,
+  /function createPublicAppPackageRequestKey\(\) \{[\s\S]*return JSON\.stringify\(\['public-app-package'\]\);[\s\S]*function isLatestPublicAppPackageRequest\(requestId: number, requestKey: string\) \{[\s\S]*publicAppPackageRequestIdRef\.current === requestId && publicAppPackageLoadingKeyRef\.current === requestKey;/,
+  'cloud drive app package reads must compare request scope',
+);
+assert.match(
+  drivePage,
+  /async function loadPublicAppPackageInfo\(options: PublicAppPackageReadOptions = \{\}\) \{[\s\S]*const shouldIgnoreResult = options\.shouldIgnoreResult \?\? \(\(\) => false\);[\s\S]*if \(!options\.force && publicAppPackageLoadingKeyRef\.current === requestKey\) \{[\s\S]*return;[\s\S]*publicAppPackageRequestIdRef\.current \+= 1;[\s\S]*const requestId = publicAppPackageRequestIdRef\.current;[\s\S]*const nextPackageInfo = await fetchPublicAppPackage\(\);[\s\S]*if \(!shouldCommitPublicAppPackageRequest\(requestId, requestKey, shouldIgnoreResult\)\) \{[\s\S]*return;[\s\S]*setPublicAppPackageInfo\(nextPackageInfo\);[\s\S]*finally \{[\s\S]*if \(isLatestPublicAppPackageRequest\(requestId, requestKey\)\) \{[\s\S]*publicAppPackageLoadingKeyRef\.current = null;[\s\S]*setPublicAppPackageLoading\(false\);/,
+  'cloud drive app package reads must block duplicate reads and ignore stale responses',
+);
+assert.match(
+  drivePage,
+  /const tasks: Promise<unknown>\[] = \[loadPublicAppPackageInfo\(\{ force: true \}\)\];[\s\S]*void loadPublicAppPackageInfo\(\{ shouldIgnoreResult: \(\) => cancelled \}\);[\s\S]*refreshPending=\{publicAppPackageLoading\}/,
   'cloud drive app package loading must be wired to list refresh',
 );
 assert.match(

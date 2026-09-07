@@ -194,7 +194,25 @@ require_source_match \
     "Cloud web boundary verifier must track app download pending guards."
 
 require_source_match \
-    "cloud web blocks duplicate app package reads" \
+    "cloud web app download package reads track request identity" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud app download package reads must track request identity' \
+    "Cloud app download package reads must track request identity."
+
+require_source_match \
+    "cloud web app download package reads compare scope" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud app download package reads must compare request scope' \
+    "Cloud app download package reads must compare request scope."
+
+require_source_match \
+    "cloud web app download package reads block stale responses" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud app download package load must block duplicate reads and ignore stale responses' \
+    "Cloud app download package load must block duplicate reads and ignore stale responses."
+
+require_source_match \
+    "cloud web app download package reads expose retry state" \
     "webApp/scripts/verify-client-boundary.mjs" \
     'cloud app download package load must block duplicate reads and expose retry state' \
     "Cloud web boundary verifier must block duplicate app package reads."
@@ -216,6 +234,24 @@ require_source_match \
     "webApp/scripts/verify-client-boundary.mjs" \
     'cloud drive app package reads must keep synchronous loading guards' \
     "Cloud drive app package reads must keep synchronous loading guards."
+
+require_source_match \
+    "cloud drive app package reads track request identity" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud drive app package reads must track request identity' \
+    "Cloud drive app package reads must track request identity."
+
+require_source_match \
+    "cloud drive app package reads compare scope" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud drive app package reads must compare request scope' \
+    "Cloud drive app package reads must compare request scope."
+
+require_source_match \
+    "cloud drive app package reads block stale responses" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud drive app package reads must block duplicate reads and ignore stale responses' \
+    "Cloud drive app package reads must block duplicate reads and ignore stale responses."
 
 require_source_match \
     "cloud drive app package loading wires list refresh" \
