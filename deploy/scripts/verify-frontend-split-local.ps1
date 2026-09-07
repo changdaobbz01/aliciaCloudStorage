@@ -92,6 +92,75 @@ function Invoke-Step {
     Write-Host "[OK] $Name"
 }
 
+function Assert-CommandAvailable {
+    param(
+        [string]$Label,
+        [string[]]$Candidates,
+        [string]$Message
+    )
+
+    foreach ($candidate in $Candidates) {
+        if (Get-Command $candidate -ErrorAction SilentlyContinue) {
+            return
+        }
+    }
+
+    Fail "$Label is not available. $Message"
+}
+
+function Test-FrontendBuildBinary {
+    param(
+        [string]$PackageDir,
+        [string]$BinaryName
+    )
+
+    $binDir = Join-Path $PackageDir "node_modules\.bin"
+    $candidates = @(
+        (Join-Path $binDir $BinaryName)
+        (Join-Path $binDir "$BinaryName.cmd")
+        (Join-Path $binDir "$BinaryName.ps1")
+    )
+
+    foreach ($candidate in $candidates) {
+        if (Test-Path -LiteralPath $candidate -PathType Leaf) {
+            return $true
+        }
+    }
+
+    return $false
+}
+
+function Assert-FrontendBuildDependencies {
+    param(
+        [string]$Label,
+        [string]$RelativeDirectory
+    )
+
+    $packageDir = Resolve-RepoPath $RelativeDirectory
+    if (-not (Test-Path -LiteralPath $packageDir -PathType Container)) {
+        Fail "Missing $Label npm package directory: $packageDir"
+    }
+
+    $missing = @()
+    foreach ($binaryName in @("tsc", "vite")) {
+        if (-not (Test-FrontendBuildBinary $packageDir $binaryName)) {
+            $missing += "node_modules\.bin\$binaryName"
+        }
+    }
+
+    if ($missing.Count -gt 0) {
+        Fail "$Label frontend dependencies are not installed: missing $($missing -join ', '). Run: Set-Location '$packageDir'; npm ci --no-audit --no-fund"
+    }
+}
+
+function Invoke-FrontendBuildDependencyPreflight {
+    Assert-CommandAvailable "Node.js" @("node.exe", "node") "Install Node.js or rerun with -SkipBuild for static/API-only verification."
+    Assert-CommandAvailable "npm" @("npm.cmd", "npm") "Install npm or rerun with -SkipBuild for static/API-only verification."
+
+    Assert-FrontendBuildDependencies "cloud webApp" "webApp"
+    Assert-FrontendBuildDependencies "cloud sysManage" "sysManage"
+}
+
 function Invoke-NpmScript {
     param(
         [string]$RelativeDirectory,
@@ -134,6 +203,7 @@ function Invoke-NodeScript {
 }
 
 if (-not $SkipBuild) {
+    Invoke-Step "preflight frontend build dependencies" { Invoke-FrontendBuildDependencyPreflight }
     Invoke-Step "build cloud webApp" { Invoke-NpmScript "webApp" "build" }
     Invoke-Step "build cloud sysManage" { Invoke-NpmScript "sysManage" "build" }
 } else {
@@ -505,6 +575,9 @@ Invoke-Step "verify cloud frontend split wiring" {
     Require-Contains "deploy/scripts/verify-platform-frontend-split-local.ps1" 'Write-Host "Cloud commit:' "platform local verifier must print the cloud commit"
     Require-Contains "deploy/scripts/verify-platform-frontend-split-local.ps1" 'deploy\scripts\verify-frontend-split-local.ps1' "platform local verifier must run each repository frontend split verifier"
     Require-Contains "deploy/scripts/verify-platform-frontend-split-local.ps1" '$verificationArgs["SkipBuild"] = $true' "platform local verifier must pass through the SkipBuild switch"
+    Require-Contains "deploy/scripts/verify-frontend-split-local.ps1" "Invoke-FrontendBuildDependencyPreflight" "cloud local verifier must preflight frontend build dependencies before full builds"
+    Require-Contains "deploy/scripts/verify-frontend-split-local.ps1" 'foreach ($binaryName in @("tsc", "vite"))' "cloud local verifier must diagnose missing TypeScript and Vite build dependencies"
+    Require-Contains "deploy/scripts/verify-frontend-split-local.ps1" "npm ci --no-audit --no-fund" "cloud local verifier must tell operators how to install missing frontend dependencies"
     Require-Contains "deploy/scripts/verify-platform-frontend-split-local.ps1" "Invoke-FrontendBuildDependencyPreflight" "platform local verifier must preflight frontend build dependencies before full builds"
     Require-Contains "deploy/scripts/verify-platform-frontend-split-local.ps1" 'foreach ($binaryName in @("tsc", "vite"))' "platform local verifier must diagnose missing TypeScript and Vite build dependencies"
     Require-Contains "deploy/scripts/verify-platform-frontend-split-local.ps1" 'npm ci --no-audit --no-fund' "platform local verifier must tell operators how to install missing frontend dependencies"

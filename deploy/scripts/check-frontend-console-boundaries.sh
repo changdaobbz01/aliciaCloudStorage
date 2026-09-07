@@ -2528,6 +2528,24 @@ require_source_match \
     "Platform local verifier must pass through the SkipBuild switch."
 
 require_source_match \
+    "cloud local verifier preflights build dependencies" \
+    "deploy/scripts/verify-frontend-split-local.ps1" \
+    'Invoke-FrontendBuildDependencyPreflight' \
+    "Cloud local verifier must preflight frontend build dependencies before running full builds."
+
+require_source_match \
+    "cloud local verifier diagnoses missing frontend tsc" \
+    "deploy/scripts/verify-frontend-split-local.ps1" \
+    'foreach \(\$binaryName in @\("tsc", "vite"\)\)' \
+    "Cloud local verifier must diagnose missing TypeScript and Vite build dependencies before npm build."
+
+require_source_match \
+    "cloud local verifier reports npm ci fix" \
+    "deploy/scripts/verify-frontend-split-local.ps1" \
+    'npm ci --no-audit --no-fund' \
+    "Cloud local verifier must tell operators how to install missing frontend dependencies."
+
+require_source_match \
     "platform local verifier preflights build dependencies" \
     "deploy/scripts/verify-platform-frontend-split-local.ps1" \
     'Invoke-FrontendBuildDependencyPreflight' \
