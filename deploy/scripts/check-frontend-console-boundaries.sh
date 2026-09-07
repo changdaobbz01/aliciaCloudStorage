@@ -1382,6 +1382,12 @@ require_source_match \
     "Cloud web home background mutations must block duplicate submissions."
 
 require_source_match \
+    "cloud web profile mutations ignore stale auth" \
+    "webApp/scripts/verify-session-sync.mjs" \
+    'cloud web profile mutations must ignore stale auth scope' \
+    "Cloud web profile mutations must ignore stale auth scope."
+
+require_source_match \
     "cloud web password change blocks duplicates" \
     "webApp/scripts/verify-session-sync.mjs" \
     'cloud web password change must block duplicate submissions and report failures' \
@@ -2130,6 +2136,12 @@ require_source_match \
     "sysManage/scripts/verify-console-boundary.mjs" \
     'cloud console profile avatar upload must block duplicate submissions and surface pending state' \
     "Cloud console profile avatar upload must block duplicate submissions."
+
+require_source_match \
+    "cloud console profile mutations ignore stale auth" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console profile mutations must ignore stale auth scope' \
+    "Cloud console profile mutations must ignore stale auth scope."
 
 require_source_match \
     "cloud console profile modal shows pending updates" \

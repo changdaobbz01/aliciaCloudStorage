@@ -97,7 +97,9 @@ export function CloudConsolePage() {
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const profileSavingRef = useRef(false);
   const avatarUploadingRef = useRef(false);
+  const authTokenRef = useRef(authToken);
   const logoutNavigatingRef = useRef(false);
+  authTokenRef.current = authToken;
   const activeView = viewFromRoute(view);
   const isAdmin = isCloudAdmin(currentUser);
   const activeMeta = viewMeta[activeView];
@@ -142,6 +144,11 @@ export function CloudConsolePage() {
       <Spin size="large" />
     </div>
   );
+
+  function isCurrentProfileMutation(token: string) {
+    return authTokenRef.current === token;
+  }
+
   const avatarMenuItems: MenuProps['items'] = [
     { key: 'profile', icon: <Icon icon={UserCog} />, label: '个人资料' },
     { type: 'divider' },
@@ -231,16 +238,23 @@ export function CloudConsolePage() {
       return;
     }
 
+    const requestToken = authToken;
     avatarUploadingRef.current = true;
     setAvatarUploading(true);
 
     try {
-      const updatedUser = await uploadCurrentUserAvatar(selectedFile, authToken);
+      const updatedUser = await uploadCurrentUserAvatar(selectedFile, requestToken);
+      if (!isCurrentProfileMutation(requestToken)) {
+        return;
+      }
+
       updateCurrentUser(updatedUser);
       profileForm.setFieldsValue({ avatarUrl: updatedUser.avatarUrl ?? '' });
       message.success('头像已更新。');
     } catch (avatarError) {
-      message.error(avatarError instanceof Error ? avatarError.message : '头像上传失败。');
+      if (isCurrentProfileMutation(requestToken)) {
+        message.error(avatarError instanceof Error ? avatarError.message : '头像上传失败。');
+      }
     } finally {
       avatarUploadingRef.current = false;
       setAvatarUploading(false);
@@ -261,6 +275,7 @@ export function CloudConsolePage() {
 
     profileSavingRef.current = true;
     setProfileSaving(true);
+    const requestToken = authToken;
 
     try {
       const updatedUser = await updateProfile(
@@ -269,14 +284,20 @@ export function CloudConsolePage() {
           phoneNumber: normalizeOptionalText(values.phoneNumber),
           avatarUrl: normalizeOptionalText(values.avatarUrl),
         },
-        authToken,
+        requestToken,
       );
+      if (!isCurrentProfileMutation(requestToken)) {
+        return false;
+      }
+
       updateCurrentUser(updatedUser);
       setProfileOpen(false);
       message.success('个人资料已更新。');
       return true;
     } catch (profileError) {
-      message.error(profileError instanceof Error ? profileError.message : '个人资料保存失败。');
+      if (isCurrentProfileMutation(requestToken)) {
+        message.error(profileError instanceof Error ? profileError.message : '个人资料保存失败。');
+      }
       return false;
     } finally {
       profileSavingRef.current = false;

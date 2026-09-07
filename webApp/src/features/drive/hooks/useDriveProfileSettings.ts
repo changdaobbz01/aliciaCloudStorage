@@ -74,6 +74,10 @@ export function useDriveProfileSettings({
   authTokenRef.current = authToken;
   includeRevokedSessionsRef.current = includeRevokedSessions;
 
+  function isCurrentProfileMutation(token: string) {
+    return authTokenRef.current === token;
+  }
+
   function openProfileModal() {
     if (!currentUser) {
       return;
@@ -126,16 +130,23 @@ export function useDriveProfileSettings({
       return;
     }
 
+    const requestToken = authToken;
     avatarUploadingRef.current = true;
     setAvatarUploading(true);
 
     try {
-      const updatedUser = await uploadCurrentUserAvatar(selectedFile, authToken);
+      const updatedUser = await uploadCurrentUserAvatar(selectedFile, requestToken);
+      if (!isCurrentProfileMutation(requestToken)) {
+        return;
+      }
+
       updateCurrentUser(updatedUser);
       profileForm.setFieldsValue({ avatarUrl: updatedUser.avatarUrl ?? '' });
       message.success('头像已更新。');
     } catch (avatarError) {
-      message.error(avatarError instanceof Error ? avatarError.message : '头像上传失败。');
+      if (isCurrentProfileMutation(requestToken)) {
+        message.error(avatarError instanceof Error ? avatarError.message : '头像上传失败。');
+      }
     } finally {
       avatarUploadingRef.current = false;
       setAvatarUploading(false);
@@ -189,15 +200,22 @@ export function useDriveProfileSettings({
       return;
     }
 
+    const requestToken = authToken;
     backgroundUploadingRef.current = true;
     setBackgroundUploading(true);
 
     try {
-      const updatedUser = await uploadCurrentUserHomeBackground(selectedFile, authToken);
+      const updatedUser = await uploadCurrentUserHomeBackground(selectedFile, requestToken);
+      if (!isCurrentProfileMutation(requestToken)) {
+        return;
+      }
+
       updateCurrentUser(updatedUser);
       message.success('主页背景图已更新。');
     } catch (backgroundError) {
-      message.error(backgroundError instanceof Error ? backgroundError.message : '背景图上传失败。');
+      if (isCurrentProfileMutation(requestToken)) {
+        message.error(backgroundError instanceof Error ? backgroundError.message : '背景图上传失败。');
+      }
     } finally {
       backgroundUploadingRef.current = false;
       setBackgroundUploading(false);
@@ -209,15 +227,22 @@ export function useDriveProfileSettings({
       return;
     }
 
+    const requestToken = authToken;
     backgroundClearingRef.current = true;
     setBackgroundClearing(true);
 
     try {
-      const updatedUser = await clearCurrentUserHomeBackground(authToken);
+      const updatedUser = await clearCurrentUserHomeBackground(requestToken);
+      if (!isCurrentProfileMutation(requestToken)) {
+        return;
+      }
+
       updateCurrentUser(updatedUser);
       message.success('主页背景图已移除。');
     } catch (backgroundError) {
-      message.error(backgroundError instanceof Error ? backgroundError.message : '移除背景图失败。');
+      if (isCurrentProfileMutation(requestToken)) {
+        message.error(backgroundError instanceof Error ? backgroundError.message : '移除背景图失败。');
+      }
     } finally {
       backgroundClearingRef.current = false;
       setBackgroundClearing(false);
@@ -362,6 +387,7 @@ export function useDriveProfileSettings({
 
     profileSavingRef.current = true;
     setProfileSaving(true);
+    const requestToken = authToken;
 
     try {
       const updatedUser = await updateProfile(
@@ -370,15 +396,20 @@ export function useDriveProfileSettings({
           phoneNumber,
           avatarUrl,
         },
-        authToken,
+        requestToken,
       );
+      if (!isCurrentProfileMutation(requestToken)) {
+        return false;
+      }
 
       updateCurrentUser(updatedUser);
       setProfileOpen(false);
       message.success('个人资料已更新。');
       return true;
     } catch (profileError) {
-      message.error(profileError instanceof Error ? profileError.message : '个人资料保存失败。');
+      if (isCurrentProfileMutation(requestToken)) {
+        message.error(profileError instanceof Error ? profileError.message : '个人资料保存失败。');
+      }
       return false;
     } finally {
       profileSavingRef.current = false;
@@ -393,6 +424,7 @@ export function useDriveProfileSettings({
 
     passwordSavingRef.current = true;
     setPasswordSaving(true);
+    const requestToken = authToken;
 
     try {
       await changePassword(
@@ -400,8 +432,11 @@ export function useDriveProfileSettings({
           oldPassword: values.oldPassword,
           newPassword: values.newPassword,
         },
-        authToken,
+        requestToken,
       );
+      if (!isCurrentProfileMutation(requestToken)) {
+        return false;
+      }
 
       passwordForm.resetFields();
       setPasswordOpen(false);
@@ -410,7 +445,9 @@ export function useDriveProfileSettings({
       onNavigateToLogin();
       return true;
     } catch (passwordError) {
-      message.error(passwordError instanceof Error ? passwordError.message : '密码修改失败。');
+      if (isCurrentProfileMutation(requestToken)) {
+        message.error(passwordError instanceof Error ? passwordError.message : '密码修改失败。');
+      }
       return false;
     } finally {
       passwordSavingRef.current = false;
