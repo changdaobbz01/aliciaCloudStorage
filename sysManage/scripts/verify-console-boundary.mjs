@@ -510,7 +510,7 @@ assertIncludesInOrder(
     "if (activeView === 'users')",
     'await cloudUsers.loadUsers({ force: true });',
     "if (activeView === 'operations')",
-    'await operations.loadAll();',
+    'await operations.loadAll({ force: true });',
     'await appPackages.loadAppPackageInfo();',
   ],
   'cloud console header refresh must not load admin view data without cloud admin access',
@@ -625,10 +625,11 @@ assertIncludesInOrder(
 assertIncludesInOrder(
   driveOperationsHookSource,
   [
-    'async function loadOverview() {',
+    'async function loadOverview(options: DriveOperationsReadOptions = {}) {',
     'if (!authToken || !isAdmin) {',
     'setOverview(null);',
-    'setOverview(await fetchAdminCloudOperationsOverview(authToken));',
+    'const nextOverview = await fetchAdminCloudOperationsOverview(authToken);',
+    'setOverview(nextOverview);',
   ],
   'cloud console operations overview must stay behind the cloud admin gate',
 );
@@ -640,41 +641,74 @@ assertIncludesInOrder(
     'const storageUsersLoadingRef = useRef(false);',
     'const trashNodesLoadingRef = useRef(false);',
     'const shareLinksLoadingRef = useRef(false);',
-    'async function loadOverview() {',
-    'if (overviewLoadingRef.current) {',
+    'const overviewRequestIdRef = useRef(0);',
+    'const overviewLoadingKeyRef = useRef<string | null>(null);',
+    'const storageUsersRequestIdRef = useRef(0);',
+    'const storageUsersLoadingKeyRef = useRef<string | null>(null);',
+    'const trashNodesRequestIdRef = useRef(0);',
+    'const trashNodesLoadingKeyRef = useRef<string | null>(null);',
+    'const shareLinksRequestIdRef = useRef(0);',
+    'const shareLinksLoadingKeyRef = useRef<string | null>(null);',
+    'async function loadOverview(options: DriveOperationsReadOptions = {}) {',
+    'if (!options.force && overviewLoadingKeyRef.current === requestKey) {',
     'overviewLoadingRef.current = true;',
     'setOverviewLoading(true);',
     '} finally {',
+    'overviewLoadingKeyRef.current = null;',
     'overviewLoadingRef.current = false;',
     'setOverviewLoading(false);',
-    'async function loadStorageUsers(query: AdminCloudStorageUsersQuery = storageUsersQuery) {',
-    'if (storageUsersLoadingRef.current) {',
+    'async function loadStorageUsers(',
+    'if (!options.force && storageUsersLoadingKeyRef.current === requestKey) {',
     'storageUsersLoadingRef.current = true;',
     'setStorageUsersLoading(true);',
     '} finally {',
+    'storageUsersLoadingKeyRef.current = null;',
     'storageUsersLoadingRef.current = false;',
     'setStorageUsersLoading(false);',
-    'async function loadTrashNodes(query: AdminCloudTrashNodesQuery = trashNodesQuery) {',
-    'if (trashNodesLoadingRef.current) {',
+    'async function loadTrashNodes(',
+    'if (!options.force && trashNodesLoadingKeyRef.current === requestKey) {',
     'trashNodesLoadingRef.current = true;',
     'setTrashNodesLoading(true);',
     '} finally {',
+    'trashNodesLoadingKeyRef.current = null;',
     'trashNodesLoadingRef.current = false;',
     'setTrashNodesLoading(false);',
-    'async function loadShareLinks(query: AdminCloudShareLinksQuery = shareLinksQuery) {',
-    'if (shareLinksLoadingRef.current) {',
+    'async function loadShareLinks(',
+    'if (!options.force && shareLinksLoadingKeyRef.current === requestKey) {',
     'shareLinksLoadingRef.current = true;',
     'setShareLinksLoading(true);',
     '} finally {',
+    'shareLinksLoadingKeyRef.current = null;',
     'shareLinksLoadingRef.current = false;',
     'setShareLinksLoading(false);',
   ],
   'cloud console operations reads must keep synchronous loading guards',
 );
+assert.match(
+  driveOperationsHookSource,
+  /type DriveOperationsReadOptions = \{[\s\S]*force\?: boolean;[\s\S]*type RefState<T> = \{[\s\S]*current: T;[\s\S]*const authTokenRef = useRef\(authToken\);[\s\S]*const isAdminRef = useRef\(isAdmin\);[\s\S]*const overviewRequestIdRef = useRef\(0\);[\s\S]*const storageUsersRequestIdRef = useRef\(0\);[\s\S]*const trashNodesRequestIdRef = useRef\(0\);[\s\S]*const shareLinksRequestIdRef = useRef\(0\);/,
+  'cloud console operations reads must track request identity',
+);
+assert.match(
+  driveOperationsHookSource,
+  /function createOperationsRequestKey\([\s\S]*scope: string,[\s\S]*token: string \| null = authToken,[\s\S]*admin = isAdmin,[\s\S]*query: unknown = null,[\s\S]*return JSON\.stringify\(\[scope, token, admin, query\]\);[\s\S]*function isCurrentOperationsRequest\([\s\S]*requestIdRef\.current === requestId[\s\S]*loadingKeyRef\.current === requestKey[\s\S]*createOperationsRequestKey\(scope, authTokenRef\.current, isAdminRef\.current, query\) === requestKey/,
+  'cloud console operations reads must compare auth admin query scope',
+);
+assert.match(
+  driveOperationsHookSource,
+  /async function loadOverview\(options: DriveOperationsReadOptions = \{\}\) \{[\s\S]*if \(!options\.force && overviewLoadingKeyRef\.current === requestKey\) \{[\s\S]*return;[\s\S]*const nextOverview = await fetchAdminCloudOperationsOverview\(authToken\);[\s\S]*if \(!isCurrentOperationsRequest\(overviewRequestIdRef, overviewLoadingKeyRef, requestId, requestKey, 'overview'\)\) \{[\s\S]*return;[\s\S]*setOverview\(nextOverview\);[\s\S]*async function loadStorageUsers\([\s\S]*if \(!options\.force && storageUsersLoadingKeyRef\.current === requestKey\) \{[\s\S]*return;[\s\S]*const page = await fetchAdminCloudStorageUsers\(query, authToken\);[\s\S]*!isCurrentOperationsRequest\([\s\S]*'storage-users'[\s\S]*setStorageUsersPage\(page\);[\s\S]*async function loadTrashNodes\([\s\S]*if \(!options\.force && trashNodesLoadingKeyRef\.current === requestKey\) \{[\s\S]*return;[\s\S]*const page = await fetchAdminCloudOperationTrash\(query, authToken\);[\s\S]*!isCurrentOperationsRequest\([\s\S]*'trash-nodes'[\s\S]*setTrashNodesPage\(page\);[\s\S]*async function loadShareLinks\([\s\S]*if \(!options\.force && shareLinksLoadingKeyRef\.current === requestKey\) \{[\s\S]*return;[\s\S]*const page = await fetchAdminCloudOperationShares\(query, authToken\);[\s\S]*!isCurrentOperationsRequest\([\s\S]*'share-links'[\s\S]*setShareLinksPage\(page\);/,
+  'cloud console operations reads must block duplicate reads and ignore stale responses',
+);
+assert.match(
+  driveOperationsHookSource,
+  /useEffect\(\(\) => \{[\s\S]*overviewRequestIdRef\.current \+= 1;[\s\S]*overviewLoadingKeyRef\.current = null;[\s\S]*setOverview\(null\);[\s\S]*storageUsersRequestIdRef\.current \+= 1;[\s\S]*storageUsersLoadingKeyRef\.current = null;[\s\S]*setStorageUsersPage\(null\);[\s\S]*trashNodesRequestIdRef\.current \+= 1;[\s\S]*trashNodesLoadingKeyRef\.current = null;[\s\S]*setTrashNodesPage\(null\);[\s\S]*shareLinksRequestIdRef\.current \+= 1;[\s\S]*shareLinksLoadingKeyRef\.current = null;[\s\S]*setShareLinksPage\(null\);[\s\S]*\}, \[authToken, isAdmin\]\);/,
+  'cloud console operations reads must invalidate auth admin scope changes',
+);
 assertIncludesInOrder(
   driveOperationsHookSource,
   [
-    'async function loadStorageUsers(query: AdminCloudStorageUsersQuery = storageUsersQuery) {',
+    'async function loadStorageUsers(',
+    'query: AdminCloudStorageUsersQuery = storageUsersQuery,',
     'if (!authToken || !isAdmin) {',
     'setStorageUsersPage(null);',
     'const page = await fetchAdminCloudStorageUsers(query, authToken);',
@@ -684,7 +718,8 @@ assertIncludesInOrder(
 assertIncludesInOrder(
   driveOperationsHookSource,
   [
-    'async function loadStorageUsers(query: AdminCloudStorageUsersQuery = storageUsersQuery) {',
+    'async function loadStorageUsers(',
+    'query: AdminCloudStorageUsersQuery = storageUsersQuery,',
     'const page = await fetchAdminCloudStorageUsers(query, authToken);',
     'setStorageUsersPage(page);',
     'setStorageUsersQuery({',
@@ -699,7 +734,8 @@ assertIncludesInOrder(
 assertIncludesInOrder(
   driveOperationsHookSource,
   [
-    'async function loadTrashNodes(query: AdminCloudTrashNodesQuery = trashNodesQuery) {',
+    'async function loadTrashNodes(',
+    'query: AdminCloudTrashNodesQuery = trashNodesQuery,',
     'if (!authToken || !isAdmin) {',
     'setTrashNodesPage(null);',
     'const page = await fetchAdminCloudOperationTrash(query, authToken);',
@@ -709,7 +745,8 @@ assertIncludesInOrder(
 assertIncludesInOrder(
   driveOperationsHookSource,
   [
-    'async function loadTrashNodes(query: AdminCloudTrashNodesQuery = trashNodesQuery) {',
+    'async function loadTrashNodes(',
+    'query: AdminCloudTrashNodesQuery = trashNodesQuery,',
     'const page = await fetchAdminCloudOperationTrash(query, authToken);',
     'setTrashNodesPage(page);',
     'setTrashNodesQuery({',
@@ -724,7 +761,8 @@ assertIncludesInOrder(
 assertIncludesInOrder(
   driveOperationsHookSource,
   [
-    'async function loadShareLinks(query: AdminCloudShareLinksQuery = shareLinksQuery) {',
+    'async function loadShareLinks(',
+    'query: AdminCloudShareLinksQuery = shareLinksQuery,',
     'if (!authToken || !isAdmin) {',
     'setShareLinksPage(null);',
     'const page = await fetchAdminCloudOperationShares(query, authToken);',
@@ -734,7 +772,8 @@ assertIncludesInOrder(
 assertIncludesInOrder(
   driveOperationsHookSource,
   [
-    'async function loadShareLinks(query: AdminCloudShareLinksQuery = shareLinksQuery) {',
+    'async function loadShareLinks(',
+    'query: AdminCloudShareLinksQuery = shareLinksQuery,',
     'const page = await fetchAdminCloudOperationShares(query, authToken);',
     'setShareLinksPage(page);',
     'setShareLinksQuery({',
@@ -749,13 +788,18 @@ assertIncludesInOrder(
 assertIncludesInOrder(
   driveOperationsHookSource,
   [
-    'async function loadAll() {',
-    'loadOverview(),',
-    'loadStorageUsers(),',
-    'loadTrashNodes(),',
-    'loadShareLinks(),',
+    'async function loadAll(options: DriveOperationsReadOptions = {}) {',
+    'loadOverview(options),',
+    'loadStorageUsers(storageUsersQuery, options),',
+    'loadTrashNodes(trashNodesQuery, options),',
+    'loadShareLinks(shareLinksQuery, options),',
   ],
   'cloud console operations refresh must keep overview, storage users, trash, and shares together',
+);
+assert.match(
+  `${consolePageSource}\n${driveOperationsHookSource}`,
+  /await operations\.loadAll\(\{ force: true \}\);[\s\S]*onRefresh=\{\(\) => void operations\.loadAll\(\{ force: true \}\)\}[\s\S]*void loadStorageUsers\(nextQuery, \{ force: true \}\);[\s\S]*void loadTrashNodes\(nextQuery, \{ force: true \}\);[\s\S]*void loadShareLinks\(nextQuery, \{ force: true \}\);/,
+  'cloud console operations refreshes must force reads after explicit refresh or query changes',
 );
 assertIncludesInOrder(
   driveOperationsHookSource,

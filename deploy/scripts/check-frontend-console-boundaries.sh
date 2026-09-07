@@ -1898,6 +1898,36 @@ require_source_match \
     "Cloud console boundary verifier must guard duplicate operations reads."
 
 require_source_match \
+    "cloud console operations reads track request identity" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console operations reads must track request identity' \
+    "Cloud console operations reads must track request identity."
+
+require_source_match \
+    "cloud console operations reads compare auth admin query scope" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console operations reads must compare auth admin query scope' \
+    "Cloud console operations reads must compare auth admin query scope."
+
+require_source_match \
+    "cloud console operations reads block stale responses" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console operations reads must block duplicate reads and ignore stale responses' \
+    "Cloud console operations reads must block duplicate reads and ignore stale responses."
+
+require_source_match \
+    "cloud console operations reads invalidate auth admin scope changes" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console operations reads must invalidate auth admin scope changes' \
+    "Cloud console operations reads must invalidate auth admin scope changes."
+
+require_source_match \
+    "cloud console operations refreshes force reads" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console operations refreshes must force reads after explicit refresh or query changes' \
+    "Cloud console operations refreshes must force reads after explicit refresh or query changes."
+
+require_source_match \
     "cloud console operations query changes pause while loading" \
     "sysManage/scripts/verify-console-boundary.mjs" \
     'cloud console operations filters and pagination must pause during loading' \

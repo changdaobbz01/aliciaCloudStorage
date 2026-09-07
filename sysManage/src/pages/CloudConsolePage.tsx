@@ -169,7 +169,7 @@ export function CloudConsolePage() {
     }
 
     if (activeView === 'operations') {
-      await operations.loadAll();
+      await operations.loadAll({ force: true });
       return;
     }
 
@@ -341,7 +341,7 @@ export function CloudConsolePage() {
             quotaTarget={cloudUsers.quotaTarget}
             quotaModalOpen={cloudUsers.quotaModalOpen}
             quotaSaving={cloudUsers.quotaSaving}
-            onRefresh={() => void cloudUsers.loadUsers()}
+            onRefresh={() => void cloudUsers.loadUsers({ force: true })}
             onOpenQuotaModal={cloudUsers.openQuotaModal}
             onCloseQuotaModal={cloudUsers.closeQuotaModal}
             onSubmitQuotaUpdate={cloudUsers.submitQuotaUpdate}
@@ -362,7 +362,7 @@ export function CloudConsolePage() {
             shareLinksPage={operations.shareLinksPage}
             shareLinksQuery={operations.shareLinksQuery}
             shareLinksLoading={operations.shareLinksLoading}
-            onRefresh={() => void operations.loadAll()}
+            onRefresh={() => void operations.loadAll({ force: true })}
             onApplyStorageUsersQuery={operations.applyStorageUsersQuery}
             onStorageUsersPageChange={operations.changeStorageUsersPage}
             onApplyTrashNodesQuery={operations.applyTrashNodesQuery}
