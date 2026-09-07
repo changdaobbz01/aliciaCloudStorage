@@ -427,6 +427,31 @@ assert.match(
 );
 assert.match(
   sharePage,
+  /type SaveFolderOptionsLoadOptions = \{[\s\S]*force\?: boolean;[\s\S]*const saveFolderOptionsLoadingRef = useRef\(false\);[\s\S]*const saveFolderOptionsRequestIdRef = useRef\(0\);[\s\S]*const saveFolderOptionsLoadingKeyRef = useRef<string \| null>\(null\);/,
+  'cloud share page save folder reads must track request identity',
+);
+assert.match(
+  sharePage,
+  /function createSaveFolderOptionsRequestKey\(token: string \| null = authToken\) \{[\s\S]*return JSON\.stringify\(\[token\]\);[\s\S]*function isCurrentSaveFolderOptionsRequest\(requestId: number, requestKey: string\) \{[\s\S]*saveFolderOptionsRequestIdRef\.current === requestId[\s\S]*saveFolderOptionsLoadingKeyRef\.current === requestKey[\s\S]*createSaveFolderOptionsRequestKey\(authTokenRef\.current\) === requestKey/,
+  'cloud share page save folder reads must compare auth scope',
+);
+assert.match(
+  sharePage,
+  /useEffect\(\(\) => \{[\s\S]*saveFolderOptionsRequestIdRef\.current \+= 1;[\s\S]*saveFolderOptionsLoadingKeyRef\.current = null;[\s\S]*saveFolderOptionsLoadingRef\.current = false;[\s\S]*setSaveFolderOptionsLoading\(false\);[\s\S]*setSaveFolderOptions\(\[\]\);[\s\S]*\}, \[authToken\]\);/,
+  'cloud share page save folder reads must invalidate when auth scope changes',
+);
+assert.match(
+  sharePage,
+  /async function loadSaveFolderOptions\(options: SaveFolderOptionsLoadOptions = \{\}\) \{[\s\S]*if \(!authToken\) \{[\s\S]*saveFolderOptionsRequestIdRef\.current \+= 1;[\s\S]*saveFolderOptionsLoadingKeyRef\.current = null;[\s\S]*saveFolderOptionsLoadingRef\.current = false;[\s\S]*const requestKey = createSaveFolderOptionsRequestKey\(authToken\);[\s\S]*if \(!options\.force && saveFolderOptionsLoadingKeyRef\.current === requestKey\) \{[\s\S]*return;[\s\S]*saveFolderOptionsRequestIdRef\.current \+= 1;[\s\S]*const requestId = saveFolderOptionsRequestIdRef\.current;[\s\S]*saveFolderOptionsLoadingKeyRef\.current = requestKey;[\s\S]*saveFolderOptionsLoadingRef\.current = true;/,
+  'cloud share page save folder reads must block duplicate same-scope requests',
+);
+assert.match(
+  sharePage,
+  /const nextFolderOptions = await fetchStorageFolders\(authToken\);[\s\S]*if \(!isCurrentSaveFolderOptionsRequest\(requestId, requestKey\)\) \{[\s\S]*return;[\s\S]*setSaveFolderOptions\(nextFolderOptions\);[\s\S]*catch \(error\) \{[\s\S]*if \(isCurrentSaveFolderOptionsRequest\(requestId, requestKey\)\) \{[\s\S]*message\.error[\s\S]*finally \{[\s\S]*if \(isCurrentSaveFolderOptionsRequest\(requestId, requestKey\)\) \{[\s\S]*saveFolderOptionsLoadingKeyRef\.current = null;[\s\S]*saveFolderOptionsLoadingRef\.current = false;[\s\S]*setSaveFolderOptionsLoading\(false\);/,
+  'cloud share page save folder reads must ignore stale responses',
+);
+assert.match(
+  sharePage,
   /const shareStatusRequestIdRef = useRef\(0\);[\s\S]*const shareStatusLoadingKeyRef = useRef<string \| null>\(null\);[\s\S]*const shareDetailRequestIdRef = useRef\(0\);[\s\S]*const shareDetailLoadingKeyRef = useRef<string \| null>\(null\);[\s\S]*const shareCodeRef = useRef\(normalizedShareCode\);[\s\S]*const authTokenRef = useRef\(authToken\);[\s\S]*const shareAccessTokenRef = useRef\(shareAccessToken\);[\s\S]*const shareStatusRef = useRef\(status\);/,
   'cloud share page reads must track request identity',
 );
@@ -482,7 +507,7 @@ assert.match(
 );
 assert.match(
   sharePage,
-  /async function loadSaveFolderOptions\(\) \{[\s\S]*if \(!authToken \|\| saveFolderOptionsLoadingRef\.current\) \{[\s\S]*saveFolderOptionsLoadingRef\.current = true;[\s\S]*setSaveFolderOptionsLoading\(true\);[\s\S]*finally \{[\s\S]*saveFolderOptionsLoadingRef\.current = false;[\s\S]*setSaveFolderOptionsLoading\(false\);[\s\S]*function closeSaveTargetModal\(\) \{[\s\S]*if \(savingRef\.current\) \{[\s\S]*function openSaveTargetModal\(\) \{[\s\S]*if \(!authToken \|\| !detail \|\| savingRef\.current \|\| downloadingSelectionRef\.current \|\| downloadingNodeIdRef\.current !== null\) \{[\s\S]*async function handleSaveShare\(\) \{[\s\S]*if \(!authToken \|\| !detail \|\| savingRef\.current \|\| downloadingSelectionRef\.current \|\| downloadingNodeIdRef\.current !== null\) \{[\s\S]*savingRef\.current = true;[\s\S]*setSaving\(true\);[\s\S]*await saveShareToDrive\([\s\S]*finally \{[\s\S]*savingRef\.current = false;[\s\S]*setSaving\(false\);/,
+  /async function loadSaveFolderOptions\(options: SaveFolderOptionsLoadOptions = \{\}\) \{[\s\S]*if \(!options\.force && saveFolderOptionsLoadingKeyRef\.current === requestKey\) \{[\s\S]*return;[\s\S]*saveFolderOptionsLoadingRef\.current = true;[\s\S]*setSaveFolderOptionsLoading\(true\);[\s\S]*finally \{[\s\S]*setSaveFolderOptionsLoading\(false\);[\s\S]*function closeSaveTargetModal\(\) \{[\s\S]*if \(savingRef\.current\) \{[\s\S]*function openSaveTargetModal\(\) \{[\s\S]*if \(!authToken \|\| !detail \|\| savingRef\.current \|\| downloadingSelectionRef\.current \|\| downloadingNodeIdRef\.current !== null\) \{[\s\S]*async function handleSaveShare\(\) \{[\s\S]*if \(!authToken \|\| !detail \|\| savingRef\.current \|\| downloadingSelectionRef\.current \|\| downloadingNodeIdRef\.current !== null\) \{[\s\S]*savingRef\.current = true;[\s\S]*setSaving\(true\);[\s\S]*await saveShareToDrive\([\s\S]*finally \{[\s\S]*savingRef\.current = false;[\s\S]*setSaving\(false\);/,
   'cloud share page save flow must block duplicate submissions and pending close',
 );
 assert.match(
@@ -574,6 +599,31 @@ assert.equal(
   countMatches(useDriveExplorer, /loadDrive\(\{ force: true \}\)/g),
   7,
   'cloud web storage mutations must force list refresh after successful changes',
+);
+assert.match(
+  useDriveExplorer,
+  /type DriveFolderOptionsLoadOptions = \{[\s\S]*force\?: boolean;[\s\S]*const folderOptionsRequestIdRef = useRef\(0\);[\s\S]*const folderOptionsLoadingKeyRef = useRef<string \| null>\(null\);[\s\S]*const authTokenRef = useRef\(authToken\);/,
+  'cloud web folder option reads must track request identity',
+);
+assert.match(
+  useDriveExplorer,
+  /function createFolderOptionsRequestKey\(token: string \| null = authToken\) \{[\s\S]*return JSON\.stringify\(\[token\]\);[\s\S]*function isCurrentFolderOptionsRequest\(requestId: number, requestKey: string\) \{[\s\S]*folderOptionsRequestIdRef\.current === requestId[\s\S]*folderOptionsLoadingKeyRef\.current === requestKey[\s\S]*createFolderOptionsRequestKey\(authTokenRef\.current\) === requestKey/,
+  'cloud web folder option reads must compare auth scope',
+);
+assert.match(
+  useDriveExplorer,
+  /async function loadFolderOptions\(options: DriveFolderOptionsLoadOptions = \{\}\) \{[\s\S]*if \(!authToken\) \{[\s\S]*folderOptionsRequestIdRef\.current \+= 1;[\s\S]*folderOptionsLoadingKeyRef\.current = null;[\s\S]*setFolderOptionsLoading\(false\);[\s\S]*const requestKey = createFolderOptionsRequestKey\(authToken\);[\s\S]*if \(!options\.force && folderOptionsLoadingKeyRef\.current === requestKey\) \{[\s\S]*return;[\s\S]*folderOptionsRequestIdRef\.current \+= 1;[\s\S]*const requestId = folderOptionsRequestIdRef\.current;[\s\S]*folderOptionsLoadingKeyRef\.current = requestKey;/,
+  'cloud web folder option reads must block duplicate same-scope requests',
+);
+assert.match(
+  useDriveExplorer,
+  /const nextFolderOptions = await fetchStorageFolders\(authToken\);[\s\S]*if \(!isCurrentFolderOptionsRequest\(requestId, requestKey\)\) \{[\s\S]*return;[\s\S]*setFolderOptions\(nextFolderOptions\);[\s\S]*catch \(loadError\) \{[\s\S]*if \(isCurrentFolderOptionsRequest\(requestId, requestKey\)\) \{[\s\S]*message\.error[\s\S]*finally \{[\s\S]*if \(isCurrentFolderOptionsRequest\(requestId, requestKey\)\) \{[\s\S]*folderOptionsLoadingKeyRef\.current = null;[\s\S]*setFolderOptionsLoading\(false\);/,
+  'cloud web folder option reads must ignore stale responses',
+);
+assert.match(
+  useDriveExplorer,
+  /useEffect\(\(\) => \{[\s\S]*folderOptionsRequestIdRef\.current \+= 1;[\s\S]*folderOptionsLoadingKeyRef\.current = null;[\s\S]*setFolderOptionsLoading\(false\);[\s\S]*setFolderOptions\(\[\]\);[\s\S]*\}, \[authToken\]\);/,
+  'cloud web folder option reads must invalidate when auth scope changes',
 );
 assert.match(
   driveTypes,

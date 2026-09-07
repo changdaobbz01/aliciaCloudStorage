@@ -38,6 +38,10 @@ type StoredShareAccess = {
 
 type ShareMobileOpenAction = 'intent' | 'download';
 
+type SaveFolderOptionsLoadOptions = {
+  force?: boolean;
+};
+
 const SHARE_CODE_PATTERN = /^[A-Za-z0-9_-]{4,40}$/;
 
 function isLikelyMobileClient() {
@@ -240,6 +244,8 @@ export function SharePage() {
   const downloadingNodeIdRef = useRef<number | null>(null);
   const downloadingSelectionRef = useRef(false);
   const saveFolderOptionsLoadingRef = useRef(false);
+  const saveFolderOptionsRequestIdRef = useRef(0);
+  const saveFolderOptionsLoadingKeyRef = useRef<string | null>(null);
   const mobileOpenActionRef = useRef<ShareMobileOpenAction | null>(null);
   const shareStatusRequestIdRef = useRef(0);
   const shareStatusLoadingKeyRef = useRef<string | null>(null);
@@ -527,21 +533,64 @@ export function SharePage() {
     setShowMobileOpenHint(false);
   }
 
-  async function loadSaveFolderOptions() {
-    if (!authToken || saveFolderOptionsLoadingRef.current) {
+  useEffect(() => {
+    saveFolderOptionsRequestIdRef.current += 1;
+    saveFolderOptionsLoadingKeyRef.current = null;
+    saveFolderOptionsLoadingRef.current = false;
+    setSaveFolderOptionsLoading(false);
+    setSaveFolderOptions([]);
+  }, [authToken]);
+
+  function createSaveFolderOptionsRequestKey(token: string | null = authToken) {
+    return JSON.stringify([token]);
+  }
+
+  function isCurrentSaveFolderOptionsRequest(requestId: number, requestKey: string) {
+    return (
+      saveFolderOptionsRequestIdRef.current === requestId
+      && saveFolderOptionsLoadingKeyRef.current === requestKey
+      && createSaveFolderOptionsRequestKey(authTokenRef.current) === requestKey
+    );
+  }
+
+  async function loadSaveFolderOptions(options: SaveFolderOptionsLoadOptions = {}) {
+    if (!authToken) {
+      saveFolderOptionsRequestIdRef.current += 1;
+      saveFolderOptionsLoadingKeyRef.current = null;
+      saveFolderOptionsLoadingRef.current = false;
+      setSaveFolderOptionsLoading(false);
+      setSaveFolderOptions([]);
       return;
     }
 
+    const requestKey = createSaveFolderOptionsRequestKey(authToken);
+    if (!options.force && saveFolderOptionsLoadingKeyRef.current === requestKey) {
+      return;
+    }
+
+    saveFolderOptionsRequestIdRef.current += 1;
+    const requestId = saveFolderOptionsRequestIdRef.current;
+    saveFolderOptionsLoadingKeyRef.current = requestKey;
     saveFolderOptionsLoadingRef.current = true;
     setSaveFolderOptionsLoading(true);
 
     try {
-      setSaveFolderOptions(await fetchStorageFolders(authToken));
+      const nextFolderOptions = await fetchStorageFolders(authToken);
+      if (!isCurrentSaveFolderOptionsRequest(requestId, requestKey)) {
+        return;
+      }
+
+      setSaveFolderOptions(nextFolderOptions);
     } catch (error) {
-      message.error(error instanceof Error ? error.message : '加载文件夹目录失败。');
+      if (isCurrentSaveFolderOptionsRequest(requestId, requestKey)) {
+        message.error(error instanceof Error ? error.message : '加载文件夹目录失败。');
+      }
     } finally {
-      saveFolderOptionsLoadingRef.current = false;
-      setSaveFolderOptionsLoading(false);
+      if (isCurrentSaveFolderOptionsRequest(requestId, requestKey)) {
+        saveFolderOptionsLoadingKeyRef.current = null;
+        saveFolderOptionsLoadingRef.current = false;
+        setSaveFolderOptionsLoading(false);
+      }
     }
   }
 

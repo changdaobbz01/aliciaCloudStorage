@@ -58,6 +58,10 @@ type DriveListLoadOptions = {
   force?: boolean;
 };
 
+type DriveFolderOptionsLoadOptions = {
+  force?: boolean;
+};
+
 const MAX_TEXT_PREVIEW_BYTES = 2 * 1024 * 1024;
 const MULTIPART_UPLOAD_THRESHOLD_BYTES = 20 * 1024 * 1024;
 const MULTIPART_CHUNK_SIZE_BYTES = 8 * 1024 * 1024;
@@ -266,6 +270,10 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
   const storageMutationRef = useRef<DriveStorageMutationState>(null);
   const listRequestIdRef = useRef(0);
   const listLoadingKeyRef = useRef<string | null>(null);
+  const folderOptionsRequestIdRef = useRef(0);
+  const folderOptionsLoadingKeyRef = useRef<string | null>(null);
+  const authTokenRef = useRef(authToken);
+  authTokenRef.current = authToken;
 
   const isDriveView = activeView === 'drive';
   const isTrashView = activeView === 'trash';
@@ -579,20 +587,53 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
     }
   }
 
-  async function loadFolderOptions() {
+  function createFolderOptionsRequestKey(token: string | null = authToken) {
+    return JSON.stringify([token]);
+  }
+
+  function isCurrentFolderOptionsRequest(requestId: number, requestKey: string) {
+    return (
+      folderOptionsRequestIdRef.current === requestId
+      && folderOptionsLoadingKeyRef.current === requestKey
+      && createFolderOptionsRequestKey(authTokenRef.current) === requestKey
+    );
+  }
+
+  async function loadFolderOptions(options: DriveFolderOptionsLoadOptions = {}) {
     if (!authToken) {
+      folderOptionsRequestIdRef.current += 1;
+      folderOptionsLoadingKeyRef.current = null;
+      setFolderOptionsLoading(false);
       setFolderOptions([]);
       return;
     }
 
+    const requestKey = createFolderOptionsRequestKey(authToken);
+    if (!options.force && folderOptionsLoadingKeyRef.current === requestKey) {
+      return;
+    }
+
+    folderOptionsRequestIdRef.current += 1;
+    const requestId = folderOptionsRequestIdRef.current;
+    folderOptionsLoadingKeyRef.current = requestKey;
     setFolderOptionsLoading(true);
 
     try {
-      setFolderOptions(await fetchStorageFolders(authToken));
+      const nextFolderOptions = await fetchStorageFolders(authToken);
+      if (!isCurrentFolderOptionsRequest(requestId, requestKey)) {
+        return;
+      }
+
+      setFolderOptions(nextFolderOptions);
     } catch (loadError) {
-      message.error(loadError instanceof Error ? loadError.message : '加载文件夹列表失败。');
+      if (isCurrentFolderOptionsRequest(requestId, requestKey)) {
+        message.error(loadError instanceof Error ? loadError.message : '加载文件夹列表失败。');
+      }
     } finally {
-      setFolderOptionsLoading(false);
+      if (isCurrentFolderOptionsRequest(requestId, requestKey)) {
+        folderOptionsLoadingKeyRef.current = null;
+        setFolderOptionsLoading(false);
+      }
     }
   }
 
@@ -1157,6 +1198,13 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
       clearStorageMutation();
     }
   }
+
+  useEffect(() => {
+    folderOptionsRequestIdRef.current += 1;
+    folderOptionsLoadingKeyRef.current = null;
+    setFolderOptionsLoading(false);
+    setFolderOptions([]);
+  }, [authToken]);
 
   useEffect(() => {
     if (!isListView) {

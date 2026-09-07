@@ -434,6 +434,36 @@ require_source_match \
     "Cloud share page must track synchronous pending guards."
 
 require_source_match \
+    "cloud share page save folder reads track request identity" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud share page save folder reads must track request identity' \
+    "Cloud share page save folder reads must track request identity."
+
+require_source_match \
+    "cloud share page save folder reads compare auth scope" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud share page save folder reads must compare auth scope' \
+    "Cloud share page save folder reads must compare auth scope."
+
+require_source_match \
+    "cloud share page save folder reads invalidate auth scope changes" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud share page save folder reads must invalidate when auth scope changes' \
+    "Cloud share page save folder reads must invalidate when auth scope changes."
+
+require_source_match \
+    "cloud share page save folder reads block duplicate scope" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud share page save folder reads must block duplicate same-scope requests' \
+    "Cloud share page save folder reads must block duplicate same-scope requests."
+
+require_source_match \
+    "cloud share page save folder reads ignore stale responses" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud share page save folder reads must ignore stale responses' \
+    "Cloud share page save folder reads must ignore stale responses."
+
+require_source_match \
     "cloud share page reads track request identity" \
     "webApp/scripts/verify-client-boundary.mjs" \
     'cloud share page reads must track request identity' \
@@ -612,6 +642,36 @@ require_source_match \
     "webApp/scripts/verify-client-boundary.mjs" \
     'cloud web storage mutations must force list refresh after successful changes' \
     "Cloud web storage mutations must force list refresh after successful changes."
+
+require_source_match \
+    "cloud web folder option reads track request identity" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web folder option reads must track request identity' \
+    "Cloud web folder option reads must track request identity."
+
+require_source_match \
+    "cloud web folder option reads compare auth scope" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web folder option reads must compare auth scope' \
+    "Cloud web folder option reads must compare auth scope."
+
+require_source_match \
+    "cloud web folder option reads block duplicate scope" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web folder option reads must block duplicate same-scope requests' \
+    "Cloud web folder option reads must block duplicate same-scope requests."
+
+require_source_match \
+    "cloud web folder option reads ignore stale responses" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web folder option reads must ignore stale responses' \
+    "Cloud web folder option reads must ignore stale responses."
+
+require_source_match \
+    "cloud web folder option reads invalidate auth scope changes" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web folder option reads must invalidate when auth scope changes' \
+    "Cloud web folder option reads must invalidate when auth scope changes."
 
 require_source_match \
     "cloud web storage mutation state covers file actions" \
