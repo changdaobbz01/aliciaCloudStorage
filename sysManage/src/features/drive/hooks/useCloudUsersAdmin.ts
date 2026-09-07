@@ -58,6 +58,19 @@ export function useCloudUsersAdmin({
     );
   }
 
+  function createCloudUserMutationRequestKey(
+    scope: string,
+    token: string | null = authToken,
+    admin = isAdmin,
+    target: unknown = null,
+  ) {
+    return JSON.stringify([scope, token, admin, target]);
+  }
+
+  function isCurrentCloudUserMutationRequest(requestKey: string, scope: string, target: unknown = null) {
+    return createCloudUserMutationRequestKey(scope, authTokenRef.current, isAdminRef.current, target) === requestKey;
+  }
+
   async function loadUsers(options: CloudUsersLoadOptions = {}) {
     if (!authToken || !isAdmin) {
       usersRequestIdRef.current += 1;
@@ -135,23 +148,32 @@ export function useCloudUsersAdmin({
   }
 
   async function submitQuotaUpdate() {
-    if (!authToken || !quotaTarget || !isAdmin || quotaSavingRef.current) {
+    const target = quotaTarget;
+
+    if (!authToken || !target || !isAdmin || quotaSavingRef.current) {
       return;
     }
 
     quotaSavingRef.current = true;
     setQuotaSaving(true);
+    const requestToken = authToken;
+    const requestKey = createCloudUserMutationRequestKey('quota', requestToken, isAdmin, target.id);
 
     try {
       const values = await quotaForm.validateFields();
       const storageQuotaBytes = gigabytesToBytes(values.storageQuotaGb);
 
-      if (storageQuotaBytes < quotaTarget.usedBytes) {
-        message.error(`最大额度不能低于当前已用空间 ${formatFileSize(quotaTarget.usedBytes)}。`);
+      if (storageQuotaBytes < target.usedBytes) {
+        if (isCurrentCloudUserMutationRequest(requestKey, 'quota', target.id)) {
+          message.error(`最大额度不能低于当前已用空间 ${formatFileSize(target.usedBytes)}。`);
+        }
         return;
       }
 
-      const updatedUser = await updateUserStorageQuota(quotaTarget.id, { storageQuotaBytes }, authToken);
+      const updatedUser = await updateUserStorageQuota(target.id, { storageQuotaBytes }, requestToken);
+      if (!isCurrentCloudUserMutationRequest(requestKey, 'quota', target.id)) {
+        return;
+      }
 
       setUsers((currentUsers) =>
         currentUsers.map((user) => (user.id === updatedUser.id ? updatedUser : user)),
@@ -169,7 +191,9 @@ export function useCloudUsersAdmin({
         return;
       }
 
-      message.error(saveError instanceof Error ? saveError.message : '更新用户云盘额度失败。');
+      if (isCurrentCloudUserMutationRequest(requestKey, 'quota', target.id)) {
+        message.error(saveError instanceof Error ? saveError.message : '更新用户云盘额度失败。');
+      }
     } finally {
       quotaSavingRef.current = false;
       setQuotaSaving(false);

@@ -279,15 +279,15 @@ assertIncludesInOrder(
   cloudUsersHookSource,
   [
     'const storageQuotaBytes = gigabytesToBytes(values.storageQuotaGb);',
-    'if (storageQuotaBytes < quotaTarget.usedBytes) {',
-    'const updatedUser = await updateUserStorageQuota(quotaTarget.id, { storageQuotaBytes }, authToken);',
+    'if (storageQuotaBytes < target.usedBytes) {',
+    'const updatedUser = await updateUserStorageQuota(target.id, { storageQuotaBytes }, requestToken);',
   ],
   'cloud console quota submit must convert GiB input to backend bytes',
 );
 assertIncludesInOrder(
   cloudUsersHookSource,
   [
-    'if (storageQuotaBytes < quotaTarget.usedBytes) {',
+    'if (storageQuotaBytes < target.usedBytes) {',
     '最大额度不能低于当前已用空间',
     'return;',
     'const updatedUser = await updateUserStorageQuota(',
@@ -323,7 +323,8 @@ assertIncludesInOrder(
     'function openQuotaModal(user: User) {',
     'if (quotaSavingRef.current) {',
     'async function submitQuotaUpdate() {',
-    'if (!authToken || !quotaTarget || !isAdmin || quotaSavingRef.current) {',
+    'const target = quotaTarget;',
+    'if (!authToken || !target || !isAdmin || quotaSavingRef.current) {',
     'quotaSavingRef.current = true;',
     'setQuotaSaving(true);',
     'const values = await quotaForm.validateFields();',
@@ -336,6 +337,24 @@ assertIncludesInOrder(
     'setQuotaSaving(false);',
   ],
   'cloud console quota updates must block duplicate submissions and surface pending state',
+);
+assertIncludesInOrder(
+  cloudUsersHookSource,
+  [
+    'function createCloudUserMutationRequestKey(',
+    'return JSON.stringify([scope, token, admin, target]);',
+    'function isCurrentCloudUserMutationRequest(requestKey: string, scope: string, target: unknown = null)',
+    'return createCloudUserMutationRequestKey(scope, authTokenRef.current, isAdminRef.current, target) === requestKey;',
+    'async function submitQuotaUpdate() {',
+    'const target = quotaTarget;',
+    'const requestToken = authToken;',
+    "const requestKey = createCloudUserMutationRequestKey('quota', requestToken, isAdmin, target.id);",
+    'const updatedUser = await updateUserStorageQuota(target.id, { storageQuotaBytes }, requestToken);',
+    "if (!isCurrentCloudUserMutationRequest(requestKey, 'quota', target.id)) {",
+    "message.success('已更新用户云盘额度。');",
+    "if (isCurrentCloudUserMutationRequest(requestKey, 'quota', target.id)) {",
+  ],
+  'cloud console quota mutations must ignore stale auth admin scope',
 );
 assertIncludesInOrder(
   apiSource,
@@ -491,7 +510,7 @@ assertIncludesInOrder(
 assertIncludesInOrder(
   appPackageHookSource,
   [
-    'await deleteAdminAppPackage(authToken);',
+    'await deleteAdminAppPackage(requestToken);',
     'setAppPackageInfo(createEmptyAppPackageInfo());',
     'setPublicAppPackageInfo(createEmptyAppPackageInfo());',
     'setPublicAppPackageError(null);',
@@ -617,7 +636,8 @@ assertIncludesInOrder(
   cloudUsersHookSource,
   [
     'async function submitQuotaUpdate() {',
-    'if (!authToken || !quotaTarget || !isAdmin || quotaSavingRef.current) {',
+    'const target = quotaTarget;',
+    'if (!authToken || !target || !isAdmin || quotaSavingRef.current) {',
     'const updatedUser = await updateUserStorageQuota(',
   ],
   'cloud console quota mutations must stay behind the cloud admin gate',
@@ -993,6 +1013,8 @@ assertIncludesInOrder(
     "const appPackageMutationRef = useRef<'upload' | 'delete' | null>(null);",
     'async function submitAppPackageUpload(values: AppPackageUploadFormValues)',
     'if (!authToken || !isAdmin || appPackageLoadingRef.current || appPackageMutationRef.current !== null) {',
+    "const requestToken = authToken;",
+    "const requestKey = createAppPackageMutationRequestKey('upload', requestToken, isAdmin);",
     "appPackageMutationRef.current = 'upload';",
     'setAppPackageUploading(true);',
     'const nextPackageInfo = await uploadAdminAppPackage(',
@@ -1009,14 +1031,39 @@ assertIncludesInOrder(
     "const appPackageMutationRef = useRef<'upload' | 'delete' | null>(null);",
     'async function deleteCurrentAppPackage()',
     'if (!authToken || !isAdmin || appPackageLoadingRef.current || appPackageMutationRef.current !== null) {',
+    "const requestToken = authToken;",
+    "const requestKey = createAppPackageMutationRequestKey('delete', requestToken, isAdmin);",
     "appPackageMutationRef.current = 'delete';",
     'setAppPackageDeleting(true);',
-    'await deleteAdminAppPackage(authToken);',
+    'await deleteAdminAppPackage(requestToken);',
     '} finally {',
     'appPackageMutationRef.current = null;',
     'setAppPackageDeleting(false);',
   ],
   'cloud console APK delete mutations must stay behind the cloud admin gate and block duplicate submissions',
+);
+assertIncludesInOrder(
+  appPackageHookSource,
+  [
+    'function createAppPackageMutationRequestKey(',
+    'return JSON.stringify([scope, token, admin]);',
+    "function isCurrentAppPackageMutationRequest(requestKey: string, scope: 'upload' | 'delete')",
+    'appPackageMutationRef.current === scope',
+    'createAppPackageMutationRequestKey(scope, authTokenRef.current, isAdminRef.current) === requestKey',
+    'async function submitAppPackageUpload(values: AppPackageUploadFormValues)',
+    "const requestKey = createAppPackageMutationRequestKey('upload', requestToken, isAdmin);",
+    'const nextPackageInfo = await uploadAdminAppPackage(',
+    "if (!isCurrentAppPackageMutationRequest(requestKey, 'upload')) {",
+    "message.success('APK、版本号和更新说明已同步更新。');",
+    "if (isCurrentAppPackageMutationRequest(requestKey, 'upload')) {",
+    'async function deleteCurrentAppPackage()',
+    "const requestKey = createAppPackageMutationRequestKey('delete', requestToken, isAdmin);",
+    'await deleteAdminAppPackage(requestToken);',
+    "if (!isCurrentAppPackageMutationRequest(requestKey, 'delete')) {",
+    "message.success('当前安装包已移除。');",
+    "if (isCurrentAppPackageMutationRequest(requestKey, 'delete')) {",
+  ],
+  'cloud console APK mutations must ignore stale auth admin scope',
 );
 assertIncludesInOrder(
   appPackageHookSource,

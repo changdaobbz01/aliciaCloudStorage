@@ -77,6 +77,21 @@ export function useDriveAppPackageAdmin({
     );
   }
 
+  function createAppPackageMutationRequestKey(
+    scope: 'upload' | 'delete',
+    token: string | null = authToken,
+    admin = isAdmin,
+  ) {
+    return JSON.stringify([scope, token, admin]);
+  }
+
+  function isCurrentAppPackageMutationRequest(requestKey: string, scope: 'upload' | 'delete') {
+    return (
+      appPackageMutationRef.current === scope
+      && createAppPackageMutationRequestKey(scope, authTokenRef.current, isAdminRef.current) === requestKey
+    );
+  }
+
   function cancelAppPackageReads() {
     appPackageRequestIdRef.current += 1;
     appPackageLoadingKeyRef.current = null;
@@ -280,6 +295,8 @@ export function useDriveAppPackageAdmin({
       return false;
     }
 
+    const requestToken = authToken;
+    const requestKey = createAppPackageMutationRequestKey('upload', requestToken, isAdmin);
     cancelAppPackageReads();
     appPackageMutationRef.current = 'upload';
     setAppPackageUploading(true);
@@ -289,8 +306,12 @@ export function useDriveAppPackageAdmin({
         selectedAppPackageFile,
         values.versionName.trim(),
         values.releaseNotes.trim(),
-        authToken,
+        requestToken,
       );
+      if (!isCurrentAppPackageMutationRequest(requestKey, 'upload')) {
+        return false;
+      }
+
       setAppPackageInfo(nextPackageInfo);
       setPublicAppPackageInfo(nextPackageInfo);
       setPublicAppPackageError(null);
@@ -299,7 +320,9 @@ export function useDriveAppPackageAdmin({
       message.success('APK、版本号和更新说明已同步更新。');
       return true;
     } catch (uploadError) {
-      message.error(uploadError instanceof Error ? uploadError.message : 'APK 上传失败。');
+      if (isCurrentAppPackageMutationRequest(requestKey, 'upload')) {
+        message.error(uploadError instanceof Error ? uploadError.message : 'APK 上传失败。');
+      }
       return false;
     } finally {
       appPackageMutationRef.current = null;
@@ -312,19 +335,27 @@ export function useDriveAppPackageAdmin({
       return false;
     }
 
+    const requestToken = authToken;
+    const requestKey = createAppPackageMutationRequestKey('delete', requestToken, isAdmin);
     cancelAppPackageReads();
     appPackageMutationRef.current = 'delete';
     setAppPackageDeleting(true);
 
     try {
-      await deleteAdminAppPackage(authToken);
+      await deleteAdminAppPackage(requestToken);
+      if (!isCurrentAppPackageMutationRequest(requestKey, 'delete')) {
+        return false;
+      }
+
       setAppPackageInfo(createEmptyAppPackageInfo());
       setPublicAppPackageInfo(createEmptyAppPackageInfo());
       setPublicAppPackageError(null);
       message.success('当前安装包已移除。');
       return true;
     } catch (deleteError) {
-      message.error(deleteError instanceof Error ? deleteError.message : '移除安装包失败。');
+      if (isCurrentAppPackageMutationRequest(requestKey, 'delete')) {
+        message.error(deleteError instanceof Error ? deleteError.message : '移除安装包失败。');
+      }
       return false;
     } finally {
       appPackageMutationRef.current = null;

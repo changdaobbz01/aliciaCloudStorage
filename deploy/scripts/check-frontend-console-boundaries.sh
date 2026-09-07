@@ -1760,6 +1760,12 @@ require_source_match \
     "Cloud console boundary verifier must pin quota updates to CloudStorageApi cloud-users quota."
 
 require_source_match \
+    "cloud console quota mutations ignore stale auth admin scope" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console quota mutations must ignore stale auth admin scope' \
+    "Cloud console quota mutations must ignore stale auth admin scope."
+
+require_source_match \
     "cloud console quota modal keeps GiB display" \
     "sysManage/scripts/verify-console-boundary.mjs" \
     'cloud console quota modal must present backend byte quotas as GiB' \
@@ -1956,6 +1962,12 @@ require_source_match \
     "sysManage/scripts/verify-console-boundary.mjs" \
     'cloud console APK mutations must invalidate stale package reads' \
     "Cloud console APK mutations must invalidate stale package reads."
+
+require_source_match \
+    "cloud console APK mutations ignore stale auth admin scope" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console APK mutations must ignore stale auth admin scope' \
+    "Cloud console APK mutations must ignore stale auth admin scope."
 
 require_source_match \
     "cloud console APK admin reads invalidate auth admin scope changes" \
