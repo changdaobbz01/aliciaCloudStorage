@@ -622,6 +622,26 @@ assert.match(
 );
 assert.match(
   useDriveExplorer,
+  /const previewRequestIdRef = useRef\(0\);[\s\S]*const previewRequestKeyRef = useRef<string \| null>\(null\);[\s\S]*function createPreviewRequestKey\(item: StorageNode, kind: DrivePreviewKind, token: string\) \{[\s\S]*return JSON\.stringify\(\[[\s\S]*token,[\s\S]*item\.id,[\s\S]*item\.updatedAt,[\s\S]*item\.size,[\s\S]*item\.mimeType,[\s\S]*item\.extension,[\s\S]*kind,[\s\S]*\]\);/,
+  'cloud web file preview reads must track request identity',
+);
+assert.match(
+  useDriveExplorer,
+  /function isCurrentPreviewRequest\(requestId: number, requestKey: string, token: string\) \{[\s\S]*previewRequestIdRef\.current === requestId[\s\S]*previewRequestKeyRef\.current === requestKey[\s\S]*authTokenRef\.current === token/,
+  'cloud web file preview reads must compare auth target and version scope',
+);
+assert.match(
+  useDriveExplorer,
+  /async function handlePreviewFile\(item: StorageNode\) \{[\s\S]*const requestToken = authToken;[\s\S]*const requestKey = createPreviewRequestKey\(item, kind, requestToken\);[\s\S]*downloadStorageFile\(item\.id, requestToken, item\.updatedAt\)[\s\S]*if \(!isCurrentPreviewRequest\(requestId, requestKey, requestToken\)\) \{[\s\S]*decodePreviewTextBlob[\s\S]*if \(!isCurrentPreviewRequest\(requestId, requestKey, requestToken\)\) \{[\s\S]*fetchStorageFileAccessUrl\(item\.id, requestToken, 'inline'\)[\s\S]*if \(!isCurrentPreviewRequest\(requestId, requestKey, requestToken\)\) \{[\s\S]*catch \(previewError\) \{[\s\S]*if \(!isCurrentPreviewRequest\(requestId, requestKey, requestToken\)\) \{/,
+  'cloud web file preview reads must ignore stale responses',
+);
+assert.match(
+  useDriveExplorer,
+  /useEffect\(\(\) => \{[\s\S]*previewRequestIdRef\.current \+= 1;[\s\S]*previewRequestKeyRef\.current = null;[\s\S]*URL\.revokeObjectURL\(previewObjectUrlRef\.current\);[\s\S]*setPreviewState\(initialPreviewState\);[\s\S]*\}, \[activeView, authToken, currentFolderId, fileCategory\]\);/,
+  'cloud web file preview reads must invalidate when auth or visible scope changes',
+);
+assert.match(
+  useDriveExplorer,
   /type DriveListLoadOptions = \{[\s\S]*force\?: boolean;[\s\S]*const listRequestIdRef = useRef\(0\);[\s\S]*const listLoadingKeyRef = useRef<string \| null>\(null\);/,
   'cloud web list reads must track request identity',
 );

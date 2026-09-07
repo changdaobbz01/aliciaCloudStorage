@@ -668,6 +668,30 @@ require_source_match \
     "Cloud web downloads view must hide cancel for non-cancelable states."
 
 require_source_match \
+    "cloud web file preview reads track request identity" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web file preview reads must track request identity' \
+    "Cloud web file preview reads must track request identity."
+
+require_source_match \
+    "cloud web file preview reads compare auth target scope" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web file preview reads must compare auth target and version scope' \
+    "Cloud web file preview reads must compare auth target and version scope."
+
+require_source_match \
+    "cloud web file preview reads ignore stale responses" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web file preview reads must ignore stale responses' \
+    "Cloud web file preview reads must ignore stale responses."
+
+require_source_match \
+    "cloud web file preview reads invalidate visible scope" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web file preview reads must invalidate when auth or visible scope changes' \
+    "Cloud web file preview reads must invalidate when auth or visible scope changes."
+
+require_source_match \
     "cloud web list reads track request identity" \
     "webApp/scripts/verify-client-boundary.mjs" \
     'cloud web list reads must track request identity' \

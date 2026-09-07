@@ -266,6 +266,7 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const previewObjectUrlRef = useRef<string | null>(null);
   const previewRequestIdRef = useRef(0);
+  const previewRequestKeyRef = useRef<string | null>(null);
   const uploadControllersRef = useRef<Map<string, AbortController>>(new Map());
   const storageMutationRef = useRef<DriveStorageMutationState>(null);
   const listRequestIdRef = useRef(0);
@@ -337,8 +338,29 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
     previewObjectUrlRef.current = null;
   }
 
+  function createPreviewRequestKey(item: StorageNode, kind: DrivePreviewKind, token: string) {
+    return JSON.stringify([
+      token,
+      item.id,
+      item.updatedAt,
+      item.size,
+      item.mimeType,
+      item.extension,
+      kind,
+    ]);
+  }
+
+  function isCurrentPreviewRequest(requestId: number, requestKey: string, token: string) {
+    return (
+      previewRequestIdRef.current === requestId
+      && previewRequestKeyRef.current === requestKey
+      && authTokenRef.current === token
+    );
+  }
+
   function closePreviewModal() {
     previewRequestIdRef.current += 1;
+    previewRequestKeyRef.current = null;
     revokePreviewObjectUrl();
     setPreviewState(initialPreviewState);
   }
@@ -909,9 +931,12 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
       return;
     }
 
+    const requestToken = authToken;
     const kind = resolvePreviewKind(item);
     const requestId = previewRequestIdRef.current + 1;
+    const requestKey = createPreviewRequestKey(item, kind, requestToken);
     previewRequestIdRef.current = requestId;
+    previewRequestKeyRef.current = requestKey;
     revokePreviewObjectUrl();
 
     if (kind === 'unsupported') {
@@ -952,15 +977,15 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
 
     try {
       if (kind === 'text') {
-        const { blob } = await downloadStorageFile(item.id, authToken, item.updatedAt);
+        const { blob } = await downloadStorageFile(item.id, requestToken, item.updatedAt);
 
-        if (previewRequestIdRef.current !== requestId) {
+        if (!isCurrentPreviewRequest(requestId, requestKey, requestToken)) {
           return;
         }
 
         const textContent = await decodePreviewTextBlob(blob, item.mimeType);
 
-        if (previewRequestIdRef.current !== requestId) {
+        if (!isCurrentPreviewRequest(requestId, requestKey, requestToken)) {
           return;
         }
 
@@ -976,9 +1001,9 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
         return;
       }
 
-      const access = await fetchStorageFileAccessUrl(item.id, authToken, 'inline');
+      const access = await fetchStorageFileAccessUrl(item.id, requestToken, 'inline');
 
-      if (previewRequestIdRef.current !== requestId) {
+      if (!isCurrentPreviewRequest(requestId, requestKey, requestToken)) {
         return;
       }
 
@@ -993,7 +1018,7 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
         error: null,
       });
     } catch (previewError) {
-      if (previewRequestIdRef.current !== requestId) {
+      if (!isCurrentPreviewRequest(requestId, requestKey, requestToken)) {
         return;
       }
 
@@ -1250,6 +1275,7 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
   useEffect(
     () => () => {
       previewRequestIdRef.current += 1;
+      previewRequestKeyRef.current = null;
 
       if (previewObjectUrlRef.current) {
         if (previewObjectUrlRef.current.startsWith('blob:')) {
@@ -1263,6 +1289,7 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
 
   useEffect(() => {
     previewRequestIdRef.current += 1;
+    previewRequestKeyRef.current = null;
 
     if (previewObjectUrlRef.current) {
       if (previewObjectUrlRef.current.startsWith('blob:')) {
@@ -1272,7 +1299,7 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
     }
 
     setPreviewState(initialPreviewState);
-  }, [activeView, currentFolderId, fileCategory]);
+  }, [activeView, authToken, currentFolderId, fileCategory]);
 
   return {
     items,
