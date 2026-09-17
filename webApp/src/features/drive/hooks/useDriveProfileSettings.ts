@@ -68,6 +68,8 @@ export function useDriveProfileSettings({
   const identitySessionsLoadingRef = useRef(false);
   const identitySessionsRequestIdRef = useRef(0);
   const identitySessionsLoadingKeyRef = useRef<string | null>(null);
+  const identitySessionMutationRequestIdRef = useRef(0);
+  const identitySessionMutationRequestKeyRef = useRef<string | null>(null);
   const authTokenRef = useRef(authToken);
   const includeRevokedSessionsRef = useRef(includeRevokedSessions);
   const logoutNavigatingRef = useRef(false);
@@ -76,6 +78,25 @@ export function useDriveProfileSettings({
 
   function isCurrentProfileMutation(token: string) {
     return authTokenRef.current === token;
+  }
+
+  function createIdentitySessionMutationRequestKey(token: string, sessionId: number) {
+    return JSON.stringify([token, sessionId]);
+  }
+
+  function isCurrentIdentitySessionMutation(
+    requestId: number,
+    requestKey: string,
+    token: string,
+    sessionId: number,
+  ) {
+    return (
+      identitySessionMutationRequestIdRef.current === requestId
+      && identitySessionMutationRequestKeyRef.current === requestKey
+      && identitySessionRevokingIdRef.current === sessionId
+      && createIdentitySessionMutationRequestKey(token, sessionId) === requestKey
+      && isCurrentProfileMutation(token)
+    );
   }
 
   function openProfileModal() {
@@ -358,15 +379,30 @@ export function useDriveProfileSettings({
     identitySessionRevokingIdRef.current = sessionId;
     setIdentitySessionRevokingId(sessionId);
 
+    identitySessionMutationRequestIdRef.current += 1;
+    const requestId = identitySessionMutationRequestIdRef.current;
+    const requestToken = authToken;
+    const requestKey = createIdentitySessionMutationRequestKey(requestToken, sessionId);
+    identitySessionMutationRequestKeyRef.current = requestKey;
+
     try {
-      await revokeIdentitySession(authToken, sessionId);
+      await revokeIdentitySession(requestToken, sessionId);
+      if (!isCurrentIdentitySessionMutation(requestId, requestKey, requestToken, sessionId)) {
+        return;
+      }
+
       message.success('登录会话已撤销。');
       await loadIdentitySessions(includeRevokedSessionsRef.current, { force: true });
     } catch (sessionError) {
-      message.error(sessionError instanceof Error ? sessionError.message : '登录会话撤销失败。');
+      if (isCurrentIdentitySessionMutation(requestId, requestKey, requestToken, sessionId)) {
+        message.error(sessionError instanceof Error ? sessionError.message : '登录会话撤销失败。');
+      }
     } finally {
-      identitySessionRevokingIdRef.current = null;
-      setIdentitySessionRevokingId(null);
+      if (identitySessionMutationRequestIdRef.current === requestId) {
+        identitySessionMutationRequestKeyRef.current = null;
+        identitySessionRevokingIdRef.current = null;
+        setIdentitySessionRevokingId(null);
+      }
     }
   }
 
@@ -475,6 +511,10 @@ export function useDriveProfileSettings({
     identitySessionsLoadingKeyRef.current = null;
     identitySessionsLoadingRef.current = false;
     setIdentitySessionsLoading(false);
+    identitySessionMutationRequestIdRef.current += 1;
+    identitySessionMutationRequestKeyRef.current = null;
+    identitySessionRevokingIdRef.current = null;
+    setIdentitySessionRevokingId(null);
 
     if (!authToken) {
       setIdentitySessions([]);

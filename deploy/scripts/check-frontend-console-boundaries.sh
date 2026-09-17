@@ -1394,6 +1394,30 @@ require_source_match \
     "Cloud web profile session revocation must track pending state."
 
 require_source_match \
+    "cloud web profile session revocation tracks request identity" \
+    "webApp/scripts/verify-session-sync.mjs" \
+    'cloud web profile session revocation must track request identity' \
+    "Cloud web profile session revocation must track request identity."
+
+require_source_match \
+    "cloud web profile session revocation compares auth and target scope" \
+    "webApp/scripts/verify-session-sync.mjs" \
+    'cloud web profile session revocation must compare auth and target scope' \
+    "Cloud web profile session revocation must compare auth and target scope."
+
+require_source_match \
+    "cloud web profile session revocation ignores stale auth responses" \
+    "webApp/scripts/verify-session-sync.mjs" \
+    'cloud web profile session revocation must ignore stale auth responses' \
+    "Cloud web profile session revocation must ignore stale auth responses."
+
+require_source_match \
+    "cloud web profile session revocation invalidates on auth changes" \
+    "webApp/scripts/verify-session-sync.mjs" \
+    'cloud web profile session revocation must invalidate when auth scope changes' \
+    "Cloud web profile session revocation must invalidate when auth scope changes."
+
+require_source_match \
     "cloud web profile session modal close pauses during revocation" \
     "webApp/scripts/verify-session-sync.mjs" \
     'cloud web profile session modal close must pause during session revocation' \

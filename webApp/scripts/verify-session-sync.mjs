@@ -266,14 +266,36 @@ assertIncludesInOrder(
     'if (identitySessionRevokingIdRef.current !== null) {',
     'identitySessionRevokingIdRef.current = sessionId;',
     'setIdentitySessionRevokingId(sessionId);',
-    'await revokeIdentitySession(authToken, sessionId);',
+    'const requestToken = authToken;',
+    'await revokeIdentitySession(requestToken, sessionId);',
     'message.success',
     'await loadIdentitySessions(includeRevokedSessionsRef.current, { force: true });',
     '} finally {',
+    'if (identitySessionMutationRequestIdRef.current === requestId) {',
     'identitySessionRevokingIdRef.current = null;',
     'setIdentitySessionRevokingId(null);',
   ],
   'cloud web profile session revocation must preserve the current revoked filter and block duplicate submissions',
+);
+assert.match(
+  driveProfileSettings,
+  /const identitySessionMutationRequestIdRef = useRef\(0\);[\s\S]*const identitySessionMutationRequestKeyRef = useRef<string \| null>\(null\);[\s\S]*function createIdentitySessionMutationRequestKey\(token: string, sessionId: number\) \{[\s\S]*return JSON\.stringify\(\[token, sessionId\]\);/,
+  'cloud web profile session revocation must track request identity',
+);
+assert.match(
+  driveProfileSettings,
+  /function isCurrentIdentitySessionMutation\([\s\S]*identitySessionMutationRequestIdRef\.current === requestId[\s\S]*identitySessionMutationRequestKeyRef\.current === requestKey[\s\S]*identitySessionRevokingIdRef\.current === sessionId[\s\S]*isCurrentProfileMutation\(token\)/,
+  'cloud web profile session revocation must compare auth and target scope',
+);
+assert.match(
+  driveProfileSettings,
+  /const requestId = identitySessionMutationRequestIdRef\.current;[\s\S]*const requestToken = authToken;[\s\S]*const requestKey = createIdentitySessionMutationRequestKey\(requestToken, sessionId\);[\s\S]*await revokeIdentitySession\(requestToken, sessionId\);[\s\S]*if \(!isCurrentIdentitySessionMutation\(requestId, requestKey, requestToken, sessionId\)\) \{[\s\S]*return;[\s\S]*message\.success[\s\S]*catch \(sessionError\) \{[\s\S]*if \(isCurrentIdentitySessionMutation\(requestId, requestKey, requestToken, sessionId\)\)[\s\S]*finally \{[\s\S]*if \(identitySessionMutationRequestIdRef\.current === requestId\) \{/,
+  'cloud web profile session revocation must ignore stale auth responses',
+);
+assert.match(
+  driveProfileSettings,
+  /useEffect\(\(\) => \{[\s\S]*identitySessionMutationRequestIdRef\.current \+= 1;[\s\S]*identitySessionMutationRequestKeyRef\.current = null;[\s\S]*identitySessionRevokingIdRef\.current = null;[\s\S]*setIdentitySessionRevokingId\(null\);[\s\S]*\}, \[authToken\]\);/,
+  'cloud web profile session revocation must invalidate when auth scope changes',
 );
 assertIncludesInOrder(
   driveProfileSettings,
