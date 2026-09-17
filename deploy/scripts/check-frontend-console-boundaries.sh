@@ -380,6 +380,12 @@ require_source_match \
     "Cloud web share mutations must force share list refresh after successful changes."
 
 require_source_match \
+    "cloud web share mutations ignore stale auth" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web share mutations must ignore stale auth scope' \
+    "Cloud web share mutations must ignore stale auth responses."
+
+require_source_match \
     "cloud web share revocation blocks duplicates" \
     "webApp/scripts/verify-client-boundary.mjs" \
     'cloud web share revocation must block duplicate submissions and clear pending state' \
@@ -498,6 +504,12 @@ require_source_match \
     "webApp/scripts/verify-client-boundary.mjs" \
     'cloud share page save folder reads must ignore stale responses' \
     "Cloud share page save folder reads must ignore stale responses."
+
+require_source_match \
+    "cloud share save mutations ignore stale auth share scope" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud share save mutations must ignore stale auth share scope' \
+    "Cloud share save mutations must ignore stale auth or share responses."
 
 require_source_match \
     "cloud share page reads track request identity" \
@@ -720,6 +732,12 @@ require_source_match \
     "webApp/scripts/verify-client-boundary.mjs" \
     'cloud web storage mutations must force list refresh after successful changes' \
     "Cloud web storage mutations must force list refresh after successful changes."
+
+require_source_match \
+    "cloud web storage mutations ignore stale auth" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web storage mutations must ignore stale auth scope' \
+    "Cloud web storage mutations must ignore stale auth responses."
 
 require_source_match \
     "cloud web folder option reads track request identity" \

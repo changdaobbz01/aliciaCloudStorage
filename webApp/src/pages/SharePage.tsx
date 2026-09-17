@@ -241,6 +241,8 @@ export function SharePage() {
   const [selectedShareRowKeys, setSelectedShareRowKeys] = useState<Key[]>([]);
   const passwordCheckingRef = useRef(false);
   const savingRef = useRef(false);
+  const saveMutationRequestIdRef = useRef(0);
+  const saveMutationRequestKeyRef = useRef<string | null>(null);
   const downloadingNodeIdRef = useRef<number | null>(null);
   const downloadingSelectionRef = useRef(false);
   const saveFolderOptionsLoadingRef = useRef(false);
@@ -276,6 +278,11 @@ export function SharePage() {
   }, [detail?.title]);
 
   useEffect(() => {
+    saveMutationRequestIdRef.current += 1;
+    saveMutationRequestKeyRef.current = null;
+    savingRef.current = false;
+    setSaving(false);
+    setSaveTargetOpen(false);
     shareStatusRequestIdRef.current += 1;
     shareStatusLoadingKeyRef.current = null;
     shareDetailRequestIdRef.current += 1;
@@ -534,6 +541,11 @@ export function SharePage() {
   }
 
   useEffect(() => {
+    saveMutationRequestIdRef.current += 1;
+    saveMutationRequestKeyRef.current = null;
+    savingRef.current = false;
+    setSaving(false);
+    setSaveTargetOpen(false);
     saveFolderOptionsRequestIdRef.current += 1;
     saveFolderOptionsLoadingKeyRef.current = null;
     saveFolderOptionsLoadingRef.current = false;
@@ -602,6 +614,31 @@ export function SharePage() {
     setSaveTargetOpen(false);
   }
 
+  function createShareSaveMutationRequestKey(
+    requestId: number,
+    code: string,
+    token: string,
+    accessToken: string | null,
+    nodeIds: number[],
+    parentId: number | null,
+  ) {
+    return JSON.stringify([requestId, code, token, accessToken, nodeIds, parentId]);
+  }
+
+  function isCurrentShareSaveMutation(
+    requestKey: string,
+    code: string,
+    token: string,
+    accessToken: string | null,
+  ) {
+    return (
+      saveMutationRequestKeyRef.current === requestKey
+      && shareCodeRef.current === code
+      && authTokenRef.current === token
+      && shareAccessTokenRef.current === accessToken
+    );
+  }
+
   function openSaveTargetModal() {
     if (!authToken || !detail || savingRef.current || downloadingSelectionRef.current || downloadingNodeIdRef.current !== null) {
       return;
@@ -637,28 +674,53 @@ export function SharePage() {
 
     savingRef.current = true;
     setSaving(true);
+    const requestToken = authToken;
+    const requestShareCode = normalizedShareCode;
+    const requestAccessToken = shareAccessToken;
+    const requestNodeIds = saveSelection.value;
+    const requestParentId = parent.value;
+    saveMutationRequestIdRef.current += 1;
+    const requestId = saveMutationRequestIdRef.current;
+    const requestKey = createShareSaveMutationRequestKey(
+      requestId,
+      requestShareCode,
+      requestToken,
+      requestAccessToken,
+      requestNodeIds,
+      requestParentId,
+    );
+    saveMutationRequestKeyRef.current = requestKey;
 
     try {
       await saveShareToDrive(
-        detail.shareCode,
-        { parentId: parent.value, selectedNodeIds: saveSelection.value },
-        authToken,
-        shareAccessToken,
+        requestShareCode,
+        { parentId: requestParentId, selectedNodeIds: requestNodeIds },
+        requestToken,
+        requestAccessToken,
       );
-      message.success(parent.value === null ? '已保存到你的网盘根目录。' : '已保存到选定文件夹。');
+      if (!isCurrentShareSaveMutation(requestKey, requestShareCode, requestToken, requestAccessToken)) {
+        return;
+      }
+
+      message.success(requestParentId === null ? '已保存到你的网盘根目录。' : '已保存到选定文件夹。');
       setSaveTargetOpen(false);
       setSelectedShareRowKeys([]);
       void navigate('/');
     } catch (error) {
-      if (resetShareAccessIfNeeded(error)) {
-        setSaveTargetOpen(false);
-        message.warning('提取码凭证已失效，请重新输入。');
-      } else {
-        message.error(error instanceof Error ? error.message : '保存失败。');
+      if (isCurrentShareSaveMutation(requestKey, requestShareCode, requestToken, requestAccessToken)) {
+        if (resetShareAccessIfNeeded(error)) {
+          setSaveTargetOpen(false);
+          message.warning('提取码凭证已失效，请重新输入。');
+        } else {
+          message.error(error instanceof Error ? error.message : '保存失败。');
+        }
       }
     } finally {
-      savingRef.current = false;
-      setSaving(false);
+      if (saveMutationRequestKeyRef.current === requestKey) {
+        saveMutationRequestKeyRef.current = null;
+        savingRef.current = false;
+        setSaving(false);
+      }
     }
   }
 

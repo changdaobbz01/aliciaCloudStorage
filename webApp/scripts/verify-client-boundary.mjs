@@ -362,7 +362,7 @@ assert.match(
 );
 assert.match(
   useDriveShares,
-  /useEffect\(\(\) => \{[\s\S]*shareLinksRequestIdRef\.current \+= 1;[\s\S]*shareLinksLoadingKeyRef\.current = null;[\s\S]*setShareLinksLoading\(false\);[\s\S]*if \(!authToken\) \{[\s\S]*setShareLinks\(\[\]\);[\s\S]*\}, \[authToken\]\);/,
+  /useEffect\(\(\) => \{[\s\S]*shareLinksRequestIdRef\.current \+= 1;[\s\S]*shareLinksLoadingKeyRef\.current = null;[\s\S]*setShareLinksLoading\(false\);[\s\S]*setShareLinks\(\[\]\);[\s\S]*\}, \[authToken\]\);/,
   'cloud web share list reads must invalidate when auth scope changes',
 );
 assert.match(
@@ -382,8 +382,18 @@ assert.equal(
 );
 assert.match(
   useDriveShares,
-  /if \(shareRevokingIdRef\.current !== null\) \{[\s\S]*?return;[\s\S]*?\}[\s\S]*shareRevokingIdRef\.current = shareId;[\s\S]*setShareRevokingId\(shareId\);[\s\S]*finally \{[\s\S]*shareRevokingIdRef\.current = null;[\s\S]*setShareRevokingId\(null\);/,
+  /if \(shareRevokingIdRef\.current !== null\) \{[\s\S]*?return;[\s\S]*?\}[\s\S]*shareRevokingIdRef\.current = shareId;[\s\S]*setShareRevokingId\(shareId\);[\s\S]*finally \{[\s\S]*if \(shareRevokeMutationKeyRef\.current === requestKey\) \{[\s\S]*shareRevokingIdRef\.current = null;[\s\S]*setShareRevokingId\(null\);/,
   'cloud web share revocation must block duplicate submissions and clear pending state',
+);
+assert.match(
+  useDriveShares,
+  /const shareMutationRequestIdRef = useRef\(0\);[\s\S]*const shareCreateMutationKeyRef = useRef<string \| null>\(null\);[\s\S]*const shareRevokeMutationKeyRef = useRef<string \| null>\(null\);[\s\S]*function createShareMutationRequestKey\([\s\S]*requestId: number,[\s\S]*scope: 'create' \| 'revoke',[\s\S]*function isCurrentShareMutationRequest\([\s\S]*createShareMutationRequestKey\(requestId, scope, authTokenRef\.current, target\) === requestKey/,
+  'cloud web share mutations must bind pending operations to auth and target scope',
+);
+assert.match(
+  useDriveShares,
+  /const requestToken = authToken;[\s\S]*const targetNodeIds = uniqueTargets\.map\(\(target\) => target\.id\);[\s\S]*createShareLink\([\s\S]*requestToken,[\s\S]*if \(!isCurrentShareMutationRequest\(requestId, requestKey, 'create', targetNodeIds\)\)[\s\S]*const requestToken = authToken;[\s\S]*revokeShareLink\(shareId, requestToken\);[\s\S]*if \(!isCurrentShareMutationRequest\(requestId, requestKey, 'revoke', shareId\)\)[\s\S]*shareMutationRequestIdRef\.current \+= 1;[\s\S]*shareCreateMutationKeyRef\.current = null;[\s\S]*shareRevokeMutationKeyRef\.current = null;/,
+  'cloud web share mutations must ignore stale auth scope',
 );
 assert.match(
   driveSharesView,
@@ -479,6 +489,16 @@ assert.match(
   sharePage,
   /const nextFolderOptions = await fetchStorageFolders\(authToken\);[\s\S]*if \(!isCurrentSaveFolderOptionsRequest\(requestId, requestKey\)\) \{[\s\S]*return;[\s\S]*setSaveFolderOptions\(nextFolderOptions\);[\s\S]*catch \(error\) \{[\s\S]*if \(isCurrentSaveFolderOptionsRequest\(requestId, requestKey\)\) \{[\s\S]*message\.error[\s\S]*finally \{[\s\S]*if \(isCurrentSaveFolderOptionsRequest\(requestId, requestKey\)\) \{[\s\S]*saveFolderOptionsLoadingKeyRef\.current = null;[\s\S]*saveFolderOptionsLoadingRef\.current = false;[\s\S]*setSaveFolderOptionsLoading\(false\);/,
   'cloud share page save folder reads must ignore stale responses',
+);
+assert.match(
+  sharePage,
+  /const saveMutationRequestIdRef = useRef\(0\);[\s\S]*const saveMutationRequestKeyRef = useRef<string \| null>\(null\);[\s\S]*function createShareSaveMutationRequestKey\([\s\S]*requestId: number,[\s\S]*function isCurrentShareSaveMutation\([\s\S]*saveMutationRequestKeyRef\.current === requestKey[\s\S]*shareCodeRef\.current === code[\s\S]*authTokenRef\.current === token[\s\S]*shareAccessTokenRef\.current === accessToken/,
+  'cloud share save mutations must bind pending operations to auth share scope',
+);
+assert.match(
+  sharePage,
+  /const requestToken = authToken;[\s\S]*const requestShareCode = normalizedShareCode;[\s\S]*const requestAccessToken = shareAccessToken;[\s\S]*saveShareToDrive\([\s\S]*requestShareCode,[\s\S]*requestToken,[\s\S]*requestAccessToken,[\s\S]*if \(!isCurrentShareSaveMutation\(requestKey, requestShareCode, requestToken, requestAccessToken\)\)[\s\S]*catch \(error\) \{[\s\S]*if \(isCurrentShareSaveMutation\(requestKey, requestShareCode, requestToken, requestAccessToken\)\)[\s\S]*if \(saveMutationRequestKeyRef\.current === requestKey\)/,
+  'cloud share save mutations must ignore stale auth share scope',
 );
 assert.match(
   sharePage,
@@ -697,18 +717,23 @@ assert.match(
 );
 assert.match(
   useDriveExplorer,
-  /const \[storageMutation, setStorageMutation\] = useState<DriveStorageMutationState>\(null\);[\s\S]*const storageMutationRef = useRef<DriveStorageMutationState>\(null\);/,
+  /const \[storageMutation, setStorageMutation\] = useState<DriveStorageMutationState>\(null\);[\s\S]*const storageMutationRef = useRef<DriveStorageMutationState>\(null\);[\s\S]*const storageMutationRequestIdRef = useRef\(0\);[\s\S]*const storageMutationRequestKeyRef = useRef<string \| null>\(null\);/,
   'cloud web storage mutations must track a single pending operation',
 );
 assert.match(
   useDriveExplorer,
-  /function beginStorageMutation\(kind: DriveStorageMutationKind, nodeIds: number\[]\)[\s\S]*if \(storageMutationRef\.current !== null\) \{[\s\S]*return false;[\s\S]*setStorageMutation\(nextStorageMutation\);/,
+  /function createStorageMutationRequestKey\([\s\S]*requestId: number,[\s\S]*kind: DriveStorageMutationKind,[\s\S]*function beginStorageMutation\(kind: DriveStorageMutationKind, nodeIds: number\[], token: string\)[\s\S]*if \(storageMutationRef\.current !== null\) \{[\s\S]*return null;[\s\S]*storageMutationRequestIdRef\.current \+= 1;[\s\S]*storageMutationRequestKeyRef\.current = requestKey;[\s\S]*setStorageMutation\(nextStorageMutation\);/,
   'cloud web storage mutations must block duplicate submissions',
 );
 assert.equal(
-  countMatches(useDriveExplorer, /clearStorageMutation\(\);/g),
+  countMatches(useDriveExplorer, /clearStorageMutation\(requestKey\);/g),
   6,
   'cloud web storage mutations must clear pending state after each personal file mutation',
+);
+assert.equal(
+  countMatches(useDriveExplorer, /if \(!isCurrentStorageMutation\(requestKey, requestToken\)\)/g),
+  12,
+  'cloud web storage mutations must ignore stale auth scope',
 );
 assert.match(
   useDriveStorageDialogs,

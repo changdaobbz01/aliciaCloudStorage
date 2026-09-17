@@ -269,6 +269,8 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
   const previewRequestKeyRef = useRef<string | null>(null);
   const uploadControllersRef = useRef<Map<string, AbortController>>(new Map());
   const storageMutationRef = useRef<DriveStorageMutationState>(null);
+  const storageMutationRequestIdRef = useRef(0);
+  const storageMutationRequestKeyRef = useRef<string | null>(null);
   const listRequestIdRef = useRef(0);
   const listLoadingKeyRef = useRef<string | null>(null);
   const folderOptionsRequestIdRef = useRef(0);
@@ -308,22 +310,48 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
     setSelectedItems([]);
   }
 
-  function beginStorageMutation(kind: DriveStorageMutationKind, nodeIds: number[]) {
+  function createStorageMutationRequestKey(
+    requestId: number,
+    kind: DriveStorageMutationKind,
+    token: string,
+    nodeIds: number[],
+  ) {
+    return JSON.stringify([requestId, kind, token, [...new Set(nodeIds)].sort((left, right) => left - right)]);
+  }
+
+  function beginStorageMutation(kind: DriveStorageMutationKind, nodeIds: number[], token: string) {
     if (storageMutationRef.current !== null) {
-      return false;
+      return null;
     }
 
     const nextStorageMutation = {
       kind,
       nodeIds: [...new Set(nodeIds)].sort((left, right) => left - right),
     };
+    storageMutationRequestIdRef.current += 1;
+    const requestKey = createStorageMutationRequestKey(
+      storageMutationRequestIdRef.current,
+      kind,
+      token,
+      nextStorageMutation.nodeIds,
+    );
     storageMutationRef.current = nextStorageMutation;
+    storageMutationRequestKeyRef.current = requestKey;
     setStorageMutation(nextStorageMutation);
-    return true;
+    return requestKey;
   }
 
-  function clearStorageMutation() {
+  function isCurrentStorageMutation(requestKey: string, token: string) {
+    return storageMutationRequestKeyRef.current === requestKey && authTokenRef.current === token;
+  }
+
+  function clearStorageMutation(requestKey: string) {
+    if (storageMutationRequestKeyRef.current !== requestKey) {
+      return;
+    }
+
     storageMutationRef.current = null;
+    storageMutationRequestKeyRef.current = null;
     setStorageMutation(null);
   }
 
@@ -1045,21 +1073,33 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
       return;
     }
 
-    if (!beginStorageMutation('delete', selection.value.nodeIds)) {
+    const requestToken = authToken;
+    const requestKey = beginStorageMutation('delete', selection.value.nodeIds, requestToken);
+    if (!requestKey) {
       return;
     }
 
     try {
-      await deleteStorageNodes({ nodeIds: selection.value.nodeIds }, authToken);
+      await deleteStorageNodes({ nodeIds: selection.value.nodeIds }, requestToken);
+      if (!isCurrentStorageMutation(requestKey, requestToken)) {
+        return;
+      }
+
       clearSelection();
       await Promise.all([loadDrive({ force: true }), onStorageChanged()]);
+      if (!isCurrentStorageMutation(requestKey, requestToken)) {
+        return;
+      }
+
       message.success(
         selection.value.targets.length === 1 ? '已移入回收站。' : `已将 ${selection.value.targets.length} 项移入回收站。`,
       );
     } catch (deleteError) {
-      message.error(deleteError instanceof Error ? deleteError.message : '删除失败。');
+      if (isCurrentStorageMutation(requestKey, requestToken)) {
+        message.error(deleteError instanceof Error ? deleteError.message : '删除失败。');
+      }
     } finally {
-      clearStorageMutation();
+      clearStorageMutation(requestKey);
     }
   }
 
@@ -1074,19 +1114,31 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
       return;
     }
 
-    if (!beginStorageMutation('restore', selection.value.nodeIds)) {
+    const requestToken = authToken;
+    const requestKey = beginStorageMutation('restore', selection.value.nodeIds, requestToken);
+    if (!requestKey) {
       return;
     }
 
     try {
-      await restoreStorageNodes({ nodeIds: selection.value.nodeIds }, authToken);
+      await restoreStorageNodes({ nodeIds: selection.value.nodeIds }, requestToken);
+      if (!isCurrentStorageMutation(requestKey, requestToken)) {
+        return;
+      }
+
       clearSelection();
       await Promise.all([loadDrive({ force: true }), onStorageChanged()]);
+      if (!isCurrentStorageMutation(requestKey, requestToken)) {
+        return;
+      }
+
       message.success(selection.value.targets.length === 1 ? '已恢复。' : `已恢复 ${selection.value.targets.length} 项。`);
     } catch (restoreError) {
-      message.error(restoreError instanceof Error ? restoreError.message : '恢复失败。');
+      if (isCurrentStorageMutation(requestKey, requestToken)) {
+        message.error(restoreError instanceof Error ? restoreError.message : '恢复失败。');
+      }
     } finally {
-      clearStorageMutation();
+      clearStorageMutation(requestKey);
     }
   }
 
@@ -1101,21 +1153,33 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
       return;
     }
 
-    if (!beginStorageMutation('permanent-delete', selection.value.nodeIds)) {
+    const requestToken = authToken;
+    const requestKey = beginStorageMutation('permanent-delete', selection.value.nodeIds, requestToken);
+    if (!requestKey) {
       return;
     }
 
     try {
-      await permanentlyDeleteStorageNodes({ nodeIds: selection.value.nodeIds }, authToken);
+      await permanentlyDeleteStorageNodes({ nodeIds: selection.value.nodeIds }, requestToken);
+      if (!isCurrentStorageMutation(requestKey, requestToken)) {
+        return;
+      }
+
       clearSelection();
       await Promise.all([loadDrive({ force: true }), onStorageChanged()]);
+      if (!isCurrentStorageMutation(requestKey, requestToken)) {
+        return;
+      }
+
       message.success(
         selection.value.targets.length === 1 ? '已彻底删除。' : `已彻底删除 ${selection.value.targets.length} 项。`,
       );
     } catch (deleteError) {
-      message.error(deleteError instanceof Error ? deleteError.message : '彻底删除失败。');
+      if (isCurrentStorageMutation(requestKey, requestToken)) {
+        message.error(deleteError instanceof Error ? deleteError.message : '彻底删除失败。');
+      }
     } finally {
-      clearStorageMutation();
+      clearStorageMutation(requestKey);
     }
   }
 
@@ -1130,7 +1194,9 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
       return false;
     }
 
-    if (!beginStorageMutation('create-folder', [])) {
+    const requestToken = authToken;
+    const requestKey = beginStorageMutation('create-folder', [], requestToken);
+    if (!requestKey) {
       return false;
     }
 
@@ -1140,18 +1206,27 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
           parentId: currentFolderId,
           folderName: nameValidation.value,
         },
-        authToken,
+        requestToken,
       );
+      if (!isCurrentStorageMutation(requestKey, requestToken)) {
+        return false;
+      }
 
       clearSelection();
       await Promise.all([loadDrive({ force: true }), onStorageChanged()]);
+      if (!isCurrentStorageMutation(requestKey, requestToken)) {
+        return false;
+      }
+
       message.success('文件夹创建成功。');
       return true;
     } catch (createError) {
-      message.error(createError instanceof Error ? createError.message : '文件夹创建失败。');
+      if (isCurrentStorageMutation(requestKey, requestToken)) {
+        message.error(createError instanceof Error ? createError.message : '文件夹创建失败。');
+      }
       return false;
     } finally {
-      clearStorageMutation();
+      clearStorageMutation(requestKey);
     }
   }
 
@@ -1166,21 +1241,33 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
       return false;
     }
 
-    if (!beginStorageMutation('rename', [target.id])) {
+    const requestToken = authToken;
+    const requestKey = beginStorageMutation('rename', [target.id], requestToken);
+    if (!requestKey) {
       return false;
     }
 
     try {
-      await renameStorageNode(target.id, { name: nameValidation.value }, authToken);
+      await renameStorageNode(target.id, { name: nameValidation.value }, requestToken);
+      if (!isCurrentStorageMutation(requestKey, requestToken)) {
+        return false;
+      }
+
       clearSelection();
       await loadDrive({ force: true });
+      if (!isCurrentStorageMutation(requestKey, requestToken)) {
+        return false;
+      }
+
       message.success('重命名成功。');
       return true;
     } catch (renameError) {
-      message.error(renameError instanceof Error ? renameError.message : '重命名失败。');
+      if (isCurrentStorageMutation(requestKey, requestToken)) {
+        message.error(renameError instanceof Error ? renameError.message : '重命名失败。');
+      }
       return false;
     } finally {
-      clearStorageMutation();
+      clearStorageMutation(requestKey);
     }
   }
 
@@ -1206,25 +1293,41 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
       parentId: parent.value,
     };
 
-    if (!beginStorageMutation('move', selection.value.nodeIds)) {
+    const requestToken = authToken;
+    const requestKey = beginStorageMutation('move', selection.value.nodeIds, requestToken);
+    if (!requestKey) {
       return false;
     }
 
     try {
-      await moveStorageNodes(payload, authToken);
+      await moveStorageNodes(payload, requestToken);
+      if (!isCurrentStorageMutation(requestKey, requestToken)) {
+        return false;
+      }
+
       clearSelection();
       await loadDrive({ force: true });
+      if (!isCurrentStorageMutation(requestKey, requestToken)) {
+        return false;
+      }
+
       message.success(selection.value.targets.length === 1 ? '移动成功。' : `已移动 ${selection.value.targets.length} 项。`);
       return true;
     } catch (moveError) {
-      message.error(moveError instanceof Error ? moveError.message : '移动失败。');
+      if (isCurrentStorageMutation(requestKey, requestToken)) {
+        message.error(moveError instanceof Error ? moveError.message : '移动失败。');
+      }
       return false;
     } finally {
-      clearStorageMutation();
+      clearStorageMutation(requestKey);
     }
   }
 
   useEffect(() => {
+    storageMutationRequestIdRef.current += 1;
+    storageMutationRequestKeyRef.current = null;
+    storageMutationRef.current = null;
+    setStorageMutation(null);
     folderOptionsRequestIdRef.current += 1;
     folderOptionsLoadingKeyRef.current = null;
     setFolderOptionsLoading(false);

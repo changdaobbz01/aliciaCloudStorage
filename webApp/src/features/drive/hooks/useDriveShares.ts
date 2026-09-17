@@ -26,6 +26,9 @@ export function useDriveShares({ authToken, isSharesView, message }: UseDriveSha
   const [shareRevokingId, setShareRevokingId] = useState<number | null>(null);
   const shareCreatingRef = useRef(false);
   const shareRevokingIdRef = useRef<number | null>(null);
+  const shareMutationRequestIdRef = useRef(0);
+  const shareCreateMutationKeyRef = useRef<string | null>(null);
+  const shareRevokeMutationKeyRef = useRef<string | null>(null);
   const authTokenRef = useRef(authToken);
   const shareLinksRequestIdRef = useRef(0);
   const shareLinksLoadingKeyRef = useRef<string | null>(null);
@@ -41,6 +44,30 @@ export function useDriveShares({ authToken, isSharesView, message }: UseDriveSha
       shareLinksRequestIdRef.current === requestId
       && shareLinksLoadingKeyRef.current === requestKey
       && createShareLinksRequestKey(authTokenRef.current) === requestKey
+    );
+  }
+
+  function createShareMutationRequestKey(
+    requestId: number,
+    scope: 'create' | 'revoke',
+    token: string | null,
+    target: unknown,
+  ) {
+    return JSON.stringify([requestId, scope, token, target]);
+  }
+
+  function isCurrentShareMutationRequest(
+    requestId: number,
+    requestKey: string,
+    scope: 'create' | 'revoke',
+    target: unknown,
+  ) {
+    const currentMutationKey = scope === 'create'
+      ? shareCreateMutationKeyRef.current
+      : shareRevokeMutationKeyRef.current;
+    return (
+      currentMutationKey === requestKey
+      && createShareMutationRequestKey(requestId, scope, authTokenRef.current, target) === requestKey
     );
   }
 
@@ -138,12 +165,18 @@ export function useDriveShares({ authToken, isSharesView, message }: UseDriveSha
 
     shareCreatingRef.current = true;
     setShareCreating(true);
+    const requestToken = authToken;
+    const targetNodeIds = uniqueTargets.map((target) => target.id);
+    shareMutationRequestIdRef.current += 1;
+    const requestId = shareMutationRequestIdRef.current;
+    const requestKey = createShareMutationRequestKey(requestId, 'create', requestToken, targetNodeIds);
+    shareCreateMutationKeyRef.current = requestKey;
 
     try {
       const normalizedPassword = values.passwordEnabled ? values.password?.trim() ?? '' : '';
       const shareLink = await createShareLink(
         {
-          nodeIds: uniqueTargets.map((target) => target.id),
+          nodeIds: targetNodeIds,
           title: values.title?.trim() || (uniqueTargets.length === 1
             ? uniqueTargets[0].name
             : '批量分享'),
@@ -152,20 +185,32 @@ export function useDriveShares({ authToken, isSharesView, message }: UseDriveSha
           allowDownload: values.allowDownload,
           allowSave: values.allowSave,
         },
-        authToken,
+        requestToken,
       );
+      if (!isCurrentShareMutationRequest(requestId, requestKey, 'create', targetNodeIds)) {
+        return false;
+      }
 
       setLastCreatedShare(shareLink);
       setLastCreatedPassword(values.passwordEnabled ? normalizedPassword : null);
       await loadShareLinks({ force: true });
+      if (!isCurrentShareMutationRequest(requestId, requestKey, 'create', targetNodeIds)) {
+        return false;
+      }
+
       message.success('分享链接已创建。');
       return true;
     } catch (error) {
-      message.error(error instanceof Error ? error.message : '创建分享失败。');
+      if (isCurrentShareMutationRequest(requestId, requestKey, 'create', targetNodeIds)) {
+        message.error(error instanceof Error ? error.message : '创建分享失败。');
+      }
       return false;
     } finally {
-      shareCreatingRef.current = false;
-      setShareCreating(false);
+      if (shareCreateMutationKeyRef.current === requestKey) {
+        shareCreateMutationKeyRef.current = null;
+        shareCreatingRef.current = false;
+        setShareCreating(false);
+      }
     }
   }
 
@@ -180,27 +225,54 @@ export function useDriveShares({ authToken, isSharesView, message }: UseDriveSha
 
     shareRevokingIdRef.current = shareId;
     setShareRevokingId(shareId);
+    const requestToken = authToken;
+    shareMutationRequestIdRef.current += 1;
+    const requestId = shareMutationRequestIdRef.current;
+    const requestKey = createShareMutationRequestKey(requestId, 'revoke', requestToken, shareId);
+    shareRevokeMutationKeyRef.current = requestKey;
 
     try {
-      await revokeShareLink(shareId, authToken);
+      await revokeShareLink(shareId, requestToken);
+      if (!isCurrentShareMutationRequest(requestId, requestKey, 'revoke', shareId)) {
+        return;
+      }
+
       await loadShareLinks({ force: true });
+      if (!isCurrentShareMutationRequest(requestId, requestKey, 'revoke', shareId)) {
+        return;
+      }
+
       message.success('分享已取消。');
     } catch (error) {
-      message.error(error instanceof Error ? error.message : '取消分享失败。');
+      if (isCurrentShareMutationRequest(requestId, requestKey, 'revoke', shareId)) {
+        message.error(error instanceof Error ? error.message : '取消分享失败。');
+      }
     } finally {
-      shareRevokingIdRef.current = null;
-      setShareRevokingId(null);
+      if (shareRevokeMutationKeyRef.current === requestKey) {
+        shareRevokeMutationKeyRef.current = null;
+        shareRevokingIdRef.current = null;
+        setShareRevokingId(null);
+      }
     }
   }
 
   useEffect(() => {
+    shareMutationRequestIdRef.current += 1;
+    shareCreateMutationKeyRef.current = null;
+    shareCreatingRef.current = false;
+    setShareCreating(false);
+    shareRevokeMutationKeyRef.current = null;
+    shareRevokingIdRef.current = null;
+    setShareRevokingId(null);
     shareLinksRequestIdRef.current += 1;
     shareLinksLoadingKeyRef.current = null;
     setShareLinksLoading(false);
 
-    if (!authToken) {
-      setShareLinks([]);
-    }
+    setShareLinks([]);
+    setShareCreateTargets([]);
+    setLastCreatedShare(null);
+    setLastCreatedPassword(null);
+    createShareForm.resetFields();
   }, [authToken]);
 
   useEffect(() => {
