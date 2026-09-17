@@ -240,11 +240,16 @@ export function SharePage() {
   const [saveParentKey, setSaveParentKey] = useState(ROOT_PARENT_KEY);
   const [selectedShareRowKeys, setSelectedShareRowKeys] = useState<Key[]>([]);
   const passwordCheckingRef = useRef(false);
+  const passwordRequestIdRef = useRef(0);
+  const passwordRequestKeyRef = useRef<string | null>(null);
   const savingRef = useRef(false);
   const saveMutationRequestIdRef = useRef(0);
   const saveMutationRequestKeyRef = useRef<string | null>(null);
   const downloadingNodeIdRef = useRef<number | null>(null);
   const downloadingSelectionRef = useRef(false);
+  const shareDownloadRequestIdRef = useRef(0);
+  const shareDownloadRequestKeyRef = useRef<string | null>(null);
+  const shareDownloadControllerRef = useRef<AbortController | null>(null);
   const saveFolderOptionsLoadingRef = useRef(false);
   const saveFolderOptionsRequestIdRef = useRef(0);
   const saveFolderOptionsLoadingKeyRef = useRef<string | null>(null);
@@ -278,11 +283,23 @@ export function SharePage() {
   }, [detail?.title]);
 
   useEffect(() => {
+    passwordRequestIdRef.current += 1;
+    passwordRequestKeyRef.current = null;
+    passwordCheckingRef.current = false;
+    setPasswordChecking(false);
     saveMutationRequestIdRef.current += 1;
     saveMutationRequestKeyRef.current = null;
     savingRef.current = false;
     setSaving(false);
     setSaveTargetOpen(false);
+    shareDownloadRequestIdRef.current += 1;
+    shareDownloadRequestKeyRef.current = null;
+    shareDownloadControllerRef.current?.abort();
+    shareDownloadControllerRef.current = null;
+    downloadingNodeIdRef.current = null;
+    downloadingSelectionRef.current = false;
+    setDownloadingNodeId(null);
+    setDownloadingSelection(false);
     shareStatusRequestIdRef.current += 1;
     shareStatusLoadingKeyRef.current = null;
     shareDetailRequestIdRef.current += 1;
@@ -296,6 +313,22 @@ export function SharePage() {
     mobileOpenActionRef.current = null;
     setMobileOpenAction(null);
   }, [normalizedShareCode, shareCodeValid]);
+
+  useEffect(() => {
+    saveMutationRequestIdRef.current += 1;
+    saveMutationRequestKeyRef.current = null;
+    savingRef.current = false;
+    setSaving(false);
+    setSaveTargetOpen(false);
+    shareDownloadRequestIdRef.current += 1;
+    shareDownloadRequestKeyRef.current = null;
+    shareDownloadControllerRef.current?.abort();
+    shareDownloadControllerRef.current = null;
+    downloadingNodeIdRef.current = null;
+    downloadingSelectionRef.current = false;
+    setDownloadingNodeId(null);
+    setDownloadingSelection(false);
+  }, [authToken, shareAccessToken]);
 
   function createShareStatusRequestKey(code = normalizedShareCode) {
     return JSON.stringify([code]);
@@ -465,6 +498,19 @@ export function SharePage() {
     return true;
   }
 
+  function createPasswordRequestKey(requestId: number, code: string) {
+    return JSON.stringify([requestId, code]);
+  }
+
+  function isCurrentPasswordRequest(requestId: number, requestKey: string, code: string) {
+    return (
+      passwordRequestIdRef.current === requestId
+      && passwordRequestKeyRef.current === requestKey
+      && createPasswordRequestKey(requestId, shareCodeRef.current) === requestKey
+      && shareCodeRef.current === code
+    );
+  }
+
   async function handlePasswordSubmit(values: VerifySharePasswordPayload) {
     if (passwordCheckingRef.current) {
       return;
@@ -472,20 +518,34 @@ export function SharePage() {
 
     passwordCheckingRef.current = true;
     setPasswordChecking(true);
+    const requestCode = normalizedShareCode;
+    passwordRequestIdRef.current += 1;
+    const requestId = passwordRequestIdRef.current;
+    const requestKey = createPasswordRequestKey(requestId, requestCode);
+    passwordRequestKeyRef.current = requestKey;
 
     try {
-      const response = await verifySharePassword(normalizedShareCode, values);
+      const response = await verifySharePassword(requestCode, values);
+      if (!isCurrentPasswordRequest(requestId, requestKey, requestCode)) {
+        return;
+      }
+
       if (response.accessToken && response.expiresAt) {
-        saveStoredShareAccess(normalizedShareCode, response.accessToken, response.expiresAt);
+        saveStoredShareAccess(requestCode, response.accessToken, response.expiresAt);
         setShareAccessToken(response.accessToken);
       }
       passwordForm.resetFields();
       message.success('提取码校验通过。');
     } catch (error) {
-      message.error(error instanceof Error ? error.message : '提取码校验失败。');
+      if (isCurrentPasswordRequest(requestId, requestKey, requestCode)) {
+        message.error(error instanceof Error ? error.message : '提取码校验失败。');
+      }
     } finally {
-      passwordCheckingRef.current = false;
-      setPasswordChecking(false);
+      if (passwordRequestKeyRef.current === requestKey) {
+        passwordRequestKeyRef.current = null;
+        passwordCheckingRef.current = false;
+        setPasswordChecking(false);
+      }
     }
   }
 
@@ -541,11 +601,6 @@ export function SharePage() {
   }
 
   useEffect(() => {
-    saveMutationRequestIdRef.current += 1;
-    saveMutationRequestKeyRef.current = null;
-    savingRef.current = false;
-    setSaving(false);
-    setSaveTargetOpen(false);
     saveFolderOptionsRequestIdRef.current += 1;
     saveFolderOptionsLoadingKeyRef.current = null;
     saveFolderOptionsLoadingRef.current = false;
@@ -633,6 +688,34 @@ export function SharePage() {
   ) {
     return (
       saveMutationRequestKeyRef.current === requestKey
+      && shareCodeRef.current === code
+      && authTokenRef.current === token
+      && shareAccessTokenRef.current === accessToken
+    );
+  }
+
+  function createShareDownloadRequestKey(
+    requestId: number,
+    kind: 'file' | 'archive',
+    code: string,
+    token: string,
+    accessToken: string | null,
+    nodeIds: number[],
+  ) {
+    return JSON.stringify([requestId, kind, code, token, accessToken, nodeIds]);
+  }
+
+  function isCurrentShareDownload(
+    requestKey: string,
+    code: string,
+    token: string,
+    accessToken: string | null,
+    controller: AbortController,
+  ) {
+    return (
+      shareDownloadRequestKeyRef.current === requestKey
+      && shareDownloadControllerRef.current === controller
+      && !controller.signal.aborted
       && shareCodeRef.current === code
       && authTokenRef.current === token
       && shareAccessTokenRef.current === accessToken
@@ -736,26 +819,51 @@ export function SharePage() {
 
     downloadingNodeIdRef.current = item.id;
     setDownloadingNodeId(item.id);
+    const requestCode = normalizedShareCode;
+    const requestToken = authToken;
+    const requestAccessToken = shareAccessToken;
+    const controller = new AbortController();
+    shareDownloadRequestIdRef.current += 1;
+    const requestKey = createShareDownloadRequestKey(
+      shareDownloadRequestIdRef.current,
+      'file',
+      requestCode,
+      requestToken,
+      requestAccessToken,
+      [item.id],
+    );
+    shareDownloadRequestKeyRef.current = requestKey;
+    shareDownloadControllerRef.current = controller;
 
     try {
       const access = await fetchShareFileAccessUrl(
-        detail.shareCode,
+        requestCode,
         item.id,
-        authToken,
-        shareAccessToken,
+        requestToken,
+        requestAccessToken,
         'attachment',
       );
+      if (!isCurrentShareDownload(requestKey, requestCode, requestToken, requestAccessToken, controller)) {
+        return;
+      }
+
       triggerLinkDownload(access.url, access.fileName ?? item.name);
       message.success('已开始下载。');
     } catch (error) {
-      if (resetShareAccessIfNeeded(error)) {
-        message.warning('提取码凭证已失效，请重新输入。');
-      } else {
-        message.error(error instanceof Error ? error.message : '下载失败。');
+      if (isCurrentShareDownload(requestKey, requestCode, requestToken, requestAccessToken, controller)) {
+        if (resetShareAccessIfNeeded(error)) {
+          message.warning('提取码凭证已失效，请重新输入。');
+        } else {
+          message.error(error instanceof Error ? error.message : '下载失败。');
+        }
       }
     } finally {
-      downloadingNodeIdRef.current = null;
-      setDownloadingNodeId(null);
+      if (shareDownloadRequestKeyRef.current === requestKey) {
+        shareDownloadRequestKeyRef.current = null;
+        shareDownloadControllerRef.current = null;
+        downloadingNodeIdRef.current = null;
+        setDownloadingNodeId(null);
+      }
     }
   }
 
@@ -782,29 +890,56 @@ export function SharePage() {
       downloadingNodeIdRef.current = busyNodeId;
       setDownloadingNodeId(busyNodeId);
     }
+    const requestCode = normalizedShareCode;
+    const requestToken = authToken;
+    const requestAccessToken = shareAccessToken;
+    const requestNodeIds = archiveSelection.value;
+    const controller = new AbortController();
+    shareDownloadRequestIdRef.current += 1;
+    const requestKey = createShareDownloadRequestKey(
+      shareDownloadRequestIdRef.current,
+      'archive',
+      requestCode,
+      requestToken,
+      requestAccessToken,
+      requestNodeIds,
+    );
+    shareDownloadRequestKeyRef.current = requestKey;
+    shareDownloadControllerRef.current = controller;
 
     try {
       const { blob, fileName } = await downloadShareArchive(
-        detail.shareCode,
-        { nodeIds: archiveSelection.value },
-        authToken,
-        shareAccessToken,
+        requestCode,
+        { nodeIds: requestNodeIds },
+        requestToken,
+        requestAccessToken,
+        { signal: controller.signal },
       );
+      if (!isCurrentShareDownload(requestKey, requestCode, requestToken, requestAccessToken, controller)) {
+        return;
+      }
+
       triggerBlobDownload(blob, fileName ?? `${detail.title}.zip`);
       message.success('压缩包已开始下载。');
     } catch (error) {
-      if (resetShareAccessIfNeeded(error)) {
-        message.warning('提取码凭证已失效，请重新输入。');
-      } else {
-        message.error(error instanceof Error ? error.message : '下载失败。');
+      if (isCurrentShareDownload(requestKey, requestCode, requestToken, requestAccessToken, controller)) {
+        if (resetShareAccessIfNeeded(error)) {
+          message.warning('提取码凭证已失效，请重新输入。');
+        } else {
+          message.error(error instanceof Error ? error.message : '下载失败。');
+        }
       }
     } finally {
-      if (busyNodeId === null) {
-        downloadingSelectionRef.current = false;
-        setDownloadingSelection(false);
-      } else {
-        downloadingNodeIdRef.current = null;
-        setDownloadingNodeId(null);
+      if (shareDownloadRequestKeyRef.current === requestKey) {
+        shareDownloadRequestKeyRef.current = null;
+        shareDownloadControllerRef.current = null;
+        if (busyNodeId === null) {
+          downloadingSelectionRef.current = false;
+          setDownloadingSelection(false);
+        } else {
+          downloadingNodeIdRef.current = null;
+          setDownloadingNodeId(null);
+        }
       }
     }
   }

@@ -141,8 +141,10 @@ export function useDriveDownloads({ authToken, message }: UseDriveDownloadsOptio
   const [downloadTasks, setDownloadTasksState] = useState<DriveDownloadTask[]>([]);
   const downloadTasksRef = useRef<DriveDownloadTask[]>([]);
   const authTokenRef = useRef(authToken);
+  const downloadScopeIdRef = useRef(0);
   const controllersRef = useRef<Map<string, AbortController>>(new Map());
   const downloadChainRef = useRef<Promise<void>>(Promise.resolve());
+  authTokenRef.current = authToken;
 
   function commitDownloadTasks(updater: (tasks: DriveDownloadTask[]) => DriveDownloadTask[]) {
     const nextTasks = updater(downloadTasksRef.current);
@@ -166,6 +168,19 @@ export function useDriveDownloads({ authToken, message }: UseDriveDownloadsOptio
     return findTask((task) => task.sourceType === sourceType && sameNodeIds(task.nodeIds, nodeIds) && predicate(task));
   }
 
+  function isCurrentDownloadRequest(
+    taskId: string,
+    token: string,
+    scopeId: number,
+    controller: AbortController,
+  ) {
+    return (
+      authTokenRef.current === token
+      && downloadScopeIdRef.current === scopeId
+      && controllersRef.current.get(taskId) === controller
+    );
+  }
+
   async function runDownloadTask(taskId: string) {
     const task = downloadTasksRef.current.find((candidate) => candidate.id === taskId);
     const token = authTokenRef.current;
@@ -185,6 +200,7 @@ export function useDriveDownloads({ authToken, message }: UseDriveDownloadsOptio
     }
 
     const controller = new AbortController();
+    const scopeId = downloadScopeIdRef.current;
     controllersRef.current.set(taskId, controller);
     updateDownloadTask(taskId, (current) => ({
       ...current,
@@ -202,6 +218,9 @@ export function useDriveDownloads({ authToken, message }: UseDriveDownloadsOptio
               signal: controller.signal,
               onProgress: ({ loaded, total, percent }) => {
                 if (controller.signal.aborted) {
+                  return;
+                }
+                if (!isCurrentDownloadRequest(taskId, token, scopeId, controller)) {
                   return;
                 }
 
@@ -224,6 +243,9 @@ export function useDriveDownloads({ authToken, message }: UseDriveDownloadsOptio
                   if (controller.signal.aborted) {
                     return;
                   }
+                  if (!isCurrentDownloadRequest(taskId, token, scopeId, controller)) {
+                    return;
+                  }
 
                   updateDownloadTask(taskId, (current) => ({
                     ...current,
@@ -240,6 +262,9 @@ export function useDriveDownloads({ authToken, message }: UseDriveDownloadsOptio
       if (controller.signal.aborted) {
         throw createAbortError();
       }
+      if (!isCurrentDownloadRequest(taskId, token, scopeId, controller)) {
+        return;
+      }
 
       updateDownloadTask(taskId, (current) => ({
         ...current,
@@ -251,6 +276,10 @@ export function useDriveDownloads({ authToken, message }: UseDriveDownloadsOptio
       }));
 
       const fileName = downloadResult.fileName ?? task.fileName ?? 'AliciaCloud-download';
+      if (!isCurrentDownloadRequest(taskId, token, scopeId, controller)) {
+        return;
+      }
+
       saveBlobToLocalFile(downloadResult.blob, fileName);
 
       updateDownloadTask(taskId, (current) => ({
@@ -265,6 +294,10 @@ export function useDriveDownloads({ authToken, message }: UseDriveDownloadsOptio
       }));
       message.success(`已下载「${task.displayName}」。`);
     } catch (downloadError) {
+      if (!isCurrentDownloadRequest(taskId, token, scopeId, controller)) {
+        return;
+      }
+
       if (isAbortError(downloadError) || controller.signal.aborted) {
         updateDownloadTask(taskId, (current) => ({
           ...current,
@@ -283,7 +316,9 @@ export function useDriveDownloads({ authToken, message }: UseDriveDownloadsOptio
       }));
       message.error(downloadError instanceof Error ? downloadError.message : '下载失败，请稍后重试。');
     } finally {
-      controllersRef.current.delete(taskId);
+      if (controllersRef.current.get(taskId) === controller) {
+        controllersRef.current.delete(taskId);
+      }
     }
   }
 
@@ -434,26 +469,11 @@ export function useDriveDownloads({ authToken, message }: UseDriveDownloadsOptio
   );
 
   useEffect(() => {
-    authTokenRef.current = authToken;
-
-    if (authToken) {
-      return;
-    }
-
+    downloadScopeIdRef.current += 1;
     controllersRef.current.forEach((controller) => controller.abort());
     controllersRef.current.clear();
-    commitDownloadTasks((current) =>
-      current.map((task) =>
-        isActiveDownloadStatus(task.status)
-          ? {
-              ...task,
-              status: 'canceled',
-              error: '登录状态已变更，下载已取消。',
-              finishedAt: Date.now(),
-            }
-          : task,
-      ),
-    );
+    downloadChainRef.current = Promise.resolve();
+    commitDownloadTasks(() => []);
   }, [authToken]);
 
   return {

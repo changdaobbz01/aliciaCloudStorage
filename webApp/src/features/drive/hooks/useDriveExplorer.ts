@@ -268,6 +268,8 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
   const previewRequestIdRef = useRef(0);
   const previewRequestKeyRef = useRef<string | null>(null);
   const uploadControllersRef = useRef<Map<string, AbortController>>(new Map());
+  const uploadBatchRequestIdRef = useRef(0);
+  const uploadBatchRequestKeyRef = useRef<string | null>(null);
   const storageMutationRef = useRef<DriveStorageMutationState>(null);
   const storageMutationRequestIdRef = useRef(0);
   const storageMutationRequestKeyRef = useRef<string | null>(null);
@@ -482,6 +484,37 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
     setUploadTasks((current) => current.map((task) => (task.id === taskId ? updater(task) : task)));
   }
 
+  function createUploadBatchRequestKey(requestId: number, token: string, tasks: DriveUploadTask[]) {
+    return JSON.stringify([requestId, token, tasks.map((task) => task.id)]);
+  }
+
+  function isCurrentUploadBatch(requestKey: string, token: string) {
+    return uploadBatchRequestKeyRef.current === requestKey && authTokenRef.current === token;
+  }
+
+  function ensureCurrentUploadBatch(requestKey: string, token: string) {
+    if (isCurrentUploadBatch(requestKey, token)) {
+      return;
+    }
+
+    throw new DOMException('登录状态已变更，上传已取消。', 'AbortError');
+  }
+
+  function updateUploadTaskForBatch(
+    taskId: string,
+    requestKey: string,
+    token: string,
+    updater: (task: DriveUploadTask) => DriveUploadTask,
+  ) {
+    setUploadTasks((current) => {
+      if (!isCurrentUploadBatch(requestKey, token)) {
+        return current;
+      }
+
+      return current.map((task) => (task.id === taskId ? updater(task) : task));
+    });
+  }
+
   function createUploadAbortController(taskId: string) {
     const controller = new AbortController();
     uploadControllersRef.current.set(taskId, controller);
@@ -523,7 +556,7 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
   }
 
   function clearUploadHistory() {
-    if (uploading) {
+    if (uploading || uploadBatchRequestKeyRef.current !== null) {
       return;
     }
 
@@ -687,8 +720,14 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
     }
   }
 
-  async function uploadMultipartTask(task: DriveUploadTask, token: string, signal?: AbortSignal) {
+  async function uploadMultipartTask(
+    task: DriveUploadTask,
+    token: string,
+    requestKey: string,
+    signal?: AbortSignal,
+  ) {
     const fingerprint = await createUploadFingerprint(task.file);
+    ensureCurrentUploadBatch(requestKey, token);
     const totalChunks = Math.ceil(task.file.size / MULTIPART_CHUNK_SIZE_BYTES);
     const session = await createMultipartUpload(
       {
@@ -703,10 +742,11 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
       token,
       { signal },
     );
+    ensureCurrentUploadBatch(requestKey, token);
     const uploadedParts = new Map(session.uploadedParts.map((part) => [part.partNumber, part]));
     let completedBytes = session.uploadedParts.reduce((sum, part) => sum + part.size, 0);
 
-    updateUploadTask(task.id, (current) => ({
+    updateUploadTaskForBatch(task.id, requestKey, token, (current) => ({
       ...current,
       uploadToken: session.uploadToken,
       loadedBytes: completedBytes,
@@ -715,6 +755,7 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
     }));
 
     for (let partNumber = 1; partNumber <= session.totalChunks; partNumber += 1) {
+      ensureCurrentUploadBatch(requestKey, token);
       const uploadedPart = uploadedParts.get(partNumber);
 
       if (uploadedPart) {
@@ -731,7 +772,7 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
             signal,
             onProgress: ({ loaded }) => {
               const loadedBytes = completedBytes + loaded;
-              updateUploadTask(task.id, (current) => ({
+              updateUploadTaskForBatch(task.id, requestKey, token, (current) => ({
                 ...current,
                 loadedBytes,
                 totalBytes: session.fileSize,
@@ -742,9 +783,10 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
           }),
         MAX_CHUNK_UPLOAD_RETRIES,
       );
+      ensureCurrentUploadBatch(requestKey, token);
 
       completedBytes += chunk.size;
-      updateUploadTask(task.id, (current) => ({
+      updateUploadTaskForBatch(task.id, requestKey, token, (current) => ({
         ...current,
         loadedBytes: completedBytes,
         totalBytes: session.fileSize,
@@ -753,7 +795,7 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
       }));
     }
 
-    updateUploadTask(task.id, (current) => ({
+    updateUploadTaskForBatch(task.id, requestKey, token, (current) => ({
       ...current,
       status: 'completing',
       loadedBytes: session.fileSize,
@@ -762,18 +804,23 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
       error: null,
     }));
 
-    return retryUploadRequest(() => completeMultipartUpload(session.uploadToken, token, { signal }), MAX_UPLOAD_RETRIES);
+    const completedUpload = await retryUploadRequest(
+      () => completeMultipartUpload(session.uploadToken, token, { signal }),
+      MAX_UPLOAD_RETRIES,
+    );
+    ensureCurrentUploadBatch(requestKey, token);
+    return completedUpload;
   }
 
-  async function uploadTaskFile(task: DriveUploadTask, token: string, signal?: AbortSignal) {
+  async function uploadTaskFile(task: DriveUploadTask, token: string, requestKey: string, signal?: AbortSignal) {
     if (shouldUseMultipartUpload(task.file)) {
-      return uploadMultipartTask(task, token, signal);
+      return uploadMultipartTask(task, token, requestKey, signal);
     }
 
     return uploadStorageFile(task.file, task.parentId, token, {
       signal,
       onProgress: ({ loaded, total, percent }) => {
-        updateUploadTask(task.id, (current) => ({
+        updateUploadTaskForBatch(task.id, requestKey, token, (current) => ({
           ...current,
           status: 'uploading',
           loadedBytes: loaded,
@@ -786,10 +833,14 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
   }
 
   async function runUploadTasks(tasksToRun: DriveUploadTask[]) {
-    if (!authToken || tasksToRun.length === 0) {
+    if (!authToken || tasksToRun.length === 0 || uploadBatchRequestKeyRef.current !== null) {
       return;
     }
 
+    const requestToken = authToken;
+    uploadBatchRequestIdRef.current += 1;
+    const requestKey = createUploadBatchRequestKey(uploadBatchRequestIdRef.current, requestToken, tasksToRun);
+    uploadBatchRequestKeyRef.current = requestKey;
     setUploading(true);
     let successCount = 0;
     let canceledCount = 0;
@@ -797,9 +848,13 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
     try {
       for (const task of tasksToRun) {
         for (let attempt = 1; attempt <= MAX_UPLOAD_RETRIES + 1; attempt += 1) {
+          if (!isCurrentUploadBatch(requestKey, requestToken)) {
+            return;
+          }
+
           const controller = createUploadAbortController(task.id);
 
-          updateUploadTask(task.id, (current) => ({
+          updateUploadTaskForBatch(task.id, requestKey, requestToken, (current) => ({
             ...current,
             status: attempt === 1 ? 'uploading' : 'retrying',
             attempt,
@@ -810,9 +865,12 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
           }));
 
           try {
-            await uploadTaskFile(task, authToken, controller.signal);
+            await uploadTaskFile(task, requestToken, requestKey, controller.signal);
+            if (!isCurrentUploadBatch(requestKey, requestToken)) {
+              return;
+            }
 
-            updateUploadTask(task.id, (current) => ({
+            updateUploadTaskForBatch(task.id, requestKey, requestToken, (current) => ({
               ...current,
               status: 'success',
               progress: 100,
@@ -823,8 +881,12 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
             successCount += 1;
             break;
           } catch (uploadError) {
+            if (!isCurrentUploadBatch(requestKey, requestToken)) {
+              return;
+            }
+
             if (uploadError instanceof Error && uploadError.name === 'AbortError') {
-              updateUploadTask(task.id, (current) => ({
+              updateUploadTaskForBatch(task.id, requestKey, requestToken, (current) => ({
                 ...current,
                 status: 'canceled',
                 error: '上传已取消。',
@@ -840,7 +902,7 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
               continue;
             }
 
-            updateUploadTask(task.id, (current) => ({
+            updateUploadTaskForBatch(task.id, requestKey, requestToken, (current) => ({
               ...current,
               status: 'error',
               error: uploadError instanceof Error ? uploadError.message : '上传失败，请稍后重试。',
@@ -851,44 +913,52 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
           }
         }
       }
-    } finally {
-      setUploading(false);
-    }
 
-    if (successCount > 0) {
-      clearSelection();
-      await Promise.all([loadDrive({ force: true }), onStorageChanged()]);
-    }
+      if (successCount > 0) {
+        clearSelection();
+        await Promise.all([loadDrive({ force: true }), onStorageChanged()]);
+        if (!isCurrentUploadBatch(requestKey, requestToken)) {
+          return;
+        }
+      }
 
-    const failedCount = tasksToRun.length - successCount - canceledCount;
-    if (failedCount === 0) {
-      if (canceledCount > 0) {
-        message.info(
-          canceledCount === tasksToRun.length ? '上传已取消。' : `已完成 ${successCount} 个文件上传，取消 ${canceledCount} 个。`,
+      const failedCount = tasksToRun.length - successCount - canceledCount;
+      if (failedCount === 0) {
+        if (canceledCount > 0) {
+          message.info(
+            canceledCount === tasksToRun.length
+              ? '上传已取消。'
+              : `已完成 ${successCount} 个文件上传，取消 ${canceledCount} 个。`,
+          );
+          return;
+        }
+
+        message.success(
+          tasksToRun.length === 1
+            ? `文件“${tasksToRun[0].file.name}”上传成功。`
+            : `已完成 ${tasksToRun.length} 个文件上传。`,
         );
         return;
       }
 
-      message.success(
-        tasksToRun.length === 1
-          ? `文件“${tasksToRun[0].file.name}”上传成功。`
-          : `已完成 ${tasksToRun.length} 个文件上传。`,
+      if (successCount > 0) {
+        message.warning(`已完成 ${successCount} 个文件上传，另有 ${failedCount} 个失败。`);
+        return;
+      }
+
+      message.error(
+        tasksToRun.length === 1 ? `文件“${tasksToRun[0].file.name}”上传失败。` : `共 ${failedCount} 个文件上传失败。`,
       );
-      return;
+    } finally {
+      if (uploadBatchRequestKeyRef.current === requestKey) {
+        uploadBatchRequestKeyRef.current = null;
+        setUploading(false);
+      }
     }
-
-    if (successCount > 0) {
-      message.warning(`已完成 ${successCount} 个文件上传，另有 ${failedCount} 个失败。`);
-      return;
-    }
-
-    message.error(
-      tasksToRun.length === 1 ? `文件“${tasksToRun[0].file.name}”上传失败。` : `共 ${failedCount} 个文件上传失败。`,
-    );
   }
 
   async function retryFailedUploads() {
-    if (uploading) {
+    if (uploading || uploadBatchRequestKeyRef.current !== null) {
       return;
     }
 
@@ -901,7 +971,7 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
   }
 
   async function retryUploadTask(taskId: string) {
-    if (uploading) {
+    if (uploading || uploadBatchRequestKeyRef.current !== null) {
       return;
     }
 
@@ -914,7 +984,7 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
   }
 
   function handleUploadButtonClick() {
-    if (uploading) {
+    if (uploading || uploadBatchRequestKeyRef.current !== null) {
       message.info('当前仍有文件正在上传，请稍候。');
       return;
     }
@@ -938,7 +1008,8 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
   }
 
   async function handleSelectedFiles(event: ChangeEvent<HTMLInputElement>) {
-    if (!authToken) {
+    if (!authToken || uploadBatchRequestKeyRef.current !== null) {
+      event.target.value = '';
       return;
     }
 
@@ -1324,6 +1395,12 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
   }
 
   useEffect(() => {
+    uploadBatchRequestIdRef.current += 1;
+    uploadBatchRequestKeyRef.current = null;
+    uploadControllersRef.current.forEach((controller) => controller.abort());
+    uploadControllersRef.current.clear();
+    setUploading(false);
+    setUploadTasks([]);
     storageMutationRequestIdRef.current += 1;
     storageMutationRequestKeyRef.current = null;
     storageMutationRef.current = null;

@@ -578,6 +578,12 @@ require_source_match \
     "Cloud share page password check must block duplicate submissions."
 
 require_source_match \
+    "cloud share page password checks ignore stale share scope" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud share page password checks must ignore stale share scope' \
+    "Cloud share page password checks must ignore stale share responses."
+
+require_source_match \
     "cloud share page save flow blocks duplicates" \
     "webApp/scripts/verify-client-boundary.mjs" \
     'cloud share page save flow must block duplicate submissions and pending close' \
@@ -588,6 +594,18 @@ require_source_match \
     "webApp/scripts/verify-client-boundary.mjs" \
     'cloud share page downloads must block competing submissions' \
     "Cloud share page downloads must block competing submissions."
+
+require_source_match \
+    "cloud share page downloads ignore stale auth share scope" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud share page downloads must ignore stale auth share scope' \
+    "Cloud share page downloads must ignore stale auth or share responses."
+
+require_source_match \
+    "cloud share page downloads invalidate auth access scope" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud share page downloads must invalidate on auth access scope changes' \
+    "Cloud share page downloads must invalidate when auth or access scope changes."
 
 require_source_match \
     "cloud share page row downloads show pending state" \
@@ -656,6 +674,18 @@ require_source_match \
     "Cloud web download tasks must update synchronous task refs."
 
 require_source_match \
+    "cloud web downloads ignore stale auth scope" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web downloads must ignore stale auth scope' \
+    "Cloud web downloads must ignore stale auth responses."
+
+require_source_match \
+    "cloud web downloads invalidate auth scope" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web downloads must invalidate transfers on auth scope changes' \
+    "Cloud web downloads must invalidate transfers when auth scope changes."
+
+require_source_match \
     "cloud web download cancellation targets transfer states" \
     "webApp/scripts/verify-client-boundary.mjs" \
     'cloud web download cancellation must only target cancelable transfer states' \
@@ -702,6 +732,24 @@ require_source_match \
     "webApp/scripts/verify-client-boundary.mjs" \
     'cloud web file preview reads must invalidate when auth or visible scope changes' \
     "Cloud web file preview reads must invalidate when auth or visible scope changes."
+
+require_source_match \
+    "cloud web uploads ignore stale auth scope" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web uploads must ignore stale auth scope' \
+    "Cloud web uploads must ignore stale auth responses."
+
+require_source_match \
+    "cloud web uploads block duplicate batches" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web uploads must block duplicate batches with synchronous guards' \
+    "Cloud web uploads must block duplicate batches with synchronous guards."
+
+require_source_match \
+    "cloud web uploads abort on auth scope changes" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web uploads must abort and clear tasks on auth scope changes' \
+    "Cloud web uploads must abort and clear tasks when auth scope changes."
 
 require_source_match \
     "cloud web list reads track request identity" \

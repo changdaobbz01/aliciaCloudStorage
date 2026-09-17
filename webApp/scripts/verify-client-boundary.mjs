@@ -552,8 +552,13 @@ assert.match(
 );
 assert.match(
   sharePage,
-  /async function handlePasswordSubmit\(values: VerifySharePasswordPayload\) \{[\s\S]*if \(passwordCheckingRef\.current\) \{[\s\S]*return;[\s\S]*passwordCheckingRef\.current = true;[\s\S]*setPasswordChecking\(true\);[\s\S]*await verifySharePassword\(normalizedShareCode, values\);[\s\S]*finally \{[\s\S]*passwordCheckingRef\.current = false;[\s\S]*setPasswordChecking\(false\);/,
+  /async function handlePasswordSubmit\(values: VerifySharePasswordPayload\) \{[\s\S]*if \(passwordCheckingRef\.current\) \{[\s\S]*return;[\s\S]*passwordCheckingRef\.current = true;[\s\S]*setPasswordChecking\(true\);[\s\S]*await verifySharePassword\(requestCode, values\);[\s\S]*finally \{[\s\S]*if \(passwordRequestKeyRef\.current === requestKey\) \{[\s\S]*passwordCheckingRef\.current = false;[\s\S]*setPasswordChecking\(false\);/,
   'cloud share page password check must block duplicate submissions',
+);
+assert.match(
+  sharePage,
+  /const passwordRequestIdRef = useRef\(0\);[\s\S]*const passwordRequestKeyRef = useRef<string \| null>\(null\);[\s\S]*function createPasswordRequestKey\(requestId: number, code: string\)[\s\S]*function isCurrentPasswordRequest\(requestId: number, requestKey: string, code: string\)[\s\S]*createPasswordRequestKey\(requestId, shareCodeRef\.current\) === requestKey[\s\S]*const requestCode = normalizedShareCode;[\s\S]*if \(!isCurrentPasswordRequest\(requestId, requestKey, requestCode\)\)[\s\S]*catch \(error\) \{[\s\S]*if \(isCurrentPasswordRequest\(requestId, requestKey, requestCode\)\)/,
+  'cloud share page password checks must ignore stale share scope',
 );
 assert.match(
   sharePage,
@@ -564,6 +569,21 @@ assert.match(
   sharePage,
   /async function handleDownloadFile\(item: ShareTreeNode\) \{[\s\S]*if \(!authToken \|\| !detail \|\| savingRef\.current \|\| downloadingSelectionRef\.current \|\| downloadingNodeIdRef\.current !== null\) \{[\s\S]*downloadingNodeIdRef\.current = item\.id;[\s\S]*setDownloadingNodeId\(item\.id\);[\s\S]*finally \{[\s\S]*downloadingNodeIdRef\.current = null;[\s\S]*setDownloadingNodeId\(null\);[\s\S]*async function handleDownloadArchive\(nodeIds: number\[], busyNodeId: number \| null = null\) \{[\s\S]*if \(!authToken \|\| !detail \|\| savingRef\.current \|\| downloadingSelectionRef\.current \|\| downloadingNodeIdRef\.current !== null\) \{[\s\S]*downloadingSelectionRef\.current = true;[\s\S]*setDownloadingSelection\(true\);[\s\S]*downloadingNodeIdRef\.current = busyNodeId;[\s\S]*setDownloadingNodeId\(busyNodeId\);[\s\S]*finally \{[\s\S]*downloadingSelectionRef\.current = false;[\s\S]*setDownloadingSelection\(false\);[\s\S]*downloadingNodeIdRef\.current = null;[\s\S]*setDownloadingNodeId\(null\);/,
   'cloud share page downloads must block competing submissions',
+);
+assert.match(
+  sharePage,
+  /const shareDownloadRequestIdRef = useRef\(0\);[\s\S]*const shareDownloadRequestKeyRef = useRef<string \| null>\(null\);[\s\S]*const shareDownloadControllerRef = useRef<AbortController \| null>\(null\);[\s\S]*function createShareDownloadRequestKey\([\s\S]*function isCurrentShareDownload\([\s\S]*shareCodeRef\.current === code[\s\S]*authTokenRef\.current === token[\s\S]*shareAccessTokenRef\.current === accessToken/,
+  'cloud share page downloads must track auth share request identity',
+);
+assert.match(
+  sharePage,
+  /fetchShareFileAccessUrl\([\s\S]*requestCode,[\s\S]*requestToken,[\s\S]*requestAccessToken,[\s\S]*if \(!isCurrentShareDownload\(requestKey, requestCode, requestToken, requestAccessToken, controller\)\)[\s\S]*downloadShareArchive\([\s\S]*requestCode,[\s\S]*requestToken,[\s\S]*requestAccessToken,[\s\S]*signal: controller\.signal[\s\S]*if \(!isCurrentShareDownload\(requestKey, requestCode, requestToken, requestAccessToken, controller\)\)/,
+  'cloud share page downloads must ignore stale auth share scope',
+);
+assert.match(
+  sharePage,
+  /useEffect\(\(\) => \{[\s\S]*shareDownloadRequestIdRef\.current \+= 1;[\s\S]*shareDownloadRequestKeyRef\.current = null;[\s\S]*shareDownloadControllerRef\.current\?\.abort\(\);[\s\S]*setDownloadingNodeId\(null\);[\s\S]*setDownloadingSelection\(false\);[\s\S]*\}, \[authToken, shareAccessToken\]\);/,
+  'cloud share page downloads must invalidate on auth access scope changes',
 );
 assert.match(
   sharePage,
@@ -622,6 +642,21 @@ assert.match(
 );
 assert.match(
   useDriveDownloads,
+  /const authTokenRef = useRef\(authToken\);[\s\S]*const downloadScopeIdRef = useRef\(0\);[\s\S]*authTokenRef\.current = authToken;[\s\S]*function isCurrentDownloadRequest\([\s\S]*authTokenRef\.current === token[\s\S]*downloadScopeIdRef\.current === scopeId[\s\S]*controllersRef\.current\.get\(taskId\) === controller/,
+  'cloud web downloads must track auth request identity',
+);
+assert.match(
+  useDriveDownloads,
+  /const scopeId = downloadScopeIdRef\.current;[\s\S]*if \(!isCurrentDownloadRequest\(taskId, token, scopeId, controller\)\)[\s\S]*saveBlobToLocalFile\(downloadResult\.blob, fileName\);[\s\S]*catch \(downloadError\) \{[\s\S]*if \(!isCurrentDownloadRequest\(taskId, token, scopeId, controller\)\)/,
+  'cloud web downloads must ignore stale auth scope',
+);
+assert.match(
+  useDriveDownloads,
+  /useEffect\(\(\) => \{[\s\S]*downloadScopeIdRef\.current \+= 1;[\s\S]*controllersRef\.current\.forEach\(\(controller\) => controller\.abort\(\)\);[\s\S]*controllersRef\.current\.clear\(\);[\s\S]*downloadChainRef\.current = Promise\.resolve\(\);[\s\S]*commitDownloadTasks\(\(\) => \[\]\);[\s\S]*\}, \[authToken\]\);/,
+  'cloud web downloads must invalidate transfers on auth scope changes',
+);
+assert.match(
+  useDriveDownloads,
   /function isCancelableDownloadStatus\(status: DriveDownloadTaskStatus\) \{[\s\S]*return status === 'queued' \|\| status === 'preparing' \|\| status === 'downloading';/,
   'cloud web download cancellation must only target cancelable transfer states',
 );
@@ -654,6 +689,26 @@ assert.match(
   useDriveExplorer,
   /async function handlePreviewFile\(item: StorageNode\) \{[\s\S]*const requestToken = authToken;[\s\S]*const requestKey = createPreviewRequestKey\(item, kind, requestToken\);[\s\S]*downloadStorageFile\(item\.id, requestToken, item\.updatedAt\)[\s\S]*if \(!isCurrentPreviewRequest\(requestId, requestKey, requestToken\)\) \{[\s\S]*decodePreviewTextBlob[\s\S]*if \(!isCurrentPreviewRequest\(requestId, requestKey, requestToken\)\) \{[\s\S]*fetchStorageFileAccessUrl\(item\.id, requestToken, 'inline'\)[\s\S]*if \(!isCurrentPreviewRequest\(requestId, requestKey, requestToken\)\) \{[\s\S]*catch \(previewError\) \{[\s\S]*if \(!isCurrentPreviewRequest\(requestId, requestKey, requestToken\)\) \{/,
   'cloud web file preview reads must ignore stale responses',
+);
+assert.match(
+  useDriveExplorer,
+  /const uploadBatchRequestIdRef = useRef\(0\);[\s\S]*const uploadBatchRequestKeyRef = useRef<string \| null>\(null\);[\s\S]*function createUploadBatchRequestKey\(requestId: number, token: string, tasks: DriveUploadTask\[]\)[\s\S]*function isCurrentUploadBatch\(requestKey: string, token: string\)[\s\S]*authTokenRef\.current === token[\s\S]*function updateUploadTaskForBatch\(/,
+  'cloud web uploads must track auth batch request identity',
+);
+assert.match(
+  useDriveExplorer,
+  /async function runUploadTasks\(tasksToRun: DriveUploadTask\[]\)[\s\S]*const requestToken = authToken;[\s\S]*const requestKey = createUploadBatchRequestKey\([\s\S]*await uploadTaskFile\(task, requestToken, requestKey, controller\.signal\);[\s\S]*if \(!isCurrentUploadBatch\(requestKey, requestToken\)\)[\s\S]*catch \(uploadError\) \{[\s\S]*if \(!isCurrentUploadBatch\(requestKey, requestToken\)\)[\s\S]*if \(uploadBatchRequestKeyRef\.current === requestKey\)/,
+  'cloud web uploads must ignore stale auth scope',
+);
+assert.match(
+  useDriveExplorer,
+  /async function runUploadTasks\(tasksToRun: DriveUploadTask\[]\) \{[\s\S]*uploadBatchRequestKeyRef\.current !== null[\s\S]*async function retryFailedUploads\(\) \{[\s\S]*uploadBatchRequestKeyRef\.current !== null[\s\S]*async function retryUploadTask\(taskId: string\) \{[\s\S]*uploadBatchRequestKeyRef\.current !== null[\s\S]*function handleUploadButtonClick\(\) \{[\s\S]*uploadBatchRequestKeyRef\.current !== null[\s\S]*async function handleSelectedFiles\(event: ChangeEvent<HTMLInputElement>\) \{[\s\S]*uploadBatchRequestKeyRef\.current !== null/,
+  'cloud web uploads must block duplicate batches with synchronous guards',
+);
+assert.match(
+  useDriveExplorer,
+  /useEffect\(\(\) => \{[\s\S]*uploadBatchRequestIdRef\.current \+= 1;[\s\S]*uploadBatchRequestKeyRef\.current = null;[\s\S]*uploadControllersRef\.current\.forEach\(\(controller\) => controller\.abort\(\)\);[\s\S]*uploadControllersRef\.current\.clear\(\);[\s\S]*setUploading\(false\);[\s\S]*setUploadTasks\(\[\]\);[\s\S]*\}, \[authToken\]\);/,
+  'cloud web uploads must abort and clear tasks on auth scope changes',
 );
 assert.match(
   useDriveExplorer,
