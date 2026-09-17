@@ -104,6 +104,7 @@ export function DrivePage() {
     maxHomeBackgroundBytes: MAX_HOME_BACKGROUND_BYTES,
   });
   const storageDialogs = useDriveStorageDialogs({
+    authToken,
     selectedItems: explorer.selectedItems,
     folderOptions: explorer.folderOptions,
     storageMutation: explorer.storageMutation,

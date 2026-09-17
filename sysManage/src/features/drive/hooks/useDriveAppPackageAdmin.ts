@@ -368,6 +368,8 @@ export function useDriveAppPackageAdmin({
   }, []);
 
   useEffect(() => {
+    resetAppPackageUploadDraft();
+    setAppPackageUploadOpen(false);
     appPackageRequestIdRef.current += 1;
     appPackageLoadingKeyRef.current = null;
     appPackageLoadingRef.current = false;

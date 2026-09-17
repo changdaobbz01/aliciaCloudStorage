@@ -169,6 +169,11 @@ export function CloudConsolePage() {
     }
   }, [activeView, navigate, view]);
 
+  useEffect(() => {
+    setProfileOpen(false);
+    profileForm.resetFields();
+  }, [authToken]);
+
   async function refreshCurrentView() {
     if (!isAdmin || activeViewLoading) {
       return;

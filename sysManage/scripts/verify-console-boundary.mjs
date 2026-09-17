@@ -1276,4 +1276,38 @@ assert.match(
   'cloud console permission denied state must expose routes back to the console gateway, cloud web, and main site',
 );
 
+assertIncludesInOrder(
+  consolePageSource,
+  [
+    'useEffect(() => {',
+    'setProfileOpen(false);',
+    'profileForm.resetFields();',
+    '}, [authToken]);',
+  ],
+  'cloud console auth scope changes must clear the profile dialog draft',
+);
+assertIncludesInOrder(
+  cloudUsersHookSource,
+  [
+    'useEffect(() => {',
+    'resetQuotaModal();',
+    'usersRequestIdRef.current += 1;',
+    'setUsers([]);',
+    '}, [authToken, isAdmin]);',
+  ],
+  'cloud console auth scope changes must clear quota drafts and user data',
+);
+assertIncludesInOrder(
+  appPackageHookSource,
+  [
+    'useEffect(() => {',
+    'resetAppPackageUploadDraft();',
+    'setAppPackageUploadOpen(false);',
+    'appPackageRequestIdRef.current += 1;',
+    'setAppPackageInfo(null);',
+    '}, [authToken, isAdmin]);',
+  ],
+  'cloud console auth scope changes must clear APK upload drafts and admin data',
+);
+
 console.log('[OK] cloud console boundary verified');

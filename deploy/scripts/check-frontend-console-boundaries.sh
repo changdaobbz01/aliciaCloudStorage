@@ -314,6 +314,12 @@ require_source_match \
     "Cloud web dashboard reads must invalidate auth scope changes."
 
 require_source_match \
+    "cloud web dashboard auth changes clear stale account data" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web dashboard auth scope changes must clear previous account data' \
+    "Cloud web dashboard auth changes must clear previous account data."
+
+require_source_match \
     "cloud drive dashboard refreshes force reads" \
     "webApp/scripts/verify-client-boundary.mjs" \
     'cloud drive dashboard refreshes must force reads after explicit refresh or storage mutations' \
@@ -456,6 +462,12 @@ require_source_match \
     "webApp/scripts/verify-client-boundary.mjs" \
     'cloud web identity session reads must invalidate when auth scope changes' \
     "Cloud web identity session reads must invalidate when auth scope changes."
+
+require_source_match \
+    "cloud web profile auth changes clear stale account UI" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web profile auth scope changes must clear account dialogs and sessions' \
+    "Cloud web profile auth changes must clear account dialogs and sessions."
 
 require_source_match \
     "cloud web identity session actions use synchronous guards" \
@@ -864,6 +876,24 @@ require_source_match \
     "webApp/scripts/verify-client-boundary.mjs" \
     'cloud drive page must wire storage mutation pending state to dialogs and tables' \
     "Cloud drive page must wire storage mutation pending state."
+
+require_source_match \
+    "cloud web explorer auth changes clear stale files" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web explorer auth scope changes must clear previous account navigation and files' \
+    "Cloud web explorer auth changes must clear previous account navigation and files."
+
+require_source_match \
+    "cloud web storage dialogs clear stale account drafts" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud web storage dialogs must clear account drafts when auth scope changes' \
+    "Cloud web storage dialogs must clear account drafts when auth scope changes."
+
+require_source_match \
+    "cloud drive page scopes storage dialogs by account" \
+    "webApp/scripts/verify-client-boundary.mjs" \
+    'cloud drive page must pass auth scope to storage dialogs' \
+    "Cloud drive page must pass auth scope to storage dialogs."
 
 require_source_no_match \
     "cloud web has no admin style leftovers" \
@@ -2244,6 +2274,24 @@ require_source_match \
     "sysManage/scripts/verify-console-boundary.mjs" \
     'cloud console profile mutations must ignore stale auth scope' \
     "Cloud console profile mutations must ignore stale auth scope."
+
+require_source_match \
+    "cloud console auth changes clear profile drafts" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console auth scope changes must clear the profile dialog draft' \
+    "Cloud console auth changes must clear the profile dialog draft."
+
+require_source_match \
+    "cloud console auth changes clear quota drafts" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console auth scope changes must clear quota drafts and user data' \
+    "Cloud console auth changes must clear quota drafts and user data."
+
+require_source_match \
+    "cloud console auth changes clear APK drafts" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console auth scope changes must clear APK upload drafts and admin data' \
+    "Cloud console auth changes must clear APK upload drafts and admin data."
 
 require_source_match \
     "cloud console profile modal shows pending updates" \

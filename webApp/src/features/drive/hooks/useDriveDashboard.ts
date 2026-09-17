@@ -345,11 +345,8 @@ export function useDriveDashboard({ authToken, isHomeView, homeBackgroundImage }
     overviewLoadingKeyRef.current = null;
     usageHistoryRequestIdRef.current += 1;
     usageHistoryLoadingKeyRef.current = null;
-
-    if (!authToken) {
-      setOverview(null);
-      setUsageHistory([]);
-    }
+    setOverview(null);
+    setUsageHistory([]);
   }, [authToken]);
 
   useEffect(() => {

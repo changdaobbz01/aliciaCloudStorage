@@ -201,6 +201,7 @@ export function useCloudUsersAdmin({
   }
 
   useEffect(() => {
+    resetQuotaModal();
     usersRequestIdRef.current += 1;
     usersLoadingKeyRef.current = null;
     usersLoadingRef.current = false;

@@ -507,6 +507,11 @@ export function useDriveProfileSettings({
   }
 
   useEffect(() => {
+    setProfileOpen(false);
+    setPasswordOpen(false);
+    setSessionsOpen(false);
+    profileForm.resetFields();
+    passwordForm.resetFields();
     identitySessionsRequestIdRef.current += 1;
     identitySessionsLoadingKeyRef.current = null;
     identitySessionsLoadingRef.current = false;
@@ -515,10 +520,9 @@ export function useDriveProfileSettings({
     identitySessionMutationRequestKeyRef.current = null;
     identitySessionRevokingIdRef.current = null;
     setIdentitySessionRevokingId(null);
-
-    if (!authToken) {
-      setIdentitySessions([]);
-    }
+    includeRevokedSessionsRef.current = false;
+    setIncludeRevokedSessions(false);
+    setIdentitySessions([]);
   }, [authToken]);
 
   function handleAvatarMenuClick(event: { key: string }) {

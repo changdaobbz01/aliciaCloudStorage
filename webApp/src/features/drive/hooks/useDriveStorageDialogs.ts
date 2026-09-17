@@ -1,5 +1,5 @@
 import { Form } from 'antd';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { CreateFolderPayload, RenameNodePayload, StorageNode } from '../../../types';
 import { ROOT_PARENT_KEY } from '../driveShared';
 import type { DriveStorageMutationState, FolderTreeNode } from '../types';
@@ -9,6 +9,7 @@ type MoveNodeFormValues = {
 };
 
 type UseDriveStorageDialogsOptions = {
+  authToken: string | null;
   selectedItems: StorageNode[];
   folderOptions: StorageNode[];
   storageMutation: DriveStorageMutationState;
@@ -19,6 +20,7 @@ type UseDriveStorageDialogsOptions = {
 };
 
 export function useDriveStorageDialogs({
+  authToken,
   selectedItems,
   folderOptions,
   storageMutation,
@@ -211,6 +213,15 @@ export function useDriveStorageDialogs({
     moveForm.resetFields();
     return true;
   }
+
+  useEffect(() => {
+    setCreateFolderOpen(false);
+    setRenameTarget(null);
+    setMoveTargets([]);
+    createFolderForm.resetFields();
+    renameForm.resetFields();
+    moveForm.resetFields();
+  }, [authToken]);
 
   return {
     createFolderOpen,

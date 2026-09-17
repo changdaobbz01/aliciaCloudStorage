@@ -131,6 +131,16 @@ function countMatches(source, pattern) {
   return [...source.matchAll(pattern)].length;
 }
 
+function assertIncludesInOrder(source, snippets, message) {
+  let searchFrom = 0;
+
+  for (const snippet of snippets) {
+    const foundAt = source.indexOf(snippet, searchFrom);
+    assert.notEqual(foundAt, -1, `${message}: missing ${snippet}`);
+    searchFrom = foundAt + snippet.length;
+  }
+}
+
 const files = listSourceFiles(srcRoot);
 const cloudWebApiScopeFiles = files;
 const cloudWebAllowedApiPrefixes = [
@@ -322,7 +332,7 @@ assert.match(
 );
 assert.match(
   useDriveDashboard,
-  /async function loadHomeDashboard\(options: DashboardReadOptions = \{\}\) \{[\s\S]*await Promise\.all\(\[loadHealth\(options\), loadOverview\(options\), loadUsageHistory\(options\)\]\);[\s\S]*useEffect\(\(\) => \{[\s\S]*overviewRequestIdRef\.current \+= 1;[\s\S]*overviewLoadingKeyRef\.current = null;[\s\S]*usageHistoryRequestIdRef\.current \+= 1;[\s\S]*usageHistoryLoadingKeyRef\.current = null;[\s\S]*if \(!authToken\) \{/,
+  /async function loadHomeDashboard\(options: DashboardReadOptions = \{\}\) \{[\s\S]*await Promise\.all\(\[loadHealth\(options\), loadOverview\(options\), loadUsageHistory\(options\)\]\);[\s\S]*useEffect\(\(\) => \{[\s\S]*overviewRequestIdRef\.current \+= 1;[\s\S]*overviewLoadingKeyRef\.current = null;[\s\S]*usageHistoryRequestIdRef\.current \+= 1;[\s\S]*usageHistoryLoadingKeyRef\.current = null;[\s\S]*setOverview\(null\);[\s\S]*setUsageHistory\(\[\]\);[\s\S]*\}, \[authToken\]\);/,
   'cloud web dashboard reads must invalidate auth scope changes',
 );
 assert.match(
@@ -447,7 +457,7 @@ assert.match(
 );
 assert.match(
   useDriveProfileSettings,
-  /useEffect\(\(\) => \{[\s\S]*identitySessionsRequestIdRef\.current \+= 1;[\s\S]*identitySessionsLoadingKeyRef\.current = null;[\s\S]*identitySessionsLoadingRef\.current = false;[\s\S]*setIdentitySessionsLoading\(false\);[\s\S]*if \(!authToken\) \{[\s\S]*setIdentitySessions\(\[\]\);[\s\S]*\}, \[authToken\]\);/,
+  /useEffect\(\(\) => \{[\s\S]*identitySessionsRequestIdRef\.current \+= 1;[\s\S]*identitySessionsLoadingKeyRef\.current = null;[\s\S]*identitySessionsLoadingRef\.current = false;[\s\S]*setIdentitySessionsLoading\(false\);[\s\S]*setIdentitySessions\(\[\]\);[\s\S]*\}, \[authToken\]\);/,
   'cloud web identity session reads must invalidate when auth scope changes',
 );
 assert.match(
@@ -852,6 +862,70 @@ assert.doesNotMatch(
   clientStyles,
   /\.profile-avatar-preview-row\b|\.profile-avatar-actions\b/,
   'cloud web styles must not keep legacy profile layout aliases',
+);
+
+assertIncludesInOrder(
+  useDriveDashboard,
+  [
+    'useEffect(() => {',
+    'overviewRequestIdRef.current += 1;',
+    'usageHistoryRequestIdRef.current += 1;',
+    'setOverview(null);',
+    'setUsageHistory([]);',
+    '}, [authToken]);',
+  ],
+  'cloud web dashboard auth scope changes must clear previous account data',
+);
+assertIncludesInOrder(
+  useDriveExplorer,
+  [
+    'useEffect(() => {',
+    'listRequestIdRef.current += 1;',
+    'setItems([]);',
+    "setKeywordInput('');",
+    "setKeyword('');",
+    "setNodeTypeFilter('ALL');",
+    'setFileCategoryState(null);',
+    'setSelectedItems([]);',
+    'setBreadcrumbs([ROOT_BREADCRUMB]);',
+    "setListState(createDefaultListState(isTrashView ? 'trash' : 'drive'));",
+    '}, [authToken]);',
+  ],
+  'cloud web explorer auth scope changes must clear previous account navigation and files',
+);
+assertIncludesInOrder(
+  useDriveProfileSettings,
+  [
+    'useEffect(() => {',
+    'setProfileOpen(false);',
+    'setPasswordOpen(false);',
+    'setSessionsOpen(false);',
+    'profileForm.resetFields();',
+    'passwordForm.resetFields();',
+    'setIdentitySessions([]);',
+    '}, [authToken]);',
+  ],
+  'cloud web profile auth scope changes must clear account dialogs and sessions',
+);
+assertIncludesInOrder(
+  useDriveStorageDialogs,
+  [
+    'authToken: string | null;',
+    'useEffect(() => {',
+    'setCreateFolderOpen(false);',
+    'setRenameTarget(null);',
+    'setMoveTargets([]);',
+    'createFolderForm.resetFields();',
+    'renameForm.resetFields();',
+    'moveForm.resetFields();',
+    '}, [authToken]);',
+  ],
+  'cloud web storage dialogs must clear account drafts when auth scope changes',
+);
+assert.match(
+  drivePage,
+  /useDriveStorageDialogs\(\{[\s\S]*authToken,[\s\S]*selectedItems: explorer\.selectedItems/,
+  'cloud drive page must pass auth scope to storage dialogs',
 );
 
 console.log('[OK] cloud web client boundary verified');

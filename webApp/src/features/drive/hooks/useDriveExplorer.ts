@@ -1395,6 +1395,18 @@ export function useDriveExplorer({ authToken, activeView, message, onStorageChan
   }
 
   useEffect(() => {
+    listRequestIdRef.current += 1;
+    listLoadingKeyRef.current = null;
+    setLoading(false);
+    setItems([]);
+    setError(null);
+    setKeywordInput('');
+    setKeyword('');
+    setNodeTypeFilter('ALL');
+    setFileCategoryState(null);
+    setSelectedItems([]);
+    setBreadcrumbs([ROOT_BREADCRUMB]);
+    setListState(createDefaultListState(isTrashView ? 'trash' : 'drive'));
     uploadBatchRequestIdRef.current += 1;
     uploadBatchRequestKeyRef.current = null;
     uploadControllersRef.current.forEach((controller) => controller.abort());
