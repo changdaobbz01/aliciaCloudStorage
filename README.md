@@ -292,7 +292,7 @@ bash deploy/scripts/update-rag-production.sh
 bash deploy/scripts/update-cloud-production.sh
 ```
 
-默认会在 `~/aliciaCloudStorage` 内拒绝覆盖 tracked 本地改动，快进拉取 `gitee/main`，确保 `alicia_gateway` 网络存在，重建 `api frontend`，并连续运行统一路由、前端职责与后端 API 边界检查。Identity 服务已从本仓库删除；传入 `identity` 会提示改用 `~/mainSite` 的发布入口。
+默认会在 `~/aliciaCloudStorage` 内拒绝覆盖 tracked 本地改动，快进拉取 `gitee/main`，确保 `alicia_gateway` 网络存在，重建 `api frontend`，并连续运行统一路由、前端职责与后端 API 边界检查。`appRoles` 支撑的云盘后台角色标签依赖 CloudStorageApi 与 sysManage 的同一版契约，因此 `api frontend` 必须成对发布。Identity 服务已从本仓库删除；传入 `identity` 会提示改用 `~/mainSite` 的发布入口。
 
 Identity 的日常更新由 `~/mainSite/deploy/scripts/update-main-site-production.sh` 自动识别并完成，也可直接运行主站仓库的 `update-main-identity-production.sh`。
 
