@@ -56,6 +56,26 @@ docker_cmd() {
     "${command[@]}" "$@"
 }
 
+verify_identity_runtime_owner() {
+    local -a container_ids=()
+    local owner
+    mapfile -t container_ids < <(docker_cmd ps --filter publish=8093 -q)
+
+    if [[ "${#container_ids[@]}" -ne 1 ]]; then
+        printf 'Expected exactly one running container publishing Identity port 8093, found %s.\n' \
+            "${#container_ids[@]}" >&2
+        return 1
+    fi
+
+    owner="$(docker_cmd inspect --format '{{ index .Config.Labels "com.alicia.identity.owner" }}' "${container_ids[0]}")"
+    if [[ "$owner" != "main-site" ]]; then
+        printf 'Identity runtime owner expected main-site, got %s.\n' "${owner:-<missing>}" >&2
+        return 1
+    fi
+
+    printf 'Identity runtime container: %s (owner=%s)\n' "${container_ids[0]}" "$owner"
+}
+
 compose() {
     local command=(docker compose)
     local file
@@ -288,6 +308,7 @@ git_snapshot "main site repository" "$MAIN_SITE_PROJECT_DIR"
 
 print_section "Containers"
 run_optional "docker compose ps" compose ps
+run_optional "main-site Identity runtime ownership" verify_identity_runtime_owner
 
 if [[ "$SKIP_DOCKER_DF" != "true" ]]; then
     print_section "Capacity"

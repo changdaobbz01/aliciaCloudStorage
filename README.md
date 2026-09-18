@@ -36,7 +36,7 @@
 ```text
 AliciaCloudStorage/
 ├─ CloudStorageApi/      # 云盘业务后端，消费 Identity token 并聚合云盘资料
-├─ identityApi/          # 统一身份服务，负责登录、注册、Token 和账号资料
+├─ identityApi/          # 第二阶段迁移窗口内保留的 Identity 回滚源码
 ├─ rag/                  # RAG 语义服务
 ├─ CloudStorageDB/       # 早期 SQL 初始化脚本
 ├─ webApp/               # 普通云盘用户端，挂载在 /cloudPan/
@@ -293,17 +293,15 @@ bash deploy/scripts/update-rag-production.sh
 bash deploy/scripts/update-cloud-production.sh
 ```
 
-默认会在 `~/aliciaCloudStorage` 内拒绝覆盖 tracked 本地改动，快进拉取 `gitee/main`，确保 `alicia_gateway` 网络存在，重建 `api frontend`，并连续运行统一路由验证、Identity 旧路由边界检查、前端控制台边界检查和后端 API 边界检查。前端边界检查会确认普通云盘端没有后台入口、云盘后台没有身份管理实现，并确认云盘用户端与云盘后台都保留 bundle size 守卫和显式 vendor 分包。`sysManage` 与 `CloudStorageApi` 响应契约联动的更新（例如运营明细 `appRoles` 角色标签）至少使用 `api frontend`；纯前端文案或样式更新才建议显式传 `frontend`。需要指定更多服务时可追加服务名，例如：
+默认会在 `~/aliciaCloudStorage` 内拒绝覆盖 tracked 本地改动，快进拉取 `gitee/main`，确保 `alicia_gateway` 网络存在，重建 `api frontend`，并连续运行统一路由验证、Identity 旧路由边界检查、前端控制台边界检查和后端 API 边界检查。前端边界检查会确认普通云盘端没有后台入口、云盘后台没有身份管理实现，并确认云盘用户端与云盘后台都保留 bundle size 守卫和显式 vendor 分包。`sysManage` 与 `CloudStorageApi` 响应契约联动的更新（例如运营明细 `appRoles` 角色标签）至少使用 `api frontend`；纯前端文案或样式更新才建议显式传 `frontend`。生产 Identity 切换到 `mainSiteApi` 后，本仓库的 `identity` 服务属于仅回滚使用的 `identity-legacy` profile，常规发布脚本会拒绝直接更新它。
 
-```bash
-bash deploy/scripts/update-cloud-production.sh api identity frontend
-```
+Identity 的日常更新由 `~/mainSite/deploy/scripts/update-main-site-production.sh` 自动识别并完成；需要切换或回滚运行所有权时使用主站仓库的 `cutover-identity-production.sh`。
 
 大版本发布推荐把备份和发布后巡检一起打开：
 
 ```bash
 ALICIA_BACKUP_BEFORE_UPDATE=true ALICIA_COLLECT_STATUS_AFTER_UPDATE=true \
-  bash deploy/scripts/update-cloud-production.sh api identity rag frontend
+  bash deploy/scripts/update-cloud-production.sh api rag frontend
 ```
 
 如果这次改动涉及云盘文件、分享、上传下载或回收站链路，可把深度生产流验收也打开：
@@ -329,7 +327,7 @@ bash deploy/scripts/update-main-and-cloud-production.sh
 bash deploy/scripts/collect-production-status.sh
 ```
 
-该脚本会汇总云盘仓库和 `~/mainSite` 的 Git 版本、tracked 文件状态、Compose 容器、磁盘与 Docker 占用、Cloud/Identity/RAG 直连与前端健康、主站/云盘/云盘分享深链/app下载页/控制台入口探针、`/console`、`/cloudPan`、`/console/cloud` 和旧 `/cloudPan/login` 的规范化跳转、三侧依赖健康 JSON、Identity 审计日志脱敏摘要、Identity Flyway 历史、云盘库身份残留边界和 COS 对象清理补偿队列摘要。默认不要求输入账号密码；如需在快照中追加完整登录链路验证，可设置 `ALICIA_STATUS_RUN_ROUTE_VERIFY=true`，此时会先跑主站路由验证再跑云盘/Identity/RAG 统一路由验证；如需追加静态边界检查可设置 `ALICIA_STATUS_RUN_BOUNDARY_CHECK=true`，此时会同时跑主站前端边界、云盘前端边界和后端 API 边界检查；如需把平台级四端前端拆分验收也纳入快照，可设置 `ALICIA_STATUS_RUN_FRONTEND_SPLIT_CHECK=true`，此时会以 `--skip-build` 复用平台级验收链路，确认主站门户、身份后台、普通云盘和云盘后台的 `returnTo`、session 同步、源码边界、共享个人资料弹窗和字段级 API 契约，并默认带上 `ALICIA_VERIFY_RETURN_TO_DISABLE_TYPESCRIPT=1`，避免静态快照依赖四个前端已安装本地 `typescript` 包。生产更新脚本也支持 `ALICIA_COLLECT_STATUS_AFTER_UPDATE=true bash deploy/scripts/update-cloud-production.sh` 或 `ALICIA_COLLECT_STATUS_AFTER_UPDATE=true bash deploy/scripts/update-main-and-cloud-production.sh` 在更新后自动生成快照。
+该脚本会汇总云盘仓库和 `~/mainSite` 的 Git 版本、tracked 文件状态、Compose 容器、主站 Identity 运行所有权、磁盘与 Docker 占用、Cloud/Identity/RAG 直连与前端健康、主站/云盘/云盘分享深链/app下载页/控制台入口探针、`/console`、`/cloudPan`、`/console/cloud` 和旧 `/cloudPan/login` 的规范化跳转、三侧依赖健康 JSON、Identity 审计日志脱敏摘要、Identity Flyway 历史、云盘库身份残留边界和 COS 对象清理补偿队列摘要。默认不要求输入账号密码；如需在快照中追加完整登录链路验证，可设置 `ALICIA_STATUS_RUN_ROUTE_VERIFY=true`，此时会先跑主站路由验证再跑云盘/Identity/RAG 统一路由验证；如需追加静态边界检查可设置 `ALICIA_STATUS_RUN_BOUNDARY_CHECK=true`，此时会同时跑主站前端边界、云盘前端边界和后端 API 边界检查；如需把平台级四端前端拆分验收也纳入快照，可设置 `ALICIA_STATUS_RUN_FRONTEND_SPLIT_CHECK=true`，此时会以 `--skip-build` 复用平台级验收链路，确认主站门户、身份后台、普通云盘和云盘后台的 `returnTo`、session 同步、源码边界、共享个人资料弹窗和字段级 API 契约，并默认带上 `ALICIA_VERIFY_RETURN_TO_DISABLE_TYPESCRIPT=1`，避免静态快照依赖四个前端已安装本地 `typescript` 包。生产更新脚本也支持 `ALICIA_COLLECT_STATUS_AFTER_UPDATE=true bash deploy/scripts/update-cloud-production.sh` 或 `ALICIA_COLLECT_STATUS_AFTER_UPDATE=true bash deploy/scripts/update-main-and-cloud-production.sh` 在更新后自动生成快照。
 
 大更新或迁移前建议先生成一次只读生产备份：
 
@@ -339,7 +337,7 @@ bash deploy/scripts/backup-production-data.sh
 
 备份脚本会用 `mysqldump --single-transaction` 分别导出云盘库和 Identity 库，并把 `.env`、TLS 证书和 `deploy/generated/identity-rs256/` 下的签名密钥材料打包到 `deploy/generated/production-backups/<timestamp>/`。该目录被 git 忽略，脚本只打印文件路径，不输出密钥或配置内容。备份生成后默认会运行 `validate-production-backup.sh` 校验 `SHA256SUMS`、gzip dump、敏感配置 tar 和 manifest 关键字段；也可以手动执行 `bash deploy/scripts/validate-production-backup.sh` 校验最新备份。可用 `ALICIA_BACKUP_INCLUDE_ENV=false`、`ALICIA_BACKUP_INCLUDE_CERTS=false`、`ALICIA_BACKUP_INCLUDE_GENERATED_KEYS=false` 或 `ALICIA_VALIDATE_BACKUP_AFTER_CREATE=false` 调整备份/校验行为。`update-cloud-production.sh` 设置 `ALICIA_BACKUP_BEFORE_UPDATE=true` 时，会在重建容器前自动执行该备份脚本。
 
-生产更新 `api`、`identity`、`rag` 或前端路由后，可以使用统一回归脚本检查主域路径边界、主站 `/login`、Android App Links 根路径、云盘 `/cloudPan` 规范化跳转、身份后台 `/console/identity/users`、`/console/identity/roles`、`/console/identity/sessions` 与 `/console/identity/audit`、云盘后台 `/console/cloud/users`、`/console/cloud/operations` 与 `/console/cloud/app-package`、`/cloudPan/login` 到统一登录的交接、CloudStorageApi 到 Identity 的依赖健康、Identity 数据库/Flyway 依赖健康、RAG 到 Identity/Storage 的依赖健康和 telemetry、登录续签、JWT `alg/iss/aud/kid` 元数据、JWKS 入口、应用级 `cloud` 与 `rag` 角色、RAG 访问权探针、RAG 内部契约 `RAG_ADMIN` 边界、刷新会话查询和指定撤销、云盘聚合资料、存储概览、管理员云盘用户入口、管理员云盘运营总览和分享/回收站/用户容量明细、CloudStorageApi COS 对象清理补偿表、Identity 应用角色与审计日志查询、会话撤销审计事件写入、Identity Flyway 迁移历史、旧身份路径 404、注销失效和审计日志最新行；生产 RS256 模式下，CloudStorageApi 会先用 Identity JWKS 对 access token 做本地预验签，再调用 Identity 做强一致状态确认：
+生产更新 `api`、主站 `mainSiteApi` Identity、`rag` 或前端路由后，可以使用统一回归脚本检查主域路径边界、主站 `/login`、Android App Links 根路径、云盘 `/cloudPan` 规范化跳转、身份后台 `/console/identity/users`、`/console/identity/roles`、`/console/identity/sessions` 与 `/console/identity/audit`、云盘后台 `/console/cloud/users`、`/console/cloud/operations` 与 `/console/cloud/app-package`、`/cloudPan/login` 到统一登录的交接、CloudStorageApi 到 Identity 的依赖健康、Identity 数据库/Flyway 依赖健康、RAG 到 Identity/Storage 的依赖健康和 telemetry、登录续签、JWT `alg/iss/aud/kid` 元数据、JWKS 入口、应用级 `cloud` 与 `rag` 角色、RAG 访问权探针、RAG 内部契约 `RAG_ADMIN` 边界、刷新会话查询和指定撤销、云盘聚合资料、存储概览、管理员云盘用户入口、管理员云盘运营总览和分享/回收站/用户容量明细、CloudStorageApi COS 对象清理补偿表、Identity 应用角色与审计日志查询、会话撤销审计事件写入、Identity Flyway 迁移历史、旧身份路径 404、注销失效和审计日志最新行；生产 RS256 模式下，CloudStorageApi 会先用 Identity JWKS 对 access token 做本地预验签，再调用 Identity 做强一致状态确认：
 
 ```bash
 bash deploy/scripts/verify-identity-cloud-routes.sh

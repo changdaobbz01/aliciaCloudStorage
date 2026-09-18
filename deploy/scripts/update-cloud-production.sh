@@ -26,6 +26,13 @@ else
     read -r -a SERVICES <<< "${ALICIA_CLOUD_DEPLOY_SERVICES:-api frontend}"
 fi
 
+for service in "${SERVICES[@]}"; do
+    if [[ "$service" == "identity" && "${ALICIA_ENABLE_LEGACY_IDENTITY:-false}" != "true" ]]; then
+        printf 'The cloud Identity service is rollback-only. Set ALICIA_ENABLE_LEGACY_IDENTITY=true for an explicit rollback.\n' >&2
+        exit 1
+    fi
+done
+
 docker_cmd() {
     local command=(docker)
 

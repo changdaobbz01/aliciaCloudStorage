@@ -256,7 +256,7 @@ bash deploy/scripts/validate-production-backup.sh \
 bash deploy/scripts/update-cloud-production.sh
 ```
 
-默认组合是 `api frontend`，用于覆盖 `sysManage` 与 `CloudStorageApi` 响应契约联动的更新，例如运营明细 `appRoles` 角色标签。纯前端文案或样式更新才建议显式传 `frontend`；涉及 Identity 或 RAG 服务时再把 `identity`、`rag` 加入服务列表。
+默认组合是 `api frontend`，用于覆盖 `sysManage` 与 `CloudStorageApi` 响应契约联动的更新，例如运营明细 `appRoles` 角色标签。纯前端文案或样式更新才建议显式传 `frontend`；涉及 RAG 时把 `rag` 加入服务列表。生产 Identity 完成第二阶段切换后由 `mainSite` 发布，本仓库的 `identity-legacy` profile 只用于回滚。
 
 `sysManage` 构建会先运行 `verify:api-contracts`，比对后台 TypeScript 类型与 CloudStorageApi 运营 DTO、分页响应、APK 响应和查询参数，避免只改一侧造成生产 UI 字段漂移。
 
@@ -265,7 +265,7 @@ bash deploy/scripts/update-cloud-production.sh
 ```bash
 ALICIA_BACKUP_BEFORE_UPDATE=true \
 ALICIA_COLLECT_STATUS_AFTER_UPDATE=true \
-  bash deploy/scripts/update-cloud-production.sh api identity rag frontend
+  bash deploy/scripts/update-cloud-production.sh api rag frontend
 ```
 
 涉及文件/分享主线的大更新，发布后追加完整生产流验收：
@@ -321,7 +321,7 @@ git push gitee main
 随后服务器常规更新即可自动发布：
 
 ```bash
-bash deploy/scripts/update-cloud-production.sh api identity rag frontend
+bash deploy/scripts/update-cloud-production.sh api rag frontend
 ```
 
 `update-cloud-production.sh` 默认 `ALICIA_PUBLISH_ANDROID_APP_PACKAGE=auto`：发现 `deploy/android-app-package/current.apk` 就发布，没有该文件就跳过。可用 `ALICIA_PUBLISH_ANDROID_APP_PACKAGE=false` 禁用，或用 `ALICIA_PUBLISH_ANDROID_APP_PACKAGE=true` 要求必须存在并发布。服务器已经公开同一 `versionName` 时会跳过重复上传；需要强制覆盖同版本时设置 `ALICIA_ANDROID_APP_PACKAGE_FORCE=true`。
@@ -340,7 +340,7 @@ bash deploy/scripts/backup-production-data.sh
 
 ALICIA_VERIFY_PRODUCTION_FLOWS_AFTER_UPDATE=true \
 ALICIA_COLLECT_STATUS_AFTER_UPDATE=true \
-  bash deploy/scripts/update-cloud-production.sh api identity rag frontend
+  bash deploy/scripts/update-cloud-production.sh api rag frontend
 ```
 
 如果只是拉取新验证脚本，不涉及容器代码更新，则不用重建容器，直接运行对应 `verify-*` 脚本即可。
