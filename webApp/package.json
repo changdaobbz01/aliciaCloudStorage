@@ -11,8 +11,9 @@
     "verify:client-boundary": "node scripts/verify-client-boundary.mjs",
     "verify:api-contracts": "node scripts/verify-api-contracts.mjs",
     "verify:bundle-size": "node scripts/verify-bundle-size.mjs",
+    "verify:built-boundary": "node scripts/verify-built-boundary.mjs",
     "verify:built-shell": "node scripts/verify-built-shell.mjs",
-    "build": "npm run verify:return-to && npm run verify:session-sync && npm run verify:client-boundary && npm run verify:api-contracts && tsc -b && vite build && npm run verify:built-shell && npm run verify:bundle-size",
+    "build": "npm run verify:return-to && npm run verify:session-sync && npm run verify:client-boundary && npm run verify:api-contracts && tsc -b && vite build && npm run verify:built-shell && npm run verify:built-boundary && npm run verify:bundle-size",
     "preview": "vite preview"
   },
   "dependencies": {

@@ -136,6 +136,30 @@ run_node_script "cloud console session sync boundary" "sysManage/scripts/verify-
 run_node_script "cloud console boundary" "sysManage/scripts/verify-console-boundary.mjs"
 run_node_script "cloud console CloudStorageApi contract" "sysManage/scripts/verify-api-contracts.mjs"
 
+require_source_match \
+    "cloud web exposes built client boundary verifier" \
+    "webApp/package.json" \
+    '"verify:built-boundary": "node scripts/verify-built-boundary.mjs"' \
+    "Cloud web package must expose the built client boundary verifier."
+
+require_source_match \
+    "cloud web build verifies published client boundary" \
+    "webApp/package.json" \
+    'vite build && npm run verify:built-shell && npm run verify:built-boundary && npm run verify:bundle-size' \
+    "Cloud web build must verify the published client boundary."
+
+require_source_match \
+    "cloud web built boundary rejects admin API artifacts" \
+    "webApp/scripts/verify-built-boundary.mjs" \
+    '/api/admin/' \
+    "Cloud web built boundary verifier must reject cloud admin API artifacts."
+
+require_source_match \
+    "cloud web built boundary rejects console route artifacts" \
+    "webApp/scripts/verify-built-boundary.mjs" \
+    '/console/cloud' \
+    "Cloud web built boundary verifier must reject cloud console route artifacts."
+
 require_source_no_match \
     "cloud Bash boundary avoids TypeScript-gated returnTo checks" \
     "deploy/scripts/check-frontend-console-boundaries.sh" \
