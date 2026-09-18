@@ -68,7 +68,7 @@ class CloudApiRouteOwnershipTest {
                 .toList();
 
         assertThat(violations)
-                .as("Identity-owned routes belong in identityApi, not CloudStorageApi.")
+                .as("Identity-owned routes belong in mainSite/mainSiteApi, not CloudStorageApi.")
                 .isEmpty();
     }
 

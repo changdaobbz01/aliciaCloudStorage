@@ -1,12 +1,27 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const scriptDir = dirname(fileURLToPath(import.meta.url));
+const cloudProjectDir = resolve(scriptDir, '../..');
+const mainSiteArgumentIndex = process.argv.indexOf('--main-site');
+const mainSiteProjectDir = resolve(
+  mainSiteArgumentIndex >= 0
+    ? process.argv[mainSiteArgumentIndex + 1] ?? ''
+    : process.env.ALICIA_MAIN_SITE_PROJECT_DIR ?? resolve(cloudProjectDir, '..', 'mainSite'),
+);
+const verifyIdentityContracts = !process.argv.includes('--cloud-only');
 
 const typesSource = readFileSync(new URL('../src/types.ts', import.meta.url), 'utf8');
 const apiSource = readFileSync(new URL('../src/lib/api.ts', import.meta.url), 'utf8');
 const driveSharedSource = readFileSync(new URL('../src/features/drive/driveShared.ts', import.meta.url), 'utf8');
 
 function readRepoFile(relativePath) {
-  return readFileSync(new URL(`../../${relativePath}`, import.meta.url), 'utf8');
+  const projectDir = relativePath.startsWith('mainSiteApi/') ? mainSiteProjectDir : cloudProjectDir;
+  const path = resolve(projectDir, relativePath);
+  assert.ok(existsSync(path), `Missing contract file: ${path}`);
+  return readFileSync(path, 'utf8');
 }
 
 function escapeRegExp(value) {
@@ -427,8 +442,8 @@ const operationsController = `${controllerRoot}/AdminCloudOperationsController.j
 const adminAppPackageController = `${controllerRoot}/AdminAppPackageController.java`;
 const appPackageController = `${controllerRoot}/AppPackageController.java`;
 const overviewDto = `${dtoRoot}/AdminCloudOperationsOverviewResponse.java`;
-const identityDtoRoot = 'identityApi/src/main/java/com/alicia/cloudstorage/identity/dto';
-const identityControllerRoot = 'identityApi/src/main/java/com/alicia/cloudstorage/identity/controller';
+const identityDtoRoot = 'mainSiteApi/src/main/java/com/alicia/cloudstorage/identity/dto';
+const identityControllerRoot = 'mainSiteApi/src/main/java/com/alicia/cloudstorage/identity/controller';
 const identityAuthController = `${identityControllerRoot}/IdentityAuthController.java`;
 
 const cloudConsoleEndpointContracts = [
@@ -596,21 +611,23 @@ assertSameFields(
   extractTsTypeFields('User'),
   extractJavaRecordFields(`${dtoRoot}/UserProfileResponse.java`, 'UserProfileResponse'),
 );
-assertSameFields(
-  'IdentityUser',
-  extractTsTypeFields('IdentityUser'),
-  extractJavaRecordFields(`${identityDtoRoot}/IdentityUserResponse.java`, 'IdentityUserResponse'),
-);
-assertSameFields(
-  'IdentityLoginResponse',
-  extractTsTypeFields('IdentityLoginResponse'),
-  extractJavaRecordFields(`${identityDtoRoot}/IdentityLoginResponse.java`, 'IdentityLoginResponse'),
-);
-assertSameFields(
-  'UpdateProfilePayload',
-  extractTsTypeFields('UpdateProfilePayload'),
-  extractJavaRecordFields(`${identityDtoRoot}/UpdateIdentityProfileRequest.java`, 'UpdateIdentityProfileRequest'),
-);
+if (verifyIdentityContracts) {
+  assertSameFields(
+    'IdentityUser',
+    extractTsTypeFields('IdentityUser'),
+    extractJavaRecordFields(`${identityDtoRoot}/IdentityUserResponse.java`, 'IdentityUserResponse'),
+  );
+  assertSameFields(
+    'IdentityLoginResponse',
+    extractTsTypeFields('IdentityLoginResponse'),
+    extractJavaRecordFields(`${identityDtoRoot}/IdentityLoginResponse.java`, 'IdentityLoginResponse'),
+  );
+  assertSameFields(
+    'UpdateProfilePayload',
+    extractTsTypeFields('UpdateProfilePayload'),
+    extractJavaRecordFields(`${identityDtoRoot}/UpdateIdentityProfileRequest.java`, 'UpdateIdentityProfileRequest'),
+  );
+}
 assertSameFields(
   'AdminCloudOperationsOverview',
   extractTsTypeFields('AdminCloudOperationsOverview'),
@@ -671,25 +688,28 @@ assertSameFields(
   extractTsTypeFields('UpdateUserStorageQuotaPayload'),
   extractJavaRecordFields(`${dtoRoot}/AdminUpdateUserQuotaRequest.java`, 'AdminUpdateUserQuotaRequest'),
 );
-assertSameFields(
-  'refreshAuthSession request body',
-  extractJsonStringifyObjectFieldsForFunction('refreshAuthSession'),
-  extractJavaRecordFields(`${identityDtoRoot}/IdentityRefreshTokenRequest.java`, 'IdentityRefreshTokenRequest'),
-);
+if (verifyIdentityContracts) {
+  assertSameFields(
+    'refreshAuthSession request body',
+    extractJsonStringifyObjectFieldsForFunction('refreshAuthSession'),
+    extractJavaRecordFields(`${identityDtoRoot}/IdentityRefreshTokenRequest.java`, 'IdentityRefreshTokenRequest'),
+  );
 
-const logoutAuthTokenRequestFields = extractJsonStringifyObjectFieldsForFunction('logoutAuthToken');
-assertSubsetFields(
-  'logoutAuthToken request body',
-  logoutAuthTokenRequestFields,
-  extractJavaRecordFields(`${identityDtoRoot}/IdentityLogoutRequest.java`, 'IdentityLogoutRequest'),
-);
-assertIncludesFields('logoutAuthToken request body', logoutAuthTokenRequestFields, ['refreshToken']);
+  const logoutAuthTokenRequestFields = extractJsonStringifyObjectFieldsForFunction('logoutAuthToken');
+  assertSubsetFields(
+    'logoutAuthToken request body',
+    logoutAuthTokenRequestFields,
+    extractJavaRecordFields(`${identityDtoRoot}/IdentityLogoutRequest.java`, 'IdentityLogoutRequest'),
+  );
+  assertIncludesFields('logoutAuthToken request body', logoutAuthTokenRequestFields, ['refreshToken']);
+}
 
-for (const functionName of [
-  'updateProfile',
-  'updateUserStorageQuota',
-]) {
+for (const functionName of ['updateUserStorageQuota']) {
   assertApiFunctionStringifiesPayload(functionName);
+}
+
+if (verifyIdentityContracts) {
+  assertApiFunctionStringifiesPayload('updateProfile');
 }
 
 const pageQueryTypeFields = extractTsTypeFields('AdminCloudOperationPageQuery');
@@ -755,8 +775,10 @@ for (const contract of cloudConsoleEndpointContracts) {
   assertCloudConsoleEndpointContract(contract);
 }
 
-for (const contract of cloudConsoleIdentityEndpointContracts) {
-  assertCloudConsoleEndpointContract(contract);
+if (verifyIdentityContracts) {
+  for (const contract of cloudConsoleIdentityEndpointContracts) {
+    assertCloudConsoleEndpointContract(contract);
+  }
 }
 
 assertCloudStorageApiAdminInterceptorContract();
@@ -768,4 +790,8 @@ assert.match(
   'cloud console APK download constant must stay pinned to CloudStorageApi public package download',
 );
 
-console.log('[OK] sysManage CloudStorageApi and IdentityApi contracts verified');
+console.log(
+  verifyIdentityContracts
+    ? '[OK] sysManage CloudStorageApi and mainSiteApi contracts verified'
+    : '[OK] sysManage CloudStorageApi contracts verified',
+);

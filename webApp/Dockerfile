@@ -11,7 +11,6 @@ COPY webApp/public public
 COPY webApp/scripts scripts
 COPY webApp/src src
 COPY CloudStorageApi/src /app/CloudStorageApi/src
-COPY identityApi/src /app/identityApi/src
 
 RUN npm run build
 
@@ -26,7 +25,6 @@ COPY sysManage/public public
 COPY sysManage/scripts scripts
 COPY sysManage/src src
 COPY CloudStorageApi/src /app/CloudStorageApi/src
-COPY identityApi/src /app/identityApi/src
 
 RUN npm run build
 

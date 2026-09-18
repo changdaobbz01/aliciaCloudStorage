@@ -118,7 +118,4 @@ resolve_maven_command
 run_step "CloudStorageApi legacy and route ownership boundaries" \
     run_maven_boundary_tests "CloudStorageApi" "IdentityRouteBoundaryTest,CloudApiRouteOwnershipTest,CurrentPrincipalTest"
 
-run_step "identityApi source, route, and admin access boundaries" \
-    run_maven_boundary_tests "identityApi" "IdentitySourceBoundaryTest,IdentityApiRouteOwnershipTest"
-
 ok "backend API boundary verification complete"

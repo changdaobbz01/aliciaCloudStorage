@@ -23,7 +23,6 @@ class IdentityRouteBoundaryTest {
             Path.of("phoneApp", "app", "src", "main"),
             Path.of("phoneAppAdd", "app", "src", "main"),
             Path.of("CloudStorageApi", "src", "main"),
-            Path.of("identityApi", "src", "main"),
             Path.of("rag", "src", "main"),
             Path.of("deploy")
     );

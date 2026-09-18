@@ -1,4 +1,4 @@
-﻿# Alicia Cloud Storage
+# Alicia Cloud Storage
 
 一个基于 Spring Boot + React + MySQL + 腾讯云 COS 的轻量云盘项目，支持账号权限、文件管理、回收站、大文件分片上传、背景图个性化和管理员配额管理。
 
@@ -36,7 +36,6 @@
 ```text
 AliciaCloudStorage/
 ├─ CloudStorageApi/      # 云盘业务后端，消费 Identity token 并聚合云盘资料
-├─ identityApi/          # 第二阶段迁移窗口内保留的 Identity 回滚源码
 ├─ rag/                  # RAG 语义服务
 ├─ CloudStorageDB/       # 早期 SQL 初始化脚本
 ├─ webApp/               # 普通云盘用户端，挂载在 /cloudPan/
@@ -240,15 +239,15 @@ curl -X POST http://127.0.0.1:8093/api/identity/auth/register/verify `
   -d "{\"email\":\"你的邮箱\",\"code\":\"邮箱验证码\",\"nickname\":\"昵称\",\"password\":\"密码\"}"
 ```
 
-当前公网身份入口为 `/api/identity/auth/**` 和 `/api/identity/admin/**`；登录、注册、Token 校验、续签、注销、刷新会话查询/撤销、密码、账号资料和应用级角色已经由 `identityApi` 执行。登录和邮箱注册验证会返回 `token` 与 `refreshToken`，其中新签发的 access token 是标准 JWT；生产签名算法为 `RS256/alicia-rs256-20260822035821`。Identity 用户响应会带 `appRoles`，当前云盘权限使用 `appRoles.cloud`，RAG 角色使用 `appRoles.rag`；全局 `ADMIN` 始终等效为 `CLOUD_ADMIN` 和 `RAG_ADMIN`，普通账号默认等效为 `CLOUD_USER` 和 `RAG_USER`。`iss`、`aud`、`kid` 和算法由 `ALICIA_AUTH_TOKEN_ISSUER`、`ALICIA_AUTH_TOKEN_AUDIENCE`、`ALICIA_AUTH_TOKEN_KEY_ID`、`ALICIA_AUTH_TOKEN_ALGORITHM` 配置，RS256 公钥发布在 `/api/identity/.well-known/jwks.json`。验签支持当前 key 和配置的历史 HS256/RSA JWT key，历史 key 只在密钥轮换窗口中保留；旧两段式 access token 已不再接受。续签接口必须使用 JSON 请求体中的 `refreshToken` 轮换会话，不再支持 Authorization-only 续签。`CloudStorageApi` 负责补齐云盘资料，并通过 `/api/cloud-profile/**` 返回云盘聚合资料、头像和主页背景；CloudStorageApi 会对 RS256 access token 做本地 JWKS 预验签，默认缓存 JWKS 300 秒，可用 `ALICIA_IDENTITY_TOKEN_PREFLIGHT_ENABLED` 和 `ALICIA_IDENTITY_TOKEN_JWKS_CACHE_SECONDS` 调整。全局角色、应用角色、账号状态、`tokenVersion` 和 refresh session 仍由 Identity 的 `/api/identity/auth/me` 做强一致确认；CloudStorageApi 会把入口校验得到的身份快照放入请求上下文，云盘当前用户资料和头像上传复用该快照，避免同一请求内重复调用 Identity。为降低同一 access token 在连续云盘请求中的 Identity 往返，CloudStorageApi 默认启用 3 秒当前用户快照短缓存，缓存命中仍会执行本地 JWT 预验签，TTL 最长限制 30 秒，可用 `ALICIA_IDENTITY_CURRENT_USER_CACHE_ENABLED`、`ALICIA_IDENTITY_CURRENT_USER_CACHE_TTL_SECONDS` 和 `ALICIA_IDENTITY_CURRENT_USER_CACHE_MAX_ENTRIES` 调整。CloudStorageApi 调用 Identity 的默认连接超时为 2 秒，读取超时为 5 秒，可用 `ALICIA_IDENTITY_API_CONNECT_TIMEOUT_MS` 和 `ALICIA_IDENTITY_API_READ_TIMEOUT_MS` 调整；`/api/health/dependencies` 会暴露 Cloud 调用 Identity 的固定操作观测，例如 `auth.me`、`auth.me.cacheHit`、`jwks.fetch`、`admin.listUsers` 的成功/失败/总计数、连续失败数、最近成功/失败时间、最近/平均/最大耗时和脱敏失败分类，同时暴露 `currentUserCache.enabled/ttlMillis/maxEntries/size`，不记录 token 或用户标识。
+当前公网身份入口为 `/api/identity/auth/**` 和 `/api/identity/admin/**`；登录、注册、Token 校验、续签、注销、刷新会话查询/撤销、密码、账号资料和应用级角色已经由 `mainSite/mainSiteApi` 执行。登录和邮箱注册验证会返回 `token` 与 `refreshToken`，其中新签发的 access token 是标准 JWT；生产签名算法为 `RS256/alicia-rs256-20260822035821`。Identity 用户响应会带 `appRoles`，当前云盘权限使用 `appRoles.cloud`，RAG 角色使用 `appRoles.rag`；全局 `ADMIN` 始终等效为 `CLOUD_ADMIN` 和 `RAG_ADMIN`，普通账号默认等效为 `CLOUD_USER` 和 `RAG_USER`。`iss`、`aud`、`kid` 和算法由 `ALICIA_AUTH_TOKEN_ISSUER`、`ALICIA_AUTH_TOKEN_AUDIENCE`、`ALICIA_AUTH_TOKEN_KEY_ID`、`ALICIA_AUTH_TOKEN_ALGORITHM` 配置，RS256 公钥发布在 `/api/identity/.well-known/jwks.json`。验签支持当前 key 和配置的历史 HS256/RSA JWT key，历史 key 只在密钥轮换窗口中保留；旧两段式 access token 已不再接受。续签接口必须使用 JSON 请求体中的 `refreshToken` 轮换会话，不再支持 Authorization-only 续签。`CloudStorageApi` 负责补齐云盘资料，并通过 `/api/cloud-profile/**` 返回云盘聚合资料、头像和主页背景；CloudStorageApi 会对 RS256 access token 做本地 JWKS 预验签，默认缓存 JWKS 300 秒，可用 `ALICIA_IDENTITY_TOKEN_PREFLIGHT_ENABLED` 和 `ALICIA_IDENTITY_TOKEN_JWKS_CACHE_SECONDS` 调整。全局角色、应用角色、账号状态、`tokenVersion` 和 refresh session 仍由 Identity 的 `/api/identity/auth/me` 做强一致确认；CloudStorageApi 会把入口校验得到的身份快照放入请求上下文，云盘当前用户资料和头像上传复用该快照，避免同一请求内重复调用 Identity。为降低同一 access token 在连续云盘请求中的 Identity 往返，CloudStorageApi 默认启用 3 秒当前用户快照短缓存，缓存命中仍会执行本地 JWT 预验签，TTL 最长限制 30 秒，可用 `ALICIA_IDENTITY_CURRENT_USER_CACHE_ENABLED`、`ALICIA_IDENTITY_CURRENT_USER_CACHE_TTL_SECONDS` 和 `ALICIA_IDENTITY_CURRENT_USER_CACHE_MAX_ENTRIES` 调整。CloudStorageApi 调用 Identity 的默认连接超时为 2 秒，读取超时为 5 秒，可用 `ALICIA_IDENTITY_API_CONNECT_TIMEOUT_MS` 和 `ALICIA_IDENTITY_API_READ_TIMEOUT_MS` 调整；`/api/health/dependencies` 会暴露 Cloud 调用 Identity 的固定操作观测，例如 `auth.me`、`auth.me.cacheHit`、`jwks.fetch`、`admin.listUsers` 的成功/失败/总计数、连续失败数、最近成功/失败时间、最近/平均/最大耗时和脱敏失败分类，同时暴露 `currentUserCache.enabled/ttlMillis/maxEntries/size`，不记录 token 或用户标识。
 
 RAG 执行入口已经消费 Identity 应用角色：`/rag/api/assistant/plan`、`/rag/api/assistant/plan/stream` 和旧兼容入口 `/rag/api/intent/recognize` 会先调用 Identity `/api/identity/auth/me` 校验 `appRoles.rag`，只允许 `RAG_USER` 或 `RAG_ADMIN` 继续执行语义规划；`/rag/api/assistant/auth/access` 是轻量访问权探针，用于部署验证，不触发模型调用。`/rag/api/assistant/contracts/**` 暴露动作模板、能力表和调试契约，只允许 `RAG_ADMIN` 访问，正式客户端应内置版本化 allowlist 而不是让普通用户运行时读取内部契约。RAG 调用 Identity 的默认连接超时为 2 秒，读取超时为 5 秒，可用 `ALICIA_RAG_IDENTITY_API_BASE_URL`、`ALICIA_RAG_IDENTITY_API_CONNECT_TIMEOUT_MS` 和 `ALICIA_RAG_IDENTITY_API_READ_TIMEOUT_MS` 调整。
 
 RAG 依赖健康入口为 `/rag/api/health/dependencies`，会探测 Identity `/api/identity/health` 和 CloudStorageApi `/api/health`，并暴露 RAG 到 Identity/Storage 的脱敏操作观测，例如 `identity.health`、`identity.auth.me`、`storage.health`、`storage.nodes`、`storage.folders` 的成功/失败次数、连续失败数、最近耗时和脱敏失败分类；不记录 token、账号或文件名。
 
-`identityApi` 已启用独立 Flyway，迁移文件位于 `identityApi/src/main/resources/db/identity-migration`，迁移历史表为 `identity_flyway_schema_history`。CloudStorageApi 早期 V1-V17 历史迁移继续保留，其中 V15 删除 `sys_user` 上旧云盘画像字段，V16 删除云盘业务表到身份表的数据库外键，V17 删除云盘库中的身份表残留；Identity V2 将身份表重命名为 `identity_user`，Identity V3 新增 `identity_user_app_role`，用于保存应用级角色。后续身份表结构变更应新增到 `identityApi`。CloudStorageApi 和 identityApi 测试中已有双向迁移边界检查，防止新的身份结构变更写回云盘迁移目录，也防止云盘业务结构进入 Identity 迁移目录；`deploy/scripts/check-identity-route-boundary.sh` 同时检查运行时代码不再引用旧 `sys_user` 表。
+`../mainSite/mainSiteApi` 已启用独立 Flyway，迁移文件位于 `mainSiteApi/src/main/resources/db/identity-migration`，迁移历史表为 `identity_flyway_schema_history`。CloudStorageApi 早期 V1-V17 历史迁移继续保留，其中 V15 删除 `sys_user` 上旧云盘画像字段，V16 删除云盘业务表到身份表的数据库外键，V17 删除云盘库中的身份表残留；后续身份表结构变更只在主站仓库新增。两个仓库各自的迁移边界测试会阻止身份结构与云盘业务结构重新混写。
 
-`identityApi` 通过 `ALICIA_IDENTITY_MYSQL_DATABASE` 指向独立 MySQL database，`.env.example` 默认使用 `alicia_identity`；MySQL 首次初始化会通过 `deploy/mysql/init-identity-database.sh` 创建该库。生产已完成身份库拆分，当前云盘库不再包含 `sys_user`、`identity_user`、身份验证码、refresh token、审计和 Identity Flyway 历史表。老环境可使用 `deploy/scripts/apply-identity-database-split.sh` 复制身份表和 `identity_flyway_schema_history` 到目标库、备份并更新 `.env`、重启 identity 并运行统一验证；拆库验证通过后，可运行 `deploy/scripts/drop-cloud-identity-residue.sh` 备份并删除云盘库中残留的身份表。
+`../mainSite/mainSiteApi` 通过 `ALICIA_IDENTITY_MYSQL_DATABASE` 指向独立 MySQL database，`.env.example` 默认使用 `alicia_identity`；MySQL 首次初始化会通过 `deploy/mysql/init-identity-database.sh` 创建该库。生产已完成身份库拆分，当前云盘库不再包含身份表。老环境仍可使用数据库拆分与残留清理脚本完成升级。
 
 普通云盘 Web 只保留个人云盘体验：个人身份会话和密码能力走同域 Identity 公开入口 `/api/identity/auth/**`，头像上传、头像访问、当前用户云盘聚合资料由 `CloudStorageApi` 的 `/api/cloud-profile/me`、`/api/cloud-profile/avatar` 和 `/api/cloud-profile/avatar/{userId}` 提供；`/api/storage/overview`、`/api/storage/usage-history` 和上传容量校验始终按当前账号自己的云盘额度计算，`CLOUD_ADMIN` 只授予后台权限，不再让普通云盘入口切换成全站视角或个人空间无限额。身份后台位于主站仓库 `mainSite/userSite`，默认页面入口为 `/console/identity/users`，承接 `/api/identity/admin/**` 的用户、应用角色、会话和审计管理。云盘运营后台位于本仓库 `sysManage`，默认页面入口为 `/console/cloud/users`，管理员云盘聚合用户列表统一为 `/api/admin/cloud-users`，云盘容量调整为 `/api/admin/cloud-users/{userId}/quota`；云盘容量、活跃节点、回收站、分享和分片上传会话的后台运营总览由 `/api/admin/cloud-operations/overview` 提供，分享明细、回收站明细和用户容量明细分别由 `/api/admin/cloud-operations/shares`、`/api/admin/cloud-operations/trash`、`/api/admin/cloud-operations/users/storage` 提供。云盘管理员判断使用 Identity 返回的 `appRoles.cloud=CLOUD_ADMIN`。
 
@@ -256,11 +255,11 @@ RAG 依赖健康入口为 `/rag/api/health/dependencies`，会探测 Identity `/
 
 `webApp` 构建会先运行 `verify:api-contracts`，把普通云盘 TypeScript 类型与 CloudStorageApi 的当前资料、个人存储、分片上传、分享、公开 APK 响应和查询参数做字段级比对，防止用户端与云盘 API 契约漂移；资料保存仍走同域 Identity 公开入口，头像上传后由 CloudStorageApi 同步 Identity 当前资料请求体。普通云盘边界守卫还会禁止侧栏移动端下载卡片露出 APK 上传、后台发布等运维文案，并在 Vite 构建后扫描实际发布的 HTML、JavaScript、CSS 和 JSON，拒绝包含后台 API、控制台路由或云盘管理员角色标记的产物。`sysManage` 构建同样会先运行 `verify:api-contracts`，把后台 TypeScript 类型与 CloudStorageApi 的运营 DTO、分页响应、APK 响应和查询参数做字段级比对。云盘后台边界守卫还会固定用户额度、运营明细和 APK 管理三类视图对应的 CloudStorageApi 接口，并确保后台读取、额度调整和 APK 上传/删除入口保留全局管理员或云盘管理员门槛。
 
-平台级本地验收会同时复核主站个人资料、身份后台个人资料、普通云盘个人资料和云盘后台个人资料的共享弹窗契约，确保四处都保留一致的标题、头像功能区、字段区和布局类名；也会比对 `mainSite/userSite` 与当前 `identityApi` 的用户、登录、会话、应用角色、审计分页、请求体和查询参数契约。
+平台级本地验收会复核四端共享个人资料弹窗，并把 `mainSite/webApp`、`mainSite/userSite`、普通云盘与云盘后台使用的 Identity 类型、请求体、查询参数和路由统一比对到 `mainSite/mainSiteApi`。
 
 云盘 Web 会在启动和运行中通过 `/api/identity/auth/token/refresh` 续签登录态，续签和本地 session 保存都要求同时存在 access token 与 refresh token；未登录或 token 过期时生成规范化的 `/cloudPan/...` returnTo 并跳转主站 `/login`，过期场景会追加 `reason=session-expired` 供主站登录页展示正式提示，同时规避回到登录页造成的跳转环。主动退出登录时调用 `/api/identity/auth/logout` 后再清理本地 token 和 refresh token。云盘 Web 与主站使用同一组浏览器 session key，通过浏览器 storage 事件同步跨标签页登录、续签、过期和退出，并通过共享 session revision 事件同步昵称、头像、云盘背景等资料变更。Android 客户端恢复会话、保存会话和退出登录也使用同一套 Identity 接口与 token 契约；启动续签失败、缺失 refresh token 或运行中收到 401 时会走本地会话过期清理并提示重新登录，不再混用用户主动退出登录提示。默认 logout 只撤销当前刷新会话；需要全设备退出时请求体传 `{"allDevices":true}`。`GET /api/identity/auth/sessions` 返回当前账号刷新会话元数据，不暴露 refresh token 或 token hash；`DELETE /api/identity/auth/sessions/{sessionId}` 只允许撤销当前账号自己的会话。云盘 Web 头像菜单已提供“登录会话”入口，可查看会话并撤销非当前有效会话。
 
-`identityApi` 新注册用户首次携带 identity token 访问 CloudStorageApi 受保护接口时，CloudStorageApi 会自动补建对应的 `cloud_user_profile`，云盘默认额度取 `ALICIA_STORAGE_DEFAULT_USER_QUOTA_BYTES`。
+`mainSiteApi` 新注册用户首次携带 identity token 访问 CloudStorageApi 受保护接口时，CloudStorageApi 会自动补建对应的 `cloud_user_profile`，云盘默认额度取 `ALICIA_STORAGE_DEFAULT_USER_QUOTA_BYTES`。
 
 ### HTTPS 部署（已签发证书后）
 
@@ -293,9 +292,9 @@ bash deploy/scripts/update-rag-production.sh
 bash deploy/scripts/update-cloud-production.sh
 ```
 
-默认会在 `~/aliciaCloudStorage` 内拒绝覆盖 tracked 本地改动，快进拉取 `gitee/main`，确保 `alicia_gateway` 网络存在，重建 `api frontend`，并连续运行统一路由验证、Identity 旧路由边界检查、前端控制台边界检查和后端 API 边界检查。前端边界检查会确认普通云盘端没有后台入口、云盘后台没有身份管理实现，并确认云盘用户端与云盘后台都保留 bundle size 守卫和显式 vendor 分包。`sysManage` 与 `CloudStorageApi` 响应契约联动的更新（例如运营明细 `appRoles` 角色标签）至少使用 `api frontend`；纯前端文案或样式更新才建议显式传 `frontend`。生产 Identity 切换到 `mainSiteApi` 后，本仓库的 `identity` 服务属于仅回滚使用的 `identity-legacy` profile，常规发布脚本会拒绝直接更新它。
+默认会在 `~/aliciaCloudStorage` 内拒绝覆盖 tracked 本地改动，快进拉取 `gitee/main`，确保 `alicia_gateway` 网络存在，重建 `api frontend`，并连续运行统一路由、前端职责与后端 API 边界检查。Identity 服务已从本仓库删除；传入 `identity` 会提示改用 `~/mainSite` 的发布入口。
 
-Identity 的日常更新由 `~/mainSite/deploy/scripts/update-main-site-production.sh` 自动识别并完成；需要切换或回滚运行所有权时使用主站仓库的 `cutover-identity-production.sh`。
+Identity 的日常更新由 `~/mainSite/deploy/scripts/update-main-site-production.sh` 自动识别并完成，也可直接运行主站仓库的 `update-main-identity-production.sh`。
 
 大版本发布推荐把备份和发布后巡检一起打开：
 
@@ -377,7 +376,7 @@ bash deploy/scripts/check-identity-route-boundary.sh
 
 该脚本优先使用 `rg`，服务器未安装 `rg` 时会自动降级到 `grep`。
 
-同一边界也已纳入 Maven 测试：`CloudStorageApi` 的 `IdentityRouteBoundaryTest` 会扫描 Web、Android、CloudStorageApi、identityApi、RAG 和 deploy 源码目录，防止旧身份路径回流；`CloudApiRouteOwnershipTest` 和 `IdentityApiRouteOwnershipTest` 会检查后端 Controller 的 API 前缀归属，确保 `CloudStorageApi` 不暴露身份路由、`identityApi` 不暴露云盘业务路由。`IdentityApiRouteOwnershipTest` 也会检查身份后台 Controller 是否传递 Authorization，并确保其委托的管理服务方法直接调用 `requireAdminUser`；`CurrentPrincipalTest` 固定云盘后台权限口径：全局管理员和 `cloud/CLOUD_ADMIN` 可访问，其他应用管理员不可访问。
+同一边界也已纳入 Maven 测试：本仓库的 `IdentityRouteBoundaryTest` 与 `CloudApiRouteOwnershipTest` 防止旧身份路径或 Identity Controller 回流到 CloudStorageApi；主站 `mainSiteApi` 的 `IdentityApiRouteOwnershipTest` 负责 Identity 路由和管理员授权边界。`CurrentPrincipalTest` 固定云盘后台权限口径：全局管理员和 `cloud/CLOUD_ADMIN` 可访问，其他应用管理员不可访问。
 
 本地提交前也可以一次运行后端边界测试：
 
@@ -560,7 +559,7 @@ git push origin main
 全部后端模块测试：
 
 ```powershell
-.\mvnw -pl CloudStorageApi,identityApi,rag test
+.\mvnw -pl CloudStorageApi,rag test
 ```
 
 前端构建检查：

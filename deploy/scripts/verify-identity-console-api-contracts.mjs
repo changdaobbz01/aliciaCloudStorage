@@ -33,8 +33,8 @@ function parseArgs(argv) {
 }
 
 const { cloudProjectDir, mainSiteProjectDir } = parseArgs(process.argv.slice(2));
-const identityDtoRoot = 'identityApi/src/main/java/com/alicia/cloudstorage/identity/dto';
-const identityControllerRoot = 'identityApi/src/main/java/com/alicia/cloudstorage/identity/controller';
+const identityDtoRoot = 'mainSiteApi/src/main/java/com/alicia/cloudstorage/identity/dto';
+const identityControllerRoot = 'mainSiteApi/src/main/java/com/alicia/cloudstorage/identity/controller';
 const cloudStorageControllerRoot = 'CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/controller';
 const cloudStorageConfigRoot = 'CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/config';
 const userSiteTypesSource = readProjectFile(mainSiteProjectDir, 'userSite/src/types.ts');
@@ -47,7 +47,10 @@ function readProjectFile(projectDir, relativePath) {
 }
 
 function readIdentityFile(relativePath) {
-  return readProjectFile(cloudProjectDir, relativePath);
+  return readProjectFile(
+    relativePath.startsWith('mainSiteApi/') ? mainSiteProjectDir : cloudProjectDir,
+    relativePath,
+  );
 }
 
 function escapeRegExp(value) {

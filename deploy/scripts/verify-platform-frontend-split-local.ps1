@@ -300,6 +300,30 @@ function Invoke-MainSitePortalApiContractVerification {
     Write-Host "[OK] main site portal API contract"
 }
 
+function Invoke-CloudIdentityApiContractVerification {
+    param(
+        [string]$Label,
+        [string]$RelativeScript
+    )
+
+    $node = Get-Command node.exe -ErrorAction SilentlyContinue
+    if (-not $node) {
+        $node = Get-Command node -ErrorAction Stop
+    }
+
+    $scriptPath = Join-Path $CloudProjectDir $RelativeScript
+    if (-not (Test-Path -LiteralPath $scriptPath -PathType Leaf)) {
+        Fail "Missing $Label verifier: $scriptPath"
+    }
+
+    Write-Host "[RUN] $Label"
+    & $node.Source $scriptPath "--main-site" $MainSiteProjectDir
+    if ($LASTEXITCODE -ne 0) {
+        Fail "$Label verification failed"
+    }
+    Write-Host "[OK] $Label"
+}
+
 $defaultCloudProjectDir = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..\..")).Path
 
 if ([string]::IsNullOrWhiteSpace($CloudProjectDir)) {
@@ -339,5 +363,7 @@ Invoke-FrontendSplitVerification "cloud" $CloudProjectDir
 Invoke-SharedAccountProfileVerification
 Invoke-MainSitePortalApiContractVerification
 Invoke-IdentityConsoleApiContractVerification
+Invoke-CloudIdentityApiContractVerification "cloud web mainSiteApi contract" "webApp\scripts\verify-api-contracts.mjs"
+Invoke-CloudIdentityApiContractVerification "cloud console mainSiteApi contract" "sysManage\scripts\verify-api-contracts.mjs"
 
 Write-Host "[OK] Alicia platform frontend split local verification complete"

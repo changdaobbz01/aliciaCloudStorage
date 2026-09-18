@@ -184,7 +184,10 @@ function Invoke-NpmScript {
 }
 
 function Invoke-NodeScript {
-    param([string]$RelativeScript)
+    param(
+        [string]$RelativeScript,
+        [string[]]$Arguments = @()
+    )
 
     $node = Get-Command node.exe -ErrorAction SilentlyContinue
     if (-not $node) {
@@ -196,7 +199,7 @@ function Invoke-NodeScript {
         Fail "Missing Node verification script: $RelativeScript"
     }
 
-    & $node.Source $scriptPath
+    & $node.Source $scriptPath @Arguments
     if ($LASTEXITCODE -ne 0) {
         Fail "node $RelativeScript failed"
     }
@@ -210,11 +213,11 @@ if (-not $SkipBuild) {
     Invoke-Step "verify cloud webApp returnTo boundary" { Invoke-NodeScript "webApp\scripts\verify-unified-login-return-to.mjs" }
     Invoke-Step "verify cloud webApp session sync boundary" { Invoke-NodeScript "webApp\scripts\verify-session-sync.mjs" }
     Invoke-Step "verify cloud webApp client boundary" { Invoke-NodeScript "webApp\scripts\verify-client-boundary.mjs" }
-    Invoke-Step "verify cloud webApp API contracts" { Invoke-NodeScript "webApp\scripts\verify-api-contracts.mjs" }
+    Invoke-Step "verify cloud webApp API contracts" { Invoke-NodeScript "webApp\scripts\verify-api-contracts.mjs" @("--cloud-only") }
     Invoke-Step "verify cloud sysManage returnTo boundary" { Invoke-NodeScript "sysManage\scripts\verify-unified-login-return-to.mjs" }
     Invoke-Step "verify cloud sysManage session sync boundary" { Invoke-NodeScript "sysManage\scripts\verify-session-sync.mjs" }
     Invoke-Step "verify cloud sysManage console boundary" { Invoke-NodeScript "sysManage\scripts\verify-console-boundary.mjs" }
-    Invoke-Step "verify cloud sysManage API contracts" { Invoke-NodeScript "sysManage\scripts\verify-api-contracts.mjs" }
+    Invoke-Step "verify cloud sysManage API contracts" { Invoke-NodeScript "sysManage\scripts\verify-api-contracts.mjs" @("--cloud-only") }
 }
 
 Invoke-Step "verify cloud frontend split wiring" {
@@ -222,12 +225,12 @@ Invoke-Step "verify cloud frontend split wiring" {
     Require-Contains "webApp/Dockerfile" "COPY --from=cloud-builder /app/webApp/dist/.well-known /usr/share/nginx/html/.well-known" "cloud Dockerfile must publish Android asset links at the domain root"
     Require-Contains "webApp/Dockerfile" "COPY --from=cloud-console-builder /app/sysManage/dist /usr/share/nginx/html/console/cloud" "cloud Dockerfile must package sysManage under /console/cloud"
     Require-MatchCountAtLeast "webApp/Dockerfile" "COPY CloudStorageApi/src /app/CloudStorageApi/src" 2 "cloud Dockerfile must copy CloudStorageApi source into both frontend build stages for API contract verification."
-    Require-MatchCountAtLeast "webApp/Dockerfile" "COPY identityApi/src /app/identityApi/src" 2 "cloud Dockerfile must copy identityApi source into both frontend build stages for API contract verification."
+    Require-NoMatch "webApp/Dockerfile" "identityApi|mainSiteApi" "cloud frontend images must not embed the main-site-owned Identity source."
     Require-Contains "webApp/vite.config.ts" "base: '/cloudPan/'" "cloud web Vite base must stay mounted under /cloudPan/"
     Require-Contains "sysManage/vite.config.ts" "base: '/console/cloud/'" "cloud console Vite base must stay mounted under /console/cloud/"
     Require-Contains "webApp/package.json" '"verify:return-to": "node scripts/verify-unified-login-return-to.mjs"' "cloud web package must expose the unified login returnTo verifier"
     Require-Contains "webApp/package.json" "npm run verify:return-to && npm run verify:session-sync" "cloud web build must run returnTo verification before session and compile checks"
-    Require-Contains "webApp/package.json" '"verify:api-contracts": "node scripts/verify-api-contracts.mjs"' "cloud web package must expose the CloudStorageApi contract verifier"
+    Require-Contains "webApp/package.json" '"verify:api-contracts": "node scripts/verify-api-contracts.mjs --cloud-only"' "cloud web package must expose the CloudStorageApi contract verifier"
     Require-Contains "webApp/package.json" "npm run verify:client-boundary && npm run verify:api-contracts && tsc -b" "cloud web build must verify CloudStorageApi contracts before TypeScript compile"
     Require-Contains "sysManage/package.json" '"verify:return-to": "node scripts/verify-unified-login-return-to.mjs"' "cloud console package must expose the unified login returnTo verifier"
     Require-Contains "sysManage/package.json" "npm run verify:return-to && npm run verify:session-sync" "cloud console build must run returnTo verification before session and compile checks"
@@ -643,11 +646,14 @@ Invoke-Step "verify cloud frontend split wiring" {
     Require-Contains "deploy/scripts/verify-platform-frontend-split-local.sh" 'verify_shared_account_profile' "platform bash verifier must enforce shared account profile layout across all frontends"
     Require-Contains "deploy/scripts/verify-platform-frontend-split-local.sh" 'verify-main-site-portal-api-contracts.mjs' "platform bash verifier must enforce main site portal API contracts"
     Require-Contains "deploy/scripts/verify-platform-frontend-split-local.sh" 'verify-identity-console-api-contracts.mjs' "platform bash verifier must enforce identity console IdentityApi contracts"
+    Require-Contains "deploy/scripts/verify-platform-frontend-split-local.sh" 'cloud web mainSiteApi contract' "platform bash verifier must compare cloud web Identity contracts with mainSiteApi"
+    Require-Contains "deploy/scripts/verify-platform-frontend-split-local.sh" 'cloud console mainSiteApi contract' "platform bash verifier must compare cloud console Identity contracts with mainSiteApi"
     Require-Contains "deploy/scripts/verify-platform-frontend-split-local.sh" 'skip-build' "platform bash verifier must allow static/API-only checks"
     Require-Contains "deploy/scripts/verify-platform-frontend-split-local.sh" 'verify_frontend_build_dependencies' "platform bash verifier must preflight frontend build dependencies before full builds"
     Require-Contains "deploy/scripts/verify-platform-frontend-split-local.sh" 'for binary_name in tsc vite' "platform bash verifier must diagnose missing TypeScript and Vite build dependencies"
     Require-Contains "deploy/scripts/verify-platform-frontend-split-local.sh" 'npm ci --no-audit --no-fund' "platform bash verifier must tell operators how to install missing frontend dependencies"
     Require-Contains "deploy/scripts/verify-main-site-portal-api-contracts.mjs" "IdentityLoginResponse" "main site portal contract verifier must compare Identity login responses"
+    Require-Contains "deploy/scripts/verify-main-site-portal-api-contracts.mjs" "mainSiteApi/src/main/java" "main site portal contract verifier must read the main-site-owned Identity source"
     Require-Contains "deploy/scripts/verify-main-site-portal-api-contracts.mjs" "RequestEmailRegistrationCodeRequest" "main site portal contract verifier must compare registration requests"
     Require-Contains "deploy/scripts/verify-main-site-portal-api-contracts.mjs" "extractJsonStringifyObjectFieldsForFunction" "main site portal contract verifier must read auth request bodies from frontend source"
     Require-Contains "deploy/scripts/verify-main-site-portal-api-contracts.mjs" "assertMainSiteApiStringifiesPayload" "main site portal contract verifier must ensure typed payloads are sent"
@@ -766,7 +772,7 @@ Invoke-Step "verify cloud frontend split wiring" {
     Require-Contains "webApp/vite.config.ts" "getAntdModuleChunk(id)" "cloud web Vite config must keep Ant Design module chunking"
     Require-Contains "sysManage/package.json" '"verify:bundle-size": "node scripts/verify-bundle-size.mjs"' "cloud console package must expose the bundle size verifier"
     Require-Contains "sysManage/package.json" '"verify:built-shell": "node scripts/verify-built-shell.mjs"' "cloud console package must expose the built shell verifier"
-    Require-Contains "sysManage/package.json" '"verify:api-contracts": "node scripts/verify-api-contracts.mjs"' "cloud console package must expose the CloudStorageApi contract verifier"
+    Require-Contains "sysManage/package.json" '"verify:api-contracts": "node scripts/verify-api-contracts.mjs --cloud-only"' "cloud console package must expose the CloudStorageApi contract verifier"
     Require-Contains "sysManage/package.json" "npm run verify:console-boundary && npm run verify:api-contracts && tsc -b" "cloud console build must verify CloudStorageApi contracts before TypeScript compile"
     Require-Contains "sysManage/package.json" "vite build && npm run verify:built-shell && npm run verify:bundle-size" "cloud console build must verify built shell and bundle size after vite build"
     Require-Contains "sysManage/scripts/verify-built-shell.mjs" "Alicia 云盘后台" "cloud console built shell verifier must assert the cloud console title"

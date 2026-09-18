@@ -15,12 +15,13 @@ ok() {
 run_node_script() {
     local label="$1"
     local relative_script="$2"
+    shift 2
 
     command -v node >/dev/null 2>&1 || fail "Node.js is required for $label."
     [[ -f "$relative_script" ]] || fail "Missing $label script: $relative_script"
 
     printf '[RUN] %s\n' "$label"
-    node "$relative_script" || fail "$label failed."
+    node "$relative_script" "$@" || fail "$label failed."
     ok "$label"
 }
 
@@ -130,11 +131,11 @@ cd "$ROOT_DIR"
 run_node_script "cloud web returnTo boundary" "webApp/scripts/verify-unified-login-return-to.mjs"
 run_node_script "cloud web session sync boundary" "webApp/scripts/verify-session-sync.mjs"
 run_node_script "cloud web client boundary" "webApp/scripts/verify-client-boundary.mjs"
-run_node_script "cloud web CloudStorageApi contract" "webApp/scripts/verify-api-contracts.mjs"
+run_node_script "cloud web CloudStorageApi contract" "webApp/scripts/verify-api-contracts.mjs" --cloud-only
 run_node_script "cloud console returnTo boundary" "sysManage/scripts/verify-unified-login-return-to.mjs"
 run_node_script "cloud console session sync boundary" "sysManage/scripts/verify-session-sync.mjs"
 run_node_script "cloud console boundary" "sysManage/scripts/verify-console-boundary.mjs"
-run_node_script "cloud console CloudStorageApi contract" "sysManage/scripts/verify-api-contracts.mjs"
+run_node_script "cloud console CloudStorageApi contract" "sysManage/scripts/verify-api-contracts.mjs" --cloud-only
 
 require_source_no_match \
     "cloud Bash boundary avoids TypeScript-gated returnTo checks" \
@@ -1012,7 +1013,7 @@ require_source_match \
 require_source_match \
     "cloud web exposes API contract verifier" \
     "webApp/package.json" \
-    '"verify:api-contracts"[[:space:]]*:[[:space:]]*"node scripts/verify-api-contracts\.mjs"' \
+    '"verify:api-contracts"[[:space:]]*:[[:space:]]*"node scripts/verify-api-contracts\.mjs --cloud-only"' \
     "Cloud web package must expose the CloudStorageApi contract verifier."
 
 require_source_match \
@@ -1654,7 +1655,7 @@ require_source_match \
 require_source_match \
     "cloud console exposes API contract verifier" \
     "sysManage/package.json" \
-    '"verify:api-contracts": "node scripts/verify-api-contracts.mjs"' \
+    '"verify:api-contracts": "node scripts/verify-api-contracts.mjs --cloud-only"' \
     "Cloud console package must expose the CloudStorageApi contract verifier."
 
 require_source_match \
@@ -2870,6 +2871,18 @@ require_source_match \
     "Platform bash verifier must enforce identity console IdentityApi contracts."
 
 require_source_match \
+    "platform bash verifier checks cloud web against mainSiteApi" \
+    "deploy/scripts/verify-platform-frontend-split-local.sh" \
+    'cloud web mainSiteApi contract' \
+    "Platform bash verifier must compare the cloud web Identity client with mainSiteApi."
+
+require_source_match \
+    "platform bash verifier checks cloud console against mainSiteApi" \
+    "deploy/scripts/verify-platform-frontend-split-local.sh" \
+    'cloud console mainSiteApi contract' \
+    "Platform bash verifier must compare the cloud console Identity client with mainSiteApi."
+
+require_source_match \
     "platform bash verifier supports static API checks" \
     "deploy/scripts/verify-platform-frontend-split-local.sh" \
     'skip-build' \
@@ -2898,6 +2911,12 @@ require_source_match \
     "deploy/scripts/verify-main-site-portal-api-contracts.mjs" \
     'IdentityLoginResponse' \
     "Main site portal contract verifier must compare Identity login responses."
+
+require_source_match \
+    "main site portal contract verifier reads mainSiteApi" \
+    "deploy/scripts/verify-main-site-portal-api-contracts.mjs" \
+    'mainSiteApi/src/main/java' \
+    "Main site portal contracts must bind to the main-site-owned Identity source."
 
 require_source_match \
     "main site portal contract verifier compares registration requests" \
@@ -3284,12 +3303,11 @@ require_source_count_at_least \
     2 \
     "Cloud Dockerfile must copy CloudStorageApi source into both frontend build stages for API contract verification."
 
-require_source_count_at_least \
-    "cloud Dockerfile copies identityApi source for frontend contracts" \
+require_source_no_match \
+    "cloud Dockerfile excludes migrated Identity source" \
     "webApp/Dockerfile" \
-    'COPY identityApi/src /app/identityApi/src' \
-    2 \
-    "Cloud Dockerfile must copy identityApi source into both frontend build stages for API contract verification."
+    'identityApi|mainSiteApi' \
+    "Cloud frontend images must not embed the main-site-owned Identity source."
 
 for nginx_conf in webApp/nginx/default.conf webApp/nginx/default.ssl.conf; do
     require_source_match \
@@ -3464,7 +3482,7 @@ require_source_match \
 require_source_match \
     "cloud web exposes API contract verifier" \
     "webApp/package.json" \
-    '"verify:api-contracts"[[:space:]]*:[[:space:]]*"node scripts/verify-api-contracts\.mjs"' \
+    '"verify:api-contracts"[[:space:]]*:[[:space:]]*"node scripts/verify-api-contracts\.mjs --cloud-only"' \
     "Cloud web build must expose the CloudStorageApi contract verifier."
 
 require_source_match \

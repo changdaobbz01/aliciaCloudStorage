@@ -9,7 +9,7 @@
     "verify:return-to": "node scripts/verify-unified-login-return-to.mjs",
     "verify:session-sync": "node scripts/verify-session-sync.mjs",
     "verify:client-boundary": "node scripts/verify-client-boundary.mjs",
-    "verify:api-contracts": "node scripts/verify-api-contracts.mjs",
+    "verify:api-contracts": "node scripts/verify-api-contracts.mjs --cloud-only",
     "verify:bundle-size": "node scripts/verify-bundle-size.mjs",
     "verify:built-boundary": "node scripts/verify-built-boundary.mjs",
     "verify:built-shell": "node scripts/verify-built-shell.mjs",

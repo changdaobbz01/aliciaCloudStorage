@@ -9,7 +9,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 public class ShareLinkPasswordConfig {
 
     /**
-     * CloudStorageApi 只负责分享链接访问密码；账号密码由 identityApi 管理。
+     * CloudStorageApi 只负责分享链接访问密码；账号密码由 mainSiteApi 管理。
      */
     @Bean
     public PasswordEncoder passwordEncoder() {

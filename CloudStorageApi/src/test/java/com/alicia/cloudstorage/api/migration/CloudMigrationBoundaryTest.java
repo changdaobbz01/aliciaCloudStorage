@@ -63,7 +63,7 @@ class CloudMigrationBoundaryTest {
                     .toList();
 
             assertThat(violations)
-                    .as("New identity-owned schema changes belong in identityApi/src/main/resources/db/identity-migration; CloudStorageApi keeps only legacy identity migrations and cleanup migrations.")
+                    .as("New identity-owned schema changes belong in mainSite/mainSiteApi/src/main/resources/db/identity-migration; CloudStorageApi keeps only legacy identity migrations and cleanup migrations.")
                     .isEmpty();
         }
     }

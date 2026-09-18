@@ -1,11 +1,26 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const scriptDir = dirname(fileURLToPath(import.meta.url));
+const cloudProjectDir = resolve(scriptDir, '../..');
+const mainSiteArgumentIndex = process.argv.indexOf('--main-site');
+const mainSiteProjectDir = resolve(
+  mainSiteArgumentIndex >= 0
+    ? process.argv[mainSiteArgumentIndex + 1] ?? ''
+    : process.env.ALICIA_MAIN_SITE_PROJECT_DIR ?? resolve(cloudProjectDir, '..', 'mainSite'),
+);
+const verifyIdentityContracts = !process.argv.includes('--cloud-only');
 
 const typesSource = readFileSync(new URL('../src/types.ts', import.meta.url), 'utf8');
 const apiSource = readFileSync(new URL('../src/lib/api.ts', import.meta.url), 'utf8');
 
 function readRepoFile(relativePath) {
-  return readFileSync(new URL(`../../${relativePath}`, import.meta.url), 'utf8');
+  const projectDir = relativePath.startsWith('mainSiteApi/') ? mainSiteProjectDir : cloudProjectDir;
+  const path = resolve(projectDir, relativePath);
+  assert.ok(existsSync(path), `Missing contract file: ${path}`);
+  return readFileSync(path, 'utf8');
 }
 
 function escapeRegExp(value) {
@@ -591,8 +606,8 @@ const storageController = `${controllerRoot}/StorageNodeController.java`;
 const shareController = `${controllerRoot}/ShareLinkController.java`;
 const publicShareController = `${controllerRoot}/PublicShareLinkController.java`;
 const appPackageController = `${controllerRoot}/AppPackageController.java`;
-const identityDtoRoot = 'identityApi/src/main/java/com/alicia/cloudstorage/identity/dto';
-const identityControllerRoot = 'identityApi/src/main/java/com/alicia/cloudstorage/identity/controller';
+const identityDtoRoot = 'mainSiteApi/src/main/java/com/alicia/cloudstorage/identity/dto';
+const identityControllerRoot = 'mainSiteApi/src/main/java/com/alicia/cloudstorage/identity/controller';
 const identityAuthController = `${identityControllerRoot}/IdentityAuthController.java`;
 
 const cloudWebEndpointContracts = [
@@ -1121,31 +1136,33 @@ assertSameFields(
   extractTsTypeFields('AppPackageInfo'),
   extractJavaRecordFields(`${dtoRoot}/AppPackageInfoResponse.java`, 'AppPackageInfoResponse'),
 );
-assertSameFields(
-  'IdentityUser',
-  extractTsTypeFields('IdentityUser'),
-  extractJavaRecordFields(`${identityDtoRoot}/IdentityUserResponse.java`, 'IdentityUserResponse'),
-);
-assertSameFields(
-  'IdentityLoginResponse',
-  extractTsTypeFields('IdentityLoginResponse'),
-  extractJavaRecordFields(`${identityDtoRoot}/IdentityLoginResponse.java`, 'IdentityLoginResponse'),
-);
-assertSameFields(
-  'IdentitySession',
-  extractTsTypeFields('IdentitySession'),
-  extractJavaRecordFields(`${identityDtoRoot}/IdentitySessionResponse.java`, 'IdentitySessionResponse'),
-);
-assertSameFields(
-  'UpdateProfilePayload',
-  extractTsTypeFields('UpdateProfilePayload'),
-  extractJavaRecordFields(`${identityDtoRoot}/UpdateIdentityProfileRequest.java`, 'UpdateIdentityProfileRequest'),
-);
-assertSameFields(
-  'ChangePasswordPayload',
-  extractTsTypeFields('ChangePasswordPayload'),
-  extractJavaRecordFields(`${identityDtoRoot}/ChangePasswordRequest.java`, 'ChangePasswordRequest'),
-);
+if (verifyIdentityContracts) {
+  assertSameFields(
+    'IdentityUser',
+    extractTsTypeFields('IdentityUser'),
+    extractJavaRecordFields(`${identityDtoRoot}/IdentityUserResponse.java`, 'IdentityUserResponse'),
+  );
+  assertSameFields(
+    'IdentityLoginResponse',
+    extractTsTypeFields('IdentityLoginResponse'),
+    extractJavaRecordFields(`${identityDtoRoot}/IdentityLoginResponse.java`, 'IdentityLoginResponse'),
+  );
+  assertSameFields(
+    'IdentitySession',
+    extractTsTypeFields('IdentitySession'),
+    extractJavaRecordFields(`${identityDtoRoot}/IdentitySessionResponse.java`, 'IdentitySessionResponse'),
+  );
+  assertSameFields(
+    'UpdateProfilePayload',
+    extractTsTypeFields('UpdateProfilePayload'),
+    extractJavaRecordFields(`${identityDtoRoot}/UpdateIdentityProfileRequest.java`, 'UpdateIdentityProfileRequest'),
+  );
+  assertSameFields(
+    'ChangePasswordPayload',
+    extractTsTypeFields('ChangePasswordPayload'),
+    extractJavaRecordFields(`${identityDtoRoot}/ChangePasswordRequest.java`, 'ChangePasswordRequest'),
+  );
+}
 assertSameFields(
   'CreateFolderPayload',
   extractTsTypeFields('CreateFolderPayload'),
@@ -1211,19 +1228,21 @@ assertSameFields(
   extractTsTypeFields('SaveShareLinkPayload'),
   extractJavaRecordFields(`${dtoRoot}/SaveShareLinkRequest.java`, 'SaveShareLinkRequest'),
 );
-assertSameFields(
-  'refreshAuthSession request body',
-  extractJsonStringifyObjectFieldsForFunction('refreshAuthSession'),
-  extractJavaRecordFields(`${identityDtoRoot}/IdentityRefreshTokenRequest.java`, 'IdentityRefreshTokenRequest'),
-);
+if (verifyIdentityContracts) {
+  assertSameFields(
+    'refreshAuthSession request body',
+    extractJsonStringifyObjectFieldsForFunction('refreshAuthSession'),
+    extractJavaRecordFields(`${identityDtoRoot}/IdentityRefreshTokenRequest.java`, 'IdentityRefreshTokenRequest'),
+  );
 
-const logoutAuthTokenRequestFields = extractJsonStringifyObjectFieldsForFunction('logoutAuthToken');
-assertSubsetFields(
-  'logoutAuthToken request body',
-  logoutAuthTokenRequestFields,
-  extractJavaRecordFields(`${identityDtoRoot}/IdentityLogoutRequest.java`, 'IdentityLogoutRequest'),
-);
-assertIncludesFields('logoutAuthToken request body', logoutAuthTokenRequestFields, ['refreshToken']);
+  const logoutAuthTokenRequestFields = extractJsonStringifyObjectFieldsForFunction('logoutAuthToken');
+  assertSubsetFields(
+    'logoutAuthToken request body',
+    logoutAuthTokenRequestFields,
+    extractJavaRecordFields(`${identityDtoRoot}/IdentityLogoutRequest.java`, 'IdentityLogoutRequest'),
+  );
+  assertIncludesFields('logoutAuthToken request body', logoutAuthTokenRequestFields, ['refreshToken']);
+}
 
 assertSameFields(
   'uploadCurrentUserAvatar multipart fields',
@@ -1269,18 +1288,18 @@ assertSameFields(
   extractUrlSearchParamKeysForFunction('fetchShareFileAccessUrl'),
   extractRequestParamsForMethod(shareController, 'getShareFileAccessUrl'),
 );
-assertSameFields(
-  'fetchIdentitySessions query parameters',
-  [
-    ...extractUrlSearchParamKeysForFunction('fetchIdentitySessions'),
-    ...extractInlineQueryParamKeysForFunction('fetchIdentitySessions'),
-  ],
-  extractRequestParamsForMethod(identityAuthController, 'listSessions'),
-);
+if (verifyIdentityContracts) {
+  assertSameFields(
+    'fetchIdentitySessions query parameters',
+    [
+      ...extractUrlSearchParamKeysForFunction('fetchIdentitySessions'),
+      ...extractInlineQueryParamKeysForFunction('fetchIdentitySessions'),
+    ],
+    extractRequestParamsForMethod(identityAuthController, 'listSessions'),
+  );
+}
 
 for (const functionName of [
-  'updateProfile',
-  'changePassword',
   'createFolder',
   'createMultipartUpload',
   'downloadStorageArchive',
@@ -1298,14 +1317,26 @@ for (const functionName of [
   assertApiFunctionStringifiesPayload(functionName);
 }
 
+if (verifyIdentityContracts) {
+  for (const functionName of ['updateProfile', 'changePassword']) {
+    assertApiFunctionStringifiesPayload(functionName);
+  }
+}
+
 for (const contract of cloudWebEndpointContracts) {
   assertCloudWebEndpointContract(contract);
 }
 
-for (const contract of cloudWebIdentityEndpointContracts) {
-  assertCloudWebEndpointContract(contract);
+if (verifyIdentityContracts) {
+  for (const contract of cloudWebIdentityEndpointContracts) {
+    assertCloudWebEndpointContract(contract);
+  }
 }
 
 assertCloudStorageApiCurrentPrincipalInterceptorContract();
 
-console.log('[OK] cloud web CloudStorageApi and IdentityApi contracts verified');
+console.log(
+  verifyIdentityContracts
+    ? '[OK] cloud web CloudStorageApi and mainSiteApi contracts verified'
+    : '[OK] cloud web CloudStorageApi contracts verified',
+);

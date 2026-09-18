@@ -1,6 +1,8 @@
 # Alicia 统一身份服务当前基线与后续规划
 
-本文档记录 Alicia 身份体系从 CloudStorageApi 拆分后的当前架构基线，以及后续继续增强 Identity Service 的方向。当前主线已经从“迁移方案”进入“边界固化 + 能力增强”阶段：身份由 `identityApi` 拥有，云盘只消费身份结果并维护云盘业务资料，主站负责统一入口。
+> 归档说明（2026-09-18）：第二阶段已完成，Identity 当前由 `mainSite/mainSiteApi` 唯一持有；本文后续出现的 `identityApi` 路径、Compose 服务和回滚命令仅记录迁移历史，不代表当前仓库结构。
+
+本文档记录 Alicia 身份体系从 CloudStorageApi 拆分后的架构演进，以及后续继续增强 Identity Service 的方向。当前身份由 `mainSite/mainSiteApi` 拥有，云盘只消费身份结果并维护云盘业务资料，主站负责统一入口。
 
 ## 1. 目标
 

@@ -26,7 +26,7 @@ public class AdminCloudUserController {
     private final AdminCloudUserDirectoryService adminCloudUserDirectoryService;
 
     /**
-     * 保留云盘聚合用户管理入口；纯身份写操作直接走 identityApi。
+     * 保留云盘聚合用户管理入口；纯身份写操作直接走 mainSiteApi。
      */
     public AdminCloudUserController(
             AdminCloudUserCreationService adminCloudUserCreationService,

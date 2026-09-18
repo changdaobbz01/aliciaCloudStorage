@@ -27,8 +27,8 @@ else
 fi
 
 for service in "${SERVICES[@]}"; do
-    if [[ "$service" == "identity" && "${ALICIA_ENABLE_LEGACY_IDENTITY:-false}" != "true" ]]; then
-        printf 'The cloud Identity service is rollback-only. Set ALICIA_ENABLE_LEGACY_IDENTITY=true for an explicit rollback.\n' >&2
+    if [[ "$service" == "identity" ]]; then
+        printf 'The cloud Identity service was removed after migration. Update it from ~/mainSite instead.\n' >&2
         exit 1
     fi
 done

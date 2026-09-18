@@ -34,7 +34,7 @@ Ubuntu/Git Bash/macOS 环境可跑 Bash 入口；默认同样会构建四个前�
 ALICIA_MAIN_SITE_PROJECT_DIR=../mainSite bash deploy/scripts/verify-platform-frontend-split-local.sh --skip-build
 ```
 
-PowerShell 脚本会先运行 `mainSite/deploy/scripts/verify-frontend-split-local.ps1`，再运行本仓库的 `deploy/scripts/verify-frontend-split-local.ps1`；Bash 脚本会运行四个前端的构建、主站/云盘前端静态边界、身份路由边界、四处个人资料弹窗共享契约，以及 `mainSite/userSite` 与当前 `identityApi` 的字段级 API 契约。两者都覆盖主站门户、身份后台、普通云盘和云盘后台；默认主站仓库为同级 `..\mainSite` / `../mainSite`，路径不同时可通过参数或 `ALICIA_MAIN_SITE_PROJECT_DIR` 指定。
+PowerShell 和 Bash 平台脚本会覆盖四个前端的构建、静态职责边界、身份路由边界、共享个人资料弹窗，以及四端 Identity 客户端与 `mainSite/mainSiteApi` 的字段级 API 契约。默认主站仓库为同级 `..\mainSite` / `../mainSite`，路径不同时可通过参数或 `ALICIA_MAIN_SITE_PROJECT_DIR` 指定。
 
 ## 3. 账号密码输入方式
 
@@ -183,7 +183,7 @@ bash deploy/scripts/verify-backend-api-boundaries.sh
 检查内容：
 
 - `CloudStorageApi` Controller 只暴露云盘业务 API 前缀
-- `identityApi` Controller 只暴露 `/api/identity/**`
+- `mainSite/mainSiteApi` Controller 只暴露 `/api/identity/**`
 - 云盘后台权限只接受全局管理员和 `cloud/CLOUD_ADMIN`
 - 身份后台 Controller 传递 Authorization
 - 身份后台委托的管理服务方法直接调用 `requireAdminUser`
@@ -256,7 +256,7 @@ bash deploy/scripts/validate-production-backup.sh \
 bash deploy/scripts/update-cloud-production.sh
 ```
 
-默认组合是 `api frontend`，用于覆盖 `sysManage` 与 `CloudStorageApi` 响应契约联动的更新，例如运营明细 `appRoles` 角色标签。纯前端文案或样式更新才建议显式传 `frontend`；涉及 RAG 时把 `rag` 加入服务列表。生产 Identity 完成第二阶段切换后由 `mainSite` 发布，本仓库的 `identity-legacy` profile 只用于回滚。
+默认组合是 `api frontend`，用于覆盖 `sysManage` 与 `CloudStorageApi` 响应契约联动的更新，例如运营明细 `appRoles` 角色标签。纯前端文案或样式更新才建议显式传 `frontend`；涉及 RAG 时把 `rag` 加入服务列表。生产 Identity 由 `mainSite` 发布，本仓库不再包含 Identity 服务。
 
 `sysManage` 构建会先运行 `verify:api-contracts`，比对后台 TypeScript 类型与 CloudStorageApi 运营 DTO、分页响应、APK 响应和查询参数，避免只改一侧造成生产 UI 字段漂移。
 
