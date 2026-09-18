@@ -453,6 +453,7 @@ Invoke-Step "verify cloud frontend split wiring" {
     Require-Contains "sysManage/scripts/verify-console-boundary.mjs" "'/api/identity/auth/token/refresh'" "cloud console API allowlist must include identity refresh only for session continuity"
     Require-Contains "sysManage/scripts/verify-console-boundary.mjs" "'/api/identity/auth/profile'" "cloud console API allowlist must include identity profile only for current-user settings"
     Require-Contains "sysManage/scripts/verify-console-boundary.mjs" "cloud console page must use the centralized cloud admin predicate" "cloud console boundary verifier must enforce the runtime cloud admin gate"
+    Require-Contains "sysManage/scripts/verify-console-boundary.mjs" "cloud console protected route must reject non-admin principals before mounting the admin shell" "cloud console protected route must unmount the admin shell after permission loss"
     Require-Contains "sysManage/scripts/verify-console-boundary.mjs" "cloud console must centralize its role label copy" "cloud console boundary verifier must enforce centralized role label copy"
     Require-Contains "sysManage/scripts/verify-console-boundary.mjs" "cloud console users view must load CloudStorageApi cloud-users" "cloud console boundary verifier must pin the users view to CloudStorageApi cloud-users"
     Require-Contains "sysManage/scripts/verify-console-boundary.mjs" "cloud console users reads must keep synchronous loading guards" "cloud console boundary verifier must guard duplicate cloud users reads"

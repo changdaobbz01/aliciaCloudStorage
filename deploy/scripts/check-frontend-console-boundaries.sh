@@ -1802,6 +1802,12 @@ require_source_match \
     "Cloud console boundary verifier must enforce the runtime cloud admin gate."
 
 require_source_match \
+    "cloud console protected route unmounts unauthorized admin shell" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console protected route must reject non-admin principals before mounting the admin shell' \
+    "Cloud console protected route must unmount the admin shell after permission loss."
+
+require_source_match \
     "cloud console boundary checks role label copy" \
     "sysManage/scripts/verify-console-boundary.mjs" \
     'cloud console must centralize its role label copy' \

@@ -198,6 +198,7 @@ const cloudUsersHookSource = readFileSync(new URL('../src/features/drive/hooks/u
 const driveOperationsHookSource = readFileSync(new URL('../src/features/drive/hooks/useDriveOperationsAdmin.ts', import.meta.url), 'utf8');
 const appPackageHookSource = readFileSync(new URL('../src/features/drive/hooks/useDriveAppPackageAdmin.ts', import.meta.url), 'utf8');
 const typesSource = readFileSync(new URL('../src/types.ts', import.meta.url), 'utf8');
+const protectedRouteSource = readFileSync(new URL('../src/components/protected-route.tsx', import.meta.url), 'utf8');
 assert.match(appSource, /path="\/:view"/, 'cloud console must expose URL-addressable child routes');
 assert.match(appSource, /<Navigate to="\/users" replace \/>/, 'cloud console root and unknown routes must land on users');
 assert.match(appSource, /new URLSearchParams\(search\)\.get\('view'\)/, 'cloud console root route must read legacy view query');
@@ -220,6 +221,19 @@ assert.match(
   typesSource,
   /return user\?\.role === 'ADMIN' \|\| user\?\.appRoles\?\.cloud === 'CLOUD_ADMIN';/,
   'cloud console runtime access must accept global admins and cloud application admins',
+);
+assertIncludesInOrder(
+  protectedRouteSource,
+  [
+    "if (currentUser.status !== 'ACTIVE') {",
+    'if (!isCloudAdmin(currentUser)) {',
+    'title="没有云盘后台权限"',
+    'href="/console/"',
+    'href="/cloudPan/"',
+    'href="/"',
+    'return <>{children}</>;',
+  ],
+  'cloud console protected route must reject non-admin principals before mounting the admin shell',
 );
 assert.match(typesSource, /return '全局管理员';/, 'cloud console role label must distinguish global administrators');
 assert.match(typesSource, /return '云盘管理员';/, 'cloud console role label must distinguish cloud application administrators');
