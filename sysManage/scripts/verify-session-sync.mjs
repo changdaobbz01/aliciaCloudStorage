@@ -197,6 +197,25 @@ assertIncludesInOrder(
 assertIncludesInOrder(
   sessionContext,
   [
+    'const previousToken = authTokenRef.current;',
+    'const tokenChanged = token !== previousToken;',
+    'const cachedUser = loadCurrentUser();',
+    'if (tokenChanged) {',
+    'invalidateCurrentUserRead();',
+    'setCurrentUser(cachedUser);',
+    '} else if (isSessionRevisionStorageKey(key) && cachedUser) {',
+    'setCurrentUser(cachedUser);',
+    'if (isSessionRevisionStorageKey(key) || tokenChanged) {',
+    'setAuthTokenState(token);',
+    'if (tokenChanged && !cachedUser) {',
+    'void restoreStoredSession();',
+    'refreshCurrentUserFromToken(token);',
+  ],
+  'cloud console account switches must replace stale principals before applying new auth scope',
+);
+assertIncludesInOrder(
+  sessionContext,
+  [
     'function updateCurrentUser(user: User) {',
     'invalidateCurrentUserRead();',
     'saveCurrentUser(user);',

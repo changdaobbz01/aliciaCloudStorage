@@ -304,27 +304,26 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           return;
         }
 
+        const previousToken = authTokenRef.current;
+        const tokenChanged = token !== previousToken;
         const cachedUser = loadCurrentUser();
-        if (cachedUser) {
+
+        if (tokenChanged) {
+          invalidateCurrentUserRead();
+          setCurrentUser(cachedUser);
+        } else if (isSessionRevisionStorageKey(key) && cachedUser) {
           setCurrentUser(cachedUser);
         }
 
-        if (isSessionRevisionStorageKey(key)) {
+        if (isSessionRevisionStorageKey(key) || tokenChanged) {
           setAuthTokenState(token);
-          refreshCurrentUserFromToken(token);
-          return;
-        }
 
-        if (!authTokenRef.current) {
-          void restoreStoredSession();
-          return;
-        }
-
-        if (token !== authTokenRef.current) {
-          setAuthTokenState(token);
-          if (!cachedUser) {
-            refreshCurrentUserFromToken(token);
+          if (tokenChanged && !cachedUser) {
+            void restoreStoredSession();
+            return;
           }
+
+          refreshCurrentUserFromToken(token);
         }
       });
     }

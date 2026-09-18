@@ -1358,6 +1358,12 @@ require_source_match \
     "Cloud web current-user reads must ignore stale responses."
 
 require_source_match \
+    "cloud web account switches replace stale principals" \
+    "webApp/scripts/verify-session-sync.mjs" \
+    'cloud web account switches must replace stale principals before applying new auth scope' \
+    "Cloud web account switches must replace stale principals before applying new auth scope."
+
+require_source_match \
     "cloud web current-user reads invalidate on account changes" \
     "webApp/scripts/verify-session-sync.mjs" \
     'cloud web current-user reads must invalidate on logout and profile updates' \
@@ -2496,6 +2502,12 @@ require_source_match \
     "sysManage/scripts/verify-session-sync.mjs" \
     'cloud console current-user reads must ignore stale responses' \
     "Cloud console current-user reads must ignore stale responses."
+
+require_source_match \
+    "cloud console account switches replace stale principals" \
+    "sysManage/scripts/verify-session-sync.mjs" \
+    'cloud console account switches must replace stale principals before applying new auth scope' \
+    "Cloud console account switches must replace stale principals before applying new auth scope."
 
 require_source_match \
     "cloud console current-user reads invalidate on account changes" \
