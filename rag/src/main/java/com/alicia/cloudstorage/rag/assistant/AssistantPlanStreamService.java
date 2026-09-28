@@ -1,7 +1,8 @@
 package com.alicia.cloudstorage.rag.assistant;
 
-import org.springframework.beans.factory.annotation.Value;
+import com.alicia.cloudstorage.rag.execution.ShadowExecutionRegistrar;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -27,13 +28,15 @@ public class AssistantPlanStreamService {
     private final long heartbeatMillis;
     private final long streamTimeoutMillis;
     private final long planTimeoutMillis;
+    private final ShadowExecutionRegistrar shadowExecutionRegistrar;
 
     @Autowired
     public AssistantPlanStreamService(
             AssistantConversationService conversationService,
             @Value("${alicia.rag.stream.heartbeat-millis:3000}") long heartbeatMillis,
             @Value("${alicia.rag.stream.timeout-millis:60000}") long streamTimeoutMillis,
-            @Value("${alicia.rag.stream.plan-timeout-millis:35000}") long planTimeoutMillis
+            @Value("${alicia.rag.stream.plan-timeout-millis:35000}") long planTimeoutMillis,
+            ShadowExecutionRegistrar shadowExecutionRegistrar
     ) {
         this.conversationService = conversationService;
         this.heartbeatMillis = Math.max(10L, heartbeatMillis);
@@ -41,6 +44,22 @@ public class AssistantPlanStreamService {
         this.planTimeoutMillis = Math.min(
                 Math.max(this.heartbeatMillis, planTimeoutMillis),
                 this.streamTimeoutMillis - 100L
+        );
+        this.shadowExecutionRegistrar = shadowExecutionRegistrar;
+    }
+
+    AssistantPlanStreamService(
+            AssistantConversationService conversationService,
+            long heartbeatMillis,
+            long streamTimeoutMillis,
+            long planTimeoutMillis
+    ) {
+        this(
+                conversationService,
+                heartbeatMillis,
+                streamTimeoutMillis,
+                planTimeoutMillis,
+                ShadowExecutionRegistrar.disabled()
         );
     }
 
@@ -52,7 +71,8 @@ public class AssistantPlanStreamService {
                 conversationService,
                 heartbeatMillis,
                 DEFAULT_STREAM_TIMEOUT_MILLIS,
-                DEFAULT_PLAN_TIMEOUT_MILLIS
+                DEFAULT_PLAN_TIMEOUT_MILLIS,
+                ShadowExecutionRegistrar.disabled()
         );
     }
 
@@ -85,6 +105,7 @@ public class AssistantPlanStreamService {
             );
             session.plan(future);
             IntentRecognitionResponse response = waitForPlan(session, future);
+            response = shadowExecutionRegistrar.registerIfEligible(response, authorizationHeader);
             send(session, AssistantStreamEvent.status(statusText(response)));
             sleep(TEXT_CHUNK_DELAY_MILLIS);
             for (AssistantStreamEvent event : textChunks(response.assistantText())) {

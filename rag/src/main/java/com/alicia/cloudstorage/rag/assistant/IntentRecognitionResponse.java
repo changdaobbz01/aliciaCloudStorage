@@ -31,7 +31,8 @@ public record IntentRecognitionResponse(
         CandidateBindingResult candidateBinding,
         AssistantConversationSnapshot conversation,
         SemanticFrame semanticFrame,
-        AssistantInteraction interaction
+        AssistantInteraction interaction,
+        ExecutionReference executionReference
 ) {
     public IntentRecognitionResponse {
         semanticFrame = semanticFrame == null ? SemanticFrame.empty() : semanticFrame;
@@ -94,7 +95,105 @@ public record IntentRecognitionResponse(
                 candidateBinding,
                 conversation,
                 SemanticFrame.empty(),
-                AssistantInteraction.idle()
+                AssistantInteraction.idle(),
+                null
+        );
+    }
+
+    public IntentRecognitionResponse(
+            String id,
+            String schemaVersion,
+            String templateId,
+            String provider,
+            String model,
+            String message,
+            String intentId,
+            String intentName,
+            String taskType,
+            double confidence,
+            String userGoal,
+            String normalizedQuery,
+            Map<String, Object> entities,
+            List<String> requiredSlots,
+            List<String> missingSlots,
+            String nextAction,
+            SafetyDecision safety,
+            ActionDraft actionDraft,
+            BackendActionDraft backendActionDraft,
+            ActionPlan actionPlan,
+            String assistantText,
+            String clarificationQuestion,
+            String reason,
+            String fallbackReason,
+            CandidateBindingResult candidateBinding,
+            AssistantConversationSnapshot conversation,
+            SemanticFrame semanticFrame,
+            AssistantInteraction interaction
+    ) {
+        this(
+                id,
+                schemaVersion,
+                templateId,
+                provider,
+                model,
+                message,
+                intentId,
+                intentName,
+                taskType,
+                confidence,
+                userGoal,
+                normalizedQuery,
+                entities,
+                requiredSlots,
+                missingSlots,
+                nextAction,
+                safety,
+                actionDraft,
+                backendActionDraft,
+                actionPlan,
+                assistantText,
+                clarificationQuestion,
+                reason,
+                fallbackReason,
+                candidateBinding,
+                conversation,
+                semanticFrame,
+                interaction,
+                null
+        );
+    }
+
+    public IntentRecognitionResponse withExecutionReference(ExecutionReference nextExecutionReference) {
+        return new IntentRecognitionResponse(
+                id,
+                schemaVersion,
+                templateId,
+                provider,
+                model,
+                message,
+                intentId,
+                intentName,
+                taskType,
+                confidence,
+                userGoal,
+                normalizedQuery,
+                entities,
+                requiredSlots,
+                missingSlots,
+                nextAction,
+                safety,
+                actionDraft,
+                backendActionDraft,
+                actionPlan,
+                assistantText,
+                clarificationQuestion,
+                reason,
+                fallbackReason,
+                candidateBinding,
+                conversation,
+                semanticFrame,
+                interaction,
+                nextExecutionReference
         );
     }
 
@@ -127,7 +226,8 @@ public record IntentRecognitionResponse(
                 candidateBinding,
                 conversation,
                 semanticFrame,
-                interaction
+                interaction,
+                executionReference
         );
     }
 
@@ -160,7 +260,8 @@ public record IntentRecognitionResponse(
                 candidateBinding,
                 conversation,
                 semanticFrame,
-                interaction
+                interaction,
+                executionReference
         );
     }
 
@@ -193,7 +294,8 @@ public record IntentRecognitionResponse(
                 candidateBinding,
                 conversation,
                 semanticFrame,
-                interaction
+                interaction,
+                executionReference
         );
     }
 
@@ -226,7 +328,8 @@ public record IntentRecognitionResponse(
                 candidateBinding,
                 conversation,
                 semanticFrame,
-                interaction
+                interaction,
+                executionReference
         );
     }
 
@@ -262,7 +365,8 @@ public record IntentRecognitionResponse(
                 candidateBinding,
                 conversation,
                 semanticFrame,
-                interaction
+                interaction,
+                executionReference
         );
     }
 
@@ -299,7 +403,8 @@ public record IntentRecognitionResponse(
                 candidateBinding,
                 conversation,
                 semanticFrame,
-                interaction
+                interaction,
+                executionReference
         );
     }
 
@@ -361,7 +466,8 @@ public record IntentRecognitionResponse(
                         : candidateBinding,
                 conversation,
                 semanticFrame,
-                interaction
+                interaction,
+                executionReference
         );
     }
 
@@ -409,7 +515,8 @@ public record IntentRecognitionResponse(
                 CandidateBindingResult.skipped("capability_boundary", safeMessage),
                 conversation,
                 semanticFrame,
-                interaction
+                interaction,
+                executionReference
         );
     }
 
@@ -442,7 +549,8 @@ public record IntentRecognitionResponse(
                 candidateBinding,
                 conversation,
                 semanticFrame,
-                interaction
+                interaction,
+                executionReference
         );
     }
 
@@ -476,7 +584,8 @@ public record IntentRecognitionResponse(
                 candidateBinding,
                 conversation,
                 semanticFrame,
-                interaction
+                interaction,
+                executionReference
         );
     }
 
@@ -520,7 +629,8 @@ public record IntentRecognitionResponse(
                 CandidateBindingResult.skipped("not_requested", "候选绑定尚未执行。"),
                 conversation,
                 semanticFrame,
-                interaction
+                interaction,
+                executionReference
         );
     }
 
@@ -559,7 +669,8 @@ public record IntentRecognitionResponse(
                 candidateBinding,
                 conversation,
                 semanticFrame,
-                interaction
+                interaction,
+                executionReference
         );
     }
 }

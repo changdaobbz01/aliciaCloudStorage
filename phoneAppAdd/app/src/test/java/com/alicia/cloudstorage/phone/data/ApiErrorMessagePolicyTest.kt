@@ -42,6 +42,14 @@ class ApiErrorMessagePolicyTest {
     }
 
     @Test
+    fun `execution html error uses safe status message`() {
+        val message = "<html><body>Forbidden</body></html>"
+            .toReadableExecutionError(status = 403, fallback = "确认失败。")
+
+        assertEquals("当前账号不在云端执行灰度范围内。", message)
+    }
+
+    @Test
     fun `signed download xml error uses status message`() {
         val response = Response.Builder()
             .request(

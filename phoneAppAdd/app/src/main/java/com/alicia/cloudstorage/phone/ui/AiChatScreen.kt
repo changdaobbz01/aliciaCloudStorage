@@ -105,8 +105,10 @@ internal fun AiChatRoute(
     onClearAttachedFiles: () -> Unit,
     modifier: Modifier = Modifier,
     ragBaseUrl: String = BuildConfig.DEFAULT_RAG_BASE_URL,
+    ragExecutionBaseUrl: String = BuildConfig.DEFAULT_RAG_EXECUTION_BASE_URL,
     apiBaseUrl: String = BuildConfig.DEFAULT_API_BASE_URL,
-    actionExecutionEnabled: Boolean = BuildConfig.RAG_ACTION_EXECUTION_ENABLED,
+    cloudExecutionEnabled: Boolean = BuildConfig.RAG_CLOUD_EXECUTION_ENABLED,
+    legacyActionExecutionEnabled: Boolean = BuildConfig.RAG_ACTION_EXECUTION_ENABLED,
     confirmationMessage: String = BuildConfig.RAG_CONFIRMATION_MESSAGE,
     authToken: String = "",
     userAvatarUrl: String? = null,
@@ -115,16 +117,28 @@ internal fun AiChatRoute(
     currentFolderPath: String = "根目录",
 ) {
     val context = LocalContext.current
-    val viewModelKey = remember(ragBaseUrl, apiBaseUrl, actionExecutionEnabled, confirmationMessage, authToken) {
-        "rag-assistant-${ragBaseUrl.hashCode()}-${apiBaseUrl.hashCode()}-$actionExecutionEnabled-${confirmationMessage.hashCode()}-${authToken.hashCode()}"
+    val viewModelKey = remember(
+        ragBaseUrl,
+        ragExecutionBaseUrl,
+        apiBaseUrl,
+        cloudExecutionEnabled,
+        legacyActionExecutionEnabled,
+        confirmationMessage,
+        authToken,
+    ) {
+        "rag-assistant-${ragBaseUrl.hashCode()}-${ragExecutionBaseUrl.hashCode()}-" +
+            "${apiBaseUrl.hashCode()}-$cloudExecutionEnabled-$legacyActionExecutionEnabled-" +
+            "${confirmationMessage.hashCode()}-${authToken.hashCode()}"
     }
     val viewModel: RagAssistantViewModel = composeViewModel(
         key = viewModelKey,
         factory = RagAssistantViewModel.provideFactory(
             context = context.applicationContext,
             ragBaseUrl = ragBaseUrl,
+            ragExecutionBaseUrl = ragExecutionBaseUrl,
             apiBaseUrl = apiBaseUrl,
-            actionExecutionEnabled = actionExecutionEnabled,
+            cloudExecutionEnabled = cloudExecutionEnabled,
+            legacyActionExecutionEnabled = legacyActionExecutionEnabled,
             confirmationMessage = confirmationMessage,
             authToken = authToken,
         ),

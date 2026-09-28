@@ -54,6 +54,14 @@ internal data class AiChatPlanPreview(
     val actionControls: AiChatPlanActionControls? = null,
     val clientActionControls: AiChatPlanClientActionControls? = null,
     val planId: String? = null,
+    val executionReference: AiChatExecutionReference? = null,
+)
+
+internal data class AiChatExecutionReference(
+    val executionId: String,
+    val version: Long,
+    val status: String,
+    val expiresAt: String?,
 )
 
 internal data class AiChatPlanActionControls(

@@ -6,6 +6,7 @@ MAIN_SITE_PROJECT_DIR="${ALICIA_MAIN_SITE_PROJECT_DIR:-$HOME/mainSite}"
 COMPOSE_FILES="${ALICIA_COMPOSE_FILES:-compose.yaml compose.https.yaml}"
 CLOUD_BASE_URL="${ALICIA_CLOUD_BASE_URL:-http://127.0.0.1:8090}"
 IDENTITY_BASE_URL="${ALICIA_IDENTITY_BASE_URL:-http://127.0.0.1:8093}"
+RAG_EXECUTION_BASE_URL="${ALICIA_RAG_EXECUTION_LOCAL_BASE_URL:-http://127.0.0.1:8094}"
 PUBLIC_BASE_URL="${ALICIA_PUBLIC_BASE_URL:-https://127.0.0.1}"
 CURL_TIMEOUT="${ALICIA_STATUS_CURL_TIMEOUT_SECONDS:-12}"
 INSECURE_TLS="${ALICIA_STATUS_INSECURE_TLS:-true}"
@@ -14,6 +15,7 @@ SKIP_DOCKER_DF="${ALICIA_STATUS_SKIP_DOCKER_DF:-false}"
 RUN_ROUTE_VERIFY="${ALICIA_STATUS_RUN_ROUTE_VERIFY:-false}"
 RUN_BOUNDARY_CHECK="${ALICIA_STATUS_RUN_BOUNDARY_CHECK:-false}"
 RUN_FRONTEND_SPLIT_CHECK="${ALICIA_STATUS_RUN_FRONTEND_SPLIT_CHECK:-false}"
+CHECK_RAG_EXECUTION="${ALICIA_STATUS_CHECK_RAG_EXECUTION:-auto}"
 MAIN_SITE_ROUTE_VERIFY_SCRIPT="$MAIN_SITE_PROJECT_DIR/deploy/scripts/verify-main-site-routes.sh"
 MAIN_SITE_BOUNDARY_SCRIPT="$MAIN_SITE_PROJECT_DIR/deploy/scripts/check-main-site-frontend-boundaries.sh"
 PLATFORM_FRONTEND_SPLIT_SCRIPT="$PROJECT_DIR/deploy/scripts/verify-platform-frontend-split-local.sh"
@@ -21,6 +23,16 @@ PLATFORM_FRONTEND_SPLIT_SCRIPT="$PROJECT_DIR/deploy/scripts/verify-platform-fron
 CLOUD_BASE_URL="${CLOUD_BASE_URL%/}"
 IDENTITY_BASE_URL="${IDENTITY_BASE_URL%/}"
 PUBLIC_BASE_URL="${PUBLIC_BASE_URL%/}"
+RAG_EXECUTION_BASE_URL="${RAG_EXECUTION_BASE_URL%/}"
+
+case "$CHECK_RAG_EXECUTION" in
+    true|false|auto)
+        ;;
+    *)
+        printf 'Unsupported ALICIA_STATUS_CHECK_RAG_EXECUTION value: %s\n' "$CHECK_RAG_EXECUTION" >&2
+        exit 2
+        ;;
+esac
 
 CURL_ARGS=(-sS --max-time "$CURL_TIMEOUT")
 if [[ "$INSECURE_TLS" == "true" ]]; then
@@ -104,6 +116,20 @@ run_optional() {
     else
         warn "$label failed"
     fi
+}
+
+should_check_rag_execution() {
+    case "$CHECK_RAG_EXECUTION" in
+        true)
+            return 0
+            ;;
+        false)
+            return 1
+            ;;
+        auto)
+            [[ -n "$(compose --profile rag-execution-foundation ps -q rag-execution 2>/dev/null)" ]]
+            ;;
+    esac
 }
 
 git_snapshot() {
@@ -300,6 +326,7 @@ printf 'Project: %s\n' "$PROJECT_DIR"
 printf 'Main site project: %s\n' "$MAIN_SITE_PROJECT_DIR"
 printf 'Cloud API: %s\n' "$CLOUD_BASE_URL"
 printf 'Identity API: %s\n' "$IDENTITY_BASE_URL"
+printf 'RAG execution API: %s (check=%s)\n' "$RAG_EXECUTION_BASE_URL" "$CHECK_RAG_EXECUTION"
 printf 'Public base: %s\n' "$PUBLIC_BASE_URL"
 
 print_section "Git"
@@ -343,11 +370,19 @@ curl_probe "android asset links endpoint" "$PUBLIC_BASE_URL/.well-known/assetlin
 curl_probe "identity jwks endpoint" "$PUBLIC_BASE_URL/api/identity/.well-known/jwks.json"
 curl_probe "rag health through frontend" "$PUBLIC_BASE_URL/rag/api/health"
 curl_probe "rag dependency health through frontend" "$PUBLIC_BASE_URL/rag/api/health/dependencies"
+if should_check_rag_execution; then
+    curl_probe "rag execution health direct" "$RAG_EXECUTION_BASE_URL/api/health"
+    curl_probe "rag execution dependencies direct" "$RAG_EXECUTION_BASE_URL/api/health/dependencies"
+    curl_probe "rag execution health public" "$PUBLIC_BASE_URL/rag-execution/api/health"
+fi
 
 print_section "Dependency Health Details"
 curl_json "Cloud dependency health" "$CLOUD_BASE_URL/api/health/dependencies"
 curl_json "Identity dependency health" "$IDENTITY_BASE_URL/api/identity/health/dependencies"
 curl_json "RAG dependency health" "$PUBLIC_BASE_URL/rag/api/health/dependencies"
+if should_check_rag_execution; then
+    curl_json "RAG execution dependency health" "$RAG_EXECUTION_BASE_URL/api/health/dependencies"
+fi
 
 if [[ "$SKIP_DB" != "true" ]]; then
     print_section "Identity Database Snapshot"

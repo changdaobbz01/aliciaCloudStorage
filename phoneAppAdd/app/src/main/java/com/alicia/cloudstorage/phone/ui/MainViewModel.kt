@@ -1805,8 +1805,9 @@ class MainViewModel internal constructor(
                         uri = queued.file.uri,
                         onProgress = { progress -> updateTransferProgress(queued.taskId, progress) },
                     )
-                }.onSuccess {
+                }.onSuccess { uploadedNode ->
                     summary.successCount += 1
+                    summary.uploadedNodeIds += uploadedNode.id
                     updateTransfer(queued.taskId) { task ->
                         task.copy(
                             status = TransferStatus.COMPLETED,

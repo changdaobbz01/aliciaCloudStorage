@@ -31,6 +31,7 @@ internal data class UploadBatchSummary(
     var successCount: Int = 0,
     var createdFolderCount: Int = 0,
     var firstError: Throwable? = null,
+    val uploadedNodeIds: MutableList<Long> = mutableListOf(),
 ) {
     val changedStorage: Boolean
         get() = successCount > 0 || createdFolderCount > 0
@@ -38,12 +39,13 @@ internal data class UploadBatchSummary(
     fun toOutcome(errorMessage: String? = null): OperationOutcome =
         when {
             firstError == null && totalFiles == 0 && createdFolderCount > 0 -> {
-                OperationOutcome.succeeded("文件夹结构已创建完成。")
+                OperationOutcome.succeeded("文件夹结构已创建完成。", uploadedNodeIds.toList())
             }
 
             firstError == null && totalFiles > 0 && successCount == totalFiles -> {
                 OperationOutcome.succeeded(
                     if (successCount == 1) "上传完成。" else "已逐项上传 $successCount 个文件。",
+                    uploadedNodeIds.toList(),
                 )
             }
 
@@ -53,6 +55,7 @@ internal data class UploadBatchSummary(
                         append("已上传 $successCount 个文件，${totalFiles - successCount} 个未完成。")
                         errorMessage?.takeIf { it.isNotBlank() }?.let { append("\n$it") }
                     },
+                    uploadedNodeIds.toList(),
                 )
             }
 

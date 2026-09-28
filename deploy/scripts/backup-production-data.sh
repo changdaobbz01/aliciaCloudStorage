@@ -169,6 +169,9 @@ write_manifest() {
         printf 'cloud_database=%s\n' "$CLOUD_DATABASE"
         printf 'identity_database=%s\n' "$IDENTITY_DATABASE"
         printf 'same_database=%s\n' "$SAME_DATABASE"
+        printf 'rag_execution_database=%s\n' "$RAG_EXECUTION_DATABASE"
+        printf 'rag_execution_database_exists=%s\n' "$RAG_EXECUTION_DATABASE_EXISTS"
+        printf 'rag_execution_database_shared=%s\n' "$RAG_EXECUTION_DATABASE_SHARED"
         printf 'include_env=%s\n' "$INCLUDE_ENV"
         printf 'include_certs=%s\n' "$INCLUDE_CERTS"
         printf 'include_generated_keys=%s\n' "$INCLUDE_GENERATED_KEYS"
@@ -211,9 +214,12 @@ CLOUD_DATABASE="$(dotenv_value "$ENV_FILE" MYSQL_DATABASE)"
 CLOUD_DATABASE="${CLOUD_DATABASE:-alicia_cloud_storage}"
 IDENTITY_DATABASE="$(dotenv_value "$ENV_FILE" ALICIA_IDENTITY_MYSQL_DATABASE)"
 IDENTITY_DATABASE="${IDENTITY_DATABASE:-$CLOUD_DATABASE}"
+RAG_EXECUTION_DATABASE="$(dotenv_value "$ENV_FILE" ALICIA_RAG_EXECUTION_MYSQL_DATABASE)"
+RAG_EXECUTION_DATABASE="${RAG_EXECUTION_DATABASE:-alicia_rag_execution}"
 
 require_database_name "Cloud database name" "$CLOUD_DATABASE"
 require_database_name "Identity database name" "$IDENTITY_DATABASE"
+require_database_name "RAG execution database name" "$RAG_EXECUTION_DATABASE"
 
 [[ "$(database_exists "$CLOUD_DATABASE")" == "1" ]] || fail "Cloud database does not exist: $CLOUD_DATABASE"
 [[ "$(database_exists "$IDENTITY_DATABASE")" == "1" ]] || fail "Identity database does not exist: $IDENTITY_DATABASE"
@@ -221,6 +227,15 @@ require_database_name "Identity database name" "$IDENTITY_DATABASE"
 SAME_DATABASE=false
 if [[ "$CLOUD_DATABASE" == "$IDENTITY_DATABASE" ]]; then
     SAME_DATABASE=true
+fi
+
+RAG_EXECUTION_DATABASE_EXISTS=false
+if [[ "$(database_exists "$RAG_EXECUTION_DATABASE")" == "1" ]]; then
+    RAG_EXECUTION_DATABASE_EXISTS=true
+fi
+RAG_EXECUTION_DATABASE_SHARED=false
+if [[ "$RAG_EXECUTION_DATABASE" == "$CLOUD_DATABASE" || "$RAG_EXECUTION_DATABASE" == "$IDENTITY_DATABASE" ]]; then
+    RAG_EXECUTION_DATABASE_SHARED=true
 fi
 
 umask 077
@@ -232,6 +247,7 @@ printf 'Preparing Alicia production backup:\n'
 printf '  output dir:        %s\n' "$BACKUP_DIR"
 printf '  cloud database:    %s\n' "$CLOUD_DATABASE"
 printf '  identity database: %s\n' "$IDENTITY_DATABASE"
+printf '  RAG execution DB:  %s (exists=%s)\n' "$RAG_EXECUTION_DATABASE" "$RAG_EXECUTION_DATABASE_EXISTS"
 printf '  sensitive config:  env=%s certs=%s generatedKeys=%s\n' \
     "$INCLUDE_ENV" "$INCLUDE_CERTS" "$INCLUDE_GENERATED_KEYS"
 printf '\n'
@@ -241,6 +257,14 @@ if [[ "$SAME_DATABASE" == "true" ]]; then
     printf 'Identity database is the same as cloud database; second dump skipped.\n'
 else
     dump_database "identity" "$IDENTITY_DATABASE" "$BACKUP_DIR/identity-$IDENTITY_DATABASE.sql.gz"
+fi
+if [[ "$RAG_EXECUTION_DATABASE_EXISTS" != "true" ]]; then
+    printf 'RAG execution database does not exist yet; dump skipped.\n'
+elif [[ "$RAG_EXECUTION_DATABASE_SHARED" == "true" ]]; then
+    printf 'RAG execution database shares an already dumped database; duplicate dump skipped.\n'
+else
+    dump_database "RAG execution" "$RAG_EXECUTION_DATABASE" \
+        "$BACKUP_DIR/rag-execution-$RAG_EXECUTION_DATABASE.sql.gz"
 fi
 
 archive_sensitive_config "$BACKUP_DIR/sensitive-config.tar.gz"

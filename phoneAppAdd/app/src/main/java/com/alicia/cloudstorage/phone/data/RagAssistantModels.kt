@@ -70,6 +70,14 @@ data class RagAssistantPlanResponse(
     val conversation: RagConversationSnapshot?,
     val semanticFrame: RagSemanticFrame? = null,
     val interaction: RagAssistantInteraction? = null,
+    val executionReference: RagExecutionReference? = null,
+)
+
+data class RagExecutionReference(
+    val executionId: String?,
+    val status: String?,
+    val version: Long?,
+    val expiresAt: String?,
 )
 
 data class RagSemanticFrame(

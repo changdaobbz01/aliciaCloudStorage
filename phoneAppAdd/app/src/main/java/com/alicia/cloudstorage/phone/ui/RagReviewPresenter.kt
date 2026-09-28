@@ -609,7 +609,7 @@ private fun String.toSafetyReminder(): String =
         startsWith("collection.trash") -> "确认后会批量移入回收站，后端仍会重新鉴权校验。"
         startsWith("collection.move") -> "确认后会批量移动到目标目录，后端仍会重新鉴权校验。"
         startsWith("collection.") -> "批量操作必须先核对范围，后端仍会重新鉴权校验。"
-        else -> "第一阶段仅展示计划，不执行真实文件操作。"
+        else -> "确认后才会提交操作，云盘后端仍会重新鉴权校验。"
     }
 
 private fun String.toClientFieldLabel(): String =

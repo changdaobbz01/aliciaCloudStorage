@@ -2,8 +2,12 @@
 # USB 真机配合 adb reverse 使用 127.0.0.1；Android 模拟器改为 10.0.2.2。
 ALICIA_API_BASE_URL=https://windwindwind-alicia.cn
 ALICIA_RAG_BASE_URL=http://127.0.0.1:8081
+ALICIA_RAG_EXECUTION_BASE_URL=http://127.0.0.1:8084
 
-# 默认保持 false。只有完成候选选择、最终确认、本地 allowlist 和后端鉴权验收后才可改为 true。
+# 新云端执行确认通道。默认保持 false，仅在 ragExecution 全链路就绪后按灰度方案开启。
+ALICIA_RAG_CLOUD_EXECUTION_ENABLED=false
+
+# 旧客户端本地写操作兼容开关。默认保持 false，且不能作为云端执行失败时的自动回退。
 ALICIA_RAG_ACTION_EXECUTION_ENABLED=false
 
 # 用户点击“确认计划”后，移动端发给 RAG 用于生成受控执行草稿的短语。

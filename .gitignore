@@ -1,6 +1,7 @@
 /CloudStorageApi/target/
 /identityApi/target/
 /rag/target/
+/ragExecution/target/
 /rag/build/
 /test/build/
 /test/node_modules/

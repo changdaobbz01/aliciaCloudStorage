@@ -279,6 +279,29 @@ foreach ($app in $Apps) {
     Assert-Contains $localPropertiesExample 'ALICIA_API_BASE_URL=https://windwindwind-alicia\.cn' "$app official local properties example"
     Assert-Contains $buildFile 'applicationId = "com\.alicia\.cloudstorage\.phone"' "$app official Android applicationId"
     Assert-NotContains $buildFile 'com\.alicia\.cloudstorage\.phone\.add' "$app parallel Android applicationId"
+
+    if ($app -eq "phoneAppAdd") {
+        $ragExecutionClientFile = Join-Path $appRoot "app/src/main/java/com/alicia/cloudstorage/phone/data/RagExecutionClient.kt"
+        $ragExecutionPolicyFile = Join-Path $appRoot "app/src/main/java/com/alicia/cloudstorage/phone/ui/RagExecutionUiPolicy.kt"
+        $ragAssistantViewModelFile = Join-Path $appRoot "app/src/main/java/com/alicia/cloudstorage/phone/ui/RagAssistantViewModel.kt"
+
+        foreach ($file in @($ragExecutionClientFile, $ragExecutionPolicyFile, $ragAssistantViewModelFile)) {
+            Assert-FileExists $file
+        }
+
+        Assert-Contains $ragExecutionClientFile 'api/executions/\{executionId\}/confirm' "$app cloud execution confirm route"
+        Assert-Contains $ragExecutionClientFile 'api/executions/\{executionId\}/cancel' "$app cloud execution cancel route"
+        Assert-Contains $ragExecutionClientFile '@GET\("api/executions/\{executionId\}"\)' "$app cloud execution query route"
+        Assert-Contains $ragExecutionPolicyFile 'executionReference != null && cloudExecutionEnabled -> RagExecutionRoute\.CLOUD' "$app cloud execution priority"
+        Assert-Contains $ragExecutionPolicyFile 'executionReference != null -> RagExecutionRoute\.BLOCKED' "$app no local fallback guard"
+        Assert-Contains $ragExecutionPolicyFile 'cloudExecutionEnabled -> RagExecutionRoute\.BLOCKED' "$app missing cloud task reference guard"
+        Assert-Contains $ragAssistantViewModelFile 'executionGateway\.confirm\(' "$app cloud execution confirmation"
+        Assert-Contains $ragAssistantViewModelFile 'executionId = expectedExecutionId' "$app stable cloud execution polling identity"
+        Assert-Contains $buildFile '(?s)resolveBooleanProperty\(\s*project,\s*false,\s*"ALICIA_RAG_CLOUD_EXECUTION_ENABLED"' "$app cloud execution default-off guard"
+        Assert-Contains $localPropertiesExample 'ALICIA_RAG_CLOUD_EXECUTION_ENABLED=false' "$app cloud execution example default"
+        Ok "$app RAG cloud execution client boundary is release-ready and default-off"
+    }
+
     Ok "$app identity session contract is release-ready"
 
     if (-not $SkipGradle) {

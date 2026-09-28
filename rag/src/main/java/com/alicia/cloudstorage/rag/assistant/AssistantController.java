@@ -1,5 +1,6 @@
 package com.alicia.cloudstorage.rag.assistant;
 
+import com.alicia.cloudstorage.rag.execution.ShadowExecutionRegistrar;
 import com.alicia.cloudstorage.rag.security.RagAccessAuthorizer;
 import com.alicia.cloudstorage.rag.security.RagAccessPrincipal;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -28,6 +29,7 @@ public class AssistantController {
     private final AssistantPlanStreamService streamService;
     private final RagConfigLoader configLoader;
     private final RagAccessAuthorizer ragAccessAuthorizer;
+    private final ShadowExecutionRegistrar shadowExecutionRegistrar;
 
     @Autowired
     public AssistantController(
@@ -35,12 +37,14 @@ public class AssistantController {
             AssistantPlanStreamService streamService,
             RagConfigLoader configLoader,
             ObjectMapper objectMapper,
-            RagAccessAuthorizer ragAccessAuthorizer
+            RagAccessAuthorizer ragAccessAuthorizer,
+            ShadowExecutionRegistrar shadowExecutionRegistrar
     ) {
         this.assistantConversationService = assistantConversationService;
         this.streamService = streamService;
         this.configLoader = configLoader;
         this.ragAccessAuthorizer = ragAccessAuthorizer;
+        this.shadowExecutionRegistrar = shadowExecutionRegistrar;
     }
 
     AssistantController(
@@ -62,7 +66,8 @@ public class AssistantController {
                 configLoader,
                 objectMapper,
                 streamHeartbeatMillis,
-                RagAccessAuthorizer.allowAll()
+                RagAccessAuthorizer.allowAll(),
+                ShadowExecutionRegistrar.disabled()
         );
     }
 
@@ -73,12 +78,31 @@ public class AssistantController {
             long streamHeartbeatMillis,
             RagAccessAuthorizer ragAccessAuthorizer
     ) {
+        this(
+                assistantConversationService,
+                configLoader,
+                objectMapper,
+                streamHeartbeatMillis,
+                ragAccessAuthorizer,
+                ShadowExecutionRegistrar.disabled()
+        );
+    }
+
+    AssistantController(
+            AssistantConversationService assistantConversationService,
+            RagConfigLoader configLoader,
+            ObjectMapper objectMapper,
+            long streamHeartbeatMillis,
+            RagAccessAuthorizer ragAccessAuthorizer,
+            ShadowExecutionRegistrar shadowExecutionRegistrar
+    ) {
         this.assistantConversationService = assistantConversationService;
         this.streamService = assistantConversationService == null
                 ? null
                 : new AssistantPlanStreamService(assistantConversationService, streamHeartbeatMillis);
         this.configLoader = configLoader;
         this.ragAccessAuthorizer = ragAccessAuthorizer;
+        this.shadowExecutionRegistrar = shadowExecutionRegistrar;
     }
 
     @GetMapping("/api/config/client")
@@ -162,10 +186,11 @@ public class AssistantController {
         }
         ragAccessAuthorizer.requireRagAccess(authorizationHeader);
         String conversationId = request == null ? "" : request.conversationId();
-        return assistantConversationService.plan(
+        IntentRecognitionResponse response = assistantConversationService.plan(
                 new AssistantPlanRequest(message.trim(), conversationId, request.clientContext(), request.clientEvent()),
                 authorizationHeader
         );
+        return shadowExecutionRegistrar.registerIfEligible(response, authorizationHeader);
     }
 
     @PostMapping(value = "/api/assistant/plan/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)

@@ -30,7 +30,7 @@
 
 如需覆盖默认地址，可通过 Gradle 属性或 `local.properties` 配置 `ALICIA_API_BASE_URL`。
 
-普通的 `ALICIA_API_BASE_URL`、`ALICIA_RAG_BASE_URL` 和执行开关只用于 Debug 构建。Release 包固定采用正式 API 与 `/rag`；确需构建其他正式环境时，必须显式使用 `ALICIA_RELEASE_API_BASE_URL`、`ALICIA_RELEASE_RAG_BASE_URL` 和 `ALICIA_RELEASE_RAG_ACTION_EXECUTION_ENABLED`，避免本地地址意外进入发布包。
+普通的 `ALICIA_API_BASE_URL`、`ALICIA_RAG_BASE_URL`、`ALICIA_RAG_EXECUTION_BASE_URL` 和执行开关只用于 Debug 构建。Release 包固定采用正式 API、`/rag` 与 `/rag-execution`；确需构建其他正式环境时，必须显式使用 `ALICIA_RELEASE_API_BASE_URL`、`ALICIA_RELEASE_RAG_BASE_URL`、`ALICIA_RELEASE_RAG_EXECUTION_BASE_URL`、`ALICIA_RELEASE_RAG_CLOUD_EXECUTION_ENABLED` 和旧路径兼容开关 `ALICIA_RELEASE_RAG_ACTION_EXECUTION_ENABLED`，避免本地地址或开发开关意外进入发布包。
 
 ## 本地运行
 
@@ -51,14 +51,17 @@ ALICIA_API_BASE_URL=https://windwindwind-alicia.cn
 ```properties
 ALICIA_API_BASE_URL=http://10.0.2.2:8090
 ALICIA_RAG_BASE_URL=http://10.0.2.2:8091
+ALICIA_RAG_EXECUTION_BASE_URL=http://10.0.2.2:8094
+ALICIA_RAG_CLOUD_EXECUTION_ENABLED=false
 ALICIA_RAG_ACTION_EXECUTION_ENABLED=false
 ALICIA_RAG_CONFIRMATION_MESSAGE=确认
 ```
 
-如果连接的是 USB 真机，将 `ALICIA_RAG_BASE_URL` 配为 `http://127.0.0.1:8081` 后，使用下面的脚本安装。它会检查本地 RAG、安装 Debug 包、重建 `adb reverse`，并从设备侧验证健康接口：
+如果连接的是 USB 真机，将 `ALICIA_RAG_BASE_URL` 配为 `http://127.0.0.1:8081` 后，使用下面的脚本安装。它会检查本地 RAG、安装 Debug 包、重建 `adb reverse`，并从设备侧验证健康接口；脚本可以从仓库根目录或 `phoneAppAdd` 目录调用。需要联调新云端执行通道时追加 `-EnableCloudExecution`；脚本会同时检查 `ragExecution` 的 `8084` 端口并显式打开本次 Debug 构建的云端执行开关，同时强制关闭旧本地动作执行开关，避免两个执行器并行生效：
 
 ```powershell
 .\scripts\install-debug-device.ps1
+.\scripts\install-debug-device.ps1 -EnableCloudExecution
 ```
 
 手机重连或重启后，`adb reverse` 可能失效。只恢复连接而不重新安装时可执行：
@@ -67,10 +70,11 @@ ALICIA_RAG_CONFIRMATION_MESSAGE=确认
 .\scripts\install-debug-device.ps1 -SkipInstall
 ```
 
-需要在真机验证云端 RAG 时，不必修改或删除本地 `local.properties`。使用云端安装脚本即可让本次 Debug 构建显式采用正式地址，并移除设备上的 RAG 端口反向映射，避免本地服务掩盖云端问题：
+需要在真机验证云端 RAG 时，不必修改或删除本地 `local.properties`。使用云端安装脚本即可让本次 Debug 构建显式采用正式地址，并移除设备上的 RAG 端口反向映射，避免本地服务掩盖云端问题；脚本同样与当前调用目录无关。两个执行开关默认都关闭，只有显式传入对应开关才会为本次构建开启：
 
 ```powershell
 .\scripts\install-cloud-device.ps1
+.\scripts\install-cloud-device.ps1 -EnableCloudExecution
 ```
 
 发版前建议在仓库根目录运行统一 readiness 检查，它会同时覆盖 `phoneApp` 与 `phoneAppAdd` 的正式服务入口、Identity refresh/logout 契约和登录态过期处理：
@@ -106,7 +110,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File deploy/scripts/stage-android
 
 脚本会写入 `deploy/android-app-package/current.apk`、`version-name.txt`、`release-notes.txt` 和 `current.apk.sha256`。提交推送后，服务器侧 `deploy/scripts/update-cloud-production.sh` 会在默认 `ALICIA_PUBLISH_ANDROID_APP_PACKAGE=auto` 下检测并发布这个 APK。
 
-正式环境的 RAG 健康检查地址是 `https://windwindwind-alicia.cn/rag/api/health`。本地仍使用 `http://127.0.0.1:8081/api/health`，两者互不覆盖。
+正式环境的 RAG 健康检查地址是 `https://windwindwind-alicia.cn/rag/api/health`，执行服务依赖健康地址是 `https://windwindwind-alicia.cn/rag-execution/api/health/dependencies`。本地分别使用 `http://127.0.0.1:8081/api/health` 与 `http://127.0.0.1:8084/api/health/dependencies`，两者互不覆盖。
 
 独立启动 RAG 时，还必须给 RAG 进程配置可信的 CloudStorageApi 地址，否则文件查询和目标目录匹配会被安全地跳过。例如移动端连接线上 API 时：
 
@@ -127,7 +131,9 @@ $env:ALICIA_STORAGE_API_BASE_URL="https://windwindwind-alicia.cn"
 
 启动后访问 `http://127.0.0.1:8081/api/health`。其中 `deepseekConfigured` 和 `storageApiConfigured` 都应为 `true`；该接口只返回配置状态，不返回任何密钥。目录列举默认最多返回 50 项，可通过 `ALICIA_RAG_CANDIDATE_BINDING_DIRECTORY_LIST_MAX_RESULTS` 调整。
 
-`ALICIA_RAG_ACTION_EXECUTION_ENABLED` 默认必须保持 `false`。它只控制 AI 文件操作执行器是否真的提交到 CloudStorageApi；聊天、候选展示、候选选择和最终确认 UI 不依赖这个开关。正式打开前需要完成候选选择、最终确认、本地 allowlist 和后端鉴权验收。
+`ALICIA_RAG_CLOUD_EXECUTION_ENABLED` 控制新的云端执行确认路径，默认必须保持 `false`。启用后，确认按钮只向 `ragExecution` 提交 `executionId + expectedVersion`，通过状态查询展示排队、执行、重试和终态；客户端不会重新提交 ActionPlan，也不会解释服务端 method/path/body。任务确认后由云端持久化执行，离开页面或客户端网络中断不会撤销任务。
+
+`ALICIA_RAG_ACTION_EXECUTION_ENABLED` 仅保留旧 `RagActionExecutor` 的一个兼容发布周期，默认必须保持 `false`。它只可能在云端模式关闭时处理没有 `executionReference` 的旧响应；只要云端模式开启，缺失任务引用、通道关闭或请求失败都不会自动回退到本地写操作。上传本地文件、页面导航、预览和系统分享仍属于客户端能力。
 
 `ALICIA_RAG_CONFIRMATION_MESSAGE` 用于配置用户点击“确认计划”后，移动端发给 RAG 的确认短语；RAG 会根据该短语继续生成受控的 `backendActionDraft`。
 

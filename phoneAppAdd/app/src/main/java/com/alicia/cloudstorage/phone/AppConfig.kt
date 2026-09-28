@@ -14,6 +14,14 @@ fun migrateSavedBaseUrl(savedBaseUrl: String?, defaultBaseUrl: String): String {
     val normalizedDefault = normalizeConfiguredBaseUrl(defaultBaseUrl)
     val normalizedSaved = savedBaseUrl?.trim()?.removeSuffix("/")
 
+    if (normalizedDefault.isLocalDevelopmentBaseUrl()) {
+        return normalizedDefault
+    }
+
+    if (normalizedSaved?.isLocalDevelopmentBaseUrl() == true) {
+        return normalizedDefault
+    }
+
     return when (normalizedSaved) {
         null,
         "" -> normalizedDefault
@@ -26,6 +34,11 @@ fun migrateSavedBaseUrl(savedBaseUrl: String?, defaultBaseUrl: String): String {
         else -> normalizedSaved
     }
 }
+
+private fun String.isLocalDevelopmentBaseUrl(): Boolean =
+    startsWith("http://127.0.0.1:") ||
+        startsWith("http://localhost:") ||
+        startsWith("http://10.0.2.2:")
 
 fun describeAccessEnvironment(baseUrl: String): String =
     when (normalizeConfiguredBaseUrl(baseUrl)) {

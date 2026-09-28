@@ -11,8 +11,13 @@ import com.alicia.cloudstorage.phone.data.RagAssistantClientContext
 import com.alicia.cloudstorage.phone.data.RagAssistantClientEvent
 import com.alicia.cloudstorage.phone.data.RagBackendActionDraft
 import com.alicia.cloudstorage.phone.data.RagConversationStore
+import com.alicia.cloudstorage.phone.data.ApiException
+import com.alicia.cloudstorage.phone.data.RagExecutionClient
+import com.alicia.cloudstorage.phone.data.RagExecutionGateway
+import com.alicia.cloudstorage.phone.data.RagExecutionResponse
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -27,8 +32,12 @@ internal class RagAssistantViewModel(
     private val client: RagAssistantClient,
     private val conversationStore: RagConversationStore,
     private val actionExecutor: RagActionExecutor,
+    private val executionGateway: RagExecutionGateway,
     private val ragBaseUrl: String,
+    private val ragExecutionBaseUrl: String,
     private val apiBaseUrl: String,
+    private val cloudExecutionEnabled: Boolean,
+    private val legacyActionExecutionEnabled: Boolean,
     private val confirmationMessage: String,
     private val authToken: String,
 ) : ViewModel() {
@@ -339,18 +348,57 @@ internal class RagAssistantViewModel(
             return
         }
 
-        val planId = uiState.value.messages.firstOrNull { it.id == messageId }?.plan?.planId
-        val draft = pendingBackendDrafts.remove(messageId)
-        markReviewHandled(messageId)
-        if (draft == null) {
-            sendConversationMessage(
-                requestMessage = confirmationMessage.ifBlank { DEFAULT_BACKEND_DRAFT_CONFIRMATION_MESSAGE },
-                displayText = "确认计划",
-                clearDraft = true,
+        val message = uiState.value.messages.firstOrNull { it.id == messageId } ?: return
+        val planId = message.plan?.planId
+        val executionReference = message.plan?.executionReference
+        val draft = pendingBackendDrafts[messageId]
+        when (RagExecutionClientPolicy.route(
+            executionReference = executionReference,
+            backendDraft = draft,
+            cloudExecutionEnabled = cloudExecutionEnabled,
+            legacyLocalExecutionEnabled = legacyActionExecutionEnabled,
+        )) {
+            RagExecutionRoute.CLOUD -> confirmCloudExecution(
+                messageId = messageId,
+                planId = planId,
+                actionType = draft?.actionType,
+                reference = requireNotNull(executionReference),
+                sourceConversationId = conversationId,
             )
-            return
+            RagExecutionRoute.LEGACY_LOCAL -> executeLegacyDraft(
+                messageId = messageId,
+                planId = planId,
+                draft = requireNotNull(draft),
+            )
+            RagExecutionRoute.CONTINUE_PLAN -> {
+                markReviewHandled(messageId)
+                sendConversationMessage(
+                    requestMessage = confirmationMessage.ifBlank { DEFAULT_BACKEND_DRAFT_CONFIRMATION_MESSAGE },
+                    displayText = "确认计划",
+                    clearDraft = true,
+                )
+            }
+            RagExecutionRoute.BLOCKED -> {
+                pendingBackendDrafts.remove(messageId)
+                markReviewHandled(messageId)
+                appendAssistantMessage(
+                    if (executionReference != null) {
+                        "云端执行通道尚未开启，本次没有提交，也不会回退到本地执行。"
+                    } else {
+                        "这条计划没有可确认的云端任务，本次没有提交任何文件变更。"
+                    },
+                )
+            }
         }
+    }
 
+    private fun executeLegacyDraft(
+        messageId: Long,
+        planId: String?,
+        draft: RagBackendActionDraft,
+    ) {
+        pendingBackendDrafts.remove(messageId)
+        markReviewHandled(messageId)
         val executionMessageId = allocateMessageId()
         showOperationMessage(executionMessageId, draft.actionType)
         viewModelScope.launch {
@@ -397,16 +445,237 @@ internal class RagAssistantViewModel(
         }
     }
 
-    fun cancelReview(messageId: Long) {
-        val planId = uiState.value.messages.firstOrNull { it.id == messageId }?.plan?.planId
-        pendingBackendDrafts.remove(messageId)
-        markReviewHandled(messageId)
-        appendAssistantMessage("已取消这次计划，我不会提交任何文件变更。")
-        syncExecutionOutcome(planId, "ACTION_CANCELLED", "user_cancelled")
+    private fun confirmCloudExecution(
+        messageId: Long,
+        planId: String?,
+        actionType: String?,
+        reference: AiChatExecutionReference,
+        sourceConversationId: String?,
+    ) {
+        val executionMessageId = allocateMessageId()
+        showOperationMessage(
+            messageId = executionMessageId,
+            actionType = actionType,
+            initialText = "正在提交云端确认...",
+        )
+        viewModelScope.launch {
+            val confirmed = runCatching {
+                executionGateway.confirm(
+                    baseUrl = ragExecutionBaseUrl,
+                    token = authToken,
+                    executionId = reference.executionId,
+                    expectedVersion = reference.version,
+                )
+            }.recoverCatching { error ->
+                if (error is CancellationException) {
+                    throw error
+                }
+                if (error is ApiException) {
+                    throw error
+                }
+                val recovered = executionGateway.get(
+                    baseUrl = ragExecutionBaseUrl,
+                    token = authToken,
+                    executionId = reference.executionId,
+                )
+                if (recovered.status.equals("PENDING_CONFIRMATION", ignoreCase = true)) {
+                    throw error
+                }
+                recovered
+            }.getOrElse { error ->
+                if (error is CancellationException) {
+                    throw error
+                }
+                replaceOperationMessage(
+                    executionMessageId,
+                    AiChatMessage(
+                        id = executionMessageId,
+                        author = AiChatAuthor.ASSISTANT,
+                        text = error.readableRagMessage(),
+                    ),
+                )
+                return@launch
+            }
+
+            pendingBackendDrafts.remove(messageId)
+            markReviewHandled(messageId)
+            observeCloudExecution(
+                executionMessageId = executionMessageId,
+                planId = planId,
+                sourceConversationId = sourceConversationId,
+                expectedExecutionId = reference.executionId,
+                initial = confirmed,
+            )
+        }
     }
 
-    private fun syncExecutionOutcome(planId: String?, type: String, outcome: String) {
-        val activeConversationId = conversationId ?: return
+    private suspend fun observeCloudExecution(
+        executionMessageId: Long,
+        planId: String?,
+        sourceConversationId: String?,
+        expectedExecutionId: String,
+        initial: RagExecutionResponse,
+    ) {
+        var current = initial
+        var polls = 0
+        var lastStatus: String? = null
+        var firstStatusUpdate = true
+        while (true) {
+            if (current.executionId != expectedExecutionId) {
+                val message = AiChatMessage(
+                    id = executionMessageId,
+                    author = AiChatAuthor.ASSISTANT,
+                    text = "任务已提交云端，但返回的任务标识校验失败。为避免关联到错误任务，已停止自动刷新。",
+                )
+                if (firstStatusUpdate) {
+                    replaceOperationMessage(executionMessageId, message)
+                } else {
+                    updateOperationMessage(executionMessageId, message)
+                }
+                return
+            }
+            val status = current.status?.trim()?.uppercase()
+            if (firstStatusUpdate || status != lastStatus) {
+                val message = current.toAssistantMessage(executionMessageId, apiBaseUrl)
+                if (firstStatusUpdate) {
+                    replaceOperationMessage(executionMessageId, message)
+                    firstStatusUpdate = false
+                } else {
+                    updateOperationMessage(executionMessageId, message)
+                }
+                lastStatus = status
+            }
+            if (current.isTerminal()) {
+                current.toFileMutationSignal()?.let(_fileMutationSignals::tryEmit)
+                syncExecutionOutcome(
+                    planId = planId,
+                    type = if (status == "SUCCEEDED") "ACTION_COMPLETED" else "ACTION_FAILED",
+                    outcome = status ?: "UNKNOWN",
+                    targetConversationId = sourceConversationId,
+                )
+                return
+            }
+            if (status == "WAITING_CLIENT_INPUT") {
+                val uploadInput = current.waitingUploadInput()
+                if (uploadInput == null) {
+                    updateOperationMessage(
+                        executionMessageId,
+                        AiChatMessage(
+                            id = executionMessageId,
+                            author = AiChatAuthor.ASSISTANT,
+                            text = "云端任务请求了客户端输入，但请求结构未通过安全校验，已停止自动处理。",
+                        ),
+                    )
+                    return
+                }
+                requestCloudUploadInput(
+                    executionMessageId = executionMessageId,
+                    planId = planId,
+                    sourceConversationId = sourceConversationId,
+                    uploadInput = uploadInput,
+                )
+                return
+            }
+            if (polls++ >= MAX_EXECUTION_STATUS_POLLS) {
+                updateOperationMessage(
+                    executionMessageId,
+                    AiChatMessage(
+                        id = executionMessageId,
+                        author = AiChatAuthor.ASSISTANT,
+                        text = "任务已提交云端并会继续执行，状态更新暂时停止，请稍后重新查看。",
+                    ),
+                )
+                return
+            }
+            delay(EXECUTION_STATUS_POLL_INTERVAL_MILLIS)
+            current = runCatching {
+                executionGateway.get(
+                    baseUrl = ragExecutionBaseUrl,
+                    token = authToken,
+                    executionId = expectedExecutionId,
+                )
+            }.getOrElse { error ->
+                if (error is CancellationException) {
+                    throw error
+                }
+                updateOperationMessage(
+                    executionMessageId,
+                    AiChatMessage(
+                        id = executionMessageId,
+                        author = AiChatAuthor.ASSISTANT,
+                        text = "任务已提交云端并会继续执行，但暂时无法刷新状态：${error.readableRagMessage()}",
+                    ),
+                )
+                return
+            }
+        }
+    }
+
+    fun cancelReview(messageId: Long) {
+        if (uiState.value.sending) {
+            return
+        }
+        val message = uiState.value.messages.firstOrNull { it.id == messageId } ?: return
+        val planId = message.plan?.planId
+        val reference = message.plan?.executionReference
+        if (reference == null || !cloudExecutionEnabled) {
+            pendingBackendDrafts.remove(messageId)
+            markReviewHandled(messageId)
+            appendAssistantMessage("已取消这次计划，我不会提交任何文件变更。")
+            syncExecutionOutcome(planId, "ACTION_CANCELLED", "user_cancelled")
+            return
+        }
+
+        val sourceConversationId = conversationId
+        val operationMessageId = allocateMessageId()
+        showOperationMessage(
+            messageId = operationMessageId,
+            actionType = null,
+            initialText = "正在取消云端任务...",
+        )
+        viewModelScope.launch {
+            runCatching {
+                executionGateway.cancel(
+                    baseUrl = ragExecutionBaseUrl,
+                    token = authToken,
+                    executionId = reference.executionId,
+                )
+            }.onSuccess { response ->
+                pendingBackendDrafts.remove(messageId)
+                markReviewHandled(messageId)
+                replaceOperationMessage(
+                    operationMessageId,
+                    response.toAssistantMessage(operationMessageId, apiBaseUrl),
+                )
+                syncExecutionOutcome(
+                    planId,
+                    "ACTION_CANCELLED",
+                    response.status ?: "CANCELLED",
+                    sourceConversationId,
+                )
+            }.onFailure { error ->
+                if (error is CancellationException) {
+                    throw error
+                }
+                replaceOperationMessage(
+                    operationMessageId,
+                    AiChatMessage(
+                        id = operationMessageId,
+                        author = AiChatAuthor.ASSISTANT,
+                        text = error.readableRagMessage(),
+                    ),
+                )
+            }
+        }
+    }
+
+    private fun syncExecutionOutcome(
+        planId: String?,
+        type: String,
+        outcome: String,
+        targetConversationId: String? = conversationId,
+    ) {
+        val activeConversationId = targetConversationId ?: return
         viewModelScope.launch {
             runCatching {
                 client.plan(
@@ -496,7 +765,18 @@ internal class RagAssistantViewModel(
             )
         } else {
             if (clientUploadTracker.cancel(launch)) {
-                appendAssistantMessage("已取消文件选择，这条上传计划还保留着，需要时可以重新选择文件。")
+                val cloudInput = launch.cloudInput
+                if (cloudInput == null) {
+                    appendAssistantMessage("已取消文件选择，这条上传计划还保留着，需要时可以重新选择文件。")
+                } else {
+                    appendAssistantMessage("已取消文件选择，正在关闭这次云端上传步骤。")
+                    submitCloudClientInput(
+                        cloudInput = cloudInput,
+                        status = "CANCELLED",
+                        nodeIds = emptyList(),
+                        errorCode = "upload_cancelled",
+                    )
+                }
             }
         }
     }
@@ -514,6 +794,124 @@ internal class RagAssistantViewModel(
                 text = result.message,
             ),
         )
+        val cloudInput = launch.cloudInput ?: return
+        val uploadedNodeIds = result.affectedNodeIds.distinct()
+        val succeeded = result.status == OperationOutcomeStatus.SUCCEEDED && uploadedNodeIds.isNotEmpty()
+        submitCloudClientInput(
+            cloudInput = cloudInput,
+            status = if (succeeded) "SUCCEEDED" else "FAILED",
+            nodeIds = if (succeeded) uploadedNodeIds else emptyList(),
+            errorCode = when {
+                succeeded -> null
+                result.status == OperationOutcomeStatus.SUCCEEDED -> "client_input_unavailable"
+                else -> "upload_failed"
+            },
+        )
+    }
+
+    private fun requestCloudUploadInput(
+        executionMessageId: Long,
+        planId: String?,
+        sourceConversationId: String?,
+        uploadInput: RagWaitingUploadInput,
+    ) {
+        val request = AiChatClientUploadRequest(
+            parentId = uploadInput.parentId,
+            targetName = null,
+        )
+        val launch = clientUploadTracker.start(
+            messageId = executionMessageId,
+            request = request,
+            cloudInput = AiChatCloudClientInput(
+                executionMessageId = executionMessageId,
+                planId = planId,
+                sourceConversationId = sourceConversationId,
+                executionId = uploadInput.executionId,
+                expectedVersion = uploadInput.expectedVersion,
+                stepId = uploadInput.stepId,
+            ),
+        )
+        if (launch == null) {
+            updateOperationMessage(
+                executionMessageId,
+                AiChatMessage(
+                    id = executionMessageId,
+                    author = AiChatAuthor.ASSISTANT,
+                    text = "云端任务正在等待上传，但当前还有一个文件选择任务未结束。请先完成当前操作。",
+                ),
+            )
+            return
+        }
+        if (clientUploadRequestChannel.trySend(launch).isFailure) {
+            clientUploadTracker.cancel(launch)
+            updateOperationMessage(
+                executionMessageId,
+                AiChatMessage(
+                    id = executionMessageId,
+                    author = AiChatAuthor.ASSISTANT,
+                    text = "系统文件选择器暂时无法打开，云端任务尚未收到任何文件。",
+                ),
+            )
+            return
+        }
+        if (uiState.value.pendingAttachments.isEmpty()) {
+            appendAssistantMessage(AiChatExecutionFeedback.uploadSelectionPrompt(request))
+        }
+    }
+
+    private fun submitCloudClientInput(
+        cloudInput: AiChatCloudClientInput,
+        status: String,
+        nodeIds: List<Long>,
+        errorCode: String?,
+    ) {
+        viewModelScope.launch {
+            val response = runCatching {
+                executionGateway.completeClientInput(
+                    baseUrl = ragExecutionBaseUrl,
+                    token = authToken,
+                    executionId = cloudInput.executionId,
+                    expectedVersion = cloudInput.expectedVersion,
+                    stepId = cloudInput.stepId,
+                    status = status,
+                    nodeIds = nodeIds,
+                    errorCode = errorCode,
+                )
+            }.recoverCatching { submissionError ->
+                if (submissionError is CancellationException) {
+                    throw submissionError
+                }
+                val observed = executionGateway.get(
+                    baseUrl = ragExecutionBaseUrl,
+                    token = authToken,
+                    executionId = cloudInput.executionId,
+                )
+                if (observed.status.equals("WAITING_CLIENT_INPUT", ignoreCase = true)) {
+                    throw submissionError
+                }
+                observed
+            }.getOrElse { error ->
+                if (error is CancellationException) {
+                    throw error
+                }
+                updateOperationMessage(
+                    cloudInput.executionMessageId,
+                    AiChatMessage(
+                        id = cloudInput.executionMessageId,
+                        author = AiChatAuthor.ASSISTANT,
+                        text = "文件传输已结束，但暂时无法同步云端任务状态：${error.readableRagMessage()}",
+                    ),
+                )
+                return@launch
+            }
+            observeCloudExecution(
+                executionMessageId = cloudInput.executionMessageId,
+                planId = cloudInput.planId,
+                sourceConversationId = cloudInput.sourceConversationId,
+                expectedExecutionId = cloudInput.executionId,
+                initial = response,
+            )
+        }
     }
 
     private fun markReviewHandled(messageId: Long) {
@@ -550,6 +948,7 @@ internal class RagAssistantViewModel(
         actionType: String?,
         handledClientActionMessageId: Long? = null,
         clearPendingAttachments: Boolean = false,
+        initialText: String = AiChatExecutionFeedback.progressMessage(actionType),
     ) {
         _uiState.update { state ->
             val previousMessages = if (handledClientActionMessageId == null) {
@@ -568,7 +967,7 @@ internal class RagAssistantViewModel(
                 messages = previousMessages + AiChatMessage(
                     id = messageId,
                     author = AiChatAuthor.ASSISTANT,
-                    text = AiChatExecutionFeedback.progressMessage(actionType),
+                    text = initialText,
                 ),
                 pendingAttachments = if (clearPendingAttachments) emptyList() else state.pendingAttachments,
                 sending = true,
@@ -587,6 +986,20 @@ internal class RagAssistantViewModel(
                     if (existing.id == messageId) message else existing
                 },
                 sending = false,
+                online = true,
+            )
+        }
+    }
+
+    private fun updateOperationMessage(
+        messageId: Long,
+        message: AiChatMessage,
+    ) {
+        _uiState.update { state ->
+            state.copy(
+                messages = state.messages.map { existing ->
+                    if (existing.id == messageId) message else existing
+                },
                 online = true,
             )
         }
@@ -619,8 +1032,10 @@ internal class RagAssistantViewModel(
         fun provideFactory(
             context: Context,
             ragBaseUrl: String,
+            ragExecutionBaseUrl: String,
             apiBaseUrl: String,
-            actionExecutionEnabled: Boolean,
+            cloudExecutionEnabled: Boolean,
+            legacyActionExecutionEnabled: Boolean,
             confirmationMessage: String = DEFAULT_BACKEND_DRAFT_CONFIRMATION_MESSAGE,
             authToken: String,
         ): ViewModelProvider.Factory =
@@ -630,9 +1045,13 @@ internal class RagAssistantViewModel(
                     return RagAssistantViewModel(
                         client = RagAssistantClient(),
                         conversationStore = RagConversationStore(context.applicationContext),
-                        actionExecutor = RagActionExecutor(executionEnabled = actionExecutionEnabled),
+                        actionExecutor = RagActionExecutor(executionEnabled = legacyActionExecutionEnabled),
+                        executionGateway = RagExecutionClient(),
                         ragBaseUrl = ragBaseUrl,
+                        ragExecutionBaseUrl = ragExecutionBaseUrl,
                         apiBaseUrl = apiBaseUrl,
+                        cloudExecutionEnabled = cloudExecutionEnabled,
+                        legacyActionExecutionEnabled = legacyActionExecutionEnabled,
                         confirmationMessage = confirmationMessage,
                         authToken = authToken,
                     ) as T
@@ -641,6 +1060,8 @@ internal class RagAssistantViewModel(
 
         private const val DEFAULT_BACKEND_DRAFT_CONFIRMATION_MESSAGE = "确认"
         private const val STREAMING_PLACEHOLDER_TEXT = "安安正在思考..."
+        private const val EXECUTION_STATUS_POLL_INTERVAL_MILLIS = 1_000L
+        private const val MAX_EXECUTION_STATUS_POLLS = 150
     }
 }
 

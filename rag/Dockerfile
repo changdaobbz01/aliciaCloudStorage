@@ -5,6 +5,7 @@ COPY .mvn .mvn
 COPY mvnw mvnw.cmd pom.xml ./
 COPY CloudStorageApi/pom.xml CloudStorageApi/pom.xml
 COPY rag/pom.xml rag/pom.xml
+COPY ragExecution/pom.xml ragExecution/pom.xml
 COPY rag/src rag/src
 
 RUN chmod +x mvnw && ./mvnw -pl rag -DskipTests package

@@ -5,6 +5,8 @@ tmp
 _tmp
 CloudStorageApi/target
 identityApi/target
+rag/target
+ragExecution/target
 webApp/node_modules
 webApp/dist
 webApp/*.tsbuildinfo

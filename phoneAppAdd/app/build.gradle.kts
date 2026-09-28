@@ -34,6 +34,16 @@ fun resolveRagBaseUrl(project: Project, apiBaseUrl: String): String {
     return (configured ?: inferDefaultRagBaseUrl(apiBaseUrl)).removeSuffix("/")
 }
 
+fun resolveRagExecutionBaseUrl(project: Project, apiBaseUrl: String): String {
+    val configured = findConfiguredProperty(
+        project,
+        "ALICIA_RAG_EXECUTION_BASE_URL",
+        "alicia.ragExecutionBaseUrl",
+    )
+
+    return (configured ?: inferDefaultRagExecutionBaseUrl(apiBaseUrl)).removeSuffix("/")
+}
+
 fun resolveBooleanProperty(project: Project, defaultValue: Boolean, vararg names: String): Boolean {
     val configured = findConfiguredProperty(project, *names)?.trim()?.lowercase() ?: return defaultValue
 
@@ -76,6 +86,22 @@ fun inferDefaultRagBaseUrl(apiBaseUrl: String): String {
     }
 }
 
+fun inferDefaultRagExecutionBaseUrl(apiBaseUrl: String): String {
+    val normalized = apiBaseUrl.trim().removeSuffix("/")
+
+    return when {
+        normalized == "http://10.0.2.2:8090" -> "http://10.0.2.2:8094"
+        normalized == "http://127.0.0.1:8090" -> "http://10.0.2.2:8094"
+        normalized == "http://localhost:8090" -> "http://10.0.2.2:8094"
+        normalized.endsWith(":8090") -> normalized.removeSuffix(":8090") + ":8094"
+        normalized == "http://10.0.2.2:8080" -> "http://10.0.2.2:8084"
+        normalized == "http://127.0.0.1:8080" -> "http://10.0.2.2:8084"
+        normalized == "http://localhost:8080" -> "http://10.0.2.2:8084"
+        normalized.endsWith(":8080") -> normalized.removeSuffix(":8080") + ":8084"
+        else -> "$normalized/rag-execution"
+    }
+}
+
 fun resolveReleaseApiBaseUrl(project: Project): String =
     (findConfiguredProperty(
         project,
@@ -89,6 +115,13 @@ fun resolveReleaseRagBaseUrl(project: Project, apiBaseUrl: String): String =
         "ALICIA_RELEASE_RAG_BASE_URL",
         "alicia.releaseRagBaseUrl",
     ) ?: inferDefaultRagBaseUrl(apiBaseUrl)).removeSuffix("/")
+
+fun resolveReleaseRagExecutionBaseUrl(project: Project, apiBaseUrl: String): String =
+    (findConfiguredProperty(
+        project,
+        "ALICIA_RELEASE_RAG_EXECUTION_BASE_URL",
+        "alicia.releaseRagExecutionBaseUrl",
+    ) ?: inferDefaultRagExecutionBaseUrl(apiBaseUrl)).removeSuffix("/")
 
 fun buildConfigStringLiteral(value: String): String =
     "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
@@ -112,6 +145,12 @@ android {
             "ALICIA_RAG_ACTION_EXECUTION_ENABLED",
             "alicia.ragActionExecutionEnabled",
         )
+        val ragCloudExecutionEnabled = resolveBooleanProperty(
+            project,
+            false,
+            "ALICIA_RAG_CLOUD_EXECUTION_ENABLED",
+            "alicia.ragCloudExecutionEnabled",
+        )
         val ragConfirmationMessage = findConfiguredProperty(
             project,
             "ALICIA_RAG_CONFIRMATION_MESSAGE",
@@ -119,7 +158,13 @@ android {
         ) ?: "确认"
         buildConfigField("String", "DEFAULT_API_BASE_URL", buildConfigStringLiteral(apiBaseUrl))
         buildConfigField("String", "DEFAULT_RAG_BASE_URL", buildConfigStringLiteral(resolveRagBaseUrl(project, apiBaseUrl)))
+        buildConfigField(
+            "String",
+            "DEFAULT_RAG_EXECUTION_BASE_URL",
+            buildConfigStringLiteral(resolveRagExecutionBaseUrl(project, apiBaseUrl)),
+        )
         buildConfigField("String", "RAG_CONFIRMATION_MESSAGE", buildConfigStringLiteral(ragConfirmationMessage))
+        buildConfigField("boolean", "RAG_CLOUD_EXECUTION_ENABLED", ragCloudExecutionEnabled.toString())
         buildConfigField("boolean", "RAG_ACTION_EXECUTION_ENABLED", ragActionExecutionEnabled.toString())
         buildConfigField("boolean", "APP_UPDATE_ENABLED", "true")
     }
@@ -137,6 +182,12 @@ android {
                 "ALICIA_RELEASE_RAG_ACTION_EXECUTION_ENABLED",
                 "alicia.releaseRagActionExecutionEnabled",
             )
+            val releaseCloudExecutionEnabled = resolveBooleanProperty(
+                project,
+                false,
+                "ALICIA_RELEASE_RAG_CLOUD_EXECUTION_ENABLED",
+                "alicia.releaseRagCloudExecutionEnabled",
+            )
             val releaseConfirmationMessage = findConfiguredProperty(
                 project,
                 "ALICIA_RELEASE_RAG_CONFIRMATION_MESSAGE",
@@ -150,10 +201,16 @@ android {
             )
             buildConfigField(
                 "String",
+                "DEFAULT_RAG_EXECUTION_BASE_URL",
+                buildConfigStringLiteral(resolveReleaseRagExecutionBaseUrl(project, releaseApiBaseUrl)),
+            )
+            buildConfigField(
+                "String",
                 "RAG_CONFIRMATION_MESSAGE",
                 buildConfigStringLiteral(releaseConfirmationMessage),
             )
             buildConfigField("boolean", "RAG_ACTION_EXECUTION_ENABLED", releaseActionExecutionEnabled.toString())
+            buildConfigField("boolean", "RAG_CLOUD_EXECUTION_ENABLED", releaseCloudExecutionEnabled.toString())
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -221,6 +278,7 @@ dependencies {
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
 
     testImplementation("junit:junit:4.13.2")
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test:core-ktx:1.6.1")
     androidTestImplementation("androidx.test:runner:1.6.1")

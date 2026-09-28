@@ -5,6 +5,7 @@ import com.alicia.cloudstorage.phone.data.RagActionExecutionStatus
 import com.alicia.cloudstorage.phone.data.RagActionPlan
 import com.alicia.cloudstorage.phone.data.RagAssistantPlanResponse
 import com.alicia.cloudstorage.phone.data.RagBackendActionDraft
+import com.alicia.cloudstorage.phone.data.RagExecutionReference
 
 private val ragReviewPresenter = RagReviewPresenter()
 
@@ -26,7 +27,7 @@ internal fun RagAssistantPlanResponse.toAssistantMessage(id: Long): AiChatMessag
         files = review.toAiChatFileResults(),
         plan = review
             ?.takeUnless { it.kind == RagReviewKind.SEARCH_RESULTS }
-            ?.toAiChatPlanPreview(actionPlan, backendActionDraft),
+            ?.toAiChatPlanPreview(actionPlan, backendActionDraft, executionReference),
         resultSection = review?.resultSection,
     )
 }
@@ -174,34 +175,38 @@ private fun RagReviewPresentation.toCandidateSelectionAction(
 private fun RagReviewPresentation.toAiChatPlanPreview(
     plan: RagActionPlan?,
     backendDraft: RagBackendActionDraft?,
+    executionReference: RagExecutionReference?,
 ): AiChatPlanPreview =
     AiChatPlanPreview(
         title = title,
         lines = lines,
         planId = planId,
-        actionControls = toAiChatPlanActionControls(plan, backendDraft),
-        clientActionControls = toAiChatPlanClientActionControls(plan, backendDraft),
+        actionControls = toAiChatPlanActionControls(plan, backendDraft, executionReference),
+        clientActionControls = toAiChatPlanClientActionControls(plan, backendDraft, executionReference),
+        executionReference = executionReference.toAiChatExecutionReferenceOrNull(),
     )
 
 private fun RagReviewPresentation.toAiChatPlanActionControls(
     plan: RagActionPlan?,
     backendDraft: RagBackendActionDraft?,
+    executionReference: RagExecutionReference?,
 ): AiChatPlanActionControls? {
     if (!requiresFinalConfirmation) {
         return null
     }
 
+    val hasCloudExecution = executionReference.toAiChatExecutionReferenceOrNull() != null
     val hasExecutableDraft = backendDraft.isReviewableBackendDraft()
-    if (!hasExecutableDraft && !plan.canRequestBackendDraft(kind)) {
+    if (!hasCloudExecution && !hasExecutableDraft && !plan.canRequestBackendDraft(kind)) {
         return null
     }
-    if (plan.isClientUploadPlan()) {
+    if (plan.isClientUploadPlan() && !hasCloudExecution) {
         return null
     }
 
     return AiChatPlanActionControls(
         confirmLabel = when {
-            hasExecutableDraft -> "确认执行"
+            hasCloudExecution || hasExecutableDraft -> "确认执行"
             kind == RagReviewKind.COLLECTION_REVIEW -> "确认范围"
             else -> "确认计划"
         },
@@ -209,6 +214,19 @@ private fun RagReviewPresentation.toAiChatPlanActionControls(
         destructive = risk == RagReviewRisk.HIGH ||
             actionType.equals("delete", ignoreCase = true) ||
             actionType?.contains("trash", ignoreCase = true) == true,
+    )
+}
+
+private fun RagExecutionReference?.toAiChatExecutionReferenceOrNull(): AiChatExecutionReference? {
+    val reference = this ?: return null
+    val executionId = reference.executionId?.trim()?.takeIf(String::isNotBlank) ?: return null
+    val version = reference.version?.takeIf { it >= 0 } ?: return null
+    val status = reference.status?.trim()?.uppercase()?.takeIf(String::isNotBlank) ?: return null
+    return AiChatExecutionReference(
+        executionId = executionId,
+        version = version,
+        status = status,
+        expiresAt = reference.expiresAt?.trim()?.takeIf(String::isNotBlank),
     )
 }
 
@@ -235,8 +253,12 @@ private fun RagActionPlan?.canRequestBackendDraft(kind: RagReviewKind): Boolean 
 private fun RagReviewPresentation.toAiChatPlanClientActionControls(
     plan: RagActionPlan?,
     backendDraft: RagBackendActionDraft?,
+    executionReference: RagExecutionReference?,
 ): AiChatPlanClientActionControls? {
     if (kind == RagReviewKind.CANDIDATE_SELECTION || kind == RagReviewKind.BLOCKED) {
+        return null
+    }
+    if (executionReference.toAiChatExecutionReferenceOrNull() != null) {
         return null
     }
 

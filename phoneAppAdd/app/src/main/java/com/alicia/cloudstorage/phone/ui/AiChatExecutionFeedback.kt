@@ -20,6 +20,7 @@ internal object AiChatExecutionFeedback {
         )
         register(
             actionTypes = listOf(
+                "move",
                 "collection.move_exact",
                 "collection.move_by_category",
                 "collection.move_by_extension",

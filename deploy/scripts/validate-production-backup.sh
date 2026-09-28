@@ -94,6 +94,20 @@ require_manifest_key cloud_database
 require_manifest_key identity_database
 require_manifest_key same_database
 
+if grep -q '^rag_execution_database=' "$MANIFEST_FILE"; then
+    require_manifest_key rag_execution_database
+    require_manifest_key rag_execution_database_exists
+    require_manifest_key rag_execution_database_shared
+
+    RAG_EXECUTION_DATABASE="$(sed -n 's/^rag_execution_database=//p' "$MANIFEST_FILE" | tail -n 1)"
+    RAG_EXECUTION_DATABASE_EXISTS="$(sed -n 's/^rag_execution_database_exists=//p' "$MANIFEST_FILE" | tail -n 1)"
+    RAG_EXECUTION_DATABASE_SHARED="$(sed -n 's/^rag_execution_database_shared=//p' "$MANIFEST_FILE" | tail -n 1)"
+    if [[ "$RAG_EXECUTION_DATABASE_EXISTS" == "true" && "$RAG_EXECUTION_DATABASE_SHARED" != "true" ]]; then
+        [[ -f "$BACKUP_DIR/rag-execution-$RAG_EXECUTION_DATABASE.sql.gz" ]] \
+            || fail "Missing RAG execution database dump."
+    fi
+fi
+
 mapfile -t dump_files < <(find "$BACKUP_DIR" -maxdepth 1 -type f -name '*.sql.gz' | sort)
 [[ "${#dump_files[@]}" -gt 0 ]] || fail "No database dumps found in backup directory."
 

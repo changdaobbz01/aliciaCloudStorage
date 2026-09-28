@@ -10,6 +10,16 @@ internal data class AiChatClientUploadLaunch(
     val operationId: Long,
     val messageId: Long,
     val request: AiChatClientUploadRequest,
+    val cloudInput: AiChatCloudClientInput? = null,
+)
+
+internal data class AiChatCloudClientInput(
+    val executionMessageId: Long,
+    val planId: String?,
+    val sourceConversationId: String?,
+    val executionId: String,
+    val expectedVersion: Long,
+    val stepId: String,
 )
 
 internal data class AiChatClientUploadCallbacks(
@@ -21,7 +31,11 @@ internal class AiChatClientUploadTracker {
     private var nextOperationId = 1L
     private val pending = mutableMapOf<Long, PendingUpload>()
 
-    fun start(messageId: Long, request: AiChatClientUploadRequest): AiChatClientUploadLaunch? {
+    fun start(
+        messageId: Long,
+        request: AiChatClientUploadRequest,
+        cloudInput: AiChatCloudClientInput? = null,
+    ): AiChatClientUploadLaunch? {
         if (pending.isNotEmpty()) {
             return null
         }
@@ -29,6 +43,7 @@ internal class AiChatClientUploadTracker {
             operationId = nextOperationId++,
             messageId = messageId,
             request = request,
+            cloudInput = cloudInput,
         )
         pending[launch.operationId] = PendingUpload(launch)
         return launch

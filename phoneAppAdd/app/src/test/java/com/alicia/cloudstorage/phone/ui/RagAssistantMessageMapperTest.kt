@@ -16,6 +16,7 @@ import com.alicia.cloudstorage.phone.data.RagCandidateResultPage
 import com.alicia.cloudstorage.phone.data.RagSemanticFrame
 import com.alicia.cloudstorage.phone.data.RagSemanticQuery
 import com.alicia.cloudstorage.phone.data.RagSemanticScope
+import com.alicia.cloudstorage.phone.data.RagExecutionReference
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -95,6 +96,29 @@ class RagAssistantMessageMapperTest {
 
         assertNotNull(message.plan)
         assertEquals("确认计划", message.plan!!.actionControls?.confirmLabel)
+    }
+
+    @Test
+    fun `execution reference exposes cloud confirmation without backend draft`() {
+        val message = response(
+            nextAction = "wait_for_user_confirmation",
+            actionPlan = plan(
+                status = "review_required",
+                actionType = "rename",
+                risk = "medium",
+            ),
+            backendActionDraft = null,
+            executionReference = RagExecutionReference(
+                executionId = "execution-42",
+                status = "PENDING_CONFIRMATION",
+                version = 0,
+                expiresAt = "2026-09-21T12:00:00Z",
+            ),
+        ).toAssistantMessage(id = 24L)
+
+        assertEquals("确认执行", message.plan?.actionControls?.confirmLabel)
+        assertEquals("execution-42", message.plan?.executionReference?.executionId)
+        assertEquals(0L, message.plan?.executionReference?.version)
     }
 
     @Test
@@ -297,6 +321,76 @@ class RagAssistantMessageMapperTest {
         assertEquals(901L, clientControls.uploadRequest.parentId)
         assertEquals("项目资料/归档", clientControls.uploadRequest.targetName)
         assertEquals("归档", clientControls.uploadRequest.createFolderName)
+    }
+
+    @Test
+    fun `cloud registered create folder then upload confirms execution before client upload`() {
+        val message = response(
+            intentId = "folder_create_then_upload",
+            nextAction = "wait_for_user_confirmation",
+            actionDraft = RagActionDraft(
+                type = "composite.create_folder_then_upload",
+                parameters = mapOf(
+                    "target_folder" to "项目资料",
+                    "new_folder_name" to "归档",
+                ),
+                needsBackendBinding = false,
+            ),
+            actionPlan = plan(
+                status = "review_required",
+                actionType = "composite.create_folder_then_upload",
+                risk = "medium",
+                planKind = "composite",
+                bindings = mapOf(
+                    "targetParent" to RagActionPlanBinding(
+                        key = "targetParent",
+                        kind = "target_folder",
+                        status = "resolved",
+                        query = "项目资料",
+                        selectedCandidate = candidate(901L, "项目资料", type = "FOLDER"),
+                        candidates = emptyList(),
+                        count = 1,
+                        filter = emptyMap(),
+                    ),
+                ),
+                steps = listOf(
+                    RagActionPlanStep(
+                        stepId = "create_folder",
+                        action = "folder.create",
+                        status = "ready",
+                        params = mapOf(
+                            "parentId" to 901L,
+                            "folderName" to "归档",
+                        ),
+                        dependsOn = emptyList(),
+                        requiredClientFields = emptyList(),
+                        outputKey = "createdFolder",
+                    ),
+                    RagActionPlanStep(
+                        stepId = "upload_files",
+                        action = "file.upload",
+                        status = "ready",
+                        params = mapOf("parentId" to "\$steps.create_folder.outputs.nodeId"),
+                        dependsOn = listOf("create_folder"),
+                        requiredClientFields = emptyList(),
+                        outputKey = null,
+                    ),
+                ),
+                requiredClientFields = emptyList(),
+            ),
+            backendActionDraft = null,
+            executionReference = RagExecutionReference(
+                executionId = "execution-upload-1",
+                status = "PENDING_CONFIRMATION",
+                version = 0,
+                expiresAt = "2026-09-28T12:00:00Z",
+            ),
+        ).toAssistantMessage(id = 29L)
+
+        val plan = message.plan ?: error("Expected cloud execution plan.")
+        assertEquals("确认执行", plan.actionControls?.confirmLabel)
+        assertNull(plan.clientActionControls)
+        assertEquals("execution-upload-1", plan.executionReference?.executionId)
     }
 
     @Test
@@ -692,6 +786,7 @@ class RagAssistantMessageMapperTest {
         ),
         candidateBinding: RagCandidateBinding? = null,
         semanticFrame: RagSemanticFrame? = null,
+        executionReference: RagExecutionReference? = null,
     ) = RagAssistantPlanResponse(
         id = "response-1",
         schemaVersion = "intent_recognition_v1",
@@ -720,6 +815,7 @@ class RagAssistantMessageMapperTest {
         candidateBinding = candidateBinding,
         conversation = null,
         semanticFrame = semanticFrame,
+        executionReference = executionReference,
     )
 
     private fun semanticFrame(operation: String, scope: String) = RagSemanticFrame(

@@ -22,6 +22,7 @@
 - 普通用户按个人配额校验上传空间，管理员账号不受个人配额限制
 - 支持用户头像和主页背景图上传，并与账号关联
 - 支持 Android APK 版本发布，安装包存储在 COS，后端保留版本记录和短期签名下载入口
+- RAG 写操作已建立独立 `ragExecution` 云端确认与任务执行通道；Android 当前可按独立开关灰度使用，旧本地执行仅保留默认关闭的兼容路径
 
 ## 技术栈
 
@@ -37,6 +38,7 @@
 AliciaCloudStorage/
 ├─ CloudStorageApi/      # 云盘业务后端，消费 Identity token 并聚合云盘资料
 ├─ rag/                  # RAG 语义服务
+├─ ragExecution/         # RAG 执行编排服务；确认/Worker/幂等分派及 Android 灰度客户端已就绪，全部开关默认关闭
 ├─ CloudStorageDB/       # 早期 SQL 初始化脚本
 ├─ webApp/               # 普通云盘用户端，挂载在 /cloudPan/
 ├─ sysManage/            # 云盘运营后台前端，挂载在 /console/cloud/
@@ -171,6 +173,7 @@ docker compose up -d --build
 - 健康检查（仅本机回环）：`http://127.0.0.1:8090/api/health`
 - RAG（仅本机回环）：`http://127.0.0.1:8091`
 - 同域 RAG 入口：`http://localhost/rag/api/health`
+- RAG 执行编排（阶段 4，本机回环管理入口且全部开关默认关闭）：`http://127.0.0.1:8094/api/health`
 - Identity API（仅本机回环）：`http://127.0.0.1:8093`
 - 同域 Identity 公开入口：`http://localhost/api/identity/health`、`http://localhost/api/identity/health/dependencies`
 - MySQL（仅本机回环）：`127.0.0.1:3310`
@@ -274,7 +277,7 @@ RAG 依赖健康入口为 `/rag/api/health/dependencies`，会探测 Identity `/
 docker compose -f compose.yaml -f compose.https.yaml up -d --build frontend
 ```
 
-这样会额外开放 `443`，并将 `http://` 请求自动跳转到 `https://`。统一登录入口为 `https://windwindwind-alicia.cn/login`，云盘 Web 入口为 `https://windwindwind-alicia.cn/cloudPan/`，云盘运营后台默认入口为 `https://windwindwind-alicia.cn/console/cloud/users`，身份后台默认入口为 `https://windwindwind-alicia.cn/console/identity/users`，Android App Links 入口为 `https://windwindwind-alicia.cn/.well-known/assetlinks.json`，正式 RAG 入口为 `https://windwindwind-alicia.cn/rag`，SSE 请求由 Nginx 直通 `rag` 容器；Identity 公开入口为 `https://windwindwind-alicia.cn/api/identity/health`、`/api/identity/health/dependencies`、`/api/identity/.well-known/jwks.json`、`/api/identity/auth/**` 和 `/api/identity/admin/**`。`/rag/internal/` 与 `/api/identity/internal/**` 不对公网开放。
+这样会额外开放 `443`，并将 `http://` 请求自动跳转到 `https://`。统一登录入口为 `https://windwindwind-alicia.cn/login`，云盘 Web 入口为 `https://windwindwind-alicia.cn/cloudPan/`，云盘运营后台默认入口为 `https://windwindwind-alicia.cn/console/cloud/users`，身份后台默认入口为 `https://windwindwind-alicia.cn/console/identity/users`，Android App Links 入口为 `https://windwindwind-alicia.cn/.well-known/assetlinks.json`，正式 RAG 入口为 `https://windwindwind-alicia.cn/rag`，RAG 执行公开控制面为 `https://windwindwind-alicia.cn/rag-execution/api/**`，SSE 请求由 Nginx 直通各自容器；Identity 公开入口为 `https://windwindwind-alicia.cn/api/identity/health`、`/api/identity/health/dependencies`、`/api/identity/.well-known/jwks.json`、`/api/identity/auth/**` 和 `/api/identity/admin/**`。`/rag/internal/`、`/internal/rag-execution/**`、`/rag-execution/internal/**` 与 `/api/identity/internal/**` 不对公网开放。
 
 生产服务器更新 RAG 与 Nginx 时，在仓库内执行：
 
@@ -283,6 +286,17 @@ bash deploy/scripts/update-rag-production.sh
 ```
 
 脚本会拒绝覆盖服务端已有的 tracked 改动，确认 `.env` 已配置 DeepSeek，快进拉取 `main`，重建 `rag` 与 `frontend`，最后同时检查 `127.0.0.1:8091/api/health` 和公网 `/rag/api/health`。密钥只保留在服务器 `.env`，不会输出到日志。
+
+`ragExecution` 使用独立的分阶段发布入口，不与普通 RAG 更新混用。先生成不会覆盖当前 `.env` 的候选配置，再做只读预检；发布脚本默认也只预演，必须显式传入 `--apply` 才会备份并更新 `api`、`rag`、`rag-execution` 和 `frontend`：
+
+```bash
+bash deploy/scripts/prepare-rag-execution-production-env.sh foundation
+ALICIA_RAG_EXECUTION_ENV_FILE=deploy/generated/rag-execution/<candidate.env> \
+  bash deploy/scripts/verify-rag-execution-production.sh foundation FOLDER_CREATE --preflight
+bash deploy/scripts/update-rag-execution-production.sh --stage foundation
+```
+
+灰度顺序固定为 `foundation -> shadow -> admin-single`。完整的候选安装、显式执行、验收和回退命令见 [`ragExecution/docs/PRODUCTION_ROLLOUT_RUNBOOK.md`](ragExecution/docs/PRODUCTION_ROLLOUT_RUNBOOK.md)。当前仅完成发布工具与本地预检，不代表已经修改生产配置或流量。
 
 常规生产更新推荐使用标准发布脚本，减少手动复制多段命令：
 
@@ -326,7 +340,7 @@ bash deploy/scripts/update-main-and-cloud-production.sh
 bash deploy/scripts/collect-production-status.sh
 ```
 
-该脚本会汇总云盘仓库和 `~/mainSite` 的 Git 版本、tracked 文件状态、Compose 容器、主站 Identity 运行所有权、磁盘与 Docker 占用、Cloud/Identity/RAG 直连与前端健康、主站/云盘/云盘分享深链/app下载页/控制台入口探针、`/console`、`/cloudPan`、`/console/cloud` 和旧 `/cloudPan/login` 的规范化跳转、三侧依赖健康 JSON、Identity 审计日志脱敏摘要、Identity Flyway 历史、云盘库身份残留边界和 COS 对象清理补偿队列摘要。默认不要求输入账号密码；如需在快照中追加完整登录链路验证，可设置 `ALICIA_STATUS_RUN_ROUTE_VERIFY=true`，此时会先跑主站路由验证再跑云盘/Identity/RAG 统一路由验证；如需追加静态边界检查可设置 `ALICIA_STATUS_RUN_BOUNDARY_CHECK=true`，此时会同时跑主站前端边界、云盘前端边界和后端 API 边界检查；如需把平台级四端前端拆分验收也纳入快照，可设置 `ALICIA_STATUS_RUN_FRONTEND_SPLIT_CHECK=true`，此时会以 `--skip-build` 复用平台级验收链路，确认主站门户、身份后台、普通云盘和云盘后台的 `returnTo`、session 同步、源码边界、共享个人资料弹窗和字段级 API 契约，并默认带上 `ALICIA_VERIFY_RETURN_TO_DISABLE_TYPESCRIPT=1`，避免静态快照依赖四个前端已安装本地 `typescript` 包。生产更新脚本也支持 `ALICIA_COLLECT_STATUS_AFTER_UPDATE=true bash deploy/scripts/update-cloud-production.sh` 或 `ALICIA_COLLECT_STATUS_AFTER_UPDATE=true bash deploy/scripts/update-main-and-cloud-production.sh` 在更新后自动生成快照。
+该脚本会汇总云盘仓库和 `~/mainSite` 的 Git 版本、tracked 文件状态、Compose 容器、主站 Identity 运行所有权、磁盘与 Docker 占用、Cloud/Identity/RAG 直连与前端健康、主站/云盘/云盘分享深链/app下载页/控制台入口探针、`/console`、`/cloudPan`、`/console/cloud` 和旧 `/cloudPan/login` 的规范化跳转、三侧依赖健康 JSON、Identity 审计日志脱敏摘要、Identity Flyway 历史、云盘库身份残留边界和 COS 对象清理补偿队列摘要。`rag-execution` 容器存在时还会自动加入其直连、公网与依赖健康探针，也可用 `ALICIA_STATUS_CHECK_RAG_EXECUTION=true|false` 强制启用或跳过。默认不要求输入账号密码；如需在快照中追加完整登录链路验证，可设置 `ALICIA_STATUS_RUN_ROUTE_VERIFY=true`，此时会先跑主站路由验证再跑云盘/Identity/RAG 统一路由验证；如需追加静态边界检查可设置 `ALICIA_STATUS_RUN_BOUNDARY_CHECK=true`，此时会同时跑主站前端边界、云盘前端边界和后端 API 边界检查；如需把平台级四端前端拆分验收也纳入快照，可设置 `ALICIA_STATUS_RUN_FRONTEND_SPLIT_CHECK=true`，此时会以 `--skip-build` 复用平台级验收链路，确认主站门户、身份后台、普通云盘和云盘后台的 `returnTo`、session 同步、源码边界、共享个人资料弹窗和字段级 API 契约，并默认带上 `ALICIA_VERIFY_RETURN_TO_DISABLE_TYPESCRIPT=1`，避免静态快照依赖四个前端已安装本地 `typescript` 包。生产更新脚本也支持 `ALICIA_COLLECT_STATUS_AFTER_UPDATE=true bash deploy/scripts/update-cloud-production.sh` 或 `ALICIA_COLLECT_STATUS_AFTER_UPDATE=true bash deploy/scripts/update-main-and-cloud-production.sh` 在更新后自动生成快照。
 
 大更新或迁移前建议先生成一次只读生产备份：
 
@@ -334,7 +348,7 @@ bash deploy/scripts/collect-production-status.sh
 bash deploy/scripts/backup-production-data.sh
 ```
 
-备份脚本会用 `mysqldump --single-transaction` 分别导出云盘库和 Identity 库，并把 `.env`、TLS 证书和 `deploy/generated/identity-rs256/` 下的签名密钥材料打包到 `deploy/generated/production-backups/<timestamp>/`。该目录被 git 忽略，脚本只打印文件路径，不输出密钥或配置内容。备份生成后默认会运行 `validate-production-backup.sh` 校验 `SHA256SUMS`、gzip dump、敏感配置 tar 和 manifest 关键字段；也可以手动执行 `bash deploy/scripts/validate-production-backup.sh` 校验最新备份。可用 `ALICIA_BACKUP_INCLUDE_ENV=false`、`ALICIA_BACKUP_INCLUDE_CERTS=false`、`ALICIA_BACKUP_INCLUDE_GENERATED_KEYS=false` 或 `ALICIA_VALIDATE_BACKUP_AFTER_CREATE=false` 调整备份/校验行为。`update-cloud-production.sh` 设置 `ALICIA_BACKUP_BEFORE_UPDATE=true` 时，会在重建容器前自动执行该备份脚本。
+备份脚本会用 `mysqldump --single-transaction` 分别导出云盘库、Identity 库以及已经存在且未与前两者共用的 `ragExecution` 独立库，并把 `.env`、TLS 证书和 `deploy/generated/identity-rs256/` 下的签名密钥材料打包到 `deploy/generated/production-backups/<timestamp>/`。该目录被 git 忽略，脚本只打印文件路径，不输出密钥或配置内容。备份生成后默认会运行 `validate-production-backup.sh` 校验 `SHA256SUMS`、gzip dump、敏感配置 tar 和 manifest 关键字段；也可以手动执行 `bash deploy/scripts/validate-production-backup.sh` 校验最新备份。可用 `ALICIA_BACKUP_INCLUDE_ENV=false`、`ALICIA_BACKUP_INCLUDE_CERTS=false`、`ALICIA_BACKUP_INCLUDE_GENERATED_KEYS=false` 或 `ALICIA_VALIDATE_BACKUP_AFTER_CREATE=false` 调整备份/校验行为。`update-cloud-production.sh` 设置 `ALICIA_BACKUP_BEFORE_UPDATE=true` 时，会在重建容器前自动执行该备份脚本；`update-rag-execution-production.sh --apply` 默认强制先备份。
 
 生产更新 `api`、主站 `mainSiteApi` Identity、`rag` 或前端路由后，可以使用统一回归脚本检查主域路径边界、主站 `/login`、Android App Links 根路径、云盘 `/cloudPan` 规范化跳转、身份后台 `/console/identity/users`、`/console/identity/roles`、`/console/identity/sessions` 与 `/console/identity/audit`、云盘后台 `/console/cloud/users`、`/console/cloud/operations` 与 `/console/cloud/app-package`、`/cloudPan/login` 到统一登录的交接、CloudStorageApi 到 Identity 的依赖健康、Identity 数据库/Flyway 依赖健康、RAG 到 Identity/Storage 的依赖健康和 telemetry、登录续签、JWT `alg/iss/aud/kid` 元数据、JWKS 入口、应用级 `cloud` 与 `rag` 角色、RAG 访问权探针、RAG 内部契约 `RAG_ADMIN` 边界、刷新会话查询和指定撤销、云盘聚合资料、存储概览、管理员云盘用户入口、管理员云盘运营总览和分享/回收站/用户容量明细、CloudStorageApi COS 对象清理补偿表、Identity 应用角色与审计日志查询、会话撤销审计事件写入、Identity Flyway 迁移历史、旧身份路径 404、注销失效和审计日志最新行；生产 RS256 模式下，CloudStorageApi 会先用 Identity JWKS 对 access token 做本地预验签，再调用 Identity 做强一致状态确认：
 
@@ -559,7 +573,7 @@ git push origin main
 全部后端模块测试：
 
 ```powershell
-.\mvnw -pl CloudStorageApi,rag test
+.\mvnw -pl CloudStorageApi,rag,ragExecution test
 ```
 
 前端构建检查：

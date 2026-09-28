@@ -13,6 +13,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -50,6 +51,12 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.CONFLICT)
     public ApiErrorResponse handleScopedTrashSnapshotStale(ScopedTrashSnapshotStaleException ex) {
         return new ApiErrorResponse(409, ex.getMessage(), LocalDateTime.now());
+    }
+
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ApiErrorResponse handleOptimisticLockingConflict(ObjectOptimisticLockingFailureException ex) {
+        return new ApiErrorResponse(409, "资源已被其他操作更新，请刷新后重试。", LocalDateTime.now());
     }
 
     @ExceptionHandler(IdentityServiceUnavailableException.class)

@@ -182,6 +182,7 @@ class RagReviewPresenterTest {
         assertTrue(review.requiresFinalConfirmation)
         assertTrue(review.lines.contains("会影响文件状态，请确认后再继续。"))
         assertTrue(review.lines.contains("已准备受控执行草稿，确认后仍会由云盘后端校验。"))
+        assertTrue(review.lines.contains("确认后才会提交操作，云盘后端仍会重新鉴权校验。"))
     }
 
     @Test
