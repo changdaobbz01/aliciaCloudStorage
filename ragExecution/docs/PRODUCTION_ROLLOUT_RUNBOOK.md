@@ -88,6 +88,7 @@ bash deploy/scripts/update-rag-execution-production.sh \
 
 - RAG 计划响应保持原有语义；登记失败不得影响响应。
 - 新登记任务只处于 `PENDING_CONFIRMATION`，不会进入队列或产生 Cloud 动作回执。
+- 过期维护与 Worker 独立运行；即使 Worker 关闭，超过确认期限的影子任务也必须转为 `EXPIRED`，且不得产生 Cloud 动作回执。
 - 登记成功率、重复计划幂等、过期清理和数据库增长符合预期。
 - Identity 依赖健康；Cloud 动作入口仍关闭。
 

@@ -42,7 +42,6 @@ public class ExecutionWorker {
             return;
         }
         try {
-            stateService.expireOne();
             stateService.requeueOneReadyRetry();
             if (!features.cloudDispatchEnabled()) {
                 return;
