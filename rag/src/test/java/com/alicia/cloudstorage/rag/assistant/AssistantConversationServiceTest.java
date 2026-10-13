@@ -171,6 +171,46 @@ class AssistantConversationServiceTest {
     }
 
     @Test
+    void explicitCurrentDirectoryFolderCreationDoesNotRequireTargetFolderClarification() {
+        AtomicInteger searchCalls = new AtomicInteger();
+        AssistantConversationService service = conversationServiceWith(request -> {
+            searchCalls.incrementAndGet();
+            return CandidateBindingResult.skipped("unexpected_search", "当前目录创建不应查询候选目录。");
+        });
+        AssistantClientContext clientContext = new AssistantClientContext(
+                501L,
+                "根目录/项目资料",
+                Map.of(),
+                "action_bridge_v2",
+                List.of("folder.create")
+        );
+
+        IntentRecognitionResponse response = service.plan(new AssistantPlanRequest(
+                "请在当前目录创建一个名为 rag-shadow-check-20261013 的文件夹",
+                "",
+                clientContext
+        ));
+
+        assertThat(response.intentId()).isEqualTo("folder_create");
+        assertThat(response.missingSlots()).isEmpty();
+        assertThat(response.nextAction()).isEqualTo("wait_for_user_confirmation");
+        assertThat(response.entities())
+                .containsEntry("new_folder_name", "rag-shadow-check-20261013")
+                .containsEntry("target_folder", "当前");
+        assertThat(response.semanticFrame().operation()).isEqualTo("CREATE_FOLDER");
+        assertThat(response.semanticFrame().scope().type()).isEqualTo("CURRENT");
+        assertThat(response.candidateBinding().source()).isEqualTo("virtual:client-current-folder");
+        assertThat(response.actionPlan().status()).isEqualTo("review_required");
+        assertThat(response.actionPlan().steps()).singleElement().satisfies(step -> {
+            assertThat(step.action()).isEqualTo("folder.create");
+            assertThat(step.params())
+                    .containsEntry("parentId", 501L)
+                    .containsEntry("folderName", "rag-shadow-check-20261013");
+        });
+        assertThat(searchCalls).hasValue(0);
+    }
+
+    @Test
     void createFolderOverridesModelCreateThenUploadGuessAndDoesNotSearchRoot() {
         IntentModelClient overEagerModel = message -> Optional.of(new IntentModelClient.ModelIntentResult(
                 "deepseek",

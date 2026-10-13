@@ -130,6 +130,10 @@ class AssistantControllerTest {
         assertThat(map(config.get("prompt"))).containsEntry("version", "semantic_frame_v2");
         assertThat(map(config.get("prompt")).get("user_template").toString())
                 .contains("{retrieval_examples_json}");
+        assertThat(map(config.get("prompt")).get("mutation_instructions").toString())
+                .contains("intent_id=folder_create")
+                .contains("scope=CURRENT")
+                .contains("folder_create_then_upload only");
     }
 
     @Test

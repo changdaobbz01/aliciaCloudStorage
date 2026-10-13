@@ -14,6 +14,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -113,15 +114,20 @@ public class DeepSeekIntentClient implements IntentModelClient {
                         .map(SemanticExampleRetriever.SemanticExample::promptPayload)
                         .toList()
         );
+        String configuredIntentIdsJson = objectMapper.writeValueAsString(configuredIntentIds());
         String responseFactsJson = objectMapper.writeValueAsString(responsePolicy.promptFacts());
         String userContent = settings.userTemplate()
                 .replace("{message}", request.message())
                 .replace("{context_json}", contextJson)
                 .replace("{retrieval_examples_json}", examplesJson)
+                + "\n\nAuthoritative configured intent_id values JSON:\n"
+                + configuredIntentIdsJson
                 + "\n\nAuthoritative backend and response facts JSON:\n"
                 + responseFactsJson
                 + "\n\n"
-                + settings.semanticQueryInstructions();
+                + settings.semanticQueryInstructions()
+                + "\n\n"
+                + settings.mutationInstructions();
         return Map.of(
                 "model", settings.model(),
                 "messages", List.of(
@@ -180,9 +186,23 @@ public class DeepSeekIntentClient implements IntentModelClient {
                 prompt.path("version").asText("intent_recognition_v1"),
                 prompt.path("template_id").asText("deepseek_file_intent_recognition"),
                 prompt.path("semantic_query_instructions").asText(""),
+                prompt.path("mutation_instructions").asText(""),
                 prompt.path("system_message").asText(),
                 prompt.path("user_template").asText()
         );
+    }
+
+    private List<String> configuredIntentIds() {
+        List<String> intentIds = new ArrayList<>();
+        configLoader.loadJson("rag/conversation/intents.json")
+                .path("intents")
+                .forEach(intent -> {
+                    String intentId = intent.path("id").asText("").trim();
+                    if (!intentId.isBlank()) {
+                        intentIds.add(intentId);
+                    }
+                });
+        return List.copyOf(intentIds);
     }
 
     private String resolvedApiKey(DeepSeekSettings settings) {
@@ -215,6 +235,7 @@ public class DeepSeekIntentClient implements IntentModelClient {
             String promptVersion,
             String templateId,
             String semanticQueryInstructions,
+            String mutationInstructions,
             String systemMessage,
             String userTemplate
     ) {

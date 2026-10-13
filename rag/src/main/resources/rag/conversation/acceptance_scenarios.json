@@ -1,6 +1,6 @@
 {
   "version": "rag_mobile_acceptance_v1",
-  "updated_at": "2026-08-11",
+  "updated_at": "2026-10-13",
   "description": "Acceptance scenarios that must stay valid before Alicia mobile RAG integration.",
   "automatedScenarios": [
     {
@@ -285,6 +285,19 @@
         "intentId": "file_upload",
         "nextAction": "wait_for_backend_binding",
         "actionDraftType": "upload_target",
+        "risk": "low",
+        "requiresConfirmation": true
+      }
+    },
+    {
+      "id": "folder.create_current_directory",
+      "group": "file_mutation",
+      "phase": 1,
+      "message": "请在当前目录创建一个名为 rag-shadow-check-20261013 的文件夹",
+      "expected": {
+        "intentId": "folder_create",
+        "nextAction": "wait_for_backend_binding",
+        "actionDraftType": "folder.create",
         "risk": "low",
         "requiresConfirmation": true
       }
