@@ -1142,6 +1142,46 @@ class IntentRecognitionServiceTest {
     }
 
     @Test
+    void nonExecutableLanguageBypassesAnOverEagerMutationModel() {
+        AtomicInteger modelCalls = new AtomicInteger();
+        IntentModelClient overEagerModel = request -> {
+            modelCalls.incrementAndGet();
+            return Optional.of(new IntentModelClient.ModelIntentResult(
+                    "deepseek",
+                    "deepseek-v4-flash",
+                    "deepseek_semantic_frame_v2",
+                    "semantic_frame_v2",
+                    Map.of(
+                            "intent_id", "file_delete",
+                            "confidence", 0.99,
+                            "entities", Map.of("target_name", "合同.pdf")
+                    )
+            ));
+        };
+        IntentRecognitionService service = new IntentRecognitionService(
+                overEagerModel,
+                intentRouter,
+                configLoader
+        );
+
+        List<IntentRecognitionResponse> responses = List.of(
+                service.recognize("先不要删除合同.pdf"),
+                service.recognize("如果删除合同.pdf会发生什么"),
+                service.recognize("“删除合同.pdf”这句话是什么意思"),
+                service.recognize("把合同.pdf删除或者移动到资料目录"),
+                service.recognize("把它删掉")
+        );
+
+        assertThat(modelCalls).hasValue(0);
+        assertThat(responses).allSatisfy(response -> {
+            assertThat(response.actionDraft().type()).isEqualTo("none");
+            assertThat(response.executionReference()).isNull();
+            assertThat(response.nextAction()).isIn("respond_only", "ask_clarification");
+            assertThat(response.semanticFrame().operation()).isIn("RESPOND", "UNKNOWN");
+        });
+    }
+
+    @Test
     void authoritativeCollectionRuleOverridesConfidentAtomicModelGuess() {
         IntentModelClient modelClient = message -> Optional.of(new IntentModelClient.ModelIntentResult(
                 "deepseek",

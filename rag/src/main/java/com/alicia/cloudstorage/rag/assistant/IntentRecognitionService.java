@@ -23,6 +23,7 @@ public class IntentRecognitionService {
     private final SemanticExampleRetriever semanticExampleRetriever;
     private final SemanticCapabilityBoundaryGuard capabilityBoundaryGuard;
     private final SemanticRecognitionArbiter recognitionArbiter;
+    private final NonExecutableRequestGuard nonExecutableRequestGuard = new NonExecutableRequestGuard();
     private final AssistantResponsePolicy responsePolicy;
     private final AssistantReplyPolisher replyPolisher;
     private final List<ResponseTemplate> responseTemplates;
@@ -168,6 +169,10 @@ public class IntentRecognitionService {
             AssistantConversationState conversation,
             AssistantClientContext clientContext
     ) {
+        var nonExecutableDecision = nonExecutableRequestGuard.evaluate(message, conversation);
+        if (nonExecutableDecision.isPresent()) {
+            return nonExecutableResponse(message, nonExecutableDecision.get());
+        }
         AssistantClientContext safeClientContext = clientContext == null
                 ? AssistantClientContext.empty()
                 : clientContext;
@@ -297,6 +302,36 @@ public class IntentRecognitionService {
             );
         }
         return enforceResponsePolicy(message, response);
+    }
+
+    private IntentRecognitionResponse nonExecutableResponse(
+            String message,
+            NonExecutableRequestGuard.Decision decision
+    ) {
+        String marker = "non_executable_guard:" + decision.id();
+        IntentRecognitionResponse base = fromFallback(message, marker);
+        IntentRecognitionResponse response = rebuildForConversation(
+                base,
+                decision.intentId(),
+                Map.of(),
+                marker
+        );
+        SemanticFrame frame = new SemanticFrame(
+                SemanticFrame.VERSION,
+                decision.relation(),
+                decision.operation(),
+                SemanticFrame.Query.empty(),
+                SemanticFrame.Scope.empty(),
+                SemanticFrame.Reference.empty(),
+                1.0,
+                List.of(),
+                SemanticFrame.Clarification.empty()
+        );
+        return enforceResponsePolicy(
+                message,
+                response.withSemanticFrame(frame, Map.of(), new ActionDraft("none", Map.of(), false))
+                        .withAssistantText(decision.assistantText())
+        );
     }
 
     private SemanticFrame capabilityBoundaryFrame(

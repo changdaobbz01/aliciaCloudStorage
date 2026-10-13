@@ -364,7 +364,8 @@ public class AssistantConversationService {
                 || resolution == null
                 || !resolution.resolved()
                 || isResetMessage(message)
-                || isConfirmMessage(message)) {
+                || isConfirmMessage(message)
+                || isNonExecutableGuard(baseResponse)) {
             return false;
         }
 
@@ -655,6 +656,12 @@ public class AssistantConversationService {
         return response != null
                 && response.reason() != null
                 && response.reason().startsWith("capability_boundary:");
+    }
+
+    private boolean isNonExecutableGuard(IntentRecognitionResponse response) {
+        return response != null
+                && response.reason() != null
+                && response.reason().startsWith("non_executable_guard:");
     }
 
     private boolean isConfirmMessage(String message) {

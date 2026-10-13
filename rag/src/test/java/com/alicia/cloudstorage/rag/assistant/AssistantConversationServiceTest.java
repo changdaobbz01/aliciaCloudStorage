@@ -998,6 +998,36 @@ class AssistantConversationServiceTest {
     }
 
     @Test
+    void naturalLanguageCancellationClearsPendingMutationPlan() {
+        AssistantClientContext clientContext = new AssistantClientContext(
+                null,
+                "/",
+                Map.of(),
+                "action_bridge_v2",
+                List.of("folder.create")
+        );
+        IntentRecognitionResponse firstTurn = conversationService.plan(new AssistantPlanRequest(
+                "在根目录创建名为待取消的文件夹",
+                "",
+                clientContext
+        ));
+        IntentRecognitionResponse cancelled = conversationService.plan(new AssistantPlanRequest(
+                "算了，不用了",
+                firstTurn.conversation().conversationId(),
+                clientContext
+        ));
+
+        assertThat(firstTurn.actionDraft().type()).isEqualTo("folder.create");
+        assertThat(cancelled.intentId()).isEqualTo("assistant_acknowledgement");
+        assertThat(cancelled.nextAction()).isEqualTo("respond_only");
+        assertThat(cancelled.actionDraft().type()).isEqualTo("none");
+        assertThat(cancelled.semanticFrame().relation()).isEqualTo("CANCELLATION");
+        assertThat(cancelled.semanticFrame().operation()).isEqualTo("RESPOND");
+        assertThat(cancelled.executionReference()).isNull();
+        assertThat(cancelled.conversation().hasPendingAction()).isFalse();
+    }
+
+    @Test
     void browsesPreviousFolderThenResolvesOrdinalFileOperations() {
         List<CandidateSearchRequest> requests = new java.util.ArrayList<>();
         CandidateSearchPort port = request -> {
