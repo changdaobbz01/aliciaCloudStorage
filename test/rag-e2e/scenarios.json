@@ -298,6 +298,217 @@
           "entityEquals": {"target_name": "测试", "rename_prefix": "归档-"}, "missingSlots": [], "semanticOperation": ["RENAME"], "queryMode": ["NAME_CONTAINS"]
         }
       }]
+    },
+    {
+      "id": "conversation.acknowledgement",
+      "group": "natural_conversation",
+      "turns": [{
+        "message": "好吧，了解了",
+        "expected": {"intentId": ["assistant_acknowledgement"], "nextAction": ["respond_only"], "actionDraftType": ["none"], "requiresConfirmation": false, "executionReference": false, "semanticOperation": ["RESPOND"]}
+      }]
+    },
+    {
+      "id": "conversation.chat_request",
+      "group": "natural_conversation",
+      "turns": [{
+        "message": "可以和我聊聊天吗",
+        "expected": {"intentId": ["assistant_chat"], "nextAction": ["respond_only"], "actionDraftType": ["none"], "requiresConfirmation": false, "executionReference": false, "semanticOperation": ["RESPOND"]}
+      }]
+    },
+    {
+      "id": "product.reason",
+      "group": "natural_conversation",
+      "turns": [{
+        "message": "为什么要做这个云盘产品",
+        "expected": {"intentId": ["assistant_product_reason"], "nextAction": ["respond_only"], "actionDraftType": ["none"], "requiresConfirmation": false, "executionReference": false, "semanticOperation": ["RESPOND"]}
+      }]
+    },
+    {
+      "id": "search.root_folder_list_natural",
+      "group": "natural_search",
+      "turns": [{
+        "message": "我想看看根目录里有哪些文件夹",
+        "expected": {
+          "intentId": ["file_search"], "actionDraftType": ["search"], "requiresConfirmation": false, "executionReference": false,
+          "entityEquals": {"query_mode": "directory_list", "scope": "root", "result_type": "FOLDER"}, "absentEntities": ["target_name", "target_folder"], "missingSlots": [],
+          "semanticOperation": ["LIST_CHILDREN"], "queryMode": ["LIST_CHILDREN"], "scopeType": ["ROOT"], "resultType": ["FOLDER"]
+        }
+      }]
+    },
+    {
+      "id": "search.named_folder_contents_natural",
+      "group": "natural_search",
+      "turns": [{
+        "message": "测试目录中的文件",
+        "expected": {
+          "intentId": ["file_search"], "actionDraftType": ["search"], "requiresConfirmation": false, "executionReference": false,
+          "entityEquals": {"target_folder": "测试目录", "query_mode": "directory_list", "scope": "named_folder", "result_type": "FILE"}, "absentEntities": ["target_name"], "missingSlots": [],
+          "semanticOperation": ["LIST_CHILDREN"], "queryMode": ["LIST_CHILDREN"], "scopeType": ["NAMED_FOLDER"], "resultType": ["FILE"]
+        }
+      }]
+    },
+    {
+      "id": "search.deictic_current_folder_context",
+      "group": "natural_search",
+      "turns": [{
+        "message": "这个文件夹中文件有哪些",
+        "expected": {
+          "intentId": ["file_search"], "nextAction": ["wait_for_backend_binding"], "actionDraftType": ["search"], "requiresConfirmation": false, "executionReference": false,
+          "entityEquals": {"query_mode": "directory_list", "scope": "current", "result_type": "FILE"}, "semanticOperation": ["LIST_CHILDREN"], "queryMode": ["LIST_CHILDREN"], "scopeType": ["CURRENT"], "resultType": ["FILE"]
+        }
+      }]
+    },
+    {
+      "id": "share.generic_target",
+      "group": "ambiguity_guard",
+      "turns": [{
+        "message": "分享文件",
+        "expected": {
+          "intentId": ["file_share"], "nextAction": ["ask_clarification"], "actionDraftType": ["none"], "requiresConfirmation": true, "executionReference": false,
+          "absentEntities": ["target_name"], "missingSlots": ["target_name"], "semanticOperation": ["SHARE"]
+        }
+      }]
+    },
+    {
+      "id": "share.batch_unsupported",
+      "group": "ambiguity_guard",
+      "turns": [{
+        "message": "分享根目录下所有文件",
+        "expected": {
+          "intentId": ["file_share"], "nextAction": ["ask_clarification"], "actionDraftType": ["none"], "requiresConfirmation": true, "executionReference": false,
+          "absentEntities": ["target_name"], "semanticOperation": ["SHARE"], "scopeType": ["ROOT"], "resultType": ["FILE"]
+        }
+      }]
+    },
+    {
+      "id": "delete.category_without_quantifier",
+      "group": "ambiguity_guard",
+      "turns": [{
+        "message": "删除图片",
+        "expected": {
+          "intentId": ["file_delete"], "nextAction": ["ask_clarification"], "actionDraftType": ["none"], "requiresConfirmation": true, "executionReference": false,
+          "absentEntities": ["target_name"], "missingSlots": ["target_name"], "semanticOperation": ["DELETE"]
+        }
+      }]
+    },
+    {
+      "id": "move.generic_source",
+      "group": "ambiguity_guard",
+      "turns": [{
+        "message": "把文件移动到资料",
+        "expected": {
+          "intentId": ["node_move"], "nextAction": ["ask_clarification"], "actionDraftType": ["none"], "requiresConfirmation": true, "executionReference": false,
+          "entityEquals": {"target_folder": "资料"}, "absentEntities": ["target_name"], "missingSlots": ["target_name"], "semanticOperation": ["MOVE"]
+        }
+      }]
+    },
+    {
+      "id": "rename.generic_source",
+      "group": "ambiguity_guard",
+      "turns": [{
+        "message": "把文件重命名为报告",
+        "expected": {
+          "intentId": ["file_rename"], "nextAction": ["ask_clarification"], "actionDraftType": ["none"], "requiresConfirmation": true, "executionReference": false,
+          "entityEquals": {"new_name": "报告"}, "absentEntities": ["target_name"], "missingSlots": ["target_name"], "semanticOperation": ["RENAME"]
+        }
+      }]
+    },
+    {
+      "id": "upload.cloud_source_rejected",
+      "group": "ambiguity_guard",
+      "turns": [{
+        "message": "把根目录下的合同.pdf上传到资料目录",
+        "expected": {
+          "intentId": ["file_upload"], "nextAction": ["ask_clarification"], "actionDraftType": ["none"], "requiresConfirmation": true, "executionReference": false,
+          "entityEquals": {"target_folder": "资料目录"}, "semanticOperation": ["UPLOAD"]
+        }
+      }]
+    },
+    {
+      "id": "multi_turn.move_source_slot",
+      "group": "multi_turn",
+      "turns": [
+        {
+          "message": "把文件移动到资料",
+          "expected": {"intentId": ["node_move"], "nextAction": ["ask_clarification"], "actionDraftType": ["none"], "requiresConfirmation": true, "executionReference": false, "entityEquals": {"target_folder": "资料"}, "missingSlots": ["target_name"], "semanticOperation": ["MOVE"]}
+        },
+        {
+          "message": "合同.pdf",
+          "expected": {"intentId": ["node_move"], "actionDraftType": ["collection.move_exact"], "requiresConfirmation": true, "executionReference": false, "entityEquals": {"target_name": "合同.pdf", "target_folder": "资料"}, "missingSlots": [], "semanticRelation": ["SLOT_FILL"], "semanticOperation": ["MOVE"]}
+        }
+      ]
+    },
+    {
+      "id": "multi_turn.rename_source_slot",
+      "group": "multi_turn",
+      "turns": [
+        {
+          "message": "把文件重命名为报告.pdf",
+          "expected": {"intentId": ["file_rename"], "nextAction": ["ask_clarification"], "actionDraftType": ["none"], "requiresConfirmation": true, "executionReference": false, "entityEquals": {"new_name": "报告.pdf"}, "missingSlots": ["target_name"], "semanticOperation": ["RENAME"]}
+        },
+        {
+          "message": "合同.pdf",
+          "expected": {"intentId": ["file_rename"], "actionDraftType": ["rename"], "requiresConfirmation": true, "executionReference": false, "entityEquals": {"target_name": "合同.pdf", "new_name": "报告.pdf"}, "missingSlots": [], "semanticRelation": ["SLOT_FILL"], "semanticOperation": ["RENAME"]}
+        }
+      ]
+    },
+    {
+      "id": "multi_turn.search_correction",
+      "group": "multi_turn",
+      "turns": [
+        {
+          "message": "你列出名字带测试的文件夹",
+          "expected": {"intentId": ["file_search"], "actionDraftType": ["search"], "requiresConfirmation": false, "executionReference": false, "entityEquals": {"target_name": "测试", "result_type": "FOLDER"}, "semanticOperation": ["SEARCH"], "queryMode": ["NAME_CONTAINS"], "resultType": ["FOLDER"]}
+        },
+        {
+          "message": "测试目录呢？",
+          "expected": {"intentId": ["file_search"], "actionDraftType": ["search"], "requiresConfirmation": false, "executionReference": false, "entityEquals": {"target_name": "测试目录", "result_type": "FOLDER"}, "semanticRelation": ["CORRECTION"], "semanticOperation": ["SEARCH"], "resultType": ["FOLDER"]}
+        }
+      ]
+    },
+    {
+      "id": "natural.rename_exact",
+      "group": "natural_mutation",
+      "turns": [{
+        "message": "麻烦把叫月度报表.xlsx的文件改成月度报表-归档.xlsx",
+        "expected": {
+          "intentId": ["file_rename"], "actionDraftType": ["rename"], "requiresConfirmation": true, "executionReference": false,
+          "entityEquals": {"target_name": "月度报表.xlsx", "new_name": "月度报表-归档.xlsx"}, "missingSlots": [], "semanticOperation": ["RENAME"]
+        }
+      }]
+    },
+    {
+      "id": "natural.collection_delete_by_name",
+      "group": "natural_mutation",
+      "turns": [{
+        "message": "把文件名里含草稿的都扔进回收站",
+        "expected": {
+          "intentId": ["collection_delete_by_name"], "actionDraftType": ["collection.trash_by_name_contains"], "requiresConfirmation": true, "executionReference": false,
+          "entityEquals": {"target_name": "草稿"}, "missingSlots": [], "semanticOperation": ["DELETE"], "queryMode": ["NAME_CONTAINS"]
+        }
+      }]
+    },
+    {
+      "id": "natural.collection_move_by_name",
+      "group": "natural_mutation",
+      "turns": [{
+        "message": "把名字里带临时的文件都放到归档区",
+        "expected": {
+          "intentId": ["collection_move_by_name"], "actionDraftType": ["collection.move_by_name_contains"], "requiresConfirmation": true, "executionReference": false,
+          "entityEquals": {"target_name": "临时", "target_folder": "归档区"}, "missingSlots": [], "semanticOperation": ["MOVE"], "queryMode": ["NAME_CONTAINS"]
+        }
+      }]
+    },
+    {
+      "id": "natural.collection_move_by_category",
+      "group": "natural_mutation",
+      "turns": [{
+        "message": "把所有图片都移到素材库",
+        "expected": {
+          "intentId": ["collection_move_by_category"], "actionDraftType": ["collection.move_by_category"], "requiresConfirmation": true, "executionReference": false,
+          "entityEquals": {"file_type": "图片", "target_folder": "素材库"}, "missingSlots": [], "semanticOperation": ["MOVE"]
+        }
+      }]
     }
   ]
 }

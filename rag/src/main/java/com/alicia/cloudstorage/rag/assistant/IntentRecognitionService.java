@@ -613,7 +613,22 @@ public class IntentRecognitionService {
             String message,
             IntentRouter.IntentRouteResult configuredRoute
     ) {
-        if (NamePredicateParser.parse(message).isEmpty()) {
+        var predicate = NamePredicateParser.parse(message);
+        if (predicate.isEmpty()) {
+            String atomicIntentId = switch (configuredRoute.intent()) {
+                case "collection_delete_by_name" -> "file_delete";
+                case "collection_move_by_name" -> "node_move";
+                case "collection_rename_add_prefix" -> "file_rename";
+                default -> configuredRoute.intent();
+            };
+            if (!atomicIntentId.equals(configuredRoute.intent())) {
+                return intentRouter.routeAs(
+                        message,
+                        atomicIntentId,
+                        configuredRoute.confidence(),
+                        "名称谓词解析未命中，按单节点操作保守处理"
+                );
+            }
             return configuredRoute;
         }
         String intentId = switch (configuredRoute.intent()) {

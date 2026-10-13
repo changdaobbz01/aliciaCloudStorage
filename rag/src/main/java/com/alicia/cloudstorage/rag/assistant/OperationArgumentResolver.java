@@ -380,19 +380,20 @@ final class OperationArgumentResolver {
 
     private QuantifiedSurface quantifiedSurface(String rawSurface) {
         String surface = rawSurface == null ? "" : rawSurface.replaceFirst("^的", "");
-        Matcher leading = LEADING_ALL.matcher(surface);
+        String candidate = surface;
+        boolean explicitAll = false;
+        Matcher leading = LEADING_ALL.matcher(candidate);
         if (leading.find()) {
-            String remainder = surface.substring(leading.end());
-            if (!genericResultType(remainder).isBlank()) {
-                return new QuantifiedSurface(remainder, true);
-            }
+            candidate = candidate.substring(leading.end());
+            explicitAll = true;
         }
-        Matcher trailing = TRAILING_ALL.matcher(surface);
+        Matcher trailing = TRAILING_ALL.matcher(candidate);
         if (trailing.find()) {
-            String remainder = surface.substring(0, trailing.start());
-            if (!genericResultType(remainder).isBlank()) {
-                return new QuantifiedSurface(remainder, true);
-            }
+            candidate = candidate.substring(0, trailing.start());
+            explicitAll = true;
+        }
+        if (explicitAll && !genericResultType(candidate).isBlank()) {
+            return new QuantifiedSurface(candidate, true);
         }
         return new QuantifiedSurface(surface, false);
     }

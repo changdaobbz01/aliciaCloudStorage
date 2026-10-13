@@ -969,6 +969,35 @@ class AssistantConversationServiceTest {
     }
 
     @Test
+    void naturalLanguageCorrectionReplacesSearchClueAfterNoCandidates() {
+        CandidateSearchPort port = request -> new CandidateBindingResult(
+                "no_candidates",
+                "test",
+                request.query(),
+                request.candidateType(),
+                List.of(),
+                "未找到匹配项。"
+        );
+        AssistantConversationService service = conversationServiceWith(port);
+
+        IntentRecognitionResponse firstTurn = service.plan(
+                new AssistantPlanRequest("你列出名字带测试的文件夹", ""),
+                "Bearer token"
+        );
+        IntentRecognitionResponse secondTurn = service.plan(
+                new AssistantPlanRequest("测试目录呢？", firstTurn.conversation().conversationId()),
+                "Bearer token"
+        );
+
+        assertThat(firstTurn.candidateBinding().status()).isEqualTo("no_candidates");
+        assertThat(secondTurn.semanticFrame().relation()).isEqualTo("CORRECTION");
+        assertThat(secondTurn.semanticFrame().operation()).isEqualTo("SEARCH");
+        assertThat(secondTurn.semanticFrame().query().nameSurface()).isEqualTo("测试目录");
+        assertThat(secondTurn.semanticFrame().query().resultType()).isEqualTo("FOLDER");
+        assertThat(secondTurn.entities()).containsEntry("target_name", "测试目录");
+    }
+
+    @Test
     void browsesPreviousFolderThenResolvesOrdinalFileOperations() {
         List<CandidateSearchRequest> requests = new java.util.ArrayList<>();
         CandidateSearchPort port = request -> {

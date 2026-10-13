@@ -89,10 +89,37 @@ public class SemanticFrameResolver {
             );
         }
         rawFrame = applyMessageSemantics(message, rawFrame, conversation);
+        rawFrame = applySearchCorrection(message, rawFrame, response, conversation);
         rawFrame = reconcileMutationTarget(rawFrame, response, message);
         rawFrame = applyOperationArguments(message, rawFrame, response);
         rawFrame = alignCompletedStructuredIntent(rawFrame, response);
         return normalizeResolvableSlotClarification(validate(rawFrame, response, clientContext));
+    }
+
+    private SemanticFrame applySearchCorrection(
+            String message,
+            SemanticFrame frame,
+            IntentRecognitionResponse response,
+            AssistantConversationState conversation
+    ) {
+        if (!isSearchCorrection(message, response, conversation)) {
+            return frame;
+        }
+        SearchSemantics semantics = parseSearch(
+                message == null ? "" : message.trim(),
+                queryFromEntities(conversation.entities()),
+                scopeFromEntities(conversation.entities())
+        );
+        return copyFrame(
+                frame,
+                "CORRECTION",
+                "SEARCH",
+                semantics.query(),
+                semantics.scope(),
+                SemanticFrame.Reference.empty(),
+                List.of(),
+                SemanticFrame.Clarification.empty()
+        );
     }
 
     private SemanticFrame alignCompletedStructuredIntent(
@@ -1054,11 +1081,16 @@ public class SemanticFrameResolver {
         if (conversation == null || !"file_search".equals(conversation.pendingIntentId())) {
             return false;
         }
-        if (response != null && !"fallback".equals(response.intentId())) {
-            return startsLikeCorrection(message);
+        if (startsLikeCorrection(message)) {
+            return true;
         }
-        return startsLikeCorrection(message)
-                || TextSupport.containsAny(message, List.of("名字", "名称", "文件名", "文件夹", "目录", "文件", "文档"));
+        if (response != null && !"fallback".equals(response.intentId())) {
+            return false;
+        }
+        CandidateBindingResult previousBinding = conversation.candidateBinding();
+        return previousBinding != null
+                && "no_candidates".equals(previousBinding.status())
+                && TextSupport.containsAny(message, List.of("名字", "名称", "文件名", "文件夹", "目录", "文件", "文档"));
     }
 
     private boolean isContextFollowUp(String message, AssistantConversationState conversation) {

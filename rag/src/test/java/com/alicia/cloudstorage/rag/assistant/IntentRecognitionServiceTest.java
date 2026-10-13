@@ -1112,6 +1112,36 @@ class IntentRecognitionServiceTest {
     }
 
     @Test
+    void localFallbackRecognizesNaturalBatchMutationPhrases() {
+        IntentModelClient unavailableClient = message -> Optional.empty();
+        IntentRecognitionService service = new IntentRecognitionService(
+                unavailableClient,
+                intentRouter,
+                configLoader
+        );
+
+        IntentRecognitionResponse byName = service.recognize("把名字里带临时的文件都放到归档区");
+        IntentRecognitionResponse byCategory = service.recognize("把所有图片都移到素材库");
+        IntentRecognitionResponse deleteByName = service.recognize("把文件名里含草稿的都扔进回收站");
+
+        assertThat(byName.intentId()).isEqualTo("collection_move_by_name");
+        assertThat(byName.actionDraft().type()).isEqualTo("collection.move_by_name_contains");
+        assertThat(byName.entities())
+                .containsEntry("target_name", "临时")
+                .containsEntry("target_folder", "归档区");
+
+        assertThat(byCategory.intentId()).isEqualTo("collection_move_by_category");
+        assertThat(byCategory.actionDraft().type()).isEqualTo("collection.move_by_category");
+        assertThat(byCategory.entities())
+                .containsEntry("file_type", "图片")
+                .containsEntry("target_folder", "素材库");
+
+        assertThat(deleteByName.intentId()).isEqualTo("collection_delete_by_name");
+        assertThat(deleteByName.actionDraft().type()).isEqualTo("collection.trash_by_name_contains");
+        assertThat(deleteByName.entities()).containsEntry("target_name", "草稿");
+    }
+
+    @Test
     void authoritativeCollectionRuleOverridesConfidentAtomicModelGuess() {
         IntentModelClient modelClient = message -> Optional.of(new IntentModelClient.ModelIntentResult(
                 "deepseek",
