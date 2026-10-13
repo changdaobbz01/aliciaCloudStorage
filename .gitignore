@@ -18,6 +18,9 @@
 /sysManage/vite.config.js
 /sysManage/vite.config.d.ts
 /.env
+/test/rag-e2e/.env.local
+/test/rag-e2e/build/
+/test/rag-e2e/results/
 /deploy/certs/*.pem
 /deploy/generated/
 /tmp/

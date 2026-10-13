@@ -1,0 +1,140 @@
+name: alicia-rag-e2e
+
+services:
+  db:
+    image: mysql:8.0
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_ROOT_PASSWORD: ${ALICIA_RAG_E2E_MYSQL_ROOT_PASSWORD:?required}
+      MYSQL_DATABASE: ${ALICIA_RAG_E2E_CLOUD_DATABASE:-alicia_cloud_storage_e2e}
+    ports:
+      - "127.0.0.1:${ALICIA_RAG_E2E_DB_PORT:-18310}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -uroot -p\"$${MYSQL_ROOT_PASSWORD}\" --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+
+  rag-execution-db-init:
+    image: mysql:8.0
+    restart: "no"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${ALICIA_RAG_E2E_MYSQL_ROOT_PASSWORD:?required}
+      MYSQL_DATABASE: ${ALICIA_RAG_E2E_CLOUD_DATABASE:-alicia_cloud_storage_e2e}
+      ALICIA_RAG_EXECUTION_MYSQL_DATABASE: ${ALICIA_RAG_E2E_EXEC_DATABASE:-alicia_rag_execution_e2e}
+      ALICIA_RAG_EXECUTION_DB_USERNAME: ${ALICIA_RAG_E2E_EXEC_DB_USERNAME:-alicia_rag_execution_e2e}
+      ALICIA_RAG_EXECUTION_DB_PASSWORD: ${ALICIA_RAG_E2E_EXEC_DB_PASSWORD:?required}
+    volumes:
+      - ../../deploy/mysql/ensure-rag-execution-database.sh:/opt/alicia/ensure-rag-execution-database.sh:ro
+    entrypoint: ["bash", "/opt/alicia/ensure-rag-execution-database.sh"]
+    depends_on:
+      db:
+        condition: service_healthy
+
+  api:
+    build:
+      context: ../..
+      dockerfile: CloudStorageApi/Dockerfile
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/${ALICIA_RAG_E2E_CLOUD_DATABASE:-alicia_cloud_storage_e2e}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai&characterEncoding=utf8
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${ALICIA_RAG_E2E_MYSQL_ROOT_PASSWORD:?required}
+      ALICIA_IDENTITY_API_BASE_URL: ${ALICIA_RAG_E2E_IDENTITY_BASE_URL:?required}
+      ALICIA_AUTH_TOKEN_ISSUER: ${ALICIA_RAG_E2E_TOKEN_ISSUER:?required}
+      ALICIA_AUTH_TOKEN_AUDIENCE: alicia-tools
+      ALICIA_IDENTITY_TOKEN_PREFLIGHT_ENABLED: "true"
+      ALICIA_RAG_EXECUTION_CLOUD_ACTIONS_ENABLED: "true"
+      ALICIA_RAG_EXECUTION_CLOUD_SERVICE_SECRET: ${ALICIA_RAG_E2E_CLOUD_SECRET:?required}
+      ALICIA_SHARE_ACCESS_TOKEN_SECRET: ${ALICIA_RAG_E2E_SHARE_SECRET:?required}
+      ALICIA_COS_SECRET_ID: ""
+      ALICIA_COS_SECRET_KEY: ""
+      ALICIA_COS_REGION: ap-shanghai
+      ALICIA_COS_BUCKET: ""
+      ALICIA_COS_MAX_FILE_SIZE_BYTES: "1048576"
+      ALICIA_STORAGE_TOTAL_SPACE_BYTES: "1073741824"
+      ALICIA_STORAGE_DEFAULT_USER_QUOTA_BYTES: "536870912"
+      ALICIA_CLOUD_OBJECT_CLEANUP_ENABLED: "false"
+      ALICIA_MULTIPART_UPLOAD_CLEANUP_ENABLED: "false"
+    ports:
+      - "127.0.0.1:${ALICIA_RAG_E2E_API_PORT:-18090}:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "bash -ec '</dev/tcp/127.0.0.1/8080'"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 30s
+
+  rag-execution:
+    build:
+      context: ../..
+      dockerfile: ragExecution/Dockerfile
+    environment:
+      SERVER_PORT: "8084"
+      SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/${ALICIA_RAG_E2E_EXEC_DATABASE:-alicia_rag_execution_e2e}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai&characterEncoding=utf8
+      SPRING_DATASOURCE_USERNAME: ${ALICIA_RAG_E2E_EXEC_DB_USERNAME:-alicia_rag_execution_e2e}
+      SPRING_DATASOURCE_PASSWORD: ${ALICIA_RAG_E2E_EXEC_DB_PASSWORD:?required}
+      ALICIA_RAG_EXECUTION_ENABLED: "true"
+      ALICIA_RAG_EXECUTION_REGISTRATION_ENABLED: "true"
+      ALICIA_RAG_EXECUTION_PUBLIC_CONFIRM_ENABLED: "true"
+      ALICIA_RAG_EXECUTION_WORKER_ENABLED: "true"
+      ALICIA_RAG_EXECUTION_CLOUD_DISPATCH_ENABLED: "true"
+      ALICIA_RAG_EXECUTION_ADMIN_ONLY: "true"
+      ALICIA_RAG_EXECUTION_ALLOWED_ACTIONS: FOLDER_CREATE
+      ALICIA_RAG_EXECUTION_SERVICE_SECRET: ${ALICIA_RAG_E2E_REGISTRATION_SECRET:?required}
+      ALICIA_RAG_EXECUTION_IDENTITY_API_BASE_URL: ${ALICIA_RAG_E2E_IDENTITY_BASE_URL:?required}
+      ALICIA_RAG_EXECUTION_CLOUD_API_BASE_URL: http://api:8080
+      ALICIA_RAG_EXECUTION_CLOUD_SERVICE_SECRET: ${ALICIA_RAG_E2E_CLOUD_SECRET:?required}
+      ALICIA_RAG_EXECUTION_CONFIRMATION_TTL: ${ALICIA_RAG_E2E_CONFIRMATION_TTL:-10m}
+      ALICIA_RAG_EXECUTION_WORKER_POLL_DELAY: 250ms
+      ALICIA_RAG_EXECUTION_MAINTENANCE_POLL_DELAY: 500ms
+    ports:
+      - "127.0.0.1:${ALICIA_RAG_E2E_EXEC_PORT:-18094}:8084"
+    depends_on:
+      rag-execution-db-init:
+        condition: service_completed_successfully
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "bash -ec '</dev/tcp/127.0.0.1/8084'"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 30s
+
+  rag:
+    build:
+      context: ../..
+      dockerfile: test/rag-e2e/Dockerfile.rag
+    environment:
+      SERVER_PORT: "8081"
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:?required}
+      ALICIA_STORAGE_API_BASE_URL: http://api:8080
+      ALICIA_RAG_IDENTITY_API_BASE_URL: ${ALICIA_RAG_E2E_IDENTITY_BASE_URL:?required}
+      ALICIA_RAG_EXECUTION_SHADOW_REGISTRATION_ENABLED: "true"
+      ALICIA_RAG_EXECUTION_BASE_URL: http://rag-execution:8084
+      ALICIA_RAG_EXECUTION_SERVICE_SECRET: ${ALICIA_RAG_E2E_REGISTRATION_SECRET:?required}
+      ALICIA_RAG_EXECUTION_CONFIRMATION_TTL: ${ALICIA_RAG_E2E_CONFIRMATION_TTL:-10m}
+    ports:
+      - "127.0.0.1:${ALICIA_RAG_E2E_RAG_PORT:-18091}:8081"
+    depends_on:
+      api:
+        condition: service_healthy
+      rag-execution:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "bash -ec '</dev/tcp/127.0.0.1/8081'"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 30s
+
+volumes:
+  mysql_data:
