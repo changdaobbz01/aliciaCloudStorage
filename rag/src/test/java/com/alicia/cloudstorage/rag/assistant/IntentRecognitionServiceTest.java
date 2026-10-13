@@ -170,6 +170,20 @@ class IntentRecognitionServiceTest {
     }
 
     @Test
+    void folderCreateWithoutANameDoesNotTreatTheMeasureWordAsTheName() {
+        IntentRecognitionResponse response = new IntentRecognitionService(
+                message -> Optional.empty(),
+                intentRouter,
+                configLoader
+        ).recognize("在当前目录新建一个文件夹");
+
+        assertThat(response.intentId()).isEqualTo("folder_create");
+        assertThat(response.entities()).doesNotContainKey("new_folder_name");
+        assertThat(response.missingSlots()).containsExactly("new_folder_name");
+        assertThat(response.nextAction()).isEqualTo("ask_clarification");
+    }
+
+    @Test
     void highConfidenceConfiguredIntentGuardsAgainstStochasticModelFallback() {
         IntentModelClient modelClient = message -> Optional.of(new IntentModelClient.ModelIntentResult(
                 "deepseek",
@@ -1293,6 +1307,110 @@ class IntentRecognitionServiceTest {
                 .contains("名称关键字")
                 .doesNotContain("能自动识别");
         assertThat(response.actionDraft().needsBackendBinding()).isFalse();
+    }
+
+    @Test
+    void responseOnlyIntentIsNotDowngradedByUnknownModelOperation() {
+        IntentModelClient modelClient = message -> Optional.of(new IntentModelClient.ModelIntentResult(
+                "deepseek",
+                "deepseek-v4-flash",
+                "deepseek_semantic_frame_v2",
+                "semantic_frame_v2",
+                Map.ofEntries(
+                        Map.entry("intent_id", "assistant_errand_unsupported"),
+                        Map.entry("confidence", 0.95),
+                        Map.entry("entities", Map.of()),
+                        Map.entry("missing_slots", List.of()),
+                        Map.entry("next_action", "respond_only"),
+                        Map.entry("action_draft", Map.of(
+                                "type", "none",
+                                "parameters", Map.of(),
+                                "needs_backend_binding", false
+                        )),
+                        Map.entry("assistant_text", "我不能代替你下楼取快递。"),
+                        Map.entry("semantic_frame", Map.ofEntries(
+                                Map.entry("schema_version", "semantic_frame_v2"),
+                                Map.entry("relation", "NEW_TASK"),
+                                Map.entry("operation", "UNKNOWN"),
+                                Map.entry("query", Map.of("mode", "NONE", "result_type", "ANY")),
+                                Map.entry("scope", Map.of("type", "ALL", "folder_surface", "")),
+                                Map.entry("reference", Map.of("type", "NONE")),
+                                Map.entry("confidence", 0.69),
+                                Map.entry("ambiguities", List.of("operation")),
+                                Map.entry("clarification", Map.of(
+                                        "reason", "operation",
+                                        "question", "请明确要进行哪种操作？",
+                                        "suggestions", List.of("查找文件")
+                                ))
+                        ))
+                )
+        ));
+
+        IntentRecognitionResponse response = new IntentRecognitionService(modelClient, intentRouter, configLoader)
+                .recognize("帮我去楼下拿快递");
+
+        assertThat(response.intentId()).isEqualTo("assistant_errand_unsupported");
+        assertThat(response.semanticFrame().operation()).isEqualTo("RESPOND");
+        assertThat(response.semanticFrame().needsClarification()).isFalse();
+        assertThat(response.nextAction()).isEqualTo("respond_only");
+        assertThat(response.actionDraft().type()).isEqualTo("none");
+    }
+
+    @Test
+    void completedCompositeIntentUsesStructuredDestinationInsteadOfModelUploadAmbiguity() {
+        IntentModelClient modelClient = message -> Optional.of(new IntentModelClient.ModelIntentResult(
+                "deepseek",
+                "deepseek-v4-flash",
+                "deepseek_semantic_frame_v2",
+                "semantic_frame_v2",
+                Map.ofEntries(
+                        Map.entry("intent_id", "folder_create_then_upload"),
+                        Map.entry("confidence", 0.95),
+                        Map.entry("entities", Map.of(
+                                "target_folder", "项目资料",
+                                "new_folder_name", "归档"
+                        )),
+                        Map.entry("missing_slots", List.of()),
+                        Map.entry("next_action", "wait_for_backend_binding"),
+                        Map.entry("action_draft", Map.of(
+                                "type", "composite.create_folder_then_upload",
+                                "parameters", Map.of(
+                                        "target_folder", "项目资料",
+                                        "new_folder_name", "归档"
+                                ),
+                                "needs_backend_binding", true
+                        )),
+                        Map.entry("assistant_text", "我会先新建归档文件夹，再上传所选文件。"),
+                        Map.entry("semantic_frame", Map.ofEntries(
+                                Map.entry("schema_version", "semantic_frame_v2"),
+                                Map.entry("relation", "NEW_TASK"),
+                                Map.entry("operation", "UPLOAD"),
+                                Map.entry("query", Map.of("mode", "NONE", "result_type", "ANY")),
+                                Map.entry("scope", Map.of("type", "ALL", "folder_surface", "")),
+                                Map.entry("reference", Map.of("type", "NONE")),
+                                Map.entry("confidence", 0.69),
+                                Map.entry("ambiguities", List.of("target_folder")),
+                                Map.entry("clarification", Map.of(
+                                        "reason", "target_folder",
+                                        "question", "你想把文件上传到哪个文件夹？",
+                                        "suggestions", List.of("上传到根目录")
+                                ))
+                        ))
+                )
+        ));
+
+        IntentRecognitionResponse response = new IntentRecognitionService(modelClient, intentRouter, configLoader)
+                .recognize("在项目资料目录下新建名为归档的文件夹，然后把我选择的文件上传到里面");
+
+        assertThat(response.intentId()).isEqualTo("folder_create_then_upload");
+        assertThat(response.entities())
+                .containsEntry("target_folder", "项目资料")
+                .containsEntry("new_folder_name", "归档");
+        assertThat(response.semanticFrame().operation()).isEqualTo("UPLOAD");
+        assertThat(response.semanticFrame().scope().type()).isEqualTo("NAMED_FOLDER");
+        assertThat(response.semanticFrame().needsClarification()).isFalse();
+        assertThat(response.actionDraft().type()).isEqualTo("composite.create_folder_then_upload");
+        assertThat(response.nextAction()).isEqualTo("wait_for_backend_binding");
     }
 
     @SuppressWarnings("unchecked")

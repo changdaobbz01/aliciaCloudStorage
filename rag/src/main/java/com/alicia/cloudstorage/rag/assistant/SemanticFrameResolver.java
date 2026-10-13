@@ -91,7 +91,45 @@ public class SemanticFrameResolver {
         rawFrame = applyMessageSemantics(message, rawFrame, conversation);
         rawFrame = reconcileMutationTarget(rawFrame, response, message);
         rawFrame = applyOperationArguments(message, rawFrame, response);
+        rawFrame = alignCompletedStructuredIntent(rawFrame, response);
         return normalizeResolvableSlotClarification(validate(rawFrame, response, clientContext));
+    }
+
+    private SemanticFrame alignCompletedStructuredIntent(
+            SemanticFrame frame,
+            IntentRecognitionResponse response
+    ) {
+        if (frame == null || response == null) {
+            return frame;
+        }
+        if (response.intentId() != null && response.intentId().startsWith("assistant_")) {
+            return copyFrame(
+                    frame,
+                    frame.relation(),
+                    "RESPOND",
+                    SemanticFrame.Query.empty(),
+                    SemanticFrame.Scope.empty(),
+                    frame.reference(),
+                    List.of(),
+                    SemanticFrame.Clarification.empty()
+            );
+        }
+        if (!"folder_create_then_upload".equals(response.intentId())
+                || response.entities() == null
+                || text(response.entities().get("target_folder")).isBlank()
+                || text(response.entities().get("new_folder_name")).isBlank()) {
+            return frame;
+        }
+        return copyFrame(
+                frame,
+                frame.relation(),
+                "UPLOAD",
+                SemanticFrame.Query.empty(),
+                scopeFromResponse(response),
+                frame.reference(),
+                List.of(),
+                SemanticFrame.Clarification.empty()
+        );
     }
 
     private SemanticFrame normalizeResolvableSlotClarification(SemanticFrame frame) {
