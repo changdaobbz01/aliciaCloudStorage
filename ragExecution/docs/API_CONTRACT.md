@@ -10,6 +10,7 @@
 
 ```text
 POST /internal/executions
+POST /internal/executions/recovery
 ```
 
 端点只有在以下两个执行服务开关同时为 `true` 时存在，否则返回 `404`：
@@ -36,14 +37,16 @@ ALICIA_RAG_EXECUTION_SHADOW_REGISTRATION_ENABLED
 
 回退时先关闭 RAG 影子登记，再关闭执行服务登记开关。影子登记失败本身不会改变现有 RAG 对话响应。
 
-## 3. 双层身份校验
+## 3. 身份校验边界
 
-每个请求必须同时通过：
+计划登记请求必须同时通过：
 
 - 服务身份：HMAC-SHA256 请求签名。
 - 用户身份：原始 `Authorization` 请求头由执行服务独立调用 Identity `/api/identity/auth/me` 校验，并以 Identity 返回的用户 ID 作为任务所有者。
 
 执行服务不得持久化 Access Token 或 Refresh Token。RAG 自报的用户 ID 不属于登记契约，执行服务也不接受它作为所有权依据。
+
+恢复请求只在登记请求出现网络结果不明确时由 RAG 发起。它必须通过相同的 HMAC 服务身份、时间窗和持久化 nonce 防重放校验，但不再次发送或校验用户 Token；恢复操作只按全局唯一 `planId` 查询，并要求原始 64 位 `planHash` 完全一致，只返回已有任务的只读引用，不创建、确认、取消或执行任务。`planId` 由 RAG 以服务端 response UUID 生成，Flyway V5 通过数据库唯一约束防止跨用户碰撞。
 
 ## 4. 服务签名
 
@@ -61,7 +64,7 @@ X-Alicia-Signature: <lowercase HMAC-SHA256>
 
 ```text
 POST
-/internal/executions
+<精确请求路径：/internal/executions 或 /internal/executions/recovery>
 rag
 <timestamp>
 <nonce>
@@ -133,7 +136,7 @@ steps[stepKey, actionType, payloadSchemaVersion, payload, dependsOn, outputKey, 
 
 canonical JSON 规则：对象键递归按字典序排序，数组顺序保持不变，使用 UTF-8 紧凑 JSON。`sourceResponseId`、`conversationId` 和 `expiresAt` 不进入 hash。
 
-登记幂等边界是 Identity 用户、`planId` 与 `planHash`。相同用户、计划和 hash 的重复登记返回同一任务；相同计划 ID 但内容 hash 不同必须拒绝，不能覆盖已登记任务。
+`planId` 在执行库中全局唯一；登记的业务幂等校验仍同时绑定 Identity 用户、`planId` 与 `planHash`。相同用户、计划和 hash 的重复登记返回同一任务；相同计划 ID 但内容 hash 不同必须拒绝，不能覆盖已登记任务。
 
 ## 7. 成功响应
 
@@ -148,6 +151,14 @@ canonical JSON 规则：对象键递归按字典序排序，数组顺序保持�
 
 RAG 仅把以上四个字段作为只读 `executionReference` 附加到同步或 SSE 最终计划响应。Android 阶段 5 客户端使用其中的 `executionId` 与 `version` 调用公开确认和查询接口；生产 BuildConfig 开关默认关闭。
 
+若登记 HTTP 请求因连接读取超时等原因无法判断服务端是否已提交，RAG 不重新生成计划或再次登记，而是在默认 20 秒的有界窗口内每 500 毫秒调用：
+
+```text
+POST /internal/executions/recovery
+```
+
+请求体仅包含原始 `planId` 与 `planHash`，响应与登记成功响应相同。未找到返回 `404 execution_registration_not_found`，hash 不一致返回 `409 plan_hash_conflict`。窗口结束仍未恢复时，RAG 保持原对话响应但不附加 `executionReference`；恢复等待可被请求取消或线程中断立即终止。超时和轮询间隔分别由 `ALICIA_RAG_EXECUTION_RECOVERY_TIMEOUT` 与 `ALICIA_RAG_EXECUTION_RECOVERY_POLL_INTERVAL` 配置，必须为正数且轮询间隔不得大于恢复超时。
+
 Android 客户端约束：
 
 - 确认只发送路径中的 `executionId` 和正文 `expectedVersion`，不发送 ActionPlan、method、path 或业务 body。
@@ -161,7 +172,7 @@ Android 客户端约束：
 ## 8. 错误与日志约束
 
 - `401`：服务签名无效、过期、正文摘要不匹配或 nonce 重放。
-- `404`：登记功能未启用。
+- `404`：登记功能未启用，或恢复目标尚未提交/不存在。
 - `409`：同一用户的 `planId` 已存在但计划内容 hash 不同，或并发登记冲突。
 - `413`：计划超过大小限制。
 - `422`：计划版本、hash、动作、载荷、到期时间或字段不合法。

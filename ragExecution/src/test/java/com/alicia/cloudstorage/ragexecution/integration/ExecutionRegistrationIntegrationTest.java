@@ -3,6 +3,7 @@ package com.alicia.cloudstorage.ragexecution.integration;
 import com.alicia.cloudstorage.ragexecution.api.internal.RegisterExecutionRequest;
 import com.alicia.cloudstorage.ragexecution.api.internal.RegisterExecutionResponse;
 import com.alicia.cloudstorage.ragexecution.api.internal.RegisterExecutionStepRequest;
+import com.alicia.cloudstorage.ragexecution.api.internal.RecoverExecutionRequest;
 import com.alicia.cloudstorage.ragexecution.application.CanonicalJsonHasher;
 import com.alicia.cloudstorage.ragexecution.application.InternalExecutionRegistrationService;
 import com.alicia.cloudstorage.ragexecution.application.PlanRegistrationException;
@@ -75,6 +76,43 @@ class ExecutionRegistrationIntegrationTest {
         assertThat(eventRepository.findByExecutionIdAndSequenceNoGreaterThanOrderBySequenceNoAsc(
                 first.executionId(), 0
         )).hasSize(1);
+    }
+
+    @Test
+    void recoversAnExistingRegistrationByItsGloballyUniquePlanIdentity() {
+        when(identityAccessVerifier.requireRagAccess("Bearer test"))
+                .thenReturn(new IdentityAccessVerifier.IdentityPrincipal(42L, "RAG_USER"));
+        RegisterExecutionRequest request = request();
+        RegisterExecutionResponse registered = service.register(request, "Bearer test");
+
+        RegisterExecutionResponse recovered = service.recover(new RecoverExecutionRequest(
+                request.planId(),
+                request.planHash()
+        ));
+
+        assertThat(recovered).isEqualTo(registered);
+        assertThat(executionRepository.count()).isEqualTo(1L);
+    }
+
+    @Test
+    void recoveryRejectsUnknownPlansAndHashMismatches() {
+        when(identityAccessVerifier.requireRagAccess("Bearer test"))
+                .thenReturn(new IdentityAccessVerifier.IdentityPrincipal(42L, "RAG_USER"));
+        RegisterExecutionRequest request = request();
+        service.register(request, "Bearer test");
+
+        assertThatThrownBy(() -> service.recover(new RecoverExecutionRequest(
+                "missing-plan",
+                request.planHash()
+        )))
+                .isInstanceOf(PlanRegistrationException.class)
+                .satisfies(error -> assertThat(((PlanRegistrationException) error).statusCode()).isEqualTo(404));
+        assertThatThrownBy(() -> service.recover(new RecoverExecutionRequest(
+                request.planId(),
+                "0".repeat(64)
+        )))
+                .isInstanceOf(PlanRegistrationException.class)
+                .hasMessageContaining("plan_hash_conflict");
     }
 
     @Test

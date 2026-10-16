@@ -79,14 +79,14 @@ bash deploy/scripts/update-rag-execution-production.sh \
 ### foundation
 
 - `/rag-execution/api/health` 与依赖健康均为 `200/ok`。
-- 数据库迁移达到 V4。
+- 数据库迁移达到 V5，且 `plan_id` 全局唯一约束已生效。
 - 六个服务端执行开关全部符合 foundation 配置。
 - 公网 `/rag-execution/internal/**` 和 `/internal/rag-execution/**` 均为 404。
 - 容器健康，重启次数为 0；Cloud、RAG、Identity 原有业务无回归。
 
 ### shadow
 
-- RAG 计划响应保持原有语义；登记失败不得影响响应。
+- RAG 计划响应保持原有语义；确定失败不得影响响应，网络结果不明确时只能在有界窗口内恢复原任务引用，不得重新规划或重复登记。
 - 新登记任务只处于 `PENDING_CONFIRMATION`，不会进入队列或产生 Cloud 动作回执。
 - 过期维护与 Worker 独立运行；即使 Worker 关闭，超过确认期限的影子任务也必须转为 `EXPIRED`，且不得产生 Cloud 动作回执。
 - 登记成功率、重复计划幂等、过期清理和数据库增长符合预期。

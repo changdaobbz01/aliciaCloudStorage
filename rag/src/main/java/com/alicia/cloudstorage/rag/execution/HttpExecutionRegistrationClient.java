@@ -5,6 +5,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 
 import javax.crypto.Mac;
@@ -19,6 +21,7 @@ import java.util.UUID;
 public class HttpExecutionRegistrationClient implements ExecutionRegistrationClient {
 
     private static final String PATH = "/internal/executions";
+    private static final String RECOVERY_PATH = "/internal/executions/recovery";
     private static final String CALLER = "rag";
 
     private final RagExecutionRegistrationProperties properties;
@@ -49,14 +52,35 @@ public class HttpExecutionRegistrationClient implements ExecutionRegistrationCli
             String authorizationHeader
     ) {
         try {
+            return signedPost(PATH, request, authorizationHeader);
+        } catch (ResourceAccessException exception) {
+            throw new ExecutionRegistrationUncertainException(exception);
+        }
+    }
+
+    @Override
+    public ExecutionRegistrationResponse recover(ExecutionRegistrationRecoveryRequest request) {
+        try {
+            return signedPost(RECOVERY_PATH, request, "");
+        } catch (HttpClientErrorException.NotFound exception) {
+            return null;
+        }
+    }
+
+    private ExecutionRegistrationResponse signedPost(
+            String path,
+            Object request,
+            String authorizationHeader
+    ) {
+        try {
             byte[] body = objectMapper.writeValueAsBytes(request);
             String timestamp = Long.toString(clock.instant().getEpochSecond());
             String nonce = UUID.randomUUID().toString();
             String bodyHash = sha256(body);
-            String canonical = String.join("\n", "POST", PATH, CALLER, timestamp, nonce, bodyHash);
+            String canonical = String.join("\n", "POST", path, CALLER, timestamp, nonce, bodyHash);
             String signature = hmac(properties.serviceSecret(), canonical);
             return restClient.post()
-                    .uri(PATH)
+                    .uri(path)
                     .contentType(MediaType.APPLICATION_JSON)
                     .accept(MediaType.APPLICATION_JSON)
                     .header(HttpHeaders.AUTHORIZATION, authorizationHeader == null ? "" : authorizationHeader)

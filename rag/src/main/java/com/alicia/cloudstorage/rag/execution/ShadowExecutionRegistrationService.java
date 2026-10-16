@@ -19,6 +19,8 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.TimeUnit;
 
 @Service
 public class ShadowExecutionRegistrationService implements ShadowExecutionRegistrar {
@@ -93,16 +95,23 @@ public class ShadowExecutionRegistrationService implements ShadowExecutionRegist
                     draft.steps(),
                     draft.expiresAt()
             );
-            ExecutionRegistrationResponse registered = client.register(request, authorizationHeader);
-            if (registered == null || registered.executionId() == null || registered.executionId().isBlank()) {
-                throw new IllegalStateException("Execution registration returned no reference.");
+            ExecutionRegistrationResponse registered;
+            try {
+                registered = client.register(request, authorizationHeader);
+            } catch (ExecutionRegistrationUncertainException uncertain) {
+                registered = recoverUncertainRegistration(request);
+                if (registered == null) {
+                    throw uncertain;
+                }
+                log.info(
+                        "Recovered uncertain RAG execution registration: responseId={}, planId={}",
+                        safeId(response.id()),
+                        safeId(plan.planId())
+                );
             }
-            return response.withExecutionReference(new ExecutionReference(
-                    registered.executionId(),
-                    registered.status(),
-                    registered.version(),
-                    registered.expiresAt()
-            ));
+            return response.withExecutionReference(toReference(registered));
+        } catch (CancellationException exception) {
+            throw exception;
         } catch (RuntimeException exception) {
             log.warn(
                     "RAG execution shadow registration failed: responseId={}, planId={}, category={}",
@@ -112,6 +121,59 @@ public class ShadowExecutionRegistrationService implements ShadowExecutionRegist
             );
             return response;
         }
+    }
+
+    private ExecutionRegistrationResponse recoverUncertainRegistration(ExecutionRegistrationRequest request) {
+        ExecutionRegistrationRecoveryRequest recovery = new ExecutionRegistrationRecoveryRequest(
+                request.planId(),
+                request.planHash()
+        );
+        long timeoutNanos = properties.recoveryTimeout().toNanos();
+        long pollNanos = properties.recoveryPollInterval().toNanos();
+        long started = System.nanoTime();
+        do {
+            if (Thread.currentThread().isInterrupted()) {
+                throw new CancellationException("Execution registration recovery was interrupted.");
+            }
+            try {
+                ExecutionRegistrationResponse recovered = client.recover(recovery);
+                if (recovered != null) {
+                    return recovered;
+                }
+            } catch (CancellationException exception) {
+                throw exception;
+            } catch (RuntimeException ignored) {
+                // A recovery probe is read-only and may be retried until the bounded deadline.
+            }
+
+            long elapsed = System.nanoTime() - started;
+            long remaining = timeoutNanos - elapsed;
+            if (remaining <= 0L) {
+                return null;
+            }
+            sleepRecovery(Math.min(pollNanos, remaining));
+        } while (true);
+    }
+
+    private void sleepRecovery(long nanos) {
+        try {
+            TimeUnit.NANOSECONDS.sleep(nanos);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new CancellationException("Execution registration recovery was interrupted.");
+        }
+    }
+
+    private ExecutionReference toReference(ExecutionRegistrationResponse registered) {
+        if (registered == null || registered.executionId() == null || registered.executionId().isBlank()) {
+            throw new IllegalStateException("Execution registration returned no reference.");
+        }
+        return new ExecutionReference(
+                registered.executionId(),
+                registered.status(),
+                registered.version(),
+                registered.expiresAt()
+        );
     }
 
     private boolean eligible(IntentRecognitionResponse response) {

@@ -17,6 +17,7 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -34,6 +35,8 @@ class ShadowExecutionRegistrationServiceTest {
             SECRET,
             Duration.ofSeconds(2),
             Duration.ofSeconds(5),
+            Duration.ofMillis(200),
+            Duration.ofMillis(5),
             Duration.ofMinutes(10)
     );
 
@@ -78,6 +81,44 @@ class ShadowExecutionRegistrationServiceTest {
 
         assertThat(result).isSameAs(original);
         assertThat(result.executionReference()).isNull();
+    }
+
+    @Test
+    void uncertainRegistrationRecoversTheDurableReferenceWithoutReplanning() {
+        AtomicInteger recoveryAttempts = new AtomicInteger();
+        Instant expiresAt = NOW.plusSeconds(600);
+        ExecutionRegistrationClient client = new ExecutionRegistrationClient() {
+            @Override
+            public ExecutionRegistrationResponse register(
+                    ExecutionRegistrationRequest request,
+                    String authorizationHeader
+            ) {
+                throw new ExecutionRegistrationUncertainException(new java.net.SocketTimeoutException("timeout"));
+            }
+
+            @Override
+            public ExecutionRegistrationResponse recover(ExecutionRegistrationRecoveryRequest request) {
+                assertThat(request.planId()).isEqualTo("ap_response-1");
+                assertThat(request.planHash()).matches("[0-9a-f]{64}");
+                if (recoveryAttempts.incrementAndGet() < 3) {
+                    return null;
+                }
+                return new ExecutionRegistrationResponse(
+                        "00000000-0000-0000-0000-000000000045",
+                        "PENDING_CONFIRMATION",
+                        0,
+                        expiresAt
+                );
+            }
+        };
+
+        IntentRecognitionResponse result = service(client)
+                .registerIfEligible(response(), "Bearer user");
+
+        assertThat(result.executionReference()).isNotNull();
+        assertThat(result.executionReference().executionId())
+                .isEqualTo("00000000-0000-0000-0000-000000000045");
+        assertThat(recoveryAttempts).hasValue(3);
     }
 
     @Test

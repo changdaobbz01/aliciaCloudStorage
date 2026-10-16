@@ -2,6 +2,7 @@ package com.alicia.cloudstorage.ragexecution.application;
 
 import com.alicia.cloudstorage.ragexecution.api.internal.RegisterExecutionRequest;
 import com.alicia.cloudstorage.ragexecution.api.internal.RegisterExecutionResponse;
+import com.alicia.cloudstorage.ragexecution.api.internal.RecoverExecutionRequest;
 import com.alicia.cloudstorage.ragexecution.infrastructure.persistence.ExecutionJpaEntity;
 import com.alicia.cloudstorage.ragexecution.infrastructure.persistence.ExecutionJpaRepository;
 import com.alicia.cloudstorage.ragexecution.port.ExecutionClock;
@@ -50,6 +51,25 @@ public class InternalExecutionRegistrationService {
             }
             throw new PlanRegistrationException(409, "plan_registration_conflict");
         }
+    }
+
+    public RegisterExecutionResponse recover(RecoverExecutionRequest request) {
+        if (request == null
+                || request.planId() == null
+                || request.planId().isBlank()
+                || request.planId().length() > 128) {
+            throw new PlanRegistrationException(422, "invalid_plan_id");
+        }
+        String planHash = request.planHash() == null ? "" : request.planHash().trim().toLowerCase();
+        if (!planHash.matches("[0-9a-f]{64}")) {
+            throw new PlanRegistrationException(422, "invalid_plan_hash");
+        }
+        ExecutionJpaEntity existing = executionRepository.findByPlanId(request.planId().trim())
+                .orElseThrow(() -> new PlanRegistrationException(404, "execution_registration_not_found"));
+        if (!existing.getPlanHash().equals(planHash)) {
+            throw new PlanRegistrationException(409, "plan_hash_conflict");
+        }
+        return response(existing);
     }
 
     private ExecutionJpaEntity findExisting(long ownerUserId, RegisterExecutionRequest request) {

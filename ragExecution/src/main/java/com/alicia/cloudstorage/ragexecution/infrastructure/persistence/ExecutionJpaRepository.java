@@ -16,6 +16,8 @@ public interface ExecutionJpaRepository extends JpaRepository<ExecutionJpaEntity
 
     Optional<ExecutionJpaEntity> findByOwnerUserIdAndPlanId(Long ownerUserId, String planId);
 
+    Optional<ExecutionJpaEntity> findByPlanId(String planId);
+
     Optional<ExecutionJpaEntity> findByIdAndOwnerUserId(String id, Long ownerUserId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)

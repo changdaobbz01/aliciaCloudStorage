@@ -161,6 +161,7 @@ rag_execution_ok "required runtime dependencies are healthy"
 curl_json "${PUBLIC_BASE_URL%/}/api/health" "$public_health"
 expect_json_status "$public_health" ok
 expect_http_404 "${PUBLIC_BASE_URL%/}/internal/registration"
+expect_http_404 "${PUBLIC_BASE_URL%/}/internal/executions/recovery"
 public_origin="$(printf '%s' "$PUBLIC_BASE_URL" | sed -E 's#^([a-zA-Z][a-zA-Z0-9+.-]*://[^/]+).*#\1#')"
 expect_http_404 "$public_origin/internal/rag-execution/actions"
 rag_execution_ok "public health is reachable and both internal route families are blocked"

@@ -14,6 +14,8 @@ public class RagExecutionRegistrationProperties {
     private final String serviceSecret;
     private final Duration connectTimeout;
     private final Duration readTimeout;
+    private final Duration recoveryTimeout;
+    private final Duration recoveryPollInterval;
     private final Duration confirmationTtl;
 
     public RagExecutionRegistrationProperties(
@@ -22,6 +24,8 @@ public class RagExecutionRegistrationProperties {
             @Value("${alicia.rag.execution-registration.service-secret:}") String serviceSecret,
             @Value("${alicia.rag.execution-registration.connect-timeout:2s}") Duration connectTimeout,
             @Value("${alicia.rag.execution-registration.read-timeout:5s}") Duration readTimeout,
+            @Value("${alicia.rag.execution-registration.recovery-timeout:20s}") Duration recoveryTimeout,
+            @Value("${alicia.rag.execution-registration.recovery-poll-interval:500ms}") Duration recoveryPollInterval,
             @Value("${alicia.rag.execution-registration.confirmation-ttl:10m}") Duration confirmationTtl
     ) {
         this.enabled = enabled;
@@ -29,7 +33,12 @@ public class RagExecutionRegistrationProperties {
         this.serviceSecret = serviceSecret == null ? "" : serviceSecret.trim();
         this.connectTimeout = positive(connectTimeout, "connectTimeout");
         this.readTimeout = positive(readTimeout, "readTimeout");
+        this.recoveryTimeout = positive(recoveryTimeout, "recoveryTimeout");
+        this.recoveryPollInterval = positive(recoveryPollInterval, "recoveryPollInterval");
         this.confirmationTtl = positive(confirmationTtl, "confirmationTtl");
+        if (this.recoveryPollInterval.compareTo(this.recoveryTimeout) > 0) {
+            throw new IllegalArgumentException("recoveryPollInterval must not exceed recoveryTimeout.");
+        }
         if (enabled && this.serviceSecret.length() < 32) {
             throw new IllegalStateException("RAG shadow registration requires a dedicated service secret of at least 32 characters.");
         }
@@ -53,6 +62,14 @@ public class RagExecutionRegistrationProperties {
 
     public Duration readTimeout() {
         return readTimeout;
+    }
+
+    public Duration recoveryTimeout() {
+        return recoveryTimeout;
+    }
+
+    public Duration recoveryPollInterval() {
+        return recoveryPollInterval;
     }
 
     public Duration confirmationTtl() {

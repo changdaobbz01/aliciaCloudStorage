@@ -25,7 +25,7 @@ class FlywayMigrationTest {
                 .locations("classpath:db/migration")
                 .load();
 
-        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(4);
+        assertThat(flyway.migrate().migrationsExecuted).isEqualTo(5);
         assertThat(flyway.migrate().migrationsExecuted).isZero();
 
         try (Connection connection = DriverManager.getConnection(url, "sa", "");
@@ -54,6 +54,14 @@ class FlywayMigrationTest {
                     FROM information_schema.table_constraints
                     WHERE table_name = 'rag_execution_step'
                       AND constraint_name = 'uk_rag_execution_step_key'
+                    """)) {
+                assertThat(constraints.next()).isTrue();
+            }
+            try (ResultSet constraints = statement.executeQuery("""
+                    SELECT constraint_name
+                    FROM information_schema.table_constraints
+                    WHERE table_name = 'rag_execution'
+                      AND constraint_name = 'uk_rag_execution_plan_id'
                     """)) {
                 assertThat(constraints.next()).isTrue();
             }

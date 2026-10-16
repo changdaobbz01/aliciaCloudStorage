@@ -33,10 +33,10 @@ CloudStorageApi 仍是文件、目录和分享业务的唯一执行所有者；`
 当前已建立：
 
 - 独立 Spring Boot 模块、Docker 镜像和 `127.0.0.1:8094` 回环入口。
-- 独立 `alicia_rag_execution` 数据库、最小权限账号，以及 Flyway V1-V4 执行、nonce、计划不可变和组合步骤元数据迁移。
+- 独立 `alicia_rag_execution` 数据库、最小权限账号，以及 Flyway V1-V5 执行、nonce、计划不可变、组合步骤元数据和全局计划 ID 唯一性迁移。
 - 集中状态机、JPA 乐观锁、数据库任务租约基础和重启持久性验证。
 - 单节点、批量和客户端上传复核均使用类型化载荷，不接受任意 URL、HTTP 方法或无边界 Map。
-- RAG 到执行服务的 HMAC-SHA256 内部登记、持久化防重放、Identity 独立验权与计划幂等。
+- RAG 到执行服务的 HMAC-SHA256 内部登记、持久化防重放、Identity 独立验权与计划幂等；登记响应超时后可按全局唯一的 `planId + planHash` 只读恢复原任务引用，不会重新规划或创建重复任务。
 - RAG 同步与 SSE 计划响应可返回只读 `executionReference`；登记失败保持原响应不变。
 - CloudStorageApi 固定内部动作入口、独立 HMAC 密钥、持久化 nonce、严格类型化载荷、资源所有权/状态/版本校验和事务内幂等回执。
 - 同一 `stepId` 的精确重试和并发重复只执行一次；相同 step 内容变化稳定拒绝，公网 Nginx 显式屏蔽内部路径。

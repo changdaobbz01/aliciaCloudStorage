@@ -36,6 +36,10 @@ import java.util.UUID;
                 @UniqueConstraint(
                         name = "uk_rag_execution_owner_plan_id",
                         columnNames = {"owner_user_id", "plan_id"}
+                ),
+                @UniqueConstraint(
+                        name = "uk_rag_execution_plan_id",
+                        columnNames = {"plan_id"}
                 )
         },
         indexes = {

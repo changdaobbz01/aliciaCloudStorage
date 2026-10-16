@@ -91,6 +91,60 @@ class InternalExecutionRegistrationControllerTest {
                 .andExpect(jsonPath("$.error").value("replayed_service_signature"));
     }
 
+    @Test
+    void recoversACommittedRegistrationThroughTheSignedInternalRoute() throws Exception {
+        when(identityAccessVerifier.requireRagAccess(anyString()))
+                .thenReturn(new IdentityAccessVerifier.IdentityPrincipal(42L, "RAG_USER"));
+        RegisterExecutionRequest registration = request();
+        byte[] registrationBody = objectMapper.writeValueAsBytes(registration);
+        SignedHeaders registrationHeaders = sign(
+                "/internal/executions",
+                "nonce-register-recovery-123456",
+                registrationBody
+        );
+        mockMvc.perform(post("/internal/executions")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer test")
+                        .header(ServiceRequestAuthenticator.CALLER_HEADER, "rag")
+                        .header(ServiceRequestAuthenticator.TIMESTAMP_HEADER, registrationHeaders.timestamp())
+                        .header(ServiceRequestAuthenticator.NONCE_HEADER, registrationHeaders.nonce())
+                        .header(ServiceRequestAuthenticator.BODY_SHA256_HEADER, registrationHeaders.bodyHash())
+                        .header(ServiceRequestAuthenticator.SIGNATURE_HEADER, registrationHeaders.signature())
+                        .content(registrationBody))
+                .andExpect(status().isOk());
+
+        byte[] recoveryBody = objectMapper.writeValueAsBytes(new RecoverExecutionRequest(
+                registration.planId(),
+                registration.planHash()
+        ));
+        SignedHeaders recoveryHeaders = sign(
+                "/internal/executions/recovery",
+                "nonce-recover-reference-123456",
+                recoveryBody
+        );
+        mockMvc.perform(post("/internal/executions/recovery")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header(ServiceRequestAuthenticator.CALLER_HEADER, "rag")
+                        .header(ServiceRequestAuthenticator.TIMESTAMP_HEADER, recoveryHeaders.timestamp())
+                        .header(ServiceRequestAuthenticator.NONCE_HEADER, recoveryHeaders.nonce())
+                        .header(ServiceRequestAuthenticator.BODY_SHA256_HEADER, recoveryHeaders.bodyHash())
+                        .header(ServiceRequestAuthenticator.SIGNATURE_HEADER, recoveryHeaders.signature())
+                        .content(recoveryBody))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("PENDING_CONFIRMATION"))
+                .andExpect(jsonPath("$.version").value(0));
+    }
+
+    private SignedHeaders sign(String path, String nonce, byte[] body) {
+        String timestamp = Long.toString(Instant.now().getEpochSecond());
+        String bodyHash = ServiceRequestAuthenticator.sha256Hex(body);
+        String signature = ServiceRequestAuthenticator.hmacSha256Hex(
+                SECRET,
+                ServiceRequestAuthenticator.canonical("POST", path, "rag", timestamp, nonce, bodyHash)
+        );
+        return new SignedHeaders(timestamp, nonce, bodyHash, signature);
+    }
+
     private RegisterExecutionRequest request() {
         ObjectNode payload = objectMapper.createObjectNode();
         payload.put("nodeId", 42L);
@@ -108,5 +162,13 @@ class InternalExecutionRegistrationControllerTest {
                 draft.intentId(), draft.planId(), hasher.planHash(draft), draft.risk(), draft.summary(),
                 draft.steps(), draft.expiresAt()
         );
+    }
+
+    private record SignedHeaders(
+            String timestamp,
+            String nonce,
+            String bodyHash,
+            String signature
+    ) {
     }
 }

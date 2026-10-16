@@ -6,4 +6,8 @@ public interface ExecutionRegistrationClient {
             ExecutionRegistrationRequest request,
             String authorizationHeader
     );
+
+    default ExecutionRegistrationResponse recover(ExecutionRegistrationRecoveryRequest request) {
+        return null;
+    }
 }

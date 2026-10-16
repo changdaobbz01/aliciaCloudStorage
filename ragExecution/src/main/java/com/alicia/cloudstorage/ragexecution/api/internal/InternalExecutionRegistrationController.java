@@ -34,4 +34,12 @@ public class InternalExecutionRegistrationController {
         }
         return registrationService.register(request, authorizationHeader);
     }
+
+    @PostMapping("/internal/executions/recovery")
+    public RegisterExecutionResponse recover(@RequestBody RecoverExecutionRequest request) {
+        if (!features.enabled() || !features.registrationEnabled()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        }
+        return registrationService.recover(request);
+    }
 }

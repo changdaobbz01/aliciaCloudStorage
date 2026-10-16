@@ -12,11 +12,15 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Set;
 
 @Component
 public class InternalServiceAuthenticationFilter extends OncePerRequestFilter {
 
-    private static final String REGISTRATION_PATH = "/internal/executions";
+    private static final Set<String> INTERNAL_PATHS = Set.of(
+            "/internal/executions",
+            "/internal/executions/recovery"
+    );
 
     private final RagExecutionFeatureProperties features;
     private final RagExecutionLimitsProperties limits;
@@ -34,7 +38,7 @@ public class InternalServiceAuthenticationFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        return !REGISTRATION_PATH.equals(request.getRequestURI())
+        return !INTERNAL_PATHS.contains(request.getRequestURI())
                 || !features.enabled()
                 || !features.registrationEnabled();
     }
