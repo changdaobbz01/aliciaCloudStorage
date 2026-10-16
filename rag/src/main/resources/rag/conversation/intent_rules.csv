@@ -1,4 +1,5 @@
 intent_id,enabled,priority,confidence,required_groups,excluded_keywords,reason,required_patterns,excluded_patterns
+file_search,true,154,0.99,找|查找|搜索|检索;名字|名称|文件名;包含|含有|含|带有|带,,识别为带引用内容的显式文件名查询,"(?:找|查找|搜索|检索).*?(?:名字|名称|文件名).*?(?:包含|含有|含|带有|带).*?[“\x22'‘][^”\x22'’]+[”\x22'’]",
 assistant_file_context_question,true,153,0.96,它|这个|那个|刚才那个|刚才的|第一个|第二个|上一个;格式|类型|多大|大小|路径|在哪|位置|什么时候|更新时间|名称|名字,,识别为上一轮文件候选的上下文追问,"^(?:请问|麻烦(?:帮我)?|帮我(?:看看|看下|查下|查一下)?)?(?:它|这个|那个|刚才那个|刚才的|第一个|第二个|上一个)(?:文件|文件夹|目录)?(?:的)?",
 assistant_capability_examples,true,152,0.97,删除|移动|上传|传到|传文件|导入|重命名|改名|归档|分类|前缀|同名文件|文件夹,,识别为文件操作能力或规则咨询,"(?:怎么|如何|支持|会不会|有什么区别|能按.*(?:类型|条件).*吗|只给选中|按条件筛选|移动前|移动时|上传时|指定目录吗)","(?:/云盘/|[A-Za-z]:[/\\]).*(?:改名为|重命名为|删除|删掉|移动到|移到|上传到|传到|导入)"
 assistant_capability_examples,true,151,0.96,能力|功能|帮助|能做什么|可以做什么|帮我做什么;详细|展开|具体|说说|讲讲|介绍|举例|例子|示例|能力项|能力列表|能力举例|具体能做什么|具体可以做什么,,识别为安安能力举例咨询
@@ -16,7 +17,7 @@ assistant_acknowledgement,true,140,0.93,好的|好吧|了解了|明白了|知道
 assistant_social,true,146,0.93,你好|您好|漂亮|好看|可爱|温柔|喜欢你|谢谢|辛苦|真棒|厉害,文件|文档|目录|文件夹|删除|移动|上传|分享|重命名|改名|执行|确认|搜索|查找,识别为安安社交回应
 folder_create_then_upload,true,130,0.95,新建|创建|建立|建一个|建个|mkdir|create;上传|传到|放到|传文件|upload,,识别为新建文件夹后上传组合需求,"(?=.*(?:新建|创建|建立|建一个|建个|mkdir|create))(?=.*(?:(?:并|再|然后|后|接着|完).*?(?:上传|传到|放到|传文件|upload)|(?:上传|传到|放到|传文件|upload).*?(?:新建|创建|建立|建一个|建个|mkdir|create))).*",
 folder_create,true,129,0.94,新建|创建|建立|建一个|建个|mkdir|create;文件夹|目录|folder|directory,重命名|改名|改成|改为|换个名字|rename,识别为新建文件夹需求,"^[^/]*(?:新建|创建|建立|建一个|建个|mkdir|create)",
-collection_move_by_extension,true,125,0.93,后缀|扩展名|extension|ext|pdf|docx|doc|xlsx|xls|pptx|ppt|txt|md|png|jpg|jpeg|webp|gif|mp4|mp3|zip|rar|7z;移动|移到|放到|归档到|转移到|放进|移动至|move;文件夹|目录|folder|到|至|进,回收站|上传|导入|本地,识别为按后缀批量移动需求,"(?:后缀|扩展名|extension|ext|所有|全部|批量|都|格式|[A-Za-z0-9]{1,8}\s*(?:文件|文档|资料))",
+collection_move_by_extension,true,125,0.93,后缀|扩展名|extension|ext|pdf|docx|doc|xlsx|xls|pptx|ppt|txt|md|png|jpg|jpeg|webp|gif|mp4|mp3|zip|rar|7z;移动|移到|放到|归档到|转移到|放进|移动至|搬到|挪到|move;文件夹|目录|folder|到|至|进,回收站|上传|导入|本地,识别为按后缀批量移动需求,"(?:后缀|扩展名|extension|ext|所有|全部|批量|都|格式|[A-Za-z0-9]{1,8}\s*(?:文件|文档|资料))",
 collection_move_by_category,true,122,0.92,图片|照片|视频|音频|音乐|文档|表格|压缩包|压缩文件;所有|全部|都|全都|统一|批量|散着的|同类型;移动|移到|放到|归档到|转移到|放进|移动至|move|集中|收纳;文件夹|目录|folder|到|至|进,回收站|删除|删掉|删了|移除|清理,识别为按类型批量移动需求
 collection_move_by_name,true,123,0.92,名字|名称|文件名|name;带有|带|包含|含有|含|中有|里有|里面有|内有|contains;移动|移到|放到|归档到|转移到|移动至|搬到|挪到|move,回收站|删除|删掉|删了|移除|清理,识别为按名称批量移动需求
 collection_rename_add_prefix,true,122,0.91,名字|名称|文件名|name;带有|包含|含有|中有|里有|里面有|内有|contains;重命名|改名|命名|rename|统一|加上|添加|批量添加|加前缀|添加前缀;头部|开头|前缀|prefix,,识别为按名称批量加前缀重命名需求

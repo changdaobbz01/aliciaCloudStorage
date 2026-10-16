@@ -52,7 +52,7 @@ final class PendingSlotResolutionService {
             }
             String structuredValue = cleanSlotValue(stringValue(response.entities().get(slot)));
             if (!structuredValue.isBlank()
-                    && isExplicitSlotFragment(slot, message, response)
+                    && isExplicitSlotFragment(slot, message, response, conversation)
                     && !("target_name".equals(slot) && GENERIC_NODE_NAMES.contains(structuredValue))) {
                 values.put(slot, structuredValue);
             }
@@ -60,7 +60,7 @@ final class PendingSlotResolutionService {
 
         if (values.isEmpty() && conversation.pendingSlots().size() == 1) {
             String slot = conversation.pendingSlots().getFirst();
-            String textualValue = textualValue(slot, message, response);
+            String textualValue = textualValue(slot, message, response, conversation);
             if (!textualValue.isBlank()) {
                 values.put(slot, textualValue);
             }
@@ -83,19 +83,24 @@ final class PendingSlotResolutionService {
         return !response.intentId().equals(conversation.pendingIntentId());
     }
 
-    private String textualValue(String slot, String message, IntentRecognitionResponse response) {
+    private String textualValue(
+            String slot,
+            String message,
+            IntentRecognitionResponse response,
+            AssistantConversationState conversation
+    ) {
         String value = clean(message);
         if (value.isBlank() || value.length() > MAX_SLOT_VALUE_LENGTH || containsControlCharacter(value)) {
             return "";
         }
-        if (!isExplicitSlotFragment(slot, value, response)) {
+        if (!isExplicitSlotFragment(slot, value, response, conversation)) {
             return "";
         }
         return switch (slot) {
-            case "target_name" -> safeStandaloneNodeName(value, response) ? unquote(value) : "";
-            case "new_name" -> renameValue(value, response);
-            case "new_folder_name" -> safeStandaloneNodeName(value, response) ? cleanSlotValue(value) : "";
-            case "target_folder" -> destinationValue(value, response);
+            case "target_name" -> safeStandaloneNodeName(value, response, conversation) ? unquote(value) : "";
+            case "new_name" -> renameValue(value, response, conversation);
+            case "new_folder_name" -> safeStandaloneNodeName(value, response, conversation) ? cleanSlotValue(value) : "";
+            case "target_folder" -> destinationValue(value, response, conversation);
             default -> "";
         };
     }
@@ -103,38 +108,54 @@ final class PendingSlotResolutionService {
     private boolean isExplicitSlotFragment(
             String slot,
             String message,
-            IntentRecognitionResponse response
+            IntentRecognitionResponse response,
+            AssistantConversationState conversation
     ) {
         String value = clean(message);
         return switch (slot) {
-            case "target_name" -> isStandaloneSlotValue(value, response);
+            case "target_name" -> isStandaloneSlotValue(value, response, conversation);
             case "new_name" -> RENAME_VALUE.matcher(value).matches()
-                    || isStandaloneSlotValue(value, response);
-            case "new_folder_name" -> isStandaloneSlotValue(value, response);
+                    || isStandaloneSlotValue(value, response, conversation);
+            case "new_folder_name" -> isStandaloneSlotValue(value, response, conversation);
             case "target_folder" -> DESTINATION_VALUE.matcher(value).matches()
-                    || isStandaloneSlotValue(value, response);
+                    || isStandaloneSlotValue(value, response, conversation);
             default -> false;
         };
     }
 
-    private boolean isStandaloneSlotValue(String value, IntentRecognitionResponse response) {
+    private boolean isStandaloneSlotValue(
+            String value,
+            IntentRecognitionResponse response,
+            AssistantConversationState conversation
+    ) {
         SemanticFrame frame = response.semanticFrame();
         boolean semanticSlotFill = frame != null
                 && List.of("SLOT_FILL", "CORRECTION").contains(frame.relation());
-        return (isGenericUnknownClarification(response) || semanticSlotFill)
+        boolean samePendingIntent = conversation != null
+                && conversation.hasPendingSlots()
+                && response.intentId().equals(conversation.pendingIntentId());
+        return (isGenericUnknownClarification(response) || semanticSlotFill || samePendingIntent)
                 && !OPERATION_COMMAND.matcher(value).find()
                 && !COLLECTION_REFERENCE.matcher(value).find();
     }
 
-    private boolean safeStandaloneNodeName(String value, IntentRecognitionResponse response) {
-        if (!isStandaloneSlotValue(value, response)) {
+    private boolean safeStandaloneNodeName(
+            String value,
+            IntentRecognitionResponse response,
+            AssistantConversationState conversation
+    ) {
+        if (!isStandaloneSlotValue(value, response, conversation)) {
             return false;
         }
         String unquoted = unquote(value);
         return !unquoted.isBlank() && !GENERIC_NODE_NAMES.contains(unquoted.toLowerCase(Locale.ROOT));
     }
 
-    private String renameValue(String value, IntentRecognitionResponse response) {
+    private String renameValue(
+            String value,
+            IntentRecognitionResponse response,
+            AssistantConversationState conversation
+    ) {
         String structured = stringValue(response.entities().get("new_name"));
         if (!structured.isBlank()) {
             return cleanSlotValue(structured);
@@ -143,10 +164,14 @@ final class PendingSlotResolutionService {
         if (matcher.matches()) {
             return cleanSlotValue(matcher.group(1));
         }
-        return safeStandaloneNodeName(value, response) ? cleanSlotValue(value) : "";
+        return safeStandaloneNodeName(value, response, conversation) ? cleanSlotValue(value) : "";
     }
 
-    private String destinationValue(String value, IntentRecognitionResponse response) {
+    private String destinationValue(
+            String value,
+            IntentRecognitionResponse response,
+            AssistantConversationState conversation
+    ) {
         String structured = stringValue(response.entities().get("target_folder"));
         if (!structured.isBlank()) {
             return cleanSlotValue(structured);
@@ -155,7 +180,7 @@ final class PendingSlotResolutionService {
         if (matcher.matches()) {
             return cleanSlotValue(matcher.group(1));
         }
-        return safeStandaloneNodeName(value, response) ? cleanSlotValue(value) : "";
+        return safeStandaloneNodeName(value, response, conversation) ? cleanSlotValue(value) : "";
     }
 
     private boolean isGenericUnknownClarification(IntentRecognitionResponse response) {

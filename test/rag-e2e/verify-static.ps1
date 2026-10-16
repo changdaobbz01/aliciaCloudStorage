@@ -20,8 +20,13 @@ foreach ($script in $scripts) {
 }
 Write-Host "[OK] Parsed $($scripts.Count) PowerShell scripts."
 
-[void](Get-Content -LiteralPath $context.ScenarioFile -Raw -Encoding UTF8 | ConvertFrom-Json)
-Write-Host '[OK] Scenario JSON is valid.'
+foreach ($scenarioFile in @($context.ScenarioFile, $context.StressScenarioFile)) {
+    $scenario = Get-Content -LiteralPath $scenarioFile -Raw -Encoding UTF8 | ConvertFrom-Json
+    if (@($scenario.cases).Count -eq 0) {
+        throw "Scenario suite is empty: $scenarioFile"
+    }
+}
+Write-Host '[OK] Baseline and stress scenario JSON are valid and non-empty.'
 
 $composeText = Get-Content -LiteralPath $context.ComposeFile -Raw
 foreach ($required in @(

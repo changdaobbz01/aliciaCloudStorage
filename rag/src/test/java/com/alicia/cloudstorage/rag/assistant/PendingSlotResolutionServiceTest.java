@@ -46,6 +46,23 @@ class PendingSlotResolutionServiceTest {
     }
 
     @Test
+    void sameIntentModelGuessCannotHideAStandaloneSlotFill() {
+        IntentRecognitionResponse pending = recognitionService.recognize("把文件移动到资料");
+        IntentRecognitionResponse sameIntentGuess = recognitionService.recognize("把合同.pdf移动到资料");
+
+        PendingSlotResolutionService.Resolution resolution = service.resolve(
+                "合同.pdf",
+                conversation(pending),
+                sameIntentGuess
+        );
+
+        assertThat(resolution.resolved()).isTrue();
+        assertThat(resolution.values()).containsEntry("target_name", "合同.pdf");
+        assertThat(resolution.semanticFrame().relation()).isEqualTo("SLOT_FILL");
+        assertThat(resolution.semanticFrame().scope()).isEqualTo(pending.semanticFrame().scope());
+    }
+
+    @Test
     void rejectsNewMutationCommandAndCollectionPhraseAsSlotValue() {
         IntentRecognitionResponse pendingDelete = recognitionService.recognize("删除");
         IntentRecognitionResponse ambiguousDelete = recognitionService.recognize("删除图片");

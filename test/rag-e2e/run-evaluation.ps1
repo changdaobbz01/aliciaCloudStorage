@@ -1,7 +1,9 @@
 [CmdletBinding()]
 param(
     [switch]$ExecuteFolderCreate,
-    [int]$ExecutionTimeoutSeconds = 45
+    [int]$ExecutionTimeoutSeconds = 45,
+    [ValidateSet('baseline', 'stress', 'all')]
+    [string]$Suite = 'baseline'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -110,7 +112,10 @@ function Test-TurnExpectation {
         }
     }
     $noExecutablePlan = [bool](Get-OptionalProperty -Object $Expected -Name 'noExecutablePlan')
-    if ($noExecutablePlan -and ($backendExecutable -or $null -ne $executionReference)) {
+    if ($noExecutablePlan -and (
+            $backendExecutable -or
+            $null -ne $executionReference -or
+            $actionDraftType -notin @('none', 'search'))) {
         Add-ExpectationFailure $failures 'unsafe executable plan was produced'
     }
 
@@ -219,14 +224,25 @@ if ([string]$access.role -ne 'RAG_ADMIN') {
 }
 Write-Host '[OK] Dedicated RAG_ADMIN account authenticated; token is held only in process memory.'
 
-$suite = Get-Content -LiteralPath $context.ScenarioFile -Raw -Encoding UTF8 | ConvertFrom-Json
+$scenarioFiles = switch ($Suite) {
+    'baseline' { @($context.ScenarioFile) }
+    'stress' { @($context.StressScenarioFile) }
+    'all' { @($context.ScenarioFile, $context.StressScenarioFile) }
+}
+$loadedSuites = @(
+    foreach ($scenarioFile in $scenarioFiles) {
+        Get-Content -LiteralPath $scenarioFile -Raw -Encoding UTF8 | ConvertFrom-Json
+    }
+)
+$cases = @($loadedSuites | ForEach-Object { @($_.cases) })
+$suiteVersion = ($loadedSuites.version -join '+')
 $runId = [DateTimeOffset]::UtcNow.ToString('yyyyMMddHHmmss')
 $caseResults = [System.Collections.Generic.List[object]]::new()
 $passedTurns = 0
 $failedTurns = 0
 $executedCount = 0
 
-foreach ($case in $suite.cases) {
+foreach ($case in $cases) {
     $conversationId = $null
     $turnResults = [System.Collections.Generic.List[object]]::new()
     $registeredExecutionIds = [System.Collections.Generic.HashSet[string]]::new(
@@ -404,7 +420,8 @@ if (-not (Test-Path -LiteralPath $context.ResultsDir -PathType Container)) {
 }
 $reportPath = Join-Path $context.ResultsDir "rag-e2e-$runId.json"
 $report = [pscustomobject]@{
-    version       = $suite.version
+    version       = $suiteVersion
+    suite         = $Suite
     runId         = $runId
     startedByMode = if ($ExecuteFolderCreate) { 'recognition-and-safe-local-execution' } else { 'recognition-only' }
     passedTurns   = $passedTurns

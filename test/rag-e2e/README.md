@@ -41,6 +41,15 @@ pwsh -File test/rag-e2e/start-local.ps1
 pwsh -File test/rag-e2e/run-evaluation.ps1
 ```
 
+基线通过后可运行独立的高压套件，或一次串行运行两套场景：
+
+```powershell
+pwsh -File test/rag-e2e/run-evaluation.ps1 -Suite stress
+pwsh -File test/rag-e2e/run-evaluation.ps1 -Suite all
+```
+
+高压套件重点覆盖口语噪声、否定与条件句、引用命令、冲突动作、无上下文确认、多轮撤销和上下文切换。它沿用相同的隔离与清理规则，不会确认或执行任务。
+
 `start-local.ps1` 先使用仓库 Maven Wrapper 在宿主机生成经过相同源码验证的 RAG JAR，再把该产物封装进仅供本地评测的运行时镜像。这样不改变生产 Dockerfile，也避免 Docker 构建器重复下载 Maven 发行包。
 
 当前套件覆盖自然对话与产品问答、能力边界、提示词注入、自然搜索、歧义与非执行话语保护、原子文件操作、上传、文件夹创建、多轮槽位补全、搜索纠正与操作撤销、组合操作，以及自然语言集合批处理。断言不仅检查 `intentId`，还会按场景检查实体、缺失槽位、语义操作、查询模式、作用域、结果类型、确认要求和任务登记状态。每次响应、断言、执行结果与任务清理结果都会写入 Git 忽略的 `results/rag-e2e-<runId>.json`，便于逐项修复和回归对比。

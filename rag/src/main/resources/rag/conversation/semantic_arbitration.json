@@ -16,6 +16,7 @@
     "assistant_product_reason",
     "assistant_product_feedback",
     "assistant_file_context_question",
+    "file_search",
     "file_rename",
     "file_share",
     "file_delete",

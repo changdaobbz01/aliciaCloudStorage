@@ -1,6 +1,6 @@
 # Alicia RAG ActionPlan Design
 
-本文档定义 Alicia 云盘 RAG 助手的会话式行动规划模型。它用于把用户的自然语言请求逐步转换为安全、可审计、可扩展的 `ActionPlan`，再由移动端的本地白名单执行器调用 CloudStorageApi。
+本文档定义 Alicia 云盘 RAG 助手的会话式行动规划模型。它用于把用户的自然语言请求逐步转换为安全、可审计、可扩展的 `ActionPlan`，再登记到 `ragExecution`，由用户确认后通过云端白名单调度 CloudStorageApi。
 
 ## 目标
 
@@ -8,7 +8,7 @@
 - 支持中文、英文和混合表达，但内部枚举保持稳定。
 - 支持多阶段追问、候选确认、冲突确认和最终确认。
 - RAG 服务只负责理解、绑定、规划，不直接执行真实文件变更。
-- 移动端只执行本地 allowlist 中的动作 Handler，不接受 RAG 返回的任意 URL。
+- 移动端只负责确认、取消、状态展示和本地文件输入，不接受或执行 RAG 返回的任意 URL。
 
 ## 边界
 
@@ -24,9 +24,16 @@ RAG 服务负责：
 
 - 展示候选、冲突、集合预览和最终确认。
 - 保管本地文件 URI 等客户端输入。
-- 校验 `ActionPlan` 是否命中本地白名单。
-- 调用已有业务 API。
+- 使用 `executionId + expectedVersion` 确认或取消云端任务。
+- 为 `WAITING_CLIENT_INPUT` 步骤提供经过类型校验的本地文件输入。
 - 展示执行结果并刷新页面状态。
+
+`ragExecution` 负责：
+
+- 保存不可变执行计划并管理确认、取消、过期、排队和终态。
+- 校验用户、计划版本、动作 allowlist 和步骤依赖。
+- 通过固定类型的内部动作协议调度 CloudStorageApi，不接受模型生成的 URL、HTTP 方法或任意请求体。
+- 提供幂等、租约、重试、恢复、审计和状态查询。
 
 CloudStorageApi 负责：
 
@@ -103,7 +110,7 @@ flowchart TD
 - 候选必须包含稳定 ID、名称、类型和完整路径。
 - 用户只说名字时，如果存在多个匹配项，必须进入候选选择。
 - 用户描述路径时，先按路径上下文收窄候选。
-- 执行前移动端必须重新校验节点仍存在、未删除、类型符合预期。
+- 执行前由 `ragExecution` 和 CloudStorageApi 重新校验节点仍存在、未删除、类型符合预期。
 - RAG 输出中不得包含 `ownerId`、`storagePath`、`objectKey`、`cosKey` 等内部敏感字段。
 
 ## 集合动作规则
@@ -124,7 +131,7 @@ flowchart TD
 - `no_candidates`、`missing_filter`、`unsupported_filter`、`storage_api_error`、`preview_incomplete` 会阻断为 `binding_required`。
 - 对现有 CloudStorageApi 不直接支持的筛选，例如后缀筛选，RAG 侧必须标记是否精确；扫描被截断时不得生成可执行批量动作。
 
-预览候选只用于展示和确认，不是最终执行的 `nodeIds`。执行阶段必须重新根据 filter 查询、校验数量和路径，再生成批量删除或移动请求。
+预览候选只用于展示和确认，不是最终执行的 `nodeIds`。执行阶段由云端重新根据 filter 查询、校验数量和路径，再生成批量删除或移动请求。
 
 ## 多语言策略
 
@@ -158,7 +165,7 @@ flowchart TD
 4. 如需批量筛选，添加 collection 模板。
 5. 在策略配置中声明风险、确认等级、冲突处理和限制。
 6. 增加 RAG 配置/规划单测。
-7. 移动端增加或复用 Action Handler。
+7. 在 `ragExecution` 与 CloudStorageApi 增加固定类型 Handler；移动端只增加评审、确认或本地输入适配。
 
 ## 当前优先级
 

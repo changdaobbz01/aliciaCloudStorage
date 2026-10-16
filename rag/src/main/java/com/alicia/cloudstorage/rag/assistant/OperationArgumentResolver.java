@@ -37,6 +37,10 @@ final class OperationArgumentResolver {
             "^(?:(?:所有|全部|全都)(?:的)?|散着的|同类型(?:的)?|批量|统一)"
     );
     private static final Pattern TRAILING_ALL = Pattern.compile("(?:都|全部|全都|全)$");
+    private static final Pattern EXTENSION_COLLECTION = Pattern.compile(
+            "^\\.?[A-Za-z0-9]{1,16}(?:格式)?(?:的)?(?:文件|文档|资料)$",
+            Pattern.CASE_INSENSITIVE
+    );
     private static final Pattern REFERENCE = Pattern.compile(
             "^(?:它|它们|这个|那个|这些|那些|这个文件|那个文件|这个文件夹|那个文件夹|"
                     + "刚才那个|刚才的文件|刚才的文件夹|第[一二三四五六七八九十0-9]+个(?:文件|文件夹)?|"
@@ -271,7 +275,8 @@ final class OperationArgumentResolver {
     }
 
     private NodeSelector parseNodeSelector(String rawSurface) {
-        String surface = cleanSourceSurface(rawSurface);
+        String surface = cleanSourceSurface(rawSurface)
+                .replaceFirst("[，,](?:都)?(?:给我)?$", "");
         if (REFERENCE.matcher(surface).matches()) {
             return new NodeSelector("", NameKind.REFERENCE, "ANY", "ALL", "", Quantifier.UNSPECIFIED);
         }
@@ -295,6 +300,16 @@ final class OperationArgumentResolver {
         boolean explicitAll = quantified.explicitAll();
 
         String genericType = genericResultType(objectSurface);
+        if (explicitAll && EXTENSION_COLLECTION.matcher(objectSurface).matches()) {
+            return new NodeSelector(
+                    "",
+                    NameKind.GENERIC,
+                    "FILE",
+                    scoped.scopeType(),
+                    scoped.folderSurface(),
+                    Quantifier.EXPLICIT_ALL
+            );
+        }
         if (!genericType.isBlank() || objectSurface.isBlank()) {
             String resultType = genericType.isBlank() ? "ANY" : genericType;
             Quantifier quantifier = explicitAll
@@ -392,7 +407,8 @@ final class OperationArgumentResolver {
             candidate = candidate.substring(0, trailing.start());
             explicitAll = true;
         }
-        if (explicitAll && !genericResultType(candidate).isBlank()) {
+        if (explicitAll && (!genericResultType(candidate).isBlank()
+                || EXTENSION_COLLECTION.matcher(candidate).matches())) {
             return new QuantifiedSurface(candidate, true);
         }
         return new QuantifiedSurface(surface, false);
@@ -480,6 +496,7 @@ final class OperationArgumentResolver {
 
     private String genericResultType(String value) {
         String normalized = value == null ? "" : value.trim();
+        normalized = normalized.replaceFirst("^(?:一个|某个|任意一个|任意)", "");
         if (GENERIC_FILES.contains(normalized)) {
             return "FILE";
         }

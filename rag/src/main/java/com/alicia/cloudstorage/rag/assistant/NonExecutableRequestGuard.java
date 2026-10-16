@@ -12,11 +12,12 @@ import java.util.regex.Pattern;
 final class NonExecutableRequestGuard {
 
     private static final Pattern MUTATION = Pattern.compile(
-            "删除|删掉|删了|移除|清理|回收站|移动|移到|搬到|挪到|归档到|重命名|改名|分享|上传|新建|创建",
+            "删除|删掉|删了|删|移除|清理|回收站|移动|移到|搬到|挪到|归档到|重命名|改名|分享|上传|新建|创建|"
+                    + "delete|remove|move|rename|share|upload|create",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
     private static final Pattern NEGATED_MUTATION = Pattern.compile(
-            "(?:^|[，,。；;])(?:先)?(?:不要|别|不用|无需|不必)(?:再)?[^，,。；;]{0,16}(?:删除|删掉|删了|移除|清理|移动|移到|搬到|挪到|归档到|重命名|改名|分享|上传|新建|创建)",
+            "(?:^|[，,。；;])(?:先)?(?:不要|别|不用|无需|不必)(?:再)?[^，,。；;]{0,16}(?:删除|删(?:掉|了)?|移除|清理|移动|移到|搬到|挪到|归档到|重命名|改名|分享|上传|新建|创建)",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
     private static final Pattern HYPOTHETICAL_LEAD = Pattern.compile(
@@ -28,7 +29,33 @@ final class NonExecutableRequestGuard {
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
     private static final Pattern QUOTED_OPERATION = Pattern.compile(
-            "^[\\s]*[“\"'‘].*(?:删除|删掉|移动|重命名|改名|分享|上传|新建|创建).*[”\"'’].*(?:这句话|什么意思|是什么意思|含义|怎么理解)",
+            "[“\"'‘].*(?:删除|删掉|移动|重命名|改名|分享|上传|新建|创建|delete|remove|move|rename|share|upload|create).*"
+                    + "[”\"'’].*(?:这句话|什么意思|是什么意思|含义|怎么理解|改写|重写|润色|换个说法)",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
+    private static final Pattern META_OPERATION_DISCLAIMER = Pattern.compile(
+            "(?:只是|仅仅是|仅是|只是个|只是一个).{0,12}(?:举例|例子|示例)|"
+                    + "(?:不要|别|无需|不必).{0,12}(?:真的)?(?:执行|操作)",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
+    private static final Pattern STRUCTURED_TEXT_EXPLANATION = Pattern.compile(
+            "^(?:请)?(?:解释|说明|分析|解读|帮我看(?:看)?).{0,20}(?:JSON|代码|文本|配置|指令).*$",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
+    private static final Pattern CONTRADICTORY_PRESERVATION = Pattern.compile(
+            "(?:删除|删掉|移除|清理).{0,24}(?:保留|不要动|别动|不改|不能动)|"
+                    + "(?:保留|不要动|别动|不改|不能动).{0,24}(?:删除|删掉|移除|清理)",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
+    private static final Pattern SAFETY_BYPASS = Pattern.compile(
+            "(?:忽略|绕过|跳过).{0,16}(?:安全|规则|确认|权限)|"
+                    + "(?:不要|无需|不必|跳过).{0,8}确认|"
+                    + "(?:直接执行|直接操作).{0,16}(?:告诉我|声称).{0,8}(?:完成|成功)",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
+    private static final Pattern QUOTED_NAME_SEARCH = Pattern.compile(
+            "(?:找|查找|搜索|检索).*?(?:名字|名称|文件名).*?(?:包含|含有|含|带有|带).*?"
+                    + "([“\"'‘][^”\"'’]+[”\"'’])",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
     private static final Pattern ALTERNATIVE_CONNECTOR = Pattern.compile(
@@ -40,7 +67,7 @@ final class NonExecutableRequestGuard {
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
     private static final Pattern CANCELLATION = Pattern.compile(
-            "^(?:算了(?:[，,]?(?:不用了|不做了))?|不用了|不做了|先不做了|取消|停止|停下|撤销|作罢)[。！!]*$",
+            "^(?:(?:算了[，,]?)?(?:不用了|不做了|先不做了|取消(?:这个|该|刚才的)?(?:操作|任务|动作)?|停止|停下|撤销|作罢)|算了)[。！!]*$",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
     private static final List<Pattern> DISTINCT_OPERATIONS = List.of(
@@ -66,7 +93,14 @@ final class NonExecutableRequestGuard {
                     "好的，这次操作已取消，我不会继续提交文件变更。"
             ));
         }
-        if (QUOTED_OPERATION.matcher(value).find()) {
+        String guardedValue = value;
+        var quotedName = QUOTED_NAME_SEARCH.matcher(value);
+        if (quotedName.find()) {
+            guardedValue = value.substring(0, quotedName.start(1))
+                    + "“文件名”"
+                    + value.substring(quotedName.end(1));
+        }
+        if (QUOTED_OPERATION.matcher(guardedValue).find()) {
             return Optional.of(new Decision(
                     "quoted_operation_explanation",
                     "assistant_writing_help",
@@ -75,8 +109,44 @@ final class NonExecutableRequestGuard {
                     "这句话是在描述一个文件操作；这里只解释它的含义，不会执行其中的操作。"
             ));
         }
+        if (MUTATION.matcher(guardedValue).find() && STRUCTURED_TEXT_EXPLANATION.matcher(guardedValue).matches()) {
+            return Optional.of(new Decision(
+                    "structured_operation_explanation",
+                    "assistant_writing_help",
+                    "NEW_TASK",
+                    "RESPOND",
+                    "这段内容只会作为文本进行解释，不会把其中的字段或命令当成文件操作。"
+            ));
+        }
+        if (MUTATION.matcher(guardedValue).find() && META_OPERATION_DISCLAIMER.matcher(guardedValue).find()) {
+            return Optional.of(new Decision(
+                    "operation_disclaimer",
+                    "assistant_acknowledgement",
+                    "NEW_TASK",
+                    "RESPOND",
+                    "明白，这只是示例或说明，我不会执行其中的文件操作。"
+            ));
+        }
+        if (MUTATION.matcher(guardedValue).find() && SAFETY_BYPASS.matcher(guardedValue).find()) {
+            return Optional.of(new Decision(
+                    "safety_bypass_request",
+                    "fallback",
+                    "NEW_TASK",
+                    "UNKNOWN",
+                    "我不会绕过确认、安全规则或权限执行文件操作。请按正常流程明确目标并在预览后确认。"
+            ));
+        }
+        if (CONTRADICTORY_PRESERVATION.matcher(guardedValue).find()) {
+            return Optional.of(new Decision(
+                    "contradictory_preservation",
+                    "fallback",
+                    "NEW_TASK",
+                    "UNKNOWN",
+                    "这句话同时要求删除和保留同一对象。请明确选择一种结果，我不会先执行任何操作。"
+            ));
+        }
         if (!value.matches(".*(?:不要忘记|别忘了).*")
-                && NEGATED_MUTATION.matcher(value).find()) {
+                && NEGATED_MUTATION.matcher(guardedValue).find()) {
             return Optional.of(new Decision(
                     "negated_operation",
                     "assistant_acknowledgement",

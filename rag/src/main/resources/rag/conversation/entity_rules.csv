@@ -1,13 +1,14 @@
 entity_id,enabled,strategy,patterns,normalize_upper
 extension,true,regex_capture,"(?:后缀|扩展名|extension|ext)\s*(?:为|是|=|:)?\s*\.?([A-Za-z0-9]+)",true
 extension,true,regex_capture,"(?:搜索|查找|查看|查|找|列出|显示|展示).*?(?:所有|全部)?\s*\.?([A-Za-z0-9]{1,8})\s*(?:格式)?\s*(?:文件|文档|资料)",true
-extension,true,regex_capture,"(?:把|将|所有|全部)?\s*\.([A-Za-z0-9]{1,8})(?:的)?\s*(?:文件|文档|资料)?.*?(?:移动|移到|放到|归档到|转移到|放进|移动至|move)",true
-extension,true,regex_capture,"(?:把|将|所有|全部)?\s*([A-Za-z0-9]{1,8})\s*(?:格式|后缀|扩展名)?(?:的)?\s*(?:文件|文档|资料).*?(?:移动|移到|放到|归档到|转移到|放进|移动至|move)",true
+extension,true,regex_capture,"(?:把|将|所有|全部)?\s*\.([A-Za-z0-9]{1,8})(?:的)?\s*(?:文件|文档|资料)?.*?(?:移动|移到|放到|归档到|转移到|放进|移动至|搬到|挪到|move)",true
+extension,true,regex_capture,"(?:把|将|所有|全部)?\s*([A-Za-z0-9]{1,8})\s*(?:格式|后缀|扩展名)?(?:的)?\s*(?:文件|文档|资料).*?(?:移动|移到|放到|归档到|转移到|放进|移动至|搬到|挪到|move)",true
 file_type,true,regex_capture,"(图片|照片|视频|音频|音乐|文档|压缩包|压缩文件|image|photo|video|audio|document|doc|archive|zip)",false
 rename_prefix,true,regex_capture,"(?:头部|开头|前缀|prefix).*?(?:加上|添加|追加|加|为|是|=|:)\s*([^/\s，。,.!?！？]+)",false
 rename_prefix,true,regex_capture,"(?:统一|全部).*?(?:加上|添加|追加)\s*([^/\s，。,.!?！？]+).*?(?:前缀|到头部|到开头)",false
 rename_prefix,true,regex_capture,"(?:加前缀|添加前缀|批量添加前缀)\s*([^/\s，。,.!?！？]+)",false
-new_folder_name,true,regex_capture,"(?:新建|创建|建立|建一个|建个|mkdir|create).*?(?:名为|叫|名称为|named)\s*([^/\s，。,.!?！？]+?)\s*(?:的)?\s*(?:文件夹|folder|directory)",false
+new_folder_name,true,regex_capture,"(?:新建|创建|建立|建一个|建个|mkdir|create).*?(?:名为|叫|名称为|named)\s*([^/\s，。,.!?！？]+?)\s*的\s*(?:文件夹|folder|directory)",false
+new_folder_name,true,regex_capture,"(?:新建|创建|建立|建一个|建个|mkdir|create).*?(?:名为|叫|名称为|named)\s*([^/\s，。,.!?！？]+?)\s*(?:文件夹|folder|directory)",false
 new_folder_name,true,regex_capture,"(?:新建|创建|建立|建一个|建个|mkdir|create)\s*(?!一个\s*(?:的)?\s*(?:文件夹|目录|folder|directory)(?:$|\s|，|。|,|\.|!|\?|！|？))([^/\s，。,.!?！？]+?)\s*(?:的)?\s*(?:文件夹|目录|folder|directory)",false
 new_folder_name,true,regex_capture,"(?:新建|创建|建立|建一个|建个|mkdir|create)\s*([^/\s，。,.!?！？]+?)(?:，|。|,|\.|并|再|然后|后)",false
 target_folder,true,regex_capture,"(?:在)\s*([^/\s，。,.!?！？]+?)(?:目录|文件夹|folder|directory)?(?:下|中|里|内)",false
@@ -18,6 +19,7 @@ new_name,true,regex_capture,"(?:重命名为|重命名成|改名为|改名成|�
 new_name,true,regex_capture,"(?:重命名|改名|命名|改成|rename).*?(?:为|成|叫|to)\s*([^\s，。,.!?！？]+(?:\.[A-Za-z0-9]+)?)",false
 new_name,true,regex_capture,"(?:改为|换个名字叫)\s*([^\s，。,.!?！？]+(?:\.[A-Za-z0-9]+)?)",false
 new_name,true,regex_capture,"(?:为|成|叫|to)\s*([^\s，。,.!?！？]+(?:\.[A-Za-z0-9]+)?)",false
+target_name,true,regex_capture,"(?:名字|名称|文件名|name)(?:中|里|里面|内)?.*?(?:有|带有|带|包含|含有|含|contains)\s*[“\x22'‘]([^”\x22'’]+)[”\x22'’]",false
 target_name,true,regex_capture,"(?:名字|名称|文件名|name)(?:中|里|里面|内)?(?:有|带有|包含|含有|含|contains)\s*([^/\s，。,!?！？的]+)",false
 target_name,true,regex_capture,"(?:名字|名称|文件名|name).*?(?:带有|包含|含有|contains)\s*([^/\s，。,!?！？的]+)",false
 target_name,true,regex_capture,"(?:把|将|请把|帮我把)?\s*(?:名为|名称为|叫做|叫)?\s*(?:文件夹|目录|文件|文档|资料)?\s*([^/\s，。,!?！？]+?)\s*(?:(?:这个|该)(?:文件夹|目录|文件)|文件夹|文件)?\s*(?:移动到|移到|放到|归档到|转移到|移动至|放进|挪到|搬到|move\s+to)",false

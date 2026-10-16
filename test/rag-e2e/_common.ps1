@@ -11,6 +11,7 @@ function Get-RagE2EContext {
         ExampleEnvFile = Join-Path $suiteDirectory '.env.example'
         ComposeFile    = Join-Path $suiteDirectory 'compose.yaml'
         ScenarioFile   = Join-Path $suiteDirectory 'scenarios.json'
+        StressScenarioFile = Join-Path $suiteDirectory 'stress-scenarios.json'
         ResultsDir     = Join-Path $suiteDirectory 'results'
     }
 }
