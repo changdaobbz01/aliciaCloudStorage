@@ -111,3 +111,36 @@ folder_name   rag-admin-single-check-20261020-1728
 - 全面对话识别率优化继续作为后续独立阶段，不与当前灰度混改。
 
 首次缺陷探针遗留了根目录节点 `308 / a`。该节点是用户可见业务数据，本次没有直接操作数据库删除；清理应由用户确认后通过正常云盘删除接口完成。
+
+## 7. 后续稳定性与 Android 角色灰度准备
+
+`admin-single` 发布后继续完成两轮无写入取消测试：
+
+```text
+Android Debug 真机     bbd6d948-629b-4996-ac8a-0936c9654f28  CANCELLED
+Android Release 模拟器 b6a6dbe2-d1fd-4231-b961-4c762a8a4942  CANCELLED
+```
+
+两项任务都满足：完整目录名进入类型化载荷、版本从 `0` 变为 `1`、步骤 `attempts=0`、Cloud 回执为 `0`、同名节点为 `0`。前一阶段的 Shadow 任务 `07605f85-6227-4f5a-a6bf-e169505d88a7` 也已由过期维护转为 `EXPIRED`，没有产生回执或文件写入。
+
+公共 APK 端点只维护单个 `CURRENT` 版本，没有按账号或百分比分发能力。为避免把管理员能力暴露给普通用户，Android 增加与服务端一致的双重门禁：
+
+```text
+BuildConfig.RAG_CLOUD_EXECUTION_ENABLED == true
+Identity appRoles.rag == RAG_ADMIN
+```
+
+只有两个条件同时成立，客户端才进入云端确认路径；全局 `ADMIN`、`CLOUD_ADMIN` 或其他角色不能替代显式 `RAG_ADMIN`。Debug 与 Release 单元测试各 `191` 项全部通过。正式签名包已在隔离 Android 模拟器完成安装、登录、计划登记和云端取消验证，未上传公共更新通道，真机 Debug 数据未被清除。
+
+最终 Android 候选包信息：
+
+```text
+versionName  0.1.13
+versionCode  14
+file         alicia-cloud-android-0.1.13-14-release.apk
+size         27634301 bytes
+sha256       f20ec146bea1873c8d0dc03b7873bafcc3719a78477c71cd6f4fa2084e054463
+signature    APK Signature Scheme v3，Alicia release certificate
+```
+
+该包保持旧本地写操作执行关闭，只开启受 `RAG_ADMIN` 角色约束的云端确认路径。公共通道发布及发布后下载哈希验证应另行记录，不能仅凭本地构建成功判定上线完成。

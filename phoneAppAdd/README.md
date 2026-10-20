@@ -131,7 +131,7 @@ $env:ALICIA_STORAGE_API_BASE_URL="https://windwindwind-alicia.cn"
 
 启动后访问 `http://127.0.0.1:8081/api/health`。其中 `deepseekConfigured` 和 `storageApiConfigured` 都应为 `true`；该接口只返回配置状态，不返回任何密钥。目录列举默认最多返回 50 项，可通过 `ALICIA_RAG_CANDIDATE_BINDING_DIRECTORY_LIST_MAX_RESULTS` 调整。
 
-`ALICIA_RAG_CLOUD_EXECUTION_ENABLED` 控制新的云端执行确认路径，默认必须保持 `false`。启用后，确认按钮只向 `ragExecution` 提交 `executionId + expectedVersion`，通过状态查询展示排队、执行、重试和终态；客户端不会重新提交 ActionPlan，也不会解释服务端 method/path/body。任务确认后由云端持久化执行，离开页面或客户端网络中断不会撤销任务。
+`ALICIA_RAG_CLOUD_EXECUTION_ENABLED` 控制新的云端执行确认路径，默认必须保持 `false`。即使发布构建显式开启，该能力仍只对 Identity 返回 `appRoles.rag=RAG_ADMIN` 的账号生效；客户端门禁与服务端确认权限必须同时通过，普通账号不会进入云端确认路径。启用后，确认按钮只向 `ragExecution` 提交 `executionId + expectedVersion`，通过状态查询展示排队、执行、重试和终态；客户端不会重新提交 ActionPlan，也不会解释服务端 method/path/body。任务确认后由云端持久化执行，离开页面或客户端网络中断不会撤销任务。
 
 `ALICIA_RAG_ACTION_EXECUTION_ENABLED` 仅保留旧 `RagActionExecutor` 的一个兼容发布周期，默认必须保持 `false`。它只可能在云端模式关闭时处理没有 `executionReference` 的旧响应；只要云端模式开启，缺失任务引用、通道关闭或请求失败都不会自动回退到本地写操作。上传本地文件、页面导航、预览和系统分享仍属于客户端能力。
 

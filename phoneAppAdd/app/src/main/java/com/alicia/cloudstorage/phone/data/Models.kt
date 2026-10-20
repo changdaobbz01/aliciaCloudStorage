@@ -315,3 +315,6 @@ data class SaveShareLinkPayload(
 
 val User.isAdmin: Boolean
     get() = role == UserRole.ADMIN || appRoles["cloud"] == "CLOUD_ADMIN"
+
+val User.isRagAdmin: Boolean
+    get() = appRoles["rag"]?.trim()?.uppercase() == "RAG_ADMIN"

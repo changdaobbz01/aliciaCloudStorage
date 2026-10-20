@@ -284,8 +284,9 @@ foreach ($app in $Apps) {
         $ragExecutionClientFile = Join-Path $appRoot "app/src/main/java/com/alicia/cloudstorage/phone/data/RagExecutionClient.kt"
         $ragExecutionPolicyFile = Join-Path $appRoot "app/src/main/java/com/alicia/cloudstorage/phone/ui/RagExecutionUiPolicy.kt"
         $ragAssistantViewModelFile = Join-Path $appRoot "app/src/main/java/com/alicia/cloudstorage/phone/ui/RagAssistantViewModel.kt"
+        $appShellFile = Join-Path $appRoot "app/src/main/java/com/alicia/cloudstorage/phone/ui/AliciaCloudApp.kt"
 
-        foreach ($file in @($ragExecutionClientFile, $ragExecutionPolicyFile, $ragAssistantViewModelFile)) {
+        foreach ($file in @($ragExecutionClientFile, $ragExecutionPolicyFile, $ragAssistantViewModelFile, $appShellFile)) {
             Assert-FileExists $file
         }
 
@@ -297,6 +298,8 @@ foreach ($app in $Apps) {
         Assert-Contains $ragExecutionPolicyFile 'cloudExecutionEnabled -> RagExecutionRoute\.BLOCKED' "$app missing cloud task reference guard"
         Assert-Contains $ragAssistantViewModelFile 'executionGateway\.confirm\(' "$app cloud execution confirmation"
         Assert-Contains $ragAssistantViewModelFile 'executionId = expectedExecutionId' "$app stable cloud execution polling identity"
+        Assert-Contains $modelsFile 'appRoles\["rag"\]\?\.trim\(\)\?\.uppercase\(\) == "RAG_ADMIN"' "$app explicit RAG_ADMIN client gate"
+        Assert-Contains $appShellFile 'BuildConfig\.RAG_CLOUD_EXECUTION_ENABLED && currentUser\.isRagAdmin' "$app role-scoped cloud execution release gate"
         Assert-Contains $buildFile '(?s)resolveBooleanProperty\(\s*project,\s*false,\s*"ALICIA_RAG_CLOUD_EXECUTION_ENABLED"' "$app cloud execution default-off guard"
         Assert-Contains $localPropertiesExample 'ALICIA_RAG_CLOUD_EXECUTION_ENABLED=false' "$app cloud execution example default"
         Ok "$app RAG cloud execution client boundary is release-ready and default-off"

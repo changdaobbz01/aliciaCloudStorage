@@ -183,6 +183,7 @@ import com.alicia.cloudstorage.phone.data.StorageNodeType
 import com.alicia.cloudstorage.phone.data.User
 import com.alicia.cloudstorage.phone.data.UserRole
 import com.alicia.cloudstorage.phone.data.isAdmin
+import com.alicia.cloudstorage.phone.data.isRagAdmin
 import java.io.File
 
 private val ScreenBackground = Color(0xFFF7F8FD)
@@ -1274,6 +1275,7 @@ private fun MainShell(
                         userDisplayName = currentUser.nickname,
                         currentFolderId = uiState.files.currentFolderId,
                         currentFolderPath = uiState.files.breadcrumbs.joinToString("/") { crumb -> crumb.label },
+                        cloudExecutionEnabled = BuildConfig.RAG_CLOUD_EXECUTION_ENABLED && currentUser.isRagAdmin,
                         onBack = { aiChatOpen = false },
                         onFileMutation = viewModel::refreshAfterAiFileMutation,
                         onOpenFileResult = ::openAiFileResult,
@@ -1764,6 +1766,7 @@ private fun AiChatHostScreen(
     userDisplayName: String,
     currentFolderId: Long?,
     currentFolderPath: String,
+    cloudExecutionEnabled: Boolean,
     onBack: () -> Unit,
     onFileMutation: (AiChatFileMutationSignal) -> Unit,
     onOpenFileResult: (AiChatFileResult) -> Unit,
@@ -1800,6 +1803,7 @@ private fun AiChatHostScreen(
                 onClearAttachedFiles = onClearAttachedFiles,
                 ragBaseUrl = ragBaseUrl,
                 apiBaseUrl = apiBaseUrl,
+                cloudExecutionEnabled = cloudExecutionEnabled,
                 authToken = authToken,
                 userAvatarUrl = userAvatarUrl,
                 userDisplayName = userDisplayName,
