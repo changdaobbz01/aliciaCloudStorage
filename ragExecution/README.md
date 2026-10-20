@@ -5,7 +5,10 @@
 本地多轮识别、任务登记与安全确认的隔离联调入口见
 [`test/rag-e2e/README.md`](../test/rag-e2e/README.md)。该工具使用独立 Compose 项目、回环端口和测试数据库卷，不读取生产 `.env`。
 
-当前状态：**阶段 0 至阶段 6 已完成代码、自动化回归和 Android 真机端到端验收；生产已进入 `shadow`，RAG 会登记合格计划，但公网确认、Worker、Cloud 分派和动作 allowlist 均关闭。旧本地执行路径继续关闭，因此当前生产不会执行文件写操作。**
+当前状态：**阶段 0 至阶段 6 已完成代码、自动化回归和 Android 真机端到端验收；生产已于 2026-10-20 进入 `admin-single`，仅向 `RAG_ADMIN` 开放 `FOLDER_CREATE`，公网确认、Worker 与 Cloud 分派已按该单动作灰度开启。旧本地执行路径继续关闭，普通用户与其他动作仍不能进入云端执行。**
+
+本次生产晋级、真机任务、数据库回执和遗留测试数据见
+[`docs/PRODUCTION_ADMIN_SINGLE_ROLLOUT_LOG_2026-10-20.md`](docs/PRODUCTION_ADMIN_SINGLE_ROLLOUT_LOG_2026-10-20.md)。
 
 本服务只负责：
 
@@ -65,7 +68,7 @@ Compose 中的新服务受 `rag-execution-foundation` profile 保护，不会随
 docker compose --profile rag-execution-foundation up -d rag-execution
 ```
 
-缺少密码时初始化脚本会拒绝 `CHANGE_ME` 占位值。生产当前只允许 shadow 登记；不要手工开启公网确认、Worker、Cloud 分派或宽泛动作列表，也不要恢复旧本地执行。生产环境不能沿用示例开发密码。两个内部协议使用不同专用密钥，管理员灰度的启用顺序、签名协议和回退步骤以 [API 契约](docs/API_CONTRACT.md) 为准。
+缺少密码时初始化脚本会拒绝 `CHANGE_ME` 占位值。生产当前只允许 `RAG_ADMIN + FOLDER_CREATE` 的 `admin-single` 灰度；不要手工扩大角色、动作列表或组合动作，也不要恢复旧本地执行。生产环境不能沿用示例开发密码。两个内部协议使用不同专用密钥，管理员灰度的启用顺序、签名协议和回退步骤以 [API 契约](docs/API_CONTRACT.md) 为准。
 
 生产灰度必须使用独立运行手册和脚本，不能直接手工组合 Compose 参数：
 

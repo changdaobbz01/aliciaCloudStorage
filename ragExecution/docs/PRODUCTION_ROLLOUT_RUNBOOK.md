@@ -2,7 +2,7 @@
 
 ## 1. 当前边界
 
-截至 2026-09-28，代码、本地隔离容器、真实 MySQL 8、Android 单动作和组合上传真机链路均已验收。生产开关仍默认关闭，本手册和脚本的存在不表示生产已经切流。
+截至 2026-10-20，代码、本地隔离容器、真实 MySQL 8、Android 单动作和组合上传真机链路均已验收；生产已经依次完成 `foundation` 和 `shadow` 观察，并进入仅 `RAG_ADMIN + FOLDER_CREATE` 的 `admin-single`。本次晋级记录见 [2026-10-20 生产灰度日志](PRODUCTION_ADMIN_SINGLE_ROLLOUT_LOG_2026-10-20.md)。
 
 生产阶段只能按下面顺序推进：
 
