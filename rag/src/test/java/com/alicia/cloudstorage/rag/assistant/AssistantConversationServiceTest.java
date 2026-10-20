@@ -211,6 +211,45 @@ class AssistantConversationServiceTest {
     }
 
     @Test
+    void createFolderWithEnglishNamedSyntaxPreservesTheExactFolderName() {
+        AssistantConversationService service = conversationServiceWith(request -> {
+            throw new AssertionError("Root folder creation must not query a candidate folder.");
+        });
+
+        IntentRecognitionResponse response = service.plan(new AssistantPlanRequest(
+                "Create a folder named rag-admin-single-check-20261020-1711",
+                "",
+                AssistantClientContext.empty()
+        ));
+
+        assertThat(response.intentId()).isEqualTo("folder_create");
+        assertThat(response.missingSlots()).isEmpty();
+        assertThat(response.entities())
+                .containsEntry("new_folder_name", "rag-admin-single-check-20261020-1711");
+        assertThat(response.actionPlan().status()).isEqualTo("review_required");
+        assertThat(response.actionPlan().steps()).singleElement().satisfies(step -> {
+            assertThat(step.action()).isEqualTo("folder.create");
+            assertThat(step.params())
+                    .containsEntry("parentId", null)
+                    .containsEntry("folderName", "rag-admin-single-check-20261020-1711");
+        });
+    }
+
+    @Test
+    void createFolderWithEnglishArticleButNoNameRequestsClarification() {
+        IntentRecognitionResponse response = conversationService.plan(new AssistantPlanRequest(
+                "Create a folder",
+                ""
+        ));
+
+        assertThat(response.intentId()).isEqualTo("folder_create");
+        assertThat(response.entities()).doesNotContainKey("new_folder_name");
+        assertThat(response.missingSlots()).containsExactly("new_folder_name");
+        assertThat(response.nextAction()).isEqualTo("ask_clarification");
+        assertThat(response.actionPlan().status()).isEqualTo("clarification_required");
+    }
+
+    @Test
     void createFolderOverridesModelCreateThenUploadGuessAndDoesNotSearchRoot() {
         IntentModelClient overEagerModel = message -> Optional.of(new IntentModelClient.ModelIntentResult(
                 "deepseek",
