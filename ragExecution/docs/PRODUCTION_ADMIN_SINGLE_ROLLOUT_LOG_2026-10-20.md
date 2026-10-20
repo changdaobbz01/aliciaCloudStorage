@@ -130,7 +130,7 @@ BuildConfig.RAG_CLOUD_EXECUTION_ENABLED == true
 Identity appRoles.rag == RAG_ADMIN
 ```
 
-只有两个条件同时成立，客户端才进入云端确认路径；全局 `ADMIN`、`CLOUD_ADMIN` 或其他角色不能替代显式 `RAG_ADMIN`。Debug 与 Release 单元测试各 `191` 项全部通过。正式签名包已在隔离 Android 模拟器完成安装、登录、计划登记和云端取消验证，未上传公共更新通道，真机 Debug 数据未被清除。
+只有两个条件同时成立，客户端才进入云端确认路径；全局 `ADMIN`、`CLOUD_ADMIN` 或其他角色不能替代显式 `RAG_ADMIN`。Debug 与 Release 单元测试各 `191` 项全部通过。正式签名包先在隔离 Android 模拟器完成安装、登录、计划登记和云端取消验证；该验证阶段没有上传公共更新通道，真机 Debug 数据未被清除。
 
 最终 Android 候选包信息：
 
@@ -143,4 +143,28 @@ sha256       f20ec146bea1873c8d0dc03b7873bafcc3719a78477c71cd6f4fa2084e054463
 signature    APK Signature Scheme v3，Alicia release certificate
 ```
 
-该包保持旧本地写操作执行关闭，只开启受 `RAG_ADMIN` 角色约束的云端确认路径。公共通道发布及发布后下载哈希验证应另行记录，不能仅凭本地构建成功判定上线完成。
+该包保持旧本地写操作执行关闭，只开启受 `RAG_ADMIN` 角色约束的云端确认路径。公共通道发布及发布后下载哈希验证必须另行记录，不能仅凭本地构建成功判定上线完成。
+
+## 8. Android 0.1.13 公共通道发布
+
+角色门禁源码提交 `2b695cd` 同步到 Gitee 与 GitHub 后，通过 CloudStorageApi 管理接口上传最终签名包。Identity 临时管理员会话在上传完成后正常注销。
+
+```text
+public version       0.1.13
+public uploadedAt    2026-10-20T09:53:31Z
+download bytes       27634301
+download sha256      f20ec146bea1873c8d0dc03b7873bafcc3719a78477c71cd6f4fa2084e054463
+```
+
+公开下载包由独立请求重新读取并计算哈希，结果与本地签名包清单完全一致。发布后的生产复核结果：
+
+```text
+stage                 admin-single
+allowed action        FOLDER_CREATE
+RAG execution health  healthy
+API health            healthy
+container restarts    0
+recent execution log  no error/exception/panic/fatal/timeout
+```
+
+本次发布只完成管理员单人客户端灰度，不代表扩大服务端动作白名单，也不代表开始全面对话识别率优化。下一步应先观察真实管理员任务稳定性，再决定是否扩大账号范围。
