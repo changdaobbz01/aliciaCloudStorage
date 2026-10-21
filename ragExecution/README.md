@@ -15,6 +15,8 @@
 
 阶段 8 识别评测集、评分口径、开发集/保留集治理与安全门槛见
 [`docs/PHASE_8_RECOGNITION_EVALUATION_PLAN.md`](docs/PHASE_8_RECOGNITION_EVALUATION_PLAN.md)。
+阶段 8A 首版本地兜底基线与当前准确率见
+[`docs/PHASE_8A_RECOGNITION_BASELINE_LOG_2026-10-21.md`](docs/PHASE_8A_RECOGNITION_BASELINE_LOG_2026-10-21.md)。
 
 本服务只负责：
 

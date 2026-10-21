@@ -83,3 +83,6 @@ pwsh -File test/rag-e2e/stop-local.ps1
 - 87 项执行语义契约继续全部通过。
 
 在上述条件完成前，不开始生产 Prompt 更新或执行权限扩容。
+
+阶段 8A 的首版本地兜底基线已于 2026-10-21 完成，结果与发现的问题记录在
+[阶段 8A 识别评测基线日志](PHASE_8A_RECOGNITION_BASELINE_LOG_2026-10-21.md)。DeepSeek 在线基线尚未建立。

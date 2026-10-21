@@ -75,6 +75,8 @@ pwsh -File test/rag-e2e/write-recognition-baseline.ps1 `
 
 脚本拒绝覆盖已有基线、脏源码、混合识别来源、缺失响应、基础设施失败或不安全执行结果。DeepSeek 在线基线必须单独使用 `-Lane deepseek-online` 生成，不能与本地兜底结果混合。
 
+当前本地兜底基线保存在 `recognition-baseline.local-fallback.json`。它是准确率比较起点，不是必须永远保持输出不变的契约快照；执行语义不可退化仍由 `contract-baseline.json` 单独负责。
+
 只有至少三次连续的 `-Suite all` 识别评测全部通过且契约完全一致时，才能首次写入基线：
 
 ```powershell
