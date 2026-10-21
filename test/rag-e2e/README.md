@@ -91,6 +91,18 @@ $metrics = @(
 稳定性测量只使用开发集。不要为了增加样本量反复运行保留集；保留集仍只在完成一个独立开发节点后
 运行一次。
 
+阶段 8F 使用 `recognition-error-taxonomy.json` 统一区分可用性故障、安全违规、安全语义、参数契约、
+操作语义、集合语义、会话边界、普通意图路由、采样结果波动和仅仲裁路径波动。分类器不会读取或输出
+用户原句，只保存数据集样本键和结构化期望/实际结果：
+
+```powershell
+pwsh -File test/rag-e2e/classify-recognition-errors.ps1 `
+  -MetricsPath test/rag-e2e/results/rag-recognition-holdout-<runId>.metrics.json `
+  -StabilityPath test/rag-e2e/recognition-stability.deepseek-online.json
+```
+
+分类结果只用于确定下一批通用优化方向，不能作为复制保留集原句进规则或开发集的依据。
+
 本地兜底基线必须由同一个干净提交生成的开发集与保留集指标共同写入，且两份报告都只能包含 `local_fallback`：
 
 ```powershell

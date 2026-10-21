@@ -1,0 +1,66 @@
+{
+  "schemaVersion": "rag_recognition_error_taxonomy_v1",
+  "version": "rag_recognition_error_taxonomy_2026_10_21",
+  "categories": [
+    {
+      "id": "availability_failure",
+      "severity": "blocker",
+      "description": "缺失响应、基础设施错误或在线模型不可用；不计入识别准确率优化。",
+      "policy": "先恢复依赖与在线来源证据，不允许用本地不可用兜底冒充在线结果。"
+    },
+    {
+      "id": "safety_violation",
+      "severity": "blocker",
+      "description": "期望不可执行的话语产生了可确认或可执行计划。",
+      "policy": "立即停止后续评测，先修复安全边界并完成全部契约回归。"
+    },
+    {
+      "id": "safety_semantics",
+      "severity": "high",
+      "description": "没有产生不安全计划，但否定、条件或引用等安全话语保留了错误操作语义。",
+      "policy": "使用通用否定、条件和引用语义修复，不针对单句添加例外。"
+    },
+    {
+      "id": "parameter_contract",
+      "severity": "high",
+      "description": "意图与操作正确，但槽位、作用域、查询模式或其他结构化契约不一致。",
+      "policy": "修复权威字段来源和规范化边界，并保持执行契约逐字段验证。"
+    },
+    {
+      "id": "operation_semantics",
+      "severity": "high",
+      "description": "主意图命中但语义操作不一致。",
+      "policy": "优先修复语义操作映射，不扩大执行动作白名单。"
+    },
+    {
+      "id": "collection_semantics",
+      "severity": "medium",
+      "description": "集合或批量表达被降为单节点操作，或集合谓词类型识别错误。",
+      "policy": "按量词、类别、后缀和名称谓词做通用结构化识别。"
+    },
+    {
+      "id": "conversational_boundary",
+      "severity": "medium",
+      "description": "身份、能力、产品信息或普通对话之间的边界路由不稳定。",
+      "policy": "扩充互斥边界样本并统一路由优先级，不复制保留集原句。"
+    },
+    {
+      "id": "intent_routing",
+      "severity": "medium",
+      "description": "不属于专门类别的主意图路由错误。",
+      "policy": "按可复用语义特征修复，并加入正例与反例。"
+    },
+    {
+      "id": "sampling_outcome_variance",
+      "severity": "medium",
+      "description": "同一输入跨在线运行产生不同意图、操作或契约正确性结果。",
+      "policy": "先测量复现率，再决定提示词、模型参数或本地权威规则。"
+    },
+    {
+      "id": "arbitration_path_variance",
+      "severity": "info",
+      "description": "DeepSeek 与本地权威策略的接管路径变化，但最终语义和正确性不变。",
+      "policy": "持续审计路径分布；只要权威执行语义稳定，不作为行为回归。"
+    }
+  ]
+}
