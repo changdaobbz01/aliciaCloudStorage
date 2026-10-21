@@ -1010,6 +1010,45 @@ class IntentRecognitionServiceTest {
     }
 
     @Test
+    void localFallbackCoversFirstRecognitionOptimizationVocabularyBatch() {
+        IntentRecognitionService service = new IntentRecognitionService(
+                message -> Optional.empty(),
+                intentRouter,
+                configLoader
+        );
+        Map<String, String> expectedIntents = Map.of(
+                "陪我随便聊两句", "assistant_chat",
+                "给我一个季度总结的写作提纲", "assistant_writing_help",
+                "帮忙起草一份需求说明", "assistant_writing_help",
+                "帮我下单一杯咖啡", "assistant_errand_unsupported",
+                "上传速度最好再快一点", "assistant_product_feedback",
+                "建议增加相册自动分类", "assistant_product_feedback",
+                "具体说说你能处理哪些文件操作", "assistant_capability_examples",
+                "搜索名为云盘功能介绍.pdf的文件", "file_search"
+        );
+
+        expectedIntents.forEach((message, expectedIntent) ->
+                assertThat(service.recognize(message).intentId())
+                        .as("local fallback intent for '%s'", message)
+                        .isEqualTo(expectedIntent)
+        );
+    }
+
+    @Test
+    void recognitionOptimizationVocabularyDoesNotInterceptExecutableFileCommands() {
+        IntentRecognitionService service = new IntentRecognitionService(
+                message -> Optional.empty(),
+                intentRouter,
+                configLoader
+        );
+
+        assertThat(service.recognize("上传到季度总结目录").intentId()).isEqualTo("file_upload");
+        assertThat(service.recognize("搜索相册里的年度照片").intentId()).isEqualTo("file_search");
+        assertThat(service.recognize("删除需求说明.docx").intentId()).isEqualTo("file_delete");
+        assertThat(service.recognize("把咖啡清单.pdf移动到资料库").intentId()).isEqualTo("node_move");
+    }
+
+    @Test
     void localFallbackRecognizesAssistantHelpScopeQuestion() {
         IntentModelClient unavailableClient = message -> Optional.empty();
 
