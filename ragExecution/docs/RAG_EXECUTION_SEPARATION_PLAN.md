@@ -832,7 +832,7 @@ cloud_action_errors_total{action_type,error_class}
 
 ### 阶段 7：清理旧执行路径
 
-状态：**2026-10-21 已完成。代码清理、完整回归、Android 真机、生产发布和主动无写入验收均已通过；详见 [阶段 7 完成日志](PHASE_7_LEGACY_EXECUTION_REMOVAL_LOG_2026-10-21.md)。Android `0.1.14 (15)` 正式签名包已验证，公共下载通道上传作为独立分发项处理。**
+状态：**2026-10-21 已完成。代码清理、完整回归、Android 真机、生产发布、主动无写入验收和 Android `0.1.14 (15)` 公共分发均已通过；详见 [阶段 7 完成日志](PHASE_7_LEGACY_EXECUTION_REMOVAL_LOG_2026-10-21.md)。**
 
 变更：
 

@@ -16,7 +16,7 @@
 写操作执行者   ragExecution -> CloudStorageApi
 ```
 
-Android 公共下载通道仍为 `0.1.13 (14)`；已准备并验证 `0.1.14 (15)` 正式签名包，但尚未使用管理凭据上传。该分发项不改变已经生效的服务端安全边界，且不构成恢复旧客户端执行器的理由。
+Android 公共下载通道已发布并独立下载验证 `0.1.14 (15)`。该分发没有改变服务端灰度范围，也没有恢复任何旧客户端执行路径。
 
 ## 2. 实现结果
 
@@ -146,7 +146,19 @@ signature     APK Signature Scheme v3，Alicia release certificate
 deploy/generated/android-release-packages/phoneAppAdd/0.1.14-15-release-20261021101038
 ```
 
-该目录被 Git 忽略，不提交签名产物。公共上传必须使用全局 `ADMIN` 或 `CLOUD_ADMIN` 凭据；专用 `RAG_ADMIN` 账号不得代替发布权限。上传后还需独立下载并核对版本、文件大小和 SHA-256，才能将公共分发项标记为完成。
+该目录被 Git 忽略，不提交签名产物。公共上传使用全局 `ADMIN`/`CLOUD_ADMIN` 临时会话完成，专用 `RAG_ADMIN` 账号没有代替发布权限；上传后临时 Identity 会话已正常注销，本地临时发布凭据文件已清除。
+
+公共分发最终结果：
+
+```text
+public version    0.1.14
+public uploadedAt 2026-10-21T02:16:08.790695793Z
+download bytes    27601533
+download sha256   6d9a803d1ed563d31d8caca1ce612dd2396a2d659e539787eee5fbe8ee28292d
+hash matches      true
+```
+
+公网 APK 由新请求完整下载后重新计算 SHA-256，不只依赖上传响应或 HEAD 检查。发布后再次运行生产标准验证，`admin-single + FOLDER_CREATE`、依赖健康、内部路由屏蔽和容器重启检查全部通过。
 
 ## 8. 后续进度线
 

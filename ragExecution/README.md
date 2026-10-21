@@ -5,7 +5,7 @@
 本地多轮识别、任务登记与安全确认的隔离联调入口见
 [`test/rag-e2e/README.md`](../test/rag-e2e/README.md)。该工具使用独立 Compose 项目、回环端口和测试数据库卷，不读取生产 `.env`。
 
-当前状态：**阶段 0 至阶段 7 已完成代码改造；生产已于 2026-10-20 进入 `admin-single`，仅向 `RAG_ADMIN` 开放 `FOLDER_CREATE`，公网确认、Worker 与 Cloud 分派已按该单动作灰度开启。Android 旧本地写执行器、网络适配器和兼容开关已删除，普通用户与其他动作仍不能进入云端执行。**
+当前状态：**阶段 0 至阶段 7 已完成；生产于 2026-10-20 进入 `admin-single`，仅向 `RAG_ADMIN` 开放 `FOLDER_CREATE`，公网确认、Worker 与 Cloud 分派已按该单动作灰度开启。Android 旧本地写执行器、网络适配器和兼容开关已删除，`0.1.14 (15)` 已完成公共分发和下载哈希验证；普通用户与其他动作仍不能进入云端执行。**
 
 本次生产晋级、真机任务、数据库回执和遗留测试数据见
 [`docs/PRODUCTION_ADMIN_SINGLE_ROLLOUT_LOG_2026-10-20.md`](docs/PRODUCTION_ADMIN_SINGLE_ROLLOUT_LOG_2026-10-20.md)。
