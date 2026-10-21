@@ -9,6 +9,7 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -259,8 +260,15 @@ class AssistantControllerTest {
     void publicPlanRemovesLegacyClientExecutionMaterial() throws Exception {
         AssistantConversationService service = mock(AssistantConversationService.class);
         AssistantPlanRequest request = new AssistantPlanRequest("确认", "conversation-1");
+        ExecutionReference executionReference = new ExecutionReference(
+                "11111111-1111-1111-1111-111111111111",
+                "PENDING_CONFIRMATION",
+                1L,
+                Instant.parse("2026-10-21T08:00:00Z")
+        );
         IntentRecognitionResponse response = responseWithNextAction("创建文件夹", "handoff_to_backend")
-                .withBackendActionDraft(legacyBackendDraft());
+                .withBackendActionDraft(legacyBackendDraft())
+                .withExecutionReference(executionReference);
         when(service.plan(eq(new AssistantPlanRequest("确认", "conversation-1", null, null)), eq("Bearer token")))
                 .thenReturn(response);
         AssistantController controller = new AssistantController(
@@ -269,8 +277,12 @@ class AssistantControllerTest {
                 new ObjectMapper().findAndRegisterModules()
         );
 
-        BackendActionDraft draft = controller.plan(request, "Bearer token").backendActionDraft();
+        IntentRecognitionResponse sanitized = controller.plan(request, "Bearer token");
+        BackendActionDraft draft = sanitized.backendActionDraft();
 
+        assertThat(sanitized.executionReference()).isEqualTo(executionReference);
+        assertThat(response.backendActionDraft().executableByBackend()).isTrue();
+        assertThat(response.backendActionDraft().path()).isEqualTo("/api/storage/folders");
         assertThat(draft.actionType()).isEqualTo("folder.create");
         assertThat(draft.status()).isEqualTo("backend_action_ready");
         assertThat(draft.nextAction()).isEqualTo("confirm_cloud_execution");

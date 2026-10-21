@@ -1,14 +1,18 @@
 package com.alicia.cloudstorage.rag.assistant;
 
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
+
 import java.util.List;
 
 public record AssistantClientEvent(
-        String type,
-        Long candidateId,
-        Integer candidateIndex,
-        String bindingKey,
-        String planId,
-        String outcome
+        @Size(max = 64) String type,
+        @Positive Long candidateId,
+        @Positive @Max(500) Integer candidateIndex,
+        @Size(max = 128) String bindingKey,
+        @Size(max = 128) String planId,
+        @Size(max = 64) String outcome
 ) {
     public AssistantClientEvent {
         type = type == null ? "" : type.trim().toUpperCase();

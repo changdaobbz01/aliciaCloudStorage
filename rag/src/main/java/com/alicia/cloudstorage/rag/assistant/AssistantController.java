@@ -4,6 +4,8 @@ import com.alicia.cloudstorage.rag.execution.ShadowExecutionRegistrar;
 import com.alicia.cloudstorage.rag.security.RagAccessAuthorizer;
 import com.alicia.cloudstorage.rag.security.RagAccessPrincipal;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -177,7 +179,7 @@ public class AssistantController {
 
     @PostMapping("/api/assistant/plan")
     public IntentRecognitionResponse plan(
-            @RequestBody AssistantPlanRequest request,
+            @Valid @NotNull @RequestBody AssistantPlanRequest request,
             @RequestHeader(value = "Authorization", required = false) String authorizationHeader
     ) {
         String message = request == null ? "" : request.message();
@@ -197,7 +199,7 @@ public class AssistantController {
 
     @PostMapping(value = "/api/assistant/plan/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter planStream(
-            @RequestBody AssistantPlanRequest request,
+            @Valid @NotNull @RequestBody AssistantPlanRequest request,
             @RequestHeader(value = "Authorization", required = false) String authorizationHeader
     ) {
         String message = request == null ? "" : request.message();
@@ -219,7 +221,7 @@ public class AssistantController {
 
     @PostMapping("/api/intent/recognize")
     public IntentRecognitionResponse recognize(
-            @RequestBody AssistantPlanRequest request,
+            @Valid @NotNull @RequestBody AssistantPlanRequest request,
             @RequestHeader(value = "Authorization", required = false) String authorizationHeader
     ) {
         return plan(request, authorizationHeader);

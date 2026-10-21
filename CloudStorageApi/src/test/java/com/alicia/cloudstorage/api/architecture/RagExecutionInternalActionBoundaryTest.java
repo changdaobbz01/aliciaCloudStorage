@@ -31,6 +31,16 @@ class RagExecutionInternalActionBoundaryTest {
     }
 
     @Test
+    void publicRagGatewayLimitsRequestBodiesInHttpAndHttpsConfigurations() {
+        String nginx = readRepositoryFile("webApp/nginx/default.conf");
+        String nginxSsl = readRepositoryFile("webApp/nginx/default.ssl.conf");
+        String guardedLocation = "location /rag/ {\n        client_max_body_size 64k;";
+
+        assertThat(nginx).contains(guardedLocation);
+        assertThat(nginxSsl).contains(guardedLocation);
+    }
+
+    @Test
     void internalAdapterUsesExistingBusinessServicesInsteadOfRepositoryWrites() {
         String executor = readRepositoryFile(
                 "CloudStorageApi/src/main/java/com/alicia/cloudstorage/api/ragexecution/application/"

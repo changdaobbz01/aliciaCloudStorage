@@ -1,15 +1,21 @@
 package com.alicia.cloudstorage.rag.assistant;
 
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
+
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.List;
 
 public record AssistantClientContext(
-        Long currentFolderId,
-        String currentFolderPath,
-        Map<String, Integer> availableClientInputs,
-        String actionContractVersion,
-        List<String> supportedActionTypes
+        @Positive Long currentFolderId,
+        @Size(max = 2048) String currentFolderPath,
+        @Size(max = 16) Map<@NotBlank @Size(max = 64) String, @NotNull @Positive @Max(500) Integer> availableClientInputs,
+        @Size(max = 64) String actionContractVersion,
+        @Size(max = 32) List<@NotBlank @Size(max = 96) String> supportedActionTypes
 ) {
     public AssistantClientContext {
         currentFolderPath = currentFolderPath == null ? "" : currentFolderPath.trim();
