@@ -65,7 +65,7 @@ pwsh -File test/rag-e2e/run-evaluation.ps1 -Suite recognition-holdout
 
 准确率不达标属于阶段 8 的测量结果，不会让命令伪装成基础设施失败；但缺失响应、API/清理失败或任何期望非执行话语产生可执行计划，仍会直接失败。两套识别评测都禁止使用 `-ExecuteFolderCreate`，不会确认任务。
 
-建立 DeepSeek 在线基线时必须显式启用在线 canary。脚本会先提交一条无执行能力的社交问候，要求返回可用的 `deepseek` 响应、正确意图且不存在动作草稿或任务引用；HTTP、超时、无效 JSON、策略拒绝或本地兜底都会在数据集开始前终止，并只输出脱敏诊断：
+建立 DeepSeek 在线基线时必须显式启用在线 canary。脚本会先提交一条无执行能力的社交问候，要求存在可审计的模型成功证据、正确意图且不存在动作草稿或任务引用。模型结果可以直接保留为 `deepseek`，也可以在成功返回后由本地权威规则安全接管为 `local_policy`；HTTP、超时、无效 JSON、模型不可用或无来源证据的本地兜底都会在数据集开始前终止，并只输出脱敏诊断：
 
 ```powershell
 pwsh -File test/rag-e2e/run-evaluation.ps1 `

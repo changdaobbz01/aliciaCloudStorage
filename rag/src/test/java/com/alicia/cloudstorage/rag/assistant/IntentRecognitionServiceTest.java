@@ -484,6 +484,19 @@ class IntentRecognitionServiceTest {
     }
 
     @Test
+    void unavailableModelNeverClaimsThatLocalPolicyReceivedAModelResult() {
+        IntentRecognitionResponse response = new IntentRecognitionService(
+                message -> Optional.empty(),
+                intentRouter,
+                configLoader
+        ).recognize("好吧，今天先这样");
+
+        assertThat(response.provider()).isEqualTo("local_fallback");
+        assertThat(response.intentId()).isEqualTo("assistant_acknowledgement");
+        assertThat(response.fallbackReason()).doesNotStartWith("model_succeeded:");
+    }
+
+    @Test
     void safeModelReplyIsReusedWithoutASecondPolishingCall() {
         IntentModelClient modelClient = message -> Optional.of(new IntentModelClient.ModelIntentResult(
                 "deepseek",

@@ -215,7 +215,7 @@ public class IntentRecognitionService {
                 policyFallbackReason = "capability_boundary:" + configuredBoundary.id();
             } else if (guardedByBoundary && modelResult != null) {
                 policyFallbackReason = "model_succeeded:semantic_boundary";
-            } else if (guardedByLocalRoute) {
+            } else if (guardedByLocalRoute && modelResult != null) {
                 policyFallbackReason = "model_succeeded:local_policy:" + arbitration.reason();
             } else {
                 policyFallbackReason = fallbackReason;

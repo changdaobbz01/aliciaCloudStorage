@@ -306,18 +306,23 @@ if ($RequireOnlineRecognition) {
     $canaryProvider = [string](Get-OptionalProperty -Object $canary -Name 'provider')
     $canaryModel = [string](Get-OptionalProperty -Object $canary -Name 'model')
     $canaryIntent = [string](Get-OptionalProperty -Object $canary -Name 'intentId')
+    $canaryFallbackReason = [string](Get-OptionalProperty -Object $canary -Name 'fallbackReason')
     $canaryDraft = Get-OptionalProperty -Object $canary -Name 'actionDraft'
     $canaryDraftType = [string](Get-OptionalProperty -Object $canaryDraft -Name 'type')
     $canaryExecution = Get-OptionalProperty -Object $canary -Name 'executionReference'
-    if ($canaryProvider -ne 'deepseek' -or
-        [string]::IsNullOrWhiteSpace($canaryModel) -or
+    $directModelEvidence = $canaryProvider -eq 'deepseek' -and
+            -not [string]::IsNullOrWhiteSpace($canaryModel)
+    $localPolicyEvidence = $canaryProvider -eq 'local_fallback' -and
+            $canaryFallbackReason.StartsWith('model_succeeded:local_policy:')
+    if ((-not $directModelEvidence -and -not $localPolicyEvidence) -or
         $canaryIntent -ne 'assistant_social' -or
         $canaryDraftType -ne 'none' -or
         $null -ne $canaryExecution) {
         $diagnostic = Get-OnlineRecognitionDiagnostic -Response $canary
         throw "Online recognition canary failed before dataset evaluation: provider=$canaryProvider intent=$canaryIntent diagnostic=$diagnostic"
     }
-    Write-Host "[OK] Online recognition canary passed: provider=$canaryProvider model=$canaryModel intent=$canaryIntent"
+    $canaryPath = if ($directModelEvidence) { 'deepseek' } else { 'local_policy' }
+    Write-Host "[OK] Online recognition canary passed: path=$canaryPath provider=$canaryProvider model=$canaryModel intent=$canaryIntent"
 }
 
 $scenarioFiles = @(switch ($Suite) {
