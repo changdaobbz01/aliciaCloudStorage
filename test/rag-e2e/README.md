@@ -75,6 +75,22 @@ pwsh -File test/rag-e2e/run-evaluation.ps1 `
 
 canary 通过只证明在线识别链路可用。正式指标会进一步记录 `recognitionPaths`：模型结果直接保留为 `deepseek`，模型前安全拦截为 `local_guard`，无需调用模型的确定性结构语义为 `local_structure`，在线模型成功后由本地权威规则接管为 `local_policy`，模型不可用或响应不可解析才是 `local_unavailable`。`write-recognition-baseline.ps1 -Lane deepseek-online` 允许前四条可审计路径，并要求存在真实在线成功证据；任何 `local_unavailable` 都会拒绝写入基线。
 
+在线稳定性必须使用同一干净提交、同一开发集的至少三份指标报告。聚合器统计逐样本的意图、操作、
+识别路径和完整契约结果漂移；它不会把准确率波动伪装成基础设施失败，但发现不安全执行、缺失响应、
+基础设施错误、`local_unavailable`、`unclassified` 或缺少在线模型证据时会失败关闭：
+
+```powershell
+$metrics = @(
+  'test/rag-e2e/results/rag-recognition-development-<run-1>.metrics.json',
+  'test/rag-e2e/results/rag-recognition-development-<run-2>.metrics.json',
+  'test/rag-e2e/results/rag-recognition-development-<run-3>.metrics.json'
+)
+pwsh -File test/rag-e2e/measure-recognition-stability.ps1 -MetricsPath $metrics
+```
+
+稳定性测量只使用开发集。不要为了增加样本量反复运行保留集；保留集仍只在完成一个独立开发节点后
+运行一次。
+
 本地兜底基线必须由同一个干净提交生成的开发集与保留集指标共同写入，且两份报告都只能包含 `local_fallback`：
 
 ```powershell
