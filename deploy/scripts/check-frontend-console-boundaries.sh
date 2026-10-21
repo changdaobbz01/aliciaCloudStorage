@@ -78,6 +78,30 @@ require_source_match() {
     ok "$label"
 }
 
+require_source_order() {
+    local label="$1"
+    local target="$2"
+    local before_pattern="$3"
+    local after_pattern="$4"
+    local message="$5"
+    local before_line=""
+    local after_line=""
+
+    [[ -e "$target" ]] || fail "$label source target does not exist: $target"
+
+    if command -v rg >/dev/null 2>&1; then
+        before_line="$(rg -n -m 1 "$before_pattern" "$target" | cut -d: -f1 || true)"
+        after_line="$(rg -n -m 1 "$after_pattern" "$target" | cut -d: -f1 || true)"
+    else
+        command -v grep >/dev/null 2>&1 || fail "Either ripgrep (rg) or grep is required."
+        before_line="$(grep -nEm 1 "$before_pattern" "$target" | cut -d: -f1 || true)"
+        after_line="$(grep -nEm 1 "$after_pattern" "$target" | cut -d: -f1 || true)"
+    fi
+
+    [[ -n "$before_line" && -n "$after_line" && "$before_line" -lt "$after_line" ]] || fail "$message"
+    ok "$label"
+}
+
 require_source_count_at_least() {
     local label="$1"
     local target="$2"
@@ -2617,6 +2641,31 @@ require_source_match \
     "deploy/scripts/update-cloud-production.sh" \
     'ALICIA_CLOUD_DEPLOY_SERVICES:-api frontend' \
     "Cloud production update must publish the CloudStorageApi/sysManage contract by default."
+
+require_source_order \
+    "cloud update prepares route verification credentials before mutation" \
+    "deploy/scripts/update-cloud-production.sh" \
+    '^prepare_verification_credentials_if_needed[[:space:]]*$' \
+    '^fail_if_tracked_changes[[:space:]]*$' \
+    "Cloud production update must resolve authenticated verification input before Git or Docker mutation."
+
+require_source_match \
+    "cloud update fails fast without non-interactive verification account" \
+    "deploy/scripts/update-cloud-production.sh" \
+    '\[\[ -t 0 \]\] \|\| fail "Identity verification account is required for a non-interactive update\.' \
+    "Cloud production update must not hang while waiting for an account in non-interactive sessions."
+
+require_source_match \
+    "cloud update fails fast without non-interactive verification password" \
+    "deploy/scripts/update-cloud-production.sh" \
+    '\[\[ -t 0 \]\] \|\| fail "Identity verification password is required for a non-interactive update\.' \
+    "Cloud production update must not hang while waiting for a password in non-interactive sessions."
+
+require_source_match \
+    "identity route verifier fails fast without non-interactive credentials" \
+    "deploy/scripts/verify-identity-cloud-routes.sh" \
+    'Identity verification account is required in non-interactive mode' \
+    "Direct identity/cloud route verification must not hang on a closed or piped stdin."
 
 require_source_match \
     "cloud README documents api frontend contract publishing" \

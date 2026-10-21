@@ -847,12 +847,16 @@ if [[ "$SKIP_CACHE_CHECKS" != "true" ]]; then
 fi
 
 if [[ -z "$ACCOUNT" ]]; then
+    [[ -t 0 ]] || fail "Identity verification account is required in non-interactive mode. Set ALICIA_VERIFY_ACCOUNT and ALICIA_VERIFY_PASSWORD."
     read -r -p "Identity account/email/phone: " ACCOUNT
+    [[ -n "$ACCOUNT" ]] || fail "Identity verification account must not be empty."
 fi
 
 if [[ -z "$PASSWORD" ]]; then
+    [[ -t 0 ]] || fail "Identity verification password is required in non-interactive mode. Set ALICIA_VERIFY_ACCOUNT and ALICIA_VERIFY_PASSWORD."
     read -r -s -p "Identity password: " PASSWORD
     printf '\n'
+    [[ -n "$PASSWORD" ]] || fail "Identity verification password must not be empty."
 fi
 
 login_payload="$(printf '{"identifier":"%s","password":"%s"}' "$(json_escape "$ACCOUNT")" "$(json_escape "$PASSWORD")")"

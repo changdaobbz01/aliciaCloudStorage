@@ -121,19 +121,25 @@ publish_android_app_package_if_needed() {
     bash deploy/scripts/publish-git-android-app-package.sh
 }
 
-read_verification_credentials_if_needed() {
-    [[ "$VERIFY_PRODUCTION_FLOWS" == "true" ]] || return 0
+prepare_verification_credentials_if_needed() {
+    if [[ "$SKIP_ROUTE_VERIFY" == "true" && "$VERIFY_PRODUCTION_FLOWS" != "true" ]]; then
+        return 0
+    fi
 
     local account="${ALICIA_VERIFY_ACCOUNT:-${ALICIA_IDENTITY_ACCOUNT:-}}"
     local password="${ALICIA_VERIFY_PASSWORD:-${ALICIA_IDENTITY_PASSWORD:-}}"
 
     if [[ -z "$account" ]]; then
+        [[ -t 0 ]] || fail "Identity verification account is required for a non-interactive update. Set ALICIA_VERIFY_ACCOUNT and ALICIA_VERIFY_PASSWORD; for an intentionally unauthenticated update, set ALICIA_SKIP_ROUTE_VERIFY=true and leave ALICIA_VERIFY_PRODUCTION_FLOWS_AFTER_UPDATE=false."
         read -r -p "Identity account/email/phone: " account
+        [[ -n "$account" ]] || fail "Identity verification account must not be empty."
     fi
 
     if [[ -z "$password" ]]; then
+        [[ -t 0 ]] || fail "Identity verification password is required for a non-interactive update. Set ALICIA_VERIFY_ACCOUNT and ALICIA_VERIFY_PASSWORD; for an intentionally unauthenticated update, set ALICIA_SKIP_ROUTE_VERIFY=true and leave ALICIA_VERIFY_PRODUCTION_FLOWS_AFTER_UPDATE=false."
         read -r -s -p "Identity password: " password
         printf '\n'
+        [[ -n "$password" ]] || fail "Identity verification password must not be empty."
     fi
 
     export ALICIA_VERIFY_ACCOUNT="$account"
@@ -177,6 +183,7 @@ done
     exit 1
 }
 
+prepare_verification_credentials_if_needed
 fail_if_tracked_changes
 ensure_gateway_network
 
@@ -194,8 +201,6 @@ fi
 compose up -d --build "${SERVICES[@]}"
 
 publish_android_app_package_if_needed
-
-read_verification_credentials_if_needed
 
 if [[ "$SKIP_ROUTE_VERIFY" != "true" ]]; then
     bash deploy/scripts/verify-identity-cloud-routes.sh
