@@ -137,6 +137,21 @@ function New-FolderPlan {
             }
     Assert-Condition ([string]$response.intentId -eq "folder_create") `
         "Expected folder_create, got '$($response.intentId)' for '$Message'."
+    $publicDraft = $response.backendActionDraft
+    Assert-Condition ($null -ne $publicDraft) "Plan returned no public action metadata."
+    Assert-Condition (-not [bool]$publicDraft.executableByBackend) `
+        "Public action metadata must not be directly executable."
+    $legacyRouteFields = @(@(
+            "method",
+            "pathTemplate",
+            "path",
+            "contentType",
+            "pathVariables",
+            "queryParameters",
+            "body"
+        ) | Where-Object { $_ -in @($publicDraft.PSObject.Properties.Name) })
+    Assert-Condition ($legacyRouteFields.Count -eq 0) `
+        "Public response exposes retired route fields: $($legacyRouteFields -join ', ')."
     Assert-Condition ($null -ne $response.executionReference) "Plan returned no execution reference."
     $executionId = [string]$response.executionReference.executionId
     Assert-Condition (-not [string]::IsNullOrWhiteSpace($executionId)) "Execution reference has no id."
@@ -195,7 +210,7 @@ function Cancel-And-Verify {
     Assert-Condition ([int](@($settled.steps)[0].attempts) -eq 0) "Cancelled task was dispatched."
     $events = @(Get-ExecutionEvents -ExecutionId $ExecutionId -Headers $Headers)
     $types = @($events | ForEach-Object { [string]$_.type })
-    Assert-Condition (($types | Where-Object { $_ -eq "EXECUTION_CANCELLED" }).Count -eq 1) `
+    Assert-Condition (@($types | Where-Object { $_ -eq "EXECUTION_CANCELLED" }).Count -eq 1) `
         "Cancellation event count is not one."
     $nodes = @(Get-ExactActiveFolders -FolderName $FolderName -Headers $Headers)
     Assert-Condition ($nodes.Count -eq 0) "Cancelled task created a storage folder."

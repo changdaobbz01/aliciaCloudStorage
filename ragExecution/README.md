@@ -10,6 +10,9 @@
 本次生产晋级、真机任务、数据库回执和遗留测试数据见
 [`docs/PRODUCTION_ADMIN_SINGLE_ROLLOUT_LOG_2026-10-20.md`](docs/PRODUCTION_ADMIN_SINGLE_ROLLOUT_LOG_2026-10-20.md)。
 
+阶段 7 旧 Android 本地写执行路径清理、完整回归、真机与生产验收见
+[`docs/PHASE_7_LEGACY_EXECUTION_REMOVAL_LOG_2026-10-21.md`](docs/PHASE_7_LEGACY_EXECUTION_REMOVAL_LOG_2026-10-21.md)。
+
 本服务只负责：
 
 - 保存 RAG 生成的受控执行计划。
