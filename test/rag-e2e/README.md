@@ -85,7 +85,7 @@ $metrics = @(
   'test/rag-e2e/results/rag-recognition-development-<run-2>.metrics.json',
   'test/rag-e2e/results/rag-recognition-development-<run-3>.metrics.json'
 )
-pwsh -File test/rag-e2e/measure-recognition-stability.ps1 -MetricsPath $metrics
+& test/rag-e2e/measure-recognition-stability.ps1 -MetricsPath $metrics
 ```
 
 稳定性测量只使用开发集。不要为了增加样本量反复运行保留集；保留集仍只在完成一个独立开发节点后

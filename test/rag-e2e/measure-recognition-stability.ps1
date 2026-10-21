@@ -146,10 +146,10 @@ foreach ($key in @($referenceRecords.Keys | Sort-Object)) {
         throw "Recognition labels changed between stability runs: $key"
     }
 
-    $intentValues = Get-ValueCounts @($records | ForEach-Object { [string]$_.actualIntent })
-    $operationValues = Get-ValueCounts @($records | ForEach-Object { [string]$_.actualOperation })
-    $pathValues = Get-ValueCounts @($records | ForEach-Object { [string]$_.recognitionPath })
-    $providerValues = Get-ValueCounts @($records | ForEach-Object { [string]$_.provider })
+    $intentValues = @(Get-ValueCounts @($records | ForEach-Object { [string]$_.actualIntent }))
+    $operationValues = @(Get-ValueCounts @($records | ForEach-Object { [string]$_.actualOperation }))
+    $pathValues = @(Get-ValueCounts @($records | ForEach-Object { [string]$_.recognitionPath }))
+    $providerValues = @(Get-ValueCounts @($records | ForEach-Object { [string]$_.provider }))
     $exactValues = @($records | ForEach-Object { [bool]$_.exactMatched })
     $exactCorrectRuns = @($exactValues | Where-Object { $_ }).Count
 
