@@ -436,6 +436,10 @@ try {
                             -Method Post `
                             -Uri "$script:Root/rag-execution/api/executions/$($entry.Key)/cancel" `
                             -Headers $headers | Out-Null
+                } elseif ([string]$execution.status -in @("RUNNING", "RETRY_WAIT")) {
+                    # A dispatched write cannot be cancelled safely. Wait for its terminal
+                    # state before the synthetic-folder cleanup below, including on failure.
+                    Wait-TerminalExecution -ExecutionId $entry.Key -Headers $headers | Out-Null
                 }
             } catch {
                 Write-Warning "Could not reconcile execution $($entry.Key): $($_.Exception.Message)"

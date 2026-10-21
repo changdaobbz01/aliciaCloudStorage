@@ -10,7 +10,7 @@ foundation -> shadow -> admin-single
 
 当前只允许 `RAG_ADMIN` 确认 `FOLDER_CREATE`。普通用户、其他单动作、批量动作和组合动作均未开放；旧客户端本地写执行器继续关闭。
 
-运行提交：`fcb6478 Preserve English folder names in RAG plans`
+当前 RAG 运行提交：`a89d3e8 Harden RAG folder name active verification`
 
 ## 2. Shadow 晋级验收
 
@@ -213,3 +213,54 @@ storage nodes 0
 探针完整验证了 Identity 登录、RAG 计划生成、精确英文目录名保留、任务登记、公网任务读取、取消、事件读取和临时会话注销。探针结束后 RAG、RAG Execution、Cloud API 均无新增异常日志。
 
 本轮没有修改生产配置、服务镜像或动作白名单。继续保持 `admin-single` 观察，不进入全面意图识别优化，也不开放其他写动作。
+
+## 10. 主动并发与竞态验收｜2026-10-21
+
+为避免仅依赖被动观察，使用专用 `RAG_ADMIN` 账号对生产公网链路执行主动测试。测试脚本 `deploy/scripts/verify-rag-execution-admin-active.ps1` 默认只登记并取消任务；只有显式传入 `-ExecuteAndCleanup` 才会执行真实写入，并且只允许清理 `rag-active-` 前缀的合成目录。
+
+第一轮解析探针发现中文后置命名句式：
+
+```text
+创建一个文件夹，名称是 rag-active-cn-20261021-093753-03
+```
+
+被通用逗号规则错误提取为目录名 `一个文件夹`。任务 `6cf4c586-f7ca-430c-8203-b5d60f4b8ad6` 在确认前立即取消，`attempts=0`、Cloud 回执为 `0`，没有产生目录。随后完成以下修复：
+
+- 增加中文“名称是/名称为/名字是/名字为”后置命名专用规则。
+- 通用逗号规则禁止把“一个文件夹/文件夹/目录”等对象词当作名称。
+- 增加实体抽取单元测试和完整会话服务回归测试。
+- RAG 全量测试 `306/306` 通过，随后发布提交 `a89d3e8`。
+
+发布后的无写入主动用例覆盖英文、中文前置命名、中文后置命名和调用式表达，连续两轮共 8 个任务全部精确保留目录名并安全取消；同时验证未认证请求拒绝、重复取消幂等、版本冲突与过期确认拒绝。
+
+显式真实执行测试结果：
+
+```text
+并发双确认任务  08a973b8-a2be-4959-8bf1-c9e44c9ed0d7
+最终状态        SUCCEEDED
+步骤尝试        1
+确认事件        1
+Cloud 回执      1 / SUCCEEDED / FOLDER_CREATED
+目录结果        恰好创建 1 个，随后经正式 Cloud API 永久清理
+
+确认/取消竞态   8f112740-eeda-4358-8b33-a212e1ac0c99
+最终状态        CANCELLED
+步骤尝试        0
+Cloud 回执      0
+目录结果        0
+```
+
+数据库与运行时最终审计：
+
+```text
+相关任务非终态                   0
+主动测试新增 FAILED/PARTIAL      0
+成功步骤重复尝试                 0
+事件序号缺口                     0
+重复确认事件                     0
+rag-active-* 存储节点残留        0
+RAG / Execution / Cloud API 异常 0
+容器重启                         0
+```
+
+`admin-single + RAG_ADMIN + FOLDER_CREATE` 边界保持不变，未开放普通用户、其他动作、批量或组合执行。后续定时稳定性观察作为补充证据继续保留，但不再用“等待时间经过”替代主动故障与竞态验证。全面对话识别率优化仍作为独立阶段开展。
