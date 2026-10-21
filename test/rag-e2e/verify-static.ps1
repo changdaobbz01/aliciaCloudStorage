@@ -137,6 +137,66 @@ if (Test-Path -LiteralPath $context.OnlineRecognitionBaselineFile -PathType Leaf
     Write-Host '[OK] DeepSeek online recognition baseline matches both labeled datasets and contains no unavailable path.'
 }
 
+if (Test-Path -LiteralPath $context.OnlineRecognitionStabilityFile -PathType Leaf) {
+    $stability = Get-Content -LiteralPath $context.OnlineRecognitionStabilityFile -Raw -Encoding UTF8 | ConvertFrom-Json
+    $developmentHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $context.RecognitionDevFile).Hash.ToLowerInvariant()
+    if ([string]$stability.schemaVersion -ne 'rag_recognition_stability_v1' -or
+        [string]$stability.split -ne 'development' -or
+        [int]$stability.runCount -lt 3 -or
+        [string]::IsNullOrWhiteSpace([string]$stability.sourceRevision) -or
+        [string]$stability.datasetHash -ne $developmentHash -or
+        [int]$stability.totalTurns -ne [int]$recognitionCounts.development) {
+        throw 'DeepSeek online stability baseline uses an unsupported source or dataset.'
+    }
+    if ([int]$stability.unsafeExecutableCount -ne 0 -or
+        [int]$stability.missingResponseCount -ne 0 -or
+        [int]$stability.infrastructureFailures -ne 0 -or
+        [int]$stability.unavailablePathCount -ne 0 -or
+        [int]$stability.intentDriftCount -ne 0 -or
+        [int]$stability.operationDriftCount -ne 0 -or
+        [int]$stability.exactOutcomeDriftCount -ne 0 -or
+        [int]$stability.alwaysExactCorrectCount -ne [int]$stability.totalTurns -or
+        [int]$stability.intermittentExactCount -ne 0 -or
+        [int]$stability.alwaysExactIncorrectCount -ne 0) {
+        throw 'DeepSeek online stability baseline contains a safety, availability, or semantic outcome regression.'
+    }
+    if (@($stability.runs).Count -ne [int]$stability.runCount -or
+        @($stability.cases).Count -ne [int]$stability.totalTurns) {
+        throw 'DeepSeek online stability baseline coverage is incomplete.'
+    }
+    $runIds = @($stability.runs | ForEach-Object { [string]$_.runId })
+    if (@($runIds | Where-Object { [string]::IsNullOrWhiteSpace($_) }).Count -gt 0 -or
+        @($runIds | Select-Object -Unique).Count -ne $runIds.Count) {
+        throw 'DeepSeek online stability baseline run IDs are incomplete or duplicated.'
+    }
+    foreach ($run in @($stability.runs)) {
+        $invalidPaths = @($run.recognitionPaths.PSObject.Properties | Where-Object {
+                [int]$_.Value -gt 0 -and $_.Name -notin @('deepseek', 'local_guard', 'local_structure', 'local_policy')
+            })
+        if ($invalidPaths.Count -gt 0 -or
+            [int]$run.intentCorrect -ne [int]$stability.totalTurns -or
+            [int]$run.exactContractCorrect -ne [int]$stability.totalTurns) {
+            throw "DeepSeek online stability baseline contains an invalid run summary: $($run.runId)"
+        }
+    }
+    $intentDrifts = @($stability.cases | Where-Object { -not [bool]$_.intentStable }).Count
+    $operationDrifts = @($stability.cases | Where-Object { -not [bool]$_.operationStable }).Count
+    $pathDrifts = @($stability.cases | Where-Object { -not [bool]$_.pathStable }).Count
+    $exactDrifts = @($stability.cases | Where-Object { -not [bool]$_.exactStable }).Count
+    $fullyStable = @($stability.cases | Where-Object {
+            [bool]$_.intentStable -and [bool]$_.operationStable -and
+            [bool]$_.pathStable -and [bool]$_.exactStable
+        }).Count
+    if ($intentDrifts -ne [int]$stability.intentDriftCount -or
+        $operationDrifts -ne [int]$stability.operationDriftCount -or
+        $pathDrifts -ne [int]$stability.pathDriftCount -or
+        $exactDrifts -ne [int]$stability.exactOutcomeDriftCount -or
+        $fullyStable -ne [int]$stability.fullyStableCount) {
+        throw 'DeepSeek online stability summary does not match its case records.'
+    }
+    Write-Host "[OK] DeepSeek online stability baseline covers $($stability.runCount) clean development runs without semantic outcome drift."
+}
+
 if (Test-Path -LiteralPath $context.ContractBaselineFile -PathType Leaf) {
     $contractBaseline = Get-Content -LiteralPath $context.ContractBaselineFile -Raw -Encoding UTF8 | ConvertFrom-Json
     if ([string]$contractBaseline.schemaVersion -ne 'rag_e2e_contract_baseline_v1') {

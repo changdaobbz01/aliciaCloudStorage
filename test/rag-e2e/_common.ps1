@@ -16,6 +16,7 @@ function Get-RagE2EContext {
         RecognitionHoldoutFile = Join-Path $suiteDirectory 'recognition-holdout.json'
         RecognitionBaselineFile = Join-Path $suiteDirectory 'recognition-baseline.local-fallback.json'
         OnlineRecognitionBaselineFile = Join-Path $suiteDirectory 'recognition-baseline.deepseek-online.json'
+        OnlineRecognitionStabilityFile = Join-Path $suiteDirectory 'recognition-stability.deepseek-online.json'
         ContractBaselineFile = Join-Path $suiteDirectory 'contract-baseline.json'
         ResultsDir     = Join-Path $suiteDirectory 'results'
         SourcePaths    = @(
