@@ -103,6 +103,10 @@ pwsh -File test/rag-e2e/classify-recognition-errors.ps1 `
 
 分类结果只用于确定下一批通用优化方向，不能作为复制保留集原句进规则或开发集的依据。
 
+已审查的在线错误分类基线保存在 `recognition-error-baseline.deepseek-online.json`。静态门禁会核对
+分类法哈希、开发集与保留集哈希、来源提交、统计一致性和阻断级类别；数据集或分类法变化后必须
+显式重建，不能让历史分类继续伪装成当前结果。该基线只保存样本键和结构化字段，不保存用户原句。
+
 本地兜底基线必须由同一个干净提交生成的开发集与保留集指标共同写入，且两份报告都只能包含 `local_fallback`：
 
 ```powershell
