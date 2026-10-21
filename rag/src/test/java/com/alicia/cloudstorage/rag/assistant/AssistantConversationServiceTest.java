@@ -236,6 +236,31 @@ class AssistantConversationServiceTest {
     }
 
     @Test
+    void createFolderWithPostposedChineseNamePreservesTheExactFolderName() {
+        AssistantConversationService service = conversationServiceWith(request -> {
+            throw new AssertionError("Root folder creation must not query a candidate folder.");
+        });
+
+        IntentRecognitionResponse response = service.plan(new AssistantPlanRequest(
+                "创建一个文件夹，名称是 rag-active-cn-20261021-03",
+                "",
+                AssistantClientContext.empty()
+        ));
+
+        assertThat(response.intentId()).isEqualTo("folder_create");
+        assertThat(response.missingSlots()).isEmpty();
+        assertThat(response.entities())
+                .containsEntry("new_folder_name", "rag-active-cn-20261021-03");
+        assertThat(response.actionPlan().status()).isEqualTo("review_required");
+        assertThat(response.actionPlan().steps()).singleElement().satisfies(step -> {
+            assertThat(step.action()).isEqualTo("folder.create");
+            assertThat(step.params())
+                    .containsEntry("parentId", null)
+                    .containsEntry("folderName", "rag-active-cn-20261021-03");
+        });
+    }
+
+    @Test
     void createFolderWithEnglishArticleButNoNameRequestsClarification() {
         IntentRecognitionResponse response = conversationService.plan(new AssistantPlanRequest(
                 "Create a folder",
