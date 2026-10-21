@@ -5,7 +5,7 @@
 本地多轮识别、任务登记与安全确认的隔离联调入口见
 [`test/rag-e2e/README.md`](../test/rag-e2e/README.md)。该工具使用独立 Compose 项目、回环端口和测试数据库卷，不读取生产 `.env`。
 
-当前状态：**阶段 0 至阶段 7 已完成；阶段 8A 已开始建设独立的识别开发集、保留集和评分框架。生产仍保持 `admin-single`，仅向 `RAG_ADMIN` 开放 `FOLDER_CREATE`；普通用户与其他动作未开放，阶段 8 不改变该执行边界。**
+当前状态：**阶段 0 至阶段 7 已完成；阶段 8A 已建立识别基线，阶段 8B 已完成第一批词汇覆盖和规则优先级优化，下一批进入结构化语义修复。生产仍保持 `admin-single`，仅向 `RAG_ADMIN` 开放 `FOLDER_CREATE`；普通用户与其他动作未开放，阶段 8 不改变该执行边界。**
 
 本次生产晋级、真机任务、数据库回执和遗留测试数据见
 [`docs/PRODUCTION_ADMIN_SINGLE_ROLLOUT_LOG_2026-10-20.md`](docs/PRODUCTION_ADMIN_SINGLE_ROLLOUT_LOG_2026-10-20.md)。
@@ -17,6 +17,8 @@
 [`docs/PHASE_8_RECOGNITION_EVALUATION_PLAN.md`](docs/PHASE_8_RECOGNITION_EVALUATION_PLAN.md)。
 阶段 8A 首版本地兜底基线与当前准确率见
 [`docs/PHASE_8A_RECOGNITION_BASELINE_LOG_2026-10-21.md`](docs/PHASE_8A_RECOGNITION_BASELINE_LOG_2026-10-21.md)。
+阶段 8B 第一批路由优化、回归结果与剩余结构化语义问题见
+[`docs/PHASE_8B_FIRST_ROUTING_OPTIMIZATION_LOG_2026-10-21.md`](docs/PHASE_8B_FIRST_ROUTING_OPTIMIZATION_LOG_2026-10-21.md)。
 
 本服务只负责：
 

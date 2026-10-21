@@ -86,3 +86,8 @@ pwsh -File test/rag-e2e/stop-local.ps1
 
 阶段 8A 的首版本地兜底基线已于 2026-10-21 完成，结果与发现的问题记录在
 [阶段 8A 识别评测基线日志](PHASE_8A_RECOGNITION_BASELINE_LOG_2026-10-21.md)。DeepSeek 在线基线尚未建立。
+
+阶段 8B 第一批词汇覆盖和路由优先级优化也已于 2026-10-21 完成。开发集完整契约由
+46/59 提升到 54/59，保留集保持 19/29，未发生安全或执行契约退化。详细范围、证据和阶段 8C
+结构化语义清单见
+[阶段 8B 第一批路由优化日志](PHASE_8B_FIRST_ROUTING_OPTIMIZATION_LOG_2026-10-21.md)。
