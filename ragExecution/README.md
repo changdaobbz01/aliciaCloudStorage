@@ -25,6 +25,7 @@
 [`docs/PHASE_8D_ONLINE_BASELINE_READINESS_LOG_2026-10-21.md`](docs/PHASE_8D_ONLINE_BASELINE_READINESS_LOG_2026-10-21.md)。
 阶段 8D 恢复后的在线开发集、保留集、双基线对比与稳定性结论见
 [`docs/PHASE_8D_ONLINE_BASELINE_LOG_2026-10-21.md`](docs/PHASE_8D_ONLINE_BASELINE_LOG_2026-10-21.md)。
+同一日志也记录了真实在线契约门禁发现的 4 类结构化漂移、通用语义加固及最终 87/87 回归结果。
 
 本服务只负责：
 
