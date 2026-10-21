@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
     [switch]$ExecuteFolderCreate,
+    [switch]$RequireOnlineRecognition,
     [int]$ExecutionTimeoutSeconds = 45,
     [ValidateSet('baseline', 'stress', 'all', 'recognition-dev', 'recognition-holdout')]
     [string]$Suite = 'baseline'
@@ -43,6 +44,66 @@ function Invoke-JsonRequest {
         $parameters.Body = $Body | ConvertTo-Json -Depth 30 -Compress
     }
     Invoke-RestMethod @parameters
+}
+
+function New-EvaluationClientContext {
+    [ordered]@{
+        currentFolderId       = $null
+        currentFolderPath     = '/'
+        availableClientInputs = @{}
+        actionContractVersion = 'action_bridge_v2'
+        supportedActionTypes  = @(
+            'folder.create',
+            'rename',
+            'delete',
+            'share',
+            'upload_target',
+            'collection.move_exact',
+            'collection.trash_by_name_contains',
+            'collection.trash_by_category',
+            'collection.move_by_category',
+            'collection.move_by_extension',
+            'collection.move_by_name_contains',
+            'collection.rename_add_prefix',
+            'composite.create_folder_then_upload'
+        )
+    }
+}
+
+function Get-OnlineRecognitionDiagnostic {
+    param([AllowNull()]$Response)
+
+    $fallbackReason = [string](Get-OptionalProperty -Object $Response -Name 'fallbackReason')
+    if ($fallbackReason.StartsWith('model_succeeded:')) {
+        return 'model_output_rejected_by_local_policy'
+    }
+
+    try {
+        $logLines = @(& docker logs --since 2m alicia-rag-e2e-rag-1 2>&1)
+        $latest = @($logLines | Where-Object { $_ -match 'DeepSeek intent recognition' } | Select-Object -Last 1)
+        if ($latest.Count -eq 0) {
+            return 'no_model_failure_log'
+        }
+        $message = [string]$latest[0]
+        if ($message -match 'returned HTTP status\s+(\d+)') {
+            return "deepseek_http_$($Matches[1])"
+        }
+        if ($message -match 'invalid JSON') {
+            return 'deepseek_invalid_json'
+        }
+        if ($message -match 'without a usable assistant JSON payload') {
+            return 'deepseek_unusable_payload'
+        }
+        if ($message -match 'recognition failed') {
+            return 'deepseek_transport_or_timeout'
+        }
+        if ($message -match 'recognition skipped') {
+            return 'deepseek_not_configured'
+        }
+        return 'deepseek_unknown_failure'
+    } catch {
+        return 'diagnostic_unavailable'
+    }
 }
 
 function Add-ExpectationFailure {
@@ -236,6 +297,29 @@ if ([string]$access.role -ne 'RAG_ADMIN') {
 }
 Write-Host '[OK] Dedicated RAG_ADMIN account authenticated; token is held only in process memory.'
 
+if ($RequireOnlineRecognition) {
+    $canary = Invoke-JsonRequest -Method Post -Uri "$ragBaseUrl/api/assistant/plan" -Headers $headers -Body @{
+        message        = '谢谢你的帮助'
+        conversationId = ''
+        clientContext  = New-EvaluationClientContext
+    }
+    $canaryProvider = [string](Get-OptionalProperty -Object $canary -Name 'provider')
+    $canaryModel = [string](Get-OptionalProperty -Object $canary -Name 'model')
+    $canaryIntent = [string](Get-OptionalProperty -Object $canary -Name 'intentId')
+    $canaryDraft = Get-OptionalProperty -Object $canary -Name 'actionDraft'
+    $canaryDraftType = [string](Get-OptionalProperty -Object $canaryDraft -Name 'type')
+    $canaryExecution = Get-OptionalProperty -Object $canary -Name 'executionReference'
+    if ($canaryProvider -ne 'deepseek' -or
+        [string]::IsNullOrWhiteSpace($canaryModel) -or
+        $canaryIntent -ne 'assistant_social' -or
+        $canaryDraftType -ne 'none' -or
+        $null -ne $canaryExecution) {
+        $diagnostic = Get-OnlineRecognitionDiagnostic -Response $canary
+        throw "Online recognition canary failed before dataset evaluation: provider=$canaryProvider intent=$canaryIntent diagnostic=$diagnostic"
+    }
+    Write-Host "[OK] Online recognition canary passed: provider=$canaryProvider model=$canaryModel intent=$canaryIntent"
+}
+
 $scenarioFiles = @(switch ($Suite) {
     'baseline' { @($context.ScenarioFile) }
     'stress' { @($context.StressScenarioFile) }
@@ -277,27 +361,7 @@ foreach ($case in $cases) {
             $body = @{
                 message        = $message
                 conversationId = $conversationId
-                clientContext  = @{
-                    currentFolderId     = $null
-                    currentFolderPath   = '/'
-                    availableClientInputs = @{}
-                    actionContractVersion = 'action_bridge_v2'
-                    supportedActionTypes = @(
-                        'folder.create',
-                        'rename',
-                        'delete',
-                        'share',
-                        'upload_target',
-                        'collection.move_exact',
-                        'collection.trash_by_name_contains',
-                        'collection.trash_by_category',
-                        'collection.move_by_category',
-                        'collection.move_by_extension',
-                        'collection.move_by_name_contains',
-                        'collection.rename_add_prefix',
-                        'composite.create_folder_then_upload'
-                    )
-                }
+                clientContext  = New-EvaluationClientContext
             }
             $lastResponse = Invoke-JsonRequest -Method Post -Uri "$ragBaseUrl/api/assistant/plan" -Headers $headers -Body $body
             $turnReference = Get-OptionalProperty -Object $lastResponse -Name 'executionReference'
@@ -463,6 +527,7 @@ $report = [pscustomobject]@{
     sourceDirty   = $sourceDirty
     scenarioHashes = $scenarioHashes
     startedByMode = if ($ExecuteFolderCreate) { 'recognition-and-safe-local-execution' } else { 'recognition-only' }
+    onlineRecognitionRequired = [bool]$RequireOnlineRecognition
     passedTurns   = $passedTurns
     failedTurns   = $failedTurns
     infrastructureFailures = $infrastructureFailures

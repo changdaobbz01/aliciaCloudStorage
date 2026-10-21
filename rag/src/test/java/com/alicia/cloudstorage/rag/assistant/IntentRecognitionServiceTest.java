@@ -456,6 +456,7 @@ class IntentRecognitionServiceTest {
 
         assertThat(response.provider()).isEqualTo("local_fallback");
         assertThat(response.intentId()).isEqualTo("assistant_acknowledgement");
+        assertThat(response.fallbackReason()).startsWith("model_succeeded:local_policy:");
         assertThat(response.assistantText())
                 .contains("好呀")
                 .doesNotContain("识别为");

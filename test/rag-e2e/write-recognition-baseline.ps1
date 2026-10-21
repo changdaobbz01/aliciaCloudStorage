@@ -26,6 +26,7 @@ function Get-MetricsSummary {
         missingResponseCount = [int]$Metrics.missingResponseCount
         infrastructureFailures = [int]$Metrics.infrastructureFailures
         recognitionSources = $Metrics.recognitionSources
+        recognitionPaths = $Metrics.recognitionPaths
         byGroup = @($Metrics.byGroup)
         confusion = @($Metrics.confusion)
     }
@@ -56,9 +57,15 @@ function Assert-Metrics {
             [int]$sources[0].Value -ne [int]$Metrics.totalTurns) {
             throw "Local fallback baseline contains another recognition source: $ExpectedSplit"
         }
-    } elseif ($sources.Count -ne 1 -or $sources[0].Name -ne 'deepseek' -or
-        [int]$sources[0].Value -ne [int]$Metrics.totalTurns) {
-        throw "DeepSeek baseline is incomplete or contains fallback responses: $ExpectedSplit"
+    } else {
+        $paths = @($Metrics.recognitionPaths.PSObject.Properties | Where-Object { [int]$_.Value -gt 0 })
+        $invalidPaths = @($paths | Where-Object { $_.Name -notin @('deepseek', 'local_guard', 'local_policy') })
+        $onlineEvidence = ($paths |
+                Where-Object { $_.Name -in @('deepseek', 'local_policy') } |
+                Measure-Object -Property Value -Sum).Sum
+        if ($paths.Count -eq 0 -or $invalidPaths.Count -gt 0 -or [int]$onlineEvidence -le 0) {
+            throw "DeepSeek online baseline is incomplete or contains unavailable/unclassified responses: $ExpectedSplit"
+        }
     }
 }
 

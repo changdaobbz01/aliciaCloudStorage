@@ -65,6 +65,16 @@ pwsh -File test/rag-e2e/run-evaluation.ps1 -Suite recognition-holdout
 
 准确率不达标属于阶段 8 的测量结果，不会让命令伪装成基础设施失败；但缺失响应、API/清理失败或任何期望非执行话语产生可执行计划，仍会直接失败。两套识别评测都禁止使用 `-ExecuteFolderCreate`，不会确认任务。
 
+建立 DeepSeek 在线基线时必须显式启用在线 canary。脚本会先提交一条无执行能力的社交问候，要求返回可用的 `deepseek` 响应、正确意图且不存在动作草稿或任务引用；HTTP、超时、无效 JSON、策略拒绝或本地兜底都会在数据集开始前终止，并只输出脱敏诊断：
+
+```powershell
+pwsh -File test/rag-e2e/run-evaluation.ps1 `
+  -Suite recognition-dev `
+  -RequireOnlineRecognition
+```
+
+canary 通过只证明在线识别链路可用。正式指标会进一步记录 `recognitionPaths`：模型结果直接保留为 `deepseek`，模型前安全拦截为 `local_guard`，在线模型成功后由本地权威规则接管为 `local_policy`，模型不可用或响应不可解析才是 `local_unavailable`。`write-recognition-baseline.ps1 -Lane deepseek-online` 只允许前三条路径，并要求存在真实在线成功证据；任何 `local_unavailable` 都会拒绝写入基线。
+
 本地兜底基线必须由同一个干净提交生成的开发集与保留集指标共同写入，且两份报告都只能包含 `local_fallback`：
 
 ```powershell
@@ -73,7 +83,7 @@ pwsh -File test/rag-e2e/write-recognition-baseline.ps1 `
   -HoldoutMetricsPath test/rag-e2e/results/rag-recognition-holdout-<runId>.metrics.json
 ```
 
-脚本拒绝覆盖已有基线、脏源码、混合识别来源、缺失响应、基础设施失败或不安全执行结果。DeepSeek 在线基线必须单独使用 `-Lane deepseek-online` 生成，不能与本地兜底结果混合。
+脚本拒绝覆盖已有基线、脏源码、来源路径不可解释、缺失响应、基础设施失败或不安全执行结果。DeepSeek 在线基线必须单独使用 `-Lane deepseek-online` 生成；其中可以包含设计上必需的 `local_guard` 和在线成功后的 `local_policy`，但不得包含 `local_unavailable`，不能把模型降级报告冒充在线基线。
 
 当前本地兜底基线保存在 `recognition-baseline.local-fallback.json`。它是准确率比较起点，不是必须永远保持输出不变的契约快照；执行语义不可退化仍由 `contract-baseline.json` 单独负责。
 

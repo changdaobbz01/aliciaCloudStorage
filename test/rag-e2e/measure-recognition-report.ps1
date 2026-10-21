@@ -83,6 +83,7 @@ $records = [System.Collections.Generic.List[object]]::new()
 $groupStats = @{}
 $confusion = @{}
 $providerCounts = @{}
+$recognitionPathCounts = @{}
 $intentCorrect = 0
 $operationCorrect = 0
 $operationEligible = 0
@@ -122,6 +123,23 @@ foreach ($caseResult in @($report.cases)) {
             $providerCounts[$provider] = 0
         }
         $providerCounts[$provider]++
+        $fallbackReason = [string](Get-OptionalProperty -Object $response -Name 'fallbackReason')
+        $recognitionPath = if ($provider -eq 'deepseek') {
+            'deepseek'
+        } elseif ($fallbackReason.StartsWith('non_executable_guard:') -or
+                  $fallbackReason.StartsWith('capability_boundary:')) {
+            'local_guard'
+        } elseif ($fallbackReason.StartsWith('model_succeeded:')) {
+            'local_policy'
+        } elseif ($provider -eq 'local_fallback') {
+            'local_unavailable'
+        } else {
+            'unclassified'
+        }
+        if (-not $recognitionPathCounts.ContainsKey($recognitionPath)) {
+            $recognitionPathCounts[$recognitionPath] = 0
+        }
+        $recognitionPathCounts[$recognitionPath]++
 
         $allowedIntents = Get-AllowedValues -Object $expected -Name 'intentId'
         if ($allowedIntents.Count -ne 1) {
@@ -182,6 +200,8 @@ foreach ($caseResult in @($report.cases)) {
             exactMatched = $exactMatched
             unsafeExecutable = $unsafeExecutable
             provider = $provider
+            recognitionPath = $recognitionPath
+            fallbackReason = $fallbackReason
         })
     }
 }
@@ -217,6 +237,10 @@ $providers = [ordered]@{}
 foreach ($provider in @($providerCounts.Keys | Sort-Object)) {
     $providers[$provider] = $providerCounts[$provider]
 }
+$recognitionPaths = [ordered]@{}
+foreach ($path in @($recognitionPathCounts.Keys | Sort-Object)) {
+    $recognitionPaths[$path] = $recognitionPathCounts[$path]
+}
 
 $metrics = [pscustomobject][ordered]@{
     schemaVersion = 'rag_recognition_metrics_v1'
@@ -241,6 +265,7 @@ $metrics = [pscustomobject][ordered]@{
     missingResponseCount = $missingResponseCount
     infrastructureFailures = [int](Get-OptionalProperty -Object $report -Name 'infrastructureFailures')
     recognitionSources = $providers
+    recognitionPaths = $recognitionPaths
     byGroup = $groupMetrics
     confusion = $confusionMetrics
     records = @($records)

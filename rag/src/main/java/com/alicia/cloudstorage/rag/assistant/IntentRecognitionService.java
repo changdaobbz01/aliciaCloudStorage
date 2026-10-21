@@ -210,11 +210,19 @@ public class IntentRecognitionService {
         boolean guardedByLocalRoute = arbitration.useLocalRoute();
         if (guardedByBoundary || guardedByLocalRoute) {
             IntentRecognitionResponse modelResponse = response;
+            String policyFallbackReason;
+            if (configuredBoundary != null) {
+                policyFallbackReason = "capability_boundary:" + configuredBoundary.id();
+            } else if (guardedByBoundary && modelResult != null) {
+                policyFallbackReason = "model_succeeded:semantic_boundary";
+            } else if (guardedByLocalRoute) {
+                policyFallbackReason = "model_succeeded:local_policy:" + arbitration.reason();
+            } else {
+                policyFallbackReason = fallbackReason;
+            }
             response = fromFallback(
                     message,
-                    guardedByBoundary
-                            ? "当前请求包含尚未开放的组合规则，需要用户进一步明确。"
-                            : "语义仲裁切换为高置信配置规则：" + arbitration.reason()
+                    policyFallbackReason
             );
             if (!guardedByBoundary
                     && modelResult != null
