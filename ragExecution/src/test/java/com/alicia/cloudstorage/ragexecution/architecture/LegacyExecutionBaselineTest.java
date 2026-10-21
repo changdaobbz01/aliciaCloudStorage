@@ -12,18 +12,28 @@ import static org.assertj.core.api.Assertions.assertThat;
 class LegacyExecutionBaselineTest {
 
     @Test
-    void currentRagPlanVersionAndDisabledAndroidExecutorRemainFrozen() throws IOException {
+    void currentRagPlanVersionAndRemovedAndroidExecutorRemainFrozen() throws IOException {
         String actionPlan = read(Path.of(
                 "..", "rag", "src", "main", "java", "com", "alicia", "cloudstorage", "rag",
                 "assistant", "ActionPlan.java"
         ));
-        String androidExecutor = read(Path.of(
+        Path androidExecutor = Path.of(
                 "..", "phoneAppAdd", "app", "src", "main", "java", "com", "alicia", "cloudstorage",
                 "phone", "data", "RagActionExecutor.kt"
+        );
+        String androidBuild = read(Path.of("..", "phoneAppAdd", "app", "build.gradle.kts"));
+        String assistantViewModel = read(Path.of(
+                "..", "phoneAppAdd", "app", "src", "main", "java", "com", "alicia", "cloudstorage",
+                "phone", "ui", "RagAssistantViewModel.kt"
         ));
 
         assertThat(actionPlan).contains("CURRENT_VERSION = \"action_plan_v2\"");
-        assertThat(androidExecutor).contains("private val executionEnabled: Boolean = false");
+        assertThat(androidExecutor).doesNotExist();
+        assertThat(androidBuild).doesNotContain("RAG_ACTION_EXECUTION_ENABLED");
+        assertThat(assistantViewModel)
+                .doesNotContain("RagActionExecutor")
+                .doesNotContain("executeLegacyDraft")
+                .doesNotContain("LEGACY_LOCAL");
     }
 
     private String read(Path path) throws IOException {

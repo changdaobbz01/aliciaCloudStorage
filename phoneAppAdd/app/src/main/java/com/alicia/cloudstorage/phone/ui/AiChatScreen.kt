@@ -108,7 +108,6 @@ internal fun AiChatRoute(
     ragExecutionBaseUrl: String = BuildConfig.DEFAULT_RAG_EXECUTION_BASE_URL,
     apiBaseUrl: String = BuildConfig.DEFAULT_API_BASE_URL,
     cloudExecutionEnabled: Boolean = BuildConfig.RAG_CLOUD_EXECUTION_ENABLED,
-    legacyActionExecutionEnabled: Boolean = BuildConfig.RAG_ACTION_EXECUTION_ENABLED,
     confirmationMessage: String = BuildConfig.RAG_CONFIRMATION_MESSAGE,
     authToken: String = "",
     userAvatarUrl: String? = null,
@@ -122,12 +121,11 @@ internal fun AiChatRoute(
         ragExecutionBaseUrl,
         apiBaseUrl,
         cloudExecutionEnabled,
-        legacyActionExecutionEnabled,
         confirmationMessage,
         authToken,
     ) {
         "rag-assistant-${ragBaseUrl.hashCode()}-${ragExecutionBaseUrl.hashCode()}-" +
-            "${apiBaseUrl.hashCode()}-$cloudExecutionEnabled-$legacyActionExecutionEnabled-" +
+            "${apiBaseUrl.hashCode()}-$cloudExecutionEnabled-" +
             "${confirmationMessage.hashCode()}-${authToken.hashCode()}"
     }
     val viewModel: RagAssistantViewModel = composeViewModel(
@@ -138,7 +136,6 @@ internal fun AiChatRoute(
             ragExecutionBaseUrl = ragExecutionBaseUrl,
             apiBaseUrl = apiBaseUrl,
             cloudExecutionEnabled = cloudExecutionEnabled,
-            legacyActionExecutionEnabled = legacyActionExecutionEnabled,
             confirmationMessage = confirmationMessage,
             authToken = authToken,
         ),

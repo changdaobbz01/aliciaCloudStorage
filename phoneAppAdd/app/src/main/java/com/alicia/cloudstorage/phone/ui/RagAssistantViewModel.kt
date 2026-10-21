@@ -4,8 +4,6 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.alicia.cloudstorage.phone.data.RagActionExecutionContext
-import com.alicia.cloudstorage.phone.data.RagActionExecutor
 import com.alicia.cloudstorage.phone.data.RagAssistantClient
 import com.alicia.cloudstorage.phone.data.RagAssistantClientContext
 import com.alicia.cloudstorage.phone.data.RagAssistantClientEvent
@@ -31,13 +29,11 @@ import kotlinx.coroutines.launch
 internal class RagAssistantViewModel(
     private val client: RagAssistantClient,
     private val conversationStore: RagConversationStore,
-    private val actionExecutor: RagActionExecutor,
     private val executionGateway: RagExecutionGateway,
     private val ragBaseUrl: String,
     private val ragExecutionBaseUrl: String,
     private val apiBaseUrl: String,
     private val cloudExecutionEnabled: Boolean,
-    private val legacyActionExecutionEnabled: Boolean,
     private val confirmationMessage: String,
     private val authToken: String,
 ) : ViewModel() {
@@ -62,7 +58,7 @@ internal class RagAssistantViewModel(
     private var currentFolderId: Long? = null
     private var currentFolderPath: String = "根目录"
     private var nextMessageId = 10L
-    private val pendingBackendDrafts = mutableMapOf<Long, RagBackendActionDraft>()
+    private val pendingActionMetadata = mutableMapOf<Long, RagBackendActionDraft>()
     private val clientUploadTracker = AiChatClientUploadTracker()
 
     init {
@@ -83,7 +79,7 @@ internal class RagAssistantViewModel(
     fun startNewConversation() {
         viewModelScope.launch {
             conversationId = null
-            pendingBackendDrafts.clear()
+            pendingActionMetadata.clear()
             clientUploadTracker.clear()
             conversationStore.clearConversation()
             _uiState.value = AiChatUiState(
@@ -284,8 +280,8 @@ internal class RagAssistantViewModel(
             !response.shouldRetainComposerAttachments()
         if (assistantMessage.plan?.actionControls != null) {
             response.backendActionDraft
-                ?.takeIf { it.isClientExecutableDraft() }
-                ?.let { pendingBackendDrafts[assistantMessageId] = it }
+                ?.takeIf { it.isClientActionMetadata() }
+                ?.let { pendingActionMetadata[assistantMessageId] = it }
         }
 
         _uiState.update { state ->
@@ -351,12 +347,11 @@ internal class RagAssistantViewModel(
         val message = uiState.value.messages.firstOrNull { it.id == messageId } ?: return
         val planId = message.plan?.planId
         val executionReference = message.plan?.executionReference
-        val draft = pendingBackendDrafts[messageId]
+        val draft = pendingActionMetadata[messageId]
         when (RagExecutionClientPolicy.route(
             executionReference = executionReference,
             backendDraft = draft,
             cloudExecutionEnabled = cloudExecutionEnabled,
-            legacyLocalExecutionEnabled = legacyActionExecutionEnabled,
         )) {
             RagExecutionRoute.CLOUD -> confirmCloudExecution(
                 messageId = messageId,
@@ -364,11 +359,6 @@ internal class RagAssistantViewModel(
                 actionType = draft?.actionType,
                 reference = requireNotNull(executionReference),
                 sourceConversationId = conversationId,
-            )
-            RagExecutionRoute.LEGACY_LOCAL -> executeLegacyDraft(
-                messageId = messageId,
-                planId = planId,
-                draft = requireNotNull(draft),
             )
             RagExecutionRoute.CONTINUE_PLAN -> {
                 markReviewHandled(messageId)
@@ -379,7 +369,7 @@ internal class RagAssistantViewModel(
                 )
             }
             RagExecutionRoute.BLOCKED -> {
-                pendingBackendDrafts.remove(messageId)
+                pendingActionMetadata.remove(messageId)
                 markReviewHandled(messageId)
                 appendAssistantMessage(
                     if (executionReference != null) {
@@ -387,59 +377,6 @@ internal class RagAssistantViewModel(
                     } else {
                         "这条计划没有可确认的云端任务，本次没有提交任何文件变更。"
                     },
-                )
-            }
-        }
-    }
-
-    private fun executeLegacyDraft(
-        messageId: Long,
-        planId: String?,
-        draft: RagBackendActionDraft,
-    ) {
-        pendingBackendDrafts.remove(messageId)
-        markReviewHandled(messageId)
-        val executionMessageId = allocateMessageId()
-        showOperationMessage(executionMessageId, draft.actionType)
-        viewModelScope.launch {
-            runCatching {
-                actionExecutor.execute(
-                    context = RagActionExecutionContext(
-                        baseUrl = apiBaseUrl,
-                        token = authToken,
-                    ),
-                    draft = draft.copy(confirmedByUser = true),
-                )
-            }.onSuccess { result ->
-                result.toFileMutationSignal()?.let { signal ->
-                    _fileMutationSignals.tryEmit(signal)
-                }
-                replaceOperationMessage(
-                    messageId = executionMessageId,
-                    message = result.toAssistantMessage(executionMessageId),
-                )
-                syncExecutionOutcome(
-                    planId = planId,
-                    type = if (result.succeeded) "ACTION_COMPLETED" else "ACTION_FAILED",
-                    outcome = result.status.name,
-                )
-            }.onFailure { error ->
-                if (error is CancellationException) {
-                    throw error
-                }
-
-                replaceOperationMessage(
-                    messageId = executionMessageId,
-                    message = AiChatMessage(
-                        id = executionMessageId,
-                        author = AiChatAuthor.ASSISTANT,
-                        text = error.readableRagMessage(),
-                    ),
-                )
-                syncExecutionOutcome(
-                    planId = planId,
-                    type = "ACTION_FAILED",
-                    outcome = error::class.java.simpleName,
                 )
             }
         }
@@ -497,7 +434,7 @@ internal class RagAssistantViewModel(
                 return@launch
             }
 
-            pendingBackendDrafts.remove(messageId)
+            pendingActionMetadata.remove(messageId)
             markReviewHandled(messageId)
             observeCloudExecution(
                 executionMessageId = executionMessageId,
@@ -619,7 +556,7 @@ internal class RagAssistantViewModel(
         val planId = message.plan?.planId
         val reference = message.plan?.executionReference
         if (reference == null || !cloudExecutionEnabled) {
-            pendingBackendDrafts.remove(messageId)
+            pendingActionMetadata.remove(messageId)
             markReviewHandled(messageId)
             appendAssistantMessage("已取消这次计划，我不会提交任何文件变更。")
             syncExecutionOutcome(planId, "ACTION_CANCELLED", "user_cancelled")
@@ -641,7 +578,7 @@ internal class RagAssistantViewModel(
                     executionId = reference.executionId,
                 )
             }.onSuccess { response ->
-                pendingBackendDrafts.remove(messageId)
+                pendingActionMetadata.remove(messageId)
                 markReviewHandled(messageId)
                 replaceOperationMessage(
                     operationMessageId,
@@ -1035,7 +972,6 @@ internal class RagAssistantViewModel(
             ragExecutionBaseUrl: String,
             apiBaseUrl: String,
             cloudExecutionEnabled: Boolean,
-            legacyActionExecutionEnabled: Boolean,
             confirmationMessage: String = DEFAULT_BACKEND_DRAFT_CONFIRMATION_MESSAGE,
             authToken: String,
         ): ViewModelProvider.Factory =
@@ -1045,13 +981,11 @@ internal class RagAssistantViewModel(
                     return RagAssistantViewModel(
                         client = RagAssistantClient(),
                         conversationStore = RagConversationStore(context.applicationContext),
-                        actionExecutor = RagActionExecutor(executionEnabled = legacyActionExecutionEnabled),
                         executionGateway = RagExecutionClient(),
                         ragBaseUrl = ragBaseUrl,
                         ragExecutionBaseUrl = ragExecutionBaseUrl,
                         apiBaseUrl = apiBaseUrl,
                         cloudExecutionEnabled = cloudExecutionEnabled,
-                        legacyActionExecutionEnabled = legacyActionExecutionEnabled,
                         confirmationMessage = confirmationMessage,
                         authToken = authToken,
                     ) as T
@@ -1065,9 +999,7 @@ internal class RagAssistantViewModel(
     }
 }
 
-private fun RagBackendActionDraft.isClientExecutableDraft(): Boolean =
-    status.equals("backend_action_ready", ignoreCase = true) &&
-        executableByBackend == true &&
+private fun RagBackendActionDraft.isClientActionMetadata(): Boolean =
+    !status.equals("not_requested", ignoreCase = true) &&
         !actionType.isNullOrBlank() &&
-        !actionType.equals("none", ignoreCase = true) &&
-        requiredClientFields.orEmpty().isEmpty()
+        !actionType.equals("none", ignoreCase = true)

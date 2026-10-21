@@ -33,8 +33,7 @@ if (-not $SkipInstall) {
     try {
         & $gradleWrapper :app:installDebug `
             "-PALICIA_RAG_EXECUTION_BASE_URL=http://127.0.0.1:$RagExecutionPort" `
-            "-PALICIA_RAG_CLOUD_EXECUTION_ENABLED=$cloudExecutionEnabled" `
-            "-PALICIA_RAG_ACTION_EXECUTION_ENABLED=false"
+            "-PALICIA_RAG_CLOUD_EXECUTION_ENABLED=$cloudExecutionEnabled"
         $gradleExitCode = $LASTEXITCODE
     } finally {
         Pop-Location

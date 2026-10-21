@@ -1,10 +1,6 @@
 package com.alicia.cloudstorage.phone.ui
 
-import com.alicia.cloudstorage.phone.data.RagActionBridgeValidation
-import com.alicia.cloudstorage.phone.data.RagActionBridgeValidationCode
 import com.alicia.cloudstorage.phone.data.RagActionDraft
-import com.alicia.cloudstorage.phone.data.RagActionExecutionResult
-import com.alicia.cloudstorage.phone.data.RagActionExecutionStatus
 import com.alicia.cloudstorage.phone.data.RagActionPlan
 import com.alicia.cloudstorage.phone.data.RagActionPlanBinding
 import com.alicia.cloudstorage.phone.data.RagActionPlanStep
@@ -652,86 +648,6 @@ class RagAssistantMessageMapperTest {
     }
 
     @Test
-    fun `disabled executor result explains no file mutation`() {
-        val message = RagActionExecutionResult(
-            status = RagActionExecutionStatus.DISABLED,
-            actionType = "rename",
-            message = "AI 文件操作执行入口尚未启用。",
-            validation = RagActionBridgeValidation(
-                allowed = true,
-                code = RagActionBridgeValidationCode.ALLOWED,
-                message = "ok",
-            ),
-        ).toAssistantMessage(id = 24L)
-
-        assertTrue(message.text.contains("默认关闭"))
-        assertTrue(message.text.contains("不会改动文件"))
-    }
-
-    @Test
-    fun `completed delete result emits files and trash refresh signal`() {
-        val signal = completedResult(
-            actionType = "delete",
-            affectedNodeIds = listOf(42L, 42L),
-        ).toFileMutationSignal()
-
-        assertNotNull(signal)
-        assertEquals("delete", signal!!.actionType)
-        assertEquals(listOf(42L), signal.affectedNodeIds)
-        assertEquals(AiChatFileMutationScope.FILES_AND_TRASH, signal.scope)
-    }
-
-    @Test
-    fun `completed share result does not emit file refresh signal`() {
-        val signal = completedResult(
-            actionType = "share",
-            affectedNodeIds = listOf(42L),
-        ).toFileMutationSignal()
-
-        assertNull(signal)
-    }
-
-    @Test
-    fun `completed share result exposes structured copy values`() {
-        val message = completedResult(
-            actionType = "share",
-            affectedNodeIds = listOf(42L),
-        ).copy(
-            shareCode = "SHARE123",
-            shareUrl = "https://storage.example/share/SHARE123",
-        ).toAssistantMessage(id = 25L)
-
-        assertEquals(
-            AiChatShareResult(
-                shareCode = "SHARE123",
-                shareUrl = "https://storage.example/share/SHARE123",
-            ),
-            message.shareResult,
-        )
-        assertEquals("ok", message.text)
-    }
-
-    @Test
-    fun `failed or incomplete share result does not expose copy values`() {
-        val missingUrl = completedResult(
-            actionType = "share",
-            affectedNodeIds = listOf(42L),
-        ).copy(shareCode = "SHARE123")
-            .toAssistantMessage(id = 26L)
-        val failed = RagActionExecutionResult(
-            status = RagActionExecutionStatus.FAILED,
-            actionType = "share",
-            message = "创建失败",
-            validation = null,
-            shareCode = "SHARE123",
-            shareUrl = "https://storage.example/share/SHARE123",
-        ).toAssistantMessage(id = 27L)
-
-        assertNull(missingUrl.shareResult)
-        assertNull(failed.shareResult)
-    }
-
-    @Test
     fun `navigation semantic frame opens selected folder and virtual root`() {
         val selectedFolder = candidate(700L, "测试目录", type = "FOLDER")
         val folderTarget = response(
@@ -883,21 +799,6 @@ class RagAssistantMessageMapperTest {
         requiredClientFields = requiredClientFields,
         targetCandidate = targetCandidate,
         message = null,
-    )
-
-    private fun completedResult(
-        actionType: String,
-        affectedNodeIds: List<Long>,
-    ) = RagActionExecutionResult(
-        status = RagActionExecutionStatus.COMPLETED,
-        actionType = actionType,
-        message = "ok",
-        validation = RagActionBridgeValidation(
-            allowed = true,
-            code = RagActionBridgeValidationCode.ALLOWED,
-            message = "ok",
-        ),
-        affectedNodeIds = affectedNodeIds,
     )
 
     private fun candidate(nodeId: Long, name: String, type: String = "FILE") =

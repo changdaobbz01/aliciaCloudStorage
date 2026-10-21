@@ -1,5 +1,7 @@
 package com.alicia.cloudstorage.rag.assistant;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -13,13 +15,13 @@ public record BackendActionDraft(
         boolean confirmedByUser,
         boolean executableByBackend,
         boolean authorizationRequired,
-        String method,
-        String pathTemplate,
-        String path,
-        String contentType,
-        Map<String, Object> pathVariables,
-        Map<String, Object> queryParameters,
-        Map<String, Object> body,
+        @JsonInclude(JsonInclude.Include.NON_EMPTY) String method,
+        @JsonInclude(JsonInclude.Include.NON_EMPTY) String pathTemplate,
+        @JsonInclude(JsonInclude.Include.NON_EMPTY) String path,
+        @JsonInclude(JsonInclude.Include.NON_EMPTY) String contentType,
+        @JsonInclude(JsonInclude.Include.NON_EMPTY) Map<String, Object> pathVariables,
+        @JsonInclude(JsonInclude.Include.NON_EMPTY) Map<String, Object> queryParameters,
+        @JsonInclude(JsonInclude.Include.NON_EMPTY) Map<String, Object> body,
         List<String> requiredClientFields,
         CandidateItem targetCandidate,
         String message
@@ -51,6 +53,42 @@ public record BackendActionDraft(
                 null,
                 message
         );
+    }
+
+    public BackendActionDraft forPublicClient() {
+        boolean containedLegacyExecutionMaterial = executableByBackend
+                || !blank(method)
+                || !blank(pathTemplate)
+                || !blank(path)
+                || !blank(contentType)
+                || !pathVariables.isEmpty()
+                || !queryParameters.isEmpty()
+                || !body.isEmpty();
+        return new BackendActionDraft(
+                status,
+                bridgeVersion,
+                actionType,
+                containedLegacyExecutionMaterial ? "confirm_cloud_execution" : nextAction,
+                false,
+                false,
+                authorizationRequired,
+                "",
+                "",
+                "",
+                "",
+                Map.of(),
+                Map.of(),
+                Map.of(),
+                requiredClientFields,
+                targetCandidate,
+                containedLegacyExecutionMaterial
+                        ? "文件写操作只能通过云端任务确认执行。"
+                        : message
+        );
+    }
+
+    private static boolean blank(String value) {
+        return value == null || value.isBlank();
     }
 
     private static Map<String, Object> immutableMap(Map<String, Object> source) {

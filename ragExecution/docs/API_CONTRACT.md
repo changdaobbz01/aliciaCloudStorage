@@ -2,9 +2,9 @@
 
 ## 1. 适用范围
 
-本文档定义阶段 2 已实现的 RAG 到 `ragExecution` 内部计划登记协议、阶段 3 已实现的 `ragExecution` 到 CloudStorageApi 受控动作协议、阶段 4 已实现的用户确认、查询、事件订阅和 Worker 分派协议、阶段 5 已实现的 Android 客户端调用边界，以及阶段 6 已实现的批量动作、顺序组合和客户端上传输入协议。总体边界、状态机和后续阶段以 [RAG 执行服务分离实施方案](RAG_EXECUTION_SEPARATION_PLAN.md) 为准。
+本文档定义阶段 2 已实现的 RAG 到 `ragExecution` 内部计划登记协议、阶段 3 已实现的 `ragExecution` 到 CloudStorageApi 受控动作协议、阶段 4 已实现的用户确认、查询、事件订阅和 Worker 分派协议、阶段 5 已实现的 Android 客户端调用边界、阶段 6 已实现的批量动作、顺序组合和客户端上传输入协议，以及阶段 7 已完成的旧本地执行路径删除和公开响应脱敏边界。总体边界、状态机和后续阶段以 [RAG 执行服务分离实施方案](RAG_EXECUTION_SEPARATION_PLAN.md) 为准。
 
-上述能力都由独立开关保护且默认关闭。代码已具备管理员单动作灰度和 Android 云端确认能力，但生产客户端开关与生产流量均未启用。
+上述能力由独立开关保护。生产已于 2026-10-20 进入 `admin-single`：仅 `RAG_ADMIN + FOLDER_CREATE` 可确认和分派，Android 云端确认开关已用于该受控路径；普通用户、批量、组合和其他动作仍关闭。
 
 ## 2. 端点与开关
 
@@ -149,7 +149,7 @@ canonical JSON 规则：对象键递归按字典序排序，数组顺序保持�
 }
 ```
 
-RAG 仅把以上四个字段作为只读 `executionReference` 附加到同步或 SSE 最终计划响应。Android 阶段 5 客户端使用其中的 `executionId` 与 `version` 调用公开确认和查询接口；生产 BuildConfig 开关默认关闭。
+RAG 仅把以上四个字段作为只读 `executionReference` 附加到同步或 SSE 最终计划响应。Android 客户端使用其中的 `executionId` 与 `version` 调用公开确认和查询接口；生产是否可确认仍由客户端云端开关和服务端角色、动作 allowlist 双重约束。
 
 若登记 HTTP 请求因连接读取超时等原因无法判断服务端是否已提交，RAG 不重新生成计划或再次登记，而是在默认 20 秒的有界窗口内每 500 毫秒调用：
 
@@ -164,10 +164,10 @@ Android 客户端约束：
 - 确认只发送路径中的 `executionId` 和正文 `expectedVersion`，不发送 ActionPlan、method、path 或业务 body。
 - 查询始终使用最初确认的 `executionId`；响应任务 ID 不一致时停止自动刷新，不能转而跟踪其他任务。
 - 非 `ApiException` 的确认响应丢失可查询同一任务恢复；任务仍为 `PENDING_CONFIRMATION` 时不得假定确认成功。
-- 一旦云端模式开启，缺失 `executionReference`、通道关闭或调用失败都不得自动回退旧本地执行器；云端模式关闭时，旧兼容开关才可能处理没有云端引用的旧响应。
+- 缺失 `executionReference`、通道关闭或调用失败都必须阻断写操作；旧本地写执行器和兼容开关已删除，不存在回退路径。
 - 只要响应携带有效 `executionReference`，上传和复合计划必须先展示云端“确认执行”，不得先展示或触发旧客户端上传控件；本地文件选择只能由云端任务进入 `WAITING_CLIENT_INPUT` 后发起。
 - 正式地址构建必须忽略应用数据中残留的本地回环地址，避免真机联调配置污染后续安全包；本地调试地址只能由显式本地构建默认值启用。
-- `ALICIA_RAG_CLOUD_EXECUTION_ENABLED` 和 Release 对应开关默认 `false`；旧 `ALICIA_RAG_ACTION_EXECUTION_ENABLED` 仅用于没有云端引用的兼容响应，也默认 `false`。
+- `ALICIA_RAG_CLOUD_EXECUTION_ENABLED` 只控制客户端是否展示云端确认入口；服务端仍独立强制 Identity 角色、动作 allowlist、任务所有权、版本和过期校验。
 
 ## 8. 错误与日志约束
 
@@ -185,7 +185,7 @@ Android 客户端约束：
 
 阶段 2 的成功只表示计划已安全持久化为 `PENDING_CONFIRMATION`，不表示业务动作已经执行。阶段 4 Worker 只有在总开关、Worker 和 Cloud 分派开关均显式开启后才会调用阶段 3 的 CloudStorageApi 入口。
 
-阶段 6 已完成批量快照、顺序组合、Android 上传输入桥接和 Android 真机组合链路验收，但不包含生产启用或旧路径删除。当前 Web 端没有 RAG 确认界面，没有可切换的 Web 执行调用。
+阶段 6 已完成批量快照、顺序组合、Android 上传输入桥接和 Android 真机组合链路验收。阶段 7 已删除 Android 本地写执行器和兼容开关，并在 RAG 对同步与 SSE 公共响应统一移除 method、path、query 和 body。当前 Web 端没有 RAG 确认界面，没有可切换的 Web 执行调用。
 
 ## 10. CloudStorageApi 受控动作协议
 
@@ -373,7 +373,7 @@ Worker 使用数据库行锁和 `SKIP LOCKED` 领取任务，并写入有期限�
 
 ### 12.3 当前发布边界
 
-阶段 4 已通过本地测试和真实 MySQL 8 隔离容器端到端验证，包括首次 Cloud 响应丢失后的安全收敛。阶段 5 已完成 Android 云端确认真机验收。阶段 6 已完成批量快照校验、顺序步骤、`WAITING_CLIENT_INPUT`、15 分钟默认输入超时、Android 文件字节上传桥接、Cloud 端上传结果复核和 Android 真机组合链路验收。生产开关仍全部默认关闭；旧执行器在一个兼容发布周期内保留且默认关闭，必须等生产灰度稳定后才能进入阶段 7 删除。
+阶段 4 已通过本地测试和真实 MySQL 8 隔离容器端到端验证，包括首次 Cloud 响应丢失后的安全收敛。阶段 5 已完成 Android 云端确认真机验收。阶段 6 已完成批量快照校验、顺序步骤、`WAITING_CLIENT_INPUT`、15 分钟默认输入超时、Android 文件字节上传桥接、Cloud 端上传结果复核和 Android 真机组合链路验收。生产已处于 `admin-single`；阶段 7 已删除旧本地执行器与兼容开关，公共响应不再暴露可执行路由材料。
 
 生产配置只能按 `foundation -> shadow -> admin-single` 单向推进。候选配置必须先通过 `verify-rag-execution-production.sh --preflight`；运行态必须同时验证特性状态、数据库/Identity/Cloud 依赖、公网健康、两个内部路由族 404、容器健康和重启次数。`admin-single` 只接受一个非批量服务端动作，首选 `FOLDER_CREATE`，且继续强制 `RAG_ADMIN`。
 

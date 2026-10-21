@@ -5,7 +5,7 @@
 本地多轮识别、任务登记与安全确认的隔离联调入口见
 [`test/rag-e2e/README.md`](../test/rag-e2e/README.md)。该工具使用独立 Compose 项目、回环端口和测试数据库卷，不读取生产 `.env`。
 
-当前状态：**阶段 0 至阶段 6 已完成代码、自动化回归和 Android 真机端到端验收；生产已于 2026-10-20 进入 `admin-single`，仅向 `RAG_ADMIN` 开放 `FOLDER_CREATE`，公网确认、Worker 与 Cloud 分派已按该单动作灰度开启。旧本地执行路径继续关闭，普通用户与其他动作仍不能进入云端执行。**
+当前状态：**阶段 0 至阶段 7 已完成代码改造；生产已于 2026-10-20 进入 `admin-single`，仅向 `RAG_ADMIN` 开放 `FOLDER_CREATE`，公网确认、Worker 与 Cloud 分派已按该单动作灰度开启。Android 旧本地写执行器、网络适配器和兼容开关已删除，普通用户与其他动作仍不能进入云端执行。**
 
 本次生产晋级、真机任务、数据库回执和遗留测试数据见
 [`docs/PRODUCTION_ADMIN_SINGLE_ROLLOUT_LOG_2026-10-20.md`](docs/PRODUCTION_ADMIN_SINGLE_ROLLOUT_LOG_2026-10-20.md)。
@@ -49,6 +49,7 @@ CloudStorageApi 仍是文件、目录和分享业务的唯一执行所有者；`
 - Nginx 对外提供 `/rag-execution/api/**`，并同时屏蔽 `/internal/rag-execution/**` 与 `/rag-execution/internal/**`。
 - Android 使用类型化客户端确认、查询和取消任务；确认只提交 `executionId` 与 `expectedVersion`，状态轮询始终绑定最初任务 ID。
 - 云端任务引用优先级高于旧 `backendActionDraft`，新通道关闭或失败时不会静默回退到本地写操作。
+- RAG 在内部完成计划登记后才生成公开响应；公开 `backendActionDraft` 不再携带 method、path、query 或 body，Android 不解释或执行服务端路由材料。
 - 客户端退出不影响已确认任务；本地上传、页面导航、预览和系统分享继续留在客户端。
 - `FOLDER_CREATE -> UPLOAD_FILES` 中只有本地文件字节传输留在客户端；上传节点必须经 CloudStorageApi 按 owner、类型和父目录复核后才完成工作流。
 - Android 真机已验证 `FOLDER_CREATE`：用户确认后立即强制停止客户端，服务端任务仍独立完成；执行记录、单步结果、Cloud 动作回执和实际目录节点一致，单步仅执行一次。

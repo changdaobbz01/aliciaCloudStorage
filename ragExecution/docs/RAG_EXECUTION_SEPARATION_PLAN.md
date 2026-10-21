@@ -2,8 +2,8 @@
 
 ## 1. 文档信息
 
-- 状态：实施基线有效；阶段 0 至阶段 4 已完成代码与隔离容器验收，阶段 5 已完成 Android 单动作真机端到端验收，阶段 6 已完成代码、自动化回归和 Android 真机组合链路验收；全部开关默认关闭，尚未进行生产切换
-- 日期：2026-09-28
+- 状态：实施基线有效；阶段 0 至阶段 7 已完成，生产于 2026-10-20 进入 `admin-single`，仅开放 `RAG_ADMIN + FOLDER_CREATE`；旧 Android 本地写执行路径已删除
+- 日期：2026-10-21
 - 目标目录：`AliciaCloudStorage/ragExecution`
 - 适用范围：`rag`、`ragExecution`、`CloudStorageApi`、`phoneAppAdd`、`webApp`、Compose、Nginx 与发布脚本
 - 后续识别优化：必须在执行分离完成并稳定验收后开始
@@ -32,15 +32,16 @@
 - 完成阶段 5 现有 Android 客户端切换：类型化调用确认、查询和取消接口，按固定任务 ID 轮询状态，确认响应丢失时查询恢复。
 - 完成阶段 6 代码：批量删除/移动/重命名的不可变快照与执行前复核、顺序步骤依赖和白名单输出引用、`FOLDER_CREATE -> UPLOAD_FILES` 客户端输入工作流、超时终止及 Android 上传结果回报。
 - 上传成功声明会经固定 HMAC 通道回到 CloudStorageApi 复核节点所有者、文件类型和目标父目录；客户端不能仅凭自报节点 ID 把任务标记成功。
-- 云端 `executionReference` 永远优先于旧草稿；新通道关闭或失败时不自动回退本地写操作。旧执行器仅保留一个默认关闭的兼容周期。
+- 云端 `executionReference` 是写操作唯一确认凭据；新通道关闭、缺少引用或失败时阻断写操作，不存在本地回退。
 - 当前 `webApp` 没有 RAG 确认交互或旧 RAG 写执行调用，因此没有 Web 执行路径需要迁移；未来新增时必须直接使用本契约。
-- 所有开关仍默认 `false`；旧路径删除和生产流量均未启用。
+- 生产已按 `foundation -> shadow -> admin-single` 晋级，仅 `RAG_ADMIN + FOLDER_CREATE` 开启确认、Worker 和 Cloud 分派；普通用户与其他动作仍关闭。
+- 阶段 7 已删除 `RagActionExecutor`、本地网络适配器和 `RAG_ACTION_EXECUTION_ENABLED`，并统一脱敏同步与 SSE 公共响应中的 method/path/query/body。
 
 真实 MySQL 8 隔离容器验收已通过：执行服务 V1-V4 迁移与持久性、计划签名登记和幂等，以及 CloudStorageApi V20 迁移、开关关闭 404、开启后无签名 401、合法签名动作、持久化防重放、顺序重试和双请求并发幂等。阶段 4 追加验证了 Identity/Cloud 依赖健康、管理员确认、MySQL 原生任务领取、首次 Cloud 响应丢失后的 `RETRY_WAIT`、相同 step 回执恢复、单次业务变更、终态事件和重复确认幂等。阶段 5 Android 单测与构建独立验证，客户端开关保持关闭；测试容器、网络和专用镜像在验收后清理。
 
 ## 2. 当前基线
 
-当前调用链为：
+改造前调用链为：
 
 ```text
 用户输入
@@ -49,10 +50,10 @@
   -> 客户端携带用户 Token 调用 CloudStorageApi
 ```
 
-现状中的关键事实：
+改造前的关键事实：
 
 - `rag` 负责语义识别、只读候选绑定和执行草稿生成。
-- `phoneAppAdd` 已存在 `RagActionExecutor`，但生产执行开关默认关闭。
+- `phoneAppAdd` 曾存在 `RagActionExecutor`，生产执行开关默认关闭；阶段 7 已将二者删除。
 - 客户端执行器已经复制了重命名、删除、移动、分享、建目录和批量动作的调度逻辑。
 - CloudStorageApi 已具备真实业务接口和最终用户资源校验。
 - RAG 会话当前保存在单机内存中，不适合作为可靠执行任务存储。
@@ -690,7 +691,7 @@ cloud_action_errors_total{action_type,error_class}
 
 - 现有 RAG 277 个测试通过。
 - CloudStorageApi 251 个测试通过。
-- `RagActionExecutor` 继续默认关闭。
+- 旧客户端写执行器保持关闭；阶段 7 完成后从源码移除。
 - 形成动作映射和契约字段清单。
 
 ### 阶段 1：建立空执行服务与独立持久化
@@ -729,7 +730,7 @@ cloud_action_errors_total{action_type,error_class}
 
 ### 阶段 3：CloudStorageApi 受控执行入口
 
-状态：**已完成代码与 MySQL 8 隔离容器验收；功能开关默认关闭，尚未由 Worker 调用。**
+状态：**已完成代码与 MySQL 8 隔离容器验收；生产 `admin-single` 已由 Worker 受控调用 `FOLDER_CREATE`。**
 
 变更：
 
@@ -748,7 +749,7 @@ cloud_action_errors_total{action_type,error_class}
 
 ### 阶段 4：确认 API、Worker 与管理员灰度
 
-状态：**已完成代码、本地回归与真实 MySQL 8 隔离容器端到端验收；全部开关默认关闭，尚未启用生产灰度。**
+状态：**已完成代码、本地回归与真实 MySQL 8 隔离容器端到端验收；生产于 2026-10-20 进入 `admin-single`，仅允许 `RAG_ADMIN + FOLDER_CREATE`。**
 
 变更：
 
@@ -767,14 +768,14 @@ cloud_action_errors_total{action_type,error_class}
 
 ### 阶段 5：客户端切换
 
-状态：现有 Android 确认客户端代码和真机端到端验收已完成；生产开关未启用。当前 Web 端无 RAG 确认界面，本阶段 Web 条目不适用，未来新增时直接接入 `ragExecution`，不得复制旧本地执行逻辑。
+状态：Android 确认客户端代码、真机端到端验收和生产管理员单动作路径已完成。当前 Web 端无 RAG 确认界面，本阶段 Web 条目不适用，未来新增时直接接入 `ragExecution`，不得复制旧本地执行逻辑。
 
 变更：
 
 - 客户端确认按钮调用 `ragExecution`，不再调用 `RagActionExecutor.execute`。
 - 客户端通过 SSE 或查询展示进度。
 - 保留本地上传、页面导航、预览和系统分享能力。
-- 旧 `RagActionExecutor` 保留一个兼容发布周期但始终默认关闭。
+- 旧 `RagActionExecutor` 在阶段 7 删除；客户端没有本地写回退。
 
 验收门槛：
 
@@ -786,7 +787,7 @@ cloud_action_errors_total{action_type,error_class}
 当前实现说明：
 
 - Android 使用状态查询展示进度；SSE 仍保留为公开协议能力，不是当前移动端依赖。
-- 云端模式开启时确认路径只调用 `ragExecution`；缺少云端引用也会阻断。旧执行器只处理云端模式关闭、没有云端引用且显式打开兼容开关的旧响应。
+- 确认路径只调用 `ragExecution`；缺少云端引用、通道关闭或失败时均阻断写操作。
 - 任务确认后由云端任务池继续执行，ViewModel/页面退出只停止本地观察，不取消任务。
 - 当前没有 Web RAG 任务展示面；“Web 与 Android 一致”在新增 Web 客户端后验收，不能为满足形式要求新增无入口死代码。
 
@@ -803,7 +804,7 @@ cloud_action_errors_total{action_type,error_class}
 
 ### 阶段 6：批量、组合与客户端输入
 
-状态：**代码、H2/Flyway、Cloud 动作、执行状态机、Android 单元测试、本地完整回归、Compose 校验和 Android 真机组合链路验收均已完成；生产开关保持关闭。**
+状态：**代码、H2/Flyway、Cloud 动作、执行状态机、Android 单元测试、本地完整回归、Compose 校验和 Android 真机组合链路验收均已完成；批量与组合动作尚未进入生产 allowlist。**
 
 变更：
 
@@ -831,12 +832,21 @@ cloud_action_errors_total{action_type,error_class}
 
 ### 阶段 7：清理旧执行路径
 
+状态：**2026-10-21 已完成代码清理与契约升级；等待本轮完整回归、真机和生产发布验收形成最终记录。**
+
 变更：
 
 - 删除客户端本地写操作执行器及其网络适配代码。
 - `backendActionDraft` 中的 method/path/body 停止对普通客户端输出。
 - 更新 RAG action bridge、移动端契约和历史文档。
 - 保留必要的只读兼容字段一个明确版本窗口。
+
+实际实现：
+
+- 删除 Android `RagActionExecutor`、`RagActionBridgeValidator` 及对应测试和 BuildConfig/安装脚本兼容开关。
+- Android 只使用 `executionReference` 确认、查询或取消云端任务；携带旧草稿但没有云端引用的响应会明确阻断。
+- RAG 先在服务端使用完整草稿登记不可变任务，再通过统一 sanitizer 向同步与 SSE 客户端响应移除 method、path、contentType、pathVariables、queryParameters 和 body。
+- 移动端契约升级为 `mobile_contract_v2`，架构测试持续禁止重新引入本地 RAG 写执行路径。
 
 验收门槛：
 
@@ -847,7 +857,7 @@ cloud_action_errors_total{action_type,error_class}
 
 ### 阶段 8：识别能力优化
 
-只有阶段 7 稳定验收后，才开始调整：
+阶段 7 完整回归、真机和生产发布验收完成后，开始单独建设可重复的识别评测集，再调整：
 
 - 意图规则与仲裁。
 - DeepSeek Prompt 和模型配置。
@@ -894,7 +904,7 @@ ALICIA_RAG_EXECUTION_ADMIN_ONLY=true
 
 ### 16.3 分阶段生产入口
 
-生产发布工具已在 2026-09-28 补齐，但尚未执行生产切换：
+生产发布工具已在 2026-09-28 补齐；生产已于 2026-10-20 按该工具进入 `admin-single`：
 
 - `prepare-rag-execution-production-env.sh` 只生成 mode `600` 的候选 `.env`，不会覆盖当前配置，也不会打印密钥。
 - `verify-rag-execution-production.sh` 同时支持候选预检和运行态验收；运行态检查特性状态、依赖健康、公网路由、内部路由封锁、容器健康和重启次数。

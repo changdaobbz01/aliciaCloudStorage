@@ -1,7 +1,7 @@
 {
-  "version": "mobile_contract_v1",
-  "updated_at": "2026-08-15",
-  "description": "Stable client-facing contract for Alicia mobile RAG integration. Mobile consumes plans and executes only local allowlisted handlers.",
+  "version": "mobile_contract_v2",
+  "updated_at": "2026-10-21",
+  "description": "Stable client-facing contract for Alicia mobile RAG integration. Mobile renders plans and confirms typed cloud tasks; it never interprets or dispatches RAG-generated write routes.",
   "encoding": {
     "intentIds": "string_enum",
     "actionTypes": "string_enum",
@@ -31,14 +31,14 @@
   "clientResponsibilities": [
     "Render assistantText and clarificationQuestion.",
     "Preserve conversation.conversationId between turns.",
-    "Never execute an action unless it matches a local action handler allowlist.",
+    "Never execute a mutating backendActionDraft or interpret its method, path, query, or body.",
     "Require visible user confirmation for all mutating actions.",
-    "Use the current app login Authorization when calling RAG and CloudStorageApi.",
-    "Reject absolute URLs, unknown methods, unknown action types, and stale candidate bindings.",
+    "Use the current app login Authorization when calling RAG, ragExecution, and the existing client file-upload API.",
+    "Confirm mutations only through executionReference and reject missing, stale, or mismatched cloud task identifiers.",
     "Treat RAG output as a plan, not as proof that an operation has completed.",
     "Use candidateBinding.pageInfo.totalCount only when present; otherwise label the list by its displayed count.",
     "Do not present local expansion as loading all server results when candidateBinding.pageInfo.hasMore is true.",
-    "Refresh file and trash views only after the local executor reports a completed mutating action."
+    "Refresh file and trash views only after ragExecution reports a successful terminal task."
   ],
   "candidateResultPage": {
     "path": "candidateBinding.pageInfo",
@@ -77,8 +77,8 @@
       "mayCallCloudStorageApi": false
     },
     "handoff_to_backend": {
-      "screenAction": "submit_backend_action_draft_after_local_validation",
-      "mayCallCloudStorageApi": true
+      "screenAction": "require_execution_reference_and_confirm_cloud_task",
+      "mayCallCloudStorageApi": false
     },
     "handoff_to_client_upload": {
       "screenAction": "open_file_picker_then_upload_to_bound_folder",
@@ -95,12 +95,8 @@
       "responsibility": "Persist conversationId, pending candidates, and pending review state in ViewModel state."
     },
     {
-      "name": "RagActionBridgeValidator",
-      "responsibility": "Validate backendActionDraft against the local action bridge allowlist before any API call."
-    },
-    {
-      "name": "RagActionExecutor",
-      "responsibility": "Own the disabled-by-default execution boundary; dispatch validated and confirmed drafts to existing AliciaRepository methods only after app UI deliberately enables submission, then emit completed mutation signals for local refresh."
+      "name": "RagExecutionClient",
+      "responsibility": "Confirm, cancel, and query the immutable cloud task identified by executionReference; never accept arbitrary routes from model output."
     },
     {
       "name": "RagReviewPresenter",
@@ -132,7 +128,7 @@
     "rename": {
       "phase": 1,
       "implementationStatus": "mobile_supported",
-      "executionMode": "backend_action_ready",
+      "executionMode": "rag_execution_task",
       "cloudStorageApi": {
         "method": "PUT",
         "path": "/api/storage/nodes/{nodeId}/rename",
@@ -140,45 +136,45 @@
           "name": "string"
         }
       },
-      "mobileRepositoryMethod": "renameNode",
+      "mobileRepositoryMethod": null,
       "requiresFinalConfirmation": true,
-      "notes": "phoneAppAdd has RenameNodePayload, Retrofit renameNode, Repository renameNode, candidate selection click-through, basic confirm/cancel review controls, and a disabled-by-default RagActionExecutor route; real execution still requires an explicit app submission switch."
+      "notes": "Mobile displays the review and confirms executionReference; ragExecution dispatches the typed action to CloudStorageApi."
     },
     "delete": {
       "phase": 1,
       "implementationStatus": "mobile_supported",
-      "executionMode": "backend_action_ready",
+      "executionMode": "rag_execution_task",
       "cloudStorageApi": {
         "method": "DELETE",
         "path": "/api/storage/nodes/{nodeId}"
       },
-      "mobileRepositoryMethod": "moveNodeToTrash",
+      "mobileRepositoryMethod": null,
       "requiresFinalConfirmation": true,
       "notes": "Always move to trash in phase 1; permanent delete stays disabled."
     },
     "share": {
       "phase": 1,
       "implementationStatus": "mobile_supported",
-      "executionMode": "backend_action_ready",
+      "executionMode": "rag_execution_task",
       "cloudStorageApi": {
         "method": "POST",
         "path": "/api/share-links"
       },
-      "mobileRepositoryMethod": "createShareLink",
+      "mobileRepositoryMethod": null,
       "requiresFinalConfirmation": true,
       "notes": "Share options may be adjusted by review UI before submit."
     },
     "folder.create": {
       "phase": 1,
       "implementationStatus": "mobile_supported",
-      "executionMode": "backend_action_ready",
+      "executionMode": "rag_execution_task",
       "cloudStorageApi": {
         "method": "POST",
         "path": "/api/storage/folders"
       },
-      "mobileRepositoryMethod": "createFolder",
+      "mobileRepositoryMethod": null,
       "requiresFinalConfirmation": true,
-      "notes": "RAG resolves the target parent directory, mobile validates the action bridge draft against its allowlist, and then calls the existing createFolder repository method only after final confirmation."
+      "notes": "RAG resolves the target parent directory, mobile confirms executionReference, and ragExecution calls CloudStorageApi after server-side authorization."
     },
     "upload_target": {
       "phase": 1,
@@ -191,12 +187,12 @@
       },
       "mobileRepositoryMethod": "uploadFile",
       "requiresFinalConfirmation": true,
-      "notes": "RAG only resolves the target folder. Mobile displays a client upload action, collects local file URI through the system picker, and calls the existing uploadFile flow with the bound parentId; backendActionDraft is not submitted by RagActionExecutor."
+      "notes": "RAG resolves the target folder. Mobile may upload local file bytes only when an existing cloud task reaches WAITING_CLIENT_INPUT; it never executes backendActionDraft."
     },
     "composite.create_folder_then_upload": {
       "phase": 1,
       "implementationStatus": "mobile_supported",
-      "executionMode": "client_orchestrated_steps",
+      "executionMode": "rag_execution_workflow_with_client_input",
       "cloudStorageApi": [
         {
           "method": "POST",
@@ -208,118 +204,118 @@
           "contentType": "multipart/form-data"
         }
       ],
-      "mobileRepositoryMethod": ["createFolder", "uploadFile"],
+      "mobileRepositoryMethod": ["uploadFile"],
       "requiresFinalConfirmation": true,
-      "notes": "Mobile displays a create-then-upload client action. After the user selects local files, MainViewModel creates the folder under the bound parentId and uploads selected files into the created folder through the existing upload flow."
+      "notes": "ragExecution creates the folder and moves the task to WAITING_CLIENT_INPUT; mobile then uploads selected bytes to the server-returned parentId and reports completion."
     },
     "collection.trash_by_name_contains": {
       "phase": 2,
       "implementationStatus": "mobile_supported",
-      "executionMode": "backend_action_ready",
+      "executionMode": "rag_execution_task",
       "cloudStorageApi": {
         "method": "POST",
         "path": "/api/storage/nodes/batch/trash"
       },
-      "mobileRepositoryMethod": "moveNodesToTrash",
+      "mobileRepositoryMethod": null,
       "requiresFinalConfirmation": true,
       "notes": "Mobile shows exact count, filter summary, preview rows, and incomplete-preview blocking text before any submit; execution remains controlled by the environment feature flag."
     },
     "collection.trash_by_category": {
       "phase": 2,
       "implementationStatus": "mobile_supported",
-      "executionMode": "backend_action_ready",
+      "executionMode": "rag_execution_task",
       "cloudStorageApi": {
         "method": "POST",
         "path": "/api/storage/nodes/batch/trash"
       },
-      "mobileRepositoryMethod": "moveNodesToTrash",
+      "mobileRepositoryMethod": null,
       "requiresFinalConfirmation": true,
       "notes": "Mobile shows exact count, filter summary, preview rows, and incomplete-preview blocking text before any submit; execution remains controlled by the environment feature flag."
     },
     "collection.move_by_category": {
       "phase": 2,
       "implementationStatus": "mobile_supported",
-      "executionMode": "backend_action_ready",
+      "executionMode": "rag_execution_task",
       "cloudStorageApi": {
         "method": "PUT",
         "path": "/api/storage/nodes/batch/move"
       },
-      "mobileRepositoryMethod": "moveNodes",
+      "mobileRepositoryMethod": null,
       "requiresFinalConfirmation": true,
       "notes": "Mobile shows the exact category-matched source set and target folder before final confirmation."
     },
     "collection.move_by_extension": {
       "phase": 2,
       "implementationStatus": "mobile_supported",
-      "executionMode": "backend_action_ready",
+      "executionMode": "rag_execution_task",
       "cloudStorageApi": {
         "method": "PUT",
         "path": "/api/storage/nodes/batch/move"
       },
-      "mobileRepositoryMethod": "moveNodes",
+      "mobileRepositoryMethod": null,
       "requiresFinalConfirmation": true,
       "notes": "Mobile shows exact source count, filter summary, preview rows, and resolved target folder before any submit; execution remains controlled by the environment feature flag."
     },
     "collection.move_exact": {
       "phase": 2,
       "implementationStatus": "mobile_supported",
-      "executionMode": "backend_action_ready",
+      "executionMode": "rag_execution_task",
       "cloudStorageApi": {
         "method": "PUT",
         "path": "/api/storage/nodes/batch/move"
       },
-      "mobileRepositoryMethod": "moveNodes",
+      "mobileRepositoryMethod": null,
       "requiresFinalConfirmation": true,
       "notes": "A single file or folder is represented as an exact one-item source collection and uses the same fully validated batch move endpoint."
     },
     "collection.move_by_name_contains": {
       "phase": 2,
       "implementationStatus": "mobile_supported",
-      "executionMode": "backend_action_ready",
+      "executionMode": "rag_execution_task",
       "cloudStorageApi": {
         "method": "PUT",
         "path": "/api/storage/nodes/batch/move"
       },
-      "mobileRepositoryMethod": "moveNodes",
+      "mobileRepositoryMethod": null,
       "requiresFinalConfirmation": true,
       "notes": "Mobile shows exact source count, filter summary, preview rows, and resolved target folder before any submit; execution remains controlled by the environment feature flag."
     },
     "collection.move": {
       "phase": 2,
       "implementationStatus": "mobile_supported",
-      "executionMode": "backend_action_ready",
+      "executionMode": "rag_execution_task",
       "cloudStorageApi": {"method": "PUT", "path": "/api/storage/nodes/batch/move"},
-      "mobileRepositoryMethod": "moveNodes",
+      "mobileRepositoryMethod": null,
       "requiresFinalConfirmation": true,
       "notes": "Executes a server-bound source_selector_v2 snapshot after role-specific source and destination binding."
     },
     "collection.trash": {
       "phase": 2,
       "implementationStatus": "mobile_supported",
-      "executionMode": "backend_action_ready",
+      "executionMode": "rag_execution_task",
       "cloudStorageApi": {"method": "POST", "path": "/api/storage/nodes/batch/trash"},
-      "mobileRepositoryMethod": "moveNodesToTrash",
+      "mobileRepositoryMethod": null,
       "requiresFinalConfirmation": true,
       "notes": "Executes a server-bound source_selector_v2 snapshot after exact collection review."
     },
     "collection.trash_scoped": {
       "phase": 2,
       "implementationStatus": "mobile_supported",
-      "executionMode": "backend_action_ready",
+      "executionMode": "rag_execution_task",
       "cloudStorageApi": {"method": "POST", "path": "/api/storage/nodes/batch/trash/scoped"},
-      "mobileRepositoryMethod": "moveScopedNodesToTrash",
+      "mobileRepositoryMethod": null,
       "requiresFinalConfirmation": true,
       "notes": "Executes a source_selector_v2 snapshot only after the backend revalidates the exact source scope and folder-subtree impact fingerprints."
     },
     "collection.rename_add_prefix": {
       "phase": 2,
       "implementationStatus": "mobile_supported",
-      "executionMode": "backend_action_ready",
+      "executionMode": "rag_execution_task",
       "cloudStorageApi": {
         "method": "PUT",
         "path": "/api/storage/nodes/batch/rename"
       },
-      "mobileRepositoryMethod": "renameNodes",
+      "mobileRepositoryMethod": null,
       "requiresFinalConfirmation": true,
       "notes": "Mobile shows the complete old/new name preview, validates the allowlist draft, and submits one transactional batch rename request after final confirmation."
     }
@@ -327,8 +323,8 @@
   "preMobileIntegrationGates": [
     "RAG unit tests pass.",
     "Debug web validates all automated acceptance scenarios.",
-    "Action bridge paths match CloudStorageApi and mobile allowlist.",
-    "ALICIA_RAG_ACTION_EXECUTION_ENABLED is explicitly configured per environment; every enabled mutation still requires allowlist validation, review UI, and final user confirmation.",
+    "Every mutating response uses an immutable executionReference; public backendActionDraft route material is redacted.",
+    "The Android source and BuildConfig contain no local RAG write executor or legacy execution switch.",
     "RAG service base URL and Authorization forwarding are configurable per environment.",
     "DeepSeek API key is supplied through environment variables and not committed.",
     "Destructive actions show candidate path, count, and final confirmation."

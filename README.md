@@ -22,7 +22,7 @@
 - 普通用户按个人配额校验上传空间，管理员账号不受个人配额限制
 - 支持用户头像和主页背景图上传，并与账号关联
 - 支持 Android APK 版本发布，安装包存储在 COS，后端保留版本记录和短期签名下载入口
-- RAG 写操作已建立独立 `ragExecution` 云端确认与任务执行通道；Android 当前可按独立开关灰度使用，旧本地执行仅保留默认关闭的兼容路径
+- RAG 写操作已建立独立 `ragExecution` 云端确认与任务执行通道；Android 只确认不可变云端任务，旧本地写执行器与兼容开关已删除
 
 ## 技术栈
 
@@ -38,7 +38,7 @@
 AliciaCloudStorage/
 ├─ CloudStorageApi/      # 云盘业务后端，消费 Identity token 并聚合云盘资料
 ├─ rag/                  # RAG 语义服务
-├─ ragExecution/         # RAG 执行编排服务；确认/Worker/幂等分派及 Android 灰度客户端已就绪，全部开关默认关闭
+├─ ragExecution/         # RAG 执行编排服务；确认/Worker/幂等分派及 Android 云端任务客户端
 ├─ CloudStorageDB/       # 早期 SQL 初始化脚本
 ├─ webApp/               # 普通云盘用户端，挂载在 /cloudPan/
 ├─ sysManage/            # 云盘运营后台前端，挂载在 /console/cloud/
@@ -296,7 +296,7 @@ ALICIA_RAG_EXECUTION_ENV_FILE=deploy/generated/rag-execution/<candidate.env> \
 bash deploy/scripts/update-rag-execution-production.sh --stage foundation
 ```
 
-灰度顺序固定为 `foundation -> shadow -> admin-single`。完整的候选安装、显式执行、验收和回退命令见 [`ragExecution/docs/PRODUCTION_ROLLOUT_RUNBOOK.md`](ragExecution/docs/PRODUCTION_ROLLOUT_RUNBOOK.md)。当前仅完成发布工具与本地预检，不代表已经修改生产配置或流量。
+灰度顺序固定为 `foundation -> shadow -> admin-single`。完整的候选安装、显式执行、验收和回退命令见 [`ragExecution/docs/PRODUCTION_ROLLOUT_RUNBOOK.md`](ragExecution/docs/PRODUCTION_ROLLOUT_RUNBOOK.md)。生产已于 2026-10-20 进入 `admin-single`，当前只能维持或回退该阶段，不能绕过独立验收扩大角色或动作 allowlist。
 
 常规生产更新推荐使用标准发布脚本，减少手动复制多段命令：
 

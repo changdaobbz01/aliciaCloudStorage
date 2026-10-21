@@ -7,7 +7,6 @@ import com.alicia.cloudstorage.phone.data.RagExecutionStepResponse
 
 internal enum class RagExecutionRoute {
     CLOUD,
-    LEGACY_LOCAL,
     CONTINUE_PLAN,
     BLOCKED,
 }
@@ -17,13 +16,10 @@ internal object RagExecutionClientPolicy {
         executionReference: AiChatExecutionReference?,
         backendDraft: RagBackendActionDraft?,
         cloudExecutionEnabled: Boolean,
-        legacyLocalExecutionEnabled: Boolean,
     ): RagExecutionRoute = when {
         executionReference != null && cloudExecutionEnabled -> RagExecutionRoute.CLOUD
         executionReference != null -> RagExecutionRoute.BLOCKED
         backendDraft == null -> RagExecutionRoute.CONTINUE_PLAN
-        cloudExecutionEnabled -> RagExecutionRoute.BLOCKED
-        legacyLocalExecutionEnabled -> RagExecutionRoute.LEGACY_LOCAL
         else -> RagExecutionRoute.BLOCKED
     }
 }

@@ -106,6 +106,7 @@ public class AssistantPlanStreamService {
             session.plan(future);
             IntentRecognitionResponse response = waitForPlan(session, future);
             response = shadowExecutionRegistrar.registerIfEligible(response, authorizationHeader);
+            response = PublicAssistantResponseSanitizer.sanitize(response);
             send(session, AssistantStreamEvent.status(statusText(response)));
             sleep(TEXT_CHUNK_DELAY_MILLIS);
             for (AssistantStreamEvent event : textChunks(response.assistantText())) {

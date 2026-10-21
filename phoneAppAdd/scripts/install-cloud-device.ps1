@@ -3,8 +3,7 @@ param(
     [string]$ApiBaseUrl = "https://windwindwind-alicia.cn",
     [string]$RagBaseUrl = "https://windwindwind-alicia.cn/rag",
     [string]$RagExecutionBaseUrl = "https://windwindwind-alicia.cn/rag-execution",
-    [switch]$EnableCloudExecution,
-    [switch]$EnableActionExecution
+    [switch]$EnableCloudExecution
 )
 
 $ErrorActionPreference = "Stop"
@@ -44,7 +43,6 @@ if ([string]::IsNullOrWhiteSpace($DeviceSerial)) {
     throw "Android device '$DeviceSerial' is not connected and authorized."
 }
 
-$executionEnabled = if ($EnableActionExecution) { "true" } else { "false" }
 $cloudExecutionEnabled = if ($EnableCloudExecution) { "true" } else { "false" }
 $gradleExitCode = 0
 Push-Location $appRoot
@@ -53,8 +51,7 @@ try {
         "-PALICIA_API_BASE_URL=$ApiBaseUrl" `
         "-PALICIA_RAG_BASE_URL=$RagBaseUrl" `
         "-PALICIA_RAG_EXECUTION_BASE_URL=$RagExecutionBaseUrl" `
-        "-PALICIA_RAG_CLOUD_EXECUTION_ENABLED=$cloudExecutionEnabled" `
-        "-PALICIA_RAG_ACTION_EXECUTION_ENABLED=$executionEnabled"
+        "-PALICIA_RAG_CLOUD_EXECUTION_ENABLED=$cloudExecutionEnabled"
     $gradleExitCode = $LASTEXITCODE
 } finally {
     Pop-Location
@@ -89,4 +86,3 @@ if ($deviceCurl) {
 
 Write-Host "Cloud Debug device ready: $DeviceSerial -> $RagBaseUrl"
 Write-Host "RAG cloud execution enabled: $cloudExecutionEnabled -> $RagExecutionBaseUrl"
-Write-Host "Legacy local RAG action execution enabled: $executionEnabled"

@@ -190,7 +190,9 @@ public class AssistantController {
                 new AssistantPlanRequest(message.trim(), conversationId, request.clientContext(), request.clientEvent()),
                 authorizationHeader
         );
-        return shadowExecutionRegistrar.registerIfEligible(response, authorizationHeader);
+        return PublicAssistantResponseSanitizer.sanitize(
+                shadowExecutionRegistrar.registerIfEligible(response, authorizationHeader)
+        );
     }
 
     @PostMapping(value = "/api/assistant/plan/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)

@@ -65,7 +65,7 @@ class AssistantControllerTest {
         Map<String, Object> mobile = controller.mobileContract("Bearer token");
         Map<String, Object> acceptance = controller.acceptanceScenarios("Bearer token");
 
-        assertThat(mobile).containsEntry("version", "mobile_contract_v1");
+        assertThat(mobile).containsEntry("version", "mobile_contract_v2");
         assertThat(map(mobile.get("actionHandlers"))).containsKeys(
                 "none",
                 "search",
@@ -113,7 +113,7 @@ class AssistantControllerTest {
         assertThat(map(contract.get("semanticArbitration"))).containsEntry("version", "semantic_arbitration_v1");
         assertThat(map(contract.get("assistantResponsePolicy"))).containsEntry("version", "assistant_response_policy_v1");
         assertThat(map(contract.get("persona"))).containsEntry("id", "anan");
-        assertThat(map(contract.get("mobile"))).containsEntry("version", "mobile_contract_v1");
+        assertThat(map(contract.get("mobile"))).containsEntry("version", "mobile_contract_v2");
         assertThat(map(contract.get("acceptanceScenarios"))).containsEntry("version", "rag_mobile_acceptance_v1");
     }
 
@@ -256,6 +256,44 @@ class AssistantControllerTest {
     }
 
     @Test
+    void publicPlanRemovesLegacyClientExecutionMaterial() throws Exception {
+        AssistantConversationService service = mock(AssistantConversationService.class);
+        AssistantPlanRequest request = new AssistantPlanRequest("确认", "conversation-1");
+        IntentRecognitionResponse response = responseWithNextAction("创建文件夹", "handoff_to_backend")
+                .withBackendActionDraft(legacyBackendDraft());
+        when(service.plan(eq(new AssistantPlanRequest("确认", "conversation-1", null, null)), eq("Bearer token")))
+                .thenReturn(response);
+        AssistantController controller = new AssistantController(
+                service,
+                new RagConfigLoader(new ObjectMapper()),
+                new ObjectMapper().findAndRegisterModules()
+        );
+
+        BackendActionDraft draft = controller.plan(request, "Bearer token").backendActionDraft();
+
+        assertThat(draft.actionType()).isEqualTo("folder.create");
+        assertThat(draft.status()).isEqualTo("backend_action_ready");
+        assertThat(draft.nextAction()).isEqualTo("confirm_cloud_execution");
+        assertThat(draft.executableByBackend()).isFalse();
+        assertThat(draft.confirmedByUser()).isFalse();
+        assertThat(draft.method()).isBlank();
+        assertThat(draft.pathTemplate()).isBlank();
+        assertThat(draft.path()).isBlank();
+        assertThat(draft.contentType()).isBlank();
+        assertThat(draft.pathVariables()).isEmpty();
+        assertThat(draft.queryParameters()).isEmpty();
+        assertThat(draft.body()).isEmpty();
+        assertThat(new ObjectMapper().writeValueAsString(draft))
+                .doesNotContain("\"method\"")
+                .doesNotContain("\"pathTemplate\"")
+                .doesNotContain("\"path\"")
+                .doesNotContain("\"contentType\"")
+                .doesNotContain("\"pathVariables\"")
+                .doesNotContain("\"queryParameters\"")
+                .doesNotContain("\"body\"");
+    }
+
+    @Test
     void planStopsWhenRagAccessIsRejected() {
         AssistantConversationService service = mock(AssistantConversationService.class);
         RagAccessAuthorizer authorizer = mock(RagAccessAuthorizer.class);
@@ -296,6 +334,26 @@ class AssistantControllerTest {
                 .contains("status")
                 .contains("final")
                 .contains("done");
+    }
+
+    @Test
+    void streamDoesNotExposeLegacyClientExecutionMaterial() throws Exception {
+        AssistantConversationService service = mock(AssistantConversationService.class);
+        AssistantPlanRequest request = new AssistantPlanRequest("创建文件夹", "conversation-1");
+        when(service.plan(eq(request), eq("Bearer token"))).thenReturn(
+                responseWithNextAction("创建文件夹", "handoff_to_backend")
+                        .withBackendActionDraft(legacyBackendDraft())
+        );
+        AssistantPlanStreamService streamService = new AssistantPlanStreamService(service, 25L);
+        CapturingSseEmitter emitter = new CapturingSseEmitter();
+
+        streamService.stream(request, "Bearer token", emitter);
+
+        assertThat(emitter.awaitCompletion()).isTrue();
+        assertThat(emitter.payload())
+                .contains("confirm_cloud_execution")
+                .doesNotContain("/api/storage/folders")
+                .doesNotContain("private-folder-name");
     }
 
     @Test
@@ -351,6 +409,28 @@ class AssistantControllerTest {
                 "",
                 null,
                 null
+        );
+    }
+
+    private static BackendActionDraft legacyBackendDraft() {
+        return new BackendActionDraft(
+                "backend_action_ready",
+                "action_bridge_v2",
+                "folder.create",
+                "handoff_to_backend",
+                true,
+                true,
+                true,
+                "POST",
+                "/api/storage/folders",
+                "/api/storage/folders",
+                "application/json",
+                Map.of("parentId", 7L),
+                Map.of("trace", "legacy"),
+                Map.of("folderName", "private-folder-name"),
+                List.of(),
+                null,
+                "legacy draft"
         );
     }
 

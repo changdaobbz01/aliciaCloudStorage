@@ -1463,7 +1463,7 @@ class AssistantConversationServiceTest {
                 null,
                 "/",
                 Map.of(),
-                "mobile_contract_v1",
+                "mobile_contract_v2",
                 List.of("collection.trash", "collection.trash_scoped")
         );
 

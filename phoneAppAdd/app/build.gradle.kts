@@ -134,17 +134,11 @@ android {
         applicationId = "com.alicia.cloudstorage.phone"
         minSdk = 26
         targetSdk = 34
-        versionCode = 14
-        versionName = "0.1.13"
+        versionCode = 15
+        versionName = "0.1.14"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         val apiBaseUrl = resolveApiBaseUrl(project)
-        val ragActionExecutionEnabled = resolveBooleanProperty(
-            project,
-            false,
-            "ALICIA_RAG_ACTION_EXECUTION_ENABLED",
-            "alicia.ragActionExecutionEnabled",
-        )
         val ragCloudExecutionEnabled = resolveBooleanProperty(
             project,
             false,
@@ -165,7 +159,6 @@ android {
         )
         buildConfigField("String", "RAG_CONFIRMATION_MESSAGE", buildConfigStringLiteral(ragConfirmationMessage))
         buildConfigField("boolean", "RAG_CLOUD_EXECUTION_ENABLED", ragCloudExecutionEnabled.toString())
-        buildConfigField("boolean", "RAG_ACTION_EXECUTION_ENABLED", ragActionExecutionEnabled.toString())
         buildConfigField("boolean", "APP_UPDATE_ENABLED", "true")
     }
 
@@ -176,12 +169,6 @@ android {
         release {
             manifestPlaceholders["usesCleartextTraffic"] = "false"
             val releaseApiBaseUrl = resolveReleaseApiBaseUrl(project)
-            val releaseActionExecutionEnabled = resolveBooleanProperty(
-                project,
-                false,
-                "ALICIA_RELEASE_RAG_ACTION_EXECUTION_ENABLED",
-                "alicia.releaseRagActionExecutionEnabled",
-            )
             val releaseCloudExecutionEnabled = resolveBooleanProperty(
                 project,
                 false,
@@ -209,7 +196,6 @@ android {
                 "RAG_CONFIRMATION_MESSAGE",
                 buildConfigStringLiteral(releaseConfirmationMessage),
             )
-            buildConfigField("boolean", "RAG_ACTION_EXECUTION_ENABLED", releaseActionExecutionEnabled.toString())
             buildConfigField("boolean", "RAG_CLOUD_EXECUTION_ENABLED", releaseCloudExecutionEnabled.toString())
             isMinifyEnabled = false
             proguardFiles(

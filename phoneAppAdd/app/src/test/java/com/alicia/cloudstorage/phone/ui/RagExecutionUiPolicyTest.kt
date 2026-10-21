@@ -37,34 +37,30 @@ class RagExecutionUiPolicyTest {
     )
 
     @Test
-    fun `cloud reference never falls back to legacy local execution`() {
+    fun `cloud reference only uses the cloud execution channel`() {
         assertEquals(
             RagExecutionRoute.CLOUD,
-            RagExecutionClientPolicy.route(reference, draft, true, true),
+            RagExecutionClientPolicy.route(reference, draft, true),
         )
         assertEquals(
             RagExecutionRoute.BLOCKED,
-            RagExecutionClientPolicy.route(reference, draft, false, true),
+            RagExecutionClientPolicy.route(reference, draft, false),
         )
     }
 
     @Test
-    fun `legacy path requires explicit flag and absence of cloud reference`() {
+    fun `legacy drafts are never executable without a cloud reference`() {
         assertEquals(
             RagExecutionRoute.BLOCKED,
-            RagExecutionClientPolicy.route(null, draft, true, true),
-        )
-        assertEquals(
-            RagExecutionRoute.LEGACY_LOCAL,
-            RagExecutionClientPolicy.route(null, draft, false, true),
+            RagExecutionClientPolicy.route(null, draft, true),
         )
         assertEquals(
             RagExecutionRoute.BLOCKED,
-            RagExecutionClientPolicy.route(null, draft, false, false),
+            RagExecutionClientPolicy.route(null, draft, false),
         )
         assertEquals(
             RagExecutionRoute.CONTINUE_PLAN,
-            RagExecutionClientPolicy.route(null, null, false, false),
+            RagExecutionClientPolicy.route(null, null, false),
         )
     }
 

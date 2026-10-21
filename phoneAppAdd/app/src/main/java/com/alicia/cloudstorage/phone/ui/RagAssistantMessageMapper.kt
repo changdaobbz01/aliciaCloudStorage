@@ -1,7 +1,5 @@
 package com.alicia.cloudstorage.phone.ui
 
-import com.alicia.cloudstorage.phone.data.RagActionExecutionResult
-import com.alicia.cloudstorage.phone.data.RagActionExecutionStatus
 import com.alicia.cloudstorage.phone.data.RagActionPlan
 import com.alicia.cloudstorage.phone.data.RagAssistantPlanResponse
 import com.alicia.cloudstorage.phone.data.RagBackendActionDraft
@@ -90,44 +88,6 @@ internal fun RagAssistantPlanResponse.toNavigationTargetOrNull(): AiChatFileResu
         mimeType = candidate.mimeType,
         updatedAt = candidate.updatedAt,
         path = candidate.path,
-    )
-}
-
-internal fun RagActionExecutionResult.toAssistantMessage(id: Long): AiChatMessage {
-    val shareResult = toAiChatShareResult()
-    return AiChatMessage(
-        id = id,
-        author = AiChatAuthor.ASSISTANT,
-        text = if (shareResult == null) executionDisplayText() else message,
-        shareResult = shareResult,
-    )
-}
-
-private fun RagActionExecutionResult.toAiChatShareResult(): AiChatShareResult? {
-    if (
-        status != RagActionExecutionStatus.COMPLETED ||
-        !actionType.equals("share", ignoreCase = true)
-    ) {
-        return null
-    }
-
-    val code = shareCode?.trim()?.takeIf(String::isNotBlank) ?: return null
-    val url = shareUrl?.trim()?.takeIf(String::isNotBlank) ?: return null
-    return AiChatShareResult(shareCode = code, shareUrl = url)
-}
-
-internal fun RagActionExecutionResult.toFileMutationSignal(): AiChatFileMutationSignal? {
-    if (!succeeded) {
-        return null
-    }
-
-    val normalizedActionType = actionType?.trim().orEmpty()
-    val scope = AiChatExecutionFeedback.mutationScope(normalizedActionType) ?: return null
-
-    return AiChatFileMutationSignal(
-        actionType = normalizedActionType,
-        affectedNodeIds = affectedNodeIds.distinct(),
-        scope = scope,
     )
 }
 
@@ -433,20 +393,4 @@ private fun Any?.toLongOrNullValue(): Long? =
         is Number -> toLong()
         is String -> trim().toLongOrNull()
         else -> null
-    }
-
-private fun RagActionExecutionResult.executionDisplayText(): String =
-    when (status) {
-        RagActionExecutionStatus.DISABLED -> {
-            "我已完成本地校验，但当前 AI 文件操作执行入口默认关闭，所以不会改动文件。"
-        }
-        RagActionExecutionStatus.VALIDATION_REJECTED -> "这次计划没有通过本地校验：$message"
-        RagActionExecutionStatus.INVALID_DRAFT -> "这次计划还缺少必要信息：$message"
-        RagActionExecutionStatus.COMPLETED -> {
-            listOfNotNull(
-                message,
-                shareCode?.let { "分享码：$it" },
-            ).joinToString("\n")
-        }
-        RagActionExecutionStatus.FAILED -> "提交文件操作失败：$message"
     }

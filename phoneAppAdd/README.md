@@ -30,7 +30,7 @@
 
 如需覆盖默认地址，可通过 Gradle 属性或 `local.properties` 配置 `ALICIA_API_BASE_URL`。
 
-普通的 `ALICIA_API_BASE_URL`、`ALICIA_RAG_BASE_URL`、`ALICIA_RAG_EXECUTION_BASE_URL` 和执行开关只用于 Debug 构建。Release 包固定采用正式 API、`/rag` 与 `/rag-execution`；确需构建其他正式环境时，必须显式使用 `ALICIA_RELEASE_API_BASE_URL`、`ALICIA_RELEASE_RAG_BASE_URL`、`ALICIA_RELEASE_RAG_EXECUTION_BASE_URL`、`ALICIA_RELEASE_RAG_CLOUD_EXECUTION_ENABLED` 和旧路径兼容开关 `ALICIA_RELEASE_RAG_ACTION_EXECUTION_ENABLED`，避免本地地址或开发开关意外进入发布包。
+普通的 `ALICIA_API_BASE_URL`、`ALICIA_RAG_BASE_URL`、`ALICIA_RAG_EXECUTION_BASE_URL` 和云端执行开关只用于 Debug 构建。Release 包固定采用正式 API、`/rag` 与 `/rag-execution`；确需构建其他正式环境时，必须显式使用 `ALICIA_RELEASE_API_BASE_URL`、`ALICIA_RELEASE_RAG_BASE_URL`、`ALICIA_RELEASE_RAG_EXECUTION_BASE_URL` 和 `ALICIA_RELEASE_RAG_CLOUD_EXECUTION_ENABLED`，避免本地地址或开发开关意外进入发布包。客户端本地 RAG 写执行器及其构建开关已经删除。
 
 ## 本地运行
 
@@ -53,11 +53,10 @@ ALICIA_API_BASE_URL=http://10.0.2.2:8090
 ALICIA_RAG_BASE_URL=http://10.0.2.2:8091
 ALICIA_RAG_EXECUTION_BASE_URL=http://10.0.2.2:8094
 ALICIA_RAG_CLOUD_EXECUTION_ENABLED=false
-ALICIA_RAG_ACTION_EXECUTION_ENABLED=false
 ALICIA_RAG_CONFIRMATION_MESSAGE=确认
 ```
 
-如果连接的是 USB 真机，将 `ALICIA_RAG_BASE_URL` 配为 `http://127.0.0.1:8081` 后，使用下面的脚本安装。它会检查本地 RAG、安装 Debug 包、重建 `adb reverse`，并从设备侧验证健康接口；脚本可以从仓库根目录或 `phoneAppAdd` 目录调用。需要联调新云端执行通道时追加 `-EnableCloudExecution`；脚本会同时检查 `ragExecution` 的 `8084` 端口并显式打开本次 Debug 构建的云端执行开关，同时强制关闭旧本地动作执行开关，避免两个执行器并行生效：
+如果连接的是 USB 真机，将 `ALICIA_RAG_BASE_URL` 配为 `http://127.0.0.1:8081` 后，使用下面的脚本安装。它会检查本地 RAG、安装 Debug 包、重建 `adb reverse`，并从设备侧验证健康接口；脚本可以从仓库根目录或 `phoneAppAdd` 目录调用。需要联调云端执行通道时追加 `-EnableCloudExecution`；脚本会同时检查 `ragExecution` 的 `8084` 端口并显式打开本次 Debug 构建的云端执行开关：
 
 ```powershell
 .\scripts\install-debug-device.ps1
@@ -70,7 +69,7 @@ ALICIA_RAG_CONFIRMATION_MESSAGE=确认
 .\scripts\install-debug-device.ps1 -SkipInstall
 ```
 
-需要在真机验证云端 RAG 时，不必修改或删除本地 `local.properties`。使用云端安装脚本即可让本次 Debug 构建显式采用正式地址，并移除设备上的 RAG 端口反向映射，避免本地服务掩盖云端问题；脚本同样与当前调用目录无关。两个执行开关默认都关闭，只有显式传入对应开关才会为本次构建开启：
+需要在真机验证云端 RAG 时，不必修改或删除本地 `local.properties`。使用云端安装脚本即可让本次 Debug 构建显式采用正式地址，并移除设备上的 RAG 端口反向映射，避免本地服务掩盖云端问题；脚本同样与当前调用目录无关。云端执行开关默认关闭，只有显式传入 `-EnableCloudExecution` 才会为本次 Debug 构建开启：
 
 ```powershell
 .\scripts\install-cloud-device.ps1
@@ -133,7 +132,7 @@ $env:ALICIA_STORAGE_API_BASE_URL="https://windwindwind-alicia.cn"
 
 `ALICIA_RAG_CLOUD_EXECUTION_ENABLED` 控制新的云端执行确认路径，默认必须保持 `false`。即使发布构建显式开启，该能力仍只对 Identity 返回 `appRoles.rag=RAG_ADMIN` 的账号生效；客户端门禁与服务端确认权限必须同时通过，普通账号不会进入云端确认路径。启用后，确认按钮只向 `ragExecution` 提交 `executionId + expectedVersion`，通过状态查询展示排队、执行、重试和终态；客户端不会重新提交 ActionPlan，也不会解释服务端 method/path/body。任务确认后由云端持久化执行，离开页面或客户端网络中断不会撤销任务。
 
-`ALICIA_RAG_ACTION_EXECUTION_ENABLED` 仅保留旧 `RagActionExecutor` 的一个兼容发布周期，默认必须保持 `false`。它只可能在云端模式关闭时处理没有 `executionReference` 的旧响应；只要云端模式开启，缺失任务引用、通道关闭或请求失败都不会自动回退到本地写操作。上传本地文件、页面导航、预览和系统分享仍属于客户端能力。
+客户端不再包含本地 RAG 写操作执行器。缺少有效 `executionReference`、云端通道关闭或确认请求失败时，客户端只显示不可执行提示，不会解释或提交 `backendActionDraft`。本地文件字节上传、页面导航、预览和系统分享仍属于客户端能力；组合上传只能在已有云端任务进入 `WAITING_CLIENT_INPUT` 后继续。
 
 `ALICIA_RAG_CONFIRMATION_MESSAGE` 用于配置用户点击“确认计划”后，移动端发给 RAG 的确认短语；RAG 会根据该短语继续生成受控的 `backendActionDraft`。
 

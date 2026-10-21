@@ -166,7 +166,7 @@ class ActionPlanContractConfigTest {
         Map<String, Object> actionHandlers = map(mobile, "actionHandlers");
         Map<String, Object> bridgeActions = map(bridge, "actions");
 
-        assertThat(mobile).containsEntry("version", "mobile_contract_v1");
+        assertThat(mobile).containsEntry("version", "mobile_contract_v2");
         assertThat(map(mobile, "encoding")).containsEntry("forbidNumericTypeCodes", true);
         assertThat(list(mobile, "stableResponseFields")).contains(
                 "intentId",
@@ -188,15 +188,20 @@ class ActionPlanContractConfigTest {
         assertThat(actionHandlers.keySet()).containsAll(bridgeActions.keySet());
         assertThat(map(actionHandlers, "rename"))
                 .containsEntry("implementationStatus", "mobile_supported")
-                .containsEntry("mobileRepositoryMethod", "renameNode");
-        assertThat(map(actionHandlers, "delete")).containsEntry("mobileRepositoryMethod", "moveNodeToTrash");
+                .containsEntry("executionMode", "rag_execution_task")
+                .containsEntry("mobileRepositoryMethod", null);
+        assertThat(map(actionHandlers, "delete"))
+                .containsEntry("executionMode", "rag_execution_task")
+                .containsEntry("mobileRepositoryMethod", null);
         assertThat(map(actionHandlers, "collection.rename_add_prefix"))
                 .containsEntry("implementationStatus", "mobile_supported")
-                .containsEntry("mobileRepositoryMethod", "renameNodes");
+                .containsEntry("executionMode", "rag_execution_task")
+                .containsEntry("mobileRepositoryMethod", null);
         assertThat(bridgeActions).containsKey("collection.trash_scoped");
         assertThat(map(actionHandlers, "collection.trash_scoped"))
                 .containsEntry("implementationStatus", "mobile_supported")
-                .containsEntry("mobileRepositoryMethod", "moveScopedNodesToTrash");
+                .containsEntry("executionMode", "rag_execution_task")
+                .containsEntry("mobileRepositoryMethod", null);
     }
 
     @Test

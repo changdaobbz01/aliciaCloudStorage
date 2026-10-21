@@ -28,7 +28,7 @@ foundation -> shadow -> admin-single
 - 生产 `.env` 不使用示例密码，两个 HMAC 密钥彼此不同且至少 32 字符。
 - `mainSite/mainSiteApi` 是唯一 Identity 所有者，Identity、CloudStorageApi 与 RAG 当前健康。
 - 发布窗口内先生成并验证生产备份；备份必须包含已经存在的 `alicia_rag_execution` 数据库。
-- Android Release 的云端执行开关仍保持关闭，直到 `admin-single` 服务端观察通过且另行批准客户端灰度。
+- Android Release 只携带云端任务确认能力，不含本地写执行器；服务端继续以 `RAG_ADMIN + FOLDER_CREATE` 独立收口，即使客户端入口可见也不能扩大权限。
 
 ## 4. 候选配置
 
@@ -132,4 +132,4 @@ bash deploy/scripts/update-rag-execution-production.sh --stage foundation --appl
 
 ## 9. 后续门槛
 
-只有 `admin-single` 在生产稳定观察完成后，才能讨论客户端小比例灰度。批量和组合动作必须分别验收。旧本地执行路径只能在明确兼容窗口结束、生产稳定记录完成后进入阶段 7 删除；意图识别优化在阶段 7 稳定后开始。
+`admin-single` 已完成生产稳定观察，阶段 7 已删除旧本地执行路径。批量、组合动作和普通用户开放仍必须分别验收；阶段 7 完整回归、真机与发布验证归档后，下一条独立工作线是建立识别评测集并集中优化意图识别，不把识别调优混入执行服务改造。
