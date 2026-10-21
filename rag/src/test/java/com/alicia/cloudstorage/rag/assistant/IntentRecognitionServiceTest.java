@@ -1316,6 +1316,39 @@ class IntentRecognitionServiceTest {
     }
 
     @Test
+    void unresolvedRenameAndMoveReferencesBypassModelAndRemainNonExecutable() {
+        AtomicInteger modelCalls = new AtomicInteger();
+        IntentModelClient overEagerModel = request -> {
+            modelCalls.incrementAndGet();
+            return Optional.of(new IntentModelClient.ModelIntentResult(
+                    "deepseek",
+                    "deepseek-v4-flash",
+                    "deepseek_semantic_frame_v2",
+                    "semantic_frame_v2",
+                    Map.of(
+                            "intent_id", "file_delete",
+                            "confidence", 0.99,
+                            "entities", Map.of("target_name", "错误目标.pdf")
+                    )
+            ));
+        };
+        IntentRecognitionService service = new IntentRecognitionService(overEagerModel, intentRouter, configLoader);
+
+        IntentRecognitionResponse rename = service.recognize("把这个文件重命名为最终版.pdf");
+        IntentRecognitionResponse move = service.recognize("移动这个文件到资料库");
+
+        assertThat(modelCalls).hasValue(0);
+        assertThat(rename.intentId()).isEqualTo("file_rename");
+        assertThat(rename.semanticFrame().operation()).isEqualTo("RENAME");
+        assertThat(rename.actionDraft().type()).isEqualTo("none");
+        assertThat(rename.executionReference()).isNull();
+        assertThat(move.intentId()).isEqualTo("node_move");
+        assertThat(move.semanticFrame().operation()).isEqualTo("MOVE");
+        assertThat(move.actionDraft().type()).isEqualTo("none");
+        assertThat(move.executionReference()).isNull();
+    }
+
+    @Test
     void authoritativeCollectionRuleOverridesConfidentAtomicModelGuess() {
         IntentModelClient modelClient = message -> Optional.of(new IntentModelClient.ModelIntentResult(
                 "deepseek",

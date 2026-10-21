@@ -170,7 +170,10 @@ public class IntentRecognitionService {
             AssistantClientContext clientContext
     ) {
         var nonExecutableDecision = nonExecutableRequestGuard.evaluate(message, conversation);
-        if (nonExecutableDecision.isPresent()) {
+        boolean requiresLocalSemanticResolution = nonExecutableDecision
+                .map(NonExecutableRequestGuard.Decision::requiresSemanticResolution)
+                .orElse(false);
+        if (nonExecutableDecision.isPresent() && !requiresLocalSemanticResolution) {
             return nonExecutableResponse(message, nonExecutableDecision.get());
         }
         AssistantClientContext safeClientContext = clientContext == null
@@ -180,6 +183,7 @@ public class IntentRecognitionService {
                 .evaluate(message)
                 .orElse(null);
         IntentModelClient.ModelIntentResult modelResult = configuredBoundary == null
+                && !requiresLocalSemanticResolution
                 ? modelClient.recognize(
                                 new IntentModelClient.IntentModelRequest(
                                         message,
@@ -188,13 +192,16 @@ public class IntentRecognitionService {
                         )
                         .orElse(null)
                 : null;
+        String fallbackReason;
+        if (requiresLocalSemanticResolution) {
+            fallbackReason = "non_executable_guard:" + nonExecutableDecision.orElseThrow().id();
+        } else if (configuredBoundary == null) {
+            fallbackReason = "DeepSeek 未配置或暂时不可用";
+        } else {
+            fallbackReason = "配置能力边界命中：" + configuredBoundary.id();
+        }
         IntentRecognitionResponse response = modelResult == null
-                ? fromFallback(
-                        message,
-                        configuredBoundary == null
-                                ? "DeepSeek 未配置或暂时不可用"
-                                : "配置能力边界命中：" + configuredBoundary.id()
-                )
+                ? fromFallback(message, fallbackReason)
                 : fromModel(message, modelResult);
         IntentRouter.IntentRouteResult localRoute = semanticFallbackRoute(message, intentRouter.route(message));
         boolean guardedByBoundary = configuredBoundary != null

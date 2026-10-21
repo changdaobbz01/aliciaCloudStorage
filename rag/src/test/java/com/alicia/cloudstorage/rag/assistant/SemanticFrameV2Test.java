@@ -110,6 +110,18 @@ class SemanticFrameV2Test {
     }
 
     @Test
+    void parsesQuantifiedNamedFolderChildrenAsListChildren() {
+        IntentRecognitionResponse response = service.recognize("列出财务目录里的所有文件");
+
+        assertThat(response.intentId()).isEqualTo("file_search");
+        assertThat(response.semanticFrame().operation()).isEqualTo("LIST_CHILDREN");
+        assertThat(response.semanticFrame().query().mode()).isEqualTo("LIST_CHILDREN");
+        assertThat(response.semanticFrame().query().resultType()).isEqualTo("FILE");
+        assertThat(response.semanticFrame().scope().type()).isEqualTo("NAMED_FOLDER");
+        assertThat(response.semanticFrame().scope().folderSurface()).isEqualTo("财务目录");
+    }
+
+    @Test
     void stripsReferentialClassifierWithoutTruncatingRealFolderName() {
         IntentRecognitionResponse response = service.recognize("找到测试目录这个文件夹");
 
@@ -142,6 +154,17 @@ class SemanticFrameV2Test {
     @Test
     void normalizesLocalRootDirectoryListToListChildrenOperation() {
         IntentRecognitionResponse response = service.recognize("我想看看根目录里有哪些文件夹");
+
+        assertThat(response.intentId()).isEqualTo("file_search");
+        assertThat(response.semanticFrame().operation()).isEqualTo("LIST_CHILDREN");
+        assertThat(response.semanticFrame().query().mode()).isEqualTo("LIST_CHILDREN");
+        assertThat(response.semanticFrame().query().resultType()).isEqualTo("FOLDER");
+        assertThat(response.semanticFrame().scope().type()).isEqualTo("ROOT");
+    }
+
+    @Test
+    void recognizesNaturalRootChildrenQuestionWithoutAnExplicitCommandVerb() {
+        IntentRecognitionResponse response = service.recognize("根目录下面有哪些文件夹");
 
         assertThat(response.intentId()).isEqualTo("file_search");
         assertThat(response.semanticFrame().operation()).isEqualTo("LIST_CHILDREN");
@@ -283,6 +306,40 @@ class SemanticFrameV2Test {
         assertThat(response.entities()).doesNotContainKey("target_name");
         assertThat(response.missingSlots()).contains("target_name");
         assertThat(response.missingSlots()).doesNotContain("new_name");
+    }
+
+    @Test
+    void unresolvedMoveAndRenameReferencesPreserveIntentButCannotCreateActionDrafts() {
+        IntentRecognitionResponse rename = service.recognize("把这个文件重命名为最终版.pdf");
+        IntentRecognitionResponse move = service.recognize("移动这个文件到资料库");
+
+        assertThat(rename.intentId()).isEqualTo("file_rename");
+        assertThat(rename.semanticFrame().operation()).isEqualTo("RENAME");
+        assertThat(rename.entities()).containsEntry("new_name", "最终版.pdf").doesNotContainKey("target_name");
+        assertThat(rename.missingSlots()).containsExactly("target_name");
+        assertThat(rename.semanticFrame().ambiguities()).contains("source_reference");
+        assertThat(rename.nextAction()).isEqualTo("ask_clarification");
+        assertThat(rename.actionDraft().type()).isEqualTo("none");
+        assertThat(rename.executionReference()).isNull();
+
+        assertThat(move.intentId()).isEqualTo("node_move");
+        assertThat(move.semanticFrame().operation()).isEqualTo("MOVE");
+        assertThat(move.entities()).containsEntry("target_folder", "资料库").doesNotContainKey("target_name");
+        assertThat(move.missingSlots()).containsExactly("target_name");
+        assertThat(move.semanticFrame().ambiguities()).contains("source_reference");
+        assertThat(move.nextAction()).isEqualTo("ask_clarification");
+        assertThat(move.actionDraft().type()).isEqualTo("none");
+        assertThat(move.executionReference()).isNull();
+    }
+
+    @Test
+    void colloquialRecycleBinDirectionKeepsFolderDeleteSemantics() {
+        IntentRecognitionResponse response = service.recognize("把临时资料目录扔进回收站");
+
+        assertThat(response.intentId()).isEqualTo("file_delete");
+        assertThat(response.semanticFrame().operation()).isEqualTo("DELETE");
+        assertThat(response.semanticFrame().query().resultType()).isEqualTo("FOLDER");
+        assertThat(response.entities()).containsEntry("target_name", "临时资料目录");
     }
 
     @Test

@@ -68,6 +68,22 @@ class NonExecutableRequestGuardTest {
         assertThat(guard.evaluate("确认并执行", pendingOperation())).isEmpty();
     }
 
+    @Test
+    void concreteMoveAndRenameComplementsDeferToSafeSemanticResolution() {
+        NonExecutableRequestGuard.Decision rename = guard
+                .evaluate("把这个文件重命名为最终版.pdf", null)
+                .orElseThrow();
+        NonExecutableRequestGuard.Decision move = guard
+                .evaluate("移动这个文件到资料库", null)
+                .orElseThrow();
+
+        assertThat(rename.requiresSemanticResolution()).isTrue();
+        assertThat(move.requiresSemanticResolution()).isTrue();
+        assertThat(guard.evaluate("把它移动到那里", null).orElseThrow().id())
+                .isEqualTo("unresolved_reference");
+        assertThat(guard.evaluate("把它删掉", null).orElseThrow().requiresSemanticResolution()).isFalse();
+    }
+
     private AssistantConversationState pendingOperation() {
         return new AssistantConversationState(
                 "conversation-1",

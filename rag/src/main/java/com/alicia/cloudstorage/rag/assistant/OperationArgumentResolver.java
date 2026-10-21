@@ -49,6 +49,9 @@ final class OperationArgumentResolver {
     private static final Pattern MOVE_SPLIT = Pattern.compile(
             "^(.*?)(?:移动到|移到|挪到|转移到|搬到|移动至|移至|挪至|转移至|搬至|放进)(.+)$"
     );
+    private static final Pattern MOVE_LEADING_SPLIT = Pattern.compile(
+            "^(?:移动|搬|挪)(?:一下)?(.+?)(?:到|至|进)(.+)$"
+    );
     private static final Pattern RENAME_SPLIT = Pattern.compile(
             "^(.*?)(?:重命名为|重命名成|改名为|改名成|改成|改为)(.+)$"
     );
@@ -98,7 +101,10 @@ final class OperationArgumentResolver {
     private Optional<Resolution> parseMove(String text) {
         Matcher matcher = MOVE_SPLIT.matcher(stripCourtesy(text));
         if (!matcher.matches()) {
-            return Optional.empty();
+            matcher = MOVE_LEADING_SPLIT.matcher(stripCourtesy(text));
+            if (!matcher.matches()) {
+                return Optional.empty();
+            }
         }
         String sourceSurface = stripObjectPrefix(matcher.group(1));
         String destinationSurface = cleanDestination(matcher.group(2));
@@ -493,7 +499,7 @@ final class OperationArgumentResolver {
         if (leading.matches()) {
             return stripObjectPrefix(leading.group(1));
         }
-        Matcher recycleBin = Pattern.compile("^(?:把|将)?(.+?)(?:扔到|移入|放进)回收站$").matcher(value);
+        Matcher recycleBin = Pattern.compile("^(?:把|将)?(.+?)(?:扔到|扔进|移入|放进)回收站$").matcher(value);
         if (recycleBin.matches()) {
             return stripObjectPrefix(recycleBin.group(1));
         }

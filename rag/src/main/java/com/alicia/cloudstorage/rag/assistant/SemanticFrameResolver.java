@@ -36,7 +36,7 @@ public class SemanticFrameResolver {
     private static final Set<String> FILTER_KEYS = Set.of("extension", "file_type", "time_range");
 
     private static final Pattern NAMED_DIRECTORY_CONTENT = Pattern.compile(
-            "(?:列出|列一下|展示|显示|查看|看看|看下|浏览)?\\s*(?:在\\s*)?(.+?(?:目录|文件夹))\\s*(?:下|中|里|内)(?:的)?\\s*(文件夹|目录|文件|内容|列表)",
+            "(?:列出|列一下|展示|显示|查看|看看|看下|浏览)?\\s*(?:在\\s*)?(.+?(?:目录|文件夹))\\s*(?:下|中|里|内)(?:的)?\\s*(?:(?:所有|全部)(?:的)?\\s*)?(文件夹|目录|文件|内容|列表)",
             Pattern.CASE_INSENSITIVE
     );
     private static final Pattern NAMED_LOCATION_CONTENT = Pattern.compile(
@@ -91,7 +91,7 @@ public class SemanticFrameResolver {
         rawFrame = applyMessageSemantics(message, rawFrame, conversation, clientContext);
         rawFrame = applySearchCorrection(message, rawFrame, response, conversation);
         rawFrame = reconcileMutationTarget(rawFrame, response, message);
-        rawFrame = applyOperationArguments(message, rawFrame, response);
+        rawFrame = applyOperationArguments(message, rawFrame, response, conversation);
         rawFrame = alignCompletedStructuredIntent(rawFrame, response);
         return normalizeResolvableSlotClarification(validate(rawFrame, response, clientContext));
     }
@@ -186,7 +186,8 @@ public class SemanticFrameResolver {
     private SemanticFrame applyOperationArguments(
             String message,
             SemanticFrame frame,
-            IntentRecognitionResponse response
+            IntentRecognitionResponse response,
+            AssistantConversationState conversation
     ) {
         if ("CREATE_FOLDER".equals(frame.operation())) {
             return frame;
@@ -215,6 +216,8 @@ public class SemanticFrameResolver {
         SemanticFrame.Query query = frame.query();
         SemanticFrame.Scope scope = frame.scope();
         SemanticFrame.Reference reference = frame.reference();
+        List<String> ambiguities = new ArrayList<>(frame.ambiguities());
+        SemanticFrame.Clarification clarification = frame.clarification();
         if ("UPLOAD".equals(frame.operation())) {
             query = new SemanticFrame.Query("NONE", "ANY", "", "", frame.query().filters());
             scope = destinationScope(arguments.destination());
@@ -229,15 +232,23 @@ public class SemanticFrameResolver {
             );
             scope = sourceScope(source);
             if (source.nameKind() == OperationArgumentResolver.NameKind.REFERENCE) {
-                reference = "NONE".equals(frame.reference().type())
-                        ? new SemanticFrame.Reference("PREVIOUS_CANDIDATE", null, null)
-                        : frame.reference();
+                boolean hasFrameReference = reference != null && !"NONE".equals(reference.type());
+                boolean hasCandidateContext = conversation != null
+                        && conversation.focus() != null
+                        && conversation.focus().hasCandidateContext();
+                if (!hasFrameReference) {
+                    reference = hasCandidateContext
+                            ? contextReference(conversation)
+                            : new SemanticFrame.Reference("PREVIOUS_CANDIDATE_SET", null, null);
+                }
                 scope = new SemanticFrame.Scope("PREVIOUS_RESULTS", "", "");
+                if (!hasFrameReference && !hasCandidateContext) {
+                    addAmbiguity(ambiguities, "source_reference");
+                    clarification = unresolvedSourceReferenceClarification(frame.operation(), arguments);
+                }
             }
         }
 
-        List<String> ambiguities = new ArrayList<>(frame.ambiguities());
-        SemanticFrame.Clarification clarification = frame.clarification();
         if (arguments.needsClarification()) {
             addAmbiguity(ambiguities, arguments.clarificationReason());
             clarification = new SemanticFrame.Clarification(
@@ -255,6 +266,31 @@ public class SemanticFrameResolver {
                 reference,
                 ambiguities,
                 clarification
+        );
+    }
+
+    private SemanticFrame.Clarification unresolvedSourceReferenceClarification(
+            String operation,
+            OperationArgumentResolver.Resolution arguments
+    ) {
+        String preservedComplement = switch (operation) {
+            case "MOVE" -> arguments.destination().surface().isBlank()
+                    ? ""
+                    : "，目标目录“" + arguments.destination().surface() + "”已保留";
+            case "RENAME" -> arguments.newName().isBlank()
+                    ? ""
+                    : "，新名称“" + arguments.newName() + "”已保留";
+            default -> "";
+        };
+        return new SemanticFrame.Clarification(
+                "source_reference",
+                "我还不知道“这个文件”指的是哪一个" + preservedComplement + "。请提供名称，或先搜索并选择目标。",
+                switch (operation) {
+                    case "MOVE" -> List.of("把合同.pdf移动到" + arguments.destination().surface());
+                    case "RENAME" -> List.of("把合同.pdf重命名为" + arguments.newName());
+                    case "DELETE" -> List.of("删除合同.pdf");
+                    default -> List.of("先搜索并选择目标文件");
+                }
         );
     }
 

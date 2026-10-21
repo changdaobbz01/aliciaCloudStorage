@@ -66,6 +66,18 @@ final class NonExecutableRequestGuard {
             "^(?:请|麻烦)?(?:帮我)?(?:把)?(?:它|这个|那个)(?:文件|文件夹|目录)?(?:给我)?(?:删除|删掉|删了|移除|移动|移到|搬到|挪到|重命名|改名|分享)",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
+    private static final Pattern MUTATION_REFERENCE = Pattern.compile(
+            "(?:它|这个|那个)(?:文件夹|目录|文件)?(?=(?:重命名|改名|移动|搬|挪|到|至|进|$))",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
+    private static final Pattern RENAME_WITH_NEW_NAME = Pattern.compile(
+            "(?:重命名为|重命名成|改名为|改名成|改成|改为)\\s*([^，,。；;!?！？]+)",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
+    private static final Pattern MOVE_DESTINATION = Pattern.compile(
+            "(?:到|至|进)\\s*([^，,。；;!?！？]+)$",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
     private static final Pattern CANCELLATION = Pattern.compile(
             "^(?:(?:算了[，,]?)?(?:不用了|不做了|先不做了|取消(?:这个|该|刚才的)?(?:操作|任务|动作)?|停止|停下|撤销|作罢)|算了)[。！!]*$",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
@@ -188,6 +200,15 @@ final class NonExecutableRequestGuard {
                     "这句话包含多个互斥操作。请明确选择其中一个，我不会先执行任何操作。"
             ));
         }
+        if (!hasCandidateContext(conversation) && hasResolvableMutationReference(value)) {
+            return Optional.of(new Decision(
+                    "unresolved_rebindable_reference",
+                    "fallback",
+                    "NEW_TASK",
+                    "UNKNOWN",
+                    "我会保留这次移动或重命名意图，但需要先确定“这个文件”具体指哪一个。"
+            ));
+        }
         if (UNRESOLVED_REFERENCE.matcher(value).find() && !hasCandidateContext(conversation)) {
             return Optional.of(new Decision(
                     "unresolved_reference",
@@ -198,6 +219,25 @@ final class NonExecutableRequestGuard {
             ));
         }
         return Optional.empty();
+    }
+
+    private boolean hasResolvableMutationReference(String message) {
+        if (!MUTATION_REFERENCE.matcher(message).find()) {
+            return false;
+        }
+        if (RENAME_WITH_NEW_NAME.matcher(message).find()) {
+            return true;
+        }
+        if (!TextSupport.containsAny(message, List.of("移动", "移到", "搬到", "挪到", "搬", "挪"))) {
+            return false;
+        }
+        var destination = MOVE_DESTINATION.matcher(message);
+        if (!destination.find()) {
+            return false;
+        }
+        String value = destination.group(1).trim();
+        return !List.of("那里", "这里", "那儿", "这儿", "那个", "这个", "某处", "一个地方", "目标目录", "文件夹", "目录")
+                .contains(value);
     }
 
     private int distinctOperationCount(String message) {
@@ -234,5 +274,8 @@ final class NonExecutableRequestGuard {
             String operation,
             String assistantText
     ) {
+        boolean requiresSemanticResolution() {
+            return "unresolved_rebindable_reference".equals(id);
+        }
     }
 }
