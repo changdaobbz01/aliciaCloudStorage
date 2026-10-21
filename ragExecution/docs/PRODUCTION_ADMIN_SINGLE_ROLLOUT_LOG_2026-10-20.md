@@ -168,3 +168,48 @@ recent execution log  no error/exception/panic/fatal/timeout
 ```
 
 本次发布只完成管理员单人客户端灰度，不代表扩大服务端动作白名单，也不代表开始全面对话识别率优化。下一步应先观察真实管理员任务稳定性，再决定是否扩大账号范围。
+
+## 9. 隔夜稳定性观察｜2026-10-21
+
+`admin-single` 连续运行约 16 小时后完成第一次隔夜审计。生产配置仍严格保持 `RAG_ADMIN + FOLDER_CREATE`，公开健康检查、依赖检查、内部路由隔离和 Compose 配置检查全部通过。
+
+```text
+RAG Execution uptime   about 16 hours
+Cloud API uptime       about 16 hours
+RAG uptime             about 16 hours
+container restarts     0
+non-terminal tasks     0
+failed/partial tasks   0
+retried steps          0
+event sequence gaps    0
+receipt mismatches     0
+```
+
+数据库状态机审计后的任务总量：
+
+```text
+SUCCEEDED   2
+CANCELLED   7
+EXPIRED     5
+```
+
+两项成功任务都有且只有一个成功 Cloud 回执；所有取消和过期任务都没有 Cloud 回执。成功步骤不存在缺失回执，回执也不存在孤立、状态错误或 execution/step/action 对应错误。
+
+RAG 服务在 2026-10-20 17:24（Asia/Shanghai）发布切换窗口记录过一次 Shadow 登记告警。该告警的 `sourceResponseId` 与任务 `07605f85-6227-4f5a-a6bf-e169505d88a7` 一致，9 秒后任务已成功持久化，最终按 TTL 转为 `EXPIRED`；没有丢失、重复执行或业务写入。Cloud API 日志中的 `next_retry_at` 只是常规后台 SQL 条件，不是执行重试。
+
+当天使用专用 `RAG_ADMIN` 账号完成一轮无写入公网探针：
+
+```text
+execution_id  cf3f32e4-af2e-41fc-b5f5-32e679795e36
+folder_name   rag-admin-stability-20261021-093220
+status        CANCELLED
+version       1
+attempts      0
+events        EXECUTION_REGISTERED -> EXECUTION_CANCELLED
+receipts      0
+storage nodes 0
+```
+
+探针完整验证了 Identity 登录、RAG 计划生成、精确英文目录名保留、任务登记、公网任务读取、取消、事件读取和临时会话注销。探针结束后 RAG、RAG Execution、Cloud API 均无新增异常日志。
+
+本轮没有修改生产配置、服务镜像或动作白名单。继续保持 `admin-single` 观察，不进入全面意图识别优化，也不开放其他写动作。
