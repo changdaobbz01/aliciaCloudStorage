@@ -864,6 +864,20 @@ public class SemanticFrameResolver {
             );
         }
 
+        if ("SEARCH".equals(frame.operation())) {
+            SearchSemantics semantics = parseSearch(safeMessage, frame.query(), frame.scope());
+            return copyFrame(
+                    frame,
+                    frame.relation(),
+                    frame.operation(),
+                    semantics.query(),
+                    semantics.scope(),
+                    frame.reference(),
+                    frame.ambiguities(),
+                    frame.clarification()
+            );
+        }
+
         Integer ordinal = ordinalIndex(safeMessage);
         if (ordinal != null && List.of("DELETE", "MOVE", "RENAME", "SHARE").contains(frame.operation())) {
             return copyFrame(
@@ -992,6 +1006,8 @@ public class SemanticFrameResolver {
         List<String> ambiguities = new ArrayList<>(frame.ambiguities());
         SemanticFrame.Clarification clarification = frame.clarification();
         if ("UNKNOWN".equals(operation)) {
+            query = SemanticFrame.Query.empty();
+            scope = SemanticFrame.Scope.empty();
             addAmbiguity(ambiguities, "operation");
             clarification = clarification(
                     clarification,

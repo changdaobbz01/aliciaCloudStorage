@@ -392,7 +392,7 @@ public class AssistantConversationService {
         if (!"target_name".equals(slot)) {
             return;
         }
-        for (String key : List.of("result_type", "scope", "source_folder", "file_type", "extension")) {
+        for (String key : List.of("result_type", "file_type", "extension")) {
             Object value = source.get(key);
             if (hasValue(value)) {
                 target.put(key, value);

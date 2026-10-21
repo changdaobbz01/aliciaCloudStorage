@@ -467,7 +467,8 @@ class AssistantConversationServiceTest {
         assertThat(moved.semanticFrame().relation()).isEqualTo("SLOT_FILL");
         assertThat(moved.entities())
                 .containsEntry("target_name", "合同.pdf")
-                .containsEntry("target_folder", "资料");
+                .containsEntry("target_folder", "资料")
+                .doesNotContainKeys("scope", "source_folder");
         assertThat(renamed.semanticFrame().relation()).isEqualTo("SLOT_FILL");
         assertThat(renamed.entities())
                 .containsEntry("target_name", "合同.pdf")

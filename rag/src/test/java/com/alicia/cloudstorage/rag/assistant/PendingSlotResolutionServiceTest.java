@@ -63,6 +63,26 @@ class PendingSlotResolutionServiceTest {
     }
 
     @Test
+    void folderNameSlotUsesTheLiteralUserFragmentInsteadOfModelRewriting() {
+        IntentRecognitionResponse pending = recognitionService.recognize("在当前目录新建一个文件夹");
+        IntentRecognitionResponse modelRewritten = recognitionService.rebuildForConversation(
+                recognitionService.recognize("名字叫 视频"),
+                "folder_create",
+                Map.of("new_folder_name", "视频"),
+                "test model rewrite"
+        );
+
+        PendingSlotResolutionService.Resolution resolution = service.resolve(
+                "名字叫 视频",
+                conversation(pending),
+                modelRewritten
+        );
+
+        assertThat(resolution.resolved()).isTrue();
+        assertThat(resolution.values()).containsEntry("new_folder_name", "名字叫 视频");
+    }
+
+    @Test
     void rejectsNewMutationCommandAndCollectionPhraseAsSlotValue() {
         IntentRecognitionResponse pendingDelete = recognitionService.recognize("删除");
         IntentRecognitionResponse ambiguousDelete = recognitionService.recognize("删除图片");

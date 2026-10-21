@@ -1527,6 +1527,80 @@ class IntentRecognitionServiceTest {
     }
 
     @Test
+    void unknownOperationCannotInheritAModelInventedCurrentFolderScope() {
+        IntentModelClient modelClient = message -> Optional.of(new IntentModelClient.ModelIntentResult(
+                "deepseek",
+                "deepseek-v4-flash",
+                "deepseek_semantic_frame_v2",
+                "semantic_frame_v2",
+                Map.ofEntries(
+                        Map.entry("intent_id", "fallback"),
+                        Map.entry("confidence", 0.32),
+                        Map.entry("entities", Map.of()),
+                        Map.entry("missing_slots", List.of("operation")),
+                        Map.entry("assistant_text", "请明确需要执行的操作。"),
+                        Map.entry("semantic_frame", Map.ofEntries(
+                                Map.entry("schema_version", "semantic_frame_v2"),
+                                Map.entry("relation", "NEW_TASK"),
+                                Map.entry("operation", "UNKNOWN"),
+                                Map.entry("query", Map.of("mode", "NONE", "result_type", "ANY")),
+                                Map.entry("scope", Map.of("type", "CURRENT", "folder_surface", "")),
+                                Map.entry("reference", Map.of("type", "NONE")),
+                                Map.entry("confidence", 0.32),
+                                Map.entry("ambiguities", List.of("operation")),
+                                Map.entry("clarification", Map.of("reason", "operation"))
+                        ))
+                )
+        ));
+
+        IntentRecognitionResponse response = new IntentRecognitionService(modelClient, intentRouter, configLoader)
+                .recognize("帮我处理一下这些文件");
+
+        assertThat(response.semanticFrame().operation()).isEqualTo("UNKNOWN");
+        assertThat(response.semanticFrame().query()).isEqualTo(SemanticFrame.Query.empty());
+        assertThat(response.semanticFrame().scope()).isEqualTo(SemanticFrame.Scope.empty());
+    }
+
+    @Test
+    void searchCommandUsesCanonicalMessageSemanticsInsteadOfModelExactMode() {
+        IntentModelClient modelClient = message -> Optional.of(new IntentModelClient.ModelIntentResult(
+                "deepseek",
+                "deepseek-v4-flash",
+                "deepseek_semantic_frame_v2",
+                "semantic_frame_v2",
+                Map.ofEntries(
+                        Map.entry("intent_id", "file_search"),
+                        Map.entry("confidence", 0.9),
+                        Map.entry("entities", Map.of("target_name", "测试目录", "result_type", "FOLDER")),
+                        Map.entry("missing_slots", List.of()),
+                        Map.entry("assistant_text", "正在查找测试目录。"),
+                        Map.entry("semantic_frame", Map.ofEntries(
+                                Map.entry("schema_version", "semantic_frame_v2"),
+                                Map.entry("relation", "NEW_TASK"),
+                                Map.entry("operation", "SEARCH"),
+                                Map.entry("query", Map.of(
+                                        "mode", "NAME_EXACT",
+                                        "result_type", "FOLDER",
+                                        "name_surface", "测试目录"
+                                )),
+                                Map.entry("scope", Map.of("type", "ALL", "folder_surface", "")),
+                                Map.entry("reference", Map.of("type", "NONE")),
+                                Map.entry("confidence", 0.9),
+                                Map.entry("ambiguities", List.of()),
+                                Map.entry("clarification", Map.of())
+                        ))
+                )
+        ));
+
+        IntentRecognitionResponse response = new IntentRecognitionService(modelClient, intentRouter, configLoader)
+                .recognize("找到测试目录这个文件夹");
+
+        assertThat(response.semanticFrame().operation()).isEqualTo("SEARCH");
+        assertThat(response.semanticFrame().query().mode()).isEqualTo("NAME_SEARCH");
+        assertThat(response.semanticFrame().query().nameSurface()).isEqualTo("测试目录");
+    }
+
+    @Test
     void rejectsIrreversibleClaimForRecoverableTrashOperation() {
         IntentModelClient modelClient = message -> Optional.of(new IntentModelClient.ModelIntentResult(
                 "deepseek",

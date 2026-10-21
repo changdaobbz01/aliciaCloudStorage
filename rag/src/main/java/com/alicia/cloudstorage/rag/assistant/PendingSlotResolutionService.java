@@ -50,7 +50,9 @@ final class PendingSlotResolutionService {
             if (!TEXT_SLOTS.contains(slot)) {
                 continue;
             }
-            String structuredValue = cleanSlotValue(stringValue(response.entities().get(slot)));
+            String structuredValue = "new_folder_name".equals(slot)
+                    ? ""
+                    : cleanSlotValue(stringValue(response.entities().get(slot)));
             if (!structuredValue.isBlank()
                     && isExplicitSlotFragment(slot, message, response, conversation)
                     && !("target_name".equals(slot) && GENERIC_NODE_NAMES.contains(structuredValue))) {
