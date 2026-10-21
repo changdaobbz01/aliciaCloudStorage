@@ -140,6 +140,17 @@ class SemanticFrameV2Test {
     }
 
     @Test
+    void normalizesLocalRootDirectoryListToListChildrenOperation() {
+        IntentRecognitionResponse response = service.recognize("我想看看根目录里有哪些文件夹");
+
+        assertThat(response.intentId()).isEqualTo("file_search");
+        assertThat(response.semanticFrame().operation()).isEqualTo("LIST_CHILDREN");
+        assertThat(response.semanticFrame().query().mode()).isEqualTo("LIST_CHILDREN");
+        assertThat(response.semanticFrame().query().resultType()).isEqualTo("FOLDER");
+        assertThat(response.semanticFrame().scope().type()).isEqualTo("ROOT");
+    }
+
+    @Test
     void asksForFolderContextWhenDeicticDirectoryHasNoReferent() {
         IntentRecognitionResponse response = service.recognize("这个文件夹中文件有哪些");
 

@@ -541,7 +541,7 @@ class AssistantConversationServiceTest {
 
     @Test
     void fallbackClarificationKeepsMessageOnlyActionPlan() {
-        IntentRecognitionResponse response = conversationService.plan(new AssistantPlanRequest("今天的风有点大", ""));
+        IntentRecognitionResponse response = conversationService.plan(new AssistantPlanRequest("请帮我证明黎曼猜想", ""));
 
         assertThat(response.intentId()).isEqualTo("fallback");
         assertThat(response.nextAction()).isEqualTo("ask_clarification");
@@ -1269,7 +1269,7 @@ class AssistantConversationServiceTest {
         assertThat(file.semanticFrame().query().resultType()).isEqualTo("FILE");
         assertThat(file.entities()).containsEntry("target_name", "合同.pdf");
 
-        assertThat(contents.semanticFrame().operation()).isEqualTo("SEARCH");
+        assertThat(contents.semanticFrame().operation()).isEqualTo("LIST_CHILDREN");
         assertThat(contents.semanticFrame().query().mode()).isEqualTo("LIST_CHILDREN");
         assertThat(contents.semanticFrame().query().resultType()).isEqualTo("FILE");
         assertThat(contents.semanticFrame().scope().type()).isEqualTo("NAMED_FOLDER");

@@ -743,6 +743,18 @@ public class SemanticFrameResolver {
                     SemanticFrame.Clarification.empty()
             );
         }
+        if ("SEARCH".equals(frame.operation()) && "LIST_CHILDREN".equals(frame.query().mode())) {
+            return copyFrame(
+                    frame,
+                    frame.relation(),
+                    "LIST_CHILDREN",
+                    frame.query(),
+                    frame.scope(),
+                    frame.reference(),
+                    frame.ambiguities(),
+                    frame.clarification()
+            );
+        }
 
         if (looksLikeNavigation(safeMessage) && List.of("UNKNOWN", "SEARCH", "NAVIGATE", "OPEN_FILE").contains(frame.operation())) {
             if (TextSupport.containsAny(safeMessage, List.of("根目录", "云盘首页"))) {

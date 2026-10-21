@@ -516,7 +516,8 @@
       "turns": [{
         "message": "帮我处理一下这些文件",
         "expected": {
-          "intentId": ["fallback"], "nextAction": ["ask_clarification"], "actionDraftType": ["none"], "executionReference": false, "noExecutablePlan": true
+          "intentId": ["fallback"], "nextAction": ["ask_clarification"], "actionDraftType": ["none"], "executionReference": false, "noExecutablePlan": true,
+          "missingSlots": ["operation"], "semanticRelation": ["NEW_TASK"], "semanticOperation": ["UNKNOWN"], "interactionStage": ["NEED_CLARIFICATION"]
         }
       }]
     },

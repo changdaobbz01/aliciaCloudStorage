@@ -42,7 +42,7 @@ class CandidateBindingServiceTest {
         CapturingCandidateSearchPort port = new CapturingCandidateSearchPort();
         CandidateBindingService service = new CandidateBindingService(port, intentRouter, 5);
 
-        IntentRecognitionResponse response = intentRecognitionService.recognize("今天的风有点大");
+        IntentRecognitionResponse response = intentRecognitionService.recognize("请帮我证明黎曼猜想");
 
         CandidateBindingResult result = service.bind(response, "Bearer token");
 

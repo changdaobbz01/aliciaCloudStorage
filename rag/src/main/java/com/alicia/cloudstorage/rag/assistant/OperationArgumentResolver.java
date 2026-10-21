@@ -52,6 +52,10 @@ final class OperationArgumentResolver {
     private static final Pattern RENAME_SPLIT = Pattern.compile(
             "^(.*?)(?:重命名为|重命名成|改名为|改名成|改成|改为)(.+)$"
     );
+    private static final Pattern RENAME_COLLOQUIAL_SPLIT = Pattern.compile(
+            "^(?:那个|这个)?[《“\"]([^》”\"]+)[》”\"](?:给我)?"
+                    + "(?:改个名(?:儿|字)?|换个名(?:儿|字)?)[，,]?(?:叫做|叫)(.+)$"
+    );
     private static final Pattern RENAME_TARGET_ONLY = Pattern.compile("^(?:重命名|改名)(.+)$");
     private static final Pattern UPLOAD_SPLIT = Pattern.compile(
             "^(.*?)(?:上传到|上传至|传到|传进|放到)(.+)$"
@@ -112,6 +116,21 @@ final class OperationArgumentResolver {
 
     private Optional<Resolution> parseRename(String text) {
         String value = stripCourtesy(text);
+        Matcher colloquial = RENAME_COLLOQUIAL_SPLIT.matcher(value);
+        if (colloquial.matches()) {
+            String sourceName = cleanName(colloquial.group(1));
+            String newName = cleanName(colloquial.group(2));
+            if (sourceName.isBlank() || newName.isBlank()) {
+                return Optional.empty();
+            }
+            return Optional.of(resolution(
+                    "RENAME",
+                    parseNodeSelector(sourceName),
+                    Destination.empty(),
+                    newName,
+                    false
+            ));
+        }
         Matcher matcher = RENAME_SPLIT.matcher(value);
         if (matcher.matches()) {
             String sourceSurface = normalizeBatchRenameSource(stripObjectPrefix(matcher.group(1)));

@@ -152,8 +152,9 @@
       "turns": [{
         "message": "把这些东西都处理掉吧",
         "expected": {
-          "intentId": ["fallback", "file_delete"], "nextAction": ["ask_clarification"], "actionDraftType": ["none"],
-          "executionReference": false, "noExecutablePlan": true
+          "intentId": ["fallback"], "nextAction": ["ask_clarification"], "actionDraftType": ["none"],
+          "executionReference": false, "noExecutablePlan": true, "missingSlots": ["operation"],
+          "semanticRelation": ["NEW_TASK"], "semanticOperation": ["UNKNOWN"], "interactionStage": ["NEED_CLARIFICATION"]
         }
       }]
     },
@@ -174,8 +175,9 @@
       "turns": [{
         "message": "确认并执行",
         "expected": {
-          "intentId": ["assistant_acknowledgement", "fallback"], "nextAction": ["respond_only", "ask_clarification"], "actionDraftType": ["none"],
-          "executionReference": false, "noExecutablePlan": true
+          "intentId": ["fallback"], "nextAction": ["ask_clarification"], "actionDraftType": ["none"],
+          "executionReference": false, "noExecutablePlan": true, "missingSlots": ["operation"],
+          "semanticRelation": ["CONFIRMATION"], "semanticOperation": ["UNKNOWN"], "interactionStage": ["NEED_CLARIFICATION"]
         }
       }]
     },

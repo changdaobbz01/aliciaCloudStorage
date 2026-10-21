@@ -42,7 +42,34 @@ class NonExecutableRequestGuardTest {
     void cancellationRequiresPendingOperationContext() {
         assertThat(guard.evaluate("算了，不用了", null)).isEmpty();
 
-        AssistantConversationState pending = new AssistantConversationState(
+        AssistantConversationState pending = pendingOperation();
+
+        NonExecutableRequestGuard.Decision decision = guard
+                .evaluate("算了，不用了", pending)
+                .orElseThrow();
+        assertThat(decision.id()).isEqualTo("cancel_pending_operation");
+        assertThat(decision.relation()).isEqualTo("CANCELLATION");
+
+        assertThat(guard.evaluate("算了，取消这个操作", pending).orElseThrow().id())
+                .isEqualTo("cancel_pending_operation");
+    }
+
+    @Test
+    void confirmationRequiresPendingOperationContext() {
+        NonExecutableRequestGuard.Decision decision = guard
+                .evaluate("确认并执行", null)
+                .orElseThrow();
+
+        assertThat(decision.id()).isEqualTo("confirmation_without_pending_operation");
+        assertThat(decision.intentId()).isEqualTo("fallback");
+        assertThat(decision.relation()).isEqualTo("CONFIRMATION");
+        assertThat(decision.operation()).isEqualTo("UNKNOWN");
+
+        assertThat(guard.evaluate("确认并执行", pendingOperation())).isEmpty();
+    }
+
+    private AssistantConversationState pendingOperation() {
+        return new AssistantConversationState(
                 "conversation-1",
                 1,
                 "folder_create",
@@ -56,15 +83,6 @@ class NonExecutableRequestGuardTest {
                 "",
                 Instant.now().plusSeconds(60)
         );
-
-        NonExecutableRequestGuard.Decision decision = guard
-                .evaluate("算了，不用了", pending)
-                .orElseThrow();
-        assertThat(decision.id()).isEqualTo("cancel_pending_operation");
-        assertThat(decision.relation()).isEqualTo("CANCELLATION");
-
-        assertThat(guard.evaluate("算了，取消这个操作", pending).orElseThrow().id())
-                .isEqualTo("cancel_pending_operation");
     }
 
     @Test

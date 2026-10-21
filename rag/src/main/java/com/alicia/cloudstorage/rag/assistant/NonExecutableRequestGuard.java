@@ -70,6 +70,10 @@ final class NonExecutableRequestGuard {
             "^(?:(?:算了[，,]?)?(?:不用了|不做了|先不做了|取消(?:这个|该|刚才的)?(?:操作|任务|动作)?|停止|停下|撤销|作罢)|算了)[。！!]*$",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
+    private static final Pattern CONTEXTLESS_CONFIRMATION = Pattern.compile(
+            "^(?:请)?(?:确认(?:并|后)?执行|确认执行|确认|执行|就(?:这样|这么)执行)(?:吧|了)?[。！!]*$",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
     private static final List<Pattern> DISTINCT_OPERATIONS = List.of(
             Pattern.compile("删除|删掉|删了|移除|清理|回收站"),
             Pattern.compile("移动|移到|搬到|挪到|归档到|放到|放进"),
@@ -91,6 +95,15 @@ final class NonExecutableRequestGuard {
                     "CANCELLATION",
                     "RESPOND",
                     "好的，这次操作已取消，我不会继续提交文件变更。"
+            ));
+        }
+        if (CONTEXTLESS_CONFIRMATION.matcher(value).matches() && !hasPendingOperation(conversation)) {
+            return Optional.of(new Decision(
+                    "confirmation_without_pending_operation",
+                    "fallback",
+                    "CONFIRMATION",
+                    "UNKNOWN",
+                    "当前没有等待确认的文件操作。请先说明要执行的操作和目标。"
             ));
         }
         String guardedValue = value;

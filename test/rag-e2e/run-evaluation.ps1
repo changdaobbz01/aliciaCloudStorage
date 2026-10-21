@@ -76,6 +76,7 @@ function Test-TurnExpectation {
     $semanticFrame = Get-OptionalProperty -Object $Response -Name 'semanticFrame'
     $semanticQuery = Get-OptionalProperty -Object $semanticFrame -Name 'query'
     $semanticScope = Get-OptionalProperty -Object $semanticFrame -Name 'scope'
+    $interaction = Get-OptionalProperty -Object $Response -Name 'interaction'
 
     $allowedIntentIds = @(
         Get-OptionalProperty -Object $Expected -Name 'intentId' |
@@ -151,7 +152,8 @@ function Test-TurnExpectation {
             @{ Expected = 'semanticRelation'; Actual = Get-OptionalProperty -Object $semanticFrame -Name 'relation' },
             @{ Expected = 'queryMode'; Actual = Get-OptionalProperty -Object $semanticQuery -Name 'mode' },
             @{ Expected = 'scopeType'; Actual = Get-OptionalProperty -Object $semanticScope -Name 'type' },
-            @{ Expected = 'resultType'; Actual = Get-OptionalProperty -Object $semanticQuery -Name 'resultType' }
+            @{ Expected = 'resultType'; Actual = Get-OptionalProperty -Object $semanticQuery -Name 'resultType' },
+            @{ Expected = 'interactionStage'; Actual = Get-OptionalProperty -Object $interaction -Name 'stage' }
         )) {
         $allowedValues = @(
             Get-OptionalProperty -Object $Expected -Name $semanticExpectation.Expected |
@@ -419,6 +421,19 @@ if (-not (Test-Path -LiteralPath $context.ResultsDir -PathType Container)) {
     [void](New-Item -ItemType Directory -Path $context.ResultsDir)
 }
 $reportPath = Join-Path $context.ResultsDir "rag-e2e-$runId.json"
+$recognitionSources = [ordered]@{}
+foreach ($caseResult in $caseResults) {
+    foreach ($turnResult in @($caseResult.turns)) {
+        $provider = [string](Get-OptionalProperty -Object $turnResult.response -Name 'provider')
+        if ([string]::IsNullOrWhiteSpace($provider)) {
+            $provider = 'unavailable'
+        }
+        if (-not $recognitionSources.Contains($provider)) {
+            $recognitionSources[$provider] = 0
+        }
+        $recognitionSources[$provider]++
+    }
+}
 $report = [pscustomobject]@{
     version       = $suiteVersion
     suite         = $Suite
@@ -427,6 +442,7 @@ $report = [pscustomobject]@{
     passedTurns   = $passedTurns
     failedTurns   = $failedTurns
     executedCount = $executedCount
+    recognitionSources = $recognitionSources
     cases         = @($caseResults)
 }
 $reportJson = $report | ConvertTo-Json -Depth 50
@@ -441,7 +457,13 @@ $password = $null
 $login = $null
 Write-Host "Report: $reportPath"
 Write-Host "Summary: passed=$passedTurns failed=$failedTurns executed=$executedCount"
+Write-Host "Recognition sources: $((@($recognitionSources.Keys) | ForEach-Object { "$_=$($recognitionSources[$_])" }) -join ', ')"
 if ($failedTurns -gt 0) {
     throw "RAG evaluation completed with $failedTurns failure(s)."
+}
+if (-not $ExecuteFolderCreate -and
+    $Suite -eq 'all' -and
+    (Test-Path -LiteralPath $context.ContractBaselineFile -PathType Leaf)) {
+    & (Join-Path $PSScriptRoot 'verify-result-baseline.ps1') -ReportPath @($reportPath)
 }
 Write-Host '[OK] RAG evaluation passed.'

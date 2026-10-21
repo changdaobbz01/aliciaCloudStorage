@@ -12,6 +12,7 @@ function Get-RagE2EContext {
         ComposeFile    = Join-Path $suiteDirectory 'compose.yaml'
         ScenarioFile   = Join-Path $suiteDirectory 'scenarios.json'
         StressScenarioFile = Join-Path $suiteDirectory 'stress-scenarios.json'
+        ContractBaselineFile = Join-Path $suiteDirectory 'contract-baseline.json'
         ResultsDir     = Join-Path $suiteDirectory 'results'
     }
 }

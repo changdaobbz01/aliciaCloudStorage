@@ -238,9 +238,8 @@ public class NavigationOperationResolver {
         String assistantText = switch (resolution.operation()) {
             case "NAVIGATE" -> "我会先准确定位这个文件夹，找到后直接为你打开。";
             case "OPEN_FILE" -> "我会先准确定位这个文件，找到后直接为你打开。";
-            case "SEARCH" -> listChildren
-                    ? "我会先定位这个文件夹，再列出其中符合要求的内容。"
-                    : "我先按名称定位这个文件或文件夹，找到后把它的位置展示给你。";
+            case "LIST_CHILDREN" -> "我会先定位这个文件夹，再列出其中符合要求的内容。";
+            case "SEARCH" -> "我先按名称定位这个文件或文件夹，找到后把它的位置展示给你。";
             default -> "我会先定位这个文件夹，再列出其中符合要求的内容。";
         };
         return response.withPlanningOverride(
@@ -360,7 +359,7 @@ public class NavigationOperationResolver {
         }
 
         private static Resolution listChildren(String target, String resultType) {
-            return new Resolution("SEARCH", "LIST_CHILDREN", resultType, target, false);
+            return new Resolution("LIST_CHILDREN", "LIST_CHILDREN", resultType, target, false);
         }
 
         private static Resolution locate(String target, String resultType) {

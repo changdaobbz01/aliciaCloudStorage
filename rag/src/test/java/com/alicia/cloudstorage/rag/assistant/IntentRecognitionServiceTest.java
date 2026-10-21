@@ -294,7 +294,7 @@ class IntentRecognitionServiceTest {
         IntentModelClient unavailableClient = message -> Optional.empty();
 
         IntentRecognitionResponse response = new IntentRecognitionService(unavailableClient, intentRouter, configLoader)
-                .recognize("今天的风有点大");
+                .recognize("请帮我证明黎曼猜想");
 
         assertThat(response.provider()).isEqualTo("local_fallback");
         assertThat(response.intentId()).isEqualTo("fallback");
@@ -364,7 +364,7 @@ class IntentRecognitionServiceTest {
         ));
 
         IntentRecognitionResponse response = new IntentRecognitionService(modelClient, intentRouter, configLoader)
-                .recognize("今天的风有点大");
+                .recognize("请帮我证明黎曼猜想");
 
         assertThat(response.provider()).isEqualTo("deepseek");
         assertThat(response.intentId()).isEqualTo("fallback");
@@ -406,7 +406,7 @@ class IntentRecognitionServiceTest {
         ));
 
         IntentRecognitionResponse response = new IntentRecognitionService(modelClient, intentRouter, configLoader)
-                .recognize("今天的风有点大");
+                .recognize("请帮我证明黎曼猜想");
 
         assertThat(response.provider()).isEqualTo("deepseek");
         assertThat(response.intentId()).isEqualTo("fallback");
@@ -962,6 +962,22 @@ class IntentRecognitionServiceTest {
     }
 
     @Test
+    void localFallbackParsesColloquialQuotedRename() {
+        IntentModelClient unavailableClient = message -> Optional.empty();
+
+        IntentRecognitionResponse response = new IntentRecognitionService(unavailableClient, intentRouter, configLoader)
+                .recognize("那个《月报.xlsx》给我改个名儿，叫月报-终版.xlsx");
+
+        assertThat(response.intentId()).isEqualTo("file_rename");
+        assertThat(response.entities())
+                .containsEntry("target_name", "月报.xlsx")
+                .containsEntry("new_name", "月报-终版.xlsx");
+        assertThat(response.missingSlots()).isEmpty();
+        assertThat(response.semanticFrame().operation()).isEqualTo("RENAME");
+        assertThat(response.actionDraft().type()).isEqualTo("rename");
+    }
+
+    @Test
     void localFallbackRecognizesCasualAcknowledgement() {
         IntentModelClient unavailableClient = message -> Optional.empty();
 
@@ -972,6 +988,21 @@ class IntentRecognitionServiceTest {
         assertThat(response.nextAction()).isEqualTo("respond_only");
         assertThat(response.actionDraft().type()).isEqualTo("none");
         assertThat(response.assistantText()).contains("我在");
+    }
+
+    @Test
+    void localFallbackKeepsBaselineConversationIntentsStableDuringModelOutage() {
+        IntentModelClient unavailableClient = message -> Optional.empty();
+        IntentRecognitionService service = new IntentRecognitionService(unavailableClient, intentRouter, configLoader);
+
+        assertThat(service.recognize("今天的风有点大").intentId()).isEqualTo("assistant_chat");
+        assertThat(service.recognize("帮我写一份项目周报").intentId()).isEqualTo("assistant_writing_help");
+        assertThat(service.recognize("帮我去楼下拿快递").intentId()).isEqualTo("assistant_errand_unsupported");
+        assertThat(service.recognize("这个云盘产品有哪些功能").intentId()).isEqualTo("assistant_product_info");
+        assertThat(service.recognize("我觉得文件搜索还可以更快一些").intentId())
+                .isEqualTo("assistant_product_feedback");
+        assertThat(service.recognize("这个云盘可以做什么").intentId()).isEqualTo("assistant_product_info");
+        assertThat(service.recognize("删除天气.txt").intentId()).isEqualTo("file_delete");
     }
 
     @Test
@@ -1343,6 +1374,24 @@ class IntentRecognitionServiceTest {
         assertThat(response.nextAction()).isEqualTo("ask_clarification");
         assertThat(response.assistantText()).contains("明确一点");
         assertThat(response.actionDraft().needsBackendBinding()).isFalse();
+    }
+
+    @Test
+    void confirmationWithoutPendingOperationNeverDependsOnTheModel() {
+        IntentModelClient modelClient = message -> {
+            throw new AssertionError("Context-free confirmation must be resolved before model invocation");
+        };
+
+        IntentRecognitionResponse response = new IntentRecognitionService(modelClient, intentRouter, configLoader)
+                .recognize("确认并执行");
+
+        assertThat(response.intentId()).isEqualTo("fallback");
+        assertThat(response.nextAction()).isEqualTo("ask_clarification");
+        assertThat(response.missingSlots()).containsExactly("operation");
+        assertThat(response.actionDraft().type()).isEqualTo("none");
+        assertThat(response.semanticFrame().relation()).isEqualTo("CONFIRMATION");
+        assertThat(response.semanticFrame().operation()).isEqualTo("UNKNOWN");
+        assertThat(response.executionReference()).isNull();
     }
 
     @Test

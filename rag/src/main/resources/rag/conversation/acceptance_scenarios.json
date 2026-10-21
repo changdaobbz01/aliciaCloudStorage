@@ -202,7 +202,7 @@
       "id": "fallback.out_of_scope",
       "group": "fallback",
       "phase": 1,
-      "message": "今天的风有点大",
+      "message": "请帮我证明黎曼猜想",
       "expected": {
         "intentId": "fallback",
         "nextAction": "ask_clarification",

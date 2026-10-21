@@ -28,6 +28,31 @@ foreach ($scenarioFile in @($context.ScenarioFile, $context.StressScenarioFile))
 }
 Write-Host '[OK] Baseline and stress scenario JSON are valid and non-empty.'
 
+if (Test-Path -LiteralPath $context.ContractBaselineFile -PathType Leaf) {
+    $contractBaseline = Get-Content -LiteralPath $context.ContractBaselineFile -Raw -Encoding UTF8 | ConvertFrom-Json
+    if ([string]$contractBaseline.schemaVersion -ne 'rag_e2e_contract_baseline_v1') {
+        throw 'RAG contract baseline uses an unsupported schema.'
+    }
+    $expectedTurnCount = 0
+    foreach ($scenarioFile in @($context.ScenarioFile, $context.StressScenarioFile)) {
+        $scenario = Get-Content -LiteralPath $scenarioFile -Raw -Encoding UTF8 | ConvertFrom-Json
+        foreach ($case in @($scenario.cases)) {
+            $expectedTurnCount += @($case.turns).Count
+        }
+    }
+    if (@($contractBaseline.contracts).Count -ne $expectedTurnCount -or
+        [int]$contractBaseline.passedTurns -ne $expectedTurnCount) {
+        throw 'RAG contract baseline turn count does not match the scenario suites.'
+    }
+    $currentBaselineHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $context.ScenarioFile).Hash.ToLowerInvariant()
+    $currentStressHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $context.StressScenarioFile).Hash.ToLowerInvariant()
+    if ([string]$contractBaseline.scenarioHashes.baseline -ne $currentBaselineHash -or
+        [string]$contractBaseline.scenarioHashes.stress -ne $currentStressHash) {
+        throw 'RAG scenario files changed without recording a new contract baseline.'
+    }
+    Write-Host "[OK] Contract baseline covers $expectedTurnCount turns and matches both scenario files."
+}
+
 $composeText = Get-Content -LiteralPath $context.ComposeFile -Raw
 foreach ($required in @(
     '127.0.0.1:',
