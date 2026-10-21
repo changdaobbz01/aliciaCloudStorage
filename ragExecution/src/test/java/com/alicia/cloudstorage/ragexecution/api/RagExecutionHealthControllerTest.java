@@ -1,6 +1,7 @@
 package com.alicia.cloudstorage.ragexecution.api;
 
 import com.alicia.cloudstorage.ragexecution.config.RagExecutionFeatureProperties;
+import com.alicia.cloudstorage.ragexecution.domain.ExecutionActionType;
 import com.alicia.cloudstorage.ragexecution.port.DependencyHealth;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
@@ -27,6 +28,7 @@ class RagExecutionHealthControllerTest {
         assertThat(response.features().registrationEnabled()).isFalse();
         assertThat(response.features().workerEnabled()).isFalse();
         assertThat(response.features().cloudDispatchEnabled()).isFalse();
+        assertThat(response.features().allowedActions()).isEmpty();
     }
 
     @Test
@@ -41,6 +43,26 @@ class RagExecutionHealthControllerTest {
         assertThat(response.getBody().dependencies().database().detail()).isEqualTo("probe-failed");
         assertThat(response.getBody().dependencies().identity().status()).isEqualTo("inactive");
         assertThat(response.getBody().dependencies().cloudStorage().status()).isEqualTo("inactive");
+    }
+
+    @Test
+    void livenessReportsTheEffectiveActionAllowlistInStableOrder() {
+        RagExecutionHealthController controller = new RagExecutionHealthController(
+                new RagExecutionFeatureProperties(
+                        true,
+                        true,
+                        true,
+                        true,
+                        true,
+                        true,
+                        Set.of(ExecutionActionType.NODE_RENAME, ExecutionActionType.FOLDER_CREATE)
+                ),
+                () -> new DependencyHealth(true, "reachable"),
+                () -> NOW
+        );
+
+        assertThat(controller.health().features().allowedActions())
+                .containsExactly("FOLDER_CREATE", "NODE_RENAME");
     }
 
     private RagExecutionHealthController controller(DependencyHealth health) {

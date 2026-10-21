@@ -42,6 +42,7 @@ class ProductionRolloutScriptContractTest {
         assertThat(verify).contains(
                 "--preflight",
                 "expect_http_404",
+                "expect_json_allowed_actions",
                 "rag_execution_require_positive_integer ALICIA_RAG_EXECUTION_VERIFY_ATTEMPTS",
                 "rag_execution_require_non_negative_integer ALICIA_RAG_EXECUTION_VERIFY_MAX_RESTARTS",
                 "restart count"

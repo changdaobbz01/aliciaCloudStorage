@@ -170,7 +170,7 @@ public class AssistantConversationService {
 
         ConversationContextResolver.ContextAttempt contextAttempt = !collectionOperationSelectorResolver.isScopedCollection(baseResponse)
                 && "FOLLOW_UP".equals(baseResponse.semanticFrame().relation())
-                && !"SEARCH".equals(baseResponse.semanticFrame().operation())
+                && !List.of("SEARCH", "LIST_CHILDREN").contains(baseResponse.semanticFrame().operation())
                 ? conversationContextResolver.resolve(
                         message,
                         conversation,
@@ -570,7 +570,7 @@ public class AssistantConversationService {
         if (conversation == null
                 || response == null
                 || response.semanticFrame() == null
-                || !"SEARCH".equals(response.semanticFrame().operation())
+                || !List.of("SEARCH", "LIST_CHILDREN").contains(response.semanticFrame().operation())
                 || !"LIST_CHILDREN".equals(response.semanticFrame().query().mode())
                 || !"PREVIOUS_RESULTS".equals(response.semanticFrame().scope().type())
                 || conversation.focus() == null) {

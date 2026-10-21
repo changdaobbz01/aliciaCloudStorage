@@ -156,6 +156,65 @@ class IntentRecognitionServiceTest {
     }
 
     @Test
+    void resolvesModelDirectoryAmbiguityFromTheCurrentClientContext() {
+        IntentModelClient modelClient = request -> Optional.of(new IntentModelClient.ModelIntentResult(
+                "deepseek",
+                "deepseek-v4-flash",
+                "deepseek_semantic_frame_v2",
+                "intent_recognition_v1",
+                Map.ofEntries(
+                        Map.entry("intent_id", "file_search"),
+                        Map.entry("intent_name", "文件检索"),
+                        Map.entry("task_type", "file_query"),
+                        Map.entry("confidence", 0.62),
+                        Map.entry("entities", Map.of(
+                                "query_mode", "directory_list",
+                                "scope", "current",
+                                "result_type", "FILE"
+                        )),
+                        Map.entry("missing_slots", List.of()),
+                        Map.entry("next_action", "wait_for_backend_binding"),
+                        Map.entry("action_draft", Map.of(
+                                "type", "search",
+                                "parameters", Map.of(),
+                                "needs_backend_binding", true
+                        )),
+                        Map.entry("semantic_frame", Map.ofEntries(
+                                Map.entry("schema_version", "semantic_frame_v2"),
+                                Map.entry("relation", "NEW_TASK"),
+                                Map.entry("operation", "LIST_CHILDREN"),
+                                Map.entry("query", Map.of(
+                                        "mode", "LIST_CHILDREN",
+                                        "result_type", "FILE"
+                                )),
+                                Map.entry("scope", Map.of("type", "CURRENT")),
+                                Map.entry("reference", Map.of("type", "NONE")),
+                                Map.entry("confidence", 0.62),
+                                Map.entry("ambiguities", List.of("“这个文件夹”未明确指向")),
+                                Map.entry("clarification", Map.of(
+                                        "reason", "",
+                                        "question", "",
+                                        "suggestions", List.of()
+                                ))
+                        )),
+                        Map.entry("assistant_text", "好的，我来列出当前文件夹里的文件。")
+                )
+        ));
+
+        IntentRecognitionResponse response = new IntentRecognitionService(modelClient, intentRouter, configLoader)
+                .recognize(
+                        "这个文件夹中文件有哪些",
+                        null,
+                        new AssistantClientContext(null, "/", Map.of())
+                );
+
+        assertThat(response.semanticFrame().operation()).isEqualTo("LIST_CHILDREN");
+        assertThat(response.semanticFrame().scope().type()).isEqualTo("CURRENT");
+        assertThat(response.semanticFrame().ambiguities()).isEmpty();
+        assertThat(response.actionDraft().type()).isEqualTo("search");
+    }
+
+    @Test
     void fallsBackToConfiguredRulesWhenModelUnavailable() {
         IntentModelClient unavailableClient = message -> Optional.empty();
 

@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.Instant;
+import java.util.List;
 
 @RestController
 public class RagExecutionHealthController {
@@ -104,7 +105,8 @@ public class RagExecutionHealthController {
             boolean publicConfirmEnabled,
             boolean workerEnabled,
             boolean cloudDispatchEnabled,
-            boolean adminOnly
+            boolean adminOnly,
+            List<String> allowedActions
     ) {
         static FeatureState from(RagExecutionFeatureProperties features) {
             return new FeatureState(
@@ -113,7 +115,11 @@ public class RagExecutionHealthController {
                     features.publicConfirmEnabled(),
                     features.workerEnabled(),
                     features.cloudDispatchEnabled(),
-                    features.adminOnly()
+                    features.adminOnly(),
+                    features.allowedActions().stream()
+                            .map(Enum::name)
+                            .sorted()
+                            .toList()
             );
         }
     }

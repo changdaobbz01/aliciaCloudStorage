@@ -94,6 +94,22 @@ expect_json_boolean() {
         || rag_execution_fail "Health response does not report $field=$value."
 }
 
+expect_json_allowed_actions() {
+    local file="$1"
+    local expected_action="$2"
+    local compact_json
+
+    compact_json="$(tr -d '[:space:]' < "$file")"
+    if [[ -z "$expected_action" ]]; then
+        [[ "$compact_json" == *'"allowedActions":[]'* ]] \
+            || rag_execution_fail "Health response does not report an empty allowedActions list."
+        return
+    fi
+
+    [[ "$compact_json" == *"\"allowedActions\":[\"$expected_action\"]"* ]] \
+        || rag_execution_fail "Health response does not report allowedActions=[$expected_action]."
+}
+
 expect_json_status() {
     local file="$1"
     local status="$2"
@@ -125,6 +141,7 @@ case "$STAGE" in
         expect_json_boolean "$local_health" publicConfirmEnabled false
         expect_json_boolean "$local_health" workerEnabled false
         expect_json_boolean "$local_health" cloudDispatchEnabled false
+        expect_json_allowed_actions "$local_health" ""
         ;;
     shadow)
         expect_json_boolean "$local_health" enabled true
@@ -132,6 +149,7 @@ case "$STAGE" in
         expect_json_boolean "$local_health" publicConfirmEnabled false
         expect_json_boolean "$local_health" workerEnabled false
         expect_json_boolean "$local_health" cloudDispatchEnabled false
+        expect_json_allowed_actions "$local_health" ""
         ;;
     admin-single)
         expect_json_boolean "$local_health" enabled true
@@ -139,6 +157,7 @@ case "$STAGE" in
         expect_json_boolean "$local_health" publicConfirmEnabled true
         expect_json_boolean "$local_health" workerEnabled true
         expect_json_boolean "$local_health" cloudDispatchEnabled true
+        expect_json_allowed_actions "$local_health" "$ACTION"
         ;;
 esac
 expect_json_boolean "$local_health" adminOnly true

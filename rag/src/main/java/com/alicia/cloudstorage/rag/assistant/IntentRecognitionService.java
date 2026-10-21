@@ -249,7 +249,7 @@ public class IntentRecognitionService {
 
         if (!guardedByBoundary
                 && "fallback".equals(response.intentId())
-                && "SEARCH".equals(semanticFrame.operation())) {
+                && List.of("SEARCH", "LIST_CHILDREN").contains(semanticFrame.operation())) {
             response = rebuildForConversation(
                     response,
                     "file_search",

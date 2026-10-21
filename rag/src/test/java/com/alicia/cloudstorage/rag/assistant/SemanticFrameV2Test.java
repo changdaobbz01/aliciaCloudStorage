@@ -132,7 +132,7 @@ class SemanticFrameV2Test {
         IntentRecognitionResponse response = service.recognize("测试目录中的文件");
 
         assertThat(response.intentId()).isEqualTo("file_search");
-        assertThat(response.semanticFrame().operation()).isEqualTo("SEARCH");
+        assertThat(response.semanticFrame().operation()).isEqualTo("LIST_CHILDREN");
         assertThat(response.semanticFrame().query().mode()).isEqualTo("LIST_CHILDREN");
         assertThat(response.semanticFrame().query().resultType()).isEqualTo("FILE");
         assertThat(response.semanticFrame().scope().type()).isEqualTo("NAMED_FOLDER");
@@ -148,6 +148,22 @@ class SemanticFrameV2Test {
         assertThat(response.semanticFrame().scope().type()).isEqualTo("PREVIOUS_RESULTS");
         assertThat(response.semanticFrame().ambiguities()).contains("folder_reference");
         assertThat(response.assistantText()).contains("不知道“这个文件夹”指的是哪一个");
+    }
+
+    @Test
+    void resolvesDeicticDirectoryAgainstTheCurrentClientFolder() {
+        IntentRecognitionResponse response = service.recognize(
+                "这个文件夹中文件有哪些",
+                null,
+                new AssistantClientContext(null, "/", Map.of())
+        );
+
+        assertThat(response.intentId()).isEqualTo("file_search");
+        assertThat(response.semanticFrame().operation()).isEqualTo("LIST_CHILDREN");
+        assertThat(response.semanticFrame().query().mode()).isEqualTo("LIST_CHILDREN");
+        assertThat(response.semanticFrame().scope().type()).isEqualTo("CURRENT");
+        assertThat(response.semanticFrame().ambiguities()).isEmpty();
+        assertThat(response.actionDraft().type()).isEqualTo("search");
     }
 
     @Test

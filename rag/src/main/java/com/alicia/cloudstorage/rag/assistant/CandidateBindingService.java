@@ -184,7 +184,7 @@ public class CandidateBindingService {
         if (frame == null || !SemanticFrame.VERSION.equals(frame.schemaVersion())) {
             return null;
         }
-        if ("SEARCH".equals(frame.operation())) {
+        if (List.of("SEARCH", "LIST_CHILDREN").contains(frame.operation())) {
             boolean filterOnly = "FILTER".equals(frame.query().mode())
                     && frame.query().nameSurface().isBlank();
             String queryMode = "LIST_CHILDREN".equals(frame.query().mode()) || filterOnly

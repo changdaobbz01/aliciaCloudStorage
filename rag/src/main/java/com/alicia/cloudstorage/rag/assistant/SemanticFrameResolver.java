@@ -88,7 +88,7 @@ public class SemanticFrameResolver {
                     SemanticFrame.Clarification.empty()
             );
         }
-        rawFrame = applyMessageSemantics(message, rawFrame, conversation);
+        rawFrame = applyMessageSemantics(message, rawFrame, conversation, clientContext);
         rawFrame = applySearchCorrection(message, rawFrame, response, conversation);
         rawFrame = reconcileMutationTarget(rawFrame, response, message);
         rawFrame = applyOperationArguments(message, rawFrame, response);
@@ -392,7 +392,8 @@ public class SemanticFrameResolver {
         }
         return "fallback".equals(response.intentId())
                 && (List.of("CORRECTION", "SLOT_FILL").contains(frame.relation())
-                || "FOLLOW_UP".equals(frame.relation()) && "SEARCH".equals(frame.operation()))
+                || "FOLLOW_UP".equals(frame.relation())
+                && List.of("SEARCH", "LIST_CHILDREN").contains(frame.operation()))
                 && conversation.pendingIntentId() != null
                 && !conversation.pendingIntentId().isBlank()
                 && !"UNKNOWN".equals(frame.operation());
@@ -421,7 +422,7 @@ public class SemanticFrameResolver {
             }
         }
 
-        if ("SEARCH".equals(frame.operation())) {
+        if (List.of("SEARCH", "LIST_CHILDREN").contains(frame.operation())) {
             entities.keySet().removeAll(List.of("target_name", "target_folder", "query_mode", "scope", "result_type"));
             boolean filterOnly = "FILTER".equals(frame.query().mode()) && frame.query().nameSurface().isBlank();
             entities.put("query_mode", "LIST_CHILDREN".equals(frame.query().mode()) || filterOnly
@@ -472,7 +473,7 @@ public class SemanticFrameResolver {
             return new ActionDraft("none", Map.of(), false);
         }
         String type = switch (frame.operation()) {
-            case "SEARCH" -> "search";
+            case "SEARCH", "LIST_CHILDREN" -> "search";
             case "UPLOAD" -> response != null
                     && response.actionDraft() != null
                     && "composite.create_folder_then_upload".equals(response.actionDraft().type())
@@ -667,7 +668,8 @@ public class SemanticFrameResolver {
     private SemanticFrame applyMessageSemantics(
             String message,
             SemanticFrame frame,
-            AssistantConversationState conversation
+            AssistantConversationState conversation,
+            AssistantClientContext clientContext
     ) {
         String safeMessage = message == null ? "" : message.trim();
         if (List.of("DELETE", "MOVE", "RENAME").contains(frame.operation())) {
@@ -692,13 +694,26 @@ public class SemanticFrameResolver {
                 );
             }
         }
-        SearchSemantics directoryContents = List.of("UNKNOWN", "SEARCH").contains(frame.operation())
+        SearchSemantics directoryContents = List.of("UNKNOWN", "SEARCH", "LIST_CHILDREN").contains(frame.operation())
                 ? parseDirectoryContents(safeMessage, frame.query())
                 : null;
         if (directoryContents != null) {
             SemanticFrame.Scope parsedScope = directoryContents.scope();
+            String operation = "LIST_CHILDREN";
             if (isPreviousFolderReference(parsedScope.folderSurface())) {
                 boolean hasFolderContext = hasSingleFolderContext(conversation);
+                if (!hasFolderContext && hasCurrentFolderContext(clientContext)) {
+                    return copyFrame(
+                            frame,
+                            "NEW_TASK",
+                            operation,
+                            directoryContents.query(),
+                            new SemanticFrame.Scope("CURRENT", "", ""),
+                            SemanticFrame.Reference.empty(),
+                            List.of(),
+                            SemanticFrame.Clarification.empty()
+                    );
+                }
                 SemanticFrame.Clarification clarification = hasFolderContext
                         ? SemanticFrame.Clarification.empty()
                         : new SemanticFrame.Clarification(
@@ -709,7 +724,7 @@ public class SemanticFrameResolver {
                 return copyFrame(
                         frame,
                         "FOLLOW_UP",
-                        "SEARCH",
+                        operation,
                         directoryContents.query(),
                         new SemanticFrame.Scope("PREVIOUS_RESULTS", "", ""),
                         contextReference(conversation),
@@ -720,7 +735,7 @@ public class SemanticFrameResolver {
             return copyFrame(
                     frame,
                     "NEW_TASK",
-                    "SEARCH",
+                    operation,
                     directoryContents.query(),
                     parsedScope,
                     SemanticFrame.Reference.empty(),
@@ -1159,6 +1174,11 @@ public class SemanticFrameResolver {
         }
         CandidateItem candidate = conversation.focus().effectiveCandidate();
         return candidate != null && "FOLDER".equalsIgnoreCase(candidate.type()) && candidate.nodeId() != null;
+    }
+
+    private boolean hasCurrentFolderContext(AssistantClientContext clientContext) {
+        return clientContext != null
+                && (clientContext.currentFolderId() != null || !clientContext.currentFolderPath().isBlank());
     }
 
     private boolean isPreviousFolderReference(String value) {
