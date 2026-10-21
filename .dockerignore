@@ -1,6 +1,13 @@
 .git
 .gitignore
-.env
+.agents
+.env*
+backups
+deploy/android-app-package
+deploy/certs
+deploy/generated
+phoneApp
+phoneAppAdd
 tmp
 _tmp
 CloudStorageApi/target

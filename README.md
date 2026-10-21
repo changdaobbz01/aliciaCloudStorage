@@ -148,7 +148,7 @@ bash deploy/scripts/apply-identity-hs256-key-removal-env.sh
 
 ## 最快启动方式
 
-当前仓库已经改成多阶段 Docker 构建，最省事的启动方式是直接使用 Docker Compose。
+当前仓库已经改成多阶段 Docker 构建，最省事的启动方式是直接使用 Docker Compose。三个 Java 运行镜像会先按 POM 建立同一份 Maven 依赖缓存层，再复制各自的业务源码打包；源码变化会复用共享依赖层，生产打包使用 `maven.test.skip`，完整测试仍由提交前回归执行。Docker 上下文会排除环境文件、生成密钥、证书、备份、Android 源码和独立发布的 APK，避免无关大文件或敏感材料进入镜像构建链。
 
 `frontend` 容器会加入外部网关网络，用于把主域名 `/` 代理到工具主站。首次启动前先创建一次：
 
