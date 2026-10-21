@@ -101,6 +101,42 @@ if (Test-Path -LiteralPath $context.RecognitionBaselineFile -PathType Leaf) {
     Write-Host '[OK] Local fallback recognition baseline matches both labeled datasets.'
 }
 
+if (Test-Path -LiteralPath $context.OnlineRecognitionBaselineFile -PathType Leaf) {
+    $onlineBaseline = Get-Content -LiteralPath $context.OnlineRecognitionBaselineFile -Raw -Encoding UTF8 | ConvertFrom-Json
+    if ([string]$onlineBaseline.schemaVersion -ne 'rag_recognition_baseline_v1' -or
+        [string]$onlineBaseline.lane -ne 'deepseek-online' -or
+        [string]$onlineBaseline.labelPolicyVersion -ne 'rag_recognition_labels_v1') {
+        throw 'Online recognition baseline uses an unsupported schema or lane.'
+    }
+    $devHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $context.RecognitionDevFile).Hash.ToLowerInvariant()
+    $holdoutHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $context.RecognitionHoldoutFile).Hash.ToLowerInvariant()
+    if ([string]$onlineBaseline.datasetHashes.development -ne $devHash -or
+        [string]$onlineBaseline.datasetHashes.holdout -ne $holdoutHash) {
+        throw 'Recognition datasets changed without recording a new DeepSeek online baseline.'
+    }
+    foreach ($split in @('development', 'holdout')) {
+        $metrics = $onlineBaseline.$split
+        $expectedCount = [int]$recognitionCounts[$split]
+        if ([int]$metrics.totalTurns -ne $expectedCount -or
+            [int]$metrics.unsafeExecutableCount -ne 0 -or
+            [int]$metrics.missingResponseCount -ne 0 -or
+            [int]$metrics.infrastructureFailures -ne 0) {
+            throw "Online recognition baseline coverage or safety state is invalid: $split"
+        }
+        $paths = @($metrics.recognitionPaths.PSObject.Properties | Where-Object { [int]$_.Value -gt 0 })
+        $invalidPaths = @($paths | Where-Object {
+                $_.Name -notin @('deepseek', 'local_guard', 'local_structure', 'local_policy')
+            })
+        $onlineEvidence = ($paths |
+                Where-Object { $_.Name -in @('deepseek', 'local_policy') } |
+                Measure-Object -Property Value -Sum).Sum
+        if ($paths.Count -eq 0 -or $invalidPaths.Count -gt 0 -or [int]$onlineEvidence -le 0) {
+            throw "Online recognition baseline lacks valid model evidence: $split"
+        }
+    }
+    Write-Host '[OK] DeepSeek online recognition baseline matches both labeled datasets and contains no unavailable path.'
+}
+
 if (Test-Path -LiteralPath $context.ContractBaselineFile -PathType Leaf) {
     $contractBaseline = Get-Content -LiteralPath $context.ContractBaselineFile -Raw -Encoding UTF8 | ConvertFrom-Json
     if ([string]$contractBaseline.schemaVersion -ne 'rag_e2e_contract_baseline_v1') {

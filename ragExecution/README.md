@@ -5,7 +5,7 @@
 本地多轮识别、任务登记与安全确认的隔离联调入口见
 [`test/rag-e2e/README.md`](../test/rag-e2e/README.md)。该工具使用独立 Compose 项目、回环端口和测试数据库卷，不读取生产 `.env`。
 
-当前状态：**阶段 0 至阶段 7 已完成；阶段 8A 已建立识别基线，阶段 8B 已完成第一批词汇覆盖和规则优先级优化，阶段 8C 已闭合开发集结构化语义缺口。阶段 8D 的在线基线门禁已经就绪，但 DeepSeek 安全 canary 当前返回 HTTP 402，在线开发集与保留集均未运行、在线基线未写入；恢复账号可用性后从 canary 继续。生产仍保持 `admin-single`，仅向 `RAG_ADMIN` 开放 `FOLDER_CREATE`；普通用户与其他动作未开放，阶段 8 不改变该执行边界。**
+当前状态：**阶段 0 至阶段 7 已完成；阶段 8A 已建立本地回退识别基线，阶段 8B 已完成第一批词汇覆盖和规则优先级优化，阶段 8C 已闭合开发集结构化语义缺口，阶段 8D 已建立独立 DeepSeek 在线基线。下一阶段进入在线结果稳定性与泛化错误分类，不按保留集单条失败反复调规则。生产仍保持 `admin-single`，仅向 `RAG_ADMIN` 开放 `FOLDER_CREATE`；普通用户与其他动作未开放，阶段 8 不改变该执行边界。**
 
 本次生产晋级、真机任务、数据库回执和遗留测试数据见
 [`docs/PRODUCTION_ADMIN_SINGLE_ROLLOUT_LOG_2026-10-20.md`](docs/PRODUCTION_ADMIN_SINGLE_ROLLOUT_LOG_2026-10-20.md)。
@@ -23,6 +23,8 @@
 [`docs/PHASE_8C_STRUCTURAL_SEMANTICS_LOG_2026-10-21.md`](docs/PHASE_8C_STRUCTURAL_SEMANTICS_LOG_2026-10-21.md)。
 阶段 8D 在线来源门禁、可审计识别路径、HTTP 402 阻断证据与恢复步骤见
 [`docs/PHASE_8D_ONLINE_BASELINE_READINESS_LOG_2026-10-21.md`](docs/PHASE_8D_ONLINE_BASELINE_READINESS_LOG_2026-10-21.md)。
+阶段 8D 恢复后的在线开发集、保留集、双基线对比与稳定性结论见
+[`docs/PHASE_8D_ONLINE_BASELINE_LOG_2026-10-21.md`](docs/PHASE_8D_ONLINE_BASELINE_LOG_2026-10-21.md)。
 
 本服务只负责：
 
