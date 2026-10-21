@@ -1260,6 +1260,10 @@ class AssistantConversationServiceTest {
         );
 
         assertThat(modelCalls).hasValue(0);
+        assertThat(folder.fallbackReason()).isEqualTo("local_structure:deterministic_semantic_routing");
+        assertThat(file.fallbackReason()).isEqualTo("local_structure:deterministic_semantic_routing");
+        assertThat(contents.fallbackReason()).isEqualTo("local_structure:deterministic_semantic_routing");
+        assertThat(entered.fallbackReason()).isEqualTo("local_structure:deterministic_semantic_routing");
         assertThat(folder.semanticFrame().operation()).isEqualTo("NAVIGATE");
         assertThat(folder.semanticFrame().query().mode()).isEqualTo("NAME_EXACT");
         assertThat(folder.semanticFrame().query().resultType()).isEqualTo("FOLDER");

@@ -98,7 +98,7 @@ pwsh -File test/rag-e2e/stop-local.ps1
 [阶段 8C 结构化语义修复日志](PHASE_8C_STRUCTURAL_SEMANTICS_LOG_2026-10-21.md)。
 
 阶段 8D 的在线基线门禁已于 2026-10-21 完成：评测在数据集开始前使用无执行能力的安全 canary
-验证真实 `deepseek` 来源；指标将 `deepseek`、`local_guard`、`local_policy`、
+验证真实在线模型成功证据；指标将 `deepseek`、`local_guard`、`local_structure`、`local_policy`、
 `local_unavailable` 和 `unclassified` 分开统计；在线基线拒绝任何模型不可用或无法分类的结果。
 当前 canary 收到 DeepSeek HTTP 402，因此流程按设计在写报告和运行数据集前失败关闭。开发集和
 保留集没有被本地兜底结果冒充为在线基线。恢复账号余额或换入有效密钥后，先重跑开发集 canary，

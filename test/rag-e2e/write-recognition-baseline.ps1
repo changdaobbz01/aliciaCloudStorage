@@ -59,7 +59,9 @@ function Assert-Metrics {
         }
     } else {
         $paths = @($Metrics.recognitionPaths.PSObject.Properties | Where-Object { [int]$_.Value -gt 0 })
-        $invalidPaths = @($paths | Where-Object { $_.Name -notin @('deepseek', 'local_guard', 'local_policy') })
+        $invalidPaths = @($paths | Where-Object {
+                $_.Name -notin @('deepseek', 'local_guard', 'local_structure', 'local_policy')
+            })
         $onlineEvidence = ($paths |
                 Where-Object { $_.Name -in @('deepseek', 'local_policy') } |
                 Measure-Object -Property Value -Sum).Sum

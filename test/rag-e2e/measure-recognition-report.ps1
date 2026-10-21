@@ -127,8 +127,11 @@ foreach ($caseResult in @($report.cases)) {
         $recognitionPath = if ($provider -eq 'deepseek') {
             'deepseek'
         } elseif ($fallbackReason.StartsWith('non_executable_guard:') -or
-                  $fallbackReason.StartsWith('capability_boundary:')) {
+                  $fallbackReason.StartsWith('capability_boundary:') -or
+                  $fallbackReason.StartsWith('local_guard:')) {
             'local_guard'
+        } elseif ($fallbackReason.StartsWith('local_structure:')) {
+            'local_structure'
         } elseif ($fallbackReason.StartsWith('model_succeeded:')) {
             'local_policy'
         } elseif ($provider -eq 'local_fallback') {

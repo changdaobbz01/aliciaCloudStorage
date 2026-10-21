@@ -93,8 +93,11 @@ public class AssistantConversationService {
         boolean deterministicCollection = collectionOperationSelectorResolver.handles(message, conversation);
         boolean deterministicNavigation = navigationOperationResolver.handles(message, conversation);
         boolean deterministicSafetyBoundary = executableConstraintGuard.handlesUnsupportedConstraint(message);
+        String deterministicRecognitionReason = deterministicSafetyBoundary
+                ? "local_guard:unsupported_execution_constraint"
+                : "local_structure:deterministic_semantic_routing";
         IntentRecognitionResponse baseResponse = deterministicCollection || deterministicNavigation || deterministicSafetyBoundary
-                ? intentRecognitionService.recognizeLocal(message, "高置信目录集合语义由服务端结构化解析")
+                ? intentRecognitionService.recognizeLocal(message, deterministicRecognitionReason)
                 : intentRecognitionService.recognize(message, conversation, clientContext);
         baseResponse = collectionOperationSelectorResolver.apply(message, conversation, baseResponse);
         baseResponse = navigationOperationResolver.apply(message, conversation, baseResponse);

@@ -24,24 +24,25 @@ HTTP 402 表明当前 DeepSeek 账号计费或余额状态不可用。密钥值�
 `run-evaluation.ps1 -RequireOnlineRecognition` 在读取正式数据集前发送固定安全 canary
 “谢谢你的帮助”，并强制要求：
 
-- `provider=deepseek` 且模型名非空。
+- 直接返回 `provider=deepseek` 且模型名非空，或存在仅在模型成功后生成的 `model_succeeded:local_policy` 审计标记。
 - 意图为 `assistant_social`。
 - 不产生动作草稿或执行任务引用。
 - 任何 HTTP、网络、超时、JSON 或响应结构异常都立即失败。
 - 失败时只输出脱敏诊断分类，不输出密钥、上游响应正文或认证材料。
 - canary 失败时不生成数据集报告，因此旧报告数量保持不变。
 
-识别指标新增五条互斥路径：
+识别指标使用六条互斥路径：
 
 ```text
 deepseek           在线模型结果直接保留
 local_guard        模型调用前由本地安全边界拦截
+local_structure    无需调用模型的确定性结构语义
 local_policy       模型成功后由本地权威规则接管
 local_unavailable  模型未配置、调用失败或响应不可用
 unclassified       无法归类，视为门禁失败
 ```
 
-`deepseek-online` 基线只允许前三条路径，拒绝 `local_unavailable` 和 `unclassified`，并要求至少存在
+`deepseek-online` 基线允许前四条可审计路径，拒绝 `local_unavailable` 和 `unclassified`，并要求至少存在
 一次真实在线成功证据。安全边界可以继续本地失败关闭，但模型不可用不能再被在线指标掩盖。
 
 ## 3. 本地回退基线验证

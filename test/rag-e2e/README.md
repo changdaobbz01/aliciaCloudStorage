@@ -73,7 +73,7 @@ pwsh -File test/rag-e2e/run-evaluation.ps1 `
   -RequireOnlineRecognition
 ```
 
-canary 通过只证明在线识别链路可用。正式指标会进一步记录 `recognitionPaths`：模型结果直接保留为 `deepseek`，模型前安全拦截为 `local_guard`，在线模型成功后由本地权威规则接管为 `local_policy`，模型不可用或响应不可解析才是 `local_unavailable`。`write-recognition-baseline.ps1 -Lane deepseek-online` 只允许前三条路径，并要求存在真实在线成功证据；任何 `local_unavailable` 都会拒绝写入基线。
+canary 通过只证明在线识别链路可用。正式指标会进一步记录 `recognitionPaths`：模型结果直接保留为 `deepseek`，模型前安全拦截为 `local_guard`，无需调用模型的确定性结构语义为 `local_structure`，在线模型成功后由本地权威规则接管为 `local_policy`，模型不可用或响应不可解析才是 `local_unavailable`。`write-recognition-baseline.ps1 -Lane deepseek-online` 允许前四条可审计路径，并要求存在真实在线成功证据；任何 `local_unavailable` 都会拒绝写入基线。
 
 本地兜底基线必须由同一个干净提交生成的开发集与保留集指标共同写入，且两份报告都只能包含 `local_fallback`：
 
