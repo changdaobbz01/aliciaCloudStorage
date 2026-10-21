@@ -52,6 +52,29 @@ pwsh -File test/rag-e2e/run-evaluation.ps1 -Suite all
 
 完整套件还会核对 `contract-baseline.json`。基线只锁定可执行语义契约，包括意图、实体、缺失槽位、语义操作、作用域、动作草稿、安全状态和任务登记状态；模型措辞、置信度、UUID 与时间戳不参与比较。这样即使两次运行都显示 87/87，只要核心结果发生漂移，评测仍会失败。报告中的 `recognitionSources` 会单独统计 DeepSeek 与本地兜底响应数量，用来区分语义回归和上游模型降级。
 
+## 阶段 8 识别准确率评测
+
+`recognition-dev.json` 和 `recognition-holdout.json` 与 87 项契约套件职责不同：开发集用于错误分类和优化，保留集只在一个开发批次完成后检查泛化。运行后会生成原始报告和 `rag-recognition-<split>-<runId>.metrics.json`，统计意图准确率、语义操作准确率、完整契约准确率、分组结果、混淆矩阵和识别来源。
+
+```powershell
+pwsh -File test/rag-e2e/run-evaluation.ps1 -Suite recognition-dev
+
+# 只在一个开发节点完成后运行
+pwsh -File test/rag-e2e/run-evaluation.ps1 -Suite recognition-holdout
+```
+
+准确率不达标属于阶段 8 的测量结果，不会让命令伪装成基础设施失败；但缺失响应、API/清理失败或任何期望非执行话语产生可执行计划，仍会直接失败。两套识别评测都禁止使用 `-ExecuteFolderCreate`，不会确认任务。
+
+本地兜底基线必须由同一个干净提交生成的开发集与保留集指标共同写入，且两份报告都只能包含 `local_fallback`：
+
+```powershell
+pwsh -File test/rag-e2e/write-recognition-baseline.ps1 `
+  -DevelopmentMetricsPath test/rag-e2e/results/rag-recognition-development-<runId>.metrics.json `
+  -HoldoutMetricsPath test/rag-e2e/results/rag-recognition-holdout-<runId>.metrics.json
+```
+
+脚本拒绝覆盖已有基线、脏源码、混合识别来源、缺失响应、基础设施失败或不安全执行结果。DeepSeek 在线基线必须单独使用 `-Lane deepseek-online` 生成，不能与本地兜底结果混合。
+
 只有至少三次连续的 `-Suite all` 识别评测全部通过且契约完全一致时，才能首次写入基线：
 
 ```powershell

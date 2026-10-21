@@ -28,6 +28,79 @@ foreach ($scenarioFile in @($context.ScenarioFile, $context.StressScenarioFile))
 }
 Write-Host '[OK] Baseline and stress scenario JSON are valid and non-empty.'
 
+$validIntentIds = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+[void]$validIntentIds.Add('fallback')
+foreach ($rule in @(Import-Csv (Join-Path $context.RepositoryRoot 'rag/src/main/resources/rag/conversation/intent_rules.csv'))) {
+    [void]$validIntentIds.Add([string]$rule.intent_id)
+}
+$recognitionIds = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+$singleTurnMessages = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+$recognitionCounts = [ordered]@{}
+foreach ($recognitionFile in @($context.RecognitionDevFile, $context.RecognitionHoldoutFile)) {
+    $dataset = Get-Content -LiteralPath $recognitionFile -Raw -Encoding UTF8 | ConvertFrom-Json
+    if ([string]$dataset.labelPolicyVersion -ne 'rag_recognition_labels_v1') {
+        throw "Unsupported recognition label policy: $recognitionFile"
+    }
+    if ([int]$dataset.gates.maximumUnsafeExecutableCount -ne 0) {
+        throw "Recognition safety gate must remain zero: $recognitionFile"
+    }
+    $turnCount = 0
+    foreach ($case in @($dataset.cases)) {
+        $caseId = [string]$case.id
+        if ([string]::IsNullOrWhiteSpace($caseId) -or -not $recognitionIds.Add($caseId)) {
+            throw "Duplicate or missing recognition case id: $caseId"
+        }
+        if ([string]::IsNullOrWhiteSpace([string]$case.group) -or
+            [string]$case.difficulty -notin @('easy', 'medium', 'hard')) {
+            throw "Recognition case metadata is incomplete: $caseId"
+        }
+        $turns = @($case.turns)
+        if ($turns.Count -eq 0) {
+            throw "Recognition case has no turns: $caseId"
+        }
+        if ($turns.Count -eq 1 -and -not $singleTurnMessages.Add(([string]$turns[0].message).Trim())) {
+            throw "Duplicate single-turn recognition message: $($turns[0].message)"
+        }
+        foreach ($turn in $turns) {
+            $turnCount++
+            if ([string]::IsNullOrWhiteSpace([string]$turn.message)) {
+                throw "Recognition case contains an empty message: $caseId"
+            }
+            $intentIds = @($turn.expected.intentId | ForEach-Object { [string]$_ })
+            if ($intentIds.Count -ne 1 -or -not $validIntentIds.Contains($intentIds[0])) {
+                throw "Recognition case must have one supported intent label: $caseId"
+            }
+        }
+    }
+    $recognitionCounts[[string]$dataset.split] = $turnCount
+}
+if ([int]$recognitionCounts.development -lt 50 -or [int]$recognitionCounts.holdout -lt 25) {
+    throw 'Recognition datasets do not meet the minimum development/holdout coverage.'
+}
+Write-Host "[OK] Recognition datasets are valid: development=$($recognitionCounts.development), holdout=$($recognitionCounts.holdout)."
+
+if (Test-Path -LiteralPath $context.RecognitionBaselineFile -PathType Leaf) {
+    $recognitionBaseline = Get-Content -LiteralPath $context.RecognitionBaselineFile -Raw -Encoding UTF8 | ConvertFrom-Json
+    if ([string]$recognitionBaseline.schemaVersion -ne 'rag_recognition_baseline_v1' -or
+        [string]$recognitionBaseline.lane -ne 'local-fallback' -or
+        [string]$recognitionBaseline.labelPolicyVersion -ne 'rag_recognition_labels_v1') {
+        throw 'Local recognition baseline uses an unsupported schema or lane.'
+    }
+    $devHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $context.RecognitionDevFile).Hash.ToLowerInvariant()
+    $holdoutHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $context.RecognitionHoldoutFile).Hash.ToLowerInvariant()
+    if ([string]$recognitionBaseline.datasetHashes.development -ne $devHash -or
+        [string]$recognitionBaseline.datasetHashes.holdout -ne $holdoutHash) {
+        throw 'Recognition datasets changed without recording a new local fallback baseline.'
+    }
+    if ([int]$recognitionBaseline.development.totalTurns -ne [int]$recognitionCounts.development -or
+        [int]$recognitionBaseline.holdout.totalTurns -ne [int]$recognitionCounts.holdout -or
+        [int]$recognitionBaseline.development.unsafeExecutableCount -ne 0 -or
+        [int]$recognitionBaseline.holdout.unsafeExecutableCount -ne 0) {
+        throw 'Local recognition baseline coverage or safety state is invalid.'
+    }
+    Write-Host '[OK] Local fallback recognition baseline matches both labeled datasets.'
+}
+
 if (Test-Path -LiteralPath $context.ContractBaselineFile -PathType Leaf) {
     $contractBaseline = Get-Content -LiteralPath $context.ContractBaselineFile -Raw -Encoding UTF8 | ConvertFrom-Json
     if ([string]$contractBaseline.schemaVersion -ne 'rag_e2e_contract_baseline_v1') {

@@ -2,7 +2,7 @@
 param(
     [switch]$ExecuteFolderCreate,
     [int]$ExecutionTimeoutSeconds = 45,
-    [ValidateSet('baseline', 'stress', 'all')]
+    [ValidateSet('baseline', 'stress', 'all', 'recognition-dev', 'recognition-holdout')]
     [string]$Suite = 'baseline'
 )
 
@@ -194,7 +194,17 @@ function Wait-ExecutionTerminalState {
 }
 
 $context = Get-RagE2EContext
+$isRecognitionMeasurement = $Suite -in @('recognition-dev', 'recognition-holdout')
+if ($isRecognitionMeasurement -and $ExecuteFolderCreate) {
+    throw 'Recognition measurement never confirms or executes tasks.'
+}
 Import-RagE2EEnv -Path $context.EnvFile
+$sourceRevision = (& git -C $context.RepositoryRoot rev-parse HEAD).Trim()
+if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($sourceRevision)) {
+    throw 'Unable to read the source revision for evaluation provenance.'
+}
+$sourceChanges = @(Get-RagE2ESourceChanges -Context $context)
+$sourceDirty = $sourceChanges.Count -gt 0
 $identityBaseUrl = (Assert-RagE2EEnvValue -Name 'ALICIA_RAG_E2E_IDENTITY_BASE_URL').TrimEnd('/')
 $account = Assert-RagE2EEnvValue -Name 'ALICIA_RAG_E2E_ACCOUNT'
 $password = Assert-RagE2EEnvValue -Name 'ALICIA_RAG_E2E_PASSWORD'
@@ -226,16 +236,23 @@ if ([string]$access.role -ne 'RAG_ADMIN') {
 }
 Write-Host '[OK] Dedicated RAG_ADMIN account authenticated; token is held only in process memory.'
 
-$scenarioFiles = switch ($Suite) {
+$scenarioFiles = @(switch ($Suite) {
     'baseline' { @($context.ScenarioFile) }
     'stress' { @($context.StressScenarioFile) }
     'all' { @($context.ScenarioFile, $context.StressScenarioFile) }
-}
+    'recognition-dev' { @($context.RecognitionDevFile) }
+    'recognition-holdout' { @($context.RecognitionHoldoutFile) }
+})
 $loadedSuites = @(
     foreach ($scenarioFile in $scenarioFiles) {
         Get-Content -LiteralPath $scenarioFile -Raw -Encoding UTF8 | ConvertFrom-Json
     }
 )
+$scenarioHashes = [ordered]@{}
+foreach ($scenarioFile in $scenarioFiles) {
+    $scenarioHashes[[System.IO.Path]::GetFileName($scenarioFile)] =
+            (Get-FileHash -Algorithm SHA256 -LiteralPath $scenarioFile).Hash.ToLowerInvariant()
+}
 $cases = @($loadedSuites | ForEach-Object { @($_.cases) })
 $suiteVersion = ($loadedSuites.version -join '+')
 $runId = [DateTimeOffset]::UtcNow.ToString('yyyyMMddHHmmss')
@@ -243,6 +260,7 @@ $caseResults = [System.Collections.Generic.List[object]]::new()
 $passedTurns = 0
 $failedTurns = 0
 $executedCount = 0
+$infrastructureFailures = 0
 
 foreach ($case in $cases) {
     $conversationId = $null
@@ -309,6 +327,7 @@ foreach ($case in $cases) {
             })
         } catch {
             $failedTurns++
+            $infrastructureFailures++
             Write-Host "[FAIL] $($case.id) turn $turnNumber -> $($_.Exception.Message)"
             $turnResults.Add([pscustomobject]@{
                 turn       = $turnNumber
@@ -386,6 +405,7 @@ foreach ($case in $cases) {
             $cleanupPassed = [string]$cancelled.status -eq 'CANCELLED'
             if (-not $cleanupPassed) {
                 $failedTurns++
+                $infrastructureFailures++
                 Write-Host "[FAIL] $($case.id) task cleanup returned status $($cancelled.status)."
             } else {
                 Write-Host "[OK] $($case.id) unconfirmed task cancelled."
@@ -398,6 +418,7 @@ foreach ($case in $cases) {
             })
         } catch {
             $failedTurns++
+            $infrastructureFailures++
             Write-Host "[FAIL] $($case.id) task cleanup -> $($_.Exception.Message)"
             $cleanupResults.Add([pscustomobject]@{
                 executionId = $executionId
@@ -438,9 +459,13 @@ $report = [pscustomobject]@{
     version       = $suiteVersion
     suite         = $Suite
     runId         = $runId
+    sourceRevision = $sourceRevision
+    sourceDirty   = $sourceDirty
+    scenarioHashes = $scenarioHashes
     startedByMode = if ($ExecuteFolderCreate) { 'recognition-and-safe-local-execution' } else { 'recognition-only' }
     passedTurns   = $passedTurns
     failedTurns   = $failedTurns
+    infrastructureFailures = $infrastructureFailures
     executedCount = $executedCount
     recognitionSources = $recognitionSources
     cases         = @($caseResults)
@@ -457,8 +482,17 @@ $password = $null
 $login = $null
 Write-Host "Report: $reportPath"
 Write-Host "Summary: passed=$passedTurns failed=$failedTurns executed=$executedCount"
+Write-Host "Source: revision=$sourceRevision dirty=$sourceDirty"
 Write-Host "Recognition sources: $((@($recognitionSources.Keys) | ForEach-Object { "$_=$($recognitionSources[$_])" }) -join ', ')"
-if ($failedTurns -gt 0) {
+if ($isRecognitionMeasurement) {
+    & (Join-Path $PSScriptRoot 'measure-recognition-report.ps1') `
+            -ReportPath $reportPath `
+            -DatasetPath $scenarioFiles[0]
+}
+if ($infrastructureFailures -gt 0) {
+    throw "RAG evaluation completed with $infrastructureFailures infrastructure failure(s)."
+}
+if (-not $isRecognitionMeasurement -and $failedTurns -gt 0) {
     throw "RAG evaluation completed with $failedTurns failure(s)."
 }
 if (-not $ExecuteFolderCreate -and
@@ -466,4 +500,8 @@ if (-not $ExecuteFolderCreate -and
     (Test-Path -LiteralPath $context.ContractBaselineFile -PathType Leaf)) {
     & (Join-Path $PSScriptRoot 'verify-result-baseline.ps1') -ReportPath @($reportPath)
 }
-Write-Host '[OK] RAG evaluation passed.'
+if ($isRecognitionMeasurement) {
+    Write-Host "[OK] Recognition measurement completed; $failedTurns label mismatch(es) were measured without changing behavior."
+} else {
+    Write-Host '[OK] RAG evaluation passed.'
+}

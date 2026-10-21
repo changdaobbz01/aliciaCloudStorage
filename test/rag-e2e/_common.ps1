@@ -12,9 +12,29 @@ function Get-RagE2EContext {
         ComposeFile    = Join-Path $suiteDirectory 'compose.yaml'
         ScenarioFile   = Join-Path $suiteDirectory 'scenarios.json'
         StressScenarioFile = Join-Path $suiteDirectory 'stress-scenarios.json'
+        RecognitionDevFile = Join-Path $suiteDirectory 'recognition-dev.json'
+        RecognitionHoldoutFile = Join-Path $suiteDirectory 'recognition-holdout.json'
+        RecognitionBaselineFile = Join-Path $suiteDirectory 'recognition-baseline.local-fallback.json'
         ContractBaselineFile = Join-Path $suiteDirectory 'contract-baseline.json'
         ResultsDir     = Join-Path $suiteDirectory 'results'
+        SourcePaths    = @(
+            'pom.xml', '.mvn', 'mvnw', 'mvnw.cmd',
+            'CloudStorageApi', 'rag', 'ragExecution', 'test/rag-e2e'
+        )
     }
+}
+
+function Get-RagE2ESourceChanges {
+    param([Parameter(Mandatory)]$Context)
+    $arguments = @(
+        '-C', $Context.RepositoryRoot,
+        'status', '--porcelain', '--untracked-files=all', '--'
+    ) + @($Context.SourcePaths)
+    $changes = @(& git @arguments)
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Unable to inspect the RAG evaluation source tree.'
+    }
+    return $changes
 }
 
 function Import-RagE2EEnv {

@@ -1001,6 +1001,10 @@ class IntentRecognitionServiceTest {
         assertThat(service.recognize("这个云盘产品有哪些功能").intentId()).isEqualTo("assistant_product_info");
         assertThat(service.recognize("我觉得文件搜索还可以更快一些").intentId())
                 .isEqualTo("assistant_product_feedback");
+        IntentRecognitionResponse improvementWish = service.recognize("如果上传记录能更清晰就好了");
+        assertThat(improvementWish.intentId()).isEqualTo("assistant_product_feedback");
+        assertThat(improvementWish.actionDraft().type()).isEqualTo("none");
+        assertThat(improvementWish.executionReference()).isNull();
         assertThat(service.recognize("这个云盘可以做什么").intentId()).isEqualTo("assistant_product_info");
         assertThat(service.recognize("删除天气.txt").intentId()).isEqualTo("file_delete");
     }

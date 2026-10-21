@@ -866,6 +866,9 @@ cloud_action_errors_total{action_type,error_class}
 
 识别优化不得绕过新的动作契约和确认状态机。
 
+阶段 8A 已开始建立独立的开发集、保留集、混淆矩阵和安全指标，详细边界与运行方式见
+[阶段 8 识别能力评测与优化方案](PHASE_8_RECOGNITION_EVALUATION_PLAN.md)。现有 87 项执行语义契约继续作为不可退化门禁；在当前基线形成前不调整生产 Prompt 或扩大执行灰度。
+
 ## 16. 发布与回滚
 
 ### 16.1 功能开关
