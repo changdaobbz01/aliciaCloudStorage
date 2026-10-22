@@ -54,10 +54,13 @@ pwsh -File test/rag-e2e/run-evaluation.ps1 -Suite all
 
 ## 阶段 8 识别准确率评测
 
-`recognition-dev.json` 和 `recognition-holdout.json` 与 87 项契约套件职责不同：开发集用于错误分类和优化，保留集只在一个开发批次完成后检查泛化。运行后会生成原始报告和 `rag-recognition-<split>-<runId>.metrics.json`，统计意图准确率、语义操作准确率、完整契约准确率、分组结果、混淆矩阵和识别来源。
+`recognition-dev.json` 和 `recognition-holdout.json` 与 87 项契约套件职责不同：开发集用于错误分类和优化，保留集只在一个开发批次完成后检查泛化。`recognition-candidate.json` 只保存尚未并入正式开发集的新泛化样本，允许在不改变历史双基线、不提前运行保留集的前提下先测量和修复。候选样本稳定后才一次性并入正式开发集。运行后会生成原始报告和 `rag-recognition-<split>-<runId>.metrics.json`，统计意图准确率、语义操作准确率、完整契约准确率、分组结果、混淆矩阵和识别来源。
 
 ```powershell
 pwsh -File test/rag-e2e/run-evaluation.ps1 -Suite recognition-dev
+
+# 只评测尚未并入正式开发集的新泛化样本
+pwsh -File test/rag-e2e/run-evaluation.ps1 -Suite recognition-candidate
 
 # 只在一个开发节点完成后运行
 pwsh -File test/rag-e2e/run-evaluation.ps1 -Suite recognition-holdout
@@ -102,6 +105,8 @@ pwsh -File test/rag-e2e/classify-recognition-errors.ps1 `
 ```
 
 分类结果只用于确定下一批通用优化方向，不能作为复制保留集原句进规则或开发集的依据。
+候选套件报告使用 `development-candidate` split，分类器会自动核对
+`recognition-candidate.json`；也可以通过 `-DatasetPath` 显式指定受审查的数据集。
 
 已审查的在线错误分类基线保存在 `recognition-error-baseline.deepseek-online.json`。静态门禁会核对
 分类法哈希、开发集与保留集哈希、来源提交、统计一致性和阻断级类别；数据集或分类法变化后必须

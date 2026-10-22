@@ -3,6 +3,7 @@ param(
     [Parameter(Mandatory)][string]$MetricsPath,
     [string]$StabilityPath = '',
     [string]$TaxonomyPath = (Join-Path $PSScriptRoot 'recognition-error-taxonomy.json'),
+    [string]$DatasetPath = '',
     [string]$OutputPath = ''
 )
 
@@ -56,7 +57,7 @@ $metrics = Get-Content -LiteralPath $resolvedMetricsPath -Raw -Encoding UTF8 | C
 $taxonomy = Get-Content -LiteralPath $resolvedTaxonomyPath -Raw -Encoding UTF8 | ConvertFrom-Json
 
 if ([string]$metrics.schemaVersion -ne 'rag_recognition_metrics_v1' -or
-    [string]$metrics.split -notin @('development', 'holdout')) {
+    [string]$metrics.split -notin @('development', 'development-candidate', 'holdout')) {
     throw 'Unsupported recognition metrics schema or split.'
 }
 if ([bool]$metrics.sourceDirty) {
@@ -66,12 +67,17 @@ if ([int]$metrics.missingResponseCount -ne 0 -or [int]$metrics.infrastructureFai
     throw 'Availability failures must be resolved before recognition errors are classified.'
 }
 
-$datasetPath = if ([string]$metrics.split -eq 'development') {
-    Join-Path $PSScriptRoot 'recognition-dev.json'
+$selectedDatasetPath = if (-not [string]::IsNullOrWhiteSpace($DatasetPath)) {
+    $DatasetPath
 } else {
-    Join-Path $PSScriptRoot 'recognition-holdout.json'
+    switch ([string]$metrics.split) {
+        'development' { Join-Path $PSScriptRoot 'recognition-dev.json' }
+        'development-candidate' { Join-Path $PSScriptRoot 'recognition-candidate.json' }
+        'holdout' { Join-Path $PSScriptRoot 'recognition-holdout.json' }
+    }
 }
-$datasetHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $datasetPath).Hash.ToLowerInvariant()
+$resolvedDatasetPath = (Resolve-Path -LiteralPath $selectedDatasetPath).Path
+$datasetHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $resolvedDatasetPath).Hash.ToLowerInvariant()
 if ([string]$metrics.datasetHash -ne $datasetHash) {
     throw 'Recognition metrics do not match the current labeled dataset.'
 }

@@ -3,7 +3,7 @@ param(
     [switch]$ExecuteFolderCreate,
     [switch]$RequireOnlineRecognition,
     [int]$ExecutionTimeoutSeconds = 45,
-    [ValidateSet('baseline', 'stress', 'all', 'recognition-dev', 'recognition-holdout')]
+    [ValidateSet('baseline', 'stress', 'all', 'recognition-dev', 'recognition-candidate', 'recognition-holdout')]
     [string]$Suite = 'baseline'
 )
 
@@ -255,7 +255,7 @@ function Wait-ExecutionTerminalState {
 }
 
 $context = Get-RagE2EContext
-$isRecognitionMeasurement = $Suite -in @('recognition-dev', 'recognition-holdout')
+$isRecognitionMeasurement = $Suite -in @('recognition-dev', 'recognition-candidate', 'recognition-holdout')
 if ($isRecognitionMeasurement -and $ExecuteFolderCreate) {
     throw 'Recognition measurement never confirms or executes tasks.'
 }
@@ -330,6 +330,7 @@ $scenarioFiles = @(switch ($Suite) {
     'stress' { @($context.StressScenarioFile) }
     'all' { @($context.ScenarioFile, $context.StressScenarioFile) }
     'recognition-dev' { @($context.RecognitionDevFile) }
+    'recognition-candidate' { @($context.RecognitionCandidateFile) }
     'recognition-holdout' { @($context.RecognitionHoldoutFile) }
 })
 $loadedSuites = @(

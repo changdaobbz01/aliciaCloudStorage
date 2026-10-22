@@ -36,7 +36,11 @@ foreach ($rule in @(Import-Csv (Join-Path $context.RepositoryRoot 'rag/src/main/
 $recognitionIds = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
 $singleTurnMessages = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
 $recognitionCounts = [ordered]@{}
-foreach ($recognitionFile in @($context.RecognitionDevFile, $context.RecognitionHoldoutFile)) {
+foreach ($recognitionFile in @(
+        $context.RecognitionDevFile,
+        $context.RecognitionCandidateFile,
+        $context.RecognitionHoldoutFile
+    )) {
     $dataset = Get-Content -LiteralPath $recognitionFile -Raw -Encoding UTF8 | ConvertFrom-Json
     if ([string]$dataset.labelPolicyVersion -ne 'rag_recognition_labels_v1') {
         throw "Unsupported recognition label policy: $recognitionFile"
@@ -77,7 +81,10 @@ foreach ($recognitionFile in @($context.RecognitionDevFile, $context.Recognition
 if ([int]$recognitionCounts.development -lt 50 -or [int]$recognitionCounts.holdout -lt 25) {
     throw 'Recognition datasets do not meet the minimum development/holdout coverage.'
 }
-Write-Host "[OK] Recognition datasets are valid: development=$($recognitionCounts.development), holdout=$($recognitionCounts.holdout)."
+if ([int]$recognitionCounts.'development-candidate' -lt 1) {
+    throw 'Recognition candidate dataset is empty.'
+}
+Write-Host "[OK] Recognition datasets are valid: development=$($recognitionCounts.development), candidate=$($recognitionCounts.'development-candidate'), holdout=$($recognitionCounts.holdout)."
 
 if (Test-Path -LiteralPath $context.RecognitionBaselineFile -PathType Leaf) {
     $recognitionBaseline = Get-Content -LiteralPath $context.RecognitionBaselineFile -Raw -Encoding UTF8 | ConvertFrom-Json
