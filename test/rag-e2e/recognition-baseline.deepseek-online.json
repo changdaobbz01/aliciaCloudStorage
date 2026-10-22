@@ -1,0 +1,540 @@
+{
+  "schemaVersion": "rag_recognition_baseline_v1",
+  "lane": "deepseek-online",
+  "sourceRevision": "1b2c2fe716f62682c593160dba64e8bbbdb4d4b2",
+  "labelPolicyVersion": "rag_recognition_labels_v1",
+  "datasetHashes": {
+    "development": "dd5a279a37dce0cd893b394264ac178e2ecb2a94ba3cf19117da4c15fab4eeee",
+    "holdout": "eebeb9d595799ee049fd5d349d36801b13f59fadd1f1f70a1e8e9aef8639abb7"
+  },
+  "development": {
+    "datasetVersion": "rag_recognition_dev_v3",
+    "reportRunId": "20261022021517",
+    "totalTurns": 72,
+    "intentCorrect": 72,
+    "intentAccuracy": 1.0,
+    "semanticOperationEligible": 38,
+    "semanticOperationCorrect": 38,
+    "semanticOperationAccuracy": 1.0,
+    "exactContractCorrect": 72,
+    "exactContractAccuracy": 1.0,
+    "unsafeExecutableCount": 0,
+    "missingResponseCount": 0,
+    "infrastructureFailures": 0,
+    "recognitionSources": {
+      "deepseek": 52,
+      "local_fallback": 20
+    },
+    "recognitionPaths": {
+      "deepseek": 52,
+      "local_guard": 12,
+      "local_policy": 6,
+      "local_structure": 2
+    },
+    "byGroup": [
+      {
+        "group": "ambiguity",
+        "total": 2,
+        "intentCorrect": 2,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 2,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "boundary",
+        "total": 5,
+        "intentCorrect": 5,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 5,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "capability",
+        "total": 3,
+        "intentCorrect": 3,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 3,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "collection",
+        "total": 9,
+        "intentCorrect": 9,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 9,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "composite",
+        "total": 1,
+        "intentCorrect": 1,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 1,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "conversation",
+        "total": 9,
+        "intentCorrect": 9,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 9,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "delete",
+        "total": 4,
+        "intentCorrect": 4,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 4,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "fallback",
+        "total": 2,
+        "intentCorrect": 2,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 2,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "folder_create",
+        "total": 3,
+        "intentCorrect": 3,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 3,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "move",
+        "total": 3,
+        "intentCorrect": 3,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 3,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "product",
+        "total": 7,
+        "intentCorrect": 7,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 7,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "rename",
+        "total": 3,
+        "intentCorrect": 3,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 3,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "safety",
+        "total": 11,
+        "intentCorrect": 11,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 11,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "search",
+        "total": 6,
+        "intentCorrect": 6,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 6,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "share",
+        "total": 2,
+        "intentCorrect": 2,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 2,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "upload",
+        "total": 2,
+        "intentCorrect": 2,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 2,
+        "exactAccuracy": 1.0
+      }
+    ],
+    "confusion": [
+      {
+        "expectedIntent": "assistant_acknowledgement",
+        "actualIntent": "assistant_acknowledgement",
+        "count": 3
+      },
+      {
+        "expectedIntent": "assistant_bored",
+        "actualIntent": "assistant_bored",
+        "count": 1
+      },
+      {
+        "expectedIntent": "assistant_capability_examples",
+        "actualIntent": "assistant_capability_examples",
+        "count": 6
+      },
+      {
+        "expectedIntent": "assistant_chat",
+        "actualIntent": "assistant_chat",
+        "count": 2
+      },
+      {
+        "expectedIntent": "assistant_errand_unsupported",
+        "actualIntent": "assistant_errand_unsupported",
+        "count": 2
+      },
+      {
+        "expectedIntent": "assistant_external_resource",
+        "actualIntent": "assistant_external_resource",
+        "count": 1
+      },
+      {
+        "expectedIntent": "assistant_identity",
+        "actualIntent": "assistant_identity",
+        "count": 3
+      },
+      {
+        "expectedIntent": "assistant_product_feedback",
+        "actualIntent": "assistant_product_feedback",
+        "count": 3
+      },
+      {
+        "expectedIntent": "assistant_product_info",
+        "actualIntent": "assistant_product_info",
+        "count": 4
+      },
+      {
+        "expectedIntent": "assistant_product_reason",
+        "actualIntent": "assistant_product_reason",
+        "count": 1
+      },
+      {
+        "expectedIntent": "assistant_social",
+        "actualIntent": "assistant_social",
+        "count": 1
+      },
+      {
+        "expectedIntent": "assistant_user_identity",
+        "actualIntent": "assistant_user_identity",
+        "count": 1
+      },
+      {
+        "expectedIntent": "assistant_writing_help",
+        "actualIntent": "assistant_writing_help",
+        "count": 3
+      },
+      {
+        "expectedIntent": "collection_delete_by_category",
+        "actualIntent": "collection_delete_by_category",
+        "count": 1
+      },
+      {
+        "expectedIntent": "collection_delete_by_name",
+        "actualIntent": "collection_delete_by_name",
+        "count": 1
+      },
+      {
+        "expectedIntent": "collection_move_by_category",
+        "actualIntent": "collection_move_by_category",
+        "count": 4
+      },
+      {
+        "expectedIntent": "collection_move_by_extension",
+        "actualIntent": "collection_move_by_extension",
+        "count": 1
+      },
+      {
+        "expectedIntent": "collection_move_by_name",
+        "actualIntent": "collection_move_by_name",
+        "count": 1
+      },
+      {
+        "expectedIntent": "collection_rename_add_prefix",
+        "actualIntent": "collection_rename_add_prefix",
+        "count": 1
+      },
+      {
+        "expectedIntent": "fallback",
+        "actualIntent": "fallback",
+        "count": 8
+      },
+      {
+        "expectedIntent": "file_delete",
+        "actualIntent": "file_delete",
+        "count": 4
+      },
+      {
+        "expectedIntent": "file_rename",
+        "actualIntent": "file_rename",
+        "count": 3
+      },
+      {
+        "expectedIntent": "file_search",
+        "actualIntent": "file_search",
+        "count": 6
+      },
+      {
+        "expectedIntent": "file_share",
+        "actualIntent": "file_share",
+        "count": 2
+      },
+      {
+        "expectedIntent": "file_upload",
+        "actualIntent": "file_upload",
+        "count": 2
+      },
+      {
+        "expectedIntent": "folder_create",
+        "actualIntent": "folder_create",
+        "count": 3
+      },
+      {
+        "expectedIntent": "folder_create_then_upload",
+        "actualIntent": "folder_create_then_upload",
+        "count": 1
+      },
+      {
+        "expectedIntent": "node_move",
+        "actualIntent": "node_move",
+        "count": 3
+      }
+    ]
+  },
+  "holdout": {
+    "datasetVersion": "rag_recognition_holdout_v1",
+    "reportRunId": "20261022021719",
+    "totalTurns": 29,
+    "intentCorrect": 26,
+    "intentAccuracy": 0.896552,
+    "semanticOperationEligible": 17,
+    "semanticOperationCorrect": 16,
+    "semanticOperationAccuracy": 0.941176,
+    "exactContractCorrect": 25,
+    "exactContractAccuracy": 0.862069,
+    "unsafeExecutableCount": 0,
+    "missingResponseCount": 0,
+    "infrastructureFailures": 0,
+    "recognitionSources": {
+      "deepseek": 24,
+      "local_fallback": 5
+    },
+    "recognitionPaths": {
+      "deepseek": 24,
+      "local_guard": 4,
+      "local_policy": 1
+    },
+    "byGroup": [
+      {
+        "group": "ambiguity",
+        "total": 1,
+        "intentCorrect": 1,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 1,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "boundary",
+        "total": 2,
+        "intentCorrect": 2,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 2,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "capability",
+        "total": 1,
+        "intentCorrect": 0,
+        "intentAccuracy": 0.0,
+        "exactCorrect": 0,
+        "exactAccuracy": 0.0
+      },
+      {
+        "group": "collection",
+        "total": 1,
+        "intentCorrect": 0,
+        "intentAccuracy": 0.0,
+        "exactCorrect": 0,
+        "exactAccuracy": 0.0
+      },
+      {
+        "group": "conversation",
+        "total": 2,
+        "intentCorrect": 1,
+        "intentAccuracy": 0.5,
+        "exactCorrect": 1,
+        "exactAccuracy": 0.5
+      },
+      {
+        "group": "delete",
+        "total": 1,
+        "intentCorrect": 1,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 1,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "fallback",
+        "total": 1,
+        "intentCorrect": 1,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 1,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "folder_create",
+        "total": 1,
+        "intentCorrect": 1,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 1,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "move",
+        "total": 1,
+        "intentCorrect": 1,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 1,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "multi_turn",
+        "total": 9,
+        "intentCorrect": 9,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 9,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "product",
+        "total": 2,
+        "intentCorrect": 2,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 2,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "rename",
+        "total": 1,
+        "intentCorrect": 1,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 1,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "safety",
+        "total": 3,
+        "intentCorrect": 3,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 2,
+        "exactAccuracy": 0.666667
+      },
+      {
+        "group": "search",
+        "total": 2,
+        "intentCorrect": 2,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 2,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "share",
+        "total": 1,
+        "intentCorrect": 1,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 1,
+        "exactAccuracy": 1.0
+      }
+    ],
+    "confusion": [
+      {
+        "expectedIntent": "assistant_acknowledgement",
+        "actualIntent": "assistant_acknowledgement",
+        "count": 3
+      },
+      {
+        "expectedIntent": "assistant_capability_examples",
+        "actualIntent": "assistant_capability_examples",
+        "count": 1
+      },
+      {
+        "expectedIntent": "assistant_capability_examples",
+        "actualIntent": "assistant_file_context_question",
+        "count": 1
+      },
+      {
+        "expectedIntent": "assistant_chat",
+        "actualIntent": "assistant_chat",
+        "count": 1
+      },
+      {
+        "expectedIntent": "assistant_errand_unsupported",
+        "actualIntent": "assistant_errand_unsupported",
+        "count": 1
+      },
+      {
+        "expectedIntent": "assistant_identity",
+        "actualIntent": "assistant_capability_examples",
+        "count": 1
+      },
+      {
+        "expectedIntent": "assistant_product_feedback",
+        "actualIntent": "assistant_product_feedback",
+        "count": 1
+      },
+      {
+        "expectedIntent": "assistant_product_info",
+        "actualIntent": "assistant_product_info",
+        "count": 1
+      },
+      {
+        "expectedIntent": "assistant_writing_help",
+        "actualIntent": "assistant_writing_help",
+        "count": 1
+      },
+      {
+        "expectedIntent": "collection_move_by_category",
+        "actualIntent": "node_move",
+        "count": 1
+      },
+      {
+        "expectedIntent": "fallback",
+        "actualIntent": "fallback",
+        "count": 3
+      },
+      {
+        "expectedIntent": "file_delete",
+        "actualIntent": "file_delete",
+        "count": 1
+      },
+      {
+        "expectedIntent": "file_rename",
+        "actualIntent": "file_rename",
+        "count": 3
+      },
+      {
+        "expectedIntent": "file_search",
+        "actualIntent": "file_search",
+        "count": 2
+      },
+      {
+        "expectedIntent": "file_share",
+        "actualIntent": "file_share",
+        "count": 1
+      },
+      {
+        "expectedIntent": "folder_create",
+        "actualIntent": "folder_create",
+        "count": 4
+      },
+      {
+        "expectedIntent": "node_move",
+        "actualIntent": "node_move",
+        "count": 3
+      }
+    ]
+  }
+}

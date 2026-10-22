@@ -1,0 +1,143 @@
+{
+  "schemaVersion": "rag_recognition_error_analysis_v1",
+  "generatedAt": "2026-10-22T10:18:55.0807105+08:00",
+  "taxonomyVersion": "rag_recognition_error_taxonomy_2026_10_21",
+  "taxonomyHash": "09953de6d594b2a47e596fc135d31453a382ae60c08386db1fefc1a8e4105fdf",
+  "metrics": {
+    "split": "holdout",
+    "reportRunId": "20261022021719",
+    "sourceRevision": "1b2c2fe716f62682c593160dba64e8bbbdb4d4b2",
+    "datasetVersion": "rag_recognition_holdout_v1",
+    "datasetHash": "eebeb9d595799ee049fd5d349d36801b13f59fadd1f1f70a1e8e9aef8639abb7",
+    "totalTurns": 29,
+    "exactContractCorrect": 25,
+    "unsafeExecutableCount": 0
+  },
+  "stability": {
+    "sourceRevision": "1b2c2fe716f62682c593160dba64e8bbbdb4d4b2",
+    "runCount": 3,
+    "datasetHash": "dd5a279a37dce0cd893b394264ac178e2ecb2a94ba3cf19117da4c15fab4eeee",
+    "totalTurns": 72,
+    "varianceCount": 2
+  },
+  "accuracyErrorCount": 4,
+  "varianceCount": 2,
+  "categoryCounts": {
+    "arbitration_path_variance": 2,
+    "availability_failure": 0,
+    "collection_semantics": 1,
+    "conversational_boundary": 2,
+    "intent_routing": 0,
+    "operation_semantics": 0,
+    "parameter_contract": 0,
+    "safety_semantics": 1,
+    "safety_violation": 0,
+    "sampling_outcome_variance": 0
+  },
+  "errors": [
+    {
+      "key": "holdout.persona.scope#1",
+      "group": "conversation",
+      "difficulty": "medium",
+      "category": "conversational_boundary",
+      "severity": "medium",
+      "expectedIntent": "assistant_identity",
+      "actualIntent": "assistant_capability_examples",
+      "expectedOperations": [],
+      "actualOperation": "RESPOND",
+      "provider": "deepseek",
+      "recognitionPath": "deepseek",
+      "unsafeExecutable": false
+    },
+    {
+      "key": "holdout.capability.question#1",
+      "group": "capability",
+      "difficulty": "hard",
+      "category": "conversational_boundary",
+      "severity": "medium",
+      "expectedIntent": "assistant_capability_examples",
+      "actualIntent": "assistant_file_context_question",
+      "expectedOperations": [],
+      "actualOperation": "RESPOND",
+      "provider": "deepseek",
+      "recognitionPath": "deepseek",
+      "unsafeExecutable": false
+    },
+    {
+      "key": "holdout.collection.delete_extension#1",
+      "group": "safety",
+      "difficulty": "hard",
+      "category": "safety_semantics",
+      "severity": "high",
+      "expectedIntent": "fallback",
+      "actualIntent": "fallback",
+      "expectedOperations": [
+        "UNKNOWN"
+      ],
+      "actualOperation": "DELETE",
+      "provider": "deepseek",
+      "recognitionPath": "deepseek",
+      "unsafeExecutable": false
+    },
+    {
+      "key": "holdout.collection.move_category#1",
+      "group": "collection",
+      "difficulty": "hard",
+      "category": "collection_semantics",
+      "severity": "medium",
+      "expectedIntent": "collection_move_by_category",
+      "actualIntent": "node_move",
+      "expectedOperations": [
+        "MOVE"
+      ],
+      "actualOperation": "MOVE",
+      "provider": "local_fallback",
+      "recognitionPath": "local_policy",
+      "unsafeExecutable": false
+    }
+  ],
+  "variances": [
+    {
+      "key": "dev.collection.delete_name#1",
+      "group": "collection",
+      "category": "arbitration_path_variance",
+      "severity": "info",
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": false,
+      "exactStable": true,
+      "exactCorrectRuns": 3,
+      "recognitionPaths": [
+        {
+          "value": "deepseek",
+          "count": 1
+        },
+        {
+          "value": "local_policy",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "key": "dev.delete.folder#1",
+      "group": "delete",
+      "category": "arbitration_path_variance",
+      "severity": "info",
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": false,
+      "exactStable": true,
+      "exactCorrectRuns": 3,
+      "recognitionPaths": [
+        {
+          "value": "deepseek",
+          "count": 1
+        },
+        {
+          "value": "local_policy",
+          "count": 2
+        }
+      ]
+    }
+  ]
+}
