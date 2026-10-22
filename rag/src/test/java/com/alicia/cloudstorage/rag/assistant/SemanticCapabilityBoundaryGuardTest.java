@@ -50,6 +50,18 @@ class SemanticCapabilityBoundaryGuardTest {
     }
 
     @Test
+    void blocksUnsupportedDestructiveExtensionSelectors() {
+        assertThat(guard.evaluate("清理扩展名为bak的文件"))
+                .get()
+                .extracting(SemanticCapabilityBoundaryGuard.BoundaryDecision::id)
+                .isEqualTo("unsupported_delete_extension_selector");
+        assertThat(guard.evaluate("把全部 .cache 文件移入回收站"))
+                .get()
+                .extracting(SemanticCapabilityBoundaryGuard.BoundaryDecision::id)
+                .isEqualTo("unsupported_delete_extension_selector");
+    }
+
+    @Test
     void doesNotBlockCapabilityQuestionsExactPathsOrRenameValues() {
         assertThat(guard.evaluate("能按合同、发票这种业务类型归档吗？"))
                 .isEmpty();
@@ -58,6 +70,8 @@ class SemanticCapabilityBoundaryGuardTest {
         assertThat(guard.evaluate("把/云盘/会议纪要/周会.md归档到/云盘/会议纪要/2026下面"))
                 .isEmpty();
         assertThat(guard.evaluate("把项目文档重命名为会议纪要-整理版.md"))
+                .isEmpty();
+        assertThat(guard.evaluate("删除备份.tar.gz"))
                 .isEmpty();
     }
 }
