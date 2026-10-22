@@ -16,7 +16,7 @@ new_folder_name,true,regex_capture,"(?:新建|创建|建立|建一个|建个|mkd
 target_folder,true,regex_capture,"(?:在)\s*([^/\s，。,.!?！？]+?)(?:目录|文件夹|folder|directory)?(?:下|中|里|内)",false
 target_folder,true,regex_capture,"(?:在)\s*([^/\s，。,.!?！？]+?)(?:目录|文件夹|folder|directory)\s*(?:新建|创建|建立|mkdir|create)",false
 target_folder,true,regex_capture,"(?:到|至|进)\s*([^/\s，。,.!?！？]+?)(?:目录|文件夹|folder|directory)?\s*(?:新建|创建|建立|mkdir|create)",false
-target_folder,true,regex_capture,"(?:移动到|移到|放到|传到|上传到|上传至|归档到|转移到|移动至|放进|传进|搬到|挪到|到|至|进|move to|upload to)\s*([^/\s，。,.!?！？]+?)(?:下|中|里|内)?(?:$|\s|，|。|,|\.|!|\?)",false
+target_folder,true,regex_capture,"(?:移动到|移到|放到|传到|上传到|上传至|归档到|转移到|移动至|放进|传进|搬到|挪到|集中到|收纳进|收进|到|至|进|move to|upload to)\s*([^/\s，。,.!?！？]+?)(?:下|中|里|内)?(?:$|\s|，|。|,|\.|!|\?)",false
 new_name,true,regex_capture,"(?:重命名为|重命名成|改名为|改名成|命名为|命名成|改成|改为|换个名字叫)\s*([^\s，。,.!?！？]+(?:\.[A-Za-z0-9]+)?)",false
 new_name,true,regex_capture,"(?:重命名|改名|命名|改成|rename).*?(?:为|成|叫|to)\s*([^\s，。,.!?！？]+(?:\.[A-Za-z0-9]+)?)",false
 new_name,true,regex_capture,"(?:改为|换个名字叫)\s*([^\s，。,.!?！？]+(?:\.[A-Za-z0-9]+)?)",false

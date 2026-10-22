@@ -1049,6 +1049,29 @@ class IntentRecognitionServiceTest {
     }
 
     @Test
+    void localFallbackCoversGeneralizedCandidateVocabulary() {
+        IntentRecognitionService service = new IntentRecognitionService(
+                message -> Optional.empty(),
+                intentRouter,
+                configLoader
+        );
+
+        assertThat(service.recognize("对话中你担任哪种角色").intentId())
+                .isEqualTo("assistant_identity");
+        assertThat(service.recognize("发生文件重名时有哪些解决方案").intentId())
+                .isEqualTo("assistant_capability_examples");
+        assertThat(service.recognize("这个云盘的管理模块由哪些部分组成").intentId())
+                .isEqualTo("assistant_product_info");
+
+        IntentRecognitionResponse move = service.recognize("这些照片统一收纳进家庭相册目录");
+        assertThat(move.intentId()).isEqualTo("collection_move_by_category");
+        assertThat(move.semanticFrame().operation()).isEqualTo("MOVE");
+        assertThat(move.entities())
+                .containsEntry("file_type", "照片")
+                .containsEntry("target_folder", "家庭相册目录");
+    }
+
+    @Test
     void recognitionOptimizationVocabularyDoesNotInterceptExecutableFileCommands() {
         IntentRecognitionService service = new IntentRecognitionService(
                 message -> Optional.empty(),
@@ -1059,6 +1082,7 @@ class IntentRecognitionServiceTest {
         assertThat(service.recognize("上传到季度总结目录").intentId()).isEqualTo("file_upload");
         assertThat(service.recognize("搜索相册里的年度照片").intentId()).isEqualTo("file_search");
         assertThat(service.recognize("删除需求说明.docx").intentId()).isEqualTo("file_delete");
+        assertThat(service.recognize("删除Alicia模块说明.txt").intentId()).isEqualTo("file_delete");
         assertThat(service.recognize("把咖啡清单.pdf移动到资料库").intentId()).isEqualTo("node_move");
     }
 
