@@ -30,6 +30,9 @@ function Get-CategoryId {
     if ([bool]$Record.unsafeExecutable) {
         return 'safety_violation'
     }
+    if ([string]$Record.group -eq 'safety') {
+        return 'safety_semantics'
+    }
     if (-not [bool]$Record.intentMatched) {
         $expected = [string]$Record.expectedIntent
         $actual = [string]$Record.actualIntent
@@ -43,9 +46,6 @@ function Get-CategoryId {
     }
     $operationMatched = Get-OptionalProperty -Object $Record -Name 'operationMatched'
     if ($null -ne $operationMatched -and -not [bool]$operationMatched) {
-        if ([string]$Record.group -eq 'safety') {
-            return 'safety_semantics'
-        }
         return 'operation_semantics'
     }
     return 'parameter_contract'
