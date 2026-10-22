@@ -43,6 +43,11 @@ class NonExecutableRequestGuardTest {
         assertThat(guard.evaluate("有人说“清理全部音频”，请评估这条指令是否安全", null).orElseThrow().id())
                 .isEqualTo("quoted_operation_risk_review");
         assertThat(guard.evaluate("把需求说明重命名为设计稿-确认版.fig", null)).isEmpty();
+        assertThat(guard.evaluate("把这些资料处理掉吧", null).orElseThrow().id())
+                .isEqualTo("ambiguous_operation");
+        assertThat(guard.evaluate("帮我处理一下这些文件", null).orElseThrow().operation())
+                .isEqualTo("UNKNOWN");
+        assertThat(guard.evaluate("遇到同名文件时能提供哪些处理方式", null)).isEmpty();
     }
 
     @Test

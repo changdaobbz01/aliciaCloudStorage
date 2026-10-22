@@ -44,6 +44,10 @@ final class NonExecutableRequestGuard {
                     + "(?=.*(?:确认.{0,4}(?:流程|步骤|规则|机制|方式)|(?:流程|步骤|规则|机制|方式).{0,4}确认)).*",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
+    private static final Pattern AMBIGUOUS_OPERATION = Pattern.compile(
+            "(?:处理|处置)(?:一下|掉)",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
     private static final Pattern META_OPERATION_DISCLAIMER = Pattern.compile(
             "(?:只是|仅仅是|仅是|只是个|只是一个).{0,12}(?:举例|例子|示例)|"
                     + "(?:不要|别|无需|不必).{0,12}(?:真的)?(?:执行|操作)",
@@ -197,6 +201,16 @@ final class NonExecutableRequestGuard {
                     "NEW_TASK",
                     "UNKNOWN",
                     "这句话同时要求删除和保留同一对象。请明确选择一种结果，我不会先执行任何操作。"
+            ));
+        }
+        if (AMBIGUOUS_OPERATION.matcher(guardedValue).find()
+                && !MUTATION.matcher(guardedValue).find()) {
+            return Optional.of(new Decision(
+                    "ambiguous_operation",
+                    "fallback",
+                    "NEW_TASK",
+                    "UNKNOWN",
+                    "“处理”可能表示删除、移动、重命名或其他操作。请明确要做什么，我不会先执行任何变更。"
             ));
         }
         if (!value.matches(".*(?:不要忘记|别忘了).*")
