@@ -81,9 +81,6 @@ foreach ($recognitionFile in @(
 if ([int]$recognitionCounts.development -lt 50 -or [int]$recognitionCounts.holdout -lt 25) {
     throw 'Recognition datasets do not meet the minimum development/holdout coverage.'
 }
-if ([int]$recognitionCounts.'development-candidate' -lt 1) {
-    throw 'Recognition candidate dataset is empty.'
-}
 Write-Host "[OK] Recognition datasets are valid: development=$($recognitionCounts.development), candidate=$($recognitionCounts.'development-candidate'), holdout=$($recognitionCounts.holdout)."
 
 if (Test-Path -LiteralPath $context.RecognitionBaselineFile -PathType Leaf) {

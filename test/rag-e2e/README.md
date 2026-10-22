@@ -54,7 +54,7 @@ pwsh -File test/rag-e2e/run-evaluation.ps1 -Suite all
 
 ## 阶段 8 识别准确率评测
 
-`recognition-dev.json` 和 `recognition-holdout.json` 与 87 项契约套件职责不同：开发集用于错误分类和优化，保留集只在一个开发批次完成后检查泛化。`recognition-candidate.json` 只保存尚未并入正式开发集的新泛化样本，允许在不改变历史双基线、不提前运行保留集的前提下先测量和修复。候选样本稳定后才一次性并入正式开发集。运行后会生成原始报告和 `rag-recognition-<split>-<runId>.metrics.json`，统计意图准确率、语义操作准确率、完整契约准确率、分组结果、混淆矩阵和识别来源。
+`recognition-dev.json` 和 `recognition-holdout.json` 与 87 项契约套件职责不同：开发集用于错误分类和优化，保留集只在一个开发批次完成后检查泛化。`recognition-candidate.json` 只保存尚未并入正式开发集的新泛化样本，允许在不改变历史双基线、不提前运行保留集的前提下先测量和修复。候选样本稳定后才一次性并入正式开发集；晋升后候选队列允许为空，此时直接运行 `recognition-candidate` 会明确失败，而不会生成无意义的零样本报告。运行后会生成原始报告和 `rag-recognition-<split>-<runId>.metrics.json`，统计意图准确率、语义操作准确率、完整契约准确率、分组结果、混淆矩阵和识别来源。
 
 ```powershell
 pwsh -File test/rag-e2e/run-evaluation.ps1 -Suite recognition-dev

@@ -344,6 +344,9 @@ foreach ($scenarioFile in $scenarioFiles) {
             (Get-FileHash -Algorithm SHA256 -LiteralPath $scenarioFile).Hash.ToLowerInvariant()
 }
 $cases = @($loadedSuites | ForEach-Object { @($_.cases) })
+if ($cases.Count -eq 0) {
+    throw "Evaluation suite '$Suite' has no queued cases. Add reviewed candidate cases before running it."
+}
 $suiteVersion = ($loadedSuites.version -join '+')
 $runId = [DateTimeOffset]::UtcNow.ToString('yyyyMMddHHmmss')
 $caseResults = [System.Collections.Generic.List[object]]::new()
