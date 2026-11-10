@@ -3,7 +3,7 @@ extension,true,regex_capture,"(?:后缀|扩展名|extension|ext)\s*(?:为|是|=|
 extension,true,regex_capture,"(?:搜索|查找|查看|查|找|列出|显示|展示).*?(?:所有|全部)?\s*\.?([A-Za-z0-9]{1,8})\s*(?:格式)?\s*(?:文件|文档|资料)",true
 extension,true,regex_capture,"(?:把|将|所有|全部)?\s*\.([A-Za-z0-9]{1,8})(?:的)?\s*(?:文件|文档|资料)?.*?(?:移动|移到|放到|归档到|转移到|放进|移动至|搬到|挪到|move)",true
 extension,true,regex_capture,"(?:把|将|所有|全部)?\s*([A-Za-z0-9]{1,8})\s*(?:格式|后缀|扩展名)?(?:的)?\s*(?:文件|文档|资料).*?(?:移动|移到|放到|归档到|转移到|放进|移动至|搬到|挪到|move)",true
-file_type,true,regex_capture,"(图片|照片|视频|影片|音频|音乐|文档|压缩包|压缩文件|image|photo|video|audio|document|doc|archive|zip)",false
+file_type,true,regex_capture,"(图片|照片|视频|视屏|影片|音频|音乐|文档|压缩包|压缩文件|image|photo|video|audio|document|doc|archive|zip)",false
 rename_prefix,true,regex_capture,"(?:头部|开头|前缀|prefix).*?(?:加上|添加|追加|加|为|是|=|:)\s*([^/\s，。,.!?！？]+)",false
 rename_prefix,true,regex_capture,"(?:统一|全部).*?(?:加上|添加|追加)\s*([^/\s，。,.!?！？]+).*?(?:前缀|到头部|到开头)",false
 rename_prefix,true,regex_capture,"(?:加前缀|添加前缀|批量添加前缀)\s*([^/\s，。,.!?！？]+)",false

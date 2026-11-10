@@ -12,7 +12,7 @@ import java.util.regex.Pattern;
 final class NonExecutableRequestGuard {
 
     private static final Pattern MUTATION = Pattern.compile(
-            "删除|删掉|删了|删|移除|清理|回收站|移动|移到|搬到|挪到|归档到|重命名|改名|分享|上传|新建|创建|"
+            "删除|删掉|删了|删|移除|清理|清空|回收站|移动|移到|搬到|挪到|归档到|重命名|改名|分享|上传|新建|创建|"
                     + "delete|remove|move|rename|share|upload|create",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
@@ -34,14 +34,15 @@ final class NonExecutableRequestGuard {
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
     private static final Pattern QUOTED_OPERATION_RISK_REVIEW = Pattern.compile(
-            "[“\"'‘].*(?:删除|删掉|清理|移除|移动|重命名|改名|分享|上传|新建|创建|delete|remove|move|rename|share|upload|create).*"
+            "[“\"'‘].*(?:删除|删掉|清理|清空|移除|移动|重命名|改名|分享|上传|新建|创建|delete|remove|move|rename|share|upload|create).*"
                     + "[”\"'’].*(?:风险|是否安全|安全性|危险|能不能执行|可否执行)",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
     private static final Pattern OPERATION_PROCESS_QUESTION = Pattern.compile(
-            "(?=.*(?:了解|想知道|请问|询问|说明|介绍))"
+            "(?=.*(?:了解|想知道|请问|询问|说明|介绍|说说|告诉我))"
                     + "(?=.*(?:删除|删掉|清理|移除|移动|重命名|改名|分享|上传|新建|创建))"
-                    + "(?=.*(?:确认.{0,4}(?:流程|步骤|规则|机制|方式)|(?:流程|步骤|规则|机制|方式).{0,4}确认)).*",
+                    + "(?=.*(?:确认.{0,6}(?:哪些|什么|内容|事项|流程|步骤|规则|机制|方式)|"
+                    + "(?:流程|步骤|规则|机制|方式|内容|事项).{0,6}确认)).*",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
     private static final Pattern OPERATION_CAPABILITY_QUESTION = Pattern.compile(
@@ -209,7 +210,8 @@ final class NonExecutableRequestGuard {
                     "这段内容只会作为文本进行解释，不会把其中的字段或命令当成文件操作。"
             ));
         }
-        if (OPERATION_PROCESS_QUESTION.matcher(guardedValue).matches()) {
+        if (OPERATION_PROCESS_QUESTION.matcher(guardedValue).matches()
+                && !SAFETY_BYPASS.matcher(guardedValue).find()) {
             return Optional.of(new Decision(
                     "operation_process_question",
                     "assistant_capability_examples",

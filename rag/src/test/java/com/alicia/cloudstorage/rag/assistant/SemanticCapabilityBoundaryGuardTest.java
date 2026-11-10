@@ -36,6 +36,14 @@ class SemanticCapabilityBoundaryGuardTest {
     }
 
     @Test
+    void blocksNarrowBusinessCategoriesThatCannotMapToAStorageCategorySafely() {
+        assertThat(guard.evaluate("表格文件放到数据资料区"))
+                .get()
+                .extracting(SemanticCapabilityBoundaryGuard.BoundaryDecision::id)
+                .isEqualTo("unsupported_business_category");
+    }
+
+    @Test
     void allowsSupportedCreateThenUploadAndPrefixRename() {
         assertThat(guard.evaluate("新建项目资料文件夹，然后把我选的本地文件上传进去"))
                 .isEmpty();

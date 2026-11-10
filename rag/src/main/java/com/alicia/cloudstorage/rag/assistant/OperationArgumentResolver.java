@@ -14,7 +14,7 @@ final class OperationArgumentResolver {
             "SHARE", "DELETE", "MOVE", "RENAME", "UPLOAD"
     );
     private static final Set<String> GENERIC_FILES = Set.of(
-            "文件", "文档", "资料", "图片", "照片", "视频", "影片", "音频", "音乐", "压缩包", "压缩文件"
+            "文件", "文档", "资料", "图片", "照片", "视频", "视屏", "影片", "音频", "音乐", "压缩包", "压缩文件"
     );
     private static final Set<String> GENERIC_FOLDERS = Set.of("文件夹", "目录");
     private static final Set<String> GENERIC_ANY = Set.of(
@@ -37,7 +37,7 @@ final class OperationArgumentResolver {
             "^(?:(?:所有|全部|全都)(?:的)?|散着的|同类型(?:的)?|批量|统一)"
     );
     private static final Pattern TRAILING_ALL = Pattern.compile("(?:都|全部|全都|全)$");
-    private static final Pattern LEADING_SINGLE = Pattern.compile("^(?:一个|某个|任意一个|任意)");
+    private static final Pattern LEADING_SINGLE = Pattern.compile("^(?:一个|某个|任意一个|任意|一(?:张|份|段|部|首|篇))");
     private static final Pattern EXTENSION_COLLECTION = Pattern.compile(
             "^\\.?[A-Za-z0-9]{1,16}(?:格式)?(?:的)?(?:文件|文档|资料)$",
             Pattern.CASE_INSENSITIVE
@@ -48,7 +48,7 @@ final class OperationArgumentResolver {
                     + "另一个(?:文件|文件夹)?|剩下的(?:文件|文件夹)?)$"
     );
     private static final Pattern MOVE_SPLIT = Pattern.compile(
-            "^(.*?)(?:移动到|移到|挪到|转移到|搬到|归档到|移动至|移至|挪至|转移至|搬至|归档至|放进)(.+)$"
+            "^(.*?)(?:移动到|移到|挪到|转移到|搬到|归档到|放到|移动至|移至|挪至|转移至|搬至|归档至|放进)(.+)$"
     );
     private static final Pattern MOVE_LEADING_SPLIT = Pattern.compile(
             "^(?:移动|搬|挪)(?:一下)?(.+?)(?:到|至|进)(.+)$"
@@ -528,11 +528,11 @@ final class OperationArgumentResolver {
 
     private String genericResultType(String value) {
         String normalized = value == null ? "" : value.trim();
-        normalized = normalized.replaceFirst("^(?:一个|某个|任意一个|任意)", "");
+        normalized = LEADING_SINGLE.matcher(normalized).replaceFirst("");
         if (GENERIC_FILES.contains(normalized)) {
             return "FILE";
         }
-        if (normalized.matches("^(?:图片|照片|视频|影片|音频|音乐|文档|压缩包)(?:类型)?(?:的)?(?:文件|资料)?$")) {
+        if (normalized.matches("^(?:图片|照片|视频|视屏|影片|音频|音乐|文档|压缩包)(?:类型)?(?:的)?(?:文件|资料)?$")) {
             return "FILE";
         }
         if (normalized.endsWith("文件")

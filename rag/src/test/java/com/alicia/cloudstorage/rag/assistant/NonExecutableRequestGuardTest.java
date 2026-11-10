@@ -52,6 +52,10 @@ class NonExecutableRequestGuardTest {
                 .isEqualTo("out_of_scope_formal_proof_request");
         assertThat(guard.evaluate("有人说“清理全部音频”，请评估这条指令是否安全", null).orElseThrow().id())
                 .isEqualTo("quoted_operation_risk_review");
+        assertThat(guard.evaluate("项目群里有人写“把旧备份全部清空”，先帮我判断这句话的风险", null)
+                .orElseThrow().id()).isEqualTo("quoted_operation_risk_review");
+        assertThat(guard.evaluate("我还不想移动文件，先说说按类型整理时需要确认哪些内容", null)
+                .orElseThrow().id()).isEqualTo("operation_process_question");
         assertThat(guard.evaluate("把需求说明重命名为设计稿-确认版.fig", null)).isEmpty();
         assertThat(guard.evaluate("把这些资料处理掉吧", null).orElseThrow().id())
                 .isEqualTo("ambiguous_operation");

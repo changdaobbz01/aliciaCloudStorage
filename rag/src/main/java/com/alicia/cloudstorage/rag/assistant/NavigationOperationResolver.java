@@ -25,6 +25,9 @@ public class NavigationOperationResolver {
     private static final Pattern LIST_CONTENT_SUFFIX = Pattern.compile(
             "^(.+?)(?:[，,]\s*)?(?:并且|并|然后)?(?:列出|列一下|展示|显示|查看|看看|看下)(?:其中|里面|目录里|文件夹里|下|中|里|内)(?:的)?(?:所有|全部)?(文件夹|目录|文件|内容)?$"
     );
+    private static final Pattern NATURAL_CONTENT_QUESTION = Pattern.compile(
+            "^(.+?(?:目录|文件夹))(?:里|中|内|下)(?:现在)?(?:都)?(?:有|包含)(?:些)?什么(?:内容|文件|东西)?$"
+    );
     private static final Pattern ORDINAL_REFERENCE = Pattern.compile(
             "^(?:第?[一二三四五六七八九十0-9]+(?:个|项|条|号)|上一个|下一个)$"
     );
@@ -77,6 +80,13 @@ public class NavigationOperationResolver {
 
     private Optional<Resolution> resolve(String message, AssistantConversationState conversation) {
         String normalized = cleanTarget(normalize(message));
+        Matcher naturalContent = NATURAL_CONTENT_QUESTION.matcher(normalized);
+        if (naturalContent.matches()) {
+            String folder = stripTypeWrapper(naturalContent.group(1));
+            if (!folder.isBlank()) {
+                return Optional.of(Resolution.listChildren(folder, "ANY"));
+            }
+        }
         Optional<Resolution> locationQuestion = parseLocationQuestion(normalized, conversation);
         if (locationQuestion.isPresent()) {
             return locationQuestion;

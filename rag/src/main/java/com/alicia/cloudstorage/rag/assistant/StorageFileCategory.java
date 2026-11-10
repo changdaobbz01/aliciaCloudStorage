@@ -17,6 +17,7 @@ final class StorageFileCategory {
             Map.entry("video", "VIDEO"),
             Map.entry("videos", "VIDEO"),
             Map.entry("视频", "VIDEO"),
+            Map.entry("视屏", "VIDEO"),
             Map.entry("影片", "VIDEO"),
             Map.entry("audio", "AUDIO"),
             Map.entry("music", "AUDIO"),
@@ -115,7 +116,7 @@ final class StorageFileCategory {
             return direct;
         }
         String normalized = raw.replaceAll("\\s+", "")
-                .replaceFirst("^(?:所有|全部|全都|这些|那些|各类|各种|一个|某个|任意一个|任意)", "")
+                .replaceFirst("^(?:所有|全部|全都|这些|那些|各类|各种|一个|某个|任意一个|任意|一(?:张|份|段|部|首|篇))", "")
                 .replaceFirst("(?:类型|类别)?(?:的)?(?:文件|资料)$", "");
         return normalize(normalized);
     }

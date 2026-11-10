@@ -1129,6 +1129,31 @@ class IntentRecognitionServiceTest {
     }
 
     @Test
+    void metamorphicSelectorsUseStructuralCollectionAndSearchRoutes() {
+        IntentRecognitionService service = new IntentRecognitionService(
+                message -> Optional.empty(),
+                intentRouter,
+                configLoader
+        );
+
+        Map.of(
+                "表格文件放到数据资料区", "fallback",
+                "当前文件夹中的压缩包都归档至交付包目录", "collection_move_by_category",
+                "视屏文件都放进影音资料库", "collection_move_by_category",
+                "将全部 .tmp 格式文件移动到缓存归档目录", "collection_move_by_extension",
+                "把文件名里带待确认的所有资料转移至复核目录", "collection_move_by_name",
+                "搜一下名字里有预算的表格文件", "file_search",
+                "先创建评审材料目录，接着把本地附件传进去", "folder_create_then_upload"
+        ).forEach((message, intentId) -> assertThat(service.recognize(message).intentId())
+                .as(message)
+                .isEqualTo(intentId));
+
+        assertThat(service.recognize("把一张照片移动到待选区").intentId()).isEqualTo("node_move");
+        assertThat(service.recognize("把本地文件名里有预算的附件放到资料目录").intentId())
+                .isEqualTo("file_upload");
+    }
+
+    @Test
     void localFallbackRecognizesAssistantHelpScopeQuestion() {
         IntentModelClient unavailableClient = message -> Optional.empty();
 

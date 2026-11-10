@@ -86,6 +86,18 @@ class AssistantConversationServiceTest {
     }
 
     @Test
+    void naturalDirectoryContentQuestionUsesDeterministicListChildrenSemantics() {
+        IntentRecognitionResponse response = conversationService.plan(
+                new AssistantPlanRequest("项目资料目录里现在都有些什么", "")
+        );
+
+        assertThat(response.intentId()).isEqualTo("file_search");
+        assertThat(response.semanticFrame().operation()).isEqualTo("LIST_CHILDREN");
+        assertThat(response.semanticFrame().scope().type()).isEqualTo("NAMED_FOLDER");
+        assertThat(response.actionDraft().type()).isEqualTo("search");
+    }
+
+    @Test
     void fillsPendingDeleteTargetFromNextTurn() {
         IntentRecognitionResponse firstTurn = conversationService.plan(new AssistantPlanRequest("删除", ""));
 

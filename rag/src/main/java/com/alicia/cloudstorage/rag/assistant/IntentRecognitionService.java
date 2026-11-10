@@ -12,11 +12,24 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 @Service
 public class IntentRecognitionService {
 
     private static final String SCHEMA_VERSION = "intent_recognition_v1";
+    private static final Pattern MOVE_REQUEST = Pattern.compile(
+            "移动到|移到|挪到|转移到|搬到|归档到|放到|移动至|移至|挪至|转移至|搬至|归档至|放进|move\\s+to",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
+    private static final Pattern SEARCH_REQUEST = Pattern.compile(
+            "找|查|搜索|检索|搜一下|查一下|定位|列出|显示|展示|search|find",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
+    private static final Pattern CLIENT_INPUT_REFERENCE = Pattern.compile(
+            "本地|手机|设备|客户端|附件|刚选|选中的文件",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
 
     private final IntentModelClient modelClient;
     private final IntentRouter intentRouter;
@@ -679,6 +692,7 @@ public class IntentRecognitionService {
             String message,
             IntentRouter.IntentRouteResult configuredRoute
     ) {
+        configuredRoute = extensionCollectionRoute(message, configuredRoute);
         configuredRoute = categoryCollectionRoute(message, configuredRoute);
         var predicate = NamePredicateParser.parse(message);
         if (predicate.isEmpty()) {
@@ -698,12 +712,20 @@ public class IntentRecognitionService {
             }
             return configuredRoute;
         }
+        boolean clientInput = CLIENT_INPUT_REFERENCE.matcher(message).find();
         String intentId = switch (configuredRoute.intent()) {
             case "file_delete" -> "collection_delete_by_name";
-            case "node_move" -> "collection_move_by_name";
+            case "collection_move_by_name" -> clientInput ? "file_upload" : configuredRoute.intent();
+            case "node_move", "file_upload" -> MOVE_REQUEST.matcher(message).find()
+                    && !clientInput
+                    ? "collection_move_by_name"
+                    : configuredRoute.intent();
             case "file_rename" -> configuredRoute.entities().containsKey("rename_prefix")
                     ? "collection_rename_add_prefix"
                     : configuredRoute.intent();
+            case "fallback" -> MOVE_REQUEST.matcher(message).find() && !clientInput
+                    ? "collection_move_by_name"
+                    : SEARCH_REQUEST.matcher(message).find() ? "file_search" : configuredRoute.intent();
             default -> configuredRoute.intent();
         };
         if (intentId.equals(configuredRoute.intent())) {
@@ -721,7 +743,10 @@ public class IntentRecognitionService {
             String message,
             IntentRouter.IntentRouteResult configuredRoute
     ) {
-        if (!"node_move".equals(configuredRoute.intent())) {
+        if (!List.of("fallback", "node_move", "file_upload").contains(configuredRoute.intent())) {
+            return configuredRoute;
+        }
+        if (CLIENT_INPUT_REFERENCE.matcher(message).find()) {
             return configuredRoute;
         }
         return operationArgumentResolver.resolve(message, "MOVE")
@@ -733,6 +758,32 @@ public class IntentRecognitionService {
                         "collection_move_by_category",
                         Math.max(0.96, configuredRoute.confidence()),
                         "来源选择器命中内置文件类别，按集合移动结构处理"
+                ))
+                .orElse(configuredRoute);
+    }
+
+    private IntentRouter.IntentRouteResult extensionCollectionRoute(
+            String message,
+            IntentRouter.IntentRouteResult configuredRoute
+    ) {
+        if (!List.of("fallback", "node_move", "file_upload").contains(configuredRoute.intent())) {
+            return configuredRoute;
+        }
+        if (CLIENT_INPUT_REFERENCE.matcher(message).find()) {
+            return configuredRoute;
+        }
+        String extension = configuredRoute.entities().getOrDefault("extension", "").trim();
+        if (extension.isBlank()) {
+            return configuredRoute;
+        }
+        return operationArgumentResolver.resolve(message, "MOVE")
+                .filter(arguments -> arguments.source().nameKind() == OperationArgumentResolver.NameKind.GENERIC)
+                .filter(arguments -> arguments.source().quantifier() == OperationArgumentResolver.Quantifier.EXPLICIT_ALL)
+                .map(arguments -> intentRouter.routeAs(
+                        message,
+                        "collection_move_by_extension",
+                        Math.max(0.96, configuredRoute.confidence()),
+                        "来源选择器命中显式扩展名集合，按集合移动结构处理"
                 ))
                 .orElse(configuredRoute);
     }

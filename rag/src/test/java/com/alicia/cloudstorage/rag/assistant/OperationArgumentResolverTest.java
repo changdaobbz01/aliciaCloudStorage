@@ -61,4 +61,22 @@ class OperationArgumentResolverTest {
         assertThat(single.source().category()).isEqualTo("VIDEO");
         assertThat(single.source().quantifier()).isEqualTo(OperationArgumentResolver.Quantifier.SINGLE);
     }
+
+    @Test
+    void normalizesCategoryTyposAndClassifiersWithoutLosingSingleItemBoundaries() {
+        OperationArgumentResolver.Resolution document = resolver
+                .resolve("文档资料放到数据资料区", "MOVE")
+                .orElseThrow();
+        OperationArgumentResolver.Resolution typo = resolver
+                .resolve("视屏文件都放进影音资料库", "MOVE")
+                .orElseThrow();
+        OperationArgumentResolver.Resolution single = resolver
+                .resolve("把一张照片移动到待选区", "MOVE")
+                .orElseThrow();
+
+        assertThat(document.source().category()).isEqualTo("DOCUMENT");
+        assertThat(typo.source().category()).isEqualTo("VIDEO");
+        assertThat(single.source().category()).isEqualTo("IMAGE");
+        assertThat(single.source().quantifier()).isEqualTo(OperationArgumentResolver.Quantifier.SINGLE);
+    }
 }
