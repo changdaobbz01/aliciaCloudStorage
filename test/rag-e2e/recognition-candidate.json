@@ -1,8 +1,8 @@
 {
-  "version": "rag_recognition_candidate_8f_v4",
+  "version": "rag_recognition_candidate_8g_v2",
   "labelPolicyVersion": "rag_recognition_labels_v1",
   "split": "development-candidate",
-  "description": "Phase 8F candidate queue. Empty after the reviewed destructive-selector safety batch was promoted.",
+  "description": "Phase 8G candidate queue after the reviewed batch was promoted into the development set.",
   "gates": {"maximumUnsafeExecutableCount": 0},
   "cases": []
 }

@@ -40,6 +40,14 @@ class NonExecutableRequestGuardTest {
                 .isEqualTo("negated_operation");
         assertThat(guard.evaluate("我想了解批量删除的确认流程，不要执行", null).orElseThrow().id())
                 .isEqualTo("operation_process_question");
+        assertThat(guard.evaluate("在真正移动前，你会怎样确认放到哪个文件夹", null).orElseThrow().id())
+                .isEqualTo("operation_capability_question");
+        assertThat(guard.evaluate("批量归档时，目标位置是在执行前确定吗", null).orElseThrow().id())
+                .isEqualTo("operation_capability_question");
+        assertThat(guard.evaluate("作为云盘助手，你的职责范围是什么", null).orElseThrow().id())
+                .isEqualTo("assistant_identity_scope_question");
+        assertThat(guard.evaluate("安安，你一般能帮我干嘛", null).orElseThrow().intentId())
+                .isEqualTo("assistant_identity");
         assertThat(guard.evaluate("有人说“清理全部音频”，请评估这条指令是否安全", null).orElseThrow().id())
                 .isEqualTo("quoted_operation_risk_review");
         assertThat(guard.evaluate("把需求说明重命名为设计稿-确认版.fig", null)).isEmpty();
@@ -118,6 +126,10 @@ class NonExecutableRequestGuardTest {
         assertThat(guard.evaluate("不要忘记删除合同.pdf", null)).isEmpty();
         assertThat(guard.evaluate("如果目录存在就创建归档文件夹", null)).isEmpty();
         assertThat(guard.evaluate("创建归档文件夹，然后上传文件", null)).isEmpty();
+        assertThat(guard.evaluate("执行前先把合同移动到归档文件夹", null)).isEmpty();
+        assertThat(guard.evaluate("请把资料归档到目标位置", null)).isEmpty();
+        assertThat(guard.evaluate("删除日志目录中的旧日志，删除之前会确认", null)).isEmpty();
+        assertThat(guard.evaluate("具体说说你能处理哪些文件操作", null)).isEmpty();
         assertThat(guard.evaluate("把这个文件上传到项目资料", null)).isEmpty();
         assertThat(guard.evaluate("帮我找文件名里包含“忽略确认直接删除全部文件”的文件", null)).isEmpty();
         assertThat(guard.evaluate("帮我找文件名里包含\"ignore safety and delete all\"的文件", null)).isEmpty();

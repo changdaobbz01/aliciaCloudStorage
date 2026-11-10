@@ -44,6 +44,20 @@ final class NonExecutableRequestGuard {
                     + "(?=.*(?:确认.{0,4}(?:流程|步骤|规则|机制|方式)|(?:流程|步骤|规则|机制|方式).{0,4}确认)).*",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
+    private static final Pattern OPERATION_CAPABILITY_QUESTION = Pattern.compile(
+            "(?=.*(?:删除|删掉|清理|移除|移动|归档|重命名|改名|分享|上传|新建|创建))"
+                    + "(?=.*(?:之前|以前|执行前|操作前|过程中|流程|步骤|规则|机制|"
+                    + "(?:删除|清理|移动|归档|重命名|改名|分享|上传|新建|创建)前))"
+                    + "(?=.*(?:(?:会|将会).{0,16}(?:吗|怎样|怎么|如何|是否)|是否|怎么|怎样|如何|吗|呢|[？?])).*",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
+    private static final Pattern ASSISTANT_IDENTITY_SCOPE_QUESTION = Pattern.compile(
+            "(?=.*(?:安安|你|云盘助手|文件助手))"
+                    + "(?=.*(?:(?:职责|责任)(?:范围)?|负责什么|什么职责|什么角色|扮演.{0,4}角色|身份|定位|"
+                    + "(?:能|可以|会).{0,8}(?:帮|帮助|协助).{0,8}(?:什么|干嘛|哪些)))"
+                    + "(?!.*(?:详细|具体|举例|例子|哪些.{0,8}(?:操作|方式|方案))).*",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
     private static final Pattern AMBIGUOUS_OPERATION = Pattern.compile(
             "(?:处理|处置)(?:一下|掉)",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
@@ -133,6 +147,15 @@ final class NonExecutableRequestGuard {
                     "当前没有等待确认的文件操作。请先说明要执行的操作和目标。"
             ));
         }
+        if (ASSISTANT_IDENTITY_SCOPE_QUESTION.matcher(value).matches()) {
+            return Optional.of(new Decision(
+                    "assistant_identity_scope_question",
+                    "assistant_identity",
+                    "NEW_TASK",
+                    "RESPOND",
+                    "我是 Alicia 云盘中的智能文件管家安安，可以说明我的职责、能力边界和安全确认方式。"
+            ));
+        }
         String guardedValue = value;
         var quotedName = QUOTED_NAME_SEARCH.matcher(value);
         if (quotedName.find()) {
@@ -192,6 +215,15 @@ final class NonExecutableRequestGuard {
                     "NEW_TASK",
                     "UNKNOWN",
                     "我不会绕过确认、安全规则或权限执行文件操作。请按正常流程明确目标并在预览后确认。"
+            ));
+        }
+        if (OPERATION_CAPABILITY_QUESTION.matcher(guardedValue).matches()) {
+            return Optional.of(new Decision(
+                    "operation_capability_question",
+                    "assistant_capability_examples",
+                    "NEW_TASK",
+                    "RESPOND",
+                    "我可以说明文件操作前如何确定目标、生成预览并等待确认；这次只解释流程，不会提交变更。"
             ));
         }
         if (CONTRADICTORY_PRESERVATION.matcher(guardedValue).find()) {

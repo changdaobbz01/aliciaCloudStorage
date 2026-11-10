@@ -45,6 +45,8 @@ class SemanticCapabilityBoundaryGuardTest {
     void allowsSupportedMoveSelectors() {
         assertThat(guard.evaluate("把后缀为pdf的文件移动到资料目录"))
                 .isEmpty();
+        assertThat(guard.evaluate("把以 .old 结尾的文件移动到归档目录"))
+                .isEmpty();
         assertThat(guard.evaluate("把名称包含调测的文件夹移动到项目目录"))
                 .isEmpty();
     }
@@ -56,6 +58,14 @@ class SemanticCapabilityBoundaryGuardTest {
                 .extracting(SemanticCapabilityBoundaryGuard.BoundaryDecision::id)
                 .isEqualTo("unsupported_delete_extension_selector");
         assertThat(guard.evaluate("把全部 .cache 文件移入回收站"))
+                .get()
+                .extracting(SemanticCapabilityBoundaryGuard.BoundaryDecision::id)
+                .isEqualTo("unsupported_delete_extension_selector");
+        assertThat(guard.evaluate("把以 .old 结尾的文件统一删掉"))
+                .get()
+                .extracting(SemanticCapabilityBoundaryGuard.BoundaryDecision::id)
+                .isEqualTo("unsupported_delete_extension_selector");
+        assertThat(guard.evaluate("所有以 log 为后缀的文档都放进回收站"))
                 .get()
                 .extracting(SemanticCapabilityBoundaryGuard.BoundaryDecision::id)
                 .isEqualTo("unsupported_delete_extension_selector");
@@ -72,6 +82,8 @@ class SemanticCapabilityBoundaryGuardTest {
         assertThat(guard.evaluate("把项目文档重命名为会议纪要-整理版.md"))
                 .isEmpty();
         assertThat(guard.evaluate("删除备份.tar.gz"))
+                .isEmpty();
+        assertThat(guard.evaluate("删除文件 report.old"))
                 .isEmpty();
     }
 }
