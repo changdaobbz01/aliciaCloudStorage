@@ -62,6 +62,9 @@ pwsh -File test/rag-e2e/run-evaluation.ps1 -Suite recognition-dev
 # 只评测尚未并入正式开发集的新泛化样本
 pwsh -File test/rag-e2e/run-evaluation.ps1 -Suite recognition-candidate
 
+# 独立生产合成探针；不与 candidate 合并，也不重复运行 holdout
+pwsh -File test/rag-e2e/run-evaluation.ps1 -Suite recognition-probe
+
 # 只在一个开发节点完成后运行
 pwsh -File test/rag-e2e/run-evaluation.ps1 -Suite recognition-holdout
 ```
@@ -74,7 +77,7 @@ pwsh -File test/rag-e2e/run-evaluation.ps1 -Suite recognition-holdout
 
 ```powershell
 pwsh -File test/rag-e2e/run-evaluation.ps1 `
-  -Suite recognition-candidate `
+  -Suite recognition-probe `
   -RequireOnlineRecognition `
   -TargetIdentityBaseUrl https://windwindwind-alicia.cn `
   -TargetRagBaseUrl https://windwindwind-alicia.cn/rag `

@@ -7,7 +7,7 @@ param(
     [string]$TargetRagBaseUrl = '',
     [string]$TargetExecutionBaseUrl = '',
     [string]$TargetApiBaseUrl = '',
-    [ValidateSet('baseline', 'stress', 'all', 'recognition-dev', 'recognition-candidate', 'recognition-holdout')]
+    [ValidateSet('baseline', 'stress', 'all', 'recognition-dev', 'recognition-candidate', 'recognition-probe', 'recognition-holdout')]
     [string]$Suite = 'baseline'
 )
 
@@ -259,7 +259,9 @@ function Wait-ExecutionTerminalState {
 }
 
 $context = Get-RagE2EContext
-$isRecognitionMeasurement = $Suite -in @('recognition-dev', 'recognition-candidate', 'recognition-holdout')
+$isRecognitionMeasurement = $Suite -in @(
+    'recognition-dev', 'recognition-candidate', 'recognition-probe', 'recognition-holdout'
+)
 if ($isRecognitionMeasurement -and $ExecuteFolderCreate) {
     throw 'Recognition measurement never confirms or executes tasks.'
 }
@@ -363,6 +365,7 @@ $scenarioFiles = @(switch ($Suite) {
     'all' { @($context.ScenarioFile, $context.StressScenarioFile) }
     'recognition-dev' { @($context.RecognitionDevFile) }
     'recognition-candidate' { @($context.RecognitionCandidateFile) }
+    'recognition-probe' { @($context.RecognitionProbeFile) }
     'recognition-holdout' { @($context.RecognitionHoldoutFile) }
 })
 $loadedSuites = @(
