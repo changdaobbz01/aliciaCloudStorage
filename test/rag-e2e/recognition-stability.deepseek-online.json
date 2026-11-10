@@ -1,76 +1,76 @@
 {
   "schemaVersion": "rag_recognition_stability_v1",
-  "generatedAt": "2026-11-10T15:16:37.7974115+08:00",
+  "generatedAt": "2026-11-10T16:15:07.3753605+08:00",
   "split": "development",
   "runCount": 3,
-  "sourceRevision": "8aae54673cd2cd85074cd4d56464b9db54e63364",
-  "datasetVersion": "rag_recognition_dev_v5",
+  "sourceRevision": "d54eaa6706aef4b36ece99e8cb837c7cfbf58c20",
+  "datasetVersion": "rag_recognition_dev_v6",
   "labelPolicyVersion": "rag_recognition_labels_v1",
-  "datasetHash": "86c18514fb8837ae22e21e7471464f4596207ab88e489f1e828e3f581449812c",
-  "totalTurns": 90,
+  "datasetHash": "13d7d79f8ea14bc040c5488b0ff605933c65f2ffdc498fdd98639b5b75143c4a",
+  "totalTurns": 110,
   "unsafeExecutableCount": 0,
   "missingResponseCount": 0,
   "infrastructureFailures": 0,
   "unavailablePathCount": 0,
-  "stableIntentCount": 90,
+  "stableIntentCount": 110,
   "intentDriftCount": 0,
-  "stableOperationCount": 90,
+  "stableOperationCount": 110,
   "operationDriftCount": 0,
-  "stablePathCount": 88,
-  "pathDriftCount": 2,
-  "stableExactCount": 90,
+  "stablePathCount": 105,
+  "pathDriftCount": 5,
+  "stableExactCount": 110,
   "exactOutcomeDriftCount": 0,
-  "fullyStableCount": 88,
-  "alwaysExactCorrectCount": 90,
+  "fullyStableCount": 105,
+  "alwaysExactCorrectCount": 110,
   "intermittentExactCount": 0,
   "alwaysExactIncorrectCount": 0,
   "runs": [
     {
-      "runId": "20261110070645",
-      "intentCorrect": 90,
-      "semanticOperationCorrect": 52,
-      "exactContractCorrect": 90,
+      "runId": "20261110080110",
+      "intentCorrect": 110,
+      "semanticOperationCorrect": 68,
+      "exactContractCorrect": 110,
       "recognitionSources": {
-        "deepseek": 63,
-        "local_fallback": 27
+        "deepseek": 76,
+        "local_fallback": 34
       },
       "recognitionPaths": {
-        "deepseek": 63,
-        "local_guard": 21,
-        "local_policy": 4,
-        "local_structure": 2
-      }
-    },
-    {
-      "runId": "20261110071003",
-      "intentCorrect": 90,
-      "semanticOperationCorrect": 52,
-      "exactContractCorrect": 90,
-      "recognitionSources": {
-        "deepseek": 61,
-        "local_fallback": 29
-      },
-      "recognitionPaths": {
-        "deepseek": 61,
-        "local_guard": 21,
-        "local_policy": 6,
-        "local_structure": 2
-      }
-    },
-    {
-      "runId": "20261110071313",
-      "intentCorrect": 90,
-      "semanticOperationCorrect": 52,
-      "exactContractCorrect": 90,
-      "recognitionSources": {
-        "deepseek": 62,
-        "local_fallback": 28
-      },
-      "recognitionPaths": {
-        "deepseek": 62,
-        "local_guard": 21,
+        "deepseek": 76,
+        "local_guard": 26,
         "local_policy": 5,
-        "local_structure": 2
+        "local_structure": 3
+      }
+    },
+    {
+      "runId": "20261110080517",
+      "intentCorrect": 110,
+      "semanticOperationCorrect": 68,
+      "exactContractCorrect": 110,
+      "recognitionSources": {
+        "deepseek": 76,
+        "local_fallback": 34
+      },
+      "recognitionPaths": {
+        "deepseek": 76,
+        "local_guard": 26,
+        "local_policy": 5,
+        "local_structure": 3
+      }
+    },
+    {
+      "runId": "20261110080926",
+      "intentCorrect": 110,
+      "semanticOperationCorrect": 68,
+      "exactContractCorrect": 110,
+      "recognitionSources": {
+        "deepseek": 78,
+        "local_fallback": 32
+      },
+      "recognitionPaths": {
+        "deepseek": 78,
+        "local_guard": 26,
+        "local_policy": 3,
+        "local_structure": 3
       }
     }
   ],
@@ -1080,21 +1080,21 @@
       "recognitionPaths": [
         {
           "value": "deepseek",
-          "count": 1
+          "count": 2
         },
         {
           "value": "local_policy",
-          "count": 2
+          "count": 1
         }
       ],
       "providers": [
         {
           "value": "deepseek",
-          "count": 1
+          "count": 2
         },
         {
           "value": "local_fallback",
-          "count": 2
+          "count": 1
         }
       ]
     },
@@ -1164,6 +1164,714 @@
       "providers": [
         {
           "value": "deepseek",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "key": "dev.8i.atomic.arbitrary_document#1",
+      "group": "move",
+      "expectedIntent": "node_move",
+      "exactCorrectRuns": 3,
+      "exactAccuracy": 1.0,
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": true,
+      "exactStable": true,
+      "actualIntents": [
+        {
+          "value": "node_move",
+          "count": 3
+        }
+      ],
+      "actualOperations": [
+        {
+          "value": "MOVE",
+          "count": 3
+        }
+      ],
+      "recognitionPaths": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ],
+      "providers": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "key": "dev.8i.atomic.exact_photo_file#1",
+      "group": "move",
+      "expectedIntent": "node_move",
+      "exactCorrectRuns": 3,
+      "exactAccuracy": 1.0,
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": true,
+      "exactStable": true,
+      "actualIntents": [
+        {
+          "value": "node_move",
+          "count": 3
+        }
+      ],
+      "actualOperations": [
+        {
+          "value": "MOVE",
+          "count": 3
+        }
+      ],
+      "recognitionPaths": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ],
+      "providers": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "key": "dev.8i.atomic.named_video_folder#1",
+      "group": "move",
+      "expectedIntent": "node_move",
+      "exactCorrectRuns": 3,
+      "exactAccuracy": 1.0,
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": true,
+      "exactStable": true,
+      "actualIntents": [
+        {
+          "value": "node_move",
+          "count": 3
+        }
+      ],
+      "actualOperations": [
+        {
+          "value": "MOVE",
+          "count": 3
+        }
+      ],
+      "recognitionPaths": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ],
+      "providers": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "key": "dev.8i.atomic.single_photo_classifier#1",
+      "group": "move",
+      "expectedIntent": "node_move",
+      "exactCorrectRuns": 3,
+      "exactAccuracy": 1.0,
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": true,
+      "exactStable": true,
+      "actualIntents": [
+        {
+          "value": "node_move",
+          "count": 3
+        }
+      ],
+      "actualOperations": [
+        {
+          "value": "MOVE",
+          "count": 3
+        }
+      ],
+      "recognitionPaths": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ],
+      "providers": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "key": "dev.8i.boundary.unsupported_table_category#1",
+      "group": "boundary",
+      "expectedIntent": "fallback",
+      "exactCorrectRuns": 3,
+      "exactAccuracy": 1.0,
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": true,
+      "exactStable": true,
+      "actualIntents": [
+        {
+          "value": "fallback",
+          "count": 3
+        }
+      ],
+      "actualOperations": [
+        {
+          "value": "UNKNOWN",
+          "count": 3
+        }
+      ],
+      "recognitionPaths": [
+        {
+          "value": "local_guard",
+          "count": 3
+        }
+      ],
+      "providers": [
+        {
+          "value": "local_fallback",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "key": "dev.8i.capability.category_confirmation#1",
+      "group": "capability",
+      "expectedIntent": "assistant_capability_examples",
+      "exactCorrectRuns": 3,
+      "exactAccuracy": 1.0,
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": true,
+      "exactStable": true,
+      "actualIntents": [
+        {
+          "value": "assistant_capability_examples",
+          "count": 3
+        }
+      ],
+      "actualOperations": [
+        {
+          "value": "RESPOND",
+          "count": 3
+        }
+      ],
+      "recognitionPaths": [
+        {
+          "value": "local_guard",
+          "count": 3
+        }
+      ],
+      "providers": [
+        {
+          "value": "local_fallback",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "key": "dev.8i.capability.single_move_confirmation#1",
+      "group": "capability",
+      "expectedIntent": "assistant_capability_examples",
+      "exactCorrectRuns": 3,
+      "exactAccuracy": 1.0,
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": true,
+      "exactStable": true,
+      "actualIntents": [
+        {
+          "value": "assistant_capability_examples",
+          "count": 3
+        }
+      ],
+      "actualOperations": [
+        {
+          "value": "RESPOND",
+          "count": 3
+        }
+      ],
+      "recognitionPaths": [
+        {
+          "value": "local_guard",
+          "count": 3
+        }
+      ],
+      "providers": [
+        {
+          "value": "local_fallback",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "key": "dev.8i.collection.extension_variant#1",
+      "group": "collection",
+      "expectedIntent": "collection_move_by_extension",
+      "exactCorrectRuns": 3,
+      "exactAccuracy": 1.0,
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": true,
+      "exactStable": true,
+      "actualIntents": [
+        {
+          "value": "collection_move_by_extension",
+          "count": 3
+        }
+      ],
+      "actualOperations": [
+        {
+          "value": "MOVE",
+          "count": 3
+        }
+      ],
+      "recognitionPaths": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ],
+      "providers": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "key": "dev.8i.collection.name_predicate#1",
+      "group": "collection",
+      "expectedIntent": "collection_move_by_name",
+      "exactCorrectRuns": 3,
+      "exactAccuracy": 1.0,
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": true,
+      "exactStable": true,
+      "actualIntents": [
+        {
+          "value": "collection_move_by_name",
+          "count": 3
+        }
+      ],
+      "actualOperations": [
+        {
+          "value": "MOVE",
+          "count": 3
+        }
+      ],
+      "recognitionPaths": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ],
+      "providers": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "key": "dev.8i.collection.photo_confirmation_plan#1",
+      "group": "collection",
+      "expectedIntent": "collection_move_by_category",
+      "exactCorrectRuns": 3,
+      "exactAccuracy": 1.0,
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": false,
+      "exactStable": true,
+      "actualIntents": [
+        {
+          "value": "collection_move_by_category",
+          "count": 3
+        }
+      ],
+      "actualOperations": [
+        {
+          "value": "MOVE",
+          "count": 3
+        }
+      ],
+      "recognitionPaths": [
+        {
+          "value": "deepseek",
+          "count": 2
+        },
+        {
+          "value": "local_policy",
+          "count": 1
+        }
+      ],
+      "providers": [
+        {
+          "value": "deepseek",
+          "count": 2
+        },
+        {
+          "value": "local_fallback",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "key": "dev.8i.collection.rename_prefix_variant#1",
+      "group": "collection",
+      "expectedIntent": "collection_rename_add_prefix",
+      "exactCorrectRuns": 3,
+      "exactAccuracy": 1.0,
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": true,
+      "exactStable": true,
+      "actualIntents": [
+        {
+          "value": "collection_rename_add_prefix",
+          "count": 3
+        }
+      ],
+      "actualOperations": [
+        {
+          "value": "RENAME",
+          "count": 3
+        }
+      ],
+      "recognitionPaths": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ],
+      "providers": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "key": "dev.8i.collection.scoped_archives#1",
+      "group": "collection",
+      "expectedIntent": "collection_move_by_category",
+      "exactCorrectRuns": 3,
+      "exactAccuracy": 1.0,
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": true,
+      "exactStable": true,
+      "actualIntents": [
+        {
+          "value": "collection_move_by_category",
+          "count": 3
+        }
+      ],
+      "actualOperations": [
+        {
+          "value": "MOVE",
+          "count": 3
+        }
+      ],
+      "recognitionPaths": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ],
+      "providers": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "key": "dev.8i.collection.video_typo#1",
+      "group": "collection",
+      "expectedIntent": "collection_move_by_category",
+      "exactCorrectRuns": 3,
+      "exactAccuracy": 1.0,
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": true,
+      "exactStable": true,
+      "actualIntents": [
+        {
+          "value": "collection_move_by_category",
+          "count": 3
+        }
+      ],
+      "actualOperations": [
+        {
+          "value": "MOVE",
+          "count": 3
+        }
+      ],
+      "recognitionPaths": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ],
+      "providers": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "key": "dev.8i.composite.create_then_upload#1",
+      "group": "composite",
+      "expectedIntent": "folder_create_then_upload",
+      "exactCorrectRuns": 3,
+      "exactAccuracy": 1.0,
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": true,
+      "exactStable": true,
+      "actualIntents": [
+        {
+          "value": "folder_create_then_upload",
+          "count": 3
+        }
+      ],
+      "actualOperations": [
+        {
+          "value": "UPLOAD",
+          "count": 3
+        }
+      ],
+      "recognitionPaths": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ],
+      "providers": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "key": "dev.8i.folder_create.bracket_name#1",
+      "group": "folder-create",
+      "expectedIntent": "folder_create",
+      "exactCorrectRuns": 3,
+      "exactAccuracy": 1.0,
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": true,
+      "exactStable": true,
+      "actualIntents": [
+        {
+          "value": "folder_create",
+          "count": 3
+        }
+      ],
+      "actualOperations": [
+        {
+          "value": "CREATE_FOLDER",
+          "count": 3
+        }
+      ],
+      "recognitionPaths": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ],
+      "providers": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "key": "dev.8i.noise.atomic_move_spacing#1",
+      "group": "move",
+      "expectedIntent": "node_move",
+      "exactCorrectRuns": 3,
+      "exactAccuracy": 1.0,
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": true,
+      "exactStable": true,
+      "actualIntents": [
+        {
+          "value": "node_move",
+          "count": 3
+        }
+      ],
+      "actualOperations": [
+        {
+          "value": "MOVE",
+          "count": 3
+        }
+      ],
+      "recognitionPaths": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ],
+      "providers": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "key": "dev.8i.safety.quoted_rewrite#1",
+      "group": "safety",
+      "expectedIntent": "assistant_writing_help",
+      "exactCorrectRuns": 3,
+      "exactAccuracy": 1.0,
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": true,
+      "exactStable": true,
+      "actualIntents": [
+        {
+          "value": "assistant_writing_help",
+          "count": 3
+        }
+      ],
+      "actualOperations": [
+        {
+          "value": "RESPOND",
+          "count": 3
+        }
+      ],
+      "recognitionPaths": [
+        {
+          "value": "local_guard",
+          "count": 3
+        }
+      ],
+      "providers": [
+        {
+          "value": "local_fallback",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "key": "dev.8i.safety.reported_destructive_instruction#1",
+      "group": "safety",
+      "expectedIntent": "assistant_capability_examples",
+      "exactCorrectRuns": 3,
+      "exactAccuracy": 1.0,
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": true,
+      "exactStable": true,
+      "actualIntents": [
+        {
+          "value": "assistant_capability_examples",
+          "count": 3
+        }
+      ],
+      "actualOperations": [
+        {
+          "value": "RESPOND",
+          "count": 3
+        }
+      ],
+      "recognitionPaths": [
+        {
+          "value": "local_guard",
+          "count": 3
+        }
+      ],
+      "providers": [
+        {
+          "value": "local_fallback",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "key": "dev.8i.search.name_contains_table#1",
+      "group": "search",
+      "expectedIntent": "file_search",
+      "exactCorrectRuns": 3,
+      "exactAccuracy": 1.0,
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": true,
+      "exactStable": true,
+      "actualIntents": [
+        {
+          "value": "file_search",
+          "count": 3
+        }
+      ],
+      "actualOperations": [
+        {
+          "value": "SEARCH",
+          "count": 3
+        }
+      ],
+      "recognitionPaths": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ],
+      "providers": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "key": "dev.8i.search.natural_children#1",
+      "group": "search",
+      "expectedIntent": "file_search",
+      "exactCorrectRuns": 3,
+      "exactAccuracy": 1.0,
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": true,
+      "exactStable": true,
+      "actualIntents": [
+        {
+          "value": "file_search",
+          "count": 3
+        }
+      ],
+      "actualOperations": [
+        {
+          "value": "LIST_CHILDREN",
+          "count": 3
+        }
+      ],
+      "recognitionPaths": [
+        {
+          "value": "local_structure",
+          "count": 3
+        }
+      ],
+      "providers": [
+        {
+          "value": "local_fallback",
           "count": 3
         }
       ]
@@ -1316,7 +2024,7 @@
       "exactAccuracy": 1.0,
       "intentStable": true,
       "operationStable": true,
-      "pathStable": true,
+      "pathStable": false,
       "exactStable": true,
       "actualIntents": [
         {
@@ -1332,14 +2040,22 @@
       ],
       "recognitionPaths": [
         {
+          "value": "deepseek",
+          "count": 1
+        },
+        {
           "value": "local_policy",
-          "count": 3
+          "count": 2
         }
       ],
       "providers": [
         {
+          "value": "deepseek",
+          "count": 1
+        },
+        {
           "value": "local_fallback",
-          "count": 3
+          "count": 2
         }
       ]
     },
@@ -1631,7 +2347,7 @@
       "exactAccuracy": 1.0,
       "intentStable": true,
       "operationStable": true,
-      "pathStable": true,
+      "pathStable": false,
       "exactStable": true,
       "actualIntents": [
         {
@@ -1647,14 +2363,22 @@
       ],
       "recognitionPaths": [
         {
+          "value": "deepseek",
+          "count": 2
+        },
+        {
           "value": "local_policy",
-          "count": 3
+          "count": 1
         }
       ],
       "providers": [
         {
+          "value": "deepseek",
+          "count": 2
+        },
+        {
           "value": "local_fallback",
-          "count": 3
+          "count": 1
         }
       ]
     },
@@ -1963,21 +2687,21 @@
       "recognitionPaths": [
         {
           "value": "deepseek",
-          "count": 2
+          "count": 1
         },
         {
           "value": "local_policy",
-          "count": 1
+          "count": 2
         }
       ],
       "providers": [
         {
           "value": "deepseek",
-          "count": 2
+          "count": 1
         },
         {
           "value": "local_fallback",
-          "count": 1
+          "count": 2
         }
       ]
     },
