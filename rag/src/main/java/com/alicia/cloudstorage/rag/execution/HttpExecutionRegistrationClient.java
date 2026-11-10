@@ -6,8 +6,8 @@ import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpClientErrorException;
-import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -53,7 +53,9 @@ public class HttpExecutionRegistrationClient implements ExecutionRegistrationCli
     ) {
         try {
             return signedPost(PATH, request, authorizationHeader);
-        } catch (ResourceAccessException exception) {
+        } catch (HttpClientErrorException exception) {
+            throw exception;
+        } catch (RestClientException exception) {
             throw new ExecutionRegistrationUncertainException(exception);
         }
     }
