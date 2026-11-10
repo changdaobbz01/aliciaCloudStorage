@@ -79,4 +79,14 @@ class OperationArgumentResolverTest {
         assertThat(single.source().category()).isEqualTo("IMAGE");
         assertThat(single.source().quantifier()).isEqualTo(OperationArgumentResolver.Quantifier.SINGLE);
     }
+
+    @Test
+    void recognizesScatteredCategoryWordingAsACollectionSelector() {
+        OperationArgumentResolver.Resolution resolution = resolver
+                .resolve("散落的音乐统一放到声音仓库文件夹", "MOVE")
+                .orElseThrow();
+
+        assertThat(resolution.source().category()).isEqualTo("AUDIO");
+        assertThat(resolution.source().quantifier()).isEqualTo(OperationArgumentResolver.Quantifier.EXPLICIT_ALL);
+    }
 }

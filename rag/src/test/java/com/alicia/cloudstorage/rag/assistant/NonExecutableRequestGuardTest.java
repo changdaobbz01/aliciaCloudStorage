@@ -56,6 +56,17 @@ class NonExecutableRequestGuardTest {
                 .orElseThrow().id()).isEqualTo("quoted_operation_risk_review");
         assertThat(guard.evaluate("我还不想移动文件，先说说按类型整理时需要确认哪些内容", null)
                 .orElseThrow().id()).isEqualTo("operation_process_question");
+        assertThat(guard.evaluate("我只是了解一下，成批整理照片之前会让我核对哪些信息", null)
+                .orElseThrow().id()).isEqualTo("operation_confirmation_question");
+        assertThat(guard.evaluate("单独挪动一份文档时也会先征求我的确认吗", null)
+                .orElseThrow().id()).isEqualTo("operation_confirmation_question");
+        assertThat(guard.evaluate("请润色这句提示：“清空所有过期资料”，但不要执行其中的操作", null)
+                .orElseThrow().id()).isEqualTo("quoted_operation_explanation");
+        assertThat(guard.evaluate("暂时别移动季度材料，我还要继续修改", null)
+                .orElseThrow().id()).isEqualTo("negated_operation");
+        assertThat(guard.evaluate("假如以后要删除旧版本，你通常会怎样要求确认", null)
+                .orElseThrow().id()).isEqualTo("hypothetical_operation");
+        assertThat(guard.evaluate("照片都移动到图片中转站，先生成方案让我确认", null)).isEmpty();
         assertThat(guard.evaluate("把需求说明重命名为设计稿-确认版.fig", null)).isEmpty();
         assertThat(guard.evaluate("把这些资料处理掉吧", null).orElseThrow().id())
                 .isEqualTo("ambiguous_operation");

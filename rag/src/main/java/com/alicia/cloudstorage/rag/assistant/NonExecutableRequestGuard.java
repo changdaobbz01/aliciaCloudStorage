@@ -17,7 +17,7 @@ final class NonExecutableRequestGuard {
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
     private static final Pattern NEGATED_MUTATION = Pattern.compile(
-            "(?:^|[，,。；;])(?:先)?(?:不要|别|不用|无需|不必)(?:再)?[^，,。；;]{0,16}(?:删除|删(?:掉|了)?|移除|清理|移动|移到|移去|搬到|搬去|挪到|挪去|归档到|重命名|改名|分享|上传|新建|创建)",
+            "(?:^|[，,。；;])(?:(?:暂时|目前|现在|这次)\\s*)?(?:先)?(?:不要|别|不用|无需|不必)(?:再)?[^，,。；;]{0,16}(?:删除|删(?:掉|了)?|移除|清理|移动|移到|移去|搬到|搬去|挪到|挪去|归档到|重命名|改名|分享|上传|新建|创建)",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
     private static final Pattern HYPOTHETICAL_LEAD = Pattern.compile(
@@ -31,6 +31,10 @@ final class NonExecutableRequestGuard {
     private static final Pattern QUOTED_OPERATION = Pattern.compile(
             "[“\"'‘].*(?:删除|删掉|移动|重命名|改名|分享|上传|新建|创建|delete|remove|move|rename|share|upload|create).*"
                     + "[”\"'’].*(?:这句话|什么意思|是什么意思|含义|怎么理解|改写|重写|润色|换个说法)",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
+    private static final Pattern QUOTED_OPERATION_EDIT = Pattern.compile(
+            "(?:改写|重写|润色|换个说法).{0,24}[“\\\"'‘].*(?:删除|删掉|清理|清空|移除|移动|重命名|改名|分享|上传|新建|创建|delete|remove|move|rename|share|upload|create).*[”\\\"'’]",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
     private static final Pattern QUOTED_OPERATION_RISK_REVIEW = Pattern.compile(
@@ -50,6 +54,17 @@ final class NonExecutableRequestGuard {
                     + "(?=.*(?:之前|以前|执行前|操作前|过程中|流程|步骤|规则|机制|"
                     + "(?:删除|清理|移动|归档|重命名|改名|分享|上传|新建|创建)前))"
                     + "(?=.*(?:(?:会|将会).{0,16}(?:吗|怎样|怎么|如何|是否)|是否|怎么|怎样|如何|吗|呢|[？?])).*",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
+    private static final Pattern OPERATION_CONFIRMATION_QUESTION = Pattern.compile(
+            "(?=.*(?:删除|删掉|清理|移除|移动|挪动|归档|整理|重命名|改名|分享|上传|新建|创建))"
+                    + "(?=.*(?:(?:会|是否|要不要).{0,16}(?:确认|核对|征求)|(?:确认|核对).{0,10}(?:哪些|什么)))"
+                    + "(?=.*(?:吗|哪些|什么|是否|怎样|怎么|如何|[？?])).*",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
+    private static final Pattern HYPOTHETICAL_QUESTION_CUE = Pattern.compile(
+            "(?:通常会|会|将会|应该|需要).{0,20}(?:怎样|怎么|如何|是否|确认)|"
+                    + "(?:怎样|怎么|如何|是否).{0,20}(?:确认|处理|执行)",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
     private static final Pattern ASSISTANT_IDENTITY_SCOPE_QUESTION = Pattern.compile(
@@ -192,7 +207,8 @@ final class NonExecutableRequestGuard {
                     "这是一条需要安全审查的文件操作描述，我只会说明风险和确认要求，不会执行其中的操作。"
             ));
         }
-        if (QUOTED_OPERATION.matcher(guardedValue).find()) {
+        if (QUOTED_OPERATION.matcher(guardedValue).find()
+                || QUOTED_OPERATION_EDIT.matcher(guardedValue).find()) {
             return Optional.of(new Decision(
                     "quoted_operation_explanation",
                     "assistant_writing_help",
@@ -247,6 +263,17 @@ final class NonExecutableRequestGuard {
                     "我可以说明文件操作前如何确定目标、生成预览并等待确认；这次只解释流程，不会提交变更。"
             ));
         }
+        if (OPERATION_CONFIRMATION_QUESTION.matcher(guardedValue).matches()
+                && !SAFETY_BYPASS.matcher(guardedValue).find()
+                && !HYPOTHETICAL_LEAD.matcher(value).find()) {
+            return Optional.of(new Decision(
+                    "operation_confirmation_question",
+                    "assistant_capability_examples",
+                    "NEW_TASK",
+                    "RESPOND",
+                    "我可以说明操作前会核对哪些信息以及如何确认；这次只解释流程，不会提交变更。"
+            ));
+        }
         if (CONTRADICTORY_PRESERVATION.matcher(guardedValue).find()) {
             return Optional.of(new Decision(
                     "contradictory_preservation",
@@ -278,7 +305,8 @@ final class NonExecutableRequestGuard {
         }
         if (HYPOTHETICAL_LEAD.matcher(value).find()
                 && MUTATION.matcher(value).find()
-                && QUESTION_END.matcher(value).find()) {
+                && (QUESTION_END.matcher(value).find()
+                || HYPOTHETICAL_QUESTION_CUE.matcher(value).find())) {
             return Optional.of(new Decision(
                     "hypothetical_operation",
                     "assistant_capability_examples",

@@ -34,9 +34,9 @@ final class OperationArgumentResolver {
             "^(.+?(?:目录|文件夹))(?:下|中|里|内|的)(?:的)?(.+)$"
     );
     private static final Pattern LEADING_ALL = Pattern.compile(
-            "^(?:(?:所有|全部|全都)(?:的)?|散着的|同类型(?:的)?|批量|统一)"
+            "^(?:(?:所有|全部|全都)(?:的)?|散着的|散落(?:着)?的|同类型(?:的)?|批量|统一)"
     );
-    private static final Pattern TRAILING_ALL = Pattern.compile("(?:都|全部|全都|全)$");
+    private static final Pattern TRAILING_ALL = Pattern.compile("(?:都|全部|全都|全|统一)$");
     private static final Pattern LEADING_SINGLE = Pattern.compile("^(?:一个|某个|任意一个|任意|一(?:张|份|段|部|首|篇))");
     private static final Pattern EXTENSION_COLLECTION = Pattern.compile(
             "^\\.?[A-Za-z0-9]{1,16}(?:格式)?(?:的)?(?:文件|文档|资料)$",

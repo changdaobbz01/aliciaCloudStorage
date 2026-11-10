@@ -1140,6 +1140,7 @@ class IntentRecognitionServiceTest {
                 "表格文件放到数据资料区", "fallback",
                 "当前文件夹中的压缩包都归档至交付包目录", "collection_move_by_category",
                 "视屏文件都放进影音资料库", "collection_move_by_category",
+                "散落的音乐统一放到声音仓库文件夹", "collection_move_by_category",
                 "将全部 .tmp 格式文件移动到缓存归档目录", "collection_move_by_extension",
                 "把文件名里带待确认的所有资料转移至复核目录", "collection_move_by_name",
                 "搜一下名字里有预算的表格文件", "file_search",
