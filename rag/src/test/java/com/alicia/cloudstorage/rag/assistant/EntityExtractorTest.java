@@ -24,6 +24,12 @@ class EntityExtractorTest {
     }
 
     @Test
+    void acceptsABareFolderNameAfterTheDirectoryObject() {
+        assertThat(extractor.extract("创建目录 rag-8k-20261110092743-cancel-check"))
+                .containsEntry("new_folder_name", "rag-8k-20261110092743-cancel-check");
+    }
+
+    @Test
     void genericFolderObjectBeforePunctuationIsNeverTreatedAsTheName() {
         assertThat(extractor.extract("创建一个文件夹，然后告诉我下一步"))
                 .doesNotContainKey("new_folder_name");

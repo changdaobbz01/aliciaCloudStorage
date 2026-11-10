@@ -1102,6 +1102,24 @@ class AssistantConversationServiceTest {
         assertThat(cancelled.semanticFrame().operation()).isEqualTo("RESPOND");
         assertThat(cancelled.executionReference()).isNull();
         assertThat(cancelled.conversation().hasPendingAction()).isFalse();
+
+        IntentRecognitionResponse anotherPlan = conversationService.plan(new AssistantPlanRequest(
+                "创建目录 待取消二号",
+                "",
+                clientContext
+        ));
+        IntentRecognitionResponse naturalCancellation = conversationService.plan(new AssistantPlanRequest(
+                "算了，这个目录先不要创建",
+                anotherPlan.conversation().conversationId(),
+                clientContext
+        ));
+
+        assertThat(anotherPlan.actionDraft().type()).isEqualTo("folder.create");
+        assertThat(naturalCancellation.intentId()).isEqualTo("assistant_acknowledgement");
+        assertThat(naturalCancellation.actionDraft().type()).isEqualTo("none");
+        assertThat(naturalCancellation.semanticFrame().relation()).isEqualTo("CANCELLATION");
+        assertThat(naturalCancellation.semanticFrame().operation()).isEqualTo("RESPOND");
+        assertThat(naturalCancellation.conversation().hasPendingAction()).isFalse();
     }
 
     @Test

@@ -8,6 +8,7 @@ rename_prefix,true,regex_capture,"(?:头部|开头|前缀|prefix).*?(?:加上|�
 rename_prefix,true,regex_capture,"(?:统一|全部).*?(?:加上|添加|追加)\s*([^/\s，。,.!?！？]+).*?(?:前缀|到头部|到开头)",false
 rename_prefix,true,regex_capture,"(?:加前缀|添加前缀|批量添加前缀)\s*([^/\s，。,.!?！？]+)",false
 new_folder_name,true,regex_capture,"(?:新建|创建|建立|建)\s*(?:一个|1个|个)?\s*(?:文件夹|目录)\s*(?:，|,|\s)*(?:名为|名称为|名称是|名字为|名字是|叫做|叫|命名为)\s*([^/\s，。,.!?！？]+)",false
+new_folder_name,true,regex_capture,"(?:新建|创建|建立|建)\s*(?:一个|1个|个)?\s*(?:文件夹|目录)\s+([^/\s，。,.!?！？]+)\s*$",false
 new_folder_name,true,regex_capture,"(?:新建|创建|建立|建一个|建个|mkdir|create).*?(?:名为|叫|名称为|named)\s*([^/\s，。,.!?！？]+?)\s*的\s*(?:文件夹|folder|directory)",false
 new_folder_name,true,regex_capture,"(?:新建|创建|建立|建一个|建个|mkdir|create).*?(?:名为|叫|名称为|named)\s*([^/\s，。,.!?！？]+?)\s*(?:文件夹|folder|directory)",false
 new_folder_name,true,regex_capture,"(?:mkdir|create)\s+(?:(?:a|an|one)\s+)?(?:folder|directory)\s+(?:named|called)\s+([^/\s，。,.!?！？]+)",false

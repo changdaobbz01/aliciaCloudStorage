@@ -66,6 +66,22 @@ class NonExecutableRequestGuardTest {
                 .orElseThrow().id()).isEqualTo("negated_operation");
         assertThat(guard.evaluate("假如以后要删除旧版本，你通常会怎样要求确认", null)
                 .orElseThrow().id()).isEqualTo("hypothetical_operation");
+        assertThat(guard.evaluate("我并不是要上传文件，只想了解上传前需要准备什么", null)
+                .orElseThrow().id()).isEqualTo("operation_capability_question");
+        assertThat(guard.evaluate("当前不要创建任何目录，先保持原样", null)
+                .orElseThrow().id()).isEqualTo("negated_operation");
+        assertThat(guard.evaluate("先别把项目照片移走，等我确认完清单再说", null)
+                .orElseThrow().id()).isEqualTo("negated_operation");
+        assertThat(guard.evaluate("执行文件操作时哪些情况会要求我补充目标", null)
+                .orElseThrow().id()).isEqualTo("general_operation_capability_question");
+        assertThat(guard.evaluate("一次组合操作会怎样展示步骤供我确认", null)
+                .orElseThrow().id()).isEqualTo("general_operation_capability_question");
+        assertThat(guard.evaluate("这些资料你看着整理一下", null)
+                .orElseThrow().id()).isEqualTo("vague_organization");
+        assertThat(guard.evaluate("把它们妥善放好就行", null)
+                .orElseThrow().id()).isEqualTo("vague_organization");
+        assertThat(guard.evaluate("先不处理文件，告诉我你今天状态怎么样", null)
+                .orElseThrow().id()).isEqualTo("paused_file_conversation");
         assertThat(guard.evaluate("照片都移动到图片中转站，先生成方案让我确认", null)).isEmpty();
         assertThat(guard.evaluate("把需求说明重命名为设计稿-确认版.fig", null)).isEmpty();
         assertThat(guard.evaluate("把这些资料处理掉吧", null).orElseThrow().id())
@@ -88,6 +104,8 @@ class NonExecutableRequestGuardTest {
         assertThat(decision.relation()).isEqualTo("CANCELLATION");
 
         assertThat(guard.evaluate("算了，取消这个操作", pending).orElseThrow().id())
+                .isEqualTo("cancel_pending_operation");
+        assertThat(guard.evaluate("算了，这个目录先不要创建", pending).orElseThrow().id())
                 .isEqualTo("cancel_pending_operation");
     }
 
