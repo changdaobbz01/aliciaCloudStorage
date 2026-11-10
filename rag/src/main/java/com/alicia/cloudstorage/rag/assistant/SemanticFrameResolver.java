@@ -358,6 +358,7 @@ public class SemanticFrameResolver {
                 localTarget,
                 source.nameKind(),
                 source.resultType(),
+                source.category(),
                 source.scopeType(),
                 source.folderSurface(),
                 source.quantifier()

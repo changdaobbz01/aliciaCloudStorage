@@ -105,6 +105,21 @@ final class StorageFileCategory {
         return DEFINITIONS.containsKey(canonical) ? canonical : "";
     }
 
+    static String normalizeSelector(Object value) {
+        String raw = value == null ? "" : String.valueOf(value).trim();
+        if (raw.isBlank()) {
+            return "";
+        }
+        String direct = normalize(raw);
+        if (!direct.isBlank()) {
+            return direct;
+        }
+        String normalized = raw.replaceAll("\\s+", "")
+                .replaceFirst("^(?:所有|全部|全都|这些|那些|各类|各种|一个|某个|任意一个|任意)", "")
+                .replaceFirst("(?:类型|类别)?(?:的)?(?:文件|资料)$", "");
+        return normalize(normalized);
+    }
+
     static boolean matches(String rawCategory, CandidateItem candidate) {
         String category = normalize(rawCategory);
         if (category.isBlank()) {

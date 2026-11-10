@@ -1099,6 +1099,36 @@ class IntentRecognitionServiceTest {
     }
 
     @Test
+    void implicitCategoryMovesRemainCollectionsWithoutInterceptingAtomicSelectors() {
+        IntentRecognitionService service = new IntentRecognitionService(
+                message -> Optional.empty(),
+                intentRouter,
+                configLoader
+        );
+
+        List.of(
+                "视频文件移到影音资料库",
+                "文档资料转移到项目文库",
+                "压缩文件归档到安装备份目录",
+                "当前目录里的照片移到视觉资料库",
+                "音频类型的文件放进声音资料库"
+        ).forEach(message -> {
+            IntentRecognitionResponse response = service.recognize(message);
+            assertThat(response.intentId()).as(message).isEqualTo("collection_move_by_category");
+            assertThat(response.semanticFrame().operation()).as(message).isEqualTo("MOVE");
+            assertThat(response.actionDraft().type()).as(message).isEqualTo("collection.move_by_category");
+        });
+
+        List.of(
+                "把某个视频移到待处理目录",
+                "把名为音频的文件夹移动到归档区",
+                "把视频.mp4移到成片目录"
+        ).forEach(message -> assertThat(service.recognize(message).intentId())
+                .as(message)
+                .isEqualTo("node_move"));
+    }
+
+    @Test
     void localFallbackRecognizesAssistantHelpScopeQuestion() {
         IntentModelClient unavailableClient = message -> Optional.empty();
 

@@ -24,6 +24,7 @@ public class IntentRecognitionService {
     private final SemanticExampleRetriever semanticExampleRetriever;
     private final SemanticCapabilityBoundaryGuard capabilityBoundaryGuard;
     private final SemanticRecognitionArbiter recognitionArbiter;
+    private final OperationArgumentResolver operationArgumentResolver = new OperationArgumentResolver();
     private final NonExecutableRequestGuard nonExecutableRequestGuard = new NonExecutableRequestGuard();
     private final AssistantResponsePolicy responsePolicy;
     private final AssistantReplyPolisher replyPolisher;
@@ -678,6 +679,7 @@ public class IntentRecognitionService {
             String message,
             IntentRouter.IntentRouteResult configuredRoute
     ) {
+        configuredRoute = categoryCollectionRoute(message, configuredRoute);
         var predicate = NamePredicateParser.parse(message);
         if (predicate.isEmpty()) {
             String atomicIntentId = switch (configuredRoute.intent()) {
@@ -713,6 +715,26 @@ public class IntentRecognitionService {
                 Math.max(0.96, configuredRoute.confidence()),
                 "统一名称谓词解析命中，按集合操作结构处理"
         );
+    }
+
+    private IntentRouter.IntentRouteResult categoryCollectionRoute(
+            String message,
+            IntentRouter.IntentRouteResult configuredRoute
+    ) {
+        if (!"node_move".equals(configuredRoute.intent())) {
+            return configuredRoute;
+        }
+        return operationArgumentResolver.resolve(message, "MOVE")
+                .filter(arguments -> arguments.source().nameKind() == OperationArgumentResolver.NameKind.GENERIC)
+                .filter(arguments -> arguments.source().quantifier() != OperationArgumentResolver.Quantifier.SINGLE)
+                .filter(arguments -> !arguments.source().category().isBlank())
+                .map(arguments -> intentRouter.routeAs(
+                        message,
+                        "collection_move_by_category",
+                        Math.max(0.96, configuredRoute.confidence()),
+                        "来源选择器命中内置文件类别，按集合移动结构处理"
+                ))
+                .orElse(configuredRoute);
     }
 
     private IntentRouter.IntentDefinition validIntent(String intentId) {

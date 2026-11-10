@@ -37,6 +37,7 @@ final class OperationArgumentResolver {
             "^(?:(?:所有|全部|全都)(?:的)?|散着的|同类型(?:的)?|批量|统一)"
     );
     private static final Pattern TRAILING_ALL = Pattern.compile("(?:都|全部|全都|全)$");
+    private static final Pattern LEADING_SINGLE = Pattern.compile("^(?:一个|某个|任意一个|任意)");
     private static final Pattern EXTENSION_COLLECTION = Pattern.compile(
             "^\\.?[A-Za-z0-9]{1,16}(?:格式)?(?:的)?(?:文件|文档|资料)$",
             Pattern.CASE_INSENSITIVE
@@ -47,7 +48,7 @@ final class OperationArgumentResolver {
                     + "另一个(?:文件|文件夹)?|剩下的(?:文件|文件夹)?)$"
     );
     private static final Pattern MOVE_SPLIT = Pattern.compile(
-            "^(.*?)(?:移动到|移到|挪到|转移到|搬到|移动至|移至|挪至|转移至|搬至|放进)(.+)$"
+            "^(.*?)(?:移动到|移到|挪到|转移到|搬到|归档到|移动至|移至|挪至|转移至|搬至|归档至|放进)(.+)$"
     );
     private static final Pattern MOVE_LEADING_SPLIT = Pattern.compile(
             "^(?:移动|搬|挪)(?:一下)?(.+?)(?:到|至|进)(.+)$"
@@ -303,7 +304,7 @@ final class OperationArgumentResolver {
         String surface = cleanSourceSurface(rawSurface)
                 .replaceFirst("[，,](?:都)?(?:给我)?$", "");
         if (REFERENCE.matcher(surface).matches()) {
-            return new NodeSelector("", NameKind.REFERENCE, "ANY", "ALL", "", Quantifier.UNSPECIFIED);
+            return new NodeSelector("", NameKind.REFERENCE, "ANY", "", "ALL", "", Quantifier.UNSPECIFIED);
         }
 
         ExplicitName explicitName = explicitName(surface);
@@ -312,6 +313,7 @@ final class OperationArgumentResolver {
                     explicitName.name(),
                     NameKind.EXPLICIT,
                     explicitName.resultType(),
+                    "",
                     "ALL",
                     "",
                     Quantifier.SINGLE
@@ -330,6 +332,7 @@ final class OperationArgumentResolver {
                     "",
                     NameKind.GENERIC,
                     "FILE",
+                    "",
                     scoped.scopeType(),
                     scoped.folderSurface(),
                     Quantifier.EXPLICIT_ALL
@@ -337,13 +340,16 @@ final class OperationArgumentResolver {
         }
         if (!genericType.isBlank() || objectSurface.isBlank()) {
             String resultType = genericType.isBlank() ? "ANY" : genericType;
+            boolean explicitSingle = LEADING_SINGLE.matcher(objectSurface).find();
             Quantifier quantifier = explicitAll
                     ? Quantifier.EXPLICIT_ALL
+                    : explicitSingle ? Quantifier.SINGLE
                     : scoped.scoped() ? Quantifier.IMPLICIT_SET : Quantifier.UNSPECIFIED;
             return new NodeSelector(
                     "",
                     NameKind.GENERIC,
                     resultType,
+                    StorageFileCategory.normalizeSelector(objectSurface),
                     scoped.scopeType(),
                     scoped.folderSurface(),
                     quantifier
@@ -358,6 +364,7 @@ final class OperationArgumentResolver {
                 lexicalName,
                 NameKind.LEXICAL,
                 inferResultType(objectSurface),
+                "",
                 scoped.scopeType(),
                 scoped.folderSurface(),
                 Quantifier.SINGLE
@@ -612,12 +619,13 @@ final class OperationArgumentResolver {
             String name,
             NameKind nameKind,
             String resultType,
+            String category,
             String scopeType,
             String folderSurface,
             Quantifier quantifier
     ) {
         static NodeSelector empty() {
-            return new NodeSelector("", NameKind.NONE, "ANY", "ALL", "", Quantifier.UNSPECIFIED);
+            return new NodeSelector("", NameKind.NONE, "ANY", "", "ALL", "", Quantifier.UNSPECIFIED);
         }
     }
 

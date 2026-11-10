@@ -43,4 +43,22 @@ class OperationArgumentResolverTest {
         assertThat(resolution.newName()).isEqualTo("月报-终版.xlsx");
         assertThat(resolution.needsClarification()).isFalse();
     }
+
+    @Test
+    void distinguishesImplicitCategorySetsFromExplicitSingleItems() {
+        OperationArgumentResolver.Resolution category = resolver
+                .resolve("视频文件移到影音资料库", "MOVE")
+                .orElseThrow();
+        OperationArgumentResolver.Resolution single = resolver
+                .resolve("把某个视频移到待处理目录", "MOVE")
+                .orElseThrow();
+
+        assertThat(category.source().nameKind()).isEqualTo(OperationArgumentResolver.NameKind.GENERIC);
+        assertThat(category.source().category()).isEqualTo("VIDEO");
+        assertThat(category.source().quantifier()).isEqualTo(OperationArgumentResolver.Quantifier.UNSPECIFIED);
+
+        assertThat(single.source().nameKind()).isEqualTo(OperationArgumentResolver.NameKind.GENERIC);
+        assertThat(single.source().category()).isEqualTo("VIDEO");
+        assertThat(single.source().quantifier()).isEqualTo(OperationArgumentResolver.Quantifier.SINGLE);
+    }
 }
