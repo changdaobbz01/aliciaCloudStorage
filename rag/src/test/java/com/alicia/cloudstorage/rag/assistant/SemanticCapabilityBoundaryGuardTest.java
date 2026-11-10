@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.Map;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 class SemanticCapabilityBoundaryGuardTest {
@@ -85,5 +87,27 @@ class SemanticCapabilityBoundaryGuardTest {
                 .isEmpty();
         assertThat(guard.evaluate("删除文件 report.old"))
                 .isEmpty();
+    }
+
+    @Test
+    void rejectsDeleteContractsThatOnlyCarryAnExtensionSelector() {
+        assertThat(guard.evaluateSemanticContract(
+                "file_delete",
+                "DELETE",
+                Map.of("extension", "TMP", "result_type", "FILE")
+        )).get()
+                .extracting(SemanticCapabilityBoundaryGuard.BoundaryDecision::id)
+                .isEqualTo("unsupported_delete_extension_selector");
+
+        assertThat(guard.evaluateSemanticContract(
+                "file_delete",
+                "DELETE",
+                Map.of("target_name", "report.tmp", "extension", "TMP")
+        )).isEmpty();
+        assertThat(guard.evaluateSemanticContract(
+                "collection_move_by_extension",
+                "MOVE",
+                Map.of("extension", "TMP")
+        )).isEmpty();
     }
 }

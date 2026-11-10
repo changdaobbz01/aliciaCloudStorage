@@ -1280,6 +1280,45 @@ class IntentRecognitionServiceTest {
     }
 
     @Test
+    void semanticCapabilityBoundaryRejectsModelGeneratedExtensionDeleteDraft() {
+        IntentModelClient modelClient = message -> Optional.of(new IntentModelClient.ModelIntentResult(
+                "deepseek",
+                "deepseek-v4-flash",
+                "deepseek_semantic_frame_v2",
+                "semantic_frame_v2",
+                Map.of(
+                        "intent_id", "file_delete",
+                        "confidence", 0.99,
+                        "entities", Map.of("extension", "TMP", "result_type", "FILE"),
+                        "semantic_frame", Map.of(
+                                "schema_version", "semantic_frame_v2",
+                                "relation", "NEW_TASK",
+                                "operation", "DELETE",
+                                "query", Map.of(
+                                        "mode", "FILTER",
+                                        "result_type", "FILE",
+                                        "filters", Map.of("extension", "TMP")
+                                ),
+                                "scope", Map.of("type", "ALL"),
+                                "reference", Map.of("type", "NONE"),
+                                "confidence", 0.99
+                        )
+                )
+        ));
+
+        IntentRecognitionResponse response = new IntentRecognitionService(modelClient, intentRouter, configLoader)
+                .recognize("tmp");
+
+        assertThat(response.intentId()).isEqualTo("fallback");
+        assertThat(response.semanticFrame().operation()).isEqualTo("UNKNOWN");
+        assertThat(response.entities()).isEmpty();
+        assertThat(response.actionDraft().type()).isEqualTo("none");
+        assertThat(response.safety().allowedToExecute()).isFalse();
+        assertThat(response.fallbackReason())
+                .isEqualTo("capability_boundary:unsupported_delete_extension_selector");
+    }
+
+    @Test
     void localFallbackRecognizesNameContainsSynonymForBatchFolderMove() {
         IntentModelClient unavailableClient = message -> Optional.empty();
 

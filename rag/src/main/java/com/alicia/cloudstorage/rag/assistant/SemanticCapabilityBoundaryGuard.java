@@ -5,6 +5,8 @@ import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
@@ -28,6 +30,44 @@ public class SemanticCapabilityBoundaryGuard {
                 .filter(rule -> rule.matches(value))
                 .map(rule -> new BoundaryDecision(rule.id(), rule.reason(), rule.guidance()))
                 .findFirst();
+    }
+
+    public Optional<BoundaryDecision> evaluateSemanticContract(
+            String intentId,
+            String operation,
+            Map<String, ?> entities
+    ) {
+        Map<String, ?> safeEntities = entities == null ? Map.of() : entities;
+        if (!"DELETE".equalsIgnoreCase(operation)
+                || !isPresent(safeEntities.get("extension"))
+                || isExactExtensionTarget(
+                        safeEntities.get("target_name"),
+                        safeEntities.get("extension")
+                )) {
+            return Optional.empty();
+        }
+        return decisionFor("unsupported_delete_extension_selector");
+    }
+
+    private Optional<BoundaryDecision> decisionFor(String id) {
+        return rules.stream()
+                .filter(rule -> rule.id().equals(id))
+                .map(rule -> new BoundaryDecision(rule.id(), rule.reason(), rule.guidance()))
+                .findFirst();
+    }
+
+    private boolean isPresent(Object value) {
+        return value != null && !String.valueOf(value).trim().isBlank();
+    }
+
+    private boolean isExactExtensionTarget(Object targetName, Object extension) {
+        if (!isPresent(targetName) || !isPresent(extension)) {
+            return false;
+        }
+        String target = String.valueOf(targetName).trim().toLowerCase(Locale.ROOT);
+        String suffix = String.valueOf(extension).trim().toLowerCase(Locale.ROOT);
+        suffix = suffix.startsWith(".") ? suffix.substring(1) : suffix;
+        return !suffix.isBlank() && target.endsWith("." + suffix);
     }
 
     private List<BoundaryRule> loadRules(JsonNode root) {

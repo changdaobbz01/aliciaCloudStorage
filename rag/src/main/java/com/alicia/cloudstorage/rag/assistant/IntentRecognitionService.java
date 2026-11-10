@@ -10,6 +10,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -293,6 +294,20 @@ public class IntentRecognitionService {
         Map<String, Object> entities = configuredBoundary == null
                 ? semanticFrameResolver.entitiesForFrame(response, semanticFrame)
                 : Map.of();
+        var semanticBoundary = configuredBoundary == null
+                ? capabilityBoundaryGuard.evaluateSemanticContract(
+                        response.intentId(),
+                        semanticFrame.operation(),
+                        entities
+                )
+                : Optional.<SemanticCapabilityBoundaryGuard.BoundaryDecision>empty();
+        if (semanticBoundary.isPresent()) {
+            configuredBoundary = semanticBoundary.get();
+            guardedByBoundary = true;
+            response = fromFallback(message, "capability_boundary:" + configuredBoundary.id());
+            semanticFrame = capabilityBoundaryFrame(configuredBoundary);
+            entities = Map.of();
+        }
         if (!guardedByBoundary) {
             response = rebuildForConversation(
                     response,
