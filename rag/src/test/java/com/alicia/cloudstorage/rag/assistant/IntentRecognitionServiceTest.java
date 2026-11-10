@@ -1069,6 +1069,18 @@ class IntentRecognitionServiceTest {
         assertThat(move.entities())
                 .containsEntry("file_type", "照片")
                 .containsEntry("target_folder", "家庭相册目录");
+
+        Map.of(
+                "照片类文件都收拢到视觉资产目录", "照片",
+                "音频类型全都归拢到声音素材文件夹", "音频",
+                "影片文件统一归入媒体归档目录", "影片"
+        ).forEach((message, fileType) -> {
+            IntentRecognitionResponse result = service.recognize(message);
+            assertThat(result.intentId()).as(message).isEqualTo("collection_move_by_category");
+            assertThat(result.semanticFrame().operation()).as(message).isEqualTo("MOVE");
+            assertThat(result.entities()).as(message).containsEntry("file_type", fileType);
+            assertThat(result.missingSlots()).as(message).isEmpty();
+        });
     }
 
     @Test

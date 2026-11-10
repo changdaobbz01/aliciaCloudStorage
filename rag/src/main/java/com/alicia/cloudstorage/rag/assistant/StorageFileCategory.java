@@ -17,6 +17,7 @@ final class StorageFileCategory {
             Map.entry("video", "VIDEO"),
             Map.entry("videos", "VIDEO"),
             Map.entry("视频", "VIDEO"),
+            Map.entry("影片", "VIDEO"),
             Map.entry("audio", "AUDIO"),
             Map.entry("music", "AUDIO"),
             Map.entry("音频", "AUDIO"),

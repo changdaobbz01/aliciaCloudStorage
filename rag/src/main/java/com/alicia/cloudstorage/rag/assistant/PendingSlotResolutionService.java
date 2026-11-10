@@ -28,7 +28,7 @@ final class PendingSlotResolutionService {
             Pattern.CASE_INSENSITIVE
     );
     private static final Set<String> GENERIC_NODE_NAMES = Set.of(
-            "文件", "文件夹", "目录", "图片", "照片", "视频", "音频", "文档", "压缩包", "它", "这个", "那个"
+            "文件", "文件夹", "目录", "图片", "照片", "视频", "影片", "音频", "文档", "压缩包", "它", "这个", "那个"
     );
     private static final Set<String> TEXT_SLOTS = Set.of("target_name", "new_name", "new_folder_name", "target_folder");
 

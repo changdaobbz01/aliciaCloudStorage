@@ -109,6 +109,7 @@
     "file_type": [
       "图片",
       "视频",
+      "影片",
       "音频",
       "文档",
       "压缩包"
@@ -526,7 +527,10 @@
         "将全部{file_type}归档到{target_folder}",
         "把{file_type}都放进{target_folder}",
         "统一把{file_type}转移到{target_folder}",
-        "批量移动{file_type}到{target_folder}"
+        "批量移动{file_type}到{target_folder}",
+        "把所有{file_type}收拢到{target_folder}",
+        "将全部{file_type}归拢进{target_folder}",
+        "{file_type}统一归入{target_folder}"
       ]
     },
     {

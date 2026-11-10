@@ -301,28 +301,7 @@ public class StorageApiCollectionPreviewClient implements CollectionPreviewPort 
         }
 
         private static String normalizeCategory(String value) {
-            if (value.isBlank()) {
-                return "";
-            }
-            Map<String, String> aliases = new LinkedHashMap<>();
-            aliases.put("图片", "IMAGE");
-            aliases.put("照片", "IMAGE");
-            aliases.put("image", "IMAGE");
-            aliases.put("photo", "IMAGE");
-            aliases.put("视频", "VIDEO");
-            aliases.put("video", "VIDEO");
-            aliases.put("音频", "AUDIO");
-            aliases.put("音乐", "AUDIO");
-            aliases.put("audio", "AUDIO");
-            aliases.put("music", "AUDIO");
-            aliases.put("文档", "DOCUMENT");
-            aliases.put("document", "DOCUMENT");
-            aliases.put("doc", "DOCUMENT");
-            aliases.put("压缩包", "ARCHIVE");
-            aliases.put("压缩文件", "ARCHIVE");
-            aliases.put("archive", "ARCHIVE");
-            aliases.put("zip", "ARCHIVE");
-            return aliases.getOrDefault(value.toLowerCase(Locale.ROOT), "");
+            return StorageFileCategory.normalize(value);
         }
 
         private static String normalizeExtension(String value) {

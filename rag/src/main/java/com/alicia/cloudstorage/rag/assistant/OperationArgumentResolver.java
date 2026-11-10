@@ -14,7 +14,7 @@ final class OperationArgumentResolver {
             "SHARE", "DELETE", "MOVE", "RENAME", "UPLOAD"
     );
     private static final Set<String> GENERIC_FILES = Set.of(
-            "文件", "文档", "资料", "图片", "照片", "视频", "音频", "音乐", "压缩包", "压缩文件"
+            "文件", "文档", "资料", "图片", "照片", "视频", "影片", "音频", "音乐", "压缩包", "压缩文件"
     );
     private static final Set<String> GENERIC_FOLDERS = Set.of("文件夹", "目录");
     private static final Set<String> GENERIC_ANY = Set.of(
@@ -525,7 +525,7 @@ final class OperationArgumentResolver {
         if (GENERIC_FILES.contains(normalized)) {
             return "FILE";
         }
-        if (normalized.matches("^(?:图片|照片|视频|音频|音乐|文档|压缩包)(?:类型)?(?:的)?(?:文件|资料)?$")) {
+        if (normalized.matches("^(?:图片|照片|视频|影片|音频|音乐|文档|压缩包)(?:类型)?(?:的)?(?:文件|资料)?$")) {
             return "FILE";
         }
         if (normalized.endsWith("文件")
