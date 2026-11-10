@@ -58,6 +58,15 @@ final class NonExecutableRequestGuard {
                     + "(?!.*(?:详细|具体|举例|例子|哪些.{0,8}(?:操作|方式|方案))).*",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
+    private static final Pattern OUT_OF_SCOPE_FORMAL_PROOF_REQUEST = Pattern.compile(
+            "(?=.*(?:证明|求证|完整推导|彻底解决))"
+                    + "(?=.*(?:猜想|未解(?:问题|难题)|千禧年(?:问题|难题))).*",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
+    private static final Pattern CLOUD_FILE_CONTEXT = Pattern.compile(
+            "(?:搜索|查找|检索|文件名|文件夹|目录|云盘|上传|删除|移动|重命名|改名|分享|打开文件|下载文件)",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
     private static final Pattern AMBIGUOUS_OPERATION = Pattern.compile(
             "(?:处理|处置)(?:一下|掉)",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
@@ -154,6 +163,16 @@ final class NonExecutableRequestGuard {
                     "NEW_TASK",
                     "RESPOND",
                     "我是 Alicia 云盘中的智能文件管家安安，可以说明我的职责、能力边界和安全确认方式。"
+            ));
+        }
+        if (OUT_OF_SCOPE_FORMAL_PROOF_REQUEST.matcher(value).matches()
+                && !CLOUD_FILE_CONTEXT.matcher(value).find()) {
+            return Optional.of(new Decision(
+                    "out_of_scope_formal_proof_request",
+                    "fallback",
+                    "NEW_TASK",
+                    "UNKNOWN",
+                    "这类开放数学问题不属于云盘文件管理能力，我不能生成或声称完成尚无公认证明的结论。"
             ));
         }
         String guardedValue = value;

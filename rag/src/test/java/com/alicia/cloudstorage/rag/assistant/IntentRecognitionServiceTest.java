@@ -294,7 +294,7 @@ class IntentRecognitionServiceTest {
         IntentModelClient unavailableClient = message -> Optional.empty();
 
         IntentRecognitionResponse response = new IntentRecognitionService(unavailableClient, intentRouter, configLoader)
-                .recognize("请帮我证明黎曼猜想");
+                .recognize("请分析量子计算机的低温控制故障");
 
         assertThat(response.provider()).isEqualTo("local_fallback");
         assertThat(response.intentId()).isEqualTo("fallback");
@@ -364,7 +364,7 @@ class IntentRecognitionServiceTest {
         ));
 
         IntentRecognitionResponse response = new IntentRecognitionService(modelClient, intentRouter, configLoader)
-                .recognize("请帮我证明黎曼猜想");
+                .recognize("请分析量子计算机的低温控制故障");
 
         assertThat(response.provider()).isEqualTo("deepseek");
         assertThat(response.intentId()).isEqualTo("fallback");
@@ -406,7 +406,7 @@ class IntentRecognitionServiceTest {
         ));
 
         IntentRecognitionResponse response = new IntentRecognitionService(modelClient, intentRouter, configLoader)
-                .recognize("请帮我证明黎曼猜想");
+                .recognize("请分析量子计算机的低温控制故障");
 
         assertThat(response.provider()).isEqualTo("deepseek");
         assertThat(response.intentId()).isEqualTo("fallback");
