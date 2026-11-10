@@ -3,6 +3,10 @@ param(
     [switch]$ExecuteFolderCreate,
     [switch]$RequireOnlineRecognition,
     [int]$ExecutionTimeoutSeconds = 45,
+    [string]$TargetIdentityBaseUrl = '',
+    [string]$TargetRagBaseUrl = '',
+    [string]$TargetExecutionBaseUrl = '',
+    [string]$TargetApiBaseUrl = '',
     [ValidateSet('baseline', 'stress', 'all', 'recognition-dev', 'recognition-candidate', 'recognition-holdout')]
     [string]$Suite = 'baseline'
 )
@@ -266,12 +270,43 @@ if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($sourceRevision)) {
 }
 $sourceChanges = @(Get-RagE2ESourceChanges -Context $context)
 $sourceDirty = $sourceChanges.Count -gt 0
-$identityBaseUrl = (Assert-RagE2EEnvValue -Name 'ALICIA_RAG_E2E_IDENTITY_BASE_URL').TrimEnd('/')
 $account = Assert-RagE2EEnvValue -Name 'ALICIA_RAG_E2E_ACCOUNT'
 $password = Assert-RagE2EEnvValue -Name 'ALICIA_RAG_E2E_PASSWORD'
-$ragPort = Assert-RagE2EEnvValue -Name 'ALICIA_RAG_E2E_RAG_PORT'
-$executionPort = Assert-RagE2EEnvValue -Name 'ALICIA_RAG_E2E_EXEC_PORT'
-$apiPort = Assert-RagE2EEnvValue -Name 'ALICIA_RAG_E2E_API_PORT'
+$externalTargetValues = @(
+    @($TargetRagBaseUrl, $TargetExecutionBaseUrl, $TargetApiBaseUrl) |
+        Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+)
+$usesExternalTarget = $externalTargetValues.Count -gt 0
+if ($usesExternalTarget -and $externalTargetValues.Count -ne 3) {
+    throw 'External evaluation requires explicit RAG, RAG Execution and Cloud API base URLs.'
+}
+if ($usesExternalTarget -and $ExecuteFolderCreate) {
+    throw 'External evaluation is recognition-only and never confirms or executes tasks.'
+}
+$identityBaseUrl = if ([string]::IsNullOrWhiteSpace($TargetIdentityBaseUrl)) {
+    (Assert-RagE2EEnvValue -Name 'ALICIA_RAG_E2E_IDENTITY_BASE_URL').TrimEnd('/')
+} else {
+    $TargetIdentityBaseUrl.TrimEnd('/')
+}
+$ragBaseUrl = if ($usesExternalTarget) {
+    $TargetRagBaseUrl.TrimEnd('/')
+} else {
+    "http://127.0.0.1:$(Assert-RagE2EEnvValue -Name 'ALICIA_RAG_E2E_RAG_PORT')"
+}
+$executionBaseUrl = if ($usesExternalTarget) {
+    $TargetExecutionBaseUrl.TrimEnd('/')
+} else {
+    "http://127.0.0.1:$(Assert-RagE2EEnvValue -Name 'ALICIA_RAG_E2E_EXEC_PORT')"
+}
+$apiBaseUrl = if ($usesExternalTarget) {
+    $TargetApiBaseUrl.TrimEnd('/')
+} else {
+    "http://127.0.0.1:$(Assert-RagE2EEnvValue -Name 'ALICIA_RAG_E2E_API_PORT')"
+}
+$targetBaseUrls = @($identityBaseUrl, $ragBaseUrl, $executionBaseUrl, $apiBaseUrl)
+if ($usesExternalTarget -and @($targetBaseUrls | Where-Object { $_ -notmatch '^https://' }).Count -gt 0) {
+    throw 'External evaluation endpoints must use HTTPS.'
+}
 
 if ($ExecuteFolderCreate -and
     -not (ConvertTo-RagE2EBool (Get-RagE2EEnvValue -Name 'ALICIA_RAG_E2E_ALLOW_LOCAL_EXECUTION'))) {
@@ -287,9 +322,6 @@ if ([string]::IsNullOrWhiteSpace($token)) {
     throw 'Identity login succeeded without returning a token.'
 }
 $headers = @{ Authorization = "Bearer $token" }
-$ragBaseUrl = "http://127.0.0.1:$ragPort"
-$executionBaseUrl = "http://127.0.0.1:$executionPort"
-$apiBaseUrl = "http://127.0.0.1:$apiPort"
 
 $access = Invoke-JsonRequest -Method Get -Uri "$ragBaseUrl/api/assistant/auth/access" -Headers $headers
 if ([string]$access.role -ne 'RAG_ADMIN') {
@@ -475,18 +507,26 @@ foreach ($case in $cases) {
             $cancelled = Invoke-JsonRequest -Method Post `
                     -Uri "$executionBaseUrl/api/executions/$executionId/cancel" `
                     -Headers $headers
-            $cleanupPassed = [string]$cancelled.status -eq 'CANCELLED'
+            $settled = Invoke-JsonRequest -Method Get `
+                    -Uri "$executionBaseUrl/api/executions/$executionId" `
+                    -Headers $headers
+            $attempts = @($settled.steps | ForEach-Object { [int]$_.attempts } |
+                    Measure-Object -Sum).Sum
+            $cleanupPassed = [string]$cancelled.status -eq 'CANCELLED' -and
+                    [string]$settled.status -eq 'CANCELLED' -and
+                    [int]$attempts -eq 0
             if (-not $cleanupPassed) {
                 $failedTurns++
                 $infrastructureFailures++
-                Write-Host "[FAIL] $($case.id) task cleanup returned status $($cancelled.status)."
+                Write-Host "[FAIL] $($case.id) task cleanup status=$($settled.status) attempts=$attempts."
             } else {
-                Write-Host "[OK] $($case.id) unconfirmed task cancelled."
+                Write-Host "[OK] $($case.id) unconfirmed task cancelled with attempts=0."
             }
             $cleanupResults.Add([pscustomobject]@{
                 executionId = $executionId
                 passed      = $cleanupPassed
-                status      = [string]$cancelled.status
+                status      = [string]$settled.status
+                attempts    = [int]$attempts
                 error       = $null
             })
         } catch {
@@ -534,6 +574,7 @@ $report = [pscustomobject]@{
     runId         = $runId
     sourceRevision = $sourceRevision
     sourceDirty   = $sourceDirty
+    targetMode    = if ($usesExternalTarget) { 'external-https' } else { 'isolated-local' }
     scenarioHashes = $scenarioHashes
     startedByMode = if ($ExecuteFolderCreate) { 'recognition-and-safe-local-execution' } else { 'recognition-only' }
     onlineRecognitionRequired = [bool]$RequireOnlineRecognition
@@ -551,13 +592,21 @@ $reportJson = $report | ConvertTo-Json -Depth 50
     [System.Text.UTF8Encoding]::new($false)
 )
 
-$token = $null
-$password = $null
-$login = $null
 Write-Host "Report: $reportPath"
 Write-Host "Summary: passed=$passedTurns failed=$failedTurns executed=$executedCount"
 Write-Host "Source: revision=$sourceRevision dirty=$sourceDirty"
 Write-Host "Recognition sources: $((@($recognitionSources.Keys) | ForEach-Object { "$_=$($recognitionSources[$_])" }) -join ', ')"
+try {
+    Invoke-JsonRequest -Method Post -Uri "$identityBaseUrl/api/identity/auth/logout" -Headers $headers -Body @{
+        refreshToken = [string](Get-OptionalProperty -Object $login -Name 'refreshToken')
+        allDevices   = $false
+    } | Out-Null
+    Write-Host '[OK] Temporary Identity evaluation session logged out.'
+} finally {
+    $token = $null
+    $password = $null
+    $login = $null
+}
 if ($isRecognitionMeasurement) {
     & (Join-Path $PSScriptRoot 'measure-recognition-report.ps1') `
             -ReportPath $reportPath `

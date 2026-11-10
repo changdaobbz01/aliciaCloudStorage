@@ -68,6 +68,23 @@ pwsh -File test/rag-e2e/run-evaluation.ps1 -Suite recognition-holdout
 
 准确率不达标属于阶段 8 的测量结果，不会让命令伪装成基础设施失败；但缺失响应、API/清理失败或任何期望非执行话语产生可执行计划，仍会直接失败。两套识别评测都禁止使用 `-ExecuteFolderCreate`，不会确认任务。
 
+经过明确授权的生产主动探针必须同时提供四个 HTTPS 根地址。外部模式强制禁止
+`-ExecuteFolderCreate`，未确认任务会立即取消并复核步骤 `attempts=0`，临时 Identity 会话在生成
+报告后注销：
+
+```powershell
+pwsh -File test/rag-e2e/run-evaluation.ps1 `
+  -Suite recognition-candidate `
+  -RequireOnlineRecognition `
+  -TargetIdentityBaseUrl https://windwindwind-alicia.cn `
+  -TargetRagBaseUrl https://windwindwind-alicia.cn/rag `
+  -TargetExecutionBaseUrl https://windwindwind-alicia.cn/rag-execution `
+  -TargetApiBaseUrl https://windwindwind-alicia.cn
+```
+
+生产报告会标记 `targetMode=external-https`。此模式只适用于授权且已脱敏的合成或测试表达，不能把
+主动探针结果表述为匿名真实用户流量。
+
 建立 DeepSeek 在线基线时必须显式启用在线 canary。脚本会先提交一条无执行能力的社交问候，要求存在可审计的模型成功证据、正确意图且不存在动作草稿或任务引用。模型结果可以直接保留为 `deepseek`，也可以在成功返回后由本地权威规则安全接管为 `local_policy`；HTTP、超时、无效 JSON、模型不可用或无来源证据的本地兜底都会在数据集开始前终止，并只输出脱敏诊断：
 
 ```powershell
