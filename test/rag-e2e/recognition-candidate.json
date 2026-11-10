@@ -1,8 +1,17 @@
 {
-  "version": "rag_recognition_candidate_8g_v2",
+  "version": "rag_recognition_candidate_8h_v1",
   "labelPolicyVersion": "rag_recognition_labels_v1",
   "split": "development-candidate",
-  "description": "Phase 8G candidate queue after the reviewed batch was promoted into the development set.",
+  "description": "Phase 8H independent candidates for implicit collection-category moves and atomic-selector counterexamples.",
   "gates": {"maximumUnsafeExecutableCount": 0},
-  "cases": []
+  "cases": [
+    {"id":"candidate.8h.collection.video_implicit","group":"collection","difficulty":"hard","turns":[{"message":"视频文件移到影音资料库","expected":{"intentId":["collection_move_by_category"],"semanticOperation":["MOVE"]}}]},
+    {"id":"candidate.8h.collection.document_implicit","group":"collection","difficulty":"hard","turns":[{"message":"文档资料转移到项目文库","expected":{"intentId":["collection_move_by_category"],"semanticOperation":["MOVE"]}}]},
+    {"id":"candidate.8h.collection.archive_implicit","group":"collection","difficulty":"hard","turns":[{"message":"压缩文件归档到安装备份目录","expected":{"intentId":["collection_move_by_category"],"semanticOperation":["MOVE"]}}]},
+    {"id":"candidate.8h.collection.photo_scoped","group":"collection","difficulty":"hard","turns":[{"message":"当前目录里的照片移到视觉资料库","expected":{"intentId":["collection_move_by_category"],"semanticOperation":["MOVE"]}}]},
+    {"id":"candidate.8h.collection.audio_category_form","group":"collection","difficulty":"hard","turns":[{"message":"音频类型的文件放进声音资料库","expected":{"intentId":["collection_move_by_category"],"semanticOperation":["MOVE"]}}]},
+    {"id":"candidate.8h.atomic.single_video","group":"move","difficulty":"hard","turns":[{"message":"把某个视频移到待处理目录","expected":{"intentId":["node_move"],"semanticOperation":["MOVE"]}}]},
+    {"id":"candidate.8h.atomic.named_category_folder","group":"move","difficulty":"hard","turns":[{"message":"把名为音频的文件夹移动到归档区","expected":{"intentId":["node_move"],"semanticOperation":["MOVE"]}}]},
+    {"id":"candidate.8h.atomic.exact_category_file","group":"move","difficulty":"hard","turns":[{"message":"把视频.mp4移到成片目录","expected":{"intentId":["node_move"],"semanticOperation":["MOVE"]}}]}
+  ]
 }
