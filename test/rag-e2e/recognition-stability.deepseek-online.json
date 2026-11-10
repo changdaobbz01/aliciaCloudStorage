@@ -1,73 +1,73 @@
 {
   "schemaVersion": "rag_recognition_stability_v1",
-  "generatedAt": "2026-11-10T13:04:26.8416089+08:00",
+  "generatedAt": "2026-11-10T15:16:37.7974115+08:00",
   "split": "development",
   "runCount": 3,
-  "sourceRevision": "8990bb738bcbacbee45f60cd77bd6d9da800f75f",
-  "datasetVersion": "rag_recognition_dev_v4",
+  "sourceRevision": "8aae54673cd2cd85074cd4d56464b9db54e63364",
+  "datasetVersion": "rag_recognition_dev_v5",
   "labelPolicyVersion": "rag_recognition_labels_v1",
-  "datasetHash": "c3f1abf91e77f7d61f5290fe250cbe66b190ae421c13e11f2c026827cce4d89e",
-  "totalTurns": 82,
+  "datasetHash": "86c18514fb8837ae22e21e7471464f4596207ab88e489f1e828e3f581449812c",
+  "totalTurns": 90,
   "unsafeExecutableCount": 0,
   "missingResponseCount": 0,
   "infrastructureFailures": 0,
   "unavailablePathCount": 0,
-  "stableIntentCount": 82,
+  "stableIntentCount": 90,
   "intentDriftCount": 0,
-  "stableOperationCount": 82,
+  "stableOperationCount": 90,
   "operationDriftCount": 0,
-  "stablePathCount": 81,
-  "pathDriftCount": 1,
-  "stableExactCount": 82,
+  "stablePathCount": 88,
+  "pathDriftCount": 2,
+  "stableExactCount": 90,
   "exactOutcomeDriftCount": 0,
-  "fullyStableCount": 81,
-  "alwaysExactCorrectCount": 82,
+  "fullyStableCount": 88,
+  "alwaysExactCorrectCount": 90,
   "intermittentExactCount": 0,
   "alwaysExactIncorrectCount": 0,
   "runs": [
     {
-      "runId": "20261110045408",
-      "intentCorrect": 82,
-      "semanticOperationCorrect": 44,
-      "exactContractCorrect": 82,
+      "runId": "20261110070645",
+      "intentCorrect": 90,
+      "semanticOperationCorrect": 52,
+      "exactContractCorrect": 90,
       "recognitionSources": {
-        "deepseek": 55,
+        "deepseek": 63,
         "local_fallback": 27
       },
       "recognitionPaths": {
-        "deepseek": 55,
+        "deepseek": 63,
         "local_guard": 21,
         "local_policy": 4,
         "local_structure": 2
       }
     },
     {
-      "runId": "20261110045648",
-      "intentCorrect": 82,
-      "semanticOperationCorrect": 44,
-      "exactContractCorrect": 82,
+      "runId": "20261110071003",
+      "intentCorrect": 90,
+      "semanticOperationCorrect": 52,
+      "exactContractCorrect": 90,
       "recognitionSources": {
-        "deepseek": 55,
-        "local_fallback": 27
+        "deepseek": 61,
+        "local_fallback": 29
       },
       "recognitionPaths": {
-        "deepseek": 55,
+        "deepseek": 61,
         "local_guard": 21,
-        "local_policy": 4,
+        "local_policy": 6,
         "local_structure": 2
       }
     },
     {
-      "runId": "20261110045928",
-      "intentCorrect": 82,
-      "semanticOperationCorrect": 44,
-      "exactContractCorrect": 82,
+      "runId": "20261110071313",
+      "intentCorrect": 90,
+      "semanticOperationCorrect": 52,
+      "exactContractCorrect": 90,
       "recognitionSources": {
-        "deepseek": 54,
+        "deepseek": 62,
         "local_fallback": 28
       },
       "recognitionPaths": {
-        "deepseek": 54,
+        "deepseek": 62,
         "local_guard": 21,
         "local_policy": 5,
         "local_structure": 2
@@ -876,6 +876,294 @@
       "providers": [
         {
           "value": "local_fallback",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "key": "dev.8h.atomic.exact_category_file#1",
+      "group": "move",
+      "expectedIntent": "node_move",
+      "exactCorrectRuns": 3,
+      "exactAccuracy": 1.0,
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": true,
+      "exactStable": true,
+      "actualIntents": [
+        {
+          "value": "node_move",
+          "count": 3
+        }
+      ],
+      "actualOperations": [
+        {
+          "value": "MOVE",
+          "count": 3
+        }
+      ],
+      "recognitionPaths": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ],
+      "providers": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "key": "dev.8h.atomic.named_category_folder#1",
+      "group": "move",
+      "expectedIntent": "node_move",
+      "exactCorrectRuns": 3,
+      "exactAccuracy": 1.0,
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": true,
+      "exactStable": true,
+      "actualIntents": [
+        {
+          "value": "node_move",
+          "count": 3
+        }
+      ],
+      "actualOperations": [
+        {
+          "value": "MOVE",
+          "count": 3
+        }
+      ],
+      "recognitionPaths": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ],
+      "providers": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "key": "dev.8h.atomic.single_video#1",
+      "group": "move",
+      "expectedIntent": "node_move",
+      "exactCorrectRuns": 3,
+      "exactAccuracy": 1.0,
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": true,
+      "exactStable": true,
+      "actualIntents": [
+        {
+          "value": "node_move",
+          "count": 3
+        }
+      ],
+      "actualOperations": [
+        {
+          "value": "MOVE",
+          "count": 3
+        }
+      ],
+      "recognitionPaths": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ],
+      "providers": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "key": "dev.8h.collection.archive_implicit#1",
+      "group": "collection",
+      "expectedIntent": "collection_move_by_category",
+      "exactCorrectRuns": 3,
+      "exactAccuracy": 1.0,
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": true,
+      "exactStable": true,
+      "actualIntents": [
+        {
+          "value": "collection_move_by_category",
+          "count": 3
+        }
+      ],
+      "actualOperations": [
+        {
+          "value": "MOVE",
+          "count": 3
+        }
+      ],
+      "recognitionPaths": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ],
+      "providers": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "key": "dev.8h.collection.audio_category_form#1",
+      "group": "collection",
+      "expectedIntent": "collection_move_by_category",
+      "exactCorrectRuns": 3,
+      "exactAccuracy": 1.0,
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": true,
+      "exactStable": true,
+      "actualIntents": [
+        {
+          "value": "collection_move_by_category",
+          "count": 3
+        }
+      ],
+      "actualOperations": [
+        {
+          "value": "MOVE",
+          "count": 3
+        }
+      ],
+      "recognitionPaths": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ],
+      "providers": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "key": "dev.8h.collection.document_implicit#1",
+      "group": "collection",
+      "expectedIntent": "collection_move_by_category",
+      "exactCorrectRuns": 3,
+      "exactAccuracy": 1.0,
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": false,
+      "exactStable": true,
+      "actualIntents": [
+        {
+          "value": "collection_move_by_category",
+          "count": 3
+        }
+      ],
+      "actualOperations": [
+        {
+          "value": "MOVE",
+          "count": 3
+        }
+      ],
+      "recognitionPaths": [
+        {
+          "value": "deepseek",
+          "count": 1
+        },
+        {
+          "value": "local_policy",
+          "count": 2
+        }
+      ],
+      "providers": [
+        {
+          "value": "deepseek",
+          "count": 1
+        },
+        {
+          "value": "local_fallback",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "key": "dev.8h.collection.photo_scoped#1",
+      "group": "collection",
+      "expectedIntent": "collection_move_by_category",
+      "exactCorrectRuns": 3,
+      "exactAccuracy": 1.0,
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": true,
+      "exactStable": true,
+      "actualIntents": [
+        {
+          "value": "collection_move_by_category",
+          "count": 3
+        }
+      ],
+      "actualOperations": [
+        {
+          "value": "MOVE",
+          "count": 3
+        }
+      ],
+      "recognitionPaths": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ],
+      "providers": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "key": "dev.8h.collection.video_implicit#1",
+      "group": "collection",
+      "expectedIntent": "collection_move_by_category",
+      "exactCorrectRuns": 3,
+      "exactAccuracy": 1.0,
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": true,
+      "exactStable": true,
+      "actualIntents": [
+        {
+          "value": "collection_move_by_category",
+          "count": 3
+        }
+      ],
+      "actualOperations": [
+        {
+          "value": "MOVE",
+          "count": 3
+        }
+      ],
+      "recognitionPaths": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ],
+      "providers": [
+        {
+          "value": "deepseek",
           "count": 3
         }
       ]

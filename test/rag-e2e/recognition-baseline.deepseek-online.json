@@ -1,34 +1,34 @@
 {
   "schemaVersion": "rag_recognition_baseline_v1",
   "lane": "deepseek-online",
-  "sourceRevision": "8990bb738bcbacbee45f60cd77bd6d9da800f75f",
+  "sourceRevision": "8aae54673cd2cd85074cd4d56464b9db54e63364",
   "labelPolicyVersion": "rag_recognition_labels_v1",
   "datasetHashes": {
-    "development": "c3f1abf91e77f7d61f5290fe250cbe66b190ae421c13e11f2c026827cce4d89e",
+    "development": "86c18514fb8837ae22e21e7471464f4596207ab88e489f1e828e3f581449812c",
     "holdout": "eebeb9d595799ee049fd5d349d36801b13f59fadd1f1f70a1e8e9aef8639abb7"
   },
   "development": {
-    "datasetVersion": "rag_recognition_dev_v4",
-    "reportRunId": "20261110045408",
-    "totalTurns": 82,
-    "intentCorrect": 82,
+    "datasetVersion": "rag_recognition_dev_v5",
+    "reportRunId": "20261110071313",
+    "totalTurns": 90,
+    "intentCorrect": 90,
     "intentAccuracy": 1.0,
-    "semanticOperationEligible": 44,
-    "semanticOperationCorrect": 44,
+    "semanticOperationEligible": 52,
+    "semanticOperationCorrect": 52,
     "semanticOperationAccuracy": 1.0,
-    "exactContractCorrect": 82,
+    "exactContractCorrect": 90,
     "exactContractAccuracy": 1.0,
     "unsafeExecutableCount": 0,
     "missingResponseCount": 0,
     "infrastructureFailures": 0,
     "recognitionSources": {
-      "deepseek": 55,
-      "local_fallback": 27
+      "deepseek": 62,
+      "local_fallback": 28
     },
     "recognitionPaths": {
-      "deepseek": 55,
+      "deepseek": 62,
       "local_guard": 21,
-      "local_policy": 4,
+      "local_policy": 5,
       "local_structure": 2
     },
     "byGroup": [
@@ -58,10 +58,10 @@
       },
       {
         "group": "collection",
-        "total": 12,
-        "intentCorrect": 12,
+        "total": 17,
+        "intentCorrect": 17,
         "intentAccuracy": 1.0,
-        "exactCorrect": 12,
+        "exactCorrect": 17,
         "exactAccuracy": 1.0
       },
       {
@@ -106,10 +106,10 @@
       },
       {
         "group": "move",
-        "total": 3,
-        "intentCorrect": 3,
+        "total": 6,
+        "intentCorrect": 6,
         "intentAccuracy": 1.0,
-        "exactCorrect": 3,
+        "exactCorrect": 6,
         "exactAccuracy": 1.0
       },
       {
@@ -240,7 +240,7 @@
       {
         "expectedIntent": "collection_move_by_category",
         "actualIntent": "collection_move_by_category",
-        "count": 7
+        "count": 12
       },
       {
         "expectedIntent": "collection_move_by_extension",
@@ -300,32 +300,32 @@
       {
         "expectedIntent": "node_move",
         "actualIntent": "node_move",
-        "count": 3
+        "count": 6
       }
     ]
   },
   "holdout": {
     "datasetVersion": "rag_recognition_holdout_v1",
-    "reportRunId": "20261110050223",
+    "reportRunId": "20261110071651",
     "totalTurns": 29,
-    "intentCorrect": 28,
-    "intentAccuracy": 0.965517,
+    "intentCorrect": 29,
+    "intentAccuracy": 1.0,
     "semanticOperationEligible": 17,
     "semanticOperationCorrect": 17,
     "semanticOperationAccuracy": 1.0,
-    "exactContractCorrect": 28,
-    "exactContractAccuracy": 0.965517,
+    "exactContractCorrect": 29,
+    "exactContractAccuracy": 1.0,
     "unsafeExecutableCount": 0,
     "missingResponseCount": 0,
     "infrastructureFailures": 0,
     "recognitionSources": {
-      "deepseek": 20,
-      "local_fallback": 9
+      "deepseek": 21,
+      "local_fallback": 8
     },
     "recognitionPaths": {
-      "deepseek": 20,
+      "deepseek": 21,
       "local_guard": 7,
-      "local_policy": 2
+      "local_policy": 1
     },
     "byGroup": [
       {
@@ -355,10 +355,10 @@
       {
         "group": "collection",
         "total": 1,
-        "intentCorrect": 0,
-        "intentAccuracy": 0.0,
-        "exactCorrect": 0,
-        "exactAccuracy": 0.0
+        "intentCorrect": 1,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 1,
+        "exactAccuracy": 1.0
       },
       {
         "group": "conversation",
@@ -492,7 +492,7 @@
       },
       {
         "expectedIntent": "collection_move_by_category",
-        "actualIntent": "node_move",
+        "actualIntent": "collection_move_by_category",
         "count": 1
       },
       {
