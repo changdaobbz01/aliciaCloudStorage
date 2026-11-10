@@ -125,6 +125,27 @@ test/rag-e2e/recognition-error-baseline.deepseek-online.json
 
 检查中确认生产 HTTPS 证书已于 2026-11-05 过期。证书更新属于独立生产变更，需要明确选择新的腾讯云证书，或授权使用 Let's Encrypt/Certbot 并接受其服务条款；在获得该选择前不得自行签发、替换或重启生产入口。
 
+### 6.1 同日证书恢复记录
+
+2026-11-10 后续运维窗口重新申请并部署了两张腾讯云 TrustAsia DV 证书：
+
+```text
+windwindwind-alicia.cn + www.windwindwind-alicia.cn    2027-02-08 12:59:59 CST 到期
+files.windwindwind-alicia.cn                           2027-02-08 12:59:59 CST 到期
+```
+
+主站证书在上传前完成 SAN、有效期、三段证书链和公私钥匹配检查；服务器旧证书备份到
+`/home/ubuntu/certificate-backups/main-site-20261110-063848Z`。新证书原位更新到容器只读挂载源，
+私钥权限由 `664` 收紧为 `600`，`nginx -t` 通过后执行平滑 reload，前端容器没有重启。
+
+公网验收确认根域名与 `www` 均使用新证书且链验证通过；主站、云盘、两套管理台、RAG、
+RAG Execution 和 APK 版本接口均返回 HTTP 200。文件域名证书通过腾讯云 COS 部署，在边缘池传播
+完成后对 5 个解析节点逐一验证了新序列号、主机名和证书链；根路径返回 HTTP 403 是私有存储桶
+禁止列目录的预期权限结果，TLS 校验值为 0。
+
+证书过期阻断已经解除。标准 RAG Execution 生产验收现已通过配置、Compose、liveness、依赖、
+公网健康和内部路由封锁检查，仍仅因前述历史累计 `RestartCount=30` 而拒绝全绿；未为清零重建容器。
+
 ## 7. 下一阶段建议
 
 阶段 8G 已具备进入下一开发节点的条件。下一批仍应通过独立候选队列处理剩余的集合语义泛化，不得复制保留集原句，不得反复运行保留集刷分，也不得把识别优化与生产权限扩容混在同一节点。
