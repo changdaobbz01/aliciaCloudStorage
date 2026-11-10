@@ -35,6 +35,9 @@ import static org.mockito.Mockito.when;
                 "spring.jpa.hibernate.ddl-auto=validate",
                 "alicia.rag-execution.features.enabled=true",
                 "alicia.rag-execution.features.registration-enabled=true",
+                "alicia.rag-execution.features.public-confirm-enabled=true",
+                "alicia.rag-execution.features.admin-only=true",
+                "alicia.rag-execution.features.allowed-actions=NODE_RENAME",
                 "alicia.rag-execution.security.service-secret=phase-two-dedicated-service-secret-123456"
         }
 )
@@ -138,6 +141,41 @@ class ExecutionRegistrationIntegrationTest {
                 .isInstanceOf(PlanRegistrationException.class)
                 .hasMessageContaining("plan_hash_conflict");
         assertThat(executionRepository.count()).isEqualTo(1L);
+    }
+
+    @Test
+    void adminSingleRegistrationRejectsActionsOutsideTheStageAllowlistBeforePersistence() {
+        when(identityAccessVerifier.requireRagAccess("Bearer test"))
+                .thenReturn(new IdentityAccessVerifier.IdentityPrincipal(42L, "RAG_ADMIN"));
+        ObjectNode payload = objectMapper.createObjectNode();
+        payload.put("folderName", "must-not-register");
+        RegisterExecutionRequest draft = new RegisterExecutionRequest(
+                "action_plan_v2",
+                "response-disabled-action",
+                "conversation-disabled-action",
+                "folder.create",
+                "plan-disabled-action",
+                "",
+                "LOW",
+                "Create one folder",
+                List.of(new RegisterExecutionStepRequest(
+                        "FOLDER_CREATE",
+                        "rag_execution_action_v1",
+                        payload
+                )),
+                Instant.now().plusSeconds(300)
+        );
+        RegisterExecutionRequest request = new RegisterExecutionRequest(
+                draft.planSchemaVersion(), draft.sourceResponseId(), draft.conversationId(),
+                draft.intentId(), draft.planId(), hasher.planHash(draft), draft.risk(), draft.summary(),
+                draft.steps(), draft.expiresAt()
+        );
+
+        assertThatThrownBy(() -> service.register(request, "Bearer test"))
+                .isInstanceOf(PlanRegistrationException.class)
+                .hasMessageContaining("action_not_enabled")
+                .satisfies(error -> assertThat(((PlanRegistrationException) error).statusCode()).isEqualTo(422));
+        assertThat(executionRepository.findByPlanId(request.planId())).isEmpty();
     }
 
     private RegisterExecutionRequest request() {

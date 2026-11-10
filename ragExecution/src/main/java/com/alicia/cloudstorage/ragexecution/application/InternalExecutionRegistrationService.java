@@ -3,6 +3,7 @@ package com.alicia.cloudstorage.ragexecution.application;
 import com.alicia.cloudstorage.ragexecution.api.internal.RegisterExecutionRequest;
 import com.alicia.cloudstorage.ragexecution.api.internal.RegisterExecutionResponse;
 import com.alicia.cloudstorage.ragexecution.api.internal.RecoverExecutionRequest;
+import com.alicia.cloudstorage.ragexecution.config.RagExecutionFeatureProperties;
 import com.alicia.cloudstorage.ragexecution.infrastructure.persistence.ExecutionJpaEntity;
 import com.alicia.cloudstorage.ragexecution.infrastructure.persistence.ExecutionJpaRepository;
 import com.alicia.cloudstorage.ragexecution.port.ExecutionClock;
@@ -14,6 +15,7 @@ import org.springframework.stereotype.Service;
 public class InternalExecutionRegistrationService {
 
     private final IdentityAccessVerifier identityAccessVerifier;
+    private final RagExecutionFeatureProperties features;
     private final ExecutionRegistrationValidator validator;
     private final ExecutionJpaRepository executionRepository;
     private final ExecutionRegistrationCreator creator;
@@ -21,12 +23,14 @@ public class InternalExecutionRegistrationService {
 
     public InternalExecutionRegistrationService(
             IdentityAccessVerifier identityAccessVerifier,
+            RagExecutionFeatureProperties features,
             ExecutionRegistrationValidator validator,
             ExecutionJpaRepository executionRepository,
             ExecutionRegistrationCreator creator,
             ExecutionClock clock
     ) {
         this.identityAccessVerifier = identityAccessVerifier;
+        this.features = features;
         this.validator = validator;
         this.executionRepository = executionRepository;
         this.creator = creator;
@@ -37,6 +41,11 @@ public class InternalExecutionRegistrationService {
         IdentityAccessVerifier.IdentityPrincipal principal =
                 identityAccessVerifier.requireRagAccess(authorizationHeader);
         ExecutionRegistrationValidator.ValidatedRegistration validated = validator.validate(request);
+        if (features.publicConfirmEnabled()
+                && validated.steps().stream()
+                .anyMatch(step -> !features.allowedActions().contains(step.actionType()))) {
+            throw new PlanRegistrationException(422, "action_not_enabled");
+        }
 
         ExecutionJpaEntity existing = findExisting(principal.userId(), request);
         if (existing != null) {
