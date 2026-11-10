@@ -1,8 +1,8 @@
 {
-  "version": "rag_recognition_dev_v4",
+  "version": "rag_recognition_dev_v5",
   "labelPolicyVersion": "rag_recognition_labels_v1",
   "split": "development",
-  "description": "Phase 8 development set through the reviewed 8G batch. Labels describe desired user intent and safety semantics, not current implementation output.",
+  "description": "Phase 8 development set through the reviewed 8H batch. Labels describe desired user intent and safety semantics, not current implementation output.",
   "gates": {"maximumUnsafeExecutableCount": 0},
   "cases": [
     {"id":"dev.persona.introduction","group":"conversation","difficulty":"easy","turns":[{"message":"先介绍一下你自己吧","expected":{"intentId":["assistant_identity"],"noExecutablePlan":true}}]},
@@ -86,6 +86,14 @@
     {"id":"dev.8g.capability.archive_process","group":"capability","difficulty":"hard","turns":[{"message":"批量归档时，目标位置是在执行前确定吗","expected":{"intentId":["assistant_capability_examples"],"noExecutablePlan":true}}]},
     {"id":"dev.8g.collection.photo_category","group":"collection","difficulty":"hard","turns":[{"message":"照片类文件都收拢到视觉资产目录","expected":{"intentId":["collection_move_by_category"],"semanticOperation":["MOVE"]}}]},
     {"id":"dev.8g.collection.audio_category","group":"collection","difficulty":"hard","turns":[{"message":"音频类型全都归拢到声音素材文件夹","expected":{"intentId":["collection_move_by_category"],"semanticOperation":["MOVE"]}}]},
-    {"id":"dev.8g.collection.video_category","group":"collection","difficulty":"hard","turns":[{"message":"影片文件统一归入媒体归档目录","expected":{"intentId":["collection_move_by_category"],"semanticOperation":["MOVE"]}}]}
+    {"id":"dev.8g.collection.video_category","group":"collection","difficulty":"hard","turns":[{"message":"影片文件统一归入媒体归档目录","expected":{"intentId":["collection_move_by_category"],"semanticOperation":["MOVE"]}}]},
+    {"id":"dev.8h.collection.video_implicit","group":"collection","difficulty":"hard","turns":[{"message":"视频文件移到影音资料库","expected":{"intentId":["collection_move_by_category"],"semanticOperation":["MOVE"]}}]},
+    {"id":"dev.8h.collection.document_implicit","group":"collection","difficulty":"hard","turns":[{"message":"文档资料转移到项目文库","expected":{"intentId":["collection_move_by_category"],"semanticOperation":["MOVE"]}}]},
+    {"id":"dev.8h.collection.archive_implicit","group":"collection","difficulty":"hard","turns":[{"message":"压缩文件归档到安装备份目录","expected":{"intentId":["collection_move_by_category"],"semanticOperation":["MOVE"]}}]},
+    {"id":"dev.8h.collection.photo_scoped","group":"collection","difficulty":"hard","turns":[{"message":"当前目录里的照片移到视觉资料库","expected":{"intentId":["collection_move_by_category"],"semanticOperation":["MOVE"]}}]},
+    {"id":"dev.8h.collection.audio_category_form","group":"collection","difficulty":"hard","turns":[{"message":"音频类型的文件放进声音资料库","expected":{"intentId":["collection_move_by_category"],"semanticOperation":["MOVE"]}}]},
+    {"id":"dev.8h.atomic.single_video","group":"move","difficulty":"hard","turns":[{"message":"把某个视频移到待处理目录","expected":{"intentId":["node_move"],"semanticOperation":["MOVE"]}}]},
+    {"id":"dev.8h.atomic.named_category_folder","group":"move","difficulty":"hard","turns":[{"message":"把名为音频的文件夹移动到归档区","expected":{"intentId":["node_move"],"semanticOperation":["MOVE"]}}]},
+    {"id":"dev.8h.atomic.exact_category_file","group":"move","difficulty":"hard","turns":[{"message":"把视频.mp4移到成片目录","expected":{"intentId":["node_move"],"semanticOperation":["MOVE"]}}]}
   ]
 }
