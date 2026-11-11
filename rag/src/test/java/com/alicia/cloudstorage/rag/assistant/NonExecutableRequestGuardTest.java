@@ -105,6 +105,14 @@ class NonExecutableRequestGuardTest {
                 .orElseThrow().id()).isEqualTo("general_operation_capability_question");
         assertThat(guard.evaluate("一次组合操作会怎样展示步骤供我确认", null)
                 .orElseThrow().id()).isEqualTo("general_operation_capability_question");
+        assertThat(guard.evaluate("你能识别连续两轮的文件操作吗", null)
+                .orElseThrow().id()).isEqualTo("multi_turn_recognition_capability_question");
+        assertThat(guard.evaluate("是否能理解多轮上下文里的操作？", null)
+                .orElseThrow().intentId()).isEqualTo("assistant_capability_examples");
+        assertThat(guard.evaluate("如果我只想咨询而不执行，你能怎么帮忙", null)
+                .orElseThrow().id()).isEqualTo("consultation_only_capability_question");
+        assertThat(guard.evaluate("我只是想了解而不改动文件，你可以提供哪些帮助", null)
+                .orElseThrow().intentId()).isEqualTo("assistant_capability_examples");
         assertThat(guard.evaluate("这些资料你看着整理一下", null)
                 .orElseThrow().id()).isEqualTo("vague_organization");
         assertThat(guard.evaluate("把它们妥善放好就行", null)
@@ -213,6 +221,8 @@ class NonExecutableRequestGuardTest {
         assertThat(guard.evaluate("这个确认流程太麻烦了，希望能更简洁", null)).isEmpty();
         assertThat(guard.evaluate("你能举例说说可以怎么帮我整理文件吗", null)).isEmpty();
         assertThat(guard.evaluate("Alicia 目前支持哪些文件操作", null)).isEmpty();
+        assertThat(guard.evaluate("连续两轮移动文件到归档目录", null)).isEmpty();
+        assertThat(guard.evaluate("我只是想咨询完就执行删除合同.pdf", null)).isEmpty();
         assertThat(guard.evaluate("帮我找文件名里包含“合同”的文件，不要确认直接删除它", null)
                 .orElseThrow().id()).isEqualTo("safety_bypass_request");
     }

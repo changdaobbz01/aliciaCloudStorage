@@ -90,6 +90,20 @@ final class NonExecutableRequestGuard {
                     + "(?=.*(?:什么|哪些|怎样|怎么|如何|区别|情况|会|[？?])).*",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
+    private static final Pattern MULTI_TURN_RECOGNITION_CAPABILITY_QUESTION = Pattern.compile(
+            "(?=.*(?:你能|能否|是否能|支不支持|支持))"
+                    + "(?=.*(?:识别|理解|处理))"
+                    + "(?=.*(?:连续|多轮|上下文))"
+                    + "(?=.*(?:文件操作|操作))"
+                    + "(?=.*(?:吗|么|如何|怎样|怎么|[？?])).*",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
+    private static final Pattern CONSULTATION_ONLY_CAPABILITY_QUESTION = Pattern.compile(
+            "(?=.*(?:只想|只是|仅想|仅仅想).{0,8}(?:咨询|了解|问问))"
+                    + "(?=.*(?:不执行|不操作|不改动|不修改))"
+                    + "(?=.*(?:你能|你可以|能否|可以).{0,12}(?:怎么|怎样|如何|哪些|什么).{0,12}(?:帮忙|帮助|协助|提供)).*",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
     private static final Pattern HYPOTHETICAL_QUESTION_CUE = Pattern.compile(
             "(?:通常会|会|将会|应该|需要).{0,20}(?:怎样|怎么|如何|是否|确认)|"
                     + "(?:怎样|怎么|如何|是否).{0,20}(?:确认|处理|执行)",
@@ -371,6 +385,24 @@ final class NonExecutableRequestGuard {
                     "NEW_TASK",
                     "RESPOND",
                     "我可以说明文件操作如何补充目标、展示步骤并等待确认；这次只解释流程，不会提交变更。"
+            ));
+        }
+        if (MULTI_TURN_RECOGNITION_CAPABILITY_QUESTION.matcher(guardedValue).matches()) {
+            return Optional.of(new Decision(
+                    "multi_turn_recognition_capability_question",
+                    "assistant_capability_examples",
+                    "NEW_TASK",
+                    "RESPOND",
+                    "我可以说明连续多轮对话中怎样保留文件操作上下文；这次只做能力说明，不会提交变更。"
+            ));
+        }
+        if (CONSULTATION_ONLY_CAPABILITY_QUESTION.matcher(guardedValue).matches()) {
+            return Optional.of(new Decision(
+                    "consultation_only_capability_question",
+                    "assistant_capability_examples",
+                    "NEW_TASK",
+                    "RESPOND",
+                    "我可以提供能力范围、可选操作和安全确认方式的说明；这次只做咨询，不会提交变更。"
             ));
         }
         if (CONTRADICTORY_PRESERVATION.matcher(guardedValue).find()) {
