@@ -59,9 +59,10 @@ foreach ($scenarioFile in @($context.ScenarioFile, $context.StressScenarioFile))
 Write-Host '[OK] Baseline and stress scenario JSON are valid and non-empty.'
 
 $validIntentIds = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
-[void]$validIntentIds.Add('fallback')
-foreach ($rule in @(Import-Csv (Join-Path $context.RepositoryRoot 'rag/src/main/resources/rag/conversation/intent_rules.csv'))) {
-    [void]$validIntentIds.Add([string]$rule.intent_id)
+foreach ($intent in @((Get-Content -LiteralPath `
+        (Join-Path $context.RepositoryRoot 'rag/src/main/resources/rag/conversation/intents.json') `
+        -Raw -Encoding UTF8 | ConvertFrom-Json).intents)) {
+    [void]$validIntentIds.Add([string]$intent.id)
 }
 $recognitionIds = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
 $singleTurnMessages = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)

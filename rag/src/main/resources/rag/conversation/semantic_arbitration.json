@@ -14,6 +14,7 @@
     "assistant_errand_unsupported",
     "assistant_product_info",
     "assistant_product_reason",
+    "assistant_execution_explanation",
     "assistant_product_feedback",
     "assistant_file_context_question",
     "file_search",

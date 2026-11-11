@@ -199,6 +199,19 @@
       }
     },
     {
+      "id": "execution.explanation",
+      "group": "assistant_safety",
+      "phase": 1,
+      "message": "为什么识别出我的意图后还需要我确认",
+      "expected": {
+        "intentId": "assistant_execution_explanation",
+        "nextAction": "respond_only",
+        "actionDraftType": "none",
+        "risk": "none",
+        "requiresConfirmation": false
+      }
+    },
+    {
       "id": "fallback.out_of_scope",
       "group": "fallback",
       "phase": 1,

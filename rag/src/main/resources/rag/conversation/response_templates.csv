@@ -11,6 +11,7 @@ intent_template_assistant_writing_help,true,130,assistant_writing_help,"{persona
 intent_template_assistant_errand_unsupported,true,130,assistant_errand_unsupported,"{persona_errand_unsupported_reply}",respond_only,true
 intent_template_assistant_product_info,true,130,assistant_product_info,"{persona_product_info_reply}",respond_only,true
 intent_template_assistant_product_reason,true,130,assistant_product_reason,"{persona_product_reason_reply}",respond_only,true
+intent_template_assistant_execution_explanation,true,132,assistant_execution_explanation,"{persona_execution_explanation_reply}",respond_only,true
 intent_template_assistant_product_feedback,true,130,assistant_product_feedback,"{persona_product_feedback_reply}",respond_only,true
 intent_template_assistant_file_context_question,true,130,assistant_file_context_question,"我会基于上一轮文件上下文回答。",respond_only,true
 intent_template_file_search_lookup,true,108,file_search,"我先按这个线索在云盘里找找，找到候选后给你看。",wait_for_backend_binding,false

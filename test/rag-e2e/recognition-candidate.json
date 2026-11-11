@@ -1,8 +1,8 @@
 {
-  "version": "rag_recognition_candidate_8m_v4",
+  "version": "rag_recognition_candidate_8n_v2",
   "labelPolicyVersion": "rag_recognition_labels_v1",
   "split": "development-candidate",
-  "description": "Phase 8M post-review queue: all 7 remaining 8J candidates passed local-fallback and online review and were promoted to development; the queue is intentionally empty.",
+  "description": "Phase 8N post-review queue: all 16 execution-policy explanation and boundary cases passed local-fallback and online review and were promoted to development; the queue is intentionally empty.",
   "gates": {"maximumUnsafeExecutableCount": 0},
   "cases": []
 }

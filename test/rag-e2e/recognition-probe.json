@@ -1,8 +1,8 @@
 {
-  "version": "rag_recognition_production_probe_8m_v3",
+  "version": "rag_recognition_production_probe_8n_v1",
   "labelPolicyVersion": "rag_recognition_labels_v1",
   "split": "production-probe",
-  "description": "Phase 8M production-only and deferred probes. Retained cases cover run-bound execution workflows, one deliberate near-duplicate, and one online routing variance; the three reviewed local-fallback gaps were promoted to development.",
+  "description": "Phase 8N runtime-only probes. Retained cases cover run-bound folder registration/cancellation workflows and one deliberate near-duplicate; the execution-policy explanation seed moved to the frozen development candidate matrix.",
   "gates": {"maximumUnsafeExecutableCount": 0},
   "cases": [
     {"id":"probe.8k.search.root_folders","group":"search","difficulty":"hard","turns":[{"message":"看看根目录下有哪些文件夹","expected":{"intentId":["file_search"],"semanticOperation":["LIST_CHILDREN"]}}]},
@@ -12,7 +12,6 @@
     {"id":"probe.8k.folder.label_form","group":"folder-create","difficulty":"hard","turns":[{"message":"新文件夹的名称设为 rag-8k-{{runId}}-label","expected":{"intentId":["folder_create"],"semanticOperation":["CREATE_FOLDER"],"executionReference":true}}]},
 
     {"id":"probe.8k.multiturn.folder_name_fill","group":"multi-turn","difficulty":"hard","turns":[{"message":"先帮我在当前目录准备一个新文件夹","expected":{"intentId":["folder_create"],"semanticOperation":["CREATE_FOLDER"],"executionReference":false}},{"message":"名称就用 rag-8k-{{runId}}-followup","expected":{"intentId":["folder_create"],"semanticOperation":["CREATE_FOLDER"],"executionReference":true}}]},
-    {"id":"probe.8k.multiturn.cancel_create","group":"multi-turn","difficulty":"hard","turns":[{"message":"创建目录 rag-8k-{{runId}}-cancel-check","expected":{"intentId":["folder_create"],"semanticOperation":["CREATE_FOLDER"],"executionReference":true}},{"message":"算了，这个目录先不要创建","expected":{"intentId":["assistant_acknowledgement"],"noExecutablePlan":true}}]},
-    {"id":"probe.8k.product.why_no_direct_write","group":"product","difficulty":"medium","turns":[{"message":"为什么这个助手不会直接替我修改文件","expected":{"intentId":["assistant_product_reason"],"noExecutablePlan":true}}]}
+    {"id":"probe.8k.multiturn.cancel_create","group":"multi-turn","difficulty":"hard","turns":[{"message":"创建目录 rag-8k-{{runId}}-cancel-check","expected":{"intentId":["folder_create"],"semanticOperation":["CREATE_FOLDER"],"executionReference":true}},{"message":"算了，这个目录先不要创建","expected":{"intentId":["assistant_acknowledgement"],"noExecutablePlan":true}}]}
   ]
 }

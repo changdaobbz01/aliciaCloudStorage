@@ -1239,6 +1239,7 @@ public class IntentRecognitionService {
         values.put("persona_errand_unsupported_reply", persona.path("errandUnsupportedReply").asText(""));
         values.put("persona_product_info_reply", persona.path("productInfoReply").asText(""));
         values.put("persona_product_reason_reply", persona.path("productReasonReply").asText(""));
+        values.put("persona_execution_explanation_reply", persona.path("executionExplanationReply").asText(""));
         values.put("persona_product_feedback_reply", persona.path("productFeedbackReply").asText(""));
         return Map.copyOf(values);
     }

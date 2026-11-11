@@ -51,6 +51,21 @@ final class NonExecutableRequestGuard {
                     + "(?:流程|步骤|规则|机制|方式|内容|事项).{0,6}确认)).*",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
+    private static final Pattern EXECUTION_POLICY_EXPLANATION = Pattern.compile(
+            "(?:"
+                    + "(?=.*(?:为什么|为何|原因|解释|说明|是为了))"
+                    + "(?=.*(?:直接.{0,10}(?:修改|改动|执行|操作)|"
+                    + "(?:意图|识别).{0,18}(?:确认|执行|分开)|"
+                    + "(?:文件操作|创建文件夹|删除文件|任务).{0,18}(?:确认|执行|待确认|关闭)|"
+                    + "(?:确认|待确认).{0,18}(?:执行|任务|状态)|"
+                    + "(?:不确认|未确认|没有确认|超时).{0,18}(?:执行|关闭|任务)))"
+                    + "|(?=.*(?:不确认|未确认|没有确认|超时))"
+                    + "(?=.*(?:任务|执行|关闭))"
+                    + "(?=.*(?:会不会|是否|为什么|为何|怎样|怎么|如何|吗|呢|[？?]))"
+                    + "|(?=.*(?:why|explain))(?=.*(?:file changes?|file operations?|confirmation|confirm|execute|immediately))"
+                    + ").*",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
     private static final Pattern OPERATION_CAPABILITY_QUESTION = Pattern.compile(
             "(?=.*(?:删除|删掉|清理|移除|移动|归档|重命名|改名|分享|上传|新建|创建))"
                     + "(?=.*(?:之前|以前|执行前|操作前|过程中|流程|步骤|规则|机制|"
@@ -246,6 +261,15 @@ final class NonExecutableRequestGuard {
                     "NEW_TASK",
                     "RESPOND",
                     "这段内容只会作为文本进行解释，不会把其中的字段或命令当成文件操作。"
+            ));
+        }
+        if (EXECUTION_POLICY_EXPLANATION.matcher(guardedValue).matches()) {
+            return Optional.of(new Decision(
+                    "execution_policy_explanation",
+                    "assistant_execution_explanation",
+                    "NEW_TASK",
+                    "RESPOND",
+                    "文件变更会把意图识别和实际执行分开：我先整理目标、范围和步骤，只有你明确确认后，云端任务才会执行。未确认或超时的任务不会改动文件，这样既能避免误操作，也便于取消和审计。"
             ));
         }
         if (OPERATION_PROCESS_QUESTION.matcher(guardedValue).matches()

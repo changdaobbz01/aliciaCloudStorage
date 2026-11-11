@@ -16,6 +16,7 @@
     "assistant_errand_unsupported",
     "assistant_product_info",
     "assistant_product_reason",
+    "assistant_execution_explanation",
     "assistant_product_feedback",
     "assistant_file_context_question",
     "file_search",
@@ -296,6 +297,21 @@
         "建议增加一些功能",
         "云盘功能太少了",
         "我想吐槽一下功能不够"
+      ]
+    },
+    {
+      "id": "assistant_execution_explanation",
+      "intentId": "assistant_execution_explanation",
+      "actionDraftType": "none",
+      "risk": "none",
+      "requiredEntities": [],
+      "templates": [
+        "为什么识别意图后还需要确认",
+        "为什么不会直接修改文件",
+        "文件操作为什么不能马上执行",
+        "为什么要把识别和执行分开",
+        "未确认的任务会自己执行吗",
+        "超时没有确认时任务为什么会关闭"
       ]
     },
     {

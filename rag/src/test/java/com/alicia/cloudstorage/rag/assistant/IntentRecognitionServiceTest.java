@@ -1365,6 +1365,27 @@ class IntentRecognitionServiceTest {
     }
 
     @Test
+    void localFallbackKeepsExecutionExplanationBoundariesDistinct() {
+        IntentModelClient unavailableClient = message -> Optional.empty();
+        IntentRecognitionService service = new IntentRecognitionService(unavailableClient, intentRouter, configLoader);
+
+        IntentRecognitionResponse feedback = service.recognize("这个确认流程太麻烦了，希望能更简洁");
+        IntentRecognitionResponse capability = service.recognize("你能举例说说可以怎么帮我整理文件吗");
+        IntentRecognitionResponse productInfo = service.recognize("Alicia 目前支持哪些文件操作");
+        IntentRecognitionResponse productReason = service.recognize("为什么要选择 Alicia 云盘");
+
+        assertThat(feedback.intentId()).isEqualTo("assistant_product_feedback");
+        assertThat(capability.intentId()).isEqualTo("assistant_capability_examples");
+        assertThat(productInfo.intentId()).isEqualTo("assistant_product_info");
+        assertThat(productReason.intentId()).isEqualTo("assistant_product_reason");
+        assertThat(List.of(feedback, capability, productInfo, productReason)).allSatisfy(response -> {
+            assertThat(response.actionDraft().type()).isEqualTo("none");
+            assertThat(response.executionReference()).isNull();
+            assertThat(response.nextAction()).isEqualTo("respond_only");
+        });
+    }
+
+    @Test
     void configuredCapabilityBoundaryPreventsModelMisclassificationAndExecutionDraft() {
         AtomicInteger modelCalls = new AtomicInteger();
         IntentModelClient modelClient = message -> {
@@ -1514,6 +1535,44 @@ class IntentRecognitionServiceTest {
             assertThat(response.executionReference()).isNull();
             assertThat(response.nextAction()).isIn("respond_only", "ask_clarification");
             assertThat(response.semanticFrame().operation()).isIn("RESPOND", "UNKNOWN");
+        });
+    }
+
+    @Test
+    void executionPolicyExplanationBypassesMutationModelAndNeverCreatesAPlan() {
+        AtomicInteger modelCalls = new AtomicInteger();
+        IntentModelClient overEagerModel = request -> {
+            modelCalls.incrementAndGet();
+            return Optional.of(new IntentModelClient.ModelIntentResult(
+                    "deepseek",
+                    "deepseek-v4-flash",
+                    "deepseek_semantic_frame_v2",
+                    "semantic_frame_v2",
+                    Map.of(
+                            "intent_id", "file_delete",
+                            "confidence", 0.99,
+                            "entities", Map.of("target_name", "错误目标.pdf")
+                    )
+            ));
+        };
+        IntentRecognitionService service = new IntentRecognitionService(overEagerModel, intentRouter, configLoader);
+
+        List<IntentRecognitionResponse> responses = List.of(
+                service.recognize("为什么这个助手不会直接替我修改文件"),
+                service.recognize("删除文件时为什么必须先让我确认"),
+                service.recognize("为什么要把意图识别和实际执行分开"),
+                service.recognize("如果我一直不确认，任务会不会自己执行"),
+                service.recognize("Why don't you execute file operations immediately")
+        );
+
+        assertThat(modelCalls).hasValue(0);
+        assertThat(responses).allSatisfy(response -> {
+            assertThat(response.intentId()).isEqualTo("assistant_execution_explanation");
+            assertThat(response.nextAction()).isEqualTo("respond_only");
+            assertThat(response.actionDraft().type()).isEqualTo("none");
+            assertThat(response.executionReference()).isNull();
+            assertThat(response.semanticFrame().operation()).isEqualTo("RESPOND");
+            assertThat(response.assistantText()).contains("确认").contains("不会改动文件");
         });
     }
 

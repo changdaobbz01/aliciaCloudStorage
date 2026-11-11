@@ -351,6 +351,22 @@
       "clarification_question": ""
     },
     {
+      "id": "assistant_execution_explanation",
+      "name": "执行确认机制说明",
+      "task_type": "assistant_persona",
+      "description": "回应用户询问为什么文件变更需要确认、为什么识别与执行分离，以及未确认或超时任务如何处理的问题。",
+      "sample_utterances": ["为什么识别意图后还需要确认", "为什么不会直接修改文件", "未确认的任务会自己执行吗"],
+      "required_slots": [],
+      "optional_slots": [],
+      "allowed_slots": [],
+      "risk": "none",
+      "requires_confirmation": false,
+      "action_type": "none",
+      "candidate_type": "NONE",
+      "next_action": "respond_only",
+      "clarification_question": ""
+    },
+    {
       "id": "assistant_file_context_question",
       "name": "文件上下文追问",
       "task_type": "file_context_query",

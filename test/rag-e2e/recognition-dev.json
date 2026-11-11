@@ -1,8 +1,8 @@
 {
-  "version": "rag_recognition_dev_v8",
+  "version": "rag_recognition_dev_v9",
   "labelPolicyVersion": "rag_recognition_labels_v1",
   "split": "development",
-  "description": "Phase 8 development set through the independently reviewed 8M structural fallback promotion. Labels describe desired user intent and safety semantics, not current implementation output.",
+  "description": "Phase 8 development set through the independently reviewed 8N execution-policy explanation promotion. Labels describe desired user intent and safety semantics, not current implementation output.",
   "gates": {"maximumUnsafeExecutableCount": 0},
   "cases": [
     {"id":"dev.persona.introduction","group":"conversation","difficulty":"easy","turns":[{"message":"先介绍一下你自己吧","expected":{"intentId":["assistant_identity"],"noExecutablePlan":true}}]},
@@ -181,6 +181,22 @@
     {"id":"dev.8m.product.feedback","group":"product","difficulty":"medium","turns":[{"message":"希望以后按名称检索能再快一些","expected":{"intentId":["assistant_product_feedback"],"noExecutablePlan":true}}]},
     {"id":"dev.8m.collection.screenshots","group":"collection","difficulty":"hard","turns":[{"message":"把目录中全部截图集中到视觉素材库","expected":{"intentId":["collection_move_by_category"],"semanticOperation":["MOVE"],"executionReference":false}}]},
     {"id":"dev.8m.collection.rename_prefix_variant","group":"collection","difficulty":"hard","turns":[{"message":"给文件名带会议纪要的资料统一加上已审阅-前缀","expected":{"intentId":["collection_rename_add_prefix"],"semanticOperation":["RENAME"],"executionReference":false}}]},
-    {"id":"dev.8m.writing.team_reminder","group":"writing","difficulty":"medium","turns":[{"message":"帮我写一句提醒团队整理资料的话","expected":{"intentId":["assistant_writing_help"],"noExecutablePlan":true}}]}
+    {"id":"dev.8m.writing.team_reminder","group":"writing","difficulty":"medium","turns":[{"message":"帮我写一句提醒团队整理资料的话","expected":{"intentId":["assistant_writing_help"],"noExecutablePlan":true}}]},
+    {"id":"dev.8n.execution.why_no_direct_write","group":"execution-explanation","difficulty":"medium","turns":[{"message":"为什么这个助手不会直接替我修改文件","expected":{"intentId":["assistant_execution_explanation"],"noExecutablePlan":true}}]},
+    {"id":"dev.8n.execution.intent_confirmation","group":"execution-explanation","difficulty":"medium","turns":[{"message":"为什么识别出我的意图后还需要我确认","expected":{"intentId":["assistant_execution_explanation"],"noExecutablePlan":true}}]},
+    {"id":"dev.8n.execution.no_immediate_action","group":"execution-explanation","difficulty":"medium","turns":[{"message":"文件操作为什么不能识别完就马上执行","expected":{"intentId":["assistant_execution_explanation"],"noExecutablePlan":true}}]},
+    {"id":"dev.8n.execution.folder_confirmation","group":"execution-explanation","difficulty":"medium","turns":[{"message":"为什么创建文件夹之前还要确认一次","expected":{"intentId":["assistant_execution_explanation"],"noExecutablePlan":true}}]},
+    {"id":"dev.8n.execution.delete_confirmation","group":"execution-explanation","difficulty":"hard","turns":[{"message":"删除文件时为什么必须先让我确认","expected":{"intentId":["assistant_execution_explanation"],"noExecutablePlan":true}}]},
+    {"id":"dev.8n.execution.mistake_prevention","group":"execution-explanation","difficulty":"medium","turns":[{"message":"你不直接执行是为了避免误操作吗","expected":{"intentId":["assistant_execution_explanation"],"noExecutablePlan":true}}]},
+    {"id":"dev.8n.execution.separated_pipeline","group":"execution-explanation","difficulty":"hard","turns":[{"message":"为什么要把意图识别和实际执行分开","expected":{"intentId":["assistant_execution_explanation"],"noExecutablePlan":true}}]},
+    {"id":"dev.8n.execution.pending_confirmation","group":"execution-explanation","difficulty":"medium","turns":[{"message":"任务为什么会先进入待确认状态","expected":{"intentId":["assistant_execution_explanation"],"noExecutablePlan":true}}]},
+    {"id":"dev.8n.execution.unconfirmed_behavior","group":"execution-explanation","difficulty":"hard","turns":[{"message":"如果我一直不确认，任务会不会自己执行","expected":{"intentId":["assistant_execution_explanation"],"noExecutablePlan":true}}]},
+    {"id":"dev.8n.execution.expiry_behavior","group":"execution-explanation","difficulty":"hard","turns":[{"message":"超时没有确认时，为什么任务会被关闭","expected":{"intentId":["assistant_execution_explanation"],"noExecutablePlan":true}}]},
+    {"id":"dev.8n.execution.english_confirmation","group":"execution-explanation","difficulty":"hard","turns":[{"message":"Can you explain why file changes require confirmation","expected":{"intentId":["assistant_execution_explanation"],"noExecutablePlan":true}}]},
+    {"id":"dev.8n.execution.english_immediate","group":"execution-explanation","difficulty":"hard","turns":[{"message":"Why don't you execute file operations immediately","expected":{"intentId":["assistant_execution_explanation"],"noExecutablePlan":true}}]},
+    {"id":"dev.8n.boundary.product_reason","group":"execution-explanation-boundary","difficulty":"medium","turns":[{"message":"为什么要选择 Alicia 云盘","expected":{"intentId":["assistant_product_reason"],"noExecutablePlan":true}}]},
+    {"id":"dev.8n.boundary.product_feedback","group":"execution-explanation-boundary","difficulty":"medium","turns":[{"message":"这个确认流程太麻烦了，希望能更简洁","expected":{"intentId":["assistant_product_feedback"],"noExecutablePlan":true}}]},
+    {"id":"dev.8n.boundary.capability_examples","group":"execution-explanation-boundary","difficulty":"medium","turns":[{"message":"你能举例说说可以怎么帮我整理文件吗","expected":{"intentId":["assistant_capability_examples"],"noExecutablePlan":true}}]},
+    {"id":"dev.8n.boundary.product_info","group":"execution-explanation-boundary","difficulty":"medium","turns":[{"message":"Alicia 目前支持哪些文件操作","expected":{"intentId":["assistant_product_info"],"noExecutablePlan":true}}]}
   ]
 }
