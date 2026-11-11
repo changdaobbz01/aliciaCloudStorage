@@ -165,3 +165,11 @@ candidate 保留 7 turns，production-probe 保留 13 turns。最终本地回退
 development 与封存 holdout 的来源提交，本轮显式携带未变化的历史 holdout 证据，没有重跑 holdout。
 完整时序与证据见
 [阶段 8L 样本晋升独立评审闭环日志](PHASE_8L_SAMPLE_PROMOTION_REVIEW_LOG_2026-11-11.md)。
+
+阶段 8M 已于 2026-11-11 完成上述 10 项本地兜底结构缺口修复。修复集中在类别别名、通用扩展名动作词、
+名称谓词、精确文件边界、自然目录查询和非执行会话/写作/反馈路由，没有新增原句特例。7 项 candidate 与
+3 项可泛化 probe 经本地兜底和在线双通道验证后晋升，development 扩大到 177 turns，candidate 清空，
+production-probe 仅保留 10 个运行时、近重复或在线波动 turns。本地 development 为 177/177；连续三轮
+在线 development 均为 177/177，意图、操作和完整契约结果零漂移，unsafe=0。封存 holdout 未运行，
+87 项执行契约继续全部通过，生产仍保持 `admin-single + RAG_ADMIN + FOLDER_CREATE`。完整证据见
+[阶段 8M 本地识别结构缺口闭环日志](PHASE_8M_LOCAL_RECOGNITION_GAP_CLOSURE_LOG_2026-11-11.md)。
