@@ -41,6 +41,13 @@ pwsh -File test/rag-e2e/start-local.ps1
 pwsh -File test/rag-e2e/run-evaluation.ps1
 ```
 
+需要测量真实本地兜底且禁止消耗 DeepSeek 在线额度时，使用显式离线开关。该开关只覆盖本次隔离栈的
+容器环境，不修改 `.env.local` 中保存的真实 key：
+
+```powershell
+pwsh -File test/rag-e2e/start-local.ps1 -DisableOnlineRecognition
+```
+
 基线通过后可运行独立的高压套件，或一次串行运行两套场景：
 
 ```powershell

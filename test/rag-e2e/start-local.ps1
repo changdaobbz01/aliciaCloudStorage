@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
-    [switch]$SkipBuild
+    [switch]$SkipBuild,
+    [switch]$DisableOnlineRecognition
 )
 
 $ErrorActionPreference = 'Stop'
@@ -8,6 +9,13 @@ $ErrorActionPreference = 'Stop'
 
 $context = Get-RagE2EContext
 Import-RagE2EEnv -Path $context.EnvFile
+if ($DisableOnlineRecognition) {
+    [System.Environment]::SetEnvironmentVariable(
+        'DEEPSEEK_API_KEY',
+        'local-evaluation-disabled-key',
+        'Process'
+    )
+}
 
 $identityBaseUrl = Assert-RagE2EEnvValue -Name 'ALICIA_RAG_E2E_IDENTITY_BASE_URL'
 [void](Assert-RagE2EEnvValue -Name 'ALICIA_RAG_E2E_TOKEN_ISSUER')
@@ -55,6 +63,10 @@ if (-not $SkipBuild) {
     $upArguments += '--build'
 }
 Invoke-RagE2ENative -Command 'docker' -Arguments $upArguments
+
+if ($DisableOnlineRecognition) {
+    Write-Host '[OK] DeepSeek online recognition is disabled for this isolated stack.'
+}
 
 $apiPort = Get-RagE2EEnvValue -Name 'ALICIA_RAG_E2E_API_PORT'
 $ragPort = Get-RagE2EEnvValue -Name 'ALICIA_RAG_E2E_RAG_PORT'
