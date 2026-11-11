@@ -1,6 +1,6 @@
 {
   "schemaVersion": "rag_recognition_error_analysis_v1",
-  "generatedAt": "2026-11-10T16:15:07.4523487+08:00",
+  "generatedAt": "2026-11-11T10:33:14.3870349+08:00",
   "taxonomyVersion": "rag_recognition_error_taxonomy_2026_10_21",
   "taxonomyHash": "09953de6d594b2a47e596fc135d31453a382ae60c08386db1fefc1a8e4105fdf",
   "metrics": {
@@ -14,10 +14,10 @@
     "unsafeExecutableCount": 0
   },
   "stability": {
-    "sourceRevision": "d54eaa6706aef4b36ece99e8cb837c7cfbf58c20",
+    "sourceRevision": "b8a41119b6e4d20bb8723d41804b8f28c9858aee",
     "runCount": 3,
-    "datasetHash": "13d7d79f8ea14bc040c5488b0ff605933c65f2ffdc498fdd98639b5b75143c4a",
-    "totalTurns": 110,
+    "datasetHash": "64a4206e4758aec5445772b2167bc3b1e34d91fdb58b48e492f7d5f6215ae621",
+    "totalTurns": 167,
     "varianceCount": 5
   },
   "accuracyErrorCount": 1,
@@ -96,27 +96,6 @@
       ]
     },
     {
-      "key": "dev.boundary.external_resource#1",
-      "group": "boundary",
-      "category": "arbitration_path_variance",
-      "severity": "info",
-      "intentStable": true,
-      "operationStable": true,
-      "pathStable": false,
-      "exactStable": true,
-      "exactCorrectRuns": 3,
-      "recognitionPaths": [
-        {
-          "value": "deepseek",
-          "count": 1
-        },
-        {
-          "value": "local_policy",
-          "count": 2
-        }
-      ]
-    },
-    {
       "key": "dev.collection.delete_name#1",
       "group": "collection",
       "category": "arbitration_path_variance",
@@ -129,11 +108,11 @@
       "recognitionPaths": [
         {
           "value": "deepseek",
-          "count": 2
+          "count": 1
         },
         {
           "value": "local_policy",
-          "count": 1
+          "count": 2
         }
       ]
     },
@@ -155,6 +134,27 @@
         {
           "value": "local_policy",
           "count": 2
+        }
+      ]
+    },
+    {
+      "key": "dev.product.support#1",
+      "group": "product",
+      "category": "arbitration_path_variance",
+      "severity": "info",
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": false,
+      "exactStable": true,
+      "exactCorrectRuns": 3,
+      "recognitionPaths": [
+        {
+          "value": "deepseek",
+          "count": 2
+        },
+        {
+          "value": "local_policy",
+          "count": 1
         }
       ]
     }
