@@ -48,7 +48,13 @@ final class OperationArgumentResolver {
                     + "另一个(?:文件|文件夹)?|剩下的(?:文件|文件夹)?)$"
     );
     private static final Pattern MOVE_SPLIT = Pattern.compile(
-            "^(.*?)(?:移动到|移到|挪到|转移到|搬到|归档到|放到|移动至|移至|挪至|转移至|搬至|归档至|放进)(.+)$"
+            "^(.*?)"
+                    + "(?:移动到|移到|挪到|转移到|搬到|归档到|放到|移动至|移至|挪至|转移至|搬至|归档至|放进)"
+                    + "(.+)$"
+    );
+    private static final Pattern ENGLISH_MOVE_SPLIT = Pattern.compile(
+            "^(?:please\\s+)?move\\s+(.+?)\\s+to\\s+(.+)$",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
     private static final Pattern MOVE_LEADING_SPLIT = Pattern.compile(
             "^(?:移动|搬|挪)(?:一下)?(.+?)(?:到|至|进)(.+)$"
@@ -79,7 +85,7 @@ final class OperationArgumentResolver {
         return switch (normalizedOperation) {
             case "SHARE" -> parseSingleSource(text, normalizedOperation, this::shareSource);
             case "DELETE" -> parseSingleSource(text, normalizedOperation, this::deleteSource);
-            case "MOVE" -> parseMove(text);
+            case "MOVE" -> parseMove(text, normalizePreservingSpaces(message));
             case "RENAME" -> parseRename(text);
             case "UPLOAD" -> parseUpload(text);
             default -> Optional.empty();
@@ -99,7 +105,22 @@ final class OperationArgumentResolver {
         return Optional.of(resolution(operation, source, Destination.empty(), "", false));
     }
 
-    private Optional<Resolution> parseMove(String text) {
+    private Optional<Resolution> parseMove(String text, String spacedText) {
+        Matcher english = ENGLISH_MOVE_SPLIT.matcher(spacedText);
+        if (english.matches()) {
+            String sourceSurface = stripObjectPrefix(english.group(1));
+            String destinationSurface = cleanDestination(english.group(2));
+            if (sourceSurface.isBlank() || destinationSurface.isBlank()) {
+                return Optional.empty();
+            }
+            return Optional.of(resolution(
+                    "MOVE",
+                    parseNodeSelector(sourceSurface),
+                    destination(destinationSurface),
+                    "",
+                    false
+            ));
+        }
         Matcher matcher = MOVE_SPLIT.matcher(stripCourtesy(text));
         if (!matcher.matches()) {
             matcher = MOVE_LEADING_SPLIT.matcher(stripCourtesy(text));
@@ -600,6 +621,12 @@ final class OperationArgumentResolver {
         return value == null
                 ? ""
                 : value.trim().replaceAll("[，。！？!?；;]+$", "").replaceAll("\\s+", "");
+    }
+
+    private String normalizePreservingSpaces(String value) {
+        return value == null
+                ? ""
+                : value.trim().replaceAll("[，。！？!?；;]+$", "").replaceAll("\\s+", " ");
     }
 
     enum NameKind {

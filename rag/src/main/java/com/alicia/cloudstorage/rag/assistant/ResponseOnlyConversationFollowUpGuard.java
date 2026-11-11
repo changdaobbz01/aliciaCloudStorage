@@ -14,12 +14,20 @@ final class ResponseOnlyConversationFollowUpGuard {
                     + "搜索|查找|检索|列出|打开|进入|delete|remove|move|rename|share|upload|create|search|find)",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
+    private static final Pattern EXECUTION_CONFIRMATION = Pattern.compile(
+            "^(?:好|好的|行|可以)[，,]?(?:那)?(?:就)?(?:这么|这样|照此)?执行(?:吧)?[。！!]*$",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
     private static final Pattern PERSONAL_STATE_FOLLOW_UP = Pattern.compile(
             "(?=.*(?:我|今天|最近|昨晚|现在))(?=.*(?:忙|累|还好|一般|心情|状态|开心|难过|烦|闷|没睡好|脑子.*乱)).*",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
     private static final Pattern CHAT_CONTINUATION = Pattern.compile(
             "(?:(?=.*(?:听我|陪我|和我))(?=.*(?:说|聊))|(?=.*(?:不用|不要).{0,8}(?:方案|建议))(?=.*(?:听|聊))).*",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
+    private static final Pattern LOW_PRESSURE_CHAT_FOLLOW_UP = Pattern.compile(
+            "(?=.*(?:只是|就是|先|暂时).{0,8}(?:了解|问问|看看))(?=.*(?:不着急|慢慢来|先不操作|暂时不操作)).*",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
     private static final Pattern ACKNOWLEDGEMENT = Pattern.compile(
@@ -89,8 +97,20 @@ final class ResponseOnlyConversationFollowUpGuard {
                     "明白，这是对现有体验的补充反馈，我只会记录和回应建议，不会直接修改流程。"
             );
         }
+        if (EXECUTION_CONFIRMATION.matcher(value).matches()) {
+            return Optional.empty();
+        }
         if (FILE_OPERATION_REQUEST.matcher(value).find()) {
             return Optional.empty();
+        }
+        if (isResponseOnlyIntent(conversation.pendingIntentId())
+                && (matches(PERSONAL_STATE_FOLLOW_UP, value)
+                || matches(LOW_PRESSURE_CHAT_FOLLOW_UP, value))) {
+            return decision(
+                    "response_only_to_personal_chat",
+                    "assistant_chat",
+                    "可以，我们先不做文件操作。你可以按自己的节奏继续聊。"
+            );
         }
         if (isResponseOnlyIntent(conversation.pendingIntentId()) && matches(ACKNOWLEDGEMENT, value)) {
             return decision(

@@ -85,6 +85,31 @@ class ContextualOperationFollowUpGuardTest {
         assertThat(guard.evaluate("就照刚才说的执行", interrupted)).isEmpty();
     }
 
+    @Test
+    void explicitlyReturnsToASuspendedSearchAndReplacesItsQuery() {
+        AssistantConversationFocus suspended = new AssistantConversationFocus(
+                "operation",
+                "file_search",
+                "search",
+                Map.of("target_name", "测试", "scope", "current"),
+                null,
+                null
+        );
+        assertThat(suspended.hasResumableOperationContext()).isTrue();
+        assertThat(suspended.hasOperationContext()).isFalse();
+        AssistantConversationState interrupted = state("assistant_product_feedback", Map.of(), suspended);
+
+        ContextualOperationFollowUpGuard.Decision resumed = guard
+                .evaluate("回到搜索，把关键词改成验收，范围还是全部云盘", interrupted)
+                .orElseThrow();
+
+        assertThat(resumed.intentId()).isEqualTo("file_search");
+        assertThat(resumed.operation()).isEqualTo("SEARCH");
+        assertThat(resumed.entities())
+                .containsEntry("target_name", "验收")
+                .containsEntry("scope", "all");
+    }
+
     private void assertDecision(
             String message,
             AssistantConversationState state,

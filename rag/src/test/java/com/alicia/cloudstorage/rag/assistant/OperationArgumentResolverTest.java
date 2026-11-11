@@ -102,4 +102,16 @@ class OperationArgumentResolverTest {
         assertThat(resolution.source().category()).isEqualTo("AUDIO");
         assertThat(resolution.source().quantifier()).isEqualTo(OperationArgumentResolver.Quantifier.EXPLICIT_ALL);
     }
+
+    @Test
+    void parsesCanonicalEnglishMoveWithoutLosingEitherRole() {
+        OperationArgumentResolver.Resolution resolution = resolver
+                .resolve("move 报价单.pdf to 待发送目录", "MOVE")
+                .orElseThrow();
+
+        assertThat(resolution.source().name()).isEqualTo("报价单.pdf");
+        assertThat(resolution.source().resultType()).isEqualTo("FILE");
+        assertThat(resolution.destination().surface()).isEqualTo("待发送目录");
+        assertThat(resolution.needsClarification()).isFalse();
+    }
 }

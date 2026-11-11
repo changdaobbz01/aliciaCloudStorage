@@ -17,9 +17,21 @@ final class NonExecutableRequestGuard {
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
     private static final Pattern NEGATED_MUTATION = Pattern.compile(
-            "(?:^|[，,。；;])(?:我\\s*)?(?:(?:暂时|目前|现在|当前|这次)\\s*)?(?:先)?"
+            "(?:^|[，,。；;]|但|但是|不过|可是)(?:我\\s*)?(?:(?:暂时|目前|现在|当前|这次)\\s*)?(?:先)?"
                     + "(?:不要|别|不用|无需|不必|并不是要|不是要|并非要)(?:再)?[^，,。；;]{0,16}"
                     + "(?:删除|删(?:掉|了)?|移除|清理|移动|移到|移去|移走|搬到|搬去|挪到|挪去|归档到|重命名|改名|分享|上传|新建|创建)",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
+    private static final Pattern AMBIGUOUS_DOUBLE_NEGATION_MUTATION = Pattern.compile(
+            "(?:不是|并非|也不是).{0,4}(?:不让|不要|不能|不准|不许|不需要).{0,12}"
+                    + "(?:删除|删掉|移除|清理|移动|移到|搬到|挪到|归档到|重命名|改名|分享|上传|新建|创建)",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
+    private static final Pattern INLINE_FINAL_CANCELLATION = Pattern.compile(
+            "(?=.*(?:删除|删掉|移除|清理|移动|移到|搬到|挪到|归档到|重命名|改名|分享|上传|新建|创建))"
+                    + "(?=.*(?:(?:算了|改主意了).{0,12}(?:别|不要|不用|什么都不要)|"
+                    + "(?:但|但是|不过|可是).{0,8}(?:先)?(?:别|不要|不用).{0,12}"
+                    + "(?:删除|删|移动|移|搬|挪|归档|重命名|改名|分享|上传|新建|创建))).*",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
     private static final Pattern HYPOTHETICAL_LEAD = Pattern.compile(
@@ -223,7 +235,9 @@ final class NonExecutableRequestGuard {
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
     private static final Pattern UNRESOLVED_REFERENCE = Pattern.compile(
-            "^(?:请|麻烦)?(?:帮我)?(?:把)?(?:它|这个|那个)(?:文件|文件夹|目录)?(?:给我)?(?:删除|删掉|删了|移除|移动|移到|搬到|挪到|重命名|改名|分享)",
+            "^(?:请|麻烦)?(?:帮我)?(?:把)?(?:(?:最近|刚才|之前|上次)(?:的)?)?"
+                    + "(?:它|这个|那个)(?:文件|文件夹|目录)?(?:给我)?"
+                    + "(?:删除|删掉|删了|移除|移动|移到|搬到|挪到|重命名|改名|分享|放到|放进|放进去)",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
     private static final Pattern MUTATION_REFERENCE = Pattern.compile(
@@ -515,6 +529,24 @@ final class NonExecutableRequestGuard {
                     "NEW_TASK",
                     "RESPOND",
                     "我可以提供能力范围、可选操作和安全确认方式的说明；这次只做咨询，不会提交变更。"
+            ));
+        }
+        if (AMBIGUOUS_DOUBLE_NEGATION_MUTATION.matcher(guardedValue).find()) {
+            return Optional.of(new Decision(
+                    "ambiguous_double_negation_operation",
+                    "fallback",
+                    "NEW_TASK",
+                    "UNKNOWN",
+                    "这句话包含双重否定，我无法安全判断你是否真的要修改文件。请直接说明要执行或不要执行的操作。"
+            ));
+        }
+        if (INLINE_FINAL_CANCELLATION.matcher(guardedValue).matches()) {
+            return Optional.of(new Decision(
+                    "inline_final_cancellation",
+                    "assistant_acknowledgement",
+                    "CANCELLATION",
+                    "RESPOND",
+                    "好的，我按最后的意思取消这项文件操作，不会提交任何变更。"
             ));
         }
         if (CONTRADICTORY_PRESERVATION.matcher(guardedValue).find()) {

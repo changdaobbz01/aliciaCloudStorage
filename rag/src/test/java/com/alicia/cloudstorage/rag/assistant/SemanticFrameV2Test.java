@@ -43,6 +43,47 @@ class SemanticFrameV2Test {
     }
 
     @Test
+    void keepsColloquialAndMixedNamePredicatesAsSearches() {
+        for (String message : java.util.List.of(
+                "找一下文件名里有报销的文件",
+                "search 一下文件名里有 invoice 的 PDF"
+        )) {
+            IntentRecognitionResponse response = service.recognize(message);
+
+            assertThat(response.intentId()).as(message).isEqualTo("file_search");
+            assertThat(response.semanticFrame().operation()).as(message).isEqualTo("SEARCH");
+            assertThat(response.semanticFrame().query().mode()).as(message).isEqualTo("NAME_CONTAINS");
+        }
+    }
+
+    @Test
+    void recognizesInlineFolderNameRepairAndCanonicalEnglishMove() {
+        IntentRecognitionResponse create = service.recognize("新建一个临时资料文件夹，名字改成临时交接");
+        IntentRecognitionResponse move = service.recognize("move 报价单.pdf to 待发送目录");
+
+        assertThat(create.intentId()).isEqualTo("folder_create");
+        assertThat(create.semanticFrame().operation()).isEqualTo("CREATE_FOLDER");
+        assertThat(create.entities()).containsEntry("new_folder_name", "临时交接");
+
+        assertThat(move.intentId()).isEqualTo("node_move");
+        assertThat(move.semanticFrame().operation()).isEqualTo("MOVE");
+        assertThat(move.entities())
+                .containsEntry("target_name", "报价单.pdf")
+                .containsEntry("target_folder", "待发送目录");
+    }
+
+    @Test
+    void recognizesNaturalProductCapabilityAndFeedbackWithoutReusingFileContext() {
+        IntentRecognitionResponse capability = service.recognize("你支持批量整理文件吗");
+        IntentRecognitionResponse feedback = service.recognize("现在的搜索提示还是有点生硬");
+
+        assertThat(capability.intentId()).isEqualTo("assistant_product_info");
+        assertThat(capability.semanticFrame().operation()).isEqualTo("RESPOND");
+        assertThat(feedback.intentId()).isEqualTo("assistant_product_feedback");
+        assertThat(feedback.semanticFrame().operation()).isEqualTo("RESPOND");
+    }
+
+    @Test
     void appliesSharedNamePredicateToDeleteSynonyms() {
         for (String message : java.util.List.of(
                 "删除名称带测试的文件",

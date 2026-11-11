@@ -38,7 +38,8 @@ final class ContextualOperationFollowUpGuard {
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
     private static final Pattern EXPLICIT_RESUME = Pattern.compile(
-            "(?:回到|继续|接着).{0,10}(?:刚才|之前).{0,10}(?:重命名|改名|移动|创建|新建|搜索|查找|上传|删除)",
+            "(?:(?:回到|继续|接着).{0,10}(?:刚才|之前).{0,10}(?:重命名|改名|移动|创建|新建|搜索|查找|上传|删除)|"
+                    + "回到(?:刚才|之前)?(?:的)?(?:搜索|查找|重命名|改名|移动|创建|新建|上传|删除))",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
 
@@ -88,6 +89,8 @@ final class ContextualOperationFollowUpGuard {
         }
         if (message.contains("当前目录")) {
             entities.put("scope", "current");
+        } else if (message.contains("全部云盘") || message.contains("整个云盘") || message.contains("全盘")) {
+            entities.put("scope", "all");
         }
         return decision("search_correction", "file_search", "CORRECTION", "SEARCH", entities);
     }
@@ -159,7 +162,10 @@ final class ContextualOperationFollowUpGuard {
 
     private Optional<OperationContext> suspendedContext(AssistantConversationState conversation) {
         AssistantConversationFocus focus = conversation.focus();
-        if (focus == null || !focus.hasOperationContext() || !supportedIntent(focus.sourceIntentId())) {
+        if (focus == null || !supportedIntent(focus.sourceIntentId())) {
+            return Optional.empty();
+        }
+        if (!focus.hasResumableOperationContext()) {
             return Optional.empty();
         }
         return Optional.of(new OperationContext(focus.sourceIntentId(), focus.entities()));

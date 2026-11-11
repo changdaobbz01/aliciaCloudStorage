@@ -758,6 +758,7 @@ public class SemanticFrameResolver {
             }
         }
         SearchSemantics directoryContents = List.of("UNKNOWN", "SEARCH", "LIST_CHILDREN").contains(frame.operation())
+                && NamePredicateParser.parse(safeMessage).isEmpty()
                 ? parseDirectoryContents(safeMessage, frame.query())
                 : null;
         if (directoryContents != null) {
@@ -819,7 +820,13 @@ public class SemanticFrameResolver {
             );
         }
 
-        if (looksLikeNavigation(safeMessage) && List.of("UNKNOWN", "SEARCH", "NAVIGATE", "OPEN_FILE").contains(frame.operation())) {
+        boolean explicitSearch = TextSupport.containsAny(
+                safeMessage,
+                List.of("查找", "搜索", "检索", "search", "find")
+        ) || NamePredicateParser.parse(safeMessage).isPresent();
+        if (looksLikeNavigation(safeMessage)
+                && !("SEARCH".equals(frame.operation()) && explicitSearch)
+                && List.of("UNKNOWN", "SEARCH", "NAVIGATE", "OPEN_FILE").contains(frame.operation())) {
             if (TextSupport.containsAny(safeMessage, List.of("根目录", "云盘首页"))) {
                 return copyFrame(
                         frame,

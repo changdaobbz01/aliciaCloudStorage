@@ -32,6 +32,8 @@ class ResponseOnlyConversationFollowUpGuardTest {
         assertDecision("为什么现在要保留这么多筛选项", "assistant_product_feedback", "assistant_product_reason");
         assertDecision("补充一下，我说的是移动端搜索页", "assistant_product_feedback", "assistant_product_feedback");
         assertDecision("那你直接从那个网站下载到云盘吧", "assistant_external_resource", "assistant_external_resource");
+        assertDecision("我只是先了解一下，不着急", "assistant_product_info", "assistant_chat");
+        assertDecision("最近通知太多了，有点烦", "assistant_acknowledgement", "assistant_chat");
     }
 
     @Test
@@ -42,6 +44,7 @@ class ResponseOnlyConversationFollowUpGuardTest {
         assertThat(guard.evaluate("不保证准确也可以，你给个结论吧", state("assistant_product_info"))).isEmpty();
         assertThat(guard.evaluate("语气再委婉一些", null)).isEmpty();
         assertThat(guard.evaluate("继续处理它", state("assistant_identity"))).isEmpty();
+        assertThat(guard.evaluate("好，那就这么执行", state("assistant_writing_help"))).isEmpty();
     }
 
     private void assertDecision(String message, String previousIntent, String expectedIntent) {

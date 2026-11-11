@@ -59,7 +59,7 @@ public record AssistantConversationFocus(
             );
         }
 
-        if (isResponseOnly(response) && previous != null && previous.hasOperationContext()) {
+        if (isResponseOnly(response) && previous != null && previous.hasResumableOperationContext()) {
             return previous;
         }
 
@@ -87,6 +87,11 @@ public record AssistantConversationFocus(
                 && !List.of("none", "search").contains(actionType)
                 && sourceIntentId != null
                 && !sourceIntentId.isBlank();
+    }
+
+    public boolean hasResumableOperationContext() {
+        return hasOperationContext()
+                || ("file_search".equals(sourceIntentId) && "search".equalsIgnoreCase(actionType));
     }
 
     public boolean hasSingleCandidateFocus() {
