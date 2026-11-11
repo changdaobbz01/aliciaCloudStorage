@@ -136,7 +136,8 @@ foreach ($caseResult in @($report.cases)) {
                   $fallbackReason.StartsWith('local_guard:') -or
                   $fallbackReason.StartsWith('conversation_follow_up_guard:')) {
             'local_guard'
-        } elseif ($fallbackReason.StartsWith('local_structure:')) {
+        } elseif ($provider -eq 'local_context' -or
+                  $fallbackReason.StartsWith('local_structure:')) {
             'local_structure'
         } elseif ($fallbackReason.StartsWith('model_succeeded:')) {
             'local_policy'

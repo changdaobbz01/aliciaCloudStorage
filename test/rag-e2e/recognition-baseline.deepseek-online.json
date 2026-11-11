@@ -1,37 +1,38 @@
 {
   "schemaVersion": "rag_recognition_baseline_v1",
   "lane": "deepseek-online",
-  "sourceRevision": "fb507b7a0bb0473e0ce7c869c83ef1490bbecf74",
-  "developmentSourceRevision": "fb507b7a0bb0473e0ce7c869c83ef1490bbecf74",
+  "sourceRevision": "c8836e5a5ef5803317218438b5dcb9c2e4995a2b",
+  "developmentSourceRevision": "c8836e5a5ef5803317218438b5dcb9c2e4995a2b",
   "holdoutSourceRevision": "d54eaa6706aef4b36ece99e8cb837c7cfbf58c20",
   "labelPolicyVersion": "rag_recognition_labels_v1",
   "datasetHashes": {
-    "development": "cd3686c35cefa314dbadfdd921b139b5543ad45e5a9a647199244d0aa4a19156",
+    "development": "01d3531834cb02a28ac3d6ffc23810ea3eb1f55c600227e22d472ddd605feda6",
     "holdout": "eebeb9d595799ee049fd5d349d36801b13f59fadd1f1f70a1e8e9aef8639abb7"
   },
   "development": {
-    "datasetVersion": "rag_recognition_dev_v11",
-    "reportRunId": "20261111084034",
-    "totalTurns": 283,
-    "intentCorrect": 283,
+    "datasetVersion": "rag_recognition_dev_v12",
+    "reportRunId": "20261111094345",
+    "totalTurns": 354,
+    "intentCorrect": 354,
     "intentAccuracy": 1.0,
-    "semanticOperationEligible": 120,
-    "semanticOperationCorrect": 120,
+    "semanticOperationEligible": 151,
+    "semanticOperationCorrect": 151,
     "semanticOperationAccuracy": 1.0,
-    "exactContractCorrect": 283,
+    "exactContractCorrect": 354,
     "exactContractAccuracy": 1.0,
     "unsafeExecutableCount": 0,
     "missingResponseCount": 0,
     "infrastructureFailures": 0,
     "recognitionSources": {
-      "deepseek": 171,
-      "local_fallback": 112
+      "deepseek": 191,
+      "local_context": 2,
+      "local_fallback": 161
     },
     "recognitionPaths": {
-      "deepseek": 171,
-      "local_guard": 97,
+      "deepseek": 191,
+      "local_guard": 138,
       "local_policy": 12,
-      "local_structure": 3
+      "local_structure": 13
     },
     "byGroup": [
       {
@@ -80,6 +81,54 @@
         "intentCorrect": 5,
         "intentAccuracy": 1.0,
         "exactCorrect": 5,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "context-cancellation",
+        "total": 15,
+        "intentCorrect": 15,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 15,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "context-correction",
+        "total": 15,
+        "intentCorrect": 15,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 15,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "context-interruption",
+        "total": 15,
+        "intentCorrect": 15,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 15,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "context-long-conversation",
+        "total": 16,
+        "intentCorrect": 16,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 16,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "context-safety",
+        "total": 6,
+        "intentCorrect": 6,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 6,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "context-topic-switch",
+        "total": 4,
+        "intentCorrect": 4,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 4,
         "exactAccuracy": 1.0
       },
       {
@@ -399,22 +448,22 @@
       {
         "expectedIntent": "assistant_acknowledgement",
         "actualIntent": "assistant_acknowledgement",
-        "count": 12
+        "count": 24
       },
       {
         "expectedIntent": "assistant_bored",
         "actualIntent": "assistant_bored",
-        "count": 5
+        "count": 6
       },
       {
         "expectedIntent": "assistant_capability_examples",
         "actualIntent": "assistant_capability_examples",
-        "count": 28
+        "count": 30
       },
       {
         "expectedIntent": "assistant_chat",
         "actualIntent": "assistant_chat",
-        "count": 15
+        "count": 20
       },
       {
         "expectedIntent": "assistant_errand_unsupported",
@@ -424,37 +473,37 @@
       {
         "expectedIntent": "assistant_execution_explanation",
         "actualIntent": "assistant_execution_explanation",
-        "count": 14
+        "count": 16
       },
       {
         "expectedIntent": "assistant_external_resource",
         "actualIntent": "assistant_external_resource",
-        "count": 6
+        "count": 8
       },
       {
         "expectedIntent": "assistant_identity",
         "actualIntent": "assistant_identity",
-        "count": 10
+        "count": 12
       },
       {
         "expectedIntent": "assistant_product_feedback",
         "actualIntent": "assistant_product_feedback",
-        "count": 13
+        "count": 16
       },
       {
         "expectedIntent": "assistant_product_info",
         "actualIntent": "assistant_product_info",
-        "count": 10
+        "count": 13
       },
       {
         "expectedIntent": "assistant_product_reason",
         "actualIntent": "assistant_product_reason",
-        "count": 6
+        "count": 7
       },
       {
         "expectedIntent": "assistant_social",
         "actualIntent": "assistant_social",
-        "count": 5
+        "count": 6
       },
       {
         "expectedIntent": "assistant_user_identity",
@@ -464,7 +513,7 @@
       {
         "expectedIntent": "assistant_writing_help",
         "actualIntent": "assistant_writing_help",
-        "count": 17
+        "count": 22
       },
       {
         "expectedIntent": "collection_delete_by_category",
@@ -484,7 +533,7 @@
       {
         "expectedIntent": "collection_move_by_extension",
         "actualIntent": "collection_move_by_extension",
-        "count": 4
+        "count": 5
       },
       {
         "expectedIntent": "collection_move_by_name",
@@ -499,22 +548,22 @@
       {
         "expectedIntent": "fallback",
         "actualIntent": "fallback",
-        "count": 27
+        "count": 33
       },
       {
         "expectedIntent": "file_delete",
         "actualIntent": "file_delete",
-        "count": 5
+        "count": 7
       },
       {
         "expectedIntent": "file_rename",
         "actualIntent": "file_rename",
-        "count": 6
+        "count": 11
       },
       {
         "expectedIntent": "file_search",
         "actualIntent": "file_search",
-        "count": 16
+        "count": 24
       },
       {
         "expectedIntent": "file_share",
@@ -524,12 +573,12 @@
       {
         "expectedIntent": "file_upload",
         "actualIntent": "file_upload",
-        "count": 5
+        "count": 6
       },
       {
         "expectedIntent": "folder_create",
         "actualIntent": "folder_create",
-        "count": 5
+        "count": 10
       },
       {
         "expectedIntent": "folder_create_then_upload",
@@ -539,7 +588,7 @@
       {
         "expectedIntent": "node_move",
         "actualIntent": "node_move",
-        "count": 20
+        "count": 24
       }
     ]
   },

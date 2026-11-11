@@ -1,6 +1,6 @@
 {
   "schemaVersion": "rag_recognition_error_analysis_v1",
-  "generatedAt": "2026-11-11T16:48:37.2353256+08:00",
+  "generatedAt": "2026-11-11T18:09:27.5641724+08:00",
   "taxonomyVersion": "rag_recognition_error_taxonomy_2026_10_21",
   "taxonomyHash": "09953de6d594b2a47e596fc135d31453a382ae60c08386db1fefc1a8e4105fdf",
   "metrics": {
@@ -14,16 +14,16 @@
     "unsafeExecutableCount": 0
   },
   "stability": {
-    "sourceRevision": "fb507b7a0bb0473e0ce7c869c83ef1490bbecf74",
+    "sourceRevision": "c8836e5a5ef5803317218438b5dcb9c2e4995a2b",
     "runCount": 3,
-    "datasetHash": "cd3686c35cefa314dbadfdd921b139b5543ad45e5a9a647199244d0aa4a19156",
-    "totalTurns": 283,
-    "varianceCount": 5
+    "datasetHash": "01d3531834cb02a28ac3d6ffc23810ea3eb1f55c600227e22d472ddd605feda6",
+    "totalTurns": 354,
+    "varianceCount": 6
   },
   "accuracyErrorCount": 1,
-  "varianceCount": 5,
+  "varianceCount": 6,
   "categoryCounts": {
-    "arbitration_path_variance": 5,
+    "arbitration_path_variance": 6,
     "availability_failure": 0,
     "collection_semantics": 0,
     "conversational_boundary": 0,
@@ -54,7 +54,7 @@
   ],
   "variances": [
     {
-      "key": "dev.8i.collection.photo_confirmation_plan#1",
+      "key": "dev.8h.collection.document_implicit#1",
       "group": "collection",
       "category": "arbitration_path_variance",
       "severity": "info",
@@ -75,7 +75,7 @@
       ]
     },
     {
-      "key": "dev.8i.collection.video_typo#1",
+      "key": "dev.8i.collection.photo_confirmation_plan#1",
       "group": "collection",
       "category": "arbitration_path_variance",
       "severity": "info",
@@ -87,11 +87,11 @@
       "recognitionPaths": [
         {
           "value": "deepseek",
-          "count": 1
+          "count": 2
         },
         {
           "value": "local_policy",
-          "count": 2
+          "count": 1
         }
       ]
     },
@@ -138,8 +138,29 @@
       ]
     },
     {
-      "key": "dev.collection.delete_name#1",
-      "group": "collection",
+      "key": "dev.8q.bored_writing_close#2",
+      "group": "context-long-conversation",
+      "category": "arbitration_path_variance",
+      "severity": "info",
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": false,
+      "exactStable": true,
+      "exactCorrectRuns": 3,
+      "recognitionPaths": [
+        {
+          "value": "deepseek",
+          "count": 1
+        },
+        {
+          "value": "local_policy",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "key": "dev.boundary.external_resource#1",
+      "group": "boundary",
       "category": "arbitration_path_variance",
       "severity": "info",
       "intentStable": true,
