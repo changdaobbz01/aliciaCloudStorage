@@ -133,7 +133,8 @@ foreach ($caseResult in @($report.cases)) {
             'deepseek'
         } elseif ($fallbackReason.StartsWith('non_executable_guard:') -or
                   $fallbackReason.StartsWith('capability_boundary:') -or
-                  $fallbackReason.StartsWith('local_guard:')) {
+                  $fallbackReason.StartsWith('local_guard:') -or
+                  $fallbackReason.StartsWith('conversation_follow_up_guard:')) {
             'local_guard'
         } elseif ($fallbackReason.StartsWith('local_structure:')) {
             'local_structure'
