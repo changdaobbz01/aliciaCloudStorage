@@ -39,6 +39,8 @@ public class IntentRecognitionService {
     private final SemanticRecognitionArbiter recognitionArbiter;
     private final OperationArgumentResolver operationArgumentResolver = new OperationArgumentResolver();
     private final NonExecutableRequestGuard nonExecutableRequestGuard = new NonExecutableRequestGuard();
+    private final ResponseOnlyConversationFollowUpGuard conversationFollowUpGuard =
+            new ResponseOnlyConversationFollowUpGuard();
     private final AssistantResponsePolicy responsePolicy;
     private final AssistantReplyPolisher replyPolisher;
     private final List<ResponseTemplate> responseTemplates;
@@ -184,6 +186,10 @@ public class IntentRecognitionService {
             AssistantConversationState conversation,
             AssistantClientContext clientContext
     ) {
+        var followUpDecision = conversationFollowUpGuard.evaluate(message, conversation);
+        if (followUpDecision.isPresent()) {
+            return responseOnlyConversationResponse(message, followUpDecision.get());
+        }
         var nonExecutableDecision = nonExecutableRequestGuard.evaluate(message, conversation);
         boolean requiresLocalSemanticResolution = nonExecutableDecision
                 .map(NonExecutableRequestGuard.Decision::requiresSemanticResolution)
@@ -352,18 +358,49 @@ public class IntentRecognitionService {
             String message,
             NonExecutableRequestGuard.Decision decision
     ) {
-        String marker = "non_executable_guard:" + decision.id();
+        return responseOnlyResponse(
+                message,
+                "non_executable_guard:" + decision.id(),
+                decision.intentId(),
+                decision.relation(),
+                decision.operation(),
+                decision.assistantText()
+        );
+    }
+
+    private IntentRecognitionResponse responseOnlyConversationResponse(
+            String message,
+            ResponseOnlyConversationFollowUpGuard.Decision decision
+    ) {
+        return responseOnlyResponse(
+                message,
+                "conversation_follow_up_guard:" + decision.id(),
+                decision.intentId(),
+                decision.relation(),
+                decision.operation(),
+                decision.assistantText()
+        );
+    }
+
+    private IntentRecognitionResponse responseOnlyResponse(
+            String message,
+            String marker,
+            String intentId,
+            String relation,
+            String operation,
+            String assistantText
+    ) {
         IntentRecognitionResponse base = fromFallback(message, marker);
         IntentRecognitionResponse response = rebuildForConversation(
                 base,
-                decision.intentId(),
+                intentId,
                 Map.of(),
                 marker
         );
         SemanticFrame frame = new SemanticFrame(
                 SemanticFrame.VERSION,
-                decision.relation(),
-                decision.operation(),
+                relation,
+                operation,
                 SemanticFrame.Query.empty(),
                 SemanticFrame.Scope.empty(),
                 SemanticFrame.Reference.empty(),
@@ -374,7 +411,7 @@ public class IntentRecognitionService {
         return enforceResponsePolicy(
                 message,
                 response.withSemanticFrame(frame, Map.of(), new ActionDraft("none", Map.of(), false))
-                        .withAssistantText(decision.assistantText())
+                        .withAssistantText(assistantText)
         );
     }
 

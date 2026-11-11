@@ -172,6 +172,7 @@ public class AssistantConversationService {
         }
 
         ConversationContextResolver.ContextAttempt contextAttempt = !collectionOperationSelectorResolver.isScopedCollection(baseResponse)
+                && !isConversationFollowUpGuard(baseResponse)
                 && "FOLLOW_UP".equals(baseResponse.semanticFrame().relation())
                 && !List.of("SEARCH", "LIST_CHILDREN").contains(baseResponse.semanticFrame().operation())
                 ? conversationContextResolver.resolve(
@@ -665,6 +666,12 @@ public class AssistantConversationService {
         return response != null
                 && response.reason() != null
                 && response.reason().startsWith("non_executable_guard:");
+    }
+
+    private boolean isConversationFollowUpGuard(IntentRecognitionResponse response) {
+        return response != null
+                && response.reason() != null
+                && response.reason().startsWith("conversation_follow_up_guard:");
     }
 
     private boolean isConfirmMessage(String message) {

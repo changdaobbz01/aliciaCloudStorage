@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -1074,6 +1075,58 @@ class IntentRecognitionServiceTest {
     }
 
     @Test
+    void responseOnlyConversationFollowUpsBypassTheModelAndCannotCreatePlans() {
+        AtomicInteger modelCalls = new AtomicInteger();
+        IntentRecognitionService service = new IntentRecognitionService(
+                request -> {
+                    modelCalls.incrementAndGet();
+                    return Optional.empty();
+                },
+                intentRouter,
+                configLoader
+        );
+
+        Map<String, String> followUps = Map.of(
+                "为什么这些功能值得使用", "assistant_product_reason",
+                "尤其资料很多的时候会等得比较久", "assistant_product_feedback",
+                "语气再委婉一些", "assistant_writing_help",
+                "那只推荐公开的官方渠道呢", "assistant_external_resource",
+                "我先了解一下，不需要执行", "assistant_acknowledgement",
+                "只给一个大概的诊断也行", "fallback"
+        );
+        Map<String, String> previousIntents = Map.of(
+                "为什么这些功能值得使用", "assistant_product_info",
+                "尤其资料很多的时候会等得比较久", "assistant_product_feedback",
+                "语气再委婉一些", "assistant_writing_help",
+                "那只推荐公开的官方渠道呢", "assistant_external_resource",
+                "我先了解一下，不需要执行", "assistant_capability_examples",
+                "只给一个大概的诊断也行", "fallback"
+        );
+
+        followUps.forEach((message, expectedIntent) -> {
+            IntentRecognitionResponse response = service.recognize(
+                    message,
+                    conversationWithIntent(previousIntents.get(message)),
+                    AssistantClientContext.empty()
+            );
+            assertThat(response.intentId()).as(message).isEqualTo(expectedIntent);
+            assertThat(response.semanticFrame().relation()).as(message).isEqualTo("FOLLOW_UP");
+            assertThat(response.semanticFrame().operation()).as(message).isEqualTo("RESPOND");
+            assertThat(response.actionDraft().type()).as(message).isEqualTo("none");
+            assertThat(response.executionReference()).as(message).isNull();
+        });
+        assertThat(modelCalls).hasValue(0);
+
+        IntentRecognitionResponse command = service.recognize(
+                "搜索季度复盘.pdf",
+                conversationWithIntent("assistant_product_info"),
+                AssistantClientContext.empty()
+        );
+        assertThat(command.intentId()).isEqualTo("file_search");
+        assertThat(modelCalls).hasValue(1);
+    }
+
+    @Test
     void phase8OConversationVocabularyDoesNotInterceptFileCommands() {
         IntentRecognitionService service = new IntentRecognitionService(
                 message -> Optional.empty(),
@@ -2080,5 +2133,22 @@ class IntentRecognitionServiceTest {
     @SuppressWarnings("unchecked")
     private static List<Object> list(Map<String, Object> source, String key) {
         return (List<Object>) source.get(key);
+    }
+
+    private static AssistantConversationState conversationWithIntent(String intentId) {
+        return new AssistantConversationState(
+                "conversation-follow-up",
+                1,
+                intentId,
+                Map.of(),
+                List.of(),
+                new ActionDraft("none", Map.of(), false),
+                null,
+                null,
+                AssistantConversationFocus.empty(),
+                SemanticFrame.empty(),
+                "",
+                Instant.now().plusSeconds(60)
+        );
     }
 }

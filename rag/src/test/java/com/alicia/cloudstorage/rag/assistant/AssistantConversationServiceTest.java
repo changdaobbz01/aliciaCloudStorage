@@ -553,6 +553,44 @@ class AssistantConversationServiceTest {
     }
 
     @Test
+    void responseOnlyConversationFollowUpIsNotRewrittenAsFileContext() {
+        IntentRecognitionResponse firstTurn = conversationService.plan(new AssistantPlanRequest(
+                "Alicia 主要提供哪些功能",
+                ""
+        ));
+        IntentRecognitionResponse secondTurn = conversationService.plan(new AssistantPlanRequest(
+                "为什么这些功能值得使用",
+                firstTurn.conversation().conversationId()
+        ));
+
+        assertThat(firstTurn.intentId()).isEqualTo("assistant_product_info");
+        assertThat(secondTurn.intentId()).isEqualTo("assistant_product_reason");
+        assertThat(secondTurn.semanticFrame().relation()).isEqualTo("FOLLOW_UP");
+        assertThat(secondTurn.semanticFrame().operation()).isEqualTo("RESPOND");
+        assertThat(secondTurn.nextAction()).isEqualTo("respond_only");
+        assertThat(secondTurn.actionDraft().type()).isEqualTo("none");
+        assertThat(secondTurn.candidateBinding().status()).isEqualTo("not_requested");
+    }
+
+    @Test
+    void contextualCapabilityQuestionOverridesGenericIdentityScopeRule() {
+        IntentRecognitionResponse firstTurn = conversationService.plan(new AssistantPlanRequest(
+                "你是哪一位助手",
+                ""
+        ));
+        IntentRecognitionResponse secondTurn = conversationService.plan(new AssistantPlanRequest(
+                "那你主要能协助我做哪些事情",
+                firstTurn.conversation().conversationId()
+        ));
+
+        assertThat(firstTurn.intentId()).isEqualTo("assistant_identity");
+        assertThat(secondTurn.intentId()).isEqualTo("assistant_capability_examples");
+        assertThat(secondTurn.reason()).startsWith("conversation_follow_up_guard:");
+        assertThat(secondTurn.semanticFrame().operation()).isEqualTo("RESPOND");
+        assertThat(secondTurn.actionDraft().type()).isEqualTo("none");
+    }
+
+    @Test
     void fallbackClarificationKeepsMessageOnlyActionPlan() {
         IntentRecognitionResponse response = conversationService.plan(new AssistantPlanRequest("请帮我证明黎曼猜想", ""));
 

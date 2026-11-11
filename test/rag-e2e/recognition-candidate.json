@@ -1,8 +1,8 @@
 {
-  "version": "rag_recognition_candidate_8o_v2",
+  "version": "rag_recognition_candidate_8p_v2",
   "labelPolicyVersion": "rag_recognition_labels_v1",
   "split": "development-candidate",
-  "description": "Phase 8O post-review queue: all 41 authorized synthetic conversation cases passed local-fallback and online review and were promoted to development; the queue is intentionally empty.",
+  "description": "Phase 8P candidate queue after the reviewed multi-turn matrix was promoted to development.",
   "gates": {"maximumUnsafeExecutableCount": 0},
   "cases": []
 }

@@ -46,7 +46,7 @@ final class NonExecutableRequestGuard {
     );
     private static final Pattern QUOTED_OPERATION_WRITING_REQUEST = Pattern.compile(
             "(?=.*[“\"'‘].*(?:删除|删掉|清理|清空|移除|移动|重命名|改名|分享|上传|新建|创建|delete|remove|move|rename|share|upload|create).*[”\"'’])"
-                    + "(?=.*(?:改成.{0,12}(?:提示|文案|提醒|通知)|只改(?:文案|文字|措辞))).*",
+                    + "(?=.*(?:(?:改成|写成).{0,12}(?:提示|文案|提醒|通知)|只改(?:文案|文字|措辞))).*",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
     private static final Pattern OPERATION_PROCESS_QUESTION = Pattern.compile(
@@ -128,7 +128,27 @@ final class NonExecutableRequestGuard {
     );
     private static final Pattern OUT_OF_SCOPE_HIGH_STAKES_ADVICE = Pattern.compile(
             "(?:(?=.*(?:预测|推荐|判断|分析))(?=.*(?:股票|基金|投资|涨跌|行情))|"
-                    + "(?=.*(?:诊断|判断.{0,6}(?:病因|原因)|治疗建议))(?=.*(?:疼|痛|症状|疾病|身体|膝盖|头痛|胃痛))).*",
+                    + "(?=.*(?:诊断|判断|分析|治疗建议))(?=.*(?:病因|原因|疼|痛|症状|疾病|身体|膝盖|头痛|胃痛))).*",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
+    private static final Pattern PRODUCT_FILE_FEATURE_QUESTION = Pattern.compile(
+            "(?!.*(?:哪些.{0,8}(?:文件类型|类型|格式)|文件类型|格式|整个文件夹|多大|大小|限制|条件))"
+                    + "(?=.*(?:Alicia|网盘|云盘|这个产品))"
+                    + "(?=.*(?:支持|能否|是否能|可以|有没有))"
+                    + "(?=.*(?:搜索|查找|分享|上传|下载|移动|重命名|改名|分类|整理))"
+                    + "(?=.*(?:吗|么|哪些|什么|如何|怎么|[？?])).*",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
+    private static final Pattern ASSISTANT_ORGANIZATION_CAPABILITY_QUESTION = Pattern.compile(
+            "(?=.*(?:你|安安))(?=.*(?:能|可以|支持))"
+                    + "(?=.*按.{0,8}(?:类型|条件).{0,8}(?:整理|分类))"
+                    + "(?=.*(?:吗|么|如何|怎么|怎样|[？?])).*",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
+    private static final Pattern EXTERNAL_CLOUD_RESOURCE_REQUEST = Pattern.compile(
+            "(?=.*(?:外部|别的|其他|第三方).{0,8}(?:网盘|云盘))"
+                    + "(?=.*(?:资源|链接|地址))"
+                    + "(?=.*(?:给我|找|查找|推荐|提供|发一个|来一个)).*",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
     private static final Pattern CLOUD_FILE_CONTEXT = Pattern.compile(
@@ -199,7 +219,8 @@ final class NonExecutableRequestGuard {
     private static final Pattern CANCELLATION = Pattern.compile(
             "^(?:(?:算了[，,]?)?(?:不用了|不做了|先不做了|取消(?:这个|该|刚才的)?(?:操作|任务|动作)?|停止|停下|撤销|作罢)|"
                     + "(?:算了[，,]?)?(?:(?:这个|该|刚才的)(?:文件夹|目录|操作|任务)?\\s*)?"
-                    + "(?:先)?(?:不要|别|不用)(?:再)?(?:创建|新建|继续|执行)(?:了)?|算了)[。！!]*$",
+                    + "(?:先)?(?:不要|别|不用)(?:再)?(?:创建|新建|继续|执行)(?:了)?|"
+                    + "(?:不用了[，,]?)?(?:先)?(?:不建|别建)(?:了)?|算了)[。！!]*$",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
     private static final Pattern CONTEXTLESS_CONFIRMATION = Pattern.compile(
@@ -275,6 +296,33 @@ final class NonExecutableRequestGuard {
                     "NEW_TASK",
                     "UNKNOWN",
                     "这类金融预测或医疗诊断不属于云盘文件管理能力，我不会给出可能误导你的专业结论。"
+            ));
+        }
+        if (EXTERNAL_CLOUD_RESOURCE_REQUEST.matcher(value).matches()) {
+            return Optional.of(new Decision(
+                    "external_cloud_resource_request",
+                    "assistant_external_resource",
+                    "NEW_TASK",
+                    "RESPOND",
+                    "我不能代为查找或提供第三方网盘资源链接，但可以帮助你搜索自己云盘中已有的文件。"
+            ));
+        }
+        if (PRODUCT_FILE_FEATURE_QUESTION.matcher(value).matches()) {
+            return Optional.of(new Decision(
+                    "product_file_feature_question",
+                    "assistant_product_info",
+                    "NEW_TASK",
+                    "RESPOND",
+                    "这是在询问 Alicia 的产品功能，我只会说明支持范围，不会把它当成文件操作。"
+            ));
+        }
+        if (ASSISTANT_ORGANIZATION_CAPABILITY_QUESTION.matcher(value).matches()) {
+            return Optional.of(new Decision(
+                    "assistant_organization_capability_question",
+                    "assistant_capability_examples",
+                    "NEW_TASK",
+                    "RESPOND",
+                    "我可以说明按类型或条件整理文件的能力边界；这次只做说明，不会提交文件变更。"
             ));
         }
         String guardedValue = value;

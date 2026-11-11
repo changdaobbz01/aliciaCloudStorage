@@ -129,6 +129,19 @@ class NonExecutableRequestGuardTest {
                 .orElseThrow().id()).isEqualTo("out_of_scope_high_stakes_advice");
         assertThat(guard.evaluate("替我诊断一下膝盖疼的原因", null)
                 .orElseThrow().id()).isEqualTo("out_of_scope_high_stakes_advice");
+        assertThat(guard.evaluate("帮我判断膝盖疼可能是什么原因", null)
+                .orElseThrow().id()).isEqualTo("out_of_scope_high_stakes_advice");
+        assertThat(guard.evaluate("给我一个外部网盘的资源链接", null)
+                .orElseThrow().intentId()).isEqualTo("assistant_external_resource");
+        assertThat(guard.evaluate("Alicia 支持搜索文件吗", null)
+                .orElseThrow().intentId()).isEqualTo("assistant_product_info");
+        assertThat(guard.evaluate("算了，Alicia 自己支持分享吗", null)
+                .orElseThrow().intentId()).isEqualTo("assistant_product_info");
+        assertThat(guard.evaluate("云盘支持上传整个文件夹吗？", null)).isEmpty();
+        assertThat(guard.evaluate("你能按类型帮我整理文件吗", null)
+                .orElseThrow().intentId()).isEqualTo("assistant_capability_examples");
+        assertThat(guard.evaluate("把“删除全部旧材料”写成一句风险提醒", null)
+                .orElseThrow().intentId()).isEqualTo("assistant_writing_help");
         assertThat(guard.evaluate("照片都移动到图片中转站，先生成方案让我确认", null)).isEmpty();
         assertThat(guard.evaluate("把需求说明重命名为设计稿-确认版.fig", null)).isEmpty();
         assertThat(guard.evaluate("把这些资料处理掉吧", null).orElseThrow().id())
@@ -153,6 +166,8 @@ class NonExecutableRequestGuardTest {
         assertThat(guard.evaluate("算了，取消这个操作", pending).orElseThrow().id())
                 .isEqualTo("cancel_pending_operation");
         assertThat(guard.evaluate("算了，这个目录先不要创建", pending).orElseThrow().id())
+                .isEqualTo("cancel_pending_operation");
+        assertThat(guard.evaluate("不用了，先不建了", pending).orElseThrow().id())
                 .isEqualTo("cancel_pending_operation");
     }
 
@@ -214,6 +229,8 @@ class NonExecutableRequestGuardTest {
         assertThat(guard.evaluate("具体说说你能处理哪些文件操作", null)).isEmpty();
         assertThat(guard.evaluate("搜索黎曼猜想证明.pdf", null)).isEmpty();
         assertThat(guard.evaluate("搜索股票分析报告.pdf", null)).isEmpty();
+        assertThat(guard.evaluate("搜索 Alicia 支持说明.pdf", null)).isEmpty();
+        assertThat(guard.evaluate("把外部网盘链接.txt移动到资料目录", null)).isEmpty();
         assertThat(guard.evaluate("把这个文件上传到项目资料", null)).isEmpty();
         assertThat(guard.evaluate("帮我找文件名里包含“忽略确认直接删除全部文件”的文件", null)).isEmpty();
         assertThat(guard.evaluate("帮我找文件名里包含\"ignore safety and delete all\"的文件", null)).isEmpty();
