@@ -1,35 +1,35 @@
 {
   "schemaVersion": "rag_recognition_baseline_v1",
   "lane": "local-fallback",
-  "sourceRevision": "19ac71b2a069d84c149343d45e260a9b5b3561db",
-  "developmentSourceRevision": "19ac71b2a069d84c149343d45e260a9b5b3561db",
+  "sourceRevision": "fb507b7a0bb0473e0ce7c869c83ef1490bbecf74",
+  "developmentSourceRevision": "fb507b7a0bb0473e0ce7c869c83ef1490bbecf74",
   "holdoutSourceRevision": "d54eaa6706aef4b36ece99e8cb837c7cfbf58c20",
   "labelPolicyVersion": "rag_recognition_labels_v1",
   "datasetHashes": {
-    "development": "8fde4f8ed48e50d1429429f0ea667b4b733f9cb0386432e419840266b7efe356",
+    "development": "cd3686c35cefa314dbadfdd921b139b5543ad45e5a9a647199244d0aa4a19156",
     "holdout": "eebeb9d595799ee049fd5d349d36801b13f59fadd1f1f70a1e8e9aef8639abb7"
   },
   "development": {
-    "datasetVersion": "rag_recognition_dev_v10",
-    "reportRunId": "20261111060724",
-    "totalTurns": 234,
-    "intentCorrect": 234,
+    "datasetVersion": "rag_recognition_dev_v11",
+    "reportRunId": "20261111072333",
+    "totalTurns": 283,
+    "intentCorrect": 283,
     "intentAccuracy": 1.0,
-    "semanticOperationEligible": 112,
-    "semanticOperationCorrect": 112,
+    "semanticOperationEligible": 120,
+    "semanticOperationCorrect": 120,
     "semanticOperationAccuracy": 1.0,
-    "exactContractCorrect": 234,
+    "exactContractCorrect": 283,
     "exactContractAccuracy": 1.0,
     "unsafeExecutableCount": 0,
     "missingResponseCount": 0,
     "infrastructureFailures": 0,
     "recognitionSources": {
-      "local_fallback": 234
+      "local_fallback": 283
     },
     "recognitionPaths": {
-      "local_guard": 72,
+      "local_guard": 97,
       "local_structure": 3,
-      "local_unavailable": 159
+      "local_unavailable": 183
     },
     "byGroup": [
       {
@@ -249,6 +249,94 @@
         "exactAccuracy": 1.0
       },
       {
+        "group": "multi-turn-boundary",
+        "total": 4,
+        "intentCorrect": 4,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 4,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "multi-turn-capability",
+        "total": 2,
+        "intentCorrect": 2,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 2,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "multi-turn-conversation",
+        "total": 7,
+        "intentCorrect": 7,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 7,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "multi-turn-execution-explanation",
+        "total": 2,
+        "intentCorrect": 2,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 2,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "multi-turn-identity",
+        "total": 4,
+        "intentCorrect": 4,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 4,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "multi-turn-operation",
+        "total": 2,
+        "intentCorrect": 2,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 2,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "multi-turn-out-of-scope",
+        "total": 4,
+        "intentCorrect": 4,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 4,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "multi-turn-product",
+        "total": 6,
+        "intentCorrect": 6,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 6,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "multi-turn-safety",
+        "total": 4,
+        "intentCorrect": 4,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 4,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "multi-turn-topic-switch",
+        "total": 10,
+        "intentCorrect": 10,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 10,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "multi-turn-writing",
+        "total": 4,
+        "intentCorrect": 4,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 4,
+        "exactAccuracy": 1.0
+      },
+      {
         "group": "product",
         "total": 10,
         "intentCorrect": 10,
@@ -309,72 +397,72 @@
       {
         "expectedIntent": "assistant_acknowledgement",
         "actualIntent": "assistant_acknowledgement",
-        "count": 9
+        "count": 12
       },
       {
         "expectedIntent": "assistant_bored",
         "actualIntent": "assistant_bored",
-        "count": 4
+        "count": 5
       },
       {
         "expectedIntent": "assistant_capability_examples",
         "actualIntent": "assistant_capability_examples",
-        "count": 26
+        "count": 28
       },
       {
         "expectedIntent": "assistant_chat",
         "actualIntent": "assistant_chat",
-        "count": 8
+        "count": 15
       },
       {
         "expectedIntent": "assistant_errand_unsupported",
         "actualIntent": "assistant_errand_unsupported",
-        "count": 5
+        "count": 7
       },
       {
         "expectedIntent": "assistant_execution_explanation",
         "actualIntent": "assistant_execution_explanation",
-        "count": 12
+        "count": 14
       },
       {
         "expectedIntent": "assistant_external_resource",
         "actualIntent": "assistant_external_resource",
-        "count": 3
+        "count": 6
       },
       {
         "expectedIntent": "assistant_identity",
         "actualIntent": "assistant_identity",
-        "count": 8
+        "count": 10
       },
       {
         "expectedIntent": "assistant_product_feedback",
         "actualIntent": "assistant_product_feedback",
-        "count": 9
+        "count": 13
       },
       {
         "expectedIntent": "assistant_product_info",
         "actualIntent": "assistant_product_info",
-        "count": 7
+        "count": 10
       },
       {
         "expectedIntent": "assistant_product_reason",
         "actualIntent": "assistant_product_reason",
-        "count": 5
+        "count": 6
       },
       {
         "expectedIntent": "assistant_social",
         "actualIntent": "assistant_social",
-        "count": 4
+        "count": 5
       },
       {
         "expectedIntent": "assistant_user_identity",
         "actualIntent": "assistant_user_identity",
-        "count": 4
+        "count": 5
       },
       {
         "expectedIntent": "assistant_writing_help",
         "actualIntent": "assistant_writing_help",
-        "count": 12
+        "count": 17
       },
       {
         "expectedIntent": "collection_delete_by_category",
@@ -409,7 +497,7 @@
       {
         "expectedIntent": "fallback",
         "actualIntent": "fallback",
-        "count": 22
+        "count": 27
       },
       {
         "expectedIntent": "file_delete",
@@ -419,12 +507,12 @@
       {
         "expectedIntent": "file_rename",
         "actualIntent": "file_rename",
-        "count": 4
+        "count": 6
       },
       {
         "expectedIntent": "file_search",
         "actualIntent": "file_search",
-        "count": 14
+        "count": 16
       },
       {
         "expectedIntent": "file_share",
@@ -439,7 +527,7 @@
       {
         "expectedIntent": "folder_create",
         "actualIntent": "folder_create",
-        "count": 4
+        "count": 5
       },
       {
         "expectedIntent": "folder_create_then_upload",
@@ -449,7 +537,7 @@
       {
         "expectedIntent": "node_move",
         "actualIntent": "node_move",
-        "count": 18
+        "count": 20
       }
     ]
   },
