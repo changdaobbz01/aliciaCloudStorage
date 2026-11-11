@@ -34,6 +34,7 @@ class ResponseOnlyConversationFollowUpGuardTest {
         assertDecision("那你直接从那个网站下载到云盘吧", "assistant_external_resource", "assistant_external_resource");
         assertDecision("我只是先了解一下，不着急", "assistant_product_info", "assistant_chat");
         assertDecision("最近通知太多了，有点烦", "assistant_acknowledgement", "assistant_chat");
+        assertDecision("好啦，我先去忙，晚点再聊", "assistant_chat", "assistant_acknowledgement");
     }
 
     @Test

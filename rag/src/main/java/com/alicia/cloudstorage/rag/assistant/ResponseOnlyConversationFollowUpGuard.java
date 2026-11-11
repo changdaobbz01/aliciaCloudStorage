@@ -103,6 +103,13 @@ final class ResponseOnlyConversationFollowUpGuard {
         if (FILE_OPERATION_REQUEST.matcher(value).find()) {
             return Optional.empty();
         }
+        if (isResponseOnlyIntent(conversation.pendingIntentId()) && matches(ACKNOWLEDGEMENT, value)) {
+            return decision(
+                    "response_only_acknowledgement",
+                    "assistant_acknowledgement",
+                    "明白，当前对话到这里即可，我不会创建或执行文件任务。"
+            );
+        }
         if (isResponseOnlyIntent(conversation.pendingIntentId())
                 && (matches(PERSONAL_STATE_FOLLOW_UP, value)
                 || matches(LOW_PRESSURE_CHAT_FOLLOW_UP, value))) {
@@ -110,13 +117,6 @@ final class ResponseOnlyConversationFollowUpGuard {
                     "response_only_to_personal_chat",
                     "assistant_chat",
                     "可以，我们先不做文件操作。你可以按自己的节奏继续聊。"
-            );
-        }
-        if (isResponseOnlyIntent(conversation.pendingIntentId()) && matches(ACKNOWLEDGEMENT, value)) {
-            return decision(
-                    "response_only_acknowledgement",
-                    "assistant_acknowledgement",
-                    "明白，当前对话到这里即可，我不会创建或执行文件任务。"
             );
         }
 
