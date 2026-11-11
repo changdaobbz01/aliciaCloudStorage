@@ -136,7 +136,7 @@
           "expected": {
             "intentId": ["file_rename"],
             "semanticOperation": ["RENAME"],
-            "semanticRelation": ["SLOT_FILL"]
+            "semanticRelation": ["CORRECTION"]
           }
         }
       ]
