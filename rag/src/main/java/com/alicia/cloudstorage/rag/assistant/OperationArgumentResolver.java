@@ -419,10 +419,12 @@ final class OperationArgumentResolver {
 
     private boolean hasScopeEvidence(String surface, String alias) {
         String suffix = surface.substring(Math.min(alias.length(), surface.length()));
+        QuantifiedSurface quantified = quantifiedSurface(suffix);
         return suffix.isBlank()
                 || suffix.matches("^(?:下|中|里|内)(?:的)?.*")
                 || suffix.startsWith("的")
-                || !genericResultType(suffix).isBlank();
+                || !genericResultType(suffix).isBlank()
+                || quantified.explicitAll();
     }
 
     private QuantifiedSurface quantifiedSurface(String rawSurface) {

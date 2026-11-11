@@ -1260,6 +1260,7 @@ class IntentRecognitionServiceTest {
                 "视屏文件都放进影音资料库", "collection_move_by_category",
                 "散落的音乐统一放到声音仓库文件夹", "collection_move_by_category",
                 "将全部 .tmp 格式文件移动到缓存归档目录", "collection_move_by_extension",
+                "把当前目录所有 .log 文件移动到日志归档目录", "collection_move_by_extension",
                 "把文件名里带待确认的所有资料转移至复核目录", "collection_move_by_name",
                 "搜一下名字里有预算的表格文件", "file_search",
                 "先创建评审材料目录，接着把本地附件传进去", "folder_create_then_upload"

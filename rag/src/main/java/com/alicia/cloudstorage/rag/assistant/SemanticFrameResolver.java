@@ -61,6 +61,14 @@ public class SemanticFrameResolver {
             "(?:找到|找出|查找|搜索|检索|定位|查看|打开|找|查)(?:一下|下)?|看看|看下|列出|列一下|展示|显示",
             Pattern.CASE_INSENSITIVE
     );
+    private static final Pattern EXPLICIT_SEARCH_TASK = Pattern.compile(
+            "^(?:(?:改为|改成|换成)\\s*)?(?:查找|搜索|检索|定位)(?!.*(?:支持|能否|可以|会不会)).+",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
+    private static final Pattern CURRENT_SCOPE_ONLY_CORRECTION = Pattern.compile(
+            "^(?:范围)?只(?:看|查)(?:一下)?(?:当前目录|这个目录)(?:里|内|下)?(?:的)?[。！!？?]*$",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
     private static final Pattern REFERENTIAL_OBJECT_SUFFIX = Pattern.compile(
             "^(.+?)(?:这个|那个|该)(?:文件夹|目录|文件)$",
             Pattern.CASE_INSENSITIVE
@@ -444,7 +452,7 @@ public class SemanticFrameResolver {
 
     public Map<String, Object> entitiesForFrame(IntentRecognitionResponse response, SemanticFrame frame) {
         Map<String, Object> entities = new LinkedHashMap<>();
-        if (response != null && response.entities() != null && !"CORRECTION".equals(frame.relation())) {
+        if (response != null && response.entities() != null) {
             entities.putAll(response.entities());
         }
 
@@ -581,6 +589,9 @@ public class SemanticFrameResolver {
     ) {
         String safeMessage = message == null ? "" : message.trim();
         String operation = operationFor(response);
+        if (EXPLICIT_SEARCH_TASK.matcher(safeMessage).matches()) {
+            operation = "SEARCH";
+        }
         String relation = "NEW_TASK";
         SemanticFrame.Reference reference = SemanticFrame.Reference.empty();
         if (isContextFollowUp(safeMessage, conversation)) {
@@ -629,6 +640,12 @@ public class SemanticFrameResolver {
             SemanticFrame.Query fallbackQuery,
             SemanticFrame.Scope fallbackScope
     ) {
+        if (CURRENT_SCOPE_ONLY_CORRECTION.matcher(message == null ? "" : message.trim()).matches()) {
+            return new SearchSemantics(
+                    fallbackQuery,
+                    new SemanticFrame.Scope("CURRENT", "", "")
+            );
+        }
         Optional<NamePredicateParser.NamePredicate> predicate = NamePredicateParser.parse(message);
         if (predicate.isPresent()) {
             String clue = cleanName(predicate.get().value());
@@ -1314,8 +1331,13 @@ public class SemanticFrameResolver {
         return value.startsWith("是")
                 || value.startsWith("不是")
                 || value.startsWith("不对")
+                || value.startsWith("我说错了")
+                || value.startsWith("刚才说错了")
                 || value.startsWith("我是说")
                 || value.startsWith("改成")
+                || value.startsWith("范围只")
+                || value.startsWith("只看当前目录")
+                || value.startsWith("只查当前目录")
                 || value.endsWith("呢？")
                 || value.endsWith("呢?");
     }
@@ -1346,11 +1368,13 @@ public class SemanticFrameResolver {
         value = value.replaceFirst("^(?:我(?:想要|想|要)|想要|想)\\s*", "");
         value = value.replaceFirst("^(?:能不能|能否|可不可以|可以不可以|可以)\\s*", "");
         value = value.replaceFirst("^(?:把|将|给)\\s*", "");
+        value = value.replaceFirst("^(?:改为|改成|换成)\\s*", "");
         Matcher commandMatcher = SEARCH_COMMAND.matcher(value);
         if (commandMatcher.find() && commandMatcher.start() == 0) {
             value = value.substring(commandMatcher.end()).trim();
         }
-        value = value.replaceFirst("^(?:是|不是|不对|我是说|改成)\\s*", "");
+        value = value.replaceFirst("^(?:我(?:刚才)?说错了[，,]?)?不是[^，,。；;]+[，,]?(?:而是|是)\\s*", "");
+        value = value.replaceFirst("^(?:是|不是|不对|我说错了|刚才说错了|我是说|改成)\\s*", "");
         value = value.replaceFirst("^(?:有没有|是否有|有无|名为|名称为|叫做|叫)\\s*", "");
         value = value.replaceFirst("(?:列出来|列出|找出来|展示出来|显示出来)$", "");
         value = value.replaceFirst("的(?:文件|文档|资料)$", "");

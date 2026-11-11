@@ -123,6 +123,8 @@ class NonExecutableRequestGuardTest {
                 .orElseThrow().id()).isEqualTo("paused_file_conversation");
         assertThat(guard.evaluate("文件的事先放一边，我们说点别的", null)
                 .orElseThrow().id()).isEqualTo("paused_file_conversation");
+        assertThat(guard.evaluate("文件先放着，陪我聊聊今天的安排", null)
+                .orElseThrow().id()).isEqualTo("paused_file_conversation");
         assertThat(guard.evaluate("帮我修一下家里的路由器", null)
                 .orElseThrow().id()).isEqualTo("out_of_scope_physical_tech_support");
         assertThat(guard.evaluate("预测一下明天哪只股票会涨", null)
@@ -136,6 +138,8 @@ class NonExecutableRequestGuardTest {
         assertThat(guard.evaluate("Alicia 支持搜索文件吗", null)
                 .orElseThrow().intentId()).isEqualTo("assistant_product_info");
         assertThat(guard.evaluate("算了，Alicia 自己支持分享吗", null)
+                .orElseThrow().intentId()).isEqualTo("assistant_product_info");
+        assertThat(guard.evaluate("顺便问下，云盘能保存版本历史吗", null)
                 .orElseThrow().intentId()).isEqualTo("assistant_product_info");
         assertThat(guard.evaluate("云盘支持上传整个文件夹吗？", null)).isEmpty();
         assertThat(guard.evaluate("你能按类型帮我整理文件吗", null)
@@ -168,6 +172,14 @@ class NonExecutableRequestGuardTest {
         assertThat(guard.evaluate("算了，这个目录先不要创建", pending).orElseThrow().id())
                 .isEqualTo("cancel_pending_operation");
         assertThat(guard.evaluate("不用了，先不建了", pending).orElseThrow().id())
+                .isEqualTo("cancel_pending_operation");
+        assertThat(guard.evaluate("算了，这个文件夹先不要建", pending).orElseThrow().id())
+                .isEqualTo("cancel_pending_operation");
+        assertThat(guard.evaluate("先取消移动，我还没决定", pending).orElseThrow().id())
+                .isEqualTo("cancel_pending_operation");
+        assertThat(guard.evaluate("不建了，取消这个想法", pending).orElseThrow().id())
+                .isEqualTo("cancel_pending_operation");
+        assertThat(guard.evaluate("停一下，这批文件不要移动", pending).orElseThrow().id())
                 .isEqualTo("cancel_pending_operation");
     }
 

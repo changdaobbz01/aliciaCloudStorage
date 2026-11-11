@@ -33,6 +33,19 @@ class OperationArgumentResolverTest {
     }
 
     @Test
+    void keepsScopedExtensionMoveAsAnExplicitCollection() {
+        OperationArgumentResolver.Resolution resolution = resolver
+                .resolve("把当前目录所有 .log 文件移动到日志归档目录", "MOVE")
+                .orElseThrow();
+
+        assertThat(resolution.source().nameKind())
+                .isEqualTo(OperationArgumentResolver.NameKind.GENERIC);
+        assertThat(resolution.source().quantifier())
+                .isEqualTo(OperationArgumentResolver.Quantifier.EXPLICIT_ALL);
+        assertThat(resolution.source().scopeType()).isEqualTo("CURRENT");
+    }
+
+    @Test
     void parsesQuotedColloquialRenameWithoutModelHelp() {
         OperationArgumentResolver.Resolution resolution = resolver
                 .resolve("那个《月报.xlsx》给我改个名儿，叫月报-终版.xlsx", "RENAME")

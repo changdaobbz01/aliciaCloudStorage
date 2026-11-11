@@ -15,7 +15,16 @@ final class ResponseOnlyConversationFollowUpGuard {
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
     private static final Pattern PERSONAL_STATE_FOLLOW_UP = Pattern.compile(
-            "(?=.*(?:我|今天|最近))(?=.*(?:忙|累|还好|一般|心情|状态|开心|难过|烦|闷)).*",
+            "(?=.*(?:我|今天|最近|昨晚|现在))(?=.*(?:忙|累|还好|一般|心情|状态|开心|难过|烦|闷|没睡好|脑子.*乱)).*",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
+    private static final Pattern CHAT_CONTINUATION = Pattern.compile(
+            "(?:(?=.*(?:听我|陪我|和我))(?=.*(?:说|聊))|(?=.*(?:不用|不要).{0,8}(?:方案|建议))(?=.*(?:听|聊))).*",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
+    private static final Pattern ACKNOWLEDGEMENT = Pattern.compile(
+            "^(?:好|好的|好啦|明白了?|了解了?|知道了?)(?:[，,].*)?(?:先这样|就这样|就用这句|现在先不操作|我只是提个建议|晚点再聊)?[。！!]*$|"
+                    + "^(?:好|好的)[，,]?(?:就用|先用|采用)(?:这句|这一版|这个版本)[。！!]*$",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
     private static final Pattern ASSISTANT_IDENTITY_FOLLOW_UP = Pattern.compile(
@@ -24,15 +33,21 @@ final class ResponseOnlyConversationFollowUpGuard {
     );
     private static final Pattern CAPABILITY_FOLLOW_UP = Pattern.compile(
             "(?=.*(?:你|协助|帮助|帮))(?=.*(?:能|可以|会))"
-                    + "(?=.*(?:做哪些事情|做什么|哪些能力|如何协助|怎么协助|如何帮助|怎么帮助)).*",
+                    + "(?=.*(?:做哪些事情|做什么|哪些能力|如何协助|怎么协助|如何帮助|怎么帮助|"
+                    + "整理哪些|哪些类型的文件|处理哪些文件)).*",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
+    private static final Pattern EXECUTION_POLICY_FOLLOW_UP = Pattern.compile(
+            "(?=.*(?:操作|任务|这些))(?=.*(?:不经过确认|无需确认|直接发生|直接执行|会执行|怎么确认)).*",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
     private static final Pattern PRODUCT_REASON_FOLLOW_UP = Pattern.compile(
-            "(?=.*(?:为什么|为何|理由|价值|值得|好处))(?=.*(?:这些|这个|功能|它|使用|选择)).*",
+            "(?=.*(?:为什么|为何|理由|价值|值得|好处))(?=.*(?:这些|这个|功能|它|使用|选择|筛选项|设计|流程)).*",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
     private static final Pattern PRODUCT_FEEDBACK_FOLLOW_UP = Pattern.compile(
             "(?:(?=.*(?:尤其|特别是|主要是|资料多|文件多|等得|比较久))|"
+                    + "(?=.*(?:补充|说的是))(?=.*(?:移动端|网页端|搜索页|结果页))|"
                     + "(?=.*(?:只是|仅仅是).{0,8}(?:建议|反馈))(?=.*(?:不要|不用|无需).{0,8}(?:直接)?(?:改|修改|执行))).*",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
@@ -42,7 +57,8 @@ final class ResponseOnlyConversationFollowUpGuard {
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
     private static final Pattern EXTERNAL_RESOURCE_FOLLOW_UP = Pattern.compile(
-            "(?=.*(?:推荐|提供|告诉我|有哪些|哪里))(?=.*(?:官方|公开|合法|正规).{0,8}(?:渠道|网站|平台|来源)).*",
+            "(?:(?=.*(?:推荐|提供|告诉我|有哪些|哪里))(?=.*(?:官方|公开|合法|正规).{0,8}(?:渠道|网站|平台|来源))|"
+                    + "(?=.*(?:那个网站|该网站|外部网站))(?=.*(?:下载|保存).{0,8}(?:云盘|这里))).*",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
     private static final Pattern ERRAND_GUIDANCE_FOLLOW_UP = Pattern.compile(
@@ -65,8 +81,23 @@ final class ResponseOnlyConversationFollowUpGuard {
         if (value.isBlank() || conversation == null || conversation.pendingIntentId().isBlank()) {
             return Optional.empty();
         }
+        if ("assistant_product_feedback".equals(conversation.pendingIntentId())
+                && matches(PRODUCT_FEEDBACK_FOLLOW_UP, value)) {
+            return decision(
+                    "product_feedback_follow_up",
+                    value.contains("只是建议") ? "assistant_acknowledgement" : "assistant_product_feedback",
+                    "明白，这是对现有体验的补充反馈，我只会记录和回应建议，不会直接修改流程。"
+            );
+        }
         if (FILE_OPERATION_REQUEST.matcher(value).find()) {
             return Optional.empty();
+        }
+        if (isResponseOnlyIntent(conversation.pendingIntentId()) && matches(ACKNOWLEDGEMENT, value)) {
+            return decision(
+                    "response_only_acknowledgement",
+                    "assistant_acknowledgement",
+                    "明白，当前对话到这里即可，我不会创建或执行文件任务。"
+            );
         }
 
         return switch (conversation.pendingIntentId()) {
@@ -82,13 +113,17 @@ final class ResponseOnlyConversationFollowUpGuard {
                     ? decision("social_to_personal_chat", "assistant_chat",
                     "听起来你今天虽然有些忙，但整体还算平稳。我们可以按你舒服的节奏聊聊。")
                     : Optional.empty();
+            case "assistant_chat" -> matches(CHAT_CONTINUATION, value) || matches(PERSONAL_STATE_FOLLOW_UP, value)
+                    ? decision("chat_continuation", "assistant_chat",
+                    "我在听。你可以按自己的节奏继续说，我们先不处理任何文件。")
+                    : Optional.empty();
             case "assistant_product_info" -> matches(PRODUCT_REASON_FOLLOW_UP, value)
                     ? decision("product_reason_follow_up", "assistant_product_reason",
                     "这些能力的价值在于把查找、整理和确认流程集中起来，同时避免未经确认的文件变更。")
                     : Optional.empty();
-            case "assistant_product_feedback" -> matches(PRODUCT_FEEDBACK_FOLLOW_UP, value)
-                    ? decision("product_feedback_follow_up", "assistant_product_feedback",
-                    "明白，这是对现有体验的补充反馈，我只会记录和回应建议，不会直接修改流程。")
+            case "assistant_product_feedback" -> matches(PRODUCT_REASON_FOLLOW_UP, value)
+                    ? decision("product_feedback_to_reason", "assistant_product_reason",
+                    "保留这些筛选项是为了让不同文件规模和查找方式都有明确入口，但界面仍可以继续简化。")
                     : Optional.empty();
             case "assistant_writing_help" -> matches(WRITING_REFINEMENT_FOLLOW_UP, value)
                     ? decision("writing_refinement_follow_up", "assistant_writing_help",
@@ -105,6 +140,9 @@ final class ResponseOnlyConversationFollowUpGuard {
             case "assistant_capability_examples" -> matches(CONSULTATION_ONLY_ACKNOWLEDGEMENT, value)
                     ? decision("capability_consultation_acknowledgement", "assistant_acknowledgement",
                     "明白，这次只了解能力，不会创建或执行任何文件任务。")
+                    : matches(EXECUTION_POLICY_FOLLOW_UP, value)
+                    ? decision("capability_to_execution_policy", "assistant_execution_explanation",
+                    "文件变更不会在未确认时直接发生；系统会先形成待确认任务，再由云端执行并记录结果。")
                     : Optional.empty();
             case "fallback" -> matches(HIGH_STAKES_PERSISTENCE, value)
                     ? decision("high_stakes_persistence", "fallback",
@@ -120,6 +158,10 @@ final class ResponseOnlyConversationFollowUpGuard {
 
     private Optional<Decision> decision(String id, String intentId, String assistantText) {
         return Optional.of(new Decision(id, intentId, "FOLLOW_UP", "RESPOND", assistantText));
+    }
+
+    private boolean isResponseOnlyIntent(String intentId) {
+        return intentId != null && (intentId.startsWith("assistant_") || "fallback".equals(intentId));
     }
 
     record Decision(

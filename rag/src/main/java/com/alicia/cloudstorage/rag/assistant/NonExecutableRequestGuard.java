@@ -112,7 +112,7 @@ final class NonExecutableRequestGuard {
     private static final Pattern ASSISTANT_IDENTITY_SCOPE_QUESTION = Pattern.compile(
             "(?=.*(?:安安|你|云盘助手|文件助手))"
                     + "(?=.*(?:(?:职责|责任)(?:范围)?|负责什么|什么职责|什么角色|扮演.{0,4}角色|身份|定位|"
-                    + "(?:能|可以|会).{0,8}(?:帮|帮助|协助).{0,8}(?:什么|干嘛|哪些)))"
+                    + "什么类型的助手|(?:能|可以|会).{0,8}(?:帮|帮助|协助).{0,8}(?:什么|干嘛|哪些)))"
                     + "(?!.*(?:详细|具体|举例|例子|哪些.{0,8}(?:操作|方式|方案))).*",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
@@ -134,8 +134,9 @@ final class NonExecutableRequestGuard {
     private static final Pattern PRODUCT_FILE_FEATURE_QUESTION = Pattern.compile(
             "(?!.*(?:哪些.{0,8}(?:文件类型|类型|格式)|文件类型|格式|整个文件夹|多大|大小|限制|条件))"
                     + "(?=.*(?:Alicia|网盘|云盘|这个产品))"
-                    + "(?=.*(?:支持|能否|是否能|可以|有没有))"
-                    + "(?=.*(?:搜索|查找|分享|上传|下载|移动|重命名|改名|分类|整理))"
+                    + "(?=.*(?:(?:支持|能否|是否能|能不能|可以|有没有)|"
+                    + "(?:能.{0,6}(?:保存|保留|查看|恢复).{0,4}(?:版本历史|历史版本))))"
+                    + "(?=.*(?:搜索|查找|分享|上传|下载|移动|重命名|改名|分类|整理|版本历史|历史版本))"
                     + "(?=.*(?:吗|么|哪些|什么|如何|怎么|[？?])).*",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
@@ -149,6 +150,27 @@ final class NonExecutableRequestGuard {
             "(?=.*(?:外部|别的|其他|第三方).{0,8}(?:网盘|云盘))"
                     + "(?=.*(?:资源|链接|地址))"
                     + "(?=.*(?:给我|找|查找|推荐|提供|发一个|来一个)).*",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
+    private static final Pattern PRODUCT_OVERVIEW_QUESTION = Pattern.compile(
+            "(?=.*(?:Alicia|这个云盘|该云盘|这个产品))"
+                    + "(?=.*(?:主要|核心|用来|解决|作用))"
+                    + "(?=.*(?:什么问题|做什么|用途|功能|价值)).*",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
+    private static final Pattern PUBLIC_EXTERNAL_RESOURCE_REQUEST = Pattern.compile(
+            "(?=.*(?:哪里|哪儿|什么地方|渠道))(?=.*(?:下载|找到|获取))"
+                    + "(?=.*(?:公开|行业报告|外部报告|资料)).*",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
+    private static final Pattern WRITING_HELP_REQUEST = Pattern.compile(
+            "(?=.*(?:帮我|请|能否|可以))(?=.*(?:写一句|改得|改写|润色|换个说法))"
+                    + "(?=.*(?:礼貌|委婉|简短|正式|提醒|文案|这句话|[“\"'])).*",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
+    private static final Pattern PERSONAL_CHAT_REQUEST = Pattern.compile(
+            "(?:(?=.*(?:事情|工作|状态|心情))(?=.*(?:有点多|缓一缓|累|乱))|"
+                    + "(?=.*(?:先停一下|暂停一下))(?=.*(?:累|休息|缓缓))).*",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
     private static final Pattern CLOUD_FILE_CONTEXT = Pattern.compile(
@@ -167,7 +189,7 @@ final class NonExecutableRequestGuard {
     );
     private static final Pattern PAUSED_FILE_CONVERSATION = Pattern.compile(
             "(?:(?=.*(?:先不|暂时不|现在不).{0,8}(?:处理|操作).{0,8}(?:文件|资料))|"
-                    + "(?=.*(?:文件|资料).{0,8}(?:先)?(?:放一边|搁一边|先不管|晚点处理)))"
+                    + "(?=.*(?:文件|资料).{0,8}(?:先)?(?:放一边|放着|搁一边|先不管|晚点处理)))"
                     + "(?=.*(?:聊|说说话|说点别的|聊点别的|状态怎么样|今天怎么样)).*",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
@@ -218,8 +240,11 @@ final class NonExecutableRequestGuard {
     );
     private static final Pattern CANCELLATION = Pattern.compile(
             "^(?:(?:算了[，,]?)?(?:不用了|不做了|先不做了|取消(?:这个|该|刚才的)?(?:操作|任务|动作)?|停止|停下|撤销|作罢)|"
+                    + "(?:算了[，,]?)?(?:先)?取消(?:删除|移动|上传|创建|新建|重命名|改名)(?:[，,].*)?|"
+                    + "(?:不建了|别建了)(?:[，,].*)?|"
+                    + "(?:停一下|停止)[，,]?(?:这批|这些|那些)?(?:文件)?(?:先)?(?:不要|别)(?:再)?(?:删除|移动|上传|创建|新建)|"
                     + "(?:算了[，,]?)?(?:(?:这个|该|刚才的)(?:文件夹|目录|操作|任务)?\\s*)?"
-                    + "(?:先)?(?:不要|别|不用)(?:再)?(?:创建|新建|继续|执行)(?:了)?|"
+                    + "(?:先)?(?:不要|别|不用)(?:再)?(?:建|创建|新建|继续|执行|移动|上传|删除)(?:了)?|"
                     + "(?:不用了[，,]?)?(?:先)?(?:不建|别建)(?:了)?|算了)[。！!]*$",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
@@ -259,6 +284,24 @@ final class NonExecutableRequestGuard {
                     "当前没有等待确认的文件操作。请先说明要执行的操作和目标。"
             ));
         }
+        if (PERSONAL_CHAT_REQUEST.matcher(value).matches()) {
+            return Optional.of(new Decision(
+                    "personal_chat_request",
+                    "assistant_chat",
+                    "NEW_TASK",
+                    "RESPOND",
+                    "可以，我们先暂停文件处理。你可以说说现在的感受或安排。"
+            ));
+        }
+        if (WRITING_HELP_REQUEST.matcher(value).matches() && !MUTATION.matcher(value).find()) {
+            return Optional.of(new Decision(
+                    "writing_help_request",
+                    "assistant_writing_help",
+                    "NEW_TASK",
+                    "RESPOND",
+                    "可以，我只会帮助调整文字表达，不会执行文件操作。"
+            ));
+        }
         if (ASSISTANT_IDENTITY_SCOPE_QUESTION.matcher(value).matches()) {
             return Optional.of(new Decision(
                     "assistant_identity_scope_question",
@@ -266,6 +309,24 @@ final class NonExecutableRequestGuard {
                     "NEW_TASK",
                     "RESPOND",
                     "我是 Alicia 云盘中的智能文件管家安安，可以说明我的职责、能力边界和安全确认方式。"
+            ));
+        }
+        if (PRODUCT_OVERVIEW_QUESTION.matcher(value).matches()) {
+            return Optional.of(new Decision(
+                    "product_overview_question",
+                    "assistant_product_info",
+                    "NEW_TASK",
+                    "RESPOND",
+                    "Alicia 云盘用于统一保存、查找和整理文件，并通过确认流程降低误操作风险。"
+            ));
+        }
+        if (PUBLIC_EXTERNAL_RESOURCE_REQUEST.matcher(value).matches()) {
+            return Optional.of(new Decision(
+                    "public_external_resource_request",
+                    "assistant_external_resource",
+                    "NEW_TASK",
+                    "RESPOND",
+                    "我不能代为检索或下载外部网站资源，但可以建议你使用公开、正规且有授权的来源。"
             ));
         }
         if (OUT_OF_SCOPE_FORMAL_PROOF_REQUEST.matcher(value).matches()

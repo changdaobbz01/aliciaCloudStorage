@@ -31,6 +31,10 @@ public record AssistantConversationFocus(
             return previous == null ? empty() : previous;
         }
 
+        if (isCancellation(response)) {
+            return empty();
+        }
+
         CandidateBindingResult binding = response.candidateBinding();
         if (binding != null && !binding.candidates().isEmpty()) {
             CandidateItem selected = selectedCandidate(binding);
@@ -46,7 +50,7 @@ public record AssistantConversationFocus(
 
         if (invalidatesCandidateContext(response, binding)) {
             return new AssistantConversationFocus(
-                    "none",
+                    focusKind(response),
                     response.intentId(),
                     response.actionDraft() == null ? "none" : response.actionDraft().type(),
                     response.entities(),
@@ -55,12 +59,16 @@ public record AssistantConversationFocus(
             );
         }
 
+        if (isResponseOnly(response) && previous != null && previous.hasOperationContext()) {
+            return previous;
+        }
+
         if (previous != null && previous.hasCandidateContext()) {
             return previous;
         }
 
         return new AssistantConversationFocus(
-                "none",
+                focusKind(response),
                 response.intentId(),
                 response.actionDraft() == null ? "none" : response.actionDraft().type(),
                 response.entities(),
@@ -71,6 +79,14 @@ public record AssistantConversationFocus(
 
     public boolean hasCandidateContext() {
         return candidateBinding != null && !candidateBinding.candidates().isEmpty();
+    }
+
+    public boolean hasOperationContext() {
+        return actionType != null
+                && !actionType.isBlank()
+                && !List.of("none", "search").contains(actionType)
+                && sourceIntentId != null
+                && !sourceIntentId.isBlank();
     }
 
     public boolean hasSingleCandidateFocus() {
@@ -149,6 +165,22 @@ public record AssistantConversationFocus(
                 "collection_filter_only",
                 "collection_not_executable"
         ).contains(binding.status());
+    }
+
+    private static boolean isCancellation(IntentRecognitionResponse response) {
+        return response.semanticFrame() != null
+                && "CANCELLATION".equals(response.semanticFrame().relation());
+    }
+
+    private static boolean isResponseOnly(IntentRecognitionResponse response) {
+        String actionType = response.actionDraft() == null ? "none" : response.actionDraft().type();
+        return List.of("none", "search").contains(actionType)
+                && (response.intentId().startsWith("assistant_") || "fallback".equals(response.intentId()));
+    }
+
+    private static String focusKind(IntentRecognitionResponse response) {
+        String actionType = response.actionDraft() == null ? "none" : response.actionDraft().type();
+        return List.of("none", "search").contains(actionType) ? "none" : "operation";
     }
 
     private static CandidateItem selectedCandidate(CandidateBindingResult binding) {

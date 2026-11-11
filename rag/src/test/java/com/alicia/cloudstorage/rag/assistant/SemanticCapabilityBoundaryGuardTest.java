@@ -47,6 +47,8 @@ class SemanticCapabilityBoundaryGuardTest {
     void allowsSupportedCreateThenUploadAndPrefixRename() {
         assertThat(guard.evaluate("新建项目资料文件夹，然后把我选的本地文件上传进去"))
                 .isEmpty();
+        assertThat(guard.evaluate("把当前目录所有 .log 文件移动到日志归档目录"))
+                .isEmpty();
         assertThat(guard.evaluate("把名称包含测试的文件统一添加前缀归档_"))
                 .isEmpty();
     }

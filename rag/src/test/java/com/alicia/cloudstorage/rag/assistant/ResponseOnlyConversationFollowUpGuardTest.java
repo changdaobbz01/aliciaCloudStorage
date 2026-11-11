@@ -25,6 +25,13 @@ class ResponseOnlyConversationFollowUpGuardTest {
         assertDecision("告诉我订餐时通常要准备哪些信息", "assistant_errand_unsupported", "assistant_errand_unsupported");
         assertDecision("我先了解一下，不需要执行", "assistant_capability_examples", "assistant_acknowledgement");
         assertDecision("只给一个大概的诊断也行", "fallback", "fallback");
+        assertDecision("昨晚没睡好，现在脑子还有点乱", "assistant_social", "assistant_chat");
+        assertDecision("不用给方案，听我说两句就行", "assistant_chat", "assistant_chat");
+        assertDecision("好，就用这句", "assistant_writing_help", "assistant_acknowledgement");
+        assertDecision("这些操作会不经过确认就发生吗", "assistant_capability_examples", "assistant_execution_explanation");
+        assertDecision("为什么现在要保留这么多筛选项", "assistant_product_feedback", "assistant_product_reason");
+        assertDecision("补充一下，我说的是移动端搜索页", "assistant_product_feedback", "assistant_product_feedback");
+        assertDecision("那你直接从那个网站下载到云盘吧", "assistant_external_resource", "assistant_external_resource");
     }
 
     @Test
@@ -34,6 +41,7 @@ class ResponseOnlyConversationFollowUpGuardTest {
         assertThat(guard.evaluate("语气再委婉一些", state("assistant_chat"))).isEmpty();
         assertThat(guard.evaluate("不保证准确也可以，你给个结论吧", state("assistant_product_info"))).isEmpty();
         assertThat(guard.evaluate("语气再委婉一些", null)).isEmpty();
+        assertThat(guard.evaluate("继续处理它", state("assistant_identity"))).isEmpty();
     }
 
     private void assertDecision(String message, String previousIntent, String expectedIntent) {

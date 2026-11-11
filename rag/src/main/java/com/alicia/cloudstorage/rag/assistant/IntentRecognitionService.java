@@ -41,6 +41,8 @@ public class IntentRecognitionService {
     private final NonExecutableRequestGuard nonExecutableRequestGuard = new NonExecutableRequestGuard();
     private final ResponseOnlyConversationFollowUpGuard conversationFollowUpGuard =
             new ResponseOnlyConversationFollowUpGuard();
+    private final ContextualOperationFollowUpGuard operationFollowUpGuard =
+            new ContextualOperationFollowUpGuard();
     private final AssistantResponsePolicy responsePolicy;
     private final AssistantReplyPolisher replyPolisher;
     private final List<ResponseTemplate> responseTemplates;
@@ -190,7 +192,10 @@ public class IntentRecognitionService {
         if (followUpDecision.isPresent()) {
             return responseOnlyConversationResponse(message, followUpDecision.get());
         }
-        var nonExecutableDecision = nonExecutableRequestGuard.evaluate(message, conversation);
+        var operationFollowUpDecision = operationFollowUpGuard.evaluate(message, conversation);
+        var nonExecutableDecision = operationFollowUpDecision.isEmpty()
+                ? nonExecutableRequestGuard.evaluate(message, conversation)
+                : Optional.<NonExecutableRequestGuard.Decision>empty();
         boolean requiresLocalSemanticResolution = nonExecutableDecision
                 .map(NonExecutableRequestGuard.Decision::requiresSemanticResolution)
                 .orElse(false);
@@ -200,10 +205,11 @@ public class IntentRecognitionService {
         AssistantClientContext safeClientContext = clientContext == null
                 ? AssistantClientContext.empty()
                 : clientContext;
-        SemanticCapabilityBoundaryGuard.BoundaryDecision configuredBoundary = capabilityBoundaryGuard
-                .evaluate(message)
-                .orElse(null);
-        IntentModelClient.ModelIntentResult modelResult = configuredBoundary == null
+        SemanticCapabilityBoundaryGuard.BoundaryDecision configuredBoundary = operationFollowUpDecision.isEmpty()
+                ? capabilityBoundaryGuard.evaluate(message).orElse(null)
+                : null;
+        IntentModelClient.ModelIntentResult modelResult = operationFollowUpDecision.isEmpty()
+                && configuredBoundary == null
                 && !requiresLocalSemanticResolution
                 ? modelClient.recognize(
                                 new IntentModelClient.IntentModelRequest(
@@ -214,7 +220,10 @@ public class IntentRecognitionService {
                         .orElse(null)
                 : null;
         String fallbackReason;
-        if (requiresLocalSemanticResolution) {
+        if (operationFollowUpDecision.isPresent()) {
+            fallbackReason = "local_structure:contextual_operation_follow_up:"
+                    + operationFollowUpDecision.orElseThrow().id();
+        } else if (requiresLocalSemanticResolution) {
             fallbackReason = "non_executable_guard:" + nonExecutableDecision.orElseThrow().id();
         } else if (configuredBoundary == null) {
             fallbackReason = "DeepSeek 未配置或暂时不可用";
@@ -268,6 +277,17 @@ public class IntentRecognitionService {
                 ));
             }
         }
+        if (operationFollowUpDecision.isPresent()) {
+            ContextualOperationFollowUpGuard.Decision decision = operationFollowUpDecision.orElseThrow();
+            response = rebuildForConversation(
+                    response,
+                    decision.intentId(),
+                    decision.entities(),
+                    "用户正在显式修正或恢复先前的文件操作。"
+            );
+            guardedByBoundary = false;
+            guardedByLocalRoute = false;
+        }
         Map<String, Object> modelPayload = modelResult == null
                 || guardedByBoundary
                 || arbitration.useLocalStructure()
@@ -282,9 +302,12 @@ public class IntentRecognitionService {
                         modelPayload
                 )
                 : capabilityBoundaryFrame(configuredBoundary);
+        if (operationFollowUpDecision.isPresent()) {
+            semanticFrame = operationFollowUpDecision.orElseThrow().applyTo(semanticFrame);
+        }
 
         if (!guardedByBoundary
-                && "fallback".equals(response.intentId())
+                && !"file_search".equals(response.intentId())
                 && List.of("SEARCH", "LIST_CHILDREN").contains(semanticFrame.operation())) {
             response = rebuildForConversation(
                     response,
