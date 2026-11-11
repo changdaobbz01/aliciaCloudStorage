@@ -249,7 +249,10 @@ final class NonExecutableRequestGuard {
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
     private static final Pattern CONTEXTLESS_CONFIRMATION = Pattern.compile(
-            "^(?:请)?(?:确认(?:并|后)?执行|确认执行|确认|执行|就(?:这样|这么)执行)(?:吧|了)?[。！!]*$",
+            "^(?:请)?(?:确认(?:并|后)?执行|确认执行|确认|执行|就(?:这样|这么)执行|"
+                    + "(?:那?就)?(?:按|照)(?:刚才|之前)?(?:说的|这句话|那句话|这个|那个)?(?:直接)?执行|"
+                    + "继续(?:刚才|之前)(?:那个|这个|说的)?)"
+                    + "(?:吧|了)?[。！!]*$",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
     private static final List<Pattern> DISTINCT_OPERATIONS = List.of(

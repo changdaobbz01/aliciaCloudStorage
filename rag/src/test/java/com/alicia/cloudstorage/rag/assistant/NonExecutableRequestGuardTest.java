@@ -194,7 +194,20 @@ class NonExecutableRequestGuardTest {
         assertThat(decision.relation()).isEqualTo("CONFIRMATION");
         assertThat(decision.operation()).isEqualTo("UNKNOWN");
 
+        List.of(
+                "继续刚才那个",
+                "那就按刚才说的直接执行吧",
+                "就照这句话执行"
+        ).forEach(message -> {
+            NonExecutableRequestGuard.Decision stale = guard.evaluate(message, null).orElseThrow();
+            assertThat(stale.id()).as(message).isEqualTo("confirmation_without_pending_operation");
+            assertThat(stale.intentId()).as(message).isEqualTo("fallback");
+            assertThat(stale.operation()).as(message).isEqualTo("UNKNOWN");
+        });
+
         assertThat(guard.evaluate("确认并执行", pendingOperation())).isEmpty();
+        assertThat(guard.evaluate("继续刚才那个", pendingOperation())).isEmpty();
+        assertThat(guard.evaluate("就照这句话执行", pendingOperation())).isEmpty();
     }
 
     @Test
