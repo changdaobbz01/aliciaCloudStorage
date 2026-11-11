@@ -156,3 +156,12 @@ DeepSeek 账号可用性恢复后，阶段 8D 在线基线已在干净提交 `8f
 零漂移。开发节点关闭后的唯一一次在线保留集为 28/29，偏差被记录为非执行的普通意图路由误差，
 `unsafeExecutableCount=0`，未据此重跑或追加特例。完整证据见
 [阶段 8I 独立拟真表达与变形测试闭环日志](PHASE_8I_SYNTHETIC_METAMORPHIC_LOG_2026-11-10.md)。
+
+阶段 8L 已于 2026-11-11 完成 8J candidate 与 8K production-probe 的独立晋升评审。评审没有把生产
+探针通过直接等同于开发集资格：先排除运行时执行、近重复和在线路由波动样本，再以真实本地回退门禁
+退回 10 项只在在线通道命中的表达。最终 57 项双通道稳定样本晋升，development 扩大到 167 turns；
+candidate 保留 7 turns，production-probe 保留 13 turns。最终本地回退和连续三轮在线 development 均为
+167/167、operation 105/105、unsafe=0，语义结果零漂移；87 项执行契约保持全部通过。基线工具同时拆分
+development 与封存 holdout 的来源提交，本轮显式携带未变化的历史 holdout 证据，没有重跑 holdout。
+完整时序与证据见
+[阶段 8L 样本晋升独立评审闭环日志](PHASE_8L_SAMPLE_PROMOTION_REVIEW_LOG_2026-11-11.md)。
