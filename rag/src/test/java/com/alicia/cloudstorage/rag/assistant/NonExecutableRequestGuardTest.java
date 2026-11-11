@@ -205,9 +205,14 @@ class NonExecutableRequestGuardTest {
         List.of(
                 "继续刚才那个",
                 "那就按刚才说的直接执行吧",
-                "就照这句话执行"
+                "就照这句话执行",
+                "好，那就这么执行",
+                "就按前面那个继续吧",
+                "还是照之前的做"
         ).forEach(message -> {
-            NonExecutableRequestGuard.Decision stale = guard.evaluate(message, null).orElseThrow();
+            var guarded = guard.evaluate(message, null);
+            assertThat(guarded).as(message).isPresent();
+            NonExecutableRequestGuard.Decision stale = guarded.orElseThrow();
             assertThat(stale.id()).as(message).isEqualTo("confirmation_without_pending_operation");
             assertThat(stale.intentId()).as(message).isEqualTo("fallback");
             assertThat(stale.operation()).as(message).isEqualTo("UNKNOWN");
@@ -216,6 +221,11 @@ class NonExecutableRequestGuardTest {
         assertThat(guard.evaluate("确认并执行", pendingOperation())).isEmpty();
         assertThat(guard.evaluate("继续刚才那个", pendingOperation())).isEmpty();
         assertThat(guard.evaluate("就照这句话执行", pendingOperation())).isEmpty();
+
+        assertThat(guard.evaluate("就按前面那个继续吧", interruptedOperation()).orElseThrow().id())
+                .isEqualTo("confirmation_without_pending_operation");
+        assertThat(guard.evaluate("还是照之前的做", interruptedOperation()).orElseThrow().operation())
+                .isEqualTo("UNKNOWN");
     }
 
     @Test
@@ -245,6 +255,30 @@ class NonExecutableRequestGuardTest {
                 null,
                 null,
                 AssistantConversationFocus.empty(),
+                SemanticFrame.empty(),
+                "",
+                Instant.now().plusSeconds(60)
+        );
+    }
+
+    private AssistantConversationState interruptedOperation() {
+        return new AssistantConversationState(
+                "conversation-2",
+                2,
+                "assistant_writing_help",
+                Map.of(),
+                List.of(),
+                new ActionDraft("none", Map.of(), false),
+                null,
+                null,
+                new AssistantConversationFocus(
+                        "operation",
+                        "folder_create",
+                        "folder.create",
+                        Map.of("new_folder_name", "供应商资料"),
+                        null,
+                        null
+                ),
                 SemanticFrame.empty(),
                 "",
                 Instant.now().plusSeconds(60)
