@@ -14,6 +14,8 @@ final class StorageFileCategory {
             Map.entry("photos", "IMAGE"),
             Map.entry("图片", "IMAGE"),
             Map.entry("照片", "IMAGE"),
+            Map.entry("相片", "IMAGE"),
+            Map.entry("截图", "IMAGE"),
             Map.entry("video", "VIDEO"),
             Map.entry("videos", "VIDEO"),
             Map.entry("视频", "VIDEO"),

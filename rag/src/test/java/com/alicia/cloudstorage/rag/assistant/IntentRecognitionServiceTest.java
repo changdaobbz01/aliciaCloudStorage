@@ -1155,6 +1155,63 @@ class IntentRecognitionServiceTest {
     }
 
     @Test
+    void localFallbackClosesReviewedPhase8JAnd8KStructuralGaps() {
+        IntentRecognitionService service = new IntentRecognitionService(
+                message -> Optional.empty(),
+                intentRouter,
+                configLoader
+        );
+
+        Map.of(
+                "把全部相片归拢到视觉中心目录", "collection_move_by_category",
+                "把目录中全部截图集中到视觉素材库", "collection_move_by_category",
+                "把所有 .trace 文件归档至诊断备份目录", "collection_move_by_extension",
+                "为名字含报销单的文件统一添加已处理-前缀", "collection_rename_add_prefix",
+                "给文件名带会议纪要的资料统一加上已审阅-前缀", "collection_rename_add_prefix",
+                "把音乐-片头.mp3移动至成品目录", "node_move",
+                "设计资料文件夹里目前都放了什么内容", "file_search",
+                "文件先放一边，陪我随便聊会儿吧", "assistant_chat",
+                "希望以后按名称检索能再快一些", "assistant_product_feedback",
+                "帮我写一句提醒团队整理资料的话", "assistant_writing_help"
+        ).forEach((message, intentId) -> assertThat(service.recognize(message).intentId())
+                .as(message)
+                .isEqualTo(intentId));
+
+        assertThat(service.recognize("设计资料文件夹里目前都放了什么内容").semanticFrame().operation())
+                .isEqualTo("LIST_CHILDREN");
+        assertThat(service.recognize("文件先放一边，陪我随便聊会儿吧").actionDraft().type())
+                .isEqualTo("none");
+        assertThat(service.recognize("希望以后按名称检索能再快一些").actionDraft().type())
+                .isEqualTo("none");
+        assertThat(service.recognize("帮我写一句提醒团队整理资料的话").actionDraft().type())
+                .isEqualTo("none");
+    }
+
+    @Test
+    void reviewedVocabularyKeepsAtomicAndExecutableBoundaries() {
+        IntentRecognitionService service = new IntentRecognitionService(
+                message -> Optional.empty(),
+                intentRouter,
+                configLoader
+        );
+
+        List.of(
+                "把相片-封面.jpg移动到成品目录",
+                "把截图说明.txt移动到文档目录",
+                "把音乐-片头.mp3移动至成品目录"
+        ).forEach(message -> assertThat(service.recognize(message).intentId())
+                .as(message)
+                .isEqualTo("node_move"));
+
+        assertThat(service.recognize("按名称检索报销单").intentId()).isEqualTo("file_search");
+        assertThat(service.recognize("把会议纪要.docx重命名为已审阅-会议纪要.docx").intentId())
+                .isEqualTo("file_rename");
+        assertThat(service.recognize("把所有 .trace 文件归档至诊断备份目录").entities())
+                .containsEntry("extension", "TRACE")
+                .containsEntry("target_folder", "诊断备份目录");
+    }
+
+    @Test
     void localFallbackRecognizesAssistantHelpScopeQuestion() {
         IntentModelClient unavailableClient = message -> Optional.empty();
 

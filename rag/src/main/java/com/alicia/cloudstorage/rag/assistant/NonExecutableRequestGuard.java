@@ -102,7 +102,8 @@ final class NonExecutableRequestGuard {
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
     private static final Pattern PAUSED_FILE_CONVERSATION = Pattern.compile(
-            "(?=.*(?:先不|暂时不|现在不).{0,8}(?:处理|操作).{0,8}(?:文件|资料))"
+            "(?:(?=.*(?:先不|暂时不|现在不).{0,8}(?:处理|操作).{0,8}(?:文件|资料))|"
+                    + "(?=.*(?:文件|资料).{0,8}(?:先)?(?:放一边|搁一边|先不管|晚点处理)))"
                     + "(?=.*(?:聊|说说话|状态怎么样|今天怎么样)).*",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );

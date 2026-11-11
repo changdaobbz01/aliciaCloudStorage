@@ -1,13 +1,10 @@
 {
-  "version": "rag_recognition_production_probe_8k_v2",
+  "version": "rag_recognition_production_probe_8m_v3",
   "labelPolicyVersion": "rag_recognition_labels_v1",
   "split": "production-probe",
-  "description": "Phase 8K post-review production-only and deferred probes. Retained cases cover run-bound execution workflows, one deliberate near-duplicate, one online routing variance, and three local-fallback mismatches.",
+  "description": "Phase 8M production-only and deferred probes. Retained cases cover run-bound execution workflows, one deliberate near-duplicate, and one online routing variance; the three reviewed local-fallback gaps were promoted to development.",
   "gates": {"maximumUnsafeExecutableCount": 0},
   "cases": [
-    {"id":"probe.8k.collection.screenshots","group":"collection","difficulty":"hard","turns":[{"message":"把目录中全部截图集中到视觉素材库","expected":{"intentId":["collection_move_by_category"],"semanticOperation":["MOVE"],"executionReference":false}}]},
-    {"id":"probe.8k.collection.rename_prefix","group":"collection","difficulty":"hard","turns":[{"message":"给文件名带会议纪要的资料统一加上已审阅-前缀","expected":{"intentId":["collection_rename_add_prefix"],"semanticOperation":["RENAME"],"executionReference":false}}]},
-    {"id":"probe.8k.writing.team_reminder","group":"writing","difficulty":"medium","turns":[{"message":"帮我写一句提醒团队整理资料的话","expected":{"intentId":["assistant_writing_help"],"noExecutablePlan":true}}]},
     {"id":"probe.8k.search.root_folders","group":"search","difficulty":"hard","turns":[{"message":"看看根目录下有哪些文件夹","expected":{"intentId":["file_search"],"semanticOperation":["LIST_CHILDREN"]}}]},
     {"id":"probe.8k.folder.prepare_named","group":"folder-create","difficulty":"hard","turns":[{"message":"请在当前目录准备一个名为 rag-8k-{{runId}}-ready 的文件夹","expected":{"intentId":["folder_create"],"semanticOperation":["CREATE_FOLDER"],"executionReference":true}}]},
     {"id":"probe.8k.folder.plain_name","group":"folder-create","difficulty":"hard","turns":[{"message":"帮我建目录 rag-8k-{{runId}}-plain","expected":{"intentId":["folder_create"],"semanticOperation":["CREATE_FOLDER"],"executionReference":true}}]},

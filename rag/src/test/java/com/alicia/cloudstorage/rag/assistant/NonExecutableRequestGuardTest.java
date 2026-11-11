@@ -82,6 +82,8 @@ class NonExecutableRequestGuardTest {
                 .orElseThrow().id()).isEqualTo("vague_organization");
         assertThat(guard.evaluate("先不处理文件，告诉我你今天状态怎么样", null)
                 .orElseThrow().id()).isEqualTo("paused_file_conversation");
+        assertThat(guard.evaluate("文件先放一边，陪我随便聊会儿吧", null)
+                .orElseThrow().id()).isEqualTo("paused_file_conversation");
         assertThat(guard.evaluate("照片都移动到图片中转站，先生成方案让我确认", null)).isEmpty();
         assertThat(guard.evaluate("把需求说明重命名为设计稿-确认版.fig", null)).isEmpty();
         assertThat(guard.evaluate("把这些资料处理掉吧", null).orElseThrow().id())

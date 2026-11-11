@@ -152,6 +152,17 @@ class SemanticFrameV2Test {
     }
 
     @Test
+    void understandsNaturalQuestionAboutNamedFolderContents() {
+        IntentRecognitionResponse response = service.recognize("设计资料文件夹里目前都放了什么内容");
+
+        assertThat(response.intentId()).isEqualTo("file_search");
+        assertThat(response.semanticFrame().operation()).isEqualTo("LIST_CHILDREN");
+        assertThat(response.semanticFrame().query().mode()).isEqualTo("LIST_CHILDREN");
+        assertThat(response.semanticFrame().scope().type()).isEqualTo("NAMED_FOLDER");
+        assertThat(response.semanticFrame().scope().folderSurface()).isEqualTo("设计资料文件夹");
+    }
+
+    @Test
     void normalizesLocalRootDirectoryListToListChildrenOperation() {
         IntentRecognitionResponse response = service.recognize("我想看看根目录里有哪些文件夹");
 

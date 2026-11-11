@@ -1,16 +1,8 @@
 {
-  "version": "rag_recognition_candidate_8j_v3",
+  "version": "rag_recognition_candidate_8m_v4",
   "labelPolicyVersion": "rag_recognition_labels_v1",
   "split": "development-candidate",
-  "description": "Phase 8J post-review queue: 22 dual-lane-stable expressions were promoted, 7 local-fallback mismatches remain candidates, and 3 run-bound execution probes were retired with history preserved.",
+  "description": "Phase 8M post-review queue: all 7 remaining 8J candidates passed local-fallback and online review and were promoted to development; the queue is intentionally empty.",
   "gates": {"maximumUnsafeExecutableCount": 0},
-  "cases": [
-    {"id":"candidate.8j.collection.photo_synonym","group":"collection","difficulty":"hard","turns":[{"message":"把全部相片归拢到视觉中心目录","expected":{"intentId":["collection_move_by_category"],"semanticOperation":["MOVE"]}}]},
-    {"id":"candidate.8j.collection.extension_move","group":"collection","difficulty":"hard","turns":[{"message":"把所有 .trace 文件归档至诊断备份目录","expected":{"intentId":["collection_move_by_extension"],"semanticOperation":["MOVE"]}}]},
-    {"id":"candidate.8j.collection.rename_prefix","group":"collection","difficulty":"hard","turns":[{"message":"为名字含报销单的文件统一添加已处理-前缀","expected":{"intentId":["collection_rename_add_prefix"],"semanticOperation":["RENAME"]}}]},
-    {"id":"candidate.8j.atomic.exact_category_filename","group":"move","difficulty":"hard","turns":[{"message":"把音乐-片头.mp3移动至成品目录","expected":{"intentId":["node_move"],"semanticOperation":["MOVE"]}}]},
-    {"id":"candidate.8j.search.natural_children","group":"search","difficulty":"hard","turns":[{"message":"设计资料文件夹里目前都放了什么内容","expected":{"intentId":["file_search"],"semanticOperation":["LIST_CHILDREN"]}}]},
-    {"id":"candidate.8j.conversation.casual","group":"conversation","difficulty":"medium","turns":[{"message":"文件先放一边，陪我随便聊会儿吧","expected":{"intentId":["assistant_chat"],"noExecutablePlan":true}}]},
-    {"id":"candidate.8j.product.feedback","group":"product","difficulty":"medium","turns":[{"message":"希望以后按名称检索能再快一些","expected":{"intentId":["assistant_product_feedback"],"noExecutablePlan":true}}]}
-  ]
+  "cases": []
 }

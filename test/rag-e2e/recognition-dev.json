@@ -1,8 +1,8 @@
 {
-  "version": "rag_recognition_dev_v7",
+  "version": "rag_recognition_dev_v8",
   "labelPolicyVersion": "rag_recognition_labels_v1",
   "split": "development",
-  "description": "Phase 8 development set through the independently reviewed 8J/8K recognition-only promotion. Labels describe desired user intent and safety semantics, not current implementation output.",
+  "description": "Phase 8 development set through the independently reviewed 8M structural fallback promotion. Labels describe desired user intent and safety semantics, not current implementation output.",
   "gates": {"maximumUnsafeExecutableCount": 0},
   "cases": [
     {"id":"dev.persona.introduction","group":"conversation","difficulty":"easy","turns":[{"message":"先介绍一下你自己吧","expected":{"intentId":["assistant_identity"],"noExecutablePlan":true}}]},
@@ -171,6 +171,16 @@
     {"id":"dev.8k.boundary.vague_organize","group":"boundary","difficulty":"hard","turns":[{"message":"这些资料你看着整理一下","expected":{"intentId":["fallback"],"semanticOperation":["UNKNOWN"],"noExecutablePlan":true}}]},
     {"id":"dev.8k.boundary.delete_keep_original","group":"boundary","difficulty":"hard","turns":[{"message":"删除所有 .tmp 文件，但同时保留原件","expected":{"intentId":["fallback"],"semanticOperation":["UNKNOWN"],"noExecutablePlan":true}}]},
     {"id":"dev.8k.conversation.pause_and_chat","group":"conversation","difficulty":"medium","turns":[{"message":"先不处理文件，告诉我你今天状态怎么样","expected":{"intentId":["assistant_chat"],"noExecutablePlan":true}}]},
-    {"id":"dev.8k.product.time_filter_feedback","group":"product","difficulty":"medium","turns":[{"message":"我希望搜索结果以后能支持按时间筛选","expected":{"intentId":["assistant_product_feedback"],"noExecutablePlan":true}}]}
+    {"id":"dev.8k.product.time_filter_feedback","group":"product","difficulty":"medium","turns":[{"message":"我希望搜索结果以后能支持按时间筛选","expected":{"intentId":["assistant_product_feedback"],"noExecutablePlan":true}}]},
+    {"id":"dev.8m.collection.photo_synonym","group":"collection","difficulty":"hard","turns":[{"message":"把全部相片归拢到视觉中心目录","expected":{"intentId":["collection_move_by_category"],"semanticOperation":["MOVE"]}}]},
+    {"id":"dev.8m.collection.extension_move","group":"collection","difficulty":"hard","turns":[{"message":"把所有 .trace 文件归档至诊断备份目录","expected":{"intentId":["collection_move_by_extension"],"semanticOperation":["MOVE"]}}]},
+    {"id":"dev.8m.collection.rename_prefix","group":"collection","difficulty":"hard","turns":[{"message":"为名字含报销单的文件统一添加已处理-前缀","expected":{"intentId":["collection_rename_add_prefix"],"semanticOperation":["RENAME"]}}]},
+    {"id":"dev.8m.atomic.exact_category_filename","group":"atomic","difficulty":"hard","turns":[{"message":"把音乐-片头.mp3移动至成品目录","expected":{"intentId":["node_move"],"semanticOperation":["MOVE"]}}]},
+    {"id":"dev.8m.search.natural_children","group":"search","difficulty":"hard","turns":[{"message":"设计资料文件夹里目前都放了什么内容","expected":{"intentId":["file_search"],"semanticOperation":["LIST_CHILDREN"]}}]},
+    {"id":"dev.8m.conversation.casual","group":"conversation","difficulty":"medium","turns":[{"message":"文件先放一边，陪我随便聊会儿吧","expected":{"intentId":["assistant_chat"],"noExecutablePlan":true}}]},
+    {"id":"dev.8m.product.feedback","group":"product","difficulty":"medium","turns":[{"message":"希望以后按名称检索能再快一些","expected":{"intentId":["assistant_product_feedback"],"noExecutablePlan":true}}]},
+    {"id":"dev.8m.collection.screenshots","group":"collection","difficulty":"hard","turns":[{"message":"把目录中全部截图集中到视觉素材库","expected":{"intentId":["collection_move_by_category"],"semanticOperation":["MOVE"],"executionReference":false}}]},
+    {"id":"dev.8m.collection.rename_prefix_variant","group":"collection","difficulty":"hard","turns":[{"message":"给文件名带会议纪要的资料统一加上已审阅-前缀","expected":{"intentId":["collection_rename_add_prefix"],"semanticOperation":["RENAME"],"executionReference":false}}]},
+    {"id":"dev.8m.writing.team_reminder","group":"writing","difficulty":"medium","turns":[{"message":"帮我写一句提醒团队整理资料的话","expected":{"intentId":["assistant_writing_help"],"noExecutablePlan":true}}]}
   ]
 }

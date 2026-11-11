@@ -43,6 +43,12 @@ public class SemanticFrameResolver {
             "(?:列出|列一下|展示|显示|查看|看看|看下|浏览)?\\s*(?:在\\s*)?([^\\s，。,.!?！？]+?)\\s*(?:下|中|里|内)(?:的)?\\s*(文件夹|目录|文件|内容|列表)",
             Pattern.CASE_INSENSITIVE
     );
+    private static final Pattern NATURAL_NAMED_DIRECTORY_CONTENT = Pattern.compile(
+            "(?:我想)?(?:列出|列一下|展示|显示|查看|看看|看下|浏览)?\\s*"
+                    + "(.+?(?:目录|文件夹))\\s*(?:下|中|里|内)(?:目前|现在)?(?:都)?"
+                    + "(?:放了|有|包含)(?:些)?(?:什么|哪些)\\s*(文件夹|目录|文件|内容|东西)?",
+            Pattern.CASE_INSENSITIVE
+    );
     private static final Pattern UPLOAD_DESTINATION = Pattern.compile(
             "(?:上传到|上传至|传到|传进|放到|upload\\s+to)\\s*([^，。,.!?！？]+)",
             Pattern.CASE_INSENSITIVE
@@ -641,6 +647,9 @@ public class SemanticFrameResolver {
         Matcher directoryMatcher = NAMED_DIRECTORY_CONTENT.matcher(message);
         if (!directoryMatcher.find()) {
             directoryMatcher = NAMED_LOCATION_CONTENT.matcher(message);
+            if (!directoryMatcher.find()) {
+                directoryMatcher = NATURAL_NAMED_DIRECTORY_CONTENT.matcher(message);
+            }
         }
         if (directoryMatcher.find(0)) {
             String folder = cleanFolderSurface(directoryMatcher.group(1));
@@ -931,6 +940,9 @@ public class SemanticFrameResolver {
         Matcher directoryMatcher = NAMED_DIRECTORY_CONTENT.matcher(message);
         if (!directoryMatcher.find()) {
             directoryMatcher = NAMED_LOCATION_CONTENT.matcher(message);
+            if (!directoryMatcher.find()) {
+                directoryMatcher = NATURAL_NAMED_DIRECTORY_CONTENT.matcher(message);
+            }
         }
         if (!directoryMatcher.find(0)) {
             return null;
