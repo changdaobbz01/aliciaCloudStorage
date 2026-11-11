@@ -1,36 +1,36 @@
 {
   "schemaVersion": "rag_recognition_baseline_v1",
   "lane": "deepseek-online",
-  "sourceRevision": "f8086ab110b35101460fb0d581b521f1c8576b1d",
-  "developmentSourceRevision": "f8086ab110b35101460fb0d581b521f1c8576b1d",
+  "sourceRevision": "244e8f6bfa2fe8eb8195bb9a58d2a97b26910d3d",
+  "developmentSourceRevision": "244e8f6bfa2fe8eb8195bb9a58d2a97b26910d3d",
   "holdoutSourceRevision": "d54eaa6706aef4b36ece99e8cb837c7cfbf58c20",
   "labelPolicyVersion": "rag_recognition_labels_v1",
   "datasetHashes": {
-    "development": "33456162dc205f4e8c1e0a94e220484c624c41945efa467bacd2755bd910df5b",
+    "development": "c55257ca0a09a3c6e2cb7620425539410bc541bbcf11eedcac2f83be0abb6119",
     "holdout": "eebeb9d595799ee049fd5d349d36801b13f59fadd1f1f70a1e8e9aef8639abb7"
   },
   "development": {
-    "datasetVersion": "rag_recognition_dev_v8",
-    "reportRunId": "20261111030242",
-    "totalTurns": 177,
-    "intentCorrect": 177,
+    "datasetVersion": "rag_recognition_dev_v9",
+    "reportRunId": "20261111040253",
+    "totalTurns": 193,
+    "intentCorrect": 193,
     "intentAccuracy": 1.0,
     "semanticOperationEligible": 112,
     "semanticOperationCorrect": 112,
     "semanticOperationAccuracy": 1.0,
-    "exactContractCorrect": 177,
+    "exactContractCorrect": 193,
     "exactContractAccuracy": 1.0,
     "unsafeExecutableCount": 0,
     "missingResponseCount": 0,
     "infrastructureFailures": 0,
     "recognitionSources": {
-      "deepseek": 112,
-      "local_fallback": 65
+      "deepseek": 119,
+      "local_fallback": 74
     },
     "recognitionPaths": {
-      "deepseek": 112,
-      "local_guard": 52,
-      "local_policy": 10,
+      "deepseek": 119,
+      "local_guard": 64,
+      "local_policy": 7,
       "local_structure": 3
     },
     "byGroup": [
@@ -92,6 +92,22 @@
       },
       {
         "group": "delete",
+        "total": 4,
+        "intentCorrect": 4,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 4,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "execution-explanation",
+        "total": 12,
+        "intentCorrect": 12,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 12,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "execution-explanation-boundary",
         "total": 4,
         "intentCorrect": 4,
         "intentAccuracy": 1.0,
@@ -201,7 +217,7 @@
       {
         "expectedIntent": "assistant_capability_examples",
         "actualIntent": "assistant_capability_examples",
-        "count": 22
+        "count": 23
       },
       {
         "expectedIntent": "assistant_chat",
@@ -212,6 +228,11 @@
         "expectedIntent": "assistant_errand_unsupported",
         "actualIntent": "assistant_errand_unsupported",
         "count": 2
+      },
+      {
+        "expectedIntent": "assistant_execution_explanation",
+        "actualIntent": "assistant_execution_explanation",
+        "count": 12
       },
       {
         "expectedIntent": "assistant_external_resource",
@@ -226,17 +247,17 @@
       {
         "expectedIntent": "assistant_product_feedback",
         "actualIntent": "assistant_product_feedback",
-        "count": 5
+        "count": 6
       },
       {
         "expectedIntent": "assistant_product_info",
         "actualIntent": "assistant_product_info",
-        "count": 4
+        "count": 5
       },
       {
         "expectedIntent": "assistant_product_reason",
         "actualIntent": "assistant_product_reason",
-        "count": 2
+        "count": 3
       },
       {
         "expectedIntent": "assistant_social",

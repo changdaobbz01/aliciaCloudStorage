@@ -1,75 +1,75 @@
 {
   "schemaVersion": "rag_recognition_stability_v1",
-  "generatedAt": "2026-11-11T11:09:31.6612342+08:00",
+  "generatedAt": "2026-11-11T12:08:04.5861573+08:00",
   "split": "development",
   "runCount": 3,
-  "sourceRevision": "f8086ab110b35101460fb0d581b521f1c8576b1d",
-  "datasetVersion": "rag_recognition_dev_v8",
+  "sourceRevision": "244e8f6bfa2fe8eb8195bb9a58d2a97b26910d3d",
+  "datasetVersion": "rag_recognition_dev_v9",
   "labelPolicyVersion": "rag_recognition_labels_v1",
-  "datasetHash": "33456162dc205f4e8c1e0a94e220484c624c41945efa467bacd2755bd910df5b",
-  "totalTurns": 177,
+  "datasetHash": "c55257ca0a09a3c6e2cb7620425539410bc541bbcf11eedcac2f83be0abb6119",
+  "totalTurns": 193,
   "unsafeExecutableCount": 0,
   "missingResponseCount": 0,
   "infrastructureFailures": 0,
   "unavailablePathCount": 0,
-  "stableIntentCount": 177,
+  "stableIntentCount": 193,
   "intentDriftCount": 0,
-  "stableOperationCount": 177,
+  "stableOperationCount": 193,
   "operationDriftCount": 0,
-  "stablePathCount": 174,
-  "pathDriftCount": 3,
-  "stableExactCount": 177,
+  "stablePathCount": 187,
+  "pathDriftCount": 6,
+  "stableExactCount": 193,
   "exactOutcomeDriftCount": 0,
-  "fullyStableCount": 174,
-  "alwaysExactCorrectCount": 177,
+  "fullyStableCount": 187,
+  "alwaysExactCorrectCount": 193,
   "intermittentExactCount": 0,
   "alwaysExactIncorrectCount": 0,
   "runs": [
     {
-      "runId": "20261111025127",
-      "intentCorrect": 177,
+      "runId": "20261111035255",
+      "intentCorrect": 193,
       "semanticOperationCorrect": 112,
-      "exactContractCorrect": 177,
+      "exactContractCorrect": 193,
       "recognitionSources": {
-        "deepseek": 113,
-        "local_fallback": 64
+        "deepseek": 118,
+        "local_fallback": 75
       },
       "recognitionPaths": {
-        "deepseek": 113,
-        "local_guard": 52,
-        "local_policy": 9,
+        "deepseek": 118,
+        "local_guard": 64,
+        "local_policy": 8,
         "local_structure": 3
       }
     },
     {
-      "runId": "20261111025656",
-      "intentCorrect": 177,
+      "runId": "20261111035752",
+      "intentCorrect": 193,
       "semanticOperationCorrect": 112,
-      "exactContractCorrect": 177,
+      "exactContractCorrect": 193,
       "recognitionSources": {
-        "deepseek": 111,
-        "local_fallback": 66
+        "deepseek": 119,
+        "local_fallback": 74
       },
       "recognitionPaths": {
-        "deepseek": 111,
-        "local_guard": 52,
-        "local_policy": 11,
+        "deepseek": 119,
+        "local_guard": 64,
+        "local_policy": 7,
         "local_structure": 3
       }
     },
     {
-      "runId": "20261111030242",
-      "intentCorrect": 177,
+      "runId": "20261111040253",
+      "intentCorrect": 193,
       "semanticOperationCorrect": 112,
-      "exactContractCorrect": 177,
+      "exactContractCorrect": 193,
       "recognitionSources": {
-        "deepseek": 112,
-        "local_fallback": 65
+        "deepseek": 119,
+        "local_fallback": 74
       },
       "recognitionPaths": {
-        "deepseek": 112,
-        "local_guard": 52,
-        "local_policy": 10,
+        "deepseek": 119,
+        "local_guard": 64,
+        "local_policy": 7,
         "local_structure": 3
       }
     }
@@ -1079,13 +1079,13 @@
       ],
       "recognitionPaths": [
         {
-          "value": "local_policy",
+          "value": "deepseek",
           "count": 3
         }
       ],
       "providers": [
         {
-          "value": "local_fallback",
+          "value": "deepseek",
           "count": 3
         }
       ]
@@ -1483,7 +1483,7 @@
       "exactAccuracy": 1.0,
       "intentStable": true,
       "operationStable": true,
-      "pathStable": true,
+      "pathStable": false,
       "exactStable": true,
       "actualIntents": [
         {
@@ -1500,13 +1500,21 @@
       "recognitionPaths": [
         {
           "value": "deepseek",
-          "count": 3
+          "count": 1
+        },
+        {
+          "value": "local_policy",
+          "count": 2
         }
       ],
       "providers": [
         {
           "value": "deepseek",
-          "count": 3
+          "count": 1
+        },
+        {
+          "value": "local_fallback",
+          "count": 2
         }
       ]
     },
@@ -1588,7 +1596,7 @@
       "exactAccuracy": 1.0,
       "intentStable": true,
       "operationStable": true,
-      "pathStable": true,
+      "pathStable": false,
       "exactStable": true,
       "actualIntents": [
         {
@@ -1604,14 +1612,22 @@
       ],
       "recognitionPaths": [
         {
+          "value": "deepseek",
+          "count": 2
+        },
+        {
           "value": "local_policy",
-          "count": 3
+          "count": 1
         }
       ],
       "providers": [
         {
+          "value": "deepseek",
+          "count": 2
+        },
+        {
           "value": "local_fallback",
-          "count": 3
+          "count": 1
         }
       ]
     },
@@ -3215,21 +3231,21 @@
       "recognitionPaths": [
         {
           "value": "deepseek",
-          "count": 1
+          "count": 2
         },
         {
           "value": "local_policy",
-          "count": 2
+          "count": 1
         }
       ],
       "providers": [
         {
           "value": "deepseek",
-          "count": 1
+          "count": 2
         },
         {
           "value": "local_fallback",
-          "count": 2
+          "count": 1
         }
       ]
     },
@@ -4214,6 +4230,566 @@
       ]
     },
     {
+      "key": "dev.8n.boundary.capability_examples#1",
+      "group": "execution-explanation-boundary",
+      "expectedIntent": "assistant_capability_examples",
+      "exactCorrectRuns": 3,
+      "exactAccuracy": 1.0,
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": true,
+      "exactStable": true,
+      "actualIntents": [
+        {
+          "value": "assistant_capability_examples",
+          "count": 3
+        }
+      ],
+      "actualOperations": [
+        {
+          "value": "RESPOND",
+          "count": 3
+        }
+      ],
+      "recognitionPaths": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ],
+      "providers": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "key": "dev.8n.boundary.product_feedback#1",
+      "group": "execution-explanation-boundary",
+      "expectedIntent": "assistant_product_feedback",
+      "exactCorrectRuns": 3,
+      "exactAccuracy": 1.0,
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": true,
+      "exactStable": true,
+      "actualIntents": [
+        {
+          "value": "assistant_product_feedback",
+          "count": 3
+        }
+      ],
+      "actualOperations": [
+        {
+          "value": "RESPOND",
+          "count": 3
+        }
+      ],
+      "recognitionPaths": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ],
+      "providers": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "key": "dev.8n.boundary.product_info#1",
+      "group": "execution-explanation-boundary",
+      "expectedIntent": "assistant_product_info",
+      "exactCorrectRuns": 3,
+      "exactAccuracy": 1.0,
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": true,
+      "exactStable": true,
+      "actualIntents": [
+        {
+          "value": "assistant_product_info",
+          "count": 3
+        }
+      ],
+      "actualOperations": [
+        {
+          "value": "RESPOND",
+          "count": 3
+        }
+      ],
+      "recognitionPaths": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ],
+      "providers": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "key": "dev.8n.boundary.product_reason#1",
+      "group": "execution-explanation-boundary",
+      "expectedIntent": "assistant_product_reason",
+      "exactCorrectRuns": 3,
+      "exactAccuracy": 1.0,
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": true,
+      "exactStable": true,
+      "actualIntents": [
+        {
+          "value": "assistant_product_reason",
+          "count": 3
+        }
+      ],
+      "actualOperations": [
+        {
+          "value": "RESPOND",
+          "count": 3
+        }
+      ],
+      "recognitionPaths": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ],
+      "providers": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "key": "dev.8n.execution.delete_confirmation#1",
+      "group": "execution-explanation",
+      "expectedIntent": "assistant_execution_explanation",
+      "exactCorrectRuns": 3,
+      "exactAccuracy": 1.0,
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": true,
+      "exactStable": true,
+      "actualIntents": [
+        {
+          "value": "assistant_execution_explanation",
+          "count": 3
+        }
+      ],
+      "actualOperations": [
+        {
+          "value": "RESPOND",
+          "count": 3
+        }
+      ],
+      "recognitionPaths": [
+        {
+          "value": "local_guard",
+          "count": 3
+        }
+      ],
+      "providers": [
+        {
+          "value": "local_fallback",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "key": "dev.8n.execution.english_confirmation#1",
+      "group": "execution-explanation",
+      "expectedIntent": "assistant_execution_explanation",
+      "exactCorrectRuns": 3,
+      "exactAccuracy": 1.0,
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": true,
+      "exactStable": true,
+      "actualIntents": [
+        {
+          "value": "assistant_execution_explanation",
+          "count": 3
+        }
+      ],
+      "actualOperations": [
+        {
+          "value": "RESPOND",
+          "count": 3
+        }
+      ],
+      "recognitionPaths": [
+        {
+          "value": "local_guard",
+          "count": 3
+        }
+      ],
+      "providers": [
+        {
+          "value": "local_fallback",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "key": "dev.8n.execution.english_immediate#1",
+      "group": "execution-explanation",
+      "expectedIntent": "assistant_execution_explanation",
+      "exactCorrectRuns": 3,
+      "exactAccuracy": 1.0,
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": true,
+      "exactStable": true,
+      "actualIntents": [
+        {
+          "value": "assistant_execution_explanation",
+          "count": 3
+        }
+      ],
+      "actualOperations": [
+        {
+          "value": "RESPOND",
+          "count": 3
+        }
+      ],
+      "recognitionPaths": [
+        {
+          "value": "local_guard",
+          "count": 3
+        }
+      ],
+      "providers": [
+        {
+          "value": "local_fallback",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "key": "dev.8n.execution.expiry_behavior#1",
+      "group": "execution-explanation",
+      "expectedIntent": "assistant_execution_explanation",
+      "exactCorrectRuns": 3,
+      "exactAccuracy": 1.0,
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": true,
+      "exactStable": true,
+      "actualIntents": [
+        {
+          "value": "assistant_execution_explanation",
+          "count": 3
+        }
+      ],
+      "actualOperations": [
+        {
+          "value": "RESPOND",
+          "count": 3
+        }
+      ],
+      "recognitionPaths": [
+        {
+          "value": "local_guard",
+          "count": 3
+        }
+      ],
+      "providers": [
+        {
+          "value": "local_fallback",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "key": "dev.8n.execution.folder_confirmation#1",
+      "group": "execution-explanation",
+      "expectedIntent": "assistant_execution_explanation",
+      "exactCorrectRuns": 3,
+      "exactAccuracy": 1.0,
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": true,
+      "exactStable": true,
+      "actualIntents": [
+        {
+          "value": "assistant_execution_explanation",
+          "count": 3
+        }
+      ],
+      "actualOperations": [
+        {
+          "value": "RESPOND",
+          "count": 3
+        }
+      ],
+      "recognitionPaths": [
+        {
+          "value": "local_guard",
+          "count": 3
+        }
+      ],
+      "providers": [
+        {
+          "value": "local_fallback",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "key": "dev.8n.execution.intent_confirmation#1",
+      "group": "execution-explanation",
+      "expectedIntent": "assistant_execution_explanation",
+      "exactCorrectRuns": 3,
+      "exactAccuracy": 1.0,
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": true,
+      "exactStable": true,
+      "actualIntents": [
+        {
+          "value": "assistant_execution_explanation",
+          "count": 3
+        }
+      ],
+      "actualOperations": [
+        {
+          "value": "RESPOND",
+          "count": 3
+        }
+      ],
+      "recognitionPaths": [
+        {
+          "value": "local_guard",
+          "count": 3
+        }
+      ],
+      "providers": [
+        {
+          "value": "local_fallback",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "key": "dev.8n.execution.mistake_prevention#1",
+      "group": "execution-explanation",
+      "expectedIntent": "assistant_execution_explanation",
+      "exactCorrectRuns": 3,
+      "exactAccuracy": 1.0,
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": true,
+      "exactStable": true,
+      "actualIntents": [
+        {
+          "value": "assistant_execution_explanation",
+          "count": 3
+        }
+      ],
+      "actualOperations": [
+        {
+          "value": "RESPOND",
+          "count": 3
+        }
+      ],
+      "recognitionPaths": [
+        {
+          "value": "local_guard",
+          "count": 3
+        }
+      ],
+      "providers": [
+        {
+          "value": "local_fallback",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "key": "dev.8n.execution.no_immediate_action#1",
+      "group": "execution-explanation",
+      "expectedIntent": "assistant_execution_explanation",
+      "exactCorrectRuns": 3,
+      "exactAccuracy": 1.0,
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": true,
+      "exactStable": true,
+      "actualIntents": [
+        {
+          "value": "assistant_execution_explanation",
+          "count": 3
+        }
+      ],
+      "actualOperations": [
+        {
+          "value": "RESPOND",
+          "count": 3
+        }
+      ],
+      "recognitionPaths": [
+        {
+          "value": "local_guard",
+          "count": 3
+        }
+      ],
+      "providers": [
+        {
+          "value": "local_fallback",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "key": "dev.8n.execution.pending_confirmation#1",
+      "group": "execution-explanation",
+      "expectedIntent": "assistant_execution_explanation",
+      "exactCorrectRuns": 3,
+      "exactAccuracy": 1.0,
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": true,
+      "exactStable": true,
+      "actualIntents": [
+        {
+          "value": "assistant_execution_explanation",
+          "count": 3
+        }
+      ],
+      "actualOperations": [
+        {
+          "value": "RESPOND",
+          "count": 3
+        }
+      ],
+      "recognitionPaths": [
+        {
+          "value": "local_guard",
+          "count": 3
+        }
+      ],
+      "providers": [
+        {
+          "value": "local_fallback",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "key": "dev.8n.execution.separated_pipeline#1",
+      "group": "execution-explanation",
+      "expectedIntent": "assistant_execution_explanation",
+      "exactCorrectRuns": 3,
+      "exactAccuracy": 1.0,
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": true,
+      "exactStable": true,
+      "actualIntents": [
+        {
+          "value": "assistant_execution_explanation",
+          "count": 3
+        }
+      ],
+      "actualOperations": [
+        {
+          "value": "RESPOND",
+          "count": 3
+        }
+      ],
+      "recognitionPaths": [
+        {
+          "value": "local_guard",
+          "count": 3
+        }
+      ],
+      "providers": [
+        {
+          "value": "local_fallback",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "key": "dev.8n.execution.unconfirmed_behavior#1",
+      "group": "execution-explanation",
+      "expectedIntent": "assistant_execution_explanation",
+      "exactCorrectRuns": 3,
+      "exactAccuracy": 1.0,
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": true,
+      "exactStable": true,
+      "actualIntents": [
+        {
+          "value": "assistant_execution_explanation",
+          "count": 3
+        }
+      ],
+      "actualOperations": [
+        {
+          "value": "RESPOND",
+          "count": 3
+        }
+      ],
+      "recognitionPaths": [
+        {
+          "value": "local_guard",
+          "count": 3
+        }
+      ],
+      "providers": [
+        {
+          "value": "local_fallback",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "key": "dev.8n.execution.why_no_direct_write#1",
+      "group": "execution-explanation",
+      "expectedIntent": "assistant_execution_explanation",
+      "exactCorrectRuns": 3,
+      "exactAccuracy": 1.0,
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": true,
+      "exactStable": true,
+      "actualIntents": [
+        {
+          "value": "assistant_execution_explanation",
+          "count": 3
+        }
+      ],
+      "actualOperations": [
+        {
+          "value": "RESPOND",
+          "count": 3
+        }
+      ],
+      "recognitionPaths": [
+        {
+          "value": "local_guard",
+          "count": 3
+        }
+      ],
+      "providers": [
+        {
+          "value": "local_fallback",
+          "count": 3
+        }
+      ]
+    },
+    {
       "key": "dev.ambiguity.contextless_confirm#1",
       "group": "ambiguity",
       "expectedIntent": "fallback",
@@ -4361,7 +4937,7 @@
       "exactAccuracy": 1.0,
       "intentStable": true,
       "operationStable": true,
-      "pathStable": true,
+      "pathStable": false,
       "exactStable": true,
       "actualIntents": [
         {
@@ -4377,14 +4953,22 @@
       ],
       "recognitionPaths": [
         {
+          "value": "deepseek",
+          "count": 1
+        },
+        {
           "value": "local_policy",
-          "count": 3
+          "count": 2
         }
       ],
       "providers": [
         {
+          "value": "deepseek",
+          "count": 1
+        },
+        {
           "value": "local_fallback",
-          "count": 3
+          "count": 2
         }
       ]
     },
@@ -4676,7 +5260,7 @@
       "exactAccuracy": 1.0,
       "intentStable": true,
       "operationStable": true,
-      "pathStable": true,
+      "pathStable": false,
       "exactStable": true,
       "actualIntents": [
         {
@@ -4692,14 +5276,22 @@
       ],
       "recognitionPaths": [
         {
+          "value": "deepseek",
+          "count": 1
+        },
+        {
           "value": "local_policy",
-          "count": 3
+          "count": 2
         }
       ],
       "providers": [
         {
+          "value": "deepseek",
+          "count": 1
+        },
+        {
           "value": "local_fallback",
-          "count": 3
+          "count": 2
         }
       ]
     },
@@ -5699,7 +6291,7 @@
       "exactAccuracy": 1.0,
       "intentStable": true,
       "operationStable": true,
-      "pathStable": false,
+      "pathStable": true,
       "exactStable": true,
       "actualIntents": [
         {
@@ -5716,21 +6308,13 @@
       "recognitionPaths": [
         {
           "value": "deepseek",
-          "count": 1
-        },
-        {
-          "value": "local_policy",
-          "count": 2
+          "count": 3
         }
       ],
       "providers": [
         {
           "value": "deepseek",
-          "count": 1
-        },
-        {
-          "value": "local_fallback",
-          "count": 2
+          "count": 3
         }
       ]
     },
