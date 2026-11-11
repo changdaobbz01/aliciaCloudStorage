@@ -1,36 +1,36 @@
 {
   "schemaVersion": "rag_recognition_baseline_v1",
   "lane": "deepseek-online",
-  "sourceRevision": "b8a41119b6e4d20bb8723d41804b8f28c9858aee",
-  "developmentSourceRevision": "b8a41119b6e4d20bb8723d41804b8f28c9858aee",
+  "sourceRevision": "f8086ab110b35101460fb0d581b521f1c8576b1d",
+  "developmentSourceRevision": "f8086ab110b35101460fb0d581b521f1c8576b1d",
   "holdoutSourceRevision": "d54eaa6706aef4b36ece99e8cb837c7cfbf58c20",
   "labelPolicyVersion": "rag_recognition_labels_v1",
   "datasetHashes": {
-    "development": "64a4206e4758aec5445772b2167bc3b1e34d91fdb58b48e492f7d5f6215ae621",
+    "development": "33456162dc205f4e8c1e0a94e220484c624c41945efa467bacd2755bd910df5b",
     "holdout": "eebeb9d595799ee049fd5d349d36801b13f59fadd1f1f70a1e8e9aef8639abb7"
   },
   "development": {
-    "datasetVersion": "rag_recognition_dev_v7",
-    "reportRunId": "20261111021800",
-    "totalTurns": 167,
-    "intentCorrect": 167,
+    "datasetVersion": "rag_recognition_dev_v8",
+    "reportRunId": "20261111030242",
+    "totalTurns": 177,
+    "intentCorrect": 177,
     "intentAccuracy": 1.0,
-    "semanticOperationEligible": 105,
-    "semanticOperationCorrect": 105,
+    "semanticOperationEligible": 112,
+    "semanticOperationCorrect": 112,
     "semanticOperationAccuracy": 1.0,
-    "exactContractCorrect": 167,
+    "exactContractCorrect": 177,
     "exactContractAccuracy": 1.0,
     "unsafeExecutableCount": 0,
     "missingResponseCount": 0,
     "infrastructureFailures": 0,
     "recognitionSources": {
-      "deepseek": 106,
-      "local_fallback": 61
+      "deepseek": 112,
+      "local_fallback": 65
     },
     "recognitionPaths": {
-      "deepseek": 106,
-      "local_guard": 51,
-      "local_policy": 7,
+      "deepseek": 112,
+      "local_guard": 52,
+      "local_policy": 10,
       "local_structure": 3
     },
     "byGroup": [
@@ -44,10 +44,10 @@
       },
       {
         "group": "atomic",
-        "total": 7,
-        "intentCorrect": 7,
+        "total": 8,
+        "intentCorrect": 8,
         "intentAccuracy": 1.0,
-        "exactCorrect": 7,
+        "exactCorrect": 8,
         "exactAccuracy": 1.0
       },
       {
@@ -68,10 +68,10 @@
       },
       {
         "group": "collection",
-        "total": 33,
-        "intentCorrect": 33,
+        "total": 38,
+        "intentCorrect": 38,
         "intentAccuracy": 1.0,
-        "exactCorrect": 33,
+        "exactCorrect": 38,
         "exactAccuracy": 1.0
       },
       {
@@ -84,10 +84,10 @@
       },
       {
         "group": "conversation",
-        "total": 12,
-        "intentCorrect": 12,
+        "total": 13,
+        "intentCorrect": 13,
         "intentAccuracy": 1.0,
-        "exactCorrect": 12,
+        "exactCorrect": 13,
         "exactAccuracy": 1.0
       },
       {
@@ -132,10 +132,10 @@
       },
       {
         "group": "product",
-        "total": 9,
-        "intentCorrect": 9,
+        "total": 10,
+        "intentCorrect": 10,
         "intentAccuracy": 1.0,
-        "exactCorrect": 9,
+        "exactCorrect": 10,
         "exactAccuracy": 1.0
       },
       {
@@ -156,10 +156,10 @@
       },
       {
         "group": "search",
-        "total": 13,
-        "intentCorrect": 13,
+        "total": 14,
+        "intentCorrect": 14,
         "intentAccuracy": 1.0,
-        "exactCorrect": 13,
+        "exactCorrect": 14,
         "exactAccuracy": 1.0
       },
       {
@@ -176,6 +176,14 @@
         "intentCorrect": 4,
         "intentAccuracy": 1.0,
         "exactCorrect": 4,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "writing",
+        "total": 1,
+        "intentCorrect": 1,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 1,
         "exactAccuracy": 1.0
       }
     ],
@@ -198,7 +206,7 @@
       {
         "expectedIntent": "assistant_chat",
         "actualIntent": "assistant_chat",
-        "count": 3
+        "count": 4
       },
       {
         "expectedIntent": "assistant_errand_unsupported",
@@ -218,7 +226,7 @@
       {
         "expectedIntent": "assistant_product_feedback",
         "actualIntent": "assistant_product_feedback",
-        "count": 4
+        "count": 5
       },
       {
         "expectedIntent": "assistant_product_info",
@@ -243,7 +251,7 @@
       {
         "expectedIntent": "assistant_writing_help",
         "actualIntent": "assistant_writing_help",
-        "count": 7
+        "count": 8
       },
       {
         "expectedIntent": "collection_delete_by_category",
@@ -258,12 +266,12 @@
       {
         "expectedIntent": "collection_move_by_category",
         "actualIntent": "collection_move_by_category",
-        "count": 20
+        "count": 22
       },
       {
         "expectedIntent": "collection_move_by_extension",
         "actualIntent": "collection_move_by_extension",
-        "count": 3
+        "count": 4
       },
       {
         "expectedIntent": "collection_move_by_name",
@@ -273,7 +281,7 @@
       {
         "expectedIntent": "collection_rename_add_prefix",
         "actualIntent": "collection_rename_add_prefix",
-        "count": 2
+        "count": 4
       },
       {
         "expectedIntent": "fallback",
@@ -293,7 +301,7 @@
       {
         "expectedIntent": "file_search",
         "actualIntent": "file_search",
-        "count": 13
+        "count": 14
       },
       {
         "expectedIntent": "file_share",
@@ -318,7 +326,7 @@
       {
         "expectedIntent": "node_move",
         "actualIntent": "node_move",
-        "count": 17
+        "count": 18
       }
     ]
   },

@@ -1,75 +1,75 @@
 {
   "schemaVersion": "rag_recognition_stability_v1",
-  "generatedAt": "2026-11-11T10:32:54.5404220+08:00",
+  "generatedAt": "2026-11-11T11:09:31.6612342+08:00",
   "split": "development",
   "runCount": 3,
-  "sourceRevision": "b8a41119b6e4d20bb8723d41804b8f28c9858aee",
-  "datasetVersion": "rag_recognition_dev_v7",
+  "sourceRevision": "f8086ab110b35101460fb0d581b521f1c8576b1d",
+  "datasetVersion": "rag_recognition_dev_v8",
   "labelPolicyVersion": "rag_recognition_labels_v1",
-  "datasetHash": "64a4206e4758aec5445772b2167bc3b1e34d91fdb58b48e492f7d5f6215ae621",
-  "totalTurns": 167,
+  "datasetHash": "33456162dc205f4e8c1e0a94e220484c624c41945efa467bacd2755bd910df5b",
+  "totalTurns": 177,
   "unsafeExecutableCount": 0,
   "missingResponseCount": 0,
   "infrastructureFailures": 0,
   "unavailablePathCount": 0,
-  "stableIntentCount": 167,
+  "stableIntentCount": 177,
   "intentDriftCount": 0,
-  "stableOperationCount": 167,
+  "stableOperationCount": 177,
   "operationDriftCount": 0,
-  "stablePathCount": 162,
-  "pathDriftCount": 5,
-  "stableExactCount": 167,
+  "stablePathCount": 174,
+  "pathDriftCount": 3,
+  "stableExactCount": 177,
   "exactOutcomeDriftCount": 0,
-  "fullyStableCount": 162,
-  "alwaysExactCorrectCount": 167,
+  "fullyStableCount": 174,
+  "alwaysExactCorrectCount": 177,
   "intermittentExactCount": 0,
   "alwaysExactIncorrectCount": 0,
   "runs": [
     {
-      "runId": "20261111021800",
-      "intentCorrect": 167,
-      "semanticOperationCorrect": 105,
-      "exactContractCorrect": 167,
+      "runId": "20261111025127",
+      "intentCorrect": 177,
+      "semanticOperationCorrect": 112,
+      "exactContractCorrect": 177,
       "recognitionSources": {
-        "deepseek": 106,
-        "local_fallback": 61
+        "deepseek": 113,
+        "local_fallback": 64
       },
       "recognitionPaths": {
-        "deepseek": 106,
-        "local_guard": 51,
-        "local_policy": 7,
-        "local_structure": 3
-      }
-    },
-    {
-      "runId": "20261111022301",
-      "intentCorrect": 167,
-      "semanticOperationCorrect": 105,
-      "exactContractCorrect": 167,
-      "recognitionSources": {
-        "deepseek": 107,
-        "local_fallback": 60
-      },
-      "recognitionPaths": {
-        "deepseek": 107,
-        "local_guard": 51,
-        "local_policy": 6,
-        "local_structure": 3
-      }
-    },
-    {
-      "runId": "20261111022752",
-      "intentCorrect": 167,
-      "semanticOperationCorrect": 105,
-      "exactContractCorrect": 167,
-      "recognitionSources": {
-        "deepseek": 104,
-        "local_fallback": 63
-      },
-      "recognitionPaths": {
-        "deepseek": 104,
-        "local_guard": 51,
+        "deepseek": 113,
+        "local_guard": 52,
         "local_policy": 9,
+        "local_structure": 3
+      }
+    },
+    {
+      "runId": "20261111025656",
+      "intentCorrect": 177,
+      "semanticOperationCorrect": 112,
+      "exactContractCorrect": 177,
+      "recognitionSources": {
+        "deepseek": 111,
+        "local_fallback": 66
+      },
+      "recognitionPaths": {
+        "deepseek": 111,
+        "local_guard": 52,
+        "local_policy": 11,
+        "local_structure": 3
+      }
+    },
+    {
+      "runId": "20261111030242",
+      "intentCorrect": 177,
+      "semanticOperationCorrect": 112,
+      "exactContractCorrect": 177,
+      "recognitionSources": {
+        "deepseek": 112,
+        "local_fallback": 65
+      },
+      "recognitionPaths": {
+        "deepseek": 112,
+        "local_guard": 52,
+        "local_policy": 10,
         "local_structure": 3
       }
     }
@@ -1063,7 +1063,7 @@
       "exactAccuracy": 1.0,
       "intentStable": true,
       "operationStable": true,
-      "pathStable": false,
+      "pathStable": true,
       "exactStable": true,
       "actualIntents": [
         {
@@ -1079,22 +1079,14 @@
       ],
       "recognitionPaths": [
         {
-          "value": "deepseek",
-          "count": 2
-        },
-        {
           "value": "local_policy",
-          "count": 1
+          "count": 3
         }
       ],
       "providers": [
         {
-          "value": "deepseek",
-          "count": 2
-        },
-        {
           "value": "local_fallback",
-          "count": 1
+          "count": 3
         }
       ]
     },
@@ -1491,7 +1483,7 @@
       "exactAccuracy": 1.0,
       "intentStable": true,
       "operationStable": true,
-      "pathStable": false,
+      "pathStable": true,
       "exactStable": true,
       "actualIntents": [
         {
@@ -1508,21 +1500,13 @@
       "recognitionPaths": [
         {
           "value": "deepseek",
-          "count": 2
-        },
-        {
-          "value": "local_policy",
-          "count": 1
+          "count": 3
         }
       ],
       "providers": [
         {
           "value": "deepseek",
-          "count": 2
-        },
-        {
-          "value": "local_fallback",
-          "count": 1
+          "count": 3
         }
       ]
     },
@@ -1620,13 +1604,13 @@
       ],
       "recognitionPaths": [
         {
-          "value": "deepseek",
+          "value": "local_policy",
           "count": 3
         }
       ],
       "providers": [
         {
-          "value": "deepseek",
+          "value": "local_fallback",
           "count": 3
         }
       ]
@@ -3214,7 +3198,7 @@
       "exactAccuracy": 1.0,
       "intentStable": true,
       "operationStable": true,
-      "pathStable": true,
+      "pathStable": false,
       "exactStable": true,
       "actualIntents": [
         {
@@ -3231,13 +3215,21 @@
       "recognitionPaths": [
         {
           "value": "deepseek",
-          "count": 3
+          "count": 1
+        },
+        {
+          "value": "local_policy",
+          "count": 2
         }
       ],
       "providers": [
         {
           "value": "deepseek",
-          "count": 3
+          "count": 1
+        },
+        {
+          "value": "local_fallback",
+          "count": 2
         }
       ]
     },
@@ -3872,6 +3864,356 @@
       ]
     },
     {
+      "key": "dev.8m.atomic.exact_category_filename#1",
+      "group": "atomic",
+      "expectedIntent": "node_move",
+      "exactCorrectRuns": 3,
+      "exactAccuracy": 1.0,
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": true,
+      "exactStable": true,
+      "actualIntents": [
+        {
+          "value": "node_move",
+          "count": 3
+        }
+      ],
+      "actualOperations": [
+        {
+          "value": "MOVE",
+          "count": 3
+        }
+      ],
+      "recognitionPaths": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ],
+      "providers": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "key": "dev.8m.collection.extension_move#1",
+      "group": "collection",
+      "expectedIntent": "collection_move_by_extension",
+      "exactCorrectRuns": 3,
+      "exactAccuracy": 1.0,
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": true,
+      "exactStable": true,
+      "actualIntents": [
+        {
+          "value": "collection_move_by_extension",
+          "count": 3
+        }
+      ],
+      "actualOperations": [
+        {
+          "value": "MOVE",
+          "count": 3
+        }
+      ],
+      "recognitionPaths": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ],
+      "providers": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "key": "dev.8m.collection.photo_synonym#1",
+      "group": "collection",
+      "expectedIntent": "collection_move_by_category",
+      "exactCorrectRuns": 3,
+      "exactAccuracy": 1.0,
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": true,
+      "exactStable": true,
+      "actualIntents": [
+        {
+          "value": "collection_move_by_category",
+          "count": 3
+        }
+      ],
+      "actualOperations": [
+        {
+          "value": "MOVE",
+          "count": 3
+        }
+      ],
+      "recognitionPaths": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ],
+      "providers": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "key": "dev.8m.collection.rename_prefix_variant#1",
+      "group": "collection",
+      "expectedIntent": "collection_rename_add_prefix",
+      "exactCorrectRuns": 3,
+      "exactAccuracy": 1.0,
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": true,
+      "exactStable": true,
+      "actualIntents": [
+        {
+          "value": "collection_rename_add_prefix",
+          "count": 3
+        }
+      ],
+      "actualOperations": [
+        {
+          "value": "RENAME",
+          "count": 3
+        }
+      ],
+      "recognitionPaths": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ],
+      "providers": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "key": "dev.8m.collection.rename_prefix#1",
+      "group": "collection",
+      "expectedIntent": "collection_rename_add_prefix",
+      "exactCorrectRuns": 3,
+      "exactAccuracy": 1.0,
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": true,
+      "exactStable": true,
+      "actualIntents": [
+        {
+          "value": "collection_rename_add_prefix",
+          "count": 3
+        }
+      ],
+      "actualOperations": [
+        {
+          "value": "RENAME",
+          "count": 3
+        }
+      ],
+      "recognitionPaths": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ],
+      "providers": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "key": "dev.8m.collection.screenshots#1",
+      "group": "collection",
+      "expectedIntent": "collection_move_by_category",
+      "exactCorrectRuns": 3,
+      "exactAccuracy": 1.0,
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": true,
+      "exactStable": true,
+      "actualIntents": [
+        {
+          "value": "collection_move_by_category",
+          "count": 3
+        }
+      ],
+      "actualOperations": [
+        {
+          "value": "MOVE",
+          "count": 3
+        }
+      ],
+      "recognitionPaths": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ],
+      "providers": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "key": "dev.8m.conversation.casual#1",
+      "group": "conversation",
+      "expectedIntent": "assistant_chat",
+      "exactCorrectRuns": 3,
+      "exactAccuracy": 1.0,
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": true,
+      "exactStable": true,
+      "actualIntents": [
+        {
+          "value": "assistant_chat",
+          "count": 3
+        }
+      ],
+      "actualOperations": [
+        {
+          "value": "RESPOND",
+          "count": 3
+        }
+      ],
+      "recognitionPaths": [
+        {
+          "value": "local_guard",
+          "count": 3
+        }
+      ],
+      "providers": [
+        {
+          "value": "local_fallback",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "key": "dev.8m.product.feedback#1",
+      "group": "product",
+      "expectedIntent": "assistant_product_feedback",
+      "exactCorrectRuns": 3,
+      "exactAccuracy": 1.0,
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": true,
+      "exactStable": true,
+      "actualIntents": [
+        {
+          "value": "assistant_product_feedback",
+          "count": 3
+        }
+      ],
+      "actualOperations": [
+        {
+          "value": "RESPOND",
+          "count": 3
+        }
+      ],
+      "recognitionPaths": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ],
+      "providers": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "key": "dev.8m.search.natural_children#1",
+      "group": "search",
+      "expectedIntent": "file_search",
+      "exactCorrectRuns": 3,
+      "exactAccuracy": 1.0,
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": true,
+      "exactStable": true,
+      "actualIntents": [
+        {
+          "value": "file_search",
+          "count": 3
+        }
+      ],
+      "actualOperations": [
+        {
+          "value": "LIST_CHILDREN",
+          "count": 3
+        }
+      ],
+      "recognitionPaths": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ],
+      "providers": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "key": "dev.8m.writing.team_reminder#1",
+      "group": "writing",
+      "expectedIntent": "assistant_writing_help",
+      "exactCorrectRuns": 3,
+      "exactAccuracy": 1.0,
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": true,
+      "exactStable": true,
+      "actualIntents": [
+        {
+          "value": "assistant_writing_help",
+          "count": 3
+        }
+      ],
+      "actualOperations": [
+        {
+          "value": "RESPOND",
+          "count": 3
+        }
+      ],
+      "recognitionPaths": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ],
+      "providers": [
+        {
+          "value": "deepseek",
+          "count": 3
+        }
+      ]
+    },
+    {
       "key": "dev.ambiguity.contextless_confirm#1",
       "group": "ambiguity",
       "expectedIntent": "fallback",
@@ -4334,7 +4676,7 @@
       "exactAccuracy": 1.0,
       "intentStable": true,
       "operationStable": true,
-      "pathStable": false,
+      "pathStable": true,
       "exactStable": true,
       "actualIntents": [
         {
@@ -4350,22 +4692,14 @@
       ],
       "recognitionPaths": [
         {
-          "value": "deepseek",
-          "count": 1
-        },
-        {
           "value": "local_policy",
-          "count": 2
+          "count": 3
         }
       ],
       "providers": [
         {
-          "value": "deepseek",
-          "count": 1
-        },
-        {
           "value": "local_fallback",
-          "count": 2
+          "count": 3
         }
       ]
     },
@@ -5382,21 +5716,21 @@
       "recognitionPaths": [
         {
           "value": "deepseek",
-          "count": 2
+          "count": 1
         },
         {
           "value": "local_policy",
-          "count": 1
+          "count": 2
         }
       ],
       "providers": [
         {
           "value": "deepseek",
-          "count": 2
+          "count": 1
         },
         {
           "value": "local_fallback",
-          "count": 1
+          "count": 2
         }
       ]
     },
