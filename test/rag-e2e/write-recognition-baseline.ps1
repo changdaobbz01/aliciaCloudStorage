@@ -1,7 +1,8 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)][string]$DevelopmentMetricsPath,
-    [Parameter(Mandatory)][string]$HoldoutMetricsPath,
+    [string]$HoldoutMetricsPath = '',
+    [string]$CarryForwardBaselinePath = '',
     [ValidateSet('local-fallback', 'deepseek-online')][string]$Lane = 'local-fallback',
     [string]$OutputPath = ''
 )
@@ -71,6 +72,52 @@ function Assert-Metrics {
     }
 }
 
+function Get-OptionalProperty {
+    param(
+        [AllowNull()]$Object,
+        [Parameter(Mandatory)][string]$Name
+    )
+    if ($null -eq $Object) {
+        return $null
+    }
+    $property = $Object.PSObject.Properties[$Name]
+    if ($null -eq $property) {
+        return $null
+    }
+    $property.Value
+}
+
+function Assert-CarriedSummary {
+    param(
+        [Parameter(Mandatory)]$Summary,
+        [Parameter(Mandatory)][string]$ExpectedLane
+    )
+    if ([int]$Summary.totalTurns -le 0 -or
+        [int]$Summary.unsafeExecutableCount -ne 0 -or
+        [int]$Summary.missingResponseCount -ne 0 -or
+        [int]$Summary.infrastructureFailures -ne 0) {
+        throw 'Carried holdout summary failed coverage, safety, or infrastructure gates.'
+    }
+    if ($ExpectedLane -eq 'local-fallback') {
+        $sources = @($Summary.recognitionSources.PSObject.Properties | Where-Object { [int]$_.Value -gt 0 })
+        if ($sources.Count -ne 1 -or $sources[0].Name -ne 'local_fallback' -or
+            [int]$sources[0].Value -ne [int]$Summary.totalTurns) {
+            throw 'Carried local fallback holdout contains another recognition source.'
+        }
+        return
+    }
+    $paths = @($Summary.recognitionPaths.PSObject.Properties | Where-Object { [int]$_.Value -gt 0 })
+    $invalidPaths = @($paths | Where-Object {
+            $_.Name -notin @('deepseek', 'local_guard', 'local_structure', 'local_policy')
+        })
+    $onlineEvidence = ($paths |
+            Where-Object { $_.Name -in @('deepseek', 'local_policy') } |
+            Measure-Object -Property Value -Sum).Sum
+    if ($paths.Count -eq 0 -or $invalidPaths.Count -gt 0 -or [int]$onlineEvidence -le 0) {
+        throw 'Carried DeepSeek holdout lacks valid online model evidence.'
+    }
+}
+
 $context = Get-RagE2EContext
 if ([string]::IsNullOrWhiteSpace($OutputPath)) {
     if ($Lane -ne 'local-fallback') {
@@ -81,6 +128,10 @@ if ([string]::IsNullOrWhiteSpace($OutputPath)) {
 }
 if (Test-Path -LiteralPath $OutputPath) {
     throw "Recognition baseline already exists and will not be overwritten: $OutputPath"
+}
+if ([string]::IsNullOrWhiteSpace($HoldoutMetricsPath) -eq
+    [string]::IsNullOrWhiteSpace($CarryForwardBaselinePath)) {
+    throw 'Provide exactly one of HoldoutMetricsPath or CarryForwardBaselinePath.'
 }
 
 $revision = (& git -C $context.RepositoryRoot rev-parse HEAD).Trim()
@@ -93,34 +144,61 @@ if ($scopedChanges.Count -gt 0) {
 }
 
 $development = Get-Content -LiteralPath (Resolve-Path $DevelopmentMetricsPath) -Raw -Encoding UTF8 | ConvertFrom-Json
-$holdout = Get-Content -LiteralPath (Resolve-Path $HoldoutMetricsPath) -Raw -Encoding UTF8 | ConvertFrom-Json
 Assert-Metrics -Metrics $development -ExpectedSplit 'development' -ExpectedRevision $revision
-Assert-Metrics -Metrics $holdout -ExpectedSplit 'holdout' -ExpectedRevision $revision
-if ([string]$development.labelPolicyVersion -ne [string]$holdout.labelPolicyVersion) {
-    throw 'Development and holdout metrics use different label policies.'
-}
 $developmentDataset = Get-Content -LiteralPath $context.RecognitionDevFile -Raw -Encoding UTF8 | ConvertFrom-Json
 $holdoutDataset = Get-Content -LiteralPath $context.RecognitionHoldoutFile -Raw -Encoding UTF8 | ConvertFrom-Json
 $developmentHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $context.RecognitionDevFile).Hash.ToLowerInvariant()
 $holdoutHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $context.RecognitionHoldoutFile).Hash.ToLowerInvariant()
 if ([string]$development.datasetVersion -ne [string]$developmentDataset.version -or
-    [string]$holdout.datasetVersion -ne [string]$holdoutDataset.version -or
-    [string]$development.datasetHash -ne $developmentHash -or
-    [string]$holdout.datasetHash -ne $holdoutHash) {
-    throw 'Recognition metrics do not match the current labeled datasets.'
+    [string]$development.datasetHash -ne $developmentHash) {
+    throw 'Development recognition metrics do not match the current labeled dataset.'
+}
+
+$holdoutSummary = $null
+$holdoutSourceRevision = ''
+if (-not [string]::IsNullOrWhiteSpace($HoldoutMetricsPath)) {
+    $holdout = Get-Content -LiteralPath (Resolve-Path $HoldoutMetricsPath) -Raw -Encoding UTF8 | ConvertFrom-Json
+    Assert-Metrics -Metrics $holdout -ExpectedSplit 'holdout' -ExpectedRevision $revision
+    if ([string]$development.labelPolicyVersion -ne [string]$holdout.labelPolicyVersion -or
+        [string]$holdout.datasetVersion -ne [string]$holdoutDataset.version -or
+        [string]$holdout.datasetHash -ne $holdoutHash) {
+        throw 'Holdout recognition metrics do not match the current labeled dataset or label policy.'
+    }
+    $holdoutSummary = Get-MetricsSummary -Metrics $holdout
+    $holdoutSourceRevision = $revision
+} else {
+    $previous = Get-Content -LiteralPath (Resolve-Path $CarryForwardBaselinePath) -Raw -Encoding UTF8 | ConvertFrom-Json
+    if ([string]$previous.schemaVersion -ne 'rag_recognition_baseline_v1' -or
+        [string]$previous.lane -ne $Lane -or
+        [string]$previous.labelPolicyVersion -ne [string]$development.labelPolicyVersion -or
+        [string]$previous.datasetHashes.holdout -ne $holdoutHash -or
+        [string]$previous.holdout.datasetVersion -ne [string]$holdoutDataset.version) {
+        throw 'Carry-forward baseline does not match the current lane, label policy, or sealed holdout dataset.'
+    }
+    Assert-CarriedSummary -Summary $previous.holdout -ExpectedLane $Lane
+    $holdoutSourceRevision = [string](Get-OptionalProperty -Object $previous -Name 'holdoutSourceRevision')
+    if ([string]::IsNullOrWhiteSpace($holdoutSourceRevision)) {
+        $holdoutSourceRevision = [string]$previous.sourceRevision
+    }
+    if ([string]::IsNullOrWhiteSpace($holdoutSourceRevision)) {
+        throw 'Carry-forward baseline does not identify the original holdout source revision.'
+    }
+    $holdoutSummary = $previous.holdout
 }
 
 $baseline = [pscustomobject][ordered]@{
     schemaVersion = 'rag_recognition_baseline_v1'
     lane = $Lane
     sourceRevision = $revision
+    developmentSourceRevision = $revision
+    holdoutSourceRevision = $holdoutSourceRevision
     labelPolicyVersion = [string]$development.labelPolicyVersion
     datasetHashes = [ordered]@{
         development = $developmentHash
         holdout = $holdoutHash
     }
     development = Get-MetricsSummary -Metrics $development
-    holdout = Get-MetricsSummary -Metrics $holdout
+    holdout = $holdoutSummary
 }
 $json = ConvertTo-Json -InputObject $baseline -Depth 20
 [System.IO.File]::WriteAllText(
@@ -128,5 +206,5 @@ $json = ConvertTo-Json -InputObject $baseline -Depth 20
     $json + [Environment]::NewLine,
     [System.Text.UTF8Encoding]::new($false)
 )
-Write-Host "[OK] Recognition baseline recorded: lane=$Lane revision=$revision"
+Write-Host "[OK] Recognition baseline recorded: lane=$Lane developmentRevision=$revision holdoutRevision=$holdoutSourceRevision"
 Write-Host "Baseline: $OutputPath"

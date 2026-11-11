@@ -4,6 +4,36 @@ param()
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot '_common.ps1')
 
+function Get-BaselineSourceRevision {
+    param(
+        [Parameter(Mandatory)]$Baseline,
+        [ValidateSet('development', 'holdout')][string]$Split
+    )
+    $propertyName = "${Split}SourceRevision"
+    $property = $Baseline.PSObject.Properties[$propertyName]
+    if ($null -ne $property -and -not [string]::IsNullOrWhiteSpace([string]$property.Value)) {
+        return [string]$property.Value
+    }
+    [string]$Baseline.sourceRevision
+}
+
+function Assert-BaselineSourceRevisions {
+    param([Parameter(Mandatory)]$Baseline)
+    $developmentRevision = Get-BaselineSourceRevision -Baseline $Baseline -Split development
+    $holdoutRevision = Get-BaselineSourceRevision -Baseline $Baseline -Split holdout
+    if ([string]::IsNullOrWhiteSpace($developmentRevision) -or
+        [string]::IsNullOrWhiteSpace($holdoutRevision) -or
+        [string]$Baseline.sourceRevision -ne $developmentRevision) {
+        throw 'Recognition baseline source revisions are incomplete or inconsistent.'
+    }
+    foreach ($revision in @($developmentRevision, $holdoutRevision) | Select-Object -Unique) {
+        & git -C $context.RepositoryRoot cat-file -e "${revision}^{commit}" 2>$null
+        if ($LASTEXITCODE -ne 0) {
+            throw "Recognition baseline source revision is unavailable: $revision"
+        }
+    }
+}
+
 $context = Get-RagE2EContext
 $scripts = Get-ChildItem -LiteralPath $context.SuiteDirectory -Filter '*.ps1' -File
 foreach ($script in $scripts) {
@@ -91,6 +121,7 @@ if (Test-Path -LiteralPath $context.RecognitionBaselineFile -PathType Leaf) {
         [string]$recognitionBaseline.labelPolicyVersion -ne 'rag_recognition_labels_v1') {
         throw 'Local recognition baseline uses an unsupported schema or lane.'
     }
+    Assert-BaselineSourceRevisions -Baseline $recognitionBaseline
     $devHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $context.RecognitionDevFile).Hash.ToLowerInvariant()
     $holdoutHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $context.RecognitionHoldoutFile).Hash.ToLowerInvariant()
     if ([string]$recognitionBaseline.datasetHashes.development -ne $devHash -or
@@ -113,6 +144,7 @@ if (Test-Path -LiteralPath $context.OnlineRecognitionBaselineFile -PathType Leaf
         [string]$onlineBaseline.labelPolicyVersion -ne 'rag_recognition_labels_v1') {
         throw 'Online recognition baseline uses an unsupported schema or lane.'
     }
+    Assert-BaselineSourceRevisions -Baseline $onlineBaseline
     $devHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $context.RecognitionDevFile).Hash.ToLowerInvariant()
     $holdoutHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $context.RecognitionHoldoutFile).Hash.ToLowerInvariant()
     if ([string]$onlineBaseline.datasetHashes.development -ne $devHash -or
@@ -258,7 +290,8 @@ if (Test-Path -LiteralPath $context.OnlineRecognitionErrorBaselineFile -PathType
         throw 'Online recognition error baseline uses an invalid holdout source or safety state.'
     }
     if (-not (Test-Path -LiteralPath $context.OnlineRecognitionBaselineFile -PathType Leaf) -or
-        [string]$errorBaseline.metrics.sourceRevision -ne [string]$onlineBaseline.sourceRevision -or
+        [string]$errorBaseline.metrics.sourceRevision -ne
+            (Get-BaselineSourceRevision -Baseline $onlineBaseline -Split holdout) -or
         [string]$errorBaseline.metrics.reportRunId -ne [string]$onlineBaseline.holdout.reportRunId -or
         [string]$errorBaseline.metrics.datasetVersion -ne [string]$onlineBaseline.holdout.datasetVersion -or
         [int]$errorBaseline.metrics.exactContractCorrect -ne [int]$onlineBaseline.holdout.exactContractCorrect) {

@@ -142,6 +142,21 @@ pwsh -File test/rag-e2e/write-recognition-baseline.ps1 `
 
 脚本拒绝覆盖已有基线、脏源码、来源路径不可解释、缺失响应、基础设施失败或不安全执行结果。DeepSeek 在线基线必须单独使用 `-Lane deepseek-online` 生成；其中可以包含设计上必需的 `local_guard` 和在线成功后的 `local_policy`，但不得包含 `local_unavailable`，不能把模型降级报告冒充在线基线。
 
+当 development 因已审查样本晋升而变化、holdout 文件保持不变且治理规则要求继续封存时，不应为了让
+两份来源提交相同而重跑 holdout。此时可以显式携带上一份同 lane 基线中的 holdout 证据；新基线会分别
+记录 `developmentSourceRevision` 与 `holdoutSourceRevision`，并继续校验 holdout 哈希、版本、覆盖、来源
+类型和安全状态：
+
+```powershell
+pwsh -File test/rag-e2e/write-recognition-baseline.ps1 `
+  -DevelopmentMetricsPath test/rag-e2e/results/rag-recognition-development-<runId>.metrics.json `
+  -CarryForwardBaselinePath test/rag-e2e/recognition-baseline.local-fallback.previous.json
+```
+
+携带必须是显式操作，不能自动查找历史文件；若 holdout 数据集、标签策略或 lane 发生变化，脚本会拒绝。
+只有确有新的模型或路由版本验收需求时，才按既有流程重新运行 holdout 并使用
+`-HoldoutMetricsPath` 写入同源基线。
+
 当前本地兜底基线保存在 `recognition-baseline.local-fallback.json`。它是准确率比较起点，不是必须永远保持输出不变的契约快照；执行语义不可退化仍由 `contract-baseline.json` 单独负责。
 
 只有至少三次连续的 `-Suite all` 识别评测全部通过且契约完全一致时，才能首次写入基线：
