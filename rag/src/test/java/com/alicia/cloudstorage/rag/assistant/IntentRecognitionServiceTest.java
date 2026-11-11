@@ -1851,6 +1851,48 @@ class IntentRecognitionServiceTest {
     }
 
     @Test
+    void staleOperationConfirmationsAreRejectedBeforeModelInvocation() {
+        IntentModelClient modelClient = message -> {
+            throw new AssertionError("Stale operation confirmation must be resolved before model invocation");
+        };
+        IntentRecognitionService service = new IntentRecognitionService(modelClient, intentRouter, configLoader);
+        AssistantConversationState interrupted = new AssistantConversationState(
+                "conversation-stale-operation",
+                2,
+                "assistant_writing_help",
+                Map.of(),
+                List.of(),
+                new ActionDraft("none", Map.of(), false),
+                null,
+                null,
+                new AssistantConversationFocus(
+                        "operation",
+                        "folder_create",
+                        "folder.create",
+                        Map.of("new_folder_name", "供应商资料"),
+                        null,
+                        null
+                ),
+                SemanticFrame.empty(),
+                "",
+                Instant.now().plusSeconds(60)
+        );
+
+        List.of("就按前面那个继续吧", "还是照之前的做", "好，那就这么执行")
+                .forEach(message -> {
+                    IntentRecognitionResponse response = service.recognize(
+                            message,
+                            interrupted,
+                            AssistantClientContext.empty()
+                    );
+                    assertThat(response.intentId()).as(message).isEqualTo("fallback");
+                    assertThat(response.semanticFrame().operation()).as(message).isEqualTo("UNKNOWN");
+                    assertThat(response.actionDraft().type()).as(message).isEqualTo("none");
+                    assertThat(response.executionReference()).as(message).isNull();
+                });
+    }
+
+    @Test
     void completeAuthoritativeRouteIgnoresModelInventedAmbiguity() {
         IntentModelClient modelClient = message -> Optional.of(new IntentModelClient.ModelIntentResult(
                 "deepseek",
