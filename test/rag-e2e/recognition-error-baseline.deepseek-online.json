@@ -1,6 +1,6 @@
 {
   "schemaVersion": "rag_recognition_error_analysis_v1",
-  "generatedAt": "2026-11-11T12:08:55.1789826+08:00",
+  "generatedAt": "2026-11-11T14:28:31.7587111+08:00",
   "taxonomyVersion": "rag_recognition_error_taxonomy_2026_10_21",
   "taxonomyHash": "09953de6d594b2a47e596fc135d31453a382ae60c08386db1fefc1a8e4105fdf",
   "metrics": {
@@ -14,10 +14,10 @@
     "unsafeExecutableCount": 0
   },
   "stability": {
-    "sourceRevision": "244e8f6bfa2fe8eb8195bb9a58d2a97b26910d3d",
+    "sourceRevision": "19ac71b2a069d84c149343d45e260a9b5b3561db",
     "runCount": 3,
-    "datasetHash": "c55257ca0a09a3c6e2cb7620425539410bc541bbcf11eedcac2f83be0abb6119",
-    "totalTurns": 193,
+    "datasetHash": "8fde4f8ed48e50d1429429f0ea667b4b733f9cb0386432e419840266b7efe356",
+    "totalTurns": 234,
     "varianceCount": 6
   },
   "accuracyErrorCount": 1,
@@ -54,7 +54,7 @@
   ],
   "variances": [
     {
-      "key": "dev.8i.collection.photo_confirmation_plan#1",
+      "key": "dev.8h.collection.document_implicit#1",
       "group": "collection",
       "category": "arbitration_path_variance",
       "severity": "info",
@@ -87,17 +87,38 @@
       "recognitionPaths": [
         {
           "value": "deepseek",
-          "count": 2
+          "count": 1
         },
         {
           "value": "local_policy",
-          "count": 1
+          "count": 2
         }
       ]
     },
     {
-      "key": "dev.8k.collection.documents#1",
-      "group": "collection",
+      "key": "dev.8o.chat.english#1",
+      "group": "conversation-chat",
+      "category": "arbitration_path_variance",
+      "severity": "info",
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": false,
+      "exactStable": true,
+      "exactCorrectRuns": 3,
+      "recognitionPaths": [
+        {
+          "value": "deepseek",
+          "count": 1
+        },
+        {
+          "value": "local_policy",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "key": "dev.8o.product_reason.value#1",
+      "group": "conversation-product",
       "category": "arbitration_path_variance",
       "severity": "info",
       "intentStable": true,
@@ -138,8 +159,8 @@
       ]
     },
     {
-      "key": "dev.collection.delete_name#1",
-      "group": "collection",
+      "key": "dev.product.support#1",
+      "group": "product",
       "category": "arbitration_path_variance",
       "severity": "info",
       "intentStable": true,
@@ -150,32 +171,11 @@
       "recognitionPaths": [
         {
           "value": "deepseek",
-          "count": 1
+          "count": 2
         },
         {
           "value": "local_policy",
-          "count": 2
-        }
-      ]
-    },
-    {
-      "key": "dev.delete.folder#1",
-      "group": "delete",
-      "category": "arbitration_path_variance",
-      "severity": "info",
-      "intentStable": true,
-      "operationStable": true,
-      "pathStable": false,
-      "exactStable": true,
-      "exactCorrectRuns": 3,
-      "recognitionPaths": [
-        {
-          "value": "deepseek",
           "count": 1
-        },
-        {
-          "value": "local_policy",
-          "count": 2
         }
       ]
     }

@@ -1,35 +1,35 @@
 {
   "schemaVersion": "rag_recognition_baseline_v1",
   "lane": "local-fallback",
-  "sourceRevision": "244e8f6bfa2fe8eb8195bb9a58d2a97b26910d3d",
-  "developmentSourceRevision": "244e8f6bfa2fe8eb8195bb9a58d2a97b26910d3d",
+  "sourceRevision": "19ac71b2a069d84c149343d45e260a9b5b3561db",
+  "developmentSourceRevision": "19ac71b2a069d84c149343d45e260a9b5b3561db",
   "holdoutSourceRevision": "d54eaa6706aef4b36ece99e8cb837c7cfbf58c20",
   "labelPolicyVersion": "rag_recognition_labels_v1",
   "datasetHashes": {
-    "development": "c55257ca0a09a3c6e2cb7620425539410bc541bbcf11eedcac2f83be0abb6119",
+    "development": "8fde4f8ed48e50d1429429f0ea667b4b733f9cb0386432e419840266b7efe356",
     "holdout": "eebeb9d595799ee049fd5d349d36801b13f59fadd1f1f70a1e8e9aef8639abb7"
   },
   "development": {
-    "datasetVersion": "rag_recognition_dev_v9",
-    "reportRunId": "20261111035113",
-    "totalTurns": 193,
-    "intentCorrect": 193,
+    "datasetVersion": "rag_recognition_dev_v10",
+    "reportRunId": "20261111060724",
+    "totalTurns": 234,
+    "intentCorrect": 234,
     "intentAccuracy": 1.0,
     "semanticOperationEligible": 112,
     "semanticOperationCorrect": 112,
     "semanticOperationAccuracy": 1.0,
-    "exactContractCorrect": 193,
+    "exactContractCorrect": 234,
     "exactContractAccuracy": 1.0,
     "unsafeExecutableCount": 0,
     "missingResponseCount": 0,
     "infrastructureFailures": 0,
     "recognitionSources": {
-      "local_fallback": 193
+      "local_fallback": 234
     },
     "recognitionPaths": {
-      "local_guard": 64,
+      "local_guard": 72,
       "local_structure": 3,
-      "local_unavailable": 126
+      "local_unavailable": 159
     },
     "byGroup": [
       {
@@ -86,6 +86,110 @@
         "intentCorrect": 13,
         "intentAccuracy": 1.0,
         "exactCorrect": 13,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "conversation-acknowledgement",
+        "total": 3,
+        "intentCorrect": 3,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 3,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "conversation-bored",
+        "total": 3,
+        "intentCorrect": 3,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 3,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "conversation-capability",
+        "total": 3,
+        "intentCorrect": 3,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 3,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "conversation-chat",
+        "total": 4,
+        "intentCorrect": 4,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 4,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "conversation-external-boundary",
+        "total": 3,
+        "intentCorrect": 3,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 3,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "conversation-external-resource",
+        "total": 2,
+        "intentCorrect": 2,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 2,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "conversation-identity",
+        "total": 3,
+        "intentCorrect": 3,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 3,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "conversation-out-of-scope",
+        "total": 3,
+        "intentCorrect": 3,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 3,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "conversation-product",
+        "total": 4,
+        "intentCorrect": 4,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 4,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "conversation-product-feedback",
+        "total": 3,
+        "intentCorrect": 3,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 3,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "conversation-social",
+        "total": 3,
+        "intentCorrect": 3,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 3,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "conversation-user-identity",
+        "total": 3,
+        "intentCorrect": 3,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 3,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "conversation-writing",
+        "total": 4,
+        "intentCorrect": 4,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 4,
         "exactAccuracy": 1.0
       },
       {
@@ -205,27 +309,27 @@
       {
         "expectedIntent": "assistant_acknowledgement",
         "actualIntent": "assistant_acknowledgement",
-        "count": 6
+        "count": 9
       },
       {
         "expectedIntent": "assistant_bored",
         "actualIntent": "assistant_bored",
-        "count": 1
+        "count": 4
       },
       {
         "expectedIntent": "assistant_capability_examples",
         "actualIntent": "assistant_capability_examples",
-        "count": 23
+        "count": 26
       },
       {
         "expectedIntent": "assistant_chat",
         "actualIntent": "assistant_chat",
-        "count": 4
+        "count": 8
       },
       {
         "expectedIntent": "assistant_errand_unsupported",
         "actualIntent": "assistant_errand_unsupported",
-        "count": 2
+        "count": 5
       },
       {
         "expectedIntent": "assistant_execution_explanation",
@@ -235,42 +339,42 @@
       {
         "expectedIntent": "assistant_external_resource",
         "actualIntent": "assistant_external_resource",
-        "count": 1
+        "count": 3
       },
       {
         "expectedIntent": "assistant_identity",
         "actualIntent": "assistant_identity",
-        "count": 5
+        "count": 8
       },
       {
         "expectedIntent": "assistant_product_feedback",
         "actualIntent": "assistant_product_feedback",
-        "count": 6
+        "count": 9
       },
       {
         "expectedIntent": "assistant_product_info",
         "actualIntent": "assistant_product_info",
-        "count": 5
+        "count": 7
       },
       {
         "expectedIntent": "assistant_product_reason",
         "actualIntent": "assistant_product_reason",
-        "count": 3
+        "count": 5
       },
       {
         "expectedIntent": "assistant_social",
         "actualIntent": "assistant_social",
-        "count": 1
+        "count": 4
       },
       {
         "expectedIntent": "assistant_user_identity",
         "actualIntent": "assistant_user_identity",
-        "count": 1
+        "count": 4
       },
       {
         "expectedIntent": "assistant_writing_help",
         "actualIntent": "assistant_writing_help",
-        "count": 8
+        "count": 12
       },
       {
         "expectedIntent": "collection_delete_by_category",
@@ -305,7 +409,7 @@
       {
         "expectedIntent": "fallback",
         "actualIntent": "fallback",
-        "count": 19
+        "count": 22
       },
       {
         "expectedIntent": "file_delete",
