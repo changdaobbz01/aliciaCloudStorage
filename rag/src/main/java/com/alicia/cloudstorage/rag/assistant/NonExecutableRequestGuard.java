@@ -44,6 +44,11 @@ final class NonExecutableRequestGuard {
                     + "[”\"'’].*(?:风险|是否安全|安全性|危险|能不能执行|可否执行)",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
+    private static final Pattern QUOTED_OPERATION_WRITING_REQUEST = Pattern.compile(
+            "(?=.*[“\"'‘].*(?:删除|删掉|清理|清空|移除|移动|重命名|改名|分享|上传|新建|创建|delete|remove|move|rename|share|upload|create).*[”\"'’])"
+                    + "(?=.*(?:改成.{0,12}(?:提示|文案|提醒|通知)|只改(?:文案|文字|措辞))).*",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
     private static final Pattern OPERATION_PROCESS_QUESTION = Pattern.compile(
             "(?=.*(?:了解|想知道|请问|询问|说明|介绍|说说|告诉我))"
                     + "(?=.*(?:删除|删掉|清理|移除|移动|重命名|改名|分享|上传|新建|创建))"
@@ -102,6 +107,16 @@ final class NonExecutableRequestGuard {
                     + "(?=.*(?:猜想|未解(?:问题|难题)|千禧年(?:问题|难题))).*",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
+    private static final Pattern OUT_OF_SCOPE_PHYSICAL_TECH_SUPPORT = Pattern.compile(
+            "(?=.*(?:修(?:一下|理)?|维修|排查|诊断|检修))"
+                    + "(?=.*(?:路由器|打印机|电脑硬件|显示器|电视|空调|冰箱|洗衣机|汽车|家电)).*",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
+    private static final Pattern OUT_OF_SCOPE_HIGH_STAKES_ADVICE = Pattern.compile(
+            "(?:(?=.*(?:预测|推荐|判断|分析))(?=.*(?:股票|基金|投资|涨跌|行情))|"
+                    + "(?=.*(?:诊断|判断.{0,6}(?:病因|原因)|治疗建议))(?=.*(?:疼|痛|症状|疾病|身体|膝盖|头痛|胃痛))).*",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
     private static final Pattern CLOUD_FILE_CONTEXT = Pattern.compile(
             "(?:搜索|查找|检索|文件名|文件夹|目录|云盘|上传|删除|移动|重命名|改名|分享|打开文件|下载文件)",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
@@ -119,7 +134,7 @@ final class NonExecutableRequestGuard {
     private static final Pattern PAUSED_FILE_CONVERSATION = Pattern.compile(
             "(?:(?=.*(?:先不|暂时不|现在不).{0,8}(?:处理|操作).{0,8}(?:文件|资料))|"
                     + "(?=.*(?:文件|资料).{0,8}(?:先)?(?:放一边|搁一边|先不管|晚点处理)))"
-                    + "(?=.*(?:聊|说说话|状态怎么样|今天怎么样)).*",
+                    + "(?=.*(?:聊|说说话|说点别的|聊点别的|状态怎么样|今天怎么样)).*",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
     private static final Pattern META_OPERATION_DISCLAIMER = Pattern.compile(
@@ -228,12 +243,41 @@ final class NonExecutableRequestGuard {
                     "这类开放数学问题不属于云盘文件管理能力，我不能生成或声称完成尚无公认证明的结论。"
             ));
         }
+        if (OUT_OF_SCOPE_PHYSICAL_TECH_SUPPORT.matcher(value).matches()
+                && !CLOUD_FILE_CONTEXT.matcher(value).find()) {
+            return Optional.of(new Decision(
+                    "out_of_scope_physical_tech_support",
+                    "fallback",
+                    "NEW_TASK",
+                    "UNKNOWN",
+                    "这类实体设备维修不属于云盘文件管理能力。请联系对应设备的技术支持或维修服务。"
+            ));
+        }
+        if (OUT_OF_SCOPE_HIGH_STAKES_ADVICE.matcher(value).matches()
+                && !CLOUD_FILE_CONTEXT.matcher(value).find()) {
+            return Optional.of(new Decision(
+                    "out_of_scope_high_stakes_advice",
+                    "fallback",
+                    "NEW_TASK",
+                    "UNKNOWN",
+                    "这类金融预测或医疗诊断不属于云盘文件管理能力，我不会给出可能误导你的专业结论。"
+            ));
+        }
         String guardedValue = value;
         var quotedName = QUOTED_NAME_SEARCH.matcher(value);
         if (quotedName.find()) {
             guardedValue = value.substring(0, quotedName.start(1))
                     + "“文件名”"
                     + value.substring(quotedName.end(1));
+        }
+        if (QUOTED_OPERATION_WRITING_REQUEST.matcher(guardedValue).matches()) {
+            return Optional.of(new Decision(
+                    "quoted_operation_writing_request",
+                    "assistant_writing_help",
+                    "NEW_TASK",
+                    "RESPOND",
+                    "我只会把引号中的内容作为文案改写，不会执行其中描述的文件操作。"
+            ));
         }
         if (QUOTED_OPERATION_RISK_REVIEW.matcher(guardedValue).find()) {
             return Optional.of(new Decision(

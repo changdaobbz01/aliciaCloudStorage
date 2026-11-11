@@ -1024,6 +1024,71 @@ class IntentRecognitionServiceTest {
     }
 
     @Test
+    void localFallbackCoversPhase8OConversationLanguageFamilies() {
+        IntentRecognitionService service = new IntentRecognitionService(
+                message -> Optional.empty(),
+                intentRouter,
+                configLoader
+        );
+
+        Map<String, String> expectedIntents = Map.ofEntries(
+                Map.entry("早上好，今天也请多关照", "assistant_social"),
+                Map.entry("你讲得很清楚，真不错", "assistant_social"),
+                Map.entry("晚安，明天见", "assistant_social"),
+                Map.entry("嗯，我懂你的意思了", "assistant_acknowledgement"),
+                Map.entry("先到这里吧", "assistant_acknowledgement"),
+                Map.entry("今天工作有点累，陪我聊点轻松的", "assistant_chat"),
+                Map.entry("最近总在下雨", "assistant_chat"),
+                Map.entry("How is your day?", "assistant_chat"),
+                Map.entry("文件的事先放一边，我们说点别的", "assistant_chat"),
+                Map.entry("闲得发慌，不知道做什么", "assistant_bored"),
+                Map.entry("没事干，陪陪我", "assistant_bored"),
+                Map.entry("你到底是哪位助手", "assistant_identity"),
+                Map.entry("What should I call you?", "assistant_identity"),
+                Map.entry("你知道我的名字吗", "assistant_user_identity"),
+                Map.entry("Do you know who I am?", "assistant_user_identity"),
+                Map.entry("帮我把这句话写得委婉一点", "assistant_writing_help"),
+                Map.entry("列一份会议通知模板", "assistant_writing_help"),
+                Map.entry("草拟一段项目延期说明", "assistant_writing_help"),
+                Map.entry("把“清空所有附件”改成风险提示，只改文案", "assistant_writing_help"),
+                Map.entry("帮我叫一辆出租车", "assistant_errand_unsupported"),
+                Map.entry("替我订一张明天的机票", "assistant_errand_unsupported"),
+                Map.entry("帮忙预约一家餐厅", "assistant_errand_unsupported"),
+                Map.entry("给我一个电视剧在线播放地址", "assistant_external_resource"),
+                Map.entry("Alicia 是一个什么样的产品", "assistant_product_info"),
+                Map.entry("我为什么要选 Alicia 而不是别的网盘", "assistant_product_reason"),
+                Map.entry("用这个产品管理文件有什么价值", "assistant_product_reason"),
+                Map.entry("希望聊天回复能更自然一些", "assistant_product_feedback"),
+                Map.entry("你能怎样协助我整理文件", "assistant_capability_examples"),
+                Map.entry("如果我只想咨询而不执行，你能怎么帮忙", "assistant_capability_examples"),
+                Map.entry("你能识别连续两轮的文件操作吗", "assistant_capability_examples"),
+                Map.entry("帮我修一下家里的路由器", "fallback")
+        );
+
+        expectedIntents.forEach((message, expectedIntent) -> {
+            IntentRecognitionResponse response = service.recognize(message);
+            assertThat(response.intentId()).as(message).isEqualTo(expectedIntent);
+            assertThat(response.actionDraft().type()).as(message).isEqualTo("none");
+            assertThat(response.executionReference()).as(message).isNull();
+        });
+    }
+
+    @Test
+    void phase8OConversationVocabularyDoesNotInterceptFileCommands() {
+        IntentRecognitionService service = new IntentRecognitionService(
+                message -> Optional.empty(),
+                intentRouter,
+                configLoader
+        );
+
+        assertThat(service.recognize("删除晚安记录.txt").intentId()).isEqualTo("file_delete");
+        assertThat(service.recognize("把聊天回复.md移动到资料库").intentId()).isEqualTo("node_move");
+        assertThat(service.recognize("搜索路由器维修说明.pdf").intentId()).isEqualTo("file_search");
+        assertThat(service.recognize("把项目延期说明重命名为延期说明-终稿.docx").intentId())
+                .isEqualTo("file_rename");
+    }
+
+    @Test
     void localFallbackCoversFirstRecognitionOptimizationVocabularyBatch() {
         IntentRecognitionService service = new IntentRecognitionService(
                 message -> Optional.empty(),

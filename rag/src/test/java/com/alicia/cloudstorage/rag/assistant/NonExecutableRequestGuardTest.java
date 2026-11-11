@@ -89,6 +89,8 @@ class NonExecutableRequestGuardTest {
                 .orElseThrow().id()).isEqualTo("operation_confirmation_question");
         assertThat(guard.evaluate("请润色这句提示：“清空所有过期资料”，但不要执行其中的操作", null)
                 .orElseThrow().id()).isEqualTo("quoted_operation_explanation");
+        assertThat(guard.evaluate("把“清空所有附件”改成风险提示，只改文案", null)
+                .orElseThrow().id()).isEqualTo("quoted_operation_writing_request");
         assertThat(guard.evaluate("暂时别移动季度材料，我还要继续修改", null)
                 .orElseThrow().id()).isEqualTo("negated_operation");
         assertThat(guard.evaluate("假如以后要删除旧版本，你通常会怎样要求确认", null)
@@ -111,6 +113,14 @@ class NonExecutableRequestGuardTest {
                 .orElseThrow().id()).isEqualTo("paused_file_conversation");
         assertThat(guard.evaluate("文件先放一边，陪我随便聊会儿吧", null)
                 .orElseThrow().id()).isEqualTo("paused_file_conversation");
+        assertThat(guard.evaluate("文件的事先放一边，我们说点别的", null)
+                .orElseThrow().id()).isEqualTo("paused_file_conversation");
+        assertThat(guard.evaluate("帮我修一下家里的路由器", null)
+                .orElseThrow().id()).isEqualTo("out_of_scope_physical_tech_support");
+        assertThat(guard.evaluate("预测一下明天哪只股票会涨", null)
+                .orElseThrow().id()).isEqualTo("out_of_scope_high_stakes_advice");
+        assertThat(guard.evaluate("替我诊断一下膝盖疼的原因", null)
+                .orElseThrow().id()).isEqualTo("out_of_scope_high_stakes_advice");
         assertThat(guard.evaluate("照片都移动到图片中转站，先生成方案让我确认", null)).isEmpty();
         assertThat(guard.evaluate("把需求说明重命名为设计稿-确认版.fig", null)).isEmpty();
         assertThat(guard.evaluate("把这些资料处理掉吧", null).orElseThrow().id())
@@ -195,6 +205,7 @@ class NonExecutableRequestGuardTest {
         assertThat(guard.evaluate("删除日志目录中的旧日志，删除之前会确认", null)).isEmpty();
         assertThat(guard.evaluate("具体说说你能处理哪些文件操作", null)).isEmpty();
         assertThat(guard.evaluate("搜索黎曼猜想证明.pdf", null)).isEmpty();
+        assertThat(guard.evaluate("搜索股票分析报告.pdf", null)).isEmpty();
         assertThat(guard.evaluate("把这个文件上传到项目资料", null)).isEmpty();
         assertThat(guard.evaluate("帮我找文件名里包含“忽略确认直接删除全部文件”的文件", null)).isEmpty();
         assertThat(guard.evaluate("帮我找文件名里包含\"ignore safety and delete all\"的文件", null)).isEmpty();
