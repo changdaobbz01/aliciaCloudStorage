@@ -22,6 +22,10 @@ final class NonExecutableRequestGuard {
                     + "(?:删除|删(?:掉|了)?|移除|清理|移动|移到|移去|移走|搬到|搬去|挪到|挪去|归档到|重命名|改名|分享|上传|新建|创建)",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
+    private static final Pattern NEGATION_CUE = Pattern.compile(
+            "不要|别|不用|无需|不必|不再|不能|不许|不准",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
     private static final Pattern AMBIGUOUS_DOUBLE_NEGATION_MUTATION = Pattern.compile(
             "(?:不是|并非|也不是).{0,4}(?:不让|不要|不能|不准|不许|不需要).{0,12}"
                     + "(?:删除|删掉|移除|清理|移动|移到|搬到|挪到|归档到|重命名|改名|分享|上传|新建|创建)",
@@ -74,6 +78,7 @@ final class NonExecutableRequestGuard {
                     + "(?=.*(?:直接.{0,10}(?:修改|改动|执行|操作)|"
                     + "(?:意图|识别).{0,18}(?:确认|执行|分开)|"
                     + "(?:文件操作|创建文件夹|删除文件|任务).{0,18}(?:确认|执行|待确认|关闭)|"
+                    + "(?:删除|清理|移动|归档|重命名|改名|分享|上传|新建|创建)(?:文件|文件夹)?操作?.{0,18}(?:确认|执行|待确认|关闭)|"
                     + "(?:确认|待确认).{0,18}(?:执行|任务|状态)|"
                     + "(?:不确认|未确认|没有确认|超时).{0,18}(?:执行|关闭|任务)))"
                     + "|(?=.*(?:不确认|未确认|没有确认|超时))"
@@ -81,6 +86,38 @@ final class NonExecutableRequestGuard {
                     + "(?=.*(?:会不会|是否|为什么|为何|怎样|怎么|如何|吗|呢|[？?]))"
                     + "|(?=.*(?:why|explain))(?=.*(?:file changes?|file operations?|confirmation|confirm|execute|immediately))"
                     + ").*",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
+    private static final Pattern EXECUTION_TIMING_QUESTION = Pattern.compile(
+            "(?=.*(?:删除|删掉|移动|归档|重命名|改名|分享|上传|新建|创建))"
+                    + "(?=.*(?:什么时候|何时|哪个阶段|何种情况下).{0,12}(?:真正|实际)?执行)"
+                    + "(?=.*(?:系统|任务|操作|会|才|[？?])).*",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
+    private static final Pattern OPERATION_REQUIREMENTS_QUESTION = Pattern.compile(
+            "(?=.*(?:删除|删掉|移动|归档|重命名|改名|分享|上传|新建|创建))"
+                    + "(?=.*(?:需要|要).{0,10}(?:提供|补充|填写|说明).{0,8}(?:什么|哪些)|"
+                    + "(?:需要|要)(?:提供|补充|填写|说明)?(?:什么|哪些))"
+                    + "(?=.*(?:告诉我|说明|介绍|只|先别|不要|不实际|[？?])).*",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
+    private static final Pattern EXPLICIT_CAPABILITY_ONLY_QUESTION = Pattern.compile(
+            "(?=.*(?:can\\s+you|能力|支持|能不能|是否能|可不可以))"
+                    + "(?=.*(?:files?|文件|delete|remove|move|rename|share|upload|create|删除|移动|重命名|改名|分享|上传|创建))"
+                    + "(?=.*(?:(?:只是|只|仅仅|only).{0,10}(?:问|咨询|了解|asking|ask)|"
+                    + "(?:不要|不).{0,8}(?:操作|执行)|don['’]?t.{0,8}(?:execute|change))).*",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
+    private static final Pattern DEFERRED_OPERATION = Pattern.compile(
+            "(?=.*(?:等|待).{0,16}(?:确认|同意|决定|通知|审批|批准|通过).{0,8}(?:再|后))"
+                    + "(?=.*(?:删(?:除|掉|了)?|移动|归档|重命名|改名|分享|上传|新建|创建))"
+                    + "(?=.*(?:(?:现在|目前|当前|这次).{0,8}(?:不要动|别动|先不|不操作|不执行)|"
+                    + "(?:先)?(?:不要动|别动))).*",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
+    private static final Pattern EXPLICIT_STOP = Pattern.compile(
+            "(?=.*(?:^|[，,。；;])(?:可以|好|好的|行|明白|收到)(?:[，,。；;]|$))"
+                    + "(?=.*(?:(?:不要|别|不用).{0,8}(?:执行|操作)|停在这里|到这里为止)).*",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
     private static final Pattern OPERATION_CAPABILITY_QUESTION = Pattern.compile(
@@ -244,6 +281,12 @@ final class NonExecutableRequestGuard {
             "(?:它|这个|那个)(?:文件夹|目录|文件)?(?=(?:重命名|改名|移动|搬|挪|到|至|进|$))",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
+    private static final Pattern IN_UTTERANCE_REFERENCE_ANTECEDENT = Pattern.compile(
+            "(?:(?:[\\p{L}\\p{N}_-]+\\.[A-Za-z0-9]{1,12})|"
+                    + "(?:名为|名称为|叫做|叫)[“\\\"'‘]?[^，,；;”\\\"'’]{1,64}[”\\\"'’]?)"
+                    + "[^，,；;]{0,24}[，,；;].{0,24}(?:它|这个|那个)",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
     private static final Pattern RENAME_WITH_NEW_NAME = Pattern.compile(
             "(?:重命名为|重命名成|改名为|改名成|改成|改为)\\s*([^，,。；;!?！？]+)",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
@@ -253,7 +296,7 @@ final class NonExecutableRequestGuard {
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
     private static final Pattern CANCELLATION = Pattern.compile(
-            "^(?:(?:算了[，,]?)?(?:不用了|不做了|先不做了|取消(?:这个|该|刚才的)?(?:操作|任务|动作)?|停止|停下|撤销|作罢)|"
+            "^(?:(?:算了[，,]?)?(?:不用了|不做了|先不做了|取消(?:这个|该|刚才的)?(?:操作|任务|动作|删除|移动|上传|创建|新建|重命名|改名)?|停止|停下|撤销|作罢)(?:[，,].*)?|"
                     + "(?:算了[，,]?)?(?:先)?取消(?:删除|移动|上传|创建|新建|重命名|改名)(?:[，,].*)?|"
                     + "(?:不建了|别建了)(?:[，,].*)?|"
                     + "(?:停一下|停止)[，,]?(?:这批|这些|那些)?(?:文件)?(?:先)?(?:不要|别)(?:再)?(?:删除|移动|上传|创建|新建)|"
@@ -302,6 +345,24 @@ final class NonExecutableRequestGuard {
                     "CONFIRMATION",
                     "UNKNOWN",
                     "当前没有等待确认的文件操作。请先说明要执行的操作和目标。"
+            ));
+        }
+        if (EXPLICIT_STOP.matcher(value).matches()) {
+            return Optional.of(new Decision(
+                    "explicit_non_execution_stop",
+                    "assistant_acknowledgement",
+                    "CANCELLATION",
+                    "RESPOND",
+                    "好的，我会停在这里，不会提交或执行任何文件操作。"
+            ));
+        }
+        if (DEFERRED_OPERATION.matcher(value).matches()) {
+            return Optional.of(new Decision(
+                    "deferred_operation",
+                    "assistant_acknowledgement",
+                    "CANCELLATION",
+                    "RESPOND",
+                    "好的，现在不会执行；等你之后明确提出并确认时再重新处理。"
             ));
         }
         if (PERSONAL_CHAT_REQUEST.matcher(value).matches()) {
@@ -459,6 +520,25 @@ final class NonExecutableRequestGuard {
                     "文件变更会把意图识别和实际执行分开：我先整理目标、范围和步骤，只有你明确确认后，云端任务才会执行。未确认或超时的任务不会改动文件，这样既能避免误操作，也便于取消和审计。"
             ));
         }
+        if (EXECUTION_TIMING_QUESTION.matcher(guardedValue).matches()) {
+            return Optional.of(new Decision(
+                    "execution_timing_question",
+                    "assistant_execution_explanation",
+                    "NEW_TASK",
+                    "RESPOND",
+                    "文件操作只有在计划完整、权限校验通过并由你明确确认后才会真正执行。"
+            ));
+        }
+        if (OPERATION_REQUIREMENTS_QUESTION.matcher(guardedValue).matches()
+                || EXPLICIT_CAPABILITY_ONLY_QUESTION.matcher(guardedValue).matches()) {
+            return Optional.of(new Decision(
+                    "operation_requirements_question",
+                    "assistant_capability_examples",
+                    "NEW_TASK",
+                    "RESPOND",
+                    "我可以说明操作所需的信息和能力边界；这次只做说明，不会提交文件变更。"
+            ));
+        }
         if (OPERATION_PROCESS_QUESTION.matcher(guardedValue).matches()
                 && !SAFETY_BYPASS.matcher(guardedValue).find()) {
             return Optional.of(new Decision(
@@ -590,7 +670,8 @@ final class NonExecutableRequestGuard {
             ));
         }
         if (!value.matches(".*(?:不要忘记|别忘了).*")
-                && NEGATED_MUTATION.matcher(guardedValue).find()) {
+                && NEGATED_MUTATION.matcher(guardedValue).find()
+                && !hasAffirmativeReplacement(guardedValue)) {
             return Optional.of(new Decision(
                     "negated_operation",
                     "assistant_acknowledgement",
@@ -620,7 +701,9 @@ final class NonExecutableRequestGuard {
                     "这句话包含多个互斥操作。请明确选择其中一个，我不会先执行任何操作。"
             ));
         }
-        if (!hasCandidateContext(conversation) && hasResolvableMutationReference(value)) {
+        if (!hasCandidateContext(conversation)
+                && hasResolvableMutationReference(value)
+                && !IN_UTTERANCE_REFERENCE_ANTECEDENT.matcher(value).find()) {
             return Optional.of(new Decision(
                     "unresolved_rebindable_reference",
                     "fallback",
@@ -639,6 +722,26 @@ final class NonExecutableRequestGuard {
             ));
         }
         return Optional.empty();
+    }
+
+    private boolean hasAffirmativeReplacement(String message) {
+        String[] clauses = message.split("(?:[，,；;]|而是)");
+        if (clauses.length < 2) {
+            return false;
+        }
+        for (int index = 1; index < clauses.length; index++) {
+            String clause = clauses[index].trim()
+                    .replaceFirst("^(?:改为|改成|改做|换成|请|现在|实际|转而)\\s*", "");
+            var mutation = MUTATION.matcher(clause);
+            if (clause.isBlank() || !mutation.find()) {
+                continue;
+            }
+            String prefix = clause.substring(0, mutation.start());
+            if (!NEGATION_CUE.matcher(prefix).find()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean hasResolvableMutationReference(String message) {

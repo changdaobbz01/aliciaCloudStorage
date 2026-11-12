@@ -1900,6 +1900,27 @@ class IntentRecognitionServiceTest {
     }
 
     @Test
+    void semanticScopeNonExecutionBoundariesResolveBeforeModelInvocation() {
+        IntentModelClient modelClient = message -> {
+            throw new AssertionError("Non-execution scope boundaries must be resolved before model invocation");
+        };
+        IntentRecognitionService service = new IntentRecognitionService(modelClient, intentRouter, configLoader);
+
+        Map.of(
+                "等我审批通过再删临时版，现在别动", "assistant_acknowledgement",
+                "Can you upload files? 我只是问能力，不要执行", "assistant_capability_examples",
+                "如果我提交重命名，系统什么时候实际执行？", "assistant_execution_explanation",
+                "好，但不要执行，到这里为止", "assistant_acknowledgement"
+        ).forEach((message, expectedIntent) -> {
+            IntentRecognitionResponse response = service.recognize(message);
+            assertThat(response.intentId()).as(message).isEqualTo(expectedIntent);
+            assertThat(response.semanticFrame().operation()).as(message).isEqualTo("RESPOND");
+            assertThat(response.actionDraft().type()).as(message).isEqualTo("none");
+            assertThat(response.executionReference()).as(message).isNull();
+        });
+    }
+
+    @Test
     void completeAuthoritativeRouteIgnoresModelInventedAmbiguity() {
         IntentModelClient modelClient = message -> Optional.of(new IntentModelClient.ModelIntentResult(
                 "deepseek",

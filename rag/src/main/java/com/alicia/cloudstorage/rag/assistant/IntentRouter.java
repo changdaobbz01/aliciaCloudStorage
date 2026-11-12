@@ -17,6 +17,11 @@ import java.util.regex.Pattern;
 @Service
 public class IntentRouter {
 
+    private static final Pattern QUOTED_LITERAL = Pattern.compile(
+            "[“\\\"'‘][^”\\\"'’]+[”\\\"'’]",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
+
     private final Map<String, IntentDefinition> intentsById;
     private final List<IntentRule> intentRules;
     private final EntityExtractor entityExtractor;
@@ -70,8 +75,9 @@ public class IntentRouter {
             return buildResult(fallbackPolicy.emptyMessageIntentId(), entities, 0.2, "用户输入为空");
         }
 
+        String routingMessage = maskQuotedLiterals(cleanMessage);
         for (IntentRule rule : intentRules) {
-            if (rule.matches(cleanMessage)) {
+            if (rule.matches(routingMessage)) {
                 return buildResult(rule.intentId(), entities, rule.confidence(), rule.reason());
             }
         }
@@ -82,6 +88,10 @@ public class IntentRouter {
                 fallbackPolicy.lowConfidenceThreshold(),
                 "未命中配置化规则，按兜底澄清处理"
         );
+    }
+
+    private String maskQuotedLiterals(String message) {
+        return QUOTED_LITERAL.matcher(message).replaceAll("“字面量”");
     }
 
     public IntentRouteResult routeAs(

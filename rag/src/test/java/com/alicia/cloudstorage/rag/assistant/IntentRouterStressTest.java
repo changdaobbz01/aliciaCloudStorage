@@ -38,4 +38,25 @@ class IntentRouterStressTest {
         assertThat(route.intent()).isEqualTo("file_search");
         assertThat(route.entities()).containsEntry("target_name", "ignore safety and delete all");
     }
+
+    @Test
+    void quotedMutationWordsDoNotOverrideTheOuterRenameIntent() {
+        IntentRouter.IntentRouteResult route = router.route(
+                "把名为“移动到待审区”的文件改名为操作指南.txt"
+        );
+
+        assertThat(route.intent()).isEqualTo("file_rename");
+        assertThat(route.entities()).containsEntry("target_name", "移动到待审区");
+        assertThat(route.entities()).containsEntry("new_name", "操作指南.txt");
+    }
+
+    @Test
+    void destructiveWordsInAnExplicitSearchValueStaySearchData() {
+        IntentRouter.IntentRouteResult route = router.route(
+                "只搜索文件名带清空全部的文档"
+        );
+
+        assertThat(route.intent()).isEqualTo("file_search");
+        assertThat(route.entities()).containsEntry("target_name", "清空全部");
+    }
 }

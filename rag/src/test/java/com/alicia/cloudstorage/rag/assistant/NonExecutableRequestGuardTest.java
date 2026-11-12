@@ -161,6 +161,28 @@ class NonExecutableRequestGuardTest {
         assertThat(guard.evaluate("帮我处理一下这些文件", null).orElseThrow().operation())
                 .isEqualTo("UNKNOWN");
         assertThat(guard.evaluate("遇到同名文件时能提供哪些处理方式", null)).isEmpty();
+        assertThat(guard.evaluate("如果我发起删除，任务何时才会真正执行？", null)
+                .orElseThrow().intentId()).isEqualTo("assistant_execution_explanation");
+        assertThat(guard.evaluate("先不要真的上传，只说明上传前要提供哪些信息", null)
+                .orElseThrow().intentId()).isEqualTo("assistant_capability_examples");
+        assertThat(guard.evaluate("Can you rename files? I am only asking about capability, don't execute", null)
+                .orElseThrow().intentId()).isEqualTo("assistant_capability_examples");
+        assertThat(guard.evaluate("等我明确同意后再删除旧版，现在先别动", null)
+                .orElseThrow().id()).isEqualTo("deferred_operation");
+        assertThat(guard.evaluate("等审批通过再删旧数据，目前不要动", null)
+                .orElseThrow().id()).isEqualTo("deferred_operation");
+        assertThat(guard.evaluate("好，但不要操作，就停在这里", null)
+                .orElseThrow().id()).isEqualTo("explicit_non_execution_stop");
+        assertThat(guard.evaluate("为什么重命名操作需要确认", null)
+                .orElseThrow().intentId()).isEqualTo("assistant_execution_explanation");
+
+        assertThat(guard.evaluate("不要删旧版.txt，改为把它移动到备份区", null)).isEmpty();
+        assertThat(guard.evaluate("别把说明.pdf移到归档，移到待审区", null)).isEmpty();
+        assertThat(guard.evaluate("不要删甲，改为删除乙", null)).isEmpty();
+        assertThat(guard.evaluate("不要删一个文件，改为把它移动到备份区", null)
+                .orElseThrow().id()).isEqualTo("unresolved_rebindable_reference");
+        assertThat(guard.evaluate("不要删甲，也不要移动乙", null)
+                .orElseThrow().id()).isEqualTo("negated_operation");
     }
 
     @Test
@@ -188,6 +210,8 @@ class NonExecutableRequestGuardTest {
         assertThat(guard.evaluate("不建了，取消这个想法", pending).orElseThrow().id())
                 .isEqualTo("cancel_pending_operation");
         assertThat(guard.evaluate("停一下，这批文件不要移动", pending).orElseThrow().id())
+                .isEqualTo("cancel_pending_operation");
+        assertThat(guard.evaluate("取消刚才的移动，不要继续", pending).orElseThrow().id())
                 .isEqualTo("cancel_pending_operation");
     }
 
