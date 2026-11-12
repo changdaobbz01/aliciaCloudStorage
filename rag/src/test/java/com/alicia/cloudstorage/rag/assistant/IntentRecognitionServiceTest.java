@@ -1884,7 +1884,8 @@ class IntentRecognitionServiceTest {
                 "好，那就这么执行",
                 "继续处理它",
                 "接着处理那个",
-                "继续执行一下这个"
+                "继续执行一下这个",
+                "那继续吧"
         )
                 .forEach(message -> {
                     IntentRecognitionResponse response = service.recognize(

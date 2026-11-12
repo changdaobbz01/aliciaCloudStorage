@@ -235,7 +235,8 @@ class NonExecutableRequestGuardTest {
                 "还是照之前的做",
                 "继续处理它",
                 "接着处理那个",
-                "继续执行一下这个"
+                "继续执行一下这个",
+                "那继续吧"
         ).forEach(message -> {
             var guarded = guard.evaluate(message, null);
             assertThat(guarded).as(message).isPresent();
@@ -250,6 +251,7 @@ class NonExecutableRequestGuardTest {
         assertThat(guard.evaluate("就照这句话执行", pendingOperation())).isEmpty();
         assertThat(guard.evaluate("继续处理它", pendingOperation())).isEmpty();
         assertThat(guard.evaluate("接着处理那个", pendingOperation())).isEmpty();
+        assertThat(guard.evaluate("那继续吧", pendingOperation())).isEmpty();
 
         assertThat(guard.evaluate("就按前面那个继续吧", interruptedOperation()).orElseThrow().id())
                 .isEqualTo("confirmation_without_pending_operation");
@@ -257,6 +259,8 @@ class NonExecutableRequestGuardTest {
                 .isEqualTo("UNKNOWN");
         assertThat(guard.evaluate("继续处理它", interruptedOperation()).orElseThrow().id())
                 .isEqualTo("confirmation_without_pending_operation");
+        assertThat(guard.evaluate("那继续吧", interruptedOperation()).orElseThrow().operation())
+                .isEqualTo("UNKNOWN");
     }
 
     @Test
