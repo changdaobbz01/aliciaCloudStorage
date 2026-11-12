@@ -1,38 +1,38 @@
 {
   "schemaVersion": "rag_recognition_baseline_v1",
   "lane": "deepseek-online",
-  "sourceRevision": "c8836e5a5ef5803317218438b5dcb9c2e4995a2b",
-  "developmentSourceRevision": "c8836e5a5ef5803317218438b5dcb9c2e4995a2b",
+  "sourceRevision": "2aaab7e3cd1b743da1d42b66d06b8d86f5d0ea99",
+  "developmentSourceRevision": "2aaab7e3cd1b743da1d42b66d06b8d86f5d0ea99",
   "holdoutSourceRevision": "d54eaa6706aef4b36ece99e8cb837c7cfbf58c20",
   "labelPolicyVersion": "rag_recognition_labels_v1",
   "datasetHashes": {
-    "development": "01d3531834cb02a28ac3d6ffc23810ea3eb1f55c600227e22d472ddd605feda6",
+    "development": "da81a69ade7ef02cf57400bc33653950a83baa75715f35c595ed89dd318523fe",
     "holdout": "eebeb9d595799ee049fd5d349d36801b13f59fadd1f1f70a1e8e9aef8639abb7"
   },
   "development": {
-    "datasetVersion": "rag_recognition_dev_v12",
-    "reportRunId": "20261111094345",
-    "totalTurns": 354,
-    "intentCorrect": 354,
+    "datasetVersion": "rag_recognition_dev_v13",
+    "reportRunId": "20261112021155",
+    "totalTurns": 394,
+    "intentCorrect": 394,
     "intentAccuracy": 1.0,
-    "semanticOperationEligible": 151,
-    "semanticOperationCorrect": 151,
+    "semanticOperationEligible": 180,
+    "semanticOperationCorrect": 180,
     "semanticOperationAccuracy": 1.0,
-    "exactContractCorrect": 354,
+    "exactContractCorrect": 394,
     "exactContractAccuracy": 1.0,
     "unsafeExecutableCount": 0,
     "missingResponseCount": 0,
     "infrastructureFailures": 0,
     "recognitionSources": {
-      "deepseek": 191,
+      "deepseek": 216,
       "local_context": 2,
-      "local_fallback": 161
+      "local_fallback": 176
     },
     "recognitionPaths": {
-      "deepseek": 191,
-      "local_guard": 138,
-      "local_policy": 12,
-      "local_structure": 13
+      "deepseek": 216,
+      "local_guard": 152,
+      "local_policy": 11,
+      "local_structure": 15
     },
     "byGroup": [
       {
@@ -292,6 +292,14 @@
         "exactAccuracy": 1.0
       },
       {
+        "group": "inline-repair",
+        "total": 6,
+        "intentCorrect": 6,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 6,
+        "exactAccuracy": 1.0
+      },
+      {
         "group": "move",
         "total": 14,
         "intentCorrect": 14,
@@ -388,6 +396,38 @@
         "exactAccuracy": 1.0
       },
       {
+        "group": "natural-ambiguity",
+        "total": 6,
+        "intentCorrect": 6,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 6,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "natural-colloquial",
+        "total": 6,
+        "intentCorrect": 6,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 6,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "natural-long-context",
+        "total": 20,
+        "intentCorrect": 20,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 20,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "natural-mixed-language",
+        "total": 2,
+        "intentCorrect": 2,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 2,
+        "exactAccuracy": 1.0
+      },
+      {
         "group": "product",
         "total": 10,
         "intentCorrect": 10,
@@ -448,7 +488,7 @@
       {
         "expectedIntent": "assistant_acknowledgement",
         "actualIntent": "assistant_acknowledgement",
-        "count": 24
+        "count": 27
       },
       {
         "expectedIntent": "assistant_bored",
@@ -463,7 +503,7 @@
       {
         "expectedIntent": "assistant_chat",
         "actualIntent": "assistant_chat",
-        "count": 20
+        "count": 23
       },
       {
         "expectedIntent": "assistant_errand_unsupported",
@@ -483,17 +523,17 @@
       {
         "expectedIntent": "assistant_identity",
         "actualIntent": "assistant_identity",
-        "count": 12
+        "count": 13
       },
       {
         "expectedIntent": "assistant_product_feedback",
         "actualIntent": "assistant_product_feedback",
-        "count": 16
+        "count": 17
       },
       {
         "expectedIntent": "assistant_product_info",
         "actualIntent": "assistant_product_info",
-        "count": 13
+        "count": 14
       },
       {
         "expectedIntent": "assistant_product_reason",
@@ -513,7 +553,7 @@
       {
         "expectedIntent": "assistant_writing_help",
         "actualIntent": "assistant_writing_help",
-        "count": 22
+        "count": 24
       },
       {
         "expectedIntent": "collection_delete_by_category",
@@ -548,22 +588,22 @@
       {
         "expectedIntent": "fallback",
         "actualIntent": "fallback",
-        "count": 33
+        "count": 39
       },
       {
         "expectedIntent": "file_delete",
         "actualIntent": "file_delete",
-        "count": 7
+        "count": 10
       },
       {
         "expectedIntent": "file_rename",
         "actualIntent": "file_rename",
-        "count": 11
+        "count": 14
       },
       {
         "expectedIntent": "file_search",
         "actualIntent": "file_search",
-        "count": 24
+        "count": 32
       },
       {
         "expectedIntent": "file_share",
@@ -573,12 +613,12 @@
       {
         "expectedIntent": "file_upload",
         "actualIntent": "file_upload",
-        "count": 6
+        "count": 7
       },
       {
         "expectedIntent": "folder_create",
         "actualIntent": "folder_create",
-        "count": 10
+        "count": 13
       },
       {
         "expectedIntent": "folder_create_then_upload",
@@ -588,7 +628,7 @@
       {
         "expectedIntent": "node_move",
         "actualIntent": "node_move",
-        "count": 24
+        "count": 29
       }
     ]
   },

@@ -144,7 +144,8 @@ pwsh -File test/rag-e2e/classify-recognition-errors.ps1 `
 分类法哈希、开发集与保留集哈希、来源提交、统计一致性和阻断级类别；数据集或分类法变化后必须
 显式重建，不能让历史分类继续伪装成当前结果。该基线只保存样本键和结构化字段，不保存用户原句。
 
-本地兜底基线必须由同一个干净提交生成的开发集与保留集指标共同写入，且两份报告都只能包含 `local_fallback`：
+本地兜底基线必须由同一个干净提交生成的开发集与保留集指标共同写入。报告只允许不调用模型的
+`local_fallback` 和确定性上下文路径 `local_context`；后者必须同时计入 `local_structure`，不能借此混入在线来源：
 
 ```powershell
 pwsh -File test/rag-e2e/write-recognition-baseline.ps1 `
@@ -152,7 +153,7 @@ pwsh -File test/rag-e2e/write-recognition-baseline.ps1 `
   -HoldoutMetricsPath test/rag-e2e/results/rag-recognition-holdout-<runId>.metrics.json
 ```
 
-脚本拒绝覆盖已有基线、脏源码、来源路径不可解释、缺失响应、基础设施失败或不安全执行结果。DeepSeek 在线基线必须单独使用 `-Lane deepseek-online` 生成；其中可以包含设计上必需的 `local_guard` 和在线成功后的 `local_policy`，但不得包含 `local_unavailable`，不能把模型降级报告冒充在线基线。
+脚本拒绝覆盖已有基线、来源报告为脏状态、来源提交不存在、数据集哈希不一致、缺失响应、基础设施失败或不安全执行结果。基线使用指标报告内已经审计的干净来源提交，不要求基线生成工具与行为报告位于同一提交；因此工具可在后续提交修正，但不能改写报告来源。DeepSeek 在线基线必须单独使用 `-Lane deepseek-online` 生成；其中可以包含设计上必需的 `local_guard` 和在线成功后的 `local_policy`，但不得包含 `local_unavailable`，不能把模型降级报告冒充在线基线。
 
 当 development 因已审查样本晋升而变化、holdout 文件保持不变且治理规则要求继续封存时，不应为了让
 两份来源提交相同而重跑 holdout。此时可以显式携带上一份同 lane 基线中的 holdout 证据；新基线会分别

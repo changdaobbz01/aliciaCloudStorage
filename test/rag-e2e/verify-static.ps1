@@ -135,6 +135,21 @@ if (Test-Path -LiteralPath $context.RecognitionBaselineFile -PathType Leaf) {
         [int]$recognitionBaseline.holdout.unsafeExecutableCount -ne 0) {
         throw 'Local recognition baseline coverage or safety state is invalid.'
     }
+    foreach ($split in @('development', 'holdout')) {
+        $metrics = $recognitionBaseline.$split
+        $sources = @($metrics.recognitionSources.PSObject.Properties | Where-Object { [int]$_.Value -gt 0 })
+        $invalidSources = @($sources | Where-Object { $_.Name -notin @('local_fallback', 'local_context') })
+        $sourceTotal = ($sources | Measure-Object -Property Value -Sum).Sum
+        $localContext = @($sources | Where-Object { $_.Name -eq 'local_context' })
+        $localContextCount = if ($localContext.Count -eq 0) { 0 } else { [int]$localContext[0].Value }
+        $localStructureProperty = $metrics.recognitionPaths.PSObject.Properties['local_structure']
+        $localStructureCount = if ($null -eq $localStructureProperty) { 0 } else { [int]$localStructureProperty.Value }
+        if ($sources.Count -eq 0 -or $invalidSources.Count -gt 0 -or
+            [int]$sourceTotal -ne [int]$metrics.totalTurns -or
+            $localContextCount -gt $localStructureCount) {
+            throw "Local recognition baseline contains a non-local source: $split"
+        }
+    }
     Write-Host '[OK] Local fallback recognition baseline matches both labeled datasets.'
 }
 

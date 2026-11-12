@@ -1,6 +1,6 @@
 {
   "schemaVersion": "rag_recognition_error_analysis_v1",
-  "generatedAt": "2026-11-11T18:09:27.5641724+08:00",
+  "generatedAt": "2026-11-12T10:42:27.0139803+08:00",
   "taxonomyVersion": "rag_recognition_error_taxonomy_2026_10_21",
   "taxonomyHash": "09953de6d594b2a47e596fc135d31453a382ae60c08386db1fefc1a8e4105fdf",
   "metrics": {
@@ -14,16 +14,16 @@
     "unsafeExecutableCount": 0
   },
   "stability": {
-    "sourceRevision": "c8836e5a5ef5803317218438b5dcb9c2e4995a2b",
+    "sourceRevision": "2aaab7e3cd1b743da1d42b66d06b8d86f5d0ea99",
     "runCount": 3,
-    "datasetHash": "01d3531834cb02a28ac3d6ffc23810ea3eb1f55c600227e22d472ddd605feda6",
-    "totalTurns": 354,
-    "varianceCount": 6
+    "datasetHash": "da81a69ade7ef02cf57400bc33653950a83baa75715f35c595ed89dd318523fe",
+    "totalTurns": 394,
+    "varianceCount": 3
   },
   "accuracyErrorCount": 1,
-  "varianceCount": 6,
+  "varianceCount": 3,
   "categoryCounts": {
-    "arbitration_path_variance": 6,
+    "arbitration_path_variance": 3,
     "availability_failure": 0,
     "collection_semantics": 0,
     "conversational_boundary": 0,
@@ -66,11 +66,11 @@
       "recognitionPaths": [
         {
           "value": "deepseek",
-          "count": 1
+          "count": 2
         },
         {
           "value": "local_policy",
-          "count": 2
+          "count": 1
         }
       ]
     },
@@ -87,48 +87,6 @@
       "recognitionPaths": [
         {
           "value": "deepseek",
-          "count": 2
-        },
-        {
-          "value": "local_policy",
-          "count": 1
-        }
-      ]
-    },
-    {
-      "key": "dev.8k.collection.documents#1",
-      "group": "collection",
-      "category": "arbitration_path_variance",
-      "severity": "info",
-      "intentStable": true,
-      "operationStable": true,
-      "pathStable": false,
-      "exactStable": true,
-      "exactCorrectRuns": 3,
-      "recognitionPaths": [
-        {
-          "value": "deepseek",
-          "count": 2
-        },
-        {
-          "value": "local_policy",
-          "count": 1
-        }
-      ]
-    },
-    {
-      "key": "dev.8o.product_reason.value#1",
-      "group": "conversation-product",
-      "category": "arbitration_path_variance",
-      "severity": "info",
-      "intentStable": true,
-      "operationStable": true,
-      "pathStable": false,
-      "exactStable": true,
-      "exactCorrectRuns": 3,
-      "recognitionPaths": [
-        {
-          "value": "deepseek",
           "count": 1
         },
         {
@@ -138,29 +96,8 @@
       ]
     },
     {
-      "key": "dev.8q.bored_writing_close#2",
-      "group": "context-long-conversation",
-      "category": "arbitration_path_variance",
-      "severity": "info",
-      "intentStable": true,
-      "operationStable": true,
-      "pathStable": false,
-      "exactStable": true,
-      "exactCorrectRuns": 3,
-      "recognitionPaths": [
-        {
-          "value": "deepseek",
-          "count": 1
-        },
-        {
-          "value": "local_policy",
-          "count": 2
-        }
-      ]
-    },
-    {
-      "key": "dev.boundary.external_resource#1",
-      "group": "boundary",
+      "key": "dev.8r.long.move_two_interruptions#4",
+      "group": "natural-long-context",
       "category": "arbitration_path_variance",
       "severity": "info",
       "intentStable": true,

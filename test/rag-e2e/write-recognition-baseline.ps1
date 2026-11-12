@@ -54,8 +54,15 @@ function Assert-Metrics {
     }
     $sources = @($Metrics.recognitionSources.PSObject.Properties | Where-Object { [int]$_.Value -gt 0 })
     if ($Lane -eq 'local-fallback') {
-        if ($sources.Count -ne 1 -or $sources[0].Name -ne 'local_fallback' -or
-            [int]$sources[0].Value -ne [int]$Metrics.totalTurns) {
+        $invalidSources = @($sources | Where-Object { $_.Name -notin @('local_fallback', 'local_context') })
+        $sourceTotal = ($sources | Measure-Object -Property Value -Sum).Sum
+        $localContext = @($sources | Where-Object { $_.Name -eq 'local_context' })
+        $localContextCount = if ($localContext.Count -eq 0) { 0 } else { [int]$localContext[0].Value }
+        $localStructureProperty = $Metrics.recognitionPaths.PSObject.Properties['local_structure']
+        $localStructureCount = if ($null -eq $localStructureProperty) { 0 } else { [int]$localStructureProperty.Value }
+        if ($sources.Count -eq 0 -or $invalidSources.Count -gt 0 -or
+            [int]$sourceTotal -ne [int]$Metrics.totalTurns -or
+            $localContextCount -gt $localStructureCount) {
             throw "Local fallback baseline contains another recognition source: $ExpectedSplit"
         }
     } else {
@@ -100,8 +107,15 @@ function Assert-CarriedSummary {
     }
     if ($ExpectedLane -eq 'local-fallback') {
         $sources = @($Summary.recognitionSources.PSObject.Properties | Where-Object { [int]$_.Value -gt 0 })
-        if ($sources.Count -ne 1 -or $sources[0].Name -ne 'local_fallback' -or
-            [int]$sources[0].Value -ne [int]$Summary.totalTurns) {
+        $invalidSources = @($sources | Where-Object { $_.Name -notin @('local_fallback', 'local_context') })
+        $sourceTotal = ($sources | Measure-Object -Property Value -Sum).Sum
+        $localContext = @($sources | Where-Object { $_.Name -eq 'local_context' })
+        $localContextCount = if ($localContext.Count -eq 0) { 0 } else { [int]$localContext[0].Value }
+        $localStructureProperty = $Summary.recognitionPaths.PSObject.Properties['local_structure']
+        $localStructureCount = if ($null -eq $localStructureProperty) { 0 } else { [int]$localStructureProperty.Value }
+        if ($sources.Count -eq 0 -or $invalidSources.Count -gt 0 -or
+            [int]$sourceTotal -ne [int]$Summary.totalTurns -or
+            $localContextCount -gt $localStructureCount) {
             throw 'Carried local fallback holdout contains another recognition source.'
         }
         return
@@ -134,16 +148,15 @@ if ([string]::IsNullOrWhiteSpace($HoldoutMetricsPath) -eq
     throw 'Provide exactly one of HoldoutMetricsPath or CarryForwardBaselinePath.'
 }
 
-$revision = (& git -C $context.RepositoryRoot rev-parse HEAD).Trim()
-if ($LASTEXITCODE -ne 0) {
-    throw 'Unable to read the baseline source revision.'
-}
-$scopedChanges = @(Get-RagE2ESourceChanges -Context $context)
-if ($scopedChanges.Count -gt 0) {
-    throw 'RAG recognition source or evaluation files are not clean; refusing to record a baseline.'
-}
-
 $development = Get-Content -LiteralPath (Resolve-Path $DevelopmentMetricsPath) -Raw -Encoding UTF8 | ConvertFrom-Json
+$revision = [string]$development.sourceRevision
+if ([string]::IsNullOrWhiteSpace($revision)) {
+    throw 'Development metrics do not identify their clean source revision.'
+}
+& git -C $context.RepositoryRoot cat-file -e "${revision}^{commit}" 2>$null
+if ($LASTEXITCODE -ne 0) {
+    throw "Development metrics source revision is unavailable: $revision"
+}
 Assert-Metrics -Metrics $development -ExpectedSplit 'development' -ExpectedRevision $revision
 $developmentDataset = Get-Content -LiteralPath $context.RecognitionDevFile -Raw -Encoding UTF8 | ConvertFrom-Json
 $holdoutDataset = Get-Content -LiteralPath $context.RecognitionHoldoutFile -Raw -Encoding UTF8 | ConvertFrom-Json
