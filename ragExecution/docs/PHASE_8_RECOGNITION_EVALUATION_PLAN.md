@@ -181,3 +181,12 @@ production-probe 仅保留 10 个运行时、近重复或在线波动 turns。�
 “继续处理它”模型波动已在模型前通用门禁 fail-closed，并以正反例保护。87 项执行契约继续全部通过，
 holdout 保持封存，生产仍为 `admin-single + RAG_ADMIN + FOLDER_CREATE`。完整证据见
 [阶段 8R 自然表达与歧义鲁棒性闭环日志](PHASE_8R_NATURAL_EXPRESSION_ROBUSTNESS_LOG_2026-11-12.md)。
+
+阶段 8S 已于 2026-11-12 完成语义作用域与字面量边界闭环。24 个授权、合成且脱敏的场景、32 turns
+覆盖危险动作词作为名称数据、假设/咨询/延后非执行表达、局部否定后的明确替代动作，以及取消或解释后
+的上下文恢复边界。候选经本地与在线双通道验收后一次性晋升，development 扩大到 330 cases、
+426 turns，candidate 清空；最终本地和连续三次有效在线 development 均为 426/426、operation 199/199，
+意图、操作和完整契约结果漂移为 0，unsafe=0、executed=0。一次 DeepSeek HTTP 402 降级轮次被门禁
+明确拒绝作为在线稳定性证据，账号恢复后只补跑一次有效第三轮。87 项执行契约继续全部通过，holdout
+保持封存，生产仍为 `admin-single + RAG_ADMIN + FOLDER_CREATE`。完整证据见
+[阶段 8S 语义作用域与字面量边界闭环日志](PHASE_8S_SEMANTIC_SCOPE_AND_LITERAL_BOUNDARY_LOG_2026-11-12.md)。
