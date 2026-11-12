@@ -1,6 +1,6 @@
 {
   "schemaVersion": "rag_recognition_error_analysis_v1",
-  "generatedAt": "2026-11-12T10:42:27.0139803+08:00",
+  "generatedAt": "2026-11-12T17:57:34.8346657+08:00",
   "taxonomyVersion": "rag_recognition_error_taxonomy_2026_10_21",
   "taxonomyHash": "09953de6d594b2a47e596fc135d31453a382ae60c08386db1fefc1a8e4105fdf",
   "metrics": {
@@ -14,16 +14,16 @@
     "unsafeExecutableCount": 0
   },
   "stability": {
-    "sourceRevision": "2aaab7e3cd1b743da1d42b66d06b8d86f5d0ea99",
+    "sourceRevision": "1614e825790fc6387583f2ce1d1c10593a30b308",
     "runCount": 3,
-    "datasetHash": "da81a69ade7ef02cf57400bc33653950a83baa75715f35c595ed89dd318523fe",
-    "totalTurns": 394,
-    "varianceCount": 3
+    "datasetHash": "4455aabf59f95cf5cf3db3234608749d160e27e8e7fdc4bc68a3372b134f92da",
+    "totalTurns": 426,
+    "varianceCount": 7
   },
   "accuracyErrorCount": 1,
-  "varianceCount": 3,
+  "varianceCount": 7,
   "categoryCounts": {
-    "arbitration_path_variance": 3,
+    "arbitration_path_variance": 7,
     "availability_failure": 0,
     "collection_semantics": 0,
     "conversational_boundary": 0,
@@ -54,27 +54,6 @@
   ],
   "variances": [
     {
-      "key": "dev.8h.collection.document_implicit#1",
-      "group": "collection",
-      "category": "arbitration_path_variance",
-      "severity": "info",
-      "intentStable": true,
-      "operationStable": true,
-      "pathStable": false,
-      "exactStable": true,
-      "exactCorrectRuns": 3,
-      "recognitionPaths": [
-        {
-          "value": "deepseek",
-          "count": 2
-        },
-        {
-          "value": "local_policy",
-          "count": 1
-        }
-      ]
-    },
-    {
       "key": "dev.8i.collection.photo_confirmation_plan#1",
       "group": "collection",
       "category": "arbitration_path_variance",
@@ -96,6 +75,48 @@
       ]
     },
     {
+      "key": "dev.8k.collection.documents#1",
+      "group": "collection",
+      "category": "arbitration_path_variance",
+      "severity": "info",
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": false,
+      "exactStable": true,
+      "exactCorrectRuns": 3,
+      "recognitionPaths": [
+        {
+          "value": "deepseek",
+          "count": 2
+        },
+        {
+          "value": "local_policy",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "key": "dev.8q.bored_writing_close#2",
+      "group": "context-long-conversation",
+      "category": "arbitration_path_variance",
+      "severity": "info",
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": false,
+      "exactStable": true,
+      "exactCorrectRuns": 3,
+      "recognitionPaths": [
+        {
+          "value": "deepseek",
+          "count": 2
+        },
+        {
+          "value": "local_policy",
+          "count": 1
+        }
+      ]
+    },
+    {
       "key": "dev.8r.long.move_two_interruptions#4",
       "group": "natural-long-context",
       "category": "arbitration_path_variance",
@@ -113,6 +134,69 @@
         {
           "value": "local_policy",
           "count": 2
+        }
+      ]
+    },
+    {
+      "key": "dev.boundary.external_resource#1",
+      "group": "boundary",
+      "category": "arbitration_path_variance",
+      "severity": "info",
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": false,
+      "exactStable": true,
+      "exactCorrectRuns": 3,
+      "recognitionPaths": [
+        {
+          "value": "deepseek",
+          "count": 1
+        },
+        {
+          "value": "local_policy",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "key": "dev.collection.delete_name#1",
+      "group": "collection",
+      "category": "arbitration_path_variance",
+      "severity": "info",
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": false,
+      "exactStable": true,
+      "exactCorrectRuns": 3,
+      "recognitionPaths": [
+        {
+          "value": "deepseek",
+          "count": 1
+        },
+        {
+          "value": "local_policy",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "key": "dev.delete.folder#1",
+      "group": "delete",
+      "category": "arbitration_path_variance",
+      "severity": "info",
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": false,
+      "exactStable": true,
+      "exactCorrectRuns": 3,
+      "recognitionPaths": [
+        {
+          "value": "deepseek",
+          "count": 2
+        },
+        {
+          "value": "local_policy",
+          "count": 1
         }
       ]
     }
