@@ -1878,7 +1878,14 @@ class IntentRecognitionServiceTest {
                 Instant.now().plusSeconds(60)
         );
 
-        List.of("就按前面那个继续吧", "还是照之前的做", "好，那就这么执行")
+        List.of(
+                "就按前面那个继续吧",
+                "还是照之前的做",
+                "好，那就这么执行",
+                "继续处理它",
+                "接着处理那个",
+                "继续执行一下这个"
+        )
                 .forEach(message -> {
                     IntentRecognitionResponse response = service.recognize(
                             message,
