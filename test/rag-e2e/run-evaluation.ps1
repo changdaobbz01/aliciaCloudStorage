@@ -7,6 +7,7 @@ param(
     [string]$TargetRagBaseUrl = '',
     [string]$TargetExecutionBaseUrl = '',
     [string]$TargetApiBaseUrl = '',
+    [string[]]$CaseId = @(),
     [ValidateSet('baseline', 'stress', 'all', 'recognition-dev', 'recognition-candidate', 'recognition-probe', 'recognition-holdout')]
     [string]$Suite = 'baseline'
 )
@@ -265,6 +266,51 @@ $isRecognitionMeasurement = $Suite -in @(
 if ($isRecognitionMeasurement -and $ExecuteFolderCreate) {
     throw 'Recognition measurement never confirms or executes tasks.'
 }
+$scenarioFiles = @(switch ($Suite) {
+    'baseline' { @($context.ScenarioFile) }
+    'stress' { @($context.StressScenarioFile) }
+    'all' { @($context.ScenarioFile, $context.StressScenarioFile) }
+    'recognition-dev' { @($context.RecognitionDevFile) }
+    'recognition-candidate' { @($context.RecognitionCandidateFile) }
+    'recognition-probe' { @($context.RecognitionProbeFile) }
+    'recognition-holdout' { @($context.RecognitionHoldoutFile) }
+})
+$loadedSuites = @(
+    foreach ($scenarioFile in $scenarioFiles) {
+        Get-Content -LiteralPath $scenarioFile -Raw -Encoding UTF8 | ConvertFrom-Json
+    }
+)
+$scenarioHashes = [ordered]@{}
+foreach ($scenarioFile in $scenarioFiles) {
+    $scenarioHashes[[System.IO.Path]::GetFileName($scenarioFile)] =
+            (Get-FileHash -Algorithm SHA256 -LiteralPath $scenarioFile).Hash.ToLowerInvariant()
+}
+$cases = @($loadedSuites | ForEach-Object { @($_.cases) })
+$caseFilter = @(
+    $CaseId |
+        ForEach-Object { @(([string]$_) -split ',') } |
+        ForEach-Object {
+            $normalizedCaseId = ([string]$_).Trim()
+            $normalizedCaseId = $normalizedCaseId.Trim([char]39).Trim([char]34).Trim()
+            $normalizedCaseId
+        } |
+        Where-Object { $_ } |
+        Select-Object -Unique
+)
+if ($caseFilter.Count -gt 0) {
+    $availableCaseIds = @($cases | ForEach-Object { [string]$_.id })
+    $missingCaseIds = @($caseFilter | Where-Object { $_ -notin $availableCaseIds })
+    if ($missingCaseIds.Count -gt 0) {
+        throw "Requested evaluation case id(s) are unavailable in suite '$Suite': $($missingCaseIds -join ', ')"
+    }
+    $cases = @($cases | Where-Object { [string]$_.id -in $caseFilter })
+    Write-Host "[OK] Evaluation case filter selected $($cases.Count) case(s): $($caseFilter -join ', ')"
+}
+if ($cases.Count -eq 0) {
+    throw "Evaluation suite '$Suite' has no queued cases. Add reviewed candidate cases before running it."
+}
+$suiteVersion = ($loadedSuites.version -join '+')
+
 Import-RagE2EEnv -Path $context.EnvFile
 $sourceRevision = (& git -C $context.RepositoryRoot rev-parse HEAD).Trim()
 if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($sourceRevision)) {
@@ -315,15 +361,19 @@ if ($ExecuteFolderCreate -and
     throw 'Local execution needs both -ExecuteFolderCreate and ALICIA_RAG_E2E_ALLOW_LOCAL_EXECUTION=true.'
 }
 
-$login = Invoke-JsonRequest -Method Post -Uri "$identityBaseUrl/api/identity/auth/login" -Body @{
-    identifier = $account
-    password   = $password
-}
-$token = [string](Get-OptionalProperty -Object $login -Name 'token')
-if ([string]::IsNullOrWhiteSpace($token)) {
-    throw 'Identity login succeeded without returning a token.'
-}
-$headers = @{ Authorization = "Bearer $token" }
+$login = $null
+$token = $null
+$headers = $null
+try {
+    $login = Invoke-JsonRequest -Method Post -Uri "$identityBaseUrl/api/identity/auth/login" -Body @{
+        identifier = $account
+        password   = $password
+    }
+    $token = [string](Get-OptionalProperty -Object $login -Name 'token')
+    if ([string]::IsNullOrWhiteSpace($token)) {
+        throw 'Identity login succeeded without returning a token.'
+    }
+    $headers = @{ Authorization = "Bearer $token" }
 
 $access = Invoke-JsonRequest -Method Get -Uri "$ragBaseUrl/api/assistant/auth/access" -Headers $headers
 if ([string]$access.role -ne 'RAG_ADMIN') {
@@ -359,30 +409,6 @@ if ($RequireOnlineRecognition) {
     Write-Host "[OK] Online recognition canary passed: path=$canaryPath provider=$canaryProvider model=$canaryModel intent=$canaryIntent"
 }
 
-$scenarioFiles = @(switch ($Suite) {
-    'baseline' { @($context.ScenarioFile) }
-    'stress' { @($context.StressScenarioFile) }
-    'all' { @($context.ScenarioFile, $context.StressScenarioFile) }
-    'recognition-dev' { @($context.RecognitionDevFile) }
-    'recognition-candidate' { @($context.RecognitionCandidateFile) }
-    'recognition-probe' { @($context.RecognitionProbeFile) }
-    'recognition-holdout' { @($context.RecognitionHoldoutFile) }
-})
-$loadedSuites = @(
-    foreach ($scenarioFile in $scenarioFiles) {
-        Get-Content -LiteralPath $scenarioFile -Raw -Encoding UTF8 | ConvertFrom-Json
-    }
-)
-$scenarioHashes = [ordered]@{}
-foreach ($scenarioFile in $scenarioFiles) {
-    $scenarioHashes[[System.IO.Path]::GetFileName($scenarioFile)] =
-            (Get-FileHash -Algorithm SHA256 -LiteralPath $scenarioFile).Hash.ToLowerInvariant()
-}
-$cases = @($loadedSuites | ForEach-Object { @($_.cases) })
-if ($cases.Count -eq 0) {
-    throw "Evaluation suite '$Suite' has no queued cases. Add reviewed candidate cases before running it."
-}
-$suiteVersion = ($loadedSuites.version -join '+')
 $runId = [DateTimeOffset]::UtcNow.ToString('yyyyMMddHHmmss')
 $caseResults = [System.Collections.Generic.List[object]]::new()
 $passedTurns = 0
@@ -579,6 +605,7 @@ $report = [pscustomobject]@{
     sourceDirty   = $sourceDirty
     targetMode    = if ($usesExternalTarget) { 'external-https' } else { 'isolated-local' }
     scenarioHashes = $scenarioHashes
+    caseFilter    = $caseFilter
     startedByMode = if ($ExecuteFolderCreate) { 'recognition-and-safe-local-execution' } else { 'recognition-only' }
     onlineRecognitionRequired = [bool]$RequireOnlineRecognition
     passedTurns   = $passedTurns
@@ -599,13 +626,18 @@ Write-Host "Report: $reportPath"
 Write-Host "Summary: passed=$passedTurns failed=$failedTurns executed=$executedCount"
 Write-Host "Source: revision=$sourceRevision dirty=$sourceDirty"
 Write-Host "Recognition sources: $((@($recognitionSources.Keys) | ForEach-Object { "$_=$($recognitionSources[$_])" }) -join ', ')"
-try {
-    Invoke-JsonRequest -Method Post -Uri "$identityBaseUrl/api/identity/auth/logout" -Headers $headers -Body @{
-        refreshToken = [string](Get-OptionalProperty -Object $login -Name 'refreshToken')
-        allDevices   = $false
-    } | Out-Null
-    Write-Host '[OK] Temporary Identity evaluation session logged out.'
 } finally {
+    if ($null -ne $headers -and $null -ne $login) {
+        try {
+            Invoke-JsonRequest -Method Post -Uri "$identityBaseUrl/api/identity/auth/logout" -Headers $headers -Body @{
+                refreshToken = [string](Get-OptionalProperty -Object $login -Name 'refreshToken')
+                allDevices   = $false
+            } | Out-Null
+            Write-Host '[OK] Temporary Identity evaluation session logged out.'
+        } catch {
+            Write-Warning "Temporary Identity evaluation session logout failed: $($_.Exception.Message)"
+        }
+    }
     $token = $null
     $password = $null
     $login = $null

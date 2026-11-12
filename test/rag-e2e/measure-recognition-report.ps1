@@ -83,6 +83,21 @@ $datasetCases = @{}
 foreach ($case in @($dataset.cases)) {
     $datasetCases[[string]$case.id] = $case
 }
+$caseFilter = @(
+    Get-OptionalProperty -Object $report -Name 'caseFilter' |
+        ForEach-Object { [string]$_ } |
+        Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+        Select-Object -Unique
+)
+$measuredDatasetCases = if ($caseFilter.Count -gt 0) {
+    $missingCaseIds = @($caseFilter | Where-Object { -not $datasetCases.ContainsKey($_) })
+    if ($missingCaseIds.Count -gt 0) {
+        throw "Recognition report filter contains case ids absent from the dataset: $($missingCaseIds -join ', ')"
+    }
+    @($dataset.cases | Where-Object { [string]$_.id -in $caseFilter })
+} else {
+    @($dataset.cases)
+}
 
 $records = [System.Collections.Generic.List[object]]::new()
 $groupStats = @{}
@@ -97,7 +112,7 @@ $unsafeExecutableCount = 0
 $missingResponseCount = 0
 $total = 0
 $expectedTotal = 0
-foreach ($datasetCase in @($dataset.cases)) {
+foreach ($datasetCase in $measuredDatasetCases) {
     $expectedTotal += @($datasetCase.turns).Count
 }
 
@@ -216,7 +231,7 @@ foreach ($caseResult in @($report.cases)) {
     }
 }
 
-if ($total -ne $expectedTotal -or @($report.cases).Count -ne @($dataset.cases).Count) {
+if ($total -ne $expectedTotal -or @($report.cases).Count -ne $measuredDatasetCases.Count) {
     throw "Recognition report coverage is incomplete: measured=$total expected=$expectedTotal."
 }
 
@@ -263,6 +278,7 @@ $metrics = [pscustomobject][ordered]@{
     reportPath = $resolvedReportPath
     datasetPath = $resolvedDatasetPath
     datasetHash = $datasetHash
+    caseFilter = $caseFilter
     totalTurns = $total
     intentCorrect = $intentCorrect
     intentAccuracy = Get-Rate $intentCorrect $total

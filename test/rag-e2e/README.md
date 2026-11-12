@@ -69,6 +69,11 @@ pwsh -File test/rag-e2e/run-evaluation.ps1 -Suite recognition-dev
 # 只评测尚未并入正式开发集的新泛化样本
 pwsh -File test/rag-e2e/run-evaluation.ps1 -Suite recognition-candidate
 
+# 精确复核已知场景，避免为少量修复重跑整个数据集；支持多值或逗号分隔值
+pwsh -File test/rag-e2e/run-evaluation.ps1 `
+  -Suite recognition-candidate `
+  -CaseId candidate.case.one,candidate.case.two
+
 # 独立生产合成探针；不与 candidate 合并，也不重复运行 holdout
 pwsh -File test/rag-e2e/run-evaluation.ps1 -Suite recognition-probe
 
