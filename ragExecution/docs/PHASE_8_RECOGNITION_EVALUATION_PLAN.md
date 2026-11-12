@@ -173,3 +173,11 @@ production-probe 仅保留 10 个运行时、近重复或在线波动 turns。�
 在线 development 均为 177/177，意图、操作和完整契约结果零漂移，unsafe=0。封存 holdout 未运行，
 87 项执行契约继续全部通过，生产仍保持 `admin-single + RAG_ADMIN + FOLDER_CREATE`。完整证据见
 [阶段 8M 本地识别结构缺口闭环日志](PHASE_8M_LOCAL_RECOGNITION_GAP_CLOSURE_LOG_2026-11-11.md)。
+
+阶段 8R 已于 2026-11-12 完成自然表达与歧义鲁棒性闭环。24 个授权、合成且脱敏的场景、40 turns
+经过本地和在线双通道验收后一次性晋升，development 扩大到 306 cases、394 turns，candidate 清空。
+最终本地 development 为 394/394、operation 180/180；同一干净行为提交上的连续三轮在线结果也均为
+394/394，意图、操作和完整契约结果漂移为 0，unsafe=0、executed=0。稳定性过程中捕获的一次陈旧
+“继续处理它”模型波动已在模型前通用门禁 fail-closed，并以正反例保护。87 项执行契约继续全部通过，
+holdout 保持封存，生产仍为 `admin-single + RAG_ADMIN + FOLDER_CREATE`。完整证据见
+[阶段 8R 自然表达与歧义鲁棒性闭环日志](PHASE_8R_NATURAL_EXPRESSION_ROBUSTNESS_LOG_2026-11-12.md)。
