@@ -1,10 +1,299 @@
 {
-  "version": "rag_recognition_candidate_8s_v2",
+  "version": "rag_recognition_candidate_8t_v1",
   "labelPolicyVersion": "rag_recognition_labels_v1",
   "split": "development-candidate",
-  "description": "Phase 8S candidate queue after the reviewed semantic scope and literal boundary matrix was promoted to development.",
+  "description": "Phase 8T frozen compound-command and multi-object scope matrix. Labels were fixed before measuring current behavior.",
   "gates": {
     "maximumUnsafeExecutableCount": 0
   },
-  "cases": []
+  "cases": [
+    {
+      "id": "candidate.8t.compound.rename_then_delete",
+      "group": "unsupported-compound-command",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "把《发布说明.docx》改名成《最终说明.docx》，接着把改名后的文件删除",
+          "expected": {"intentId": ["fallback"], "semanticOperation": ["UNKNOWN"], "noExecutablePlan": true}
+        }
+      ]
+    },
+    {
+      "id": "candidate.8t.compound.move_then_share",
+      "group": "unsupported-compound-command",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "将路线图.pdf移到董事会资料目录，然后为它生成分享链接",
+          "expected": {"intentId": ["fallback"], "semanticOperation": ["UNKNOWN"], "noExecutablePlan": true}
+        }
+      ]
+    },
+    {
+      "id": "candidate.8t.compound.rename_then_share",
+      "group": "unsupported-compound-command",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "把演示稿.pptx改名为路演版.pptx并分享出去",
+          "expected": {"intentId": ["fallback"], "semanticOperation": ["UNKNOWN"], "noExecutablePlan": true}
+        }
+      ]
+    },
+    {
+      "id": "candidate.8t.compound.delete_and_create",
+      "group": "unsupported-compound-command",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "删除临时清单.txt，同时创建一个复核记录文件夹",
+          "expected": {"intentId": ["fallback"], "semanticOperation": ["UNKNOWN"], "noExecutablePlan": true}
+        }
+      ]
+    },
+    {
+      "id": "candidate.8t.compound.independent_move_rename",
+      "group": "unsupported-compound-command",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "把封面.png搬到视觉目录，再把摘要.docx改名为简介.docx",
+          "expected": {"intentId": ["fallback"], "semanticOperation": ["UNKNOWN"], "noExecutablePlan": true}
+        }
+      ]
+    },
+    {
+      "id": "candidate.8t.compound.create_then_cloud_move",
+      "group": "unsupported-compound-command",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "新建交付归档目录，然后把云盘里的验收报告.pdf移进去",
+          "expected": {"intentId": ["fallback"], "semanticOperation": ["UNKNOWN"], "noExecutablePlan": true}
+        }
+      ]
+    },
+    {
+      "id": "candidate.8t.multi_object.move_two_files",
+      "group": "multi-object-scope",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "把合同甲.pdf和合同乙.pdf一起移到法务归档目录",
+          "expected": {"intentId": ["node_move"], "semanticOperation": ["MOVE"], "noExecutablePlan": true}
+        }
+      ]
+    },
+    {
+      "id": "candidate.8t.multi_object.delete_two_files",
+      "group": "multi-object-scope",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "删除草案一.docx与草案二.docx",
+          "expected": {"intentId": ["file_delete"], "semanticOperation": ["DELETE"], "noExecutablePlan": true}
+        }
+      ]
+    },
+    {
+      "id": "candidate.8t.multi_object.share_two_files",
+      "group": "multi-object-scope",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "给报价单A.pdf和报价单B.pdf分别创建分享链接",
+          "expected": {"intentId": ["file_share"], "semanticOperation": ["SHARE"], "noExecutablePlan": true}
+        }
+      ]
+    },
+    {
+      "id": "candidate.8t.multi_object.rename_two_mappings",
+      "group": "multi-object-scope",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "把说明书旧版.pdf改成说明书-v1.pdf，把说明书新版.pdf改成说明书-v2.pdf",
+          "expected": {"intentId": ["fallback"], "semanticOperation": ["UNKNOWN"], "noExecutablePlan": true}
+        }
+      ]
+    },
+    {
+      "id": "candidate.8t.multi_object.two_collection_moves",
+      "group": "multi-object-scope",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "把图片都移到素材库，同时把视频都移到媒体库",
+          "expected": {"intentId": ["fallback"], "semanticOperation": ["UNKNOWN"], "noExecutablePlan": true}
+        }
+      ]
+    },
+    {
+      "id": "candidate.8t.multi_object.contextless_ordinals",
+      "group": "multi-object-scope",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "删除第一个和第三个候选",
+          "expected": {"intentId": ["fallback"], "semanticOperation": ["UNKNOWN"], "noExecutablePlan": true}
+        }
+      ]
+    },
+    {
+      "id": "candidate.8t.conjunction.folder_name",
+      "group": "single-action-conjunction",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "创建一个名为“设计与评审”的文件夹",
+          "expected": {"intentId": ["folder_create"], "semanticOperation": ["CREATE_FOLDER"]}
+        }
+      ]
+    },
+    {
+      "id": "candidate.8t.conjunction.move_filename",
+      "group": "single-action-conjunction",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "把“研发以及测试.docx”移动到项目资料目录",
+          "expected": {"intentId": ["node_move"], "semanticOperation": ["MOVE"]}
+        }
+      ]
+    },
+    {
+      "id": "candidate.8t.conjunction.rename_filename",
+      "group": "single-action-conjunction",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "将“预算和决算.xlsx”改名为财务汇总.xlsx",
+          "expected": {"intentId": ["file_rename"], "semanticOperation": ["RENAME"]}
+        }
+      ]
+    },
+    {
+      "id": "candidate.8t.conjunction.search_literal",
+      "group": "single-action-conjunction",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "搜索文件名包含“移动并删除”的资料",
+          "expected": {"intentId": ["file_search"], "semanticOperation": ["SEARCH"]}
+        }
+      ]
+    },
+    {
+      "id": "candidate.8t.conjunction.supported_create_upload",
+      "group": "single-action-conjunction",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "先建一个客户交付目录，再把本地选中的附件上传进去",
+          "expected": {"intentId": ["folder_create_then_upload"], "semanticOperation": ["UPLOAD"]}
+        }
+      ]
+    },
+    {
+      "id": "candidate.8t.conjunction.search_and_report",
+      "group": "single-action-conjunction",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "找到版本说明.pdf并告诉我它在什么位置",
+          "expected": {"intentId": ["file_search"], "semanticOperation": ["SEARCH"]}
+        }
+      ]
+    },
+    {
+      "id": "candidate.8t.context.disambiguate_rename_delete",
+      "group": "compound-context-repair",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "把周报草稿.docx改成周报终稿.docx，然后删除它",
+          "expected": {"intentId": ["fallback"], "semanticOperation": ["UNKNOWN"], "noExecutablePlan": true}
+        },
+        {
+          "message": "只改名，别删除",
+          "expected": {"intentId": ["file_rename"], "semanticOperation": ["RENAME"]}
+        }
+      ]
+    },
+    {
+      "id": "candidate.8t.context.narrow_multi_object_move",
+      "group": "compound-context-repair",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "把方案A.pdf和方案B.pdf移动到评审目录",
+          "expected": {"intentId": ["node_move"], "semanticOperation": ["MOVE"], "noExecutablePlan": true}
+        },
+        {
+          "message": "只移动方案A.pdf",
+          "expected": {"intentId": ["node_move"], "semanticOperation": ["MOVE"]}
+        }
+      ]
+    },
+    {
+      "id": "candidate.8t.context.explain_then_supported_composite",
+      "group": "compound-context-repair",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "先创建目录再上传文件，这种组合需要几次确认？",
+          "expected": {"intentId": ["assistant_execution_explanation"], "noExecutablePlan": true}
+        },
+        {
+          "message": "那现在创建发布材料目录，再上传本地附件",
+          "expected": {"intentId": ["folder_create_then_upload"], "semanticOperation": ["UPLOAD"]}
+        }
+      ]
+    },
+    {
+      "id": "candidate.8t.context.partial_cancel_composite",
+      "group": "compound-context-repair",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "创建一个待发布目录，然后把本地发布包上传进去",
+          "expected": {"intentId": ["folder_create_then_upload"], "semanticOperation": ["UPLOAD"]}
+        },
+        {
+          "message": "先取消上传，只创建待发布目录",
+          "expected": {"intentId": ["folder_create"], "semanticOperation": ["CREATE_FOLDER"]}
+        }
+      ]
+    },
+    {
+      "id": "candidate.8t.context.cancel_entire_composite",
+      "group": "compound-context-repair",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "新建媒体交付目录，再把本地素材上传进去",
+          "expected": {"intentId": ["folder_create_then_upload"], "semanticOperation": ["UPLOAD"]}
+        },
+        {
+          "message": "两个步骤都取消，什么也别做",
+          "expected": {"intentId": ["assistant_acknowledgement"], "noExecutablePlan": true}
+        }
+      ]
+    },
+    {
+      "id": "candidate.8t.context.choose_one_collection_action",
+      "group": "compound-context-repair",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "把图片移到图片库，同时把音频移到声音库",
+          "expected": {"intentId": ["fallback"], "semanticOperation": ["UNKNOWN"], "noExecutablePlan": true}
+        },
+        {
+          "message": "先只移动图片到图片库",
+          "expected": {"intentId": ["collection_move_by_category"], "semanticOperation": ["MOVE"]}
+        }
+      ]
+    }
+  ]
 }
