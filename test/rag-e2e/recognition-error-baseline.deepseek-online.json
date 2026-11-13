@@ -1,6 +1,6 @@
 {
   "schemaVersion": "rag_recognition_error_analysis_v1",
-  "generatedAt": "2026-11-13T12:00:30.8948526+08:00",
+  "generatedAt": "2026-11-13T17:14:37.3954083+08:00",
   "taxonomyVersion": "rag_recognition_error_taxonomy_2026_10_21",
   "taxonomyHash": "09953de6d594b2a47e596fc135d31453a382ae60c08386db1fefc1a8e4105fdf",
   "metrics": {
@@ -14,10 +14,10 @@
     "unsafeExecutableCount": 0
   },
   "stability": {
-    "sourceRevision": "c36931e7aef509330880f92bc72bd223ada23b24",
+    "sourceRevision": "80d4d88698d15e6b2f8731f7c211fe535817e108",
     "runCount": 3,
-    "datasetHash": "8dbf474c5f4cea89146e59e406b4095e1eb8584f6eeb26124397cfc2f57baa98",
-    "totalTurns": 456,
+    "datasetHash": "8b2519bf2c1c134ce54bd3c841a4f5c6ccae0b1bbe7013cdd02749db7ea58a84",
+    "totalTurns": 486,
     "varianceCount": 6
   },
   "accuracyErrorCount": 1,
@@ -54,7 +54,7 @@
   ],
   "variances": [
     {
-      "key": "dev.8h.collection.document_implicit#1",
+      "key": "dev.8i.collection.photo_confirmation_plan#1",
       "group": "collection",
       "category": "arbitration_path_variance",
       "severity": "info",
@@ -71,6 +71,48 @@
         {
           "value": "local_policy",
           "count": 1
+        }
+      ]
+    },
+    {
+      "key": "dev.8i.collection.video_typo#1",
+      "group": "collection",
+      "category": "arbitration_path_variance",
+      "severity": "info",
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": false,
+      "exactStable": true,
+      "exactCorrectRuns": 3,
+      "recognitionPaths": [
+        {
+          "value": "deepseek",
+          "count": 1
+        },
+        {
+          "value": "local_policy",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "key": "dev.8k.collection.documents#1",
+      "group": "collection",
+      "category": "arbitration_path_variance",
+      "severity": "info",
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": false,
+      "exactStable": true,
+      "exactCorrectRuns": 3,
+      "recognitionPaths": [
+        {
+          "value": "deepseek",
+          "count": 1
+        },
+        {
+          "value": "local_policy",
+          "count": 2
         }
       ]
     },
@@ -117,50 +159,8 @@
       ]
     },
     {
-      "key": "dev.8r.long.move_two_interruptions#4",
-      "group": "natural-long-context",
-      "category": "arbitration_path_variance",
-      "severity": "info",
-      "intentStable": true,
-      "operationStable": true,
-      "pathStable": false,
-      "exactStable": true,
-      "exactCorrectRuns": 3,
-      "recognitionPaths": [
-        {
-          "value": "deepseek",
-          "count": 1
-        },
-        {
-          "value": "local_policy",
-          "count": 2
-        }
-      ]
-    },
-    {
       "key": "dev.delete.folder#1",
       "group": "delete",
-      "category": "arbitration_path_variance",
-      "severity": "info",
-      "intentStable": true,
-      "operationStable": true,
-      "pathStable": false,
-      "exactStable": true,
-      "exactCorrectRuns": 3,
-      "recognitionPaths": [
-        {
-          "value": "deepseek",
-          "count": 1
-        },
-        {
-          "value": "local_policy",
-          "count": 2
-        }
-      ]
-    },
-    {
-      "key": "dev.product.can_do#1",
-      "group": "product",
       "category": "arbitration_path_variance",
       "severity": "info",
       "intentStable": true,
