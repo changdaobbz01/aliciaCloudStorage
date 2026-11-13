@@ -1,10 +1,299 @@
 {
-  "version": "rag_recognition_candidate_8t_v2",
+  "version": "rag_recognition_candidate_8u_v1",
   "labelPolicyVersion": "rag_recognition_labels_v1",
   "split": "development-candidate",
-  "description": "Phase 8T candidate queue after the reviewed compound-command and multi-object scope matrix was promoted to development.",
+  "description": "Phase 8U frozen exclusion, remainder, cardinality, and bounded-subset scope matrix. Labels were fixed before measuring current behavior.",
   "gates": {
     "maximumUnsafeExecutableCount": 0
   },
-  "cases": []
+  "cases": [
+    {
+      "id": "candidate.8u.cardinality.recent_three_move",
+      "group": "unsupported-cardinality-selector",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "把最近三个文件移到临时归档目录",
+          "expected": {"intentId": ["node_move"], "semanticOperation": ["MOVE"], "noExecutablePlan": true}
+        }
+      ]
+    },
+    {
+      "id": "candidate.8u.cardinality.earliest_two_delete",
+      "group": "unsupported-cardinality-selector",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "删除最早的两个备份文件",
+          "expected": {"intentId": ["file_delete"], "semanticOperation": ["DELETE"], "noExecutablePlan": true}
+        }
+      ]
+    },
+    {
+      "id": "candidate.8u.cardinality.first_five_share",
+      "group": "unsupported-cardinality-selector",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "为搜索结果中的前五个文件生成分享链接",
+          "expected": {"intentId": ["file_share"], "semanticOperation": ["SHARE"], "noExecutablePlan": true}
+        }
+      ]
+    },
+    {
+      "id": "candidate.8u.cardinality.ordinal_range_move",
+      "group": "unsupported-cardinality-selector",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "把第二到第四个候选移到评审区",
+          "expected": {"intentId": ["node_move"], "semanticOperation": ["MOVE"], "noExecutablePlan": true}
+        }
+      ]
+    },
+    {
+      "id": "candidate.8u.cardinality.random_three_move",
+      "group": "unsupported-cardinality-selector",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "随机选三个文档放进抽检目录",
+          "expected": {"intentId": ["node_move"], "semanticOperation": ["MOVE"], "noExecutablePlan": true}
+        }
+      ]
+    },
+    {
+      "id": "candidate.8u.cardinality.last_two_archives",
+      "group": "unsupported-cardinality-selector",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "将最后两个压缩包移动到交付区",
+          "expected": {"intentId": ["node_move"], "semanticOperation": ["MOVE"], "noExecutablePlan": true}
+        }
+      ]
+    },
+    {
+      "id": "candidate.8u.exclusion.keep_one_move_rest",
+      "group": "unsupported-exclusion-remainder",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "除了正式版.docx，其他文档都移到归档区",
+          "expected": {"intentId": ["node_move"], "semanticOperation": ["MOVE"], "noExecutablePlan": true}
+        }
+      ]
+    },
+    {
+      "id": "candidate.8u.exclusion.keep_latest_delete_rest",
+      "group": "unsupported-exclusion-remainder",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "保留最新的备份文件，其余备份全部删除",
+          "expected": {"intentId": ["file_delete"], "semanticOperation": ["DELETE"], "noExecutablePlan": true}
+        }
+      ]
+    },
+    {
+      "id": "candidate.8u.exclusion.extension_exception",
+      "group": "unsupported-exclusion-remainder",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "把所有 .tmp 文件移到缓存归档，但排除 keep.tmp",
+          "expected": {"intentId": ["collection_move_by_extension"], "semanticOperation": ["MOVE"], "noExecutablePlan": true}
+        }
+      ]
+    },
+    {
+      "id": "candidate.8u.exclusion.category_exception",
+      "group": "unsupported-exclusion-remainder",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "把图片都移到相册目录，封面.png除外",
+          "expected": {"intentId": ["collection_move_by_category"], "semanticOperation": ["MOVE"], "noExecutablePlan": true}
+        }
+      ]
+    },
+    {
+      "id": "candidate.8u.exclusion.share_exception",
+      "group": "unsupported-exclusion-remainder",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "除合同.pdf外，为这个目录里的其他文件生成分享链接",
+          "expected": {"intentId": ["file_share"], "semanticOperation": ["SHARE"], "noExecutablePlan": true}
+        }
+      ]
+    },
+    {
+      "id": "candidate.8u.exclusion.name_predicate_exception",
+      "group": "unsupported-exclusion-remainder",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "不要动已签字文件，剩下名称包含合同的资料都移到待签区",
+          "expected": {"intentId": ["collection_move_by_name"], "semanticOperation": ["MOVE"], "noExecutablePlan": true}
+        }
+      ]
+    },
+    {
+      "id": "candidate.8u.positive.extension_all_move",
+      "group": "supported-positive-and-literal",
+      "difficulty": "medium",
+      "turns": [
+        {
+          "message": "把当前目录下全部 .webp 文件移到网页素材库",
+          "expected": {"intentId": ["collection_move_by_extension"], "semanticOperation": ["MOVE"]}
+        }
+      ]
+    },
+    {
+      "id": "candidate.8u.positive.name_predicate_move",
+      "group": "supported-positive-and-literal",
+      "difficulty": "medium",
+      "turns": [
+        {
+          "message": "将名称中含待审核的文件都移到复核区",
+          "expected": {"intentId": ["collection_move_by_name"], "semanticOperation": ["MOVE"]}
+        }
+      ]
+    },
+    {
+      "id": "candidate.8u.positive.category_all_move",
+      "group": "supported-positive-and-literal",
+      "difficulty": "medium",
+      "turns": [
+        {
+          "message": "把视频类文件全部移动到媒体归档目录",
+          "expected": {"intentId": ["collection_move_by_category"], "semanticOperation": ["MOVE"]}
+        }
+      ]
+    },
+    {
+      "id": "candidate.8u.literal.quantified_filename_delete",
+      "group": "supported-positive-and-literal",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "删除文件“最近三个版本.txt”",
+          "expected": {"intentId": ["file_delete"], "semanticOperation": ["DELETE"]}
+        }
+      ]
+    },
+    {
+      "id": "candidate.8u.literal.remainder_folder_create",
+      "group": "supported-positive-and-literal",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "创建一个名为“其余材料”的文件夹",
+          "expected": {"intentId": ["folder_create"], "semanticOperation": ["CREATE_FOLDER"]}
+        }
+      ]
+    },
+    {
+      "id": "candidate.8u.literal.exclusion_search_term",
+      "group": "supported-positive-and-literal",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "搜索文件名包含“除外”的文档",
+          "expected": {"intentId": ["file_search"], "semanticOperation": ["SEARCH"]}
+        }
+      ]
+    },
+    {
+      "id": "candidate.8u.context.cardinality_to_exact_move",
+      "group": "subset-context-repair",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "把最近三个文件移到归档目录",
+          "expected": {"intentId": ["node_move"], "semanticOperation": ["MOVE"], "noExecutablePlan": true}
+        },
+        {
+          "message": "那只移动月报.pdf到归档目录",
+          "expected": {"intentId": ["node_move"], "semanticOperation": ["MOVE"]}
+        }
+      ]
+    },
+    {
+      "id": "candidate.8u.context.remainder_to_exact_delete",
+      "group": "subset-context-repair",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "除了正式版都删掉",
+          "expected": {"intentId": ["file_delete"], "semanticOperation": ["DELETE"], "noExecutablePlan": true}
+        },
+        {
+          "message": "改成只删除草稿版.docx",
+          "expected": {"intentId": ["file_delete"], "semanticOperation": ["DELETE"]}
+        }
+      ]
+    },
+    {
+      "id": "candidate.8u.context.exception_to_exact_move",
+      "group": "subset-context-repair",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "把全部 .tmp 文件移到缓存区，但 keep.tmp 不要动",
+          "expected": {"intentId": ["collection_move_by_extension"], "semanticOperation": ["MOVE"], "noExecutablePlan": true}
+        },
+        {
+          "message": "那只移动 cache.tmp 到缓存区",
+          "expected": {"intentId": ["node_move"], "semanticOperation": ["MOVE"]}
+        }
+      ]
+    },
+    {
+      "id": "candidate.8u.context.ordinal_range_to_named_move",
+      "group": "subset-context-repair",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "把第二到第四个候选移到复核区",
+          "expected": {"intentId": ["node_move"], "semanticOperation": ["MOVE"], "noExecutablePlan": true}
+        },
+        {
+          "message": "只移动第二个，文件名是方案乙.pdf，目标是复核区",
+          "expected": {"intentId": ["node_move"], "semanticOperation": ["MOVE"]}
+        }
+      ]
+    },
+    {
+      "id": "candidate.8u.context.collection_to_atomic_narrowing",
+      "group": "subset-context-repair",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "把所有图片移到相册目录",
+          "expected": {"intentId": ["collection_move_by_category"], "semanticOperation": ["MOVE"]}
+        },
+        {
+          "message": "不用全部，只移动封面.png",
+          "expected": {"intentId": ["node_move"], "semanticOperation": ["MOVE"]}
+        }
+      ]
+    },
+    {
+      "id": "candidate.8u.context.capability_to_exact_move",
+      "group": "subset-context-repair",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "你能按最近三个文件批量移动吗？先别操作",
+          "expected": {"intentId": ["assistant_capability_examples"], "noExecutablePlan": true}
+        },
+        {
+          "message": "那只把日志.txt移到归档区",
+          "expected": {"intentId": ["node_move"], "semanticOperation": ["MOVE"]}
+        }
+      ]
+    }
+  ]
 }
