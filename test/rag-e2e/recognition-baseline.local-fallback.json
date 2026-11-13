@@ -1,36 +1,36 @@
 {
   "schemaVersion": "rag_recognition_baseline_v1",
   "lane": "local-fallback",
-  "sourceRevision": "1614e825790fc6387583f2ce1d1c10593a30b308",
-  "developmentSourceRevision": "1614e825790fc6387583f2ce1d1c10593a30b308",
+  "sourceRevision": "c36931e7aef509330880f92bc72bd223ada23b24",
+  "developmentSourceRevision": "c36931e7aef509330880f92bc72bd223ada23b24",
   "holdoutSourceRevision": "d54eaa6706aef4b36ece99e8cb837c7cfbf58c20",
   "labelPolicyVersion": "rag_recognition_labels_v1",
   "datasetHashes": {
-    "development": "4455aabf59f95cf5cf3db3234608749d160e27e8e7fdc4bc68a3372b134f92da",
+    "development": "8dbf474c5f4cea89146e59e406b4095e1eb8584f6eeb26124397cfc2f57baa98",
     "holdout": "eebeb9d595799ee049fd5d349d36801b13f59fadd1f1f70a1e8e9aef8639abb7"
   },
   "development": {
-    "datasetVersion": "rag_recognition_dev_v13",
-    "reportRunId": "20261112074935",
-    "totalTurns": 426,
-    "intentCorrect": 426,
+    "datasetVersion": "rag_recognition_dev_v14",
+    "reportRunId": "20261113033007",
+    "totalTurns": 456,
+    "intentCorrect": 456,
     "intentAccuracy": 1.0,
-    "semanticOperationEligible": 199,
-    "semanticOperationCorrect": 199,
+    "semanticOperationEligible": 227,
+    "semanticOperationCorrect": 227,
     "semanticOperationAccuracy": 1.0,
-    "exactContractCorrect": 426,
+    "exactContractCorrect": 456,
     "exactContractAccuracy": 1.0,
     "unsafeExecutableCount": 0,
     "missingResponseCount": 0,
     "infrastructureFailures": 0,
     "recognitionSources": {
       "local_context": 1,
-      "local_fallback": 425
+      "local_fallback": 455
     },
     "recognitionPaths": {
-      "local_guard": 166,
-      "local_structure": 14,
-      "local_unavailable": 246
+      "local_guard": 183,
+      "local_structure": 18,
+      "local_unavailable": 255
     },
     "byGroup": [
       {
@@ -79,6 +79,14 @@
         "intentCorrect": 5,
         "intentAccuracy": 1.0,
         "exactCorrect": 5,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "compound-context-repair",
+        "total": 12,
+        "intentCorrect": 12,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 12,
         "exactAccuracy": 1.0
       },
       {
@@ -330,6 +338,14 @@
         "exactAccuracy": 1.0
       },
       {
+        "group": "multi-object-scope",
+        "total": 6,
+        "intentCorrect": 6,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 6,
+        "exactAccuracy": 1.0
+      },
+      {
         "group": "multi-turn-boundary",
         "total": 4,
         "intentCorrect": 4,
@@ -498,6 +514,22 @@
         "exactAccuracy": 1.0
       },
       {
+        "group": "single-action-conjunction",
+        "total": 6,
+        "intentCorrect": 6,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 6,
+        "exactAccuracy": 1.0
+      },
+      {
+        "group": "unsupported-compound-command",
+        "total": 6,
+        "intentCorrect": 6,
+        "intentAccuracy": 1.0,
+        "exactCorrect": 6,
+        "exactAccuracy": 1.0
+      },
+      {
         "group": "upload",
         "total": 4,
         "intentCorrect": 4,
@@ -518,7 +550,7 @@
       {
         "expectedIntent": "assistant_acknowledgement",
         "actualIntent": "assistant_acknowledgement",
-        "count": 30
+        "count": 31
       },
       {
         "expectedIntent": "assistant_bored",
@@ -543,7 +575,7 @@
       {
         "expectedIntent": "assistant_execution_explanation",
         "actualIntent": "assistant_execution_explanation",
-        "count": 19
+        "count": 20
       },
       {
         "expectedIntent": "assistant_external_resource",
@@ -598,7 +630,7 @@
       {
         "expectedIntent": "collection_move_by_category",
         "actualIntent": "collection_move_by_category",
-        "count": 22
+        "count": 23
       },
       {
         "expectedIntent": "collection_move_by_extension",
@@ -618,27 +650,27 @@
       {
         "expectedIntent": "fallback",
         "actualIntent": "fallback",
-        "count": 41
+        "count": 52
       },
       {
         "expectedIntent": "file_delete",
         "actualIntent": "file_delete",
-        "count": 13
+        "count": 14
       },
       {
         "expectedIntent": "file_rename",
         "actualIntent": "file_rename",
-        "count": 17
+        "count": 19
       },
       {
         "expectedIntent": "file_search",
         "actualIntent": "file_search",
-        "count": 35
+        "count": 37
       },
       {
         "expectedIntent": "file_share",
         "actualIntent": "file_share",
-        "count": 3
+        "count": 4
       },
       {
         "expectedIntent": "file_upload",
@@ -648,17 +680,17 @@
       {
         "expectedIntent": "folder_create",
         "actualIntent": "folder_create",
-        "count": 16
+        "count": 18
       },
       {
         "expectedIntent": "folder_create_then_upload",
         "actualIntent": "folder_create_then_upload",
-        "count": 5
+        "count": 9
       },
       {
         "expectedIntent": "node_move",
         "actualIntent": "node_move",
-        "count": 34
+        "count": 38
       }
     ]
   },

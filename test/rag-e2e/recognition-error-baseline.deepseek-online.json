@@ -1,6 +1,6 @@
 {
   "schemaVersion": "rag_recognition_error_analysis_v1",
-  "generatedAt": "2026-11-12T17:57:34.8346657+08:00",
+  "generatedAt": "2026-11-13T12:00:30.8948526+08:00",
   "taxonomyVersion": "rag_recognition_error_taxonomy_2026_10_21",
   "taxonomyHash": "09953de6d594b2a47e596fc135d31453a382ae60c08386db1fefc1a8e4105fdf",
   "metrics": {
@@ -14,16 +14,16 @@
     "unsafeExecutableCount": 0
   },
   "stability": {
-    "sourceRevision": "1614e825790fc6387583f2ce1d1c10593a30b308",
+    "sourceRevision": "c36931e7aef509330880f92bc72bd223ada23b24",
     "runCount": 3,
-    "datasetHash": "4455aabf59f95cf5cf3db3234608749d160e27e8e7fdc4bc68a3372b134f92da",
-    "totalTurns": 426,
-    "varianceCount": 7
+    "datasetHash": "8dbf474c5f4cea89146e59e406b4095e1eb8584f6eeb26124397cfc2f57baa98",
+    "totalTurns": 456,
+    "varianceCount": 6
   },
   "accuracyErrorCount": 1,
-  "varianceCount": 7,
+  "varianceCount": 6,
   "categoryCounts": {
-    "arbitration_path_variance": 7,
+    "arbitration_path_variance": 6,
     "availability_failure": 0,
     "collection_semantics": 0,
     "conversational_boundary": 0,
@@ -54,7 +54,7 @@
   ],
   "variances": [
     {
-      "key": "dev.8i.collection.photo_confirmation_plan#1",
+      "key": "dev.8h.collection.document_implicit#1",
       "group": "collection",
       "category": "arbitration_path_variance",
       "severity": "info",
@@ -66,17 +66,17 @@
       "recognitionPaths": [
         {
           "value": "deepseek",
-          "count": 1
+          "count": 2
         },
         {
           "value": "local_policy",
-          "count": 2
+          "count": 1
         }
       ]
     },
     {
-      "key": "dev.8k.collection.documents#1",
-      "group": "collection",
+      "key": "dev.8o.product_reason.value#1",
+      "group": "conversation-product",
       "category": "arbitration_path_variance",
       "severity": "info",
       "intentStable": true,
@@ -87,11 +87,11 @@
       "recognitionPaths": [
         {
           "value": "deepseek",
-          "count": 2
+          "count": 1
         },
         {
           "value": "local_policy",
-          "count": 1
+          "count": 2
         }
       ]
     },
@@ -138,48 +138,6 @@
       ]
     },
     {
-      "key": "dev.boundary.external_resource#1",
-      "group": "boundary",
-      "category": "arbitration_path_variance",
-      "severity": "info",
-      "intentStable": true,
-      "operationStable": true,
-      "pathStable": false,
-      "exactStable": true,
-      "exactCorrectRuns": 3,
-      "recognitionPaths": [
-        {
-          "value": "deepseek",
-          "count": 1
-        },
-        {
-          "value": "local_policy",
-          "count": 2
-        }
-      ]
-    },
-    {
-      "key": "dev.collection.delete_name#1",
-      "group": "collection",
-      "category": "arbitration_path_variance",
-      "severity": "info",
-      "intentStable": true,
-      "operationStable": true,
-      "pathStable": false,
-      "exactStable": true,
-      "exactCorrectRuns": 3,
-      "recognitionPaths": [
-        {
-          "value": "deepseek",
-          "count": 1
-        },
-        {
-          "value": "local_policy",
-          "count": 2
-        }
-      ]
-    },
-    {
       "key": "dev.delete.folder#1",
       "group": "delete",
       "category": "arbitration_path_variance",
@@ -192,11 +150,32 @@
       "recognitionPaths": [
         {
           "value": "deepseek",
-          "count": 2
+          "count": 1
         },
         {
           "value": "local_policy",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "key": "dev.product.can_do#1",
+      "group": "product",
+      "category": "arbitration_path_variance",
+      "severity": "info",
+      "intentStable": true,
+      "operationStable": true,
+      "pathStable": false,
+      "exactStable": true,
+      "exactCorrectRuns": 3,
+      "recognitionPaths": [
+        {
+          "value": "deepseek",
           "count": 1
+        },
+        {
+          "value": "local_policy",
+          "count": 2
         }
       ]
     }
