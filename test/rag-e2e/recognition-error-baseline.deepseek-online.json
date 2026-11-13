@@ -1,6 +1,6 @@
 {
   "schemaVersion": "rag_recognition_error_analysis_v1",
-  "generatedAt": "2026-11-13T17:14:37.3954083+08:00",
+  "generatedAt": "2026-11-13T18:35:49.4810011+08:00",
   "taxonomyVersion": "rag_recognition_error_taxonomy_2026_10_21",
   "taxonomyHash": "09953de6d594b2a47e596fc135d31453a382ae60c08386db1fefc1a8e4105fdf",
   "metrics": {
@@ -14,16 +14,16 @@
     "unsafeExecutableCount": 0
   },
   "stability": {
-    "sourceRevision": "80d4d88698d15e6b2f8731f7c211fe535817e108",
+    "sourceRevision": "339f36de4b7098a25f9249c5140b405e92cef872",
     "runCount": 3,
-    "datasetHash": "8b2519bf2c1c134ce54bd3c841a4f5c6ccae0b1bbe7013cdd02749db7ea58a84",
-    "totalTurns": 486,
-    "varianceCount": 6
+    "datasetHash": "b3f25ec1a40b191ae419b85cd4e3b73a616c5a98afe6ee41c27f660a2e9ac103",
+    "totalTurns": 516,
+    "varianceCount": 3
   },
   "accuracyErrorCount": 1,
-  "varianceCount": 6,
+  "varianceCount": 3,
   "categoryCounts": {
-    "arbitration_path_variance": 6,
+    "arbitration_path_variance": 3,
     "availability_failure": 0,
     "collection_semantics": 0,
     "conversational_boundary": 0,
@@ -66,11 +66,11 @@
       "recognitionPaths": [
         {
           "value": "deepseek",
-          "count": 2
+          "count": 1
         },
         {
           "value": "local_policy",
-          "count": 1
+          "count": 2
         }
       ]
     },
@@ -98,69 +98,6 @@
     {
       "key": "dev.8k.collection.documents#1",
       "group": "collection",
-      "category": "arbitration_path_variance",
-      "severity": "info",
-      "intentStable": true,
-      "operationStable": true,
-      "pathStable": false,
-      "exactStable": true,
-      "exactCorrectRuns": 3,
-      "recognitionPaths": [
-        {
-          "value": "deepseek",
-          "count": 1
-        },
-        {
-          "value": "local_policy",
-          "count": 2
-        }
-      ]
-    },
-    {
-      "key": "dev.8o.product_reason.value#1",
-      "group": "conversation-product",
-      "category": "arbitration_path_variance",
-      "severity": "info",
-      "intentStable": true,
-      "operationStable": true,
-      "pathStable": false,
-      "exactStable": true,
-      "exactCorrectRuns": 3,
-      "recognitionPaths": [
-        {
-          "value": "deepseek",
-          "count": 1
-        },
-        {
-          "value": "local_policy",
-          "count": 2
-        }
-      ]
-    },
-    {
-      "key": "dev.8q.bored_writing_close#2",
-      "group": "context-long-conversation",
-      "category": "arbitration_path_variance",
-      "severity": "info",
-      "intentStable": true,
-      "operationStable": true,
-      "pathStable": false,
-      "exactStable": true,
-      "exactCorrectRuns": 3,
-      "recognitionPaths": [
-        {
-          "value": "deepseek",
-          "count": 2
-        },
-        {
-          "value": "local_policy",
-          "count": 1
-        }
-      ]
-    },
-    {
-      "key": "dev.delete.folder#1",
-      "group": "delete",
       "category": "arbitration_path_variance",
       "severity": "info",
       "intentStable": true,
