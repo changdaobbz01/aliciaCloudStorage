@@ -2468,6 +2468,37 @@ class AssistantConversationServiceTest {
     }
 
     @Test
+    void unsupportedTemporalConstraintPreservesMutationSemanticsWithoutCreatingAnAction() {
+        IntentRecognitionResponse response = conversationService.plan(new AssistantPlanRequest(
+                "把昨天修改的文档移到归档区",
+                ""
+        ));
+
+        assertThat(response.intentId()).isEqualTo("node_move");
+        assertThat(response.reason()).isEqualTo("non_executable_guard:unsupported_temporal_constraint");
+        assertThat(response.semanticFrame().operation()).isEqualTo("MOVE");
+        assertThat(response.entities()).containsEntry("target_folder", "归档区");
+        assertThat(response.actionDraft().type()).isEqualTo("none");
+        assertThat(response.backendActionDraft().status()).isNotEqualTo("backend_action_ready");
+        assertThat(response.assistantText()).contains("时间").contains("明确文件名");
+    }
+
+    @Test
+    void unsupportedSizeConstraintPreservesShareSemanticsWithoutCreatingAnAction() {
+        IntentRecognitionResponse response = conversationService.plan(new AssistantPlanRequest(
+                "为10MB到50MB的文档生成分享链接",
+                ""
+        ));
+
+        assertThat(response.intentId()).isEqualTo("file_share");
+        assertThat(response.reason()).isEqualTo("non_executable_guard:unsupported_size_constraint");
+        assertThat(response.semanticFrame().operation()).isEqualTo("SHARE");
+        assertThat(response.actionDraft().type()).isEqualTo("none");
+        assertThat(response.backendActionDraft().status()).isNotEqualTo("backend_action_ready");
+        assertThat(response.assistantText()).contains("文件大小").contains("明确文件名");
+    }
+
+    @Test
     void conversationContextCannotBeReusedAcrossAuthorizationIdentities() {
         SingleCandidateSearchPort port = new SingleCandidateSearchPort(701L, "临时截图.png");
         AssistantConversationService service = conversationServiceWith(port);

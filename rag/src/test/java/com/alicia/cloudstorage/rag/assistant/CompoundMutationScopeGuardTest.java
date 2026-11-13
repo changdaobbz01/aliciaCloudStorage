@@ -59,6 +59,9 @@ class CompoundMutationScopeGuardTest {
         assertThat(guard.evaluate("把/云盘/共享空间/临时共享放进/云盘/归档/共享资料")).isEmpty();
         assertThat(guard.evaluate("把方案.pdf移到待审，等等，目标目录改成已审核")).isEmpty();
         assertThat(guard.evaluate("不要删除草稿.txt，改为把它移到待复核目录")).isEmpty();
+        assertThat(guard.evaluate("改成把名称包含摘要的文件都移到轻量文档区")).isEmpty();
+        assertThat(guard.evaluate("改为删除合同.pdf")).isEmpty();
+        assertThat(guard.evaluate("把报告改成移动说明.pdf")).isEmpty();
     }
 
     @Test

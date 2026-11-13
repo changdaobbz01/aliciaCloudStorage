@@ -78,6 +78,11 @@ final class ContextualOperationFollowUpGuard {
                     + "([^，,。；;!?！？]+?)(?:文件)?(?:[。！!]*)$",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
+    private static final Pattern SHARE_SINGLE_SOURCE = Pattern.compile(
+            "^(?:(?:那|改成|换成)\\s*)?(?:只|仅)(?:为|给)?\\s*"
+                    + "([^，,。；;!?！？]+?)(?:生成|创建)?(?:一个)?(?:分享|共享)?链接(?:[。！!]*)$",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
     private static final Pattern COLLECTION_CHOICE_VERB_FIRST = Pattern.compile(
             "^(?:先)?只(?:把)?(?:移动|搬|归档)\\s*(图片|照片|相片|截图|视频|影片|音频|音乐|文档|表格|压缩包|压缩文件)"
                     + "(?:文件)?(?:到|至|进)\\s*([^，,。；;!?！？]+?)(?:目录|文件夹)?(?:[。！!]*)$",
@@ -174,6 +179,23 @@ final class ContextualOperationFollowUpGuard {
                         "file_delete",
                         "CORRECTION",
                         "DELETE",
+                        entities
+                );
+            }
+        }
+
+        if ("file_share".equals(pendingIntent)) {
+            Matcher source = SHARE_SINGLE_SOURCE.matcher(message);
+            String targetName = source.matches() ? cleanValue(source.group(1)) : "";
+            if (isExplicitTargetName(targetName)) {
+                entities.put("target_name", targetName);
+                entities.put("result_type", resultType(targetName));
+                entities.keySet().removeIf(key -> !List.of("target_name", "result_type").contains(key));
+                return decision(
+                        "narrow_share_to_single_source",
+                        "file_share",
+                        "CORRECTION",
+                        "SHARE",
                         entities
                 );
             }

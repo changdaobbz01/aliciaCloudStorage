@@ -31,6 +31,12 @@ final class CompoundMutationScopeGuard {
                     + "并(?=分享|共享|删除|删掉|移动|搬|挪|上传|创建|新建)|[，,；;]|$))",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
+    private static final Pattern OPERATION_CORRECTION_PREFIX = Pattern.compile(
+            "(^|[，,；;]\\s*)(?:那\\s*)?(?:改成|改为|换成)\\s*"
+                    + "(?=(?:(?:把|将|给|请)\\s*)?[^，,。；;!?！？]*"
+                    + "(?:删除|删掉|删|移动|移到|移进|搬|挪|归档|放进|转移|分享|共享|上传|创建|新建))",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
     private static final Pattern CONDITIONAL_LEAD = Pattern.compile(
             "^(?:如果|假如|假设|要是)",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
@@ -83,7 +89,9 @@ final class CompoundMutationScopeGuard {
             return Optional.empty();
         }
 
-        String structural = maskRenameTargetLiterals(maskPathLiterals(maskQuotedLiterals(value)));
+        String structural = maskOperationCorrectionPrefixes(
+                maskRenameTargetLiterals(maskPathLiterals(maskQuotedLiterals(value)))
+        );
         List<OperationOccurrence> occurrences = affirmativeOperations(structural);
         Set<Operation> operations = new LinkedHashSet<>();
         occurrences.forEach(occurrence -> operations.add(occurrence.operation()));
@@ -256,6 +264,10 @@ final class CompoundMutationScopeGuard {
 
     private String maskRenameTargetLiterals(String message) {
         return EXPLICIT_RENAME_TARGET_LITERAL.matcher(message).replaceAll("$1新名称");
+    }
+
+    private String maskOperationCorrectionPrefixes(String message) {
+        return OPERATION_CORRECTION_PREFIX.matcher(message).replaceAll("$1");
     }
 
     private String cleanEntity(String value) {

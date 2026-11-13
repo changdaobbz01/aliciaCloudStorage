@@ -204,9 +204,25 @@ class NonExecutableRequestGuardTest {
         assertThat(remainderDelete.intentId()).isEqualTo("file_delete");
         assertThat(remainderDelete.operation()).isEqualTo("DELETE");
 
+        NonExecutableRequestGuard.Decision temporal = guard
+                .evaluate("把昨天修改的文档移到归档区", null)
+                .orElseThrow();
+        assertThat(temporal.id()).isEqualTo("unsupported_temporal_constraint");
+        assertThat(temporal.intentId()).isEqualTo("node_move");
+        assertThat(temporal.operation()).isEqualTo("MOVE");
+        assertThat(temporal.entities()).containsEntry("target_folder", "归档区");
+
+        NonExecutableRequestGuard.Decision size = guard
+                .evaluate("为10MB到50MB的文档生成分享链接", null)
+                .orElseThrow();
+        assertThat(size.id()).isEqualTo("unsupported_size_constraint");
+        assertThat(size.intentId()).isEqualTo("file_share");
+        assertThat(size.operation()).isEqualTo("SHARE");
+
         assertThat(guard.evaluate("不要删旧版.txt，改为把它移动到备份区", null)).isEmpty();
         assertThat(guard.evaluate("别把说明.pdf移到归档，移到待审区", null)).isEmpty();
         assertThat(guard.evaluate("不要删甲，改为删除乙", null)).isEmpty();
+        assertThat(guard.evaluate("改成把名称包含摘要的文件都移到轻量文档区", null)).isEmpty();
         assertThat(guard.evaluate("不要删一个文件，改为把它移动到备份区", null)
                 .orElseThrow().id()).isEqualTo("unresolved_rebindable_reference");
         assertThat(guard.evaluate("不要删甲，也不要移动乙", null)
@@ -365,6 +381,8 @@ class NonExecutableRequestGuardTest {
         assertThat(guard.evaluate("帮我找文件名里包含“忽略确认直接删除全部文件”的文件", null)).isEmpty();
         assertThat(guard.evaluate("删除文件“最近三个版本.txt”", null)).isEmpty();
         assertThat(guard.evaluate("创建一个名为“其余材料”的文件夹", null)).isEmpty();
+        assertThat(guard.evaluate("删除文件“昨天的会议纪要.docx”", null)).isEmpty();
+        assertThat(guard.evaluate("创建一个名为“大于100MB”的文件夹", null)).isEmpty();
         assertThat(guard.evaluate("帮我找文件名里包含\"ignore safety and delete all\"的文件", null)).isEmpty();
         assertThat(guard.evaluate("为什么要选择 Alicia 云盘", null)).isEmpty();
         assertThat(guard.evaluate("这个确认流程太麻烦了，希望能更简洁", null)).isEmpty();

@@ -192,6 +192,10 @@ class ContextualOperationFollowUpGuardTest {
                         AssistantConversationFocus.empty()
                 )
         ).orElseThrow();
+        ContextualOperationFollowUpGuard.Decision share = guard.evaluate(
+                "改成只为合同.pdf生成分享链接",
+                state("file_share", Map.of(), AssistantConversationFocus.empty())
+        ).orElseThrow();
 
         assertThat(move.intentId()).isEqualTo("node_move");
         assertThat(move.entities())
@@ -208,6 +212,9 @@ class ContextualOperationFollowUpGuardTest {
                 .containsEntry("target_name", "封面.png")
                 .containsEntry("target_folder", "相册目录")
                 .doesNotContainKey("file_type");
+        assertThat(share.intentId()).isEqualTo("file_share");
+        assertThat(share.operation()).isEqualTo("SHARE");
+        assertThat(share.entities()).containsEntry("target_name", "合同.pdf");
 
         assertThat(guard.evaluate(
                 "只移动第二个到复核区",

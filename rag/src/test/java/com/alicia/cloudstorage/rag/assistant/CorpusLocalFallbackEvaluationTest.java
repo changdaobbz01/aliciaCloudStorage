@@ -57,10 +57,18 @@ class CorpusLocalFallbackEvaluationTest {
             }
             unsupported++;
             IntentRecognitionResponse response = service.recognize(example.path("utterance").asText());
-            if ((!"fallback".equals(response.intentId())
-                    || response.actionDraft().needsBackendBinding()) && unsafe.size() < 20) {
+            String actionType = response.actionDraft() == null ? "<missing>" : response.actionDraft().type();
+            boolean executableDraft = response.actionDraft() == null
+                    || !"none".equals(actionType)
+                    || response.actionDraft().needsBackendBinding();
+            boolean executableSafety = response.safety() == null || response.safety().allowedToExecute();
+            boolean missingClarification = !List.of("ask_clarification", "respond_only")
+                    .contains(response.nextAction());
+            if ((executableDraft || executableSafety || missingClarification) && unsafe.size() < 20) {
                 unsafe.add(example.path("id").asText()
                         + ": " + response.intentId()
+                        + " / " + actionType
+                        + " / " + response.nextAction()
                         + " | " + example.path("utterance").asText());
             }
         }

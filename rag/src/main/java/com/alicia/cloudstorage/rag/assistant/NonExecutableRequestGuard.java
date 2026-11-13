@@ -14,6 +14,8 @@ final class NonExecutableRequestGuard {
 
     private final CompoundMutationScopeGuard compoundMutationScopeGuard = new CompoundMutationScopeGuard();
     private final UnsupportedSubsetScopeGuard unsupportedSubsetScopeGuard = new UnsupportedSubsetScopeGuard();
+    private final UnsupportedTemporalSizeScopeGuard unsupportedTemporalSizeScopeGuard =
+            new UnsupportedTemporalSizeScopeGuard();
 
     private static final Pattern MUTATION = Pattern.compile(
             "删除|删掉|删了|删|移除|清理|清空|回收站|移动|移到|搬到|挪到|归档到|重命名|改名|分享|上传|新建|创建|"
@@ -651,6 +653,8 @@ final class NonExecutableRequestGuard {
         }
         Optional<UnsupportedSubsetScopeGuard.Decision> subsetDecision =
                 unsupportedSubsetScopeGuard.evaluate(guardedValue);
+        Optional<UnsupportedTemporalSizeScopeGuard.Decision> temporalSizeDecision =
+                unsupportedTemporalSizeScopeGuard.evaluate(guardedValue);
         if (!HYPOTHETICAL_LEAD.matcher(value).find()
                 && subsetDecision.map(decision -> "unsupported_exclusion_remainder".equals(decision.id())).orElse(false)) {
             return Optional.of(subsetDecision(subsetDecision.orElseThrow()));
@@ -735,6 +739,17 @@ final class NonExecutableRequestGuard {
         }
         if (subsetDecision.isPresent()) {
             return Optional.of(subsetDecision(subsetDecision.orElseThrow()));
+        }
+        if (temporalSizeDecision.isPresent()) {
+            UnsupportedTemporalSizeScopeGuard.Decision decision = temporalSizeDecision.orElseThrow();
+            return Optional.of(new Decision(
+                    decision.id(),
+                    decision.intentId(),
+                    decision.relation(),
+                    decision.operation(),
+                    decision.assistantText(),
+                    decision.entities()
+            ));
         }
         if (ALTERNATIVE_CONNECTOR.matcher(value).find() && distinctOperationCount(value) > 1) {
             return Optional.of(new Decision(
