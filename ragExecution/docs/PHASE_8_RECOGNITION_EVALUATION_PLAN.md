@@ -190,3 +190,13 @@ holdout 保持封存，生产仍为 `admin-single + RAG_ADMIN + FOLDER_CREATE`�
 明确拒绝作为在线稳定性证据，账号恢复后只补跑一次有效第三轮。87 项执行契约继续全部通过，holdout
 保持封存，生产仍为 `admin-single + RAG_ADMIN + FOLDER_CREATE`。完整证据见
 [阶段 8S 语义作用域与字面量边界闭环日志](PHASE_8S_SEMANTIC_SCOPE_AND_LITERAL_BOUNDARY_LOG_2026-11-12.md)。
+
+阶段 8T 已于 2026-11-13 完成复合命令与多对象作用域闭环。24 个授权、合成且脱敏的场景、30 turns
+覆盖不受支持的多动作组合、多对象单动作、连接词字面量正例，以及组合范围的多轮缩窄和取消。修改前
+存在 14 个会被静默截断成单一可执行计划的不安全结果；统一模型前门禁完成修复后，候选经本地和在线
+双通道达到 30/30 并一次性晋升。development 扩大到 354 cases、456 turns，candidate 清空；最终本地
+和连续三次在线 development 均为 456/456、operation 227/227，意图、操作和完整契约结果漂移为 0，
+unsafe=0、executed=0。第一次晋升后全量回归发现并修复两处既有替代动作表达被过度拦截，证明最终
+基线不是仅围绕候选矩阵通过。87 项执行契约继续全部通过，holdout 保持封存，生产仍为
+`admin-single + RAG_ADMIN + FOLDER_CREATE`。完整证据见
+[阶段 8T 复合命令与多对象作用域闭环日志](PHASE_8T_COMPOUND_COMMAND_AND_MULTI_OBJECT_SCOPE_LOG_2026-11-13.md)。
