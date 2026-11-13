@@ -555,7 +555,7 @@ final class OperationArgumentResolver {
         if (GENERIC_FILES.contains(normalized)) {
             return "FILE";
         }
-        if (normalized.matches("^(?:图片|照片|相片|截图|视频|视屏|影片|音频|音乐|文档|压缩包)(?:类型)?(?:的)?(?:文件|资料)?$")) {
+        if (normalized.matches("^(?:图片|照片|相片|截图|视频|视屏|影片|音频|音乐|文档|压缩包)(?:类|类型|类别)?(?:的)?(?:文件|资料)?$")) {
             return "FILE";
         }
         if (normalized.endsWith("文件")

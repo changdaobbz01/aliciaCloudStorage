@@ -170,6 +170,51 @@ class ContextualOperationFollowUpGuardTest {
                 .containsEntry("target_folder", "家庭相册");
     }
 
+    @Test
+    void narrowsUnsupportedSubsetsToExplicitAtomicTargets() {
+        ContextualOperationFollowUpGuard.Decision move = guard.evaluate(
+                "那只移动月报.pdf到归档目录",
+                state("node_move", Map.of("target_folder", "归档目录"), AssistantConversationFocus.empty())
+        ).orElseThrow();
+        ContextualOperationFollowUpGuard.Decision delete = guard.evaluate(
+                "改成只删除草稿版.docx",
+                state("file_delete", Map.of(), AssistantConversationFocus.empty())
+        ).orElseThrow();
+        ContextualOperationFollowUpGuard.Decision indexed = guard.evaluate(
+                "只移动第二个，文件名是方案乙.pdf，目标是复核区",
+                state("node_move", Map.of("target_folder", "旧区"), AssistantConversationFocus.empty())
+        ).orElseThrow();
+        ContextualOperationFollowUpGuard.Decision narrowedCollection = guard.evaluate(
+                "不用全部，只移动封面.png",
+                state(
+                        "collection_move_by_category",
+                        Map.of("target_folder", "相册目录", "file_type", "图片"),
+                        AssistantConversationFocus.empty()
+                )
+        ).orElseThrow();
+
+        assertThat(move.intentId()).isEqualTo("node_move");
+        assertThat(move.entities())
+                .containsEntry("target_name", "月报.pdf")
+                .containsEntry("target_folder", "归档目录");
+        assertThat(delete.intentId()).isEqualTo("file_delete");
+        assertThat(delete.operation()).isEqualTo("DELETE");
+        assertThat(delete.entities()).containsEntry("target_name", "草稿版.docx");
+        assertThat(indexed.entities())
+                .containsEntry("target_name", "方案乙.pdf")
+                .containsEntry("target_folder", "复核区");
+        assertThat(narrowedCollection.intentId()).isEqualTo("node_move");
+        assertThat(narrowedCollection.entities())
+                .containsEntry("target_name", "封面.png")
+                .containsEntry("target_folder", "相册目录")
+                .doesNotContainKey("file_type");
+
+        assertThat(guard.evaluate(
+                "只移动第二个到复核区",
+                state("node_move", Map.of("target_folder", "复核区"), AssistantConversationFocus.empty())
+        )).isEmpty();
+    }
+
     private void assertDecision(
             String message,
             AssistantConversationState state,

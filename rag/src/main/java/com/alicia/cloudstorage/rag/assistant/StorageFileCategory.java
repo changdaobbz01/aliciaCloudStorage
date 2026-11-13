@@ -119,7 +119,7 @@ final class StorageFileCategory {
         }
         String normalized = raw.replaceAll("\\s+", "")
                 .replaceFirst("^(?:所有|全部|全都|这些|那些|各类|各种|一个|某个|任意一个|任意|一(?:张|份|段|部|首|篇))", "")
-                .replaceFirst("(?:类型|类别)?(?:的)?(?:文件|资料)$", "");
+                .replaceFirst("(?:类|类型|类别)?(?:的)?(?:文件|资料)$", "");
         return normalize(normalized);
     }
 

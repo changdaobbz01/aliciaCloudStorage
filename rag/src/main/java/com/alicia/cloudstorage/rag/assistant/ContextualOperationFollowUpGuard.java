@@ -55,7 +55,27 @@ final class ContextualOperationFollowUpGuard {
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
     private static final Pattern MOVE_SINGLE_SOURCE = Pattern.compile(
-            "^(?:先)?只(?:移动|搬|挪)(?:一下)?\\s*([^，,。；;!?！？]+?)(?:文件)?(?:[。！!]*)$",
+            "^(?:(?:那|改成|换成)\\s*)?(?:(?:不用|不要)(?:全部|都)[，,]\\s*)?(?:那\\s*)?"
+                    + "(?:先)?(?:只|仅)(?:把)?(?:移动|搬|挪)(?:一下)?\\s*"
+                    + "([^，,。；;!?！？]+?)(?:文件)?(?:[。！!]*)$",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
+    private static final Pattern MOVE_SINGLE_SOURCE_WITH_DESTINATION = Pattern.compile(
+            "^(?:(?:那|改成|换成)\\s*)?(?:(?:不用|不要)(?:全部|都)[，,]\\s*)?(?:那\\s*)?"
+                    + "(?:先)?(?:只|仅)(?:把)?(?:移动|搬|挪)(?:一下)?\\s*"
+                    + "(.+?)(?:到|至|进)\\s*([^，,。；;!?！？]+?)(?:[。！!]*)$",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
+    private static final Pattern MOVE_INDEX_WITH_EXPLICIT_NAME = Pattern.compile(
+            "^(?:那\\s*)?(?:只|仅)(?:把)?(?:移动|搬|挪)"
+                    + "第[一二两三四五六七八九十0-9]+个[，,]\\s*"
+                    + "(?:文件名|名称|名字)(?:是|为)\\s*([^，,。；;!?！？]+)[，,]\\s*"
+                    + "(?:目标|目的地)(?:是|为)\\s*([^，,。；;!?！？]+?)(?:[。！!]*)$",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
+    private static final Pattern DELETE_SINGLE_SOURCE = Pattern.compile(
+            "^(?:(?:那|改成|换成)\\s*)?(?:只|仅)(?:把)?(?:删除|删掉|删)\\s*"
+                    + "([^，,。；;!?！？]+?)(?:文件)?(?:[。！!]*)$",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
     private static final Pattern COLLECTION_CHOICE_VERB_FIRST = Pattern.compile(
@@ -127,16 +147,33 @@ final class ContextualOperationFollowUpGuard {
             );
         }
 
-        if ("node_move".equals(pendingIntent) && entities.containsKey("target_folder")) {
+        if (isMoveContext(pendingIntent)) {
+            Matcher indexed = MOVE_INDEX_WITH_EXPLICIT_NAME.matcher(message);
+            if (indexed.matches()) {
+                return exactMoveDecision(entities, indexed.group(1), indexed.group(2));
+            }
+            Matcher withDestination = MOVE_SINGLE_SOURCE_WITH_DESTINATION.matcher(message);
+            if (withDestination.matches()) {
+                return exactMoveDecision(entities, withDestination.group(1), withDestination.group(2));
+            }
             Matcher source = MOVE_SINGLE_SOURCE.matcher(message);
-            if (source.matches()) {
-                entities.put("target_name", cleanValue(source.group(1)));
-                entities.keySet().removeIf(key -> !List.of("target_name", "target_folder", "scope").contains(key));
+            if (source.matches() && entities.containsKey("target_folder")) {
+                return exactMoveDecision(entities, source.group(1), null);
+            }
+        }
+
+        if ("file_delete".equals(pendingIntent)) {
+            Matcher source = DELETE_SINGLE_SOURCE.matcher(message);
+            String targetName = source.matches() ? cleanValue(source.group(1)) : "";
+            if (isExplicitTargetName(targetName)) {
+                entities.put("target_name", targetName);
+                entities.put("result_type", resultType(targetName));
+                entities.keySet().removeIf(key -> !List.of("target_name", "result_type").contains(key));
                 return decision(
-                        "narrow_move_to_single_source",
-                        "node_move",
+                        "narrow_delete_to_single_source",
+                        "file_delete",
                         "CORRECTION",
-                        "MOVE",
+                        "DELETE",
                         entities
                 );
             }
@@ -149,6 +186,53 @@ final class ContextualOperationFollowUpGuard {
             }
         }
         return Optional.empty();
+    }
+
+    private Optional<Decision> exactMoveDecision(
+            Map<String, Object> entities,
+            String source,
+            String destination
+    ) {
+        String targetName = cleanValue(source);
+        if (!isExplicitTargetName(targetName)) {
+            return Optional.empty();
+        }
+        entities.put("target_name", targetName);
+        entities.put("result_type", resultType(targetName));
+        if (destination != null && !destination.isBlank()) {
+            entities.put("target_folder", cleanValue(destination));
+        }
+        entities.keySet().removeIf(key -> !List.of("target_name", "target_folder", "result_type").contains(key));
+        return decision(
+                "narrow_move_to_single_source",
+                "node_move",
+                "CORRECTION",
+                "MOVE",
+                entities
+        );
+    }
+
+    private boolean isMoveContext(String intentId) {
+        return List.of(
+                "node_move",
+                "collection_move_by_category",
+                "collection_move_by_extension",
+                "collection_move_by_name"
+        ).contains(intentId);
+    }
+
+    private boolean isExplicitTargetName(String value) {
+        return value != null
+                && !value.isBlank()
+                && !value.matches("(?:它|这个|那个|这些|那些|文件|文档|资料|文件夹|目录)")
+                && !value.matches("(?:第[一二两三四五六七八九十0-9]+个|最近|最早|最后|前几个|后几个).*");
+    }
+
+    private String resultType(String value) {
+        if (value.endsWith("目录") || value.endsWith("文件夹")) {
+            return "FOLDER";
+        }
+        return value.matches("(?i).*\\.[a-z0-9]{1,16}$") ? "FILE" : "ANY";
     }
 
     private Optional<Decision> collectionChoice(String message) {

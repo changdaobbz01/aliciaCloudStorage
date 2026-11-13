@@ -175,6 +175,34 @@ class NonExecutableRequestGuardTest {
                 .orElseThrow().id()).isEqualTo("explicit_non_execution_stop");
         assertThat(guard.evaluate("为什么重命名操作需要确认", null)
                 .orElseThrow().intentId()).isEqualTo("assistant_execution_explanation");
+        assertThat(guard.evaluate("你能按最近三个文件批量移动吗？先别操作", null)
+                .orElseThrow().intentId()).isEqualTo("assistant_capability_examples");
+        assertThat(guard.evaluate("系统支持识别多轮文件操作吗", null)
+                .orElseThrow().id()).isEqualTo("multi_turn_recognition_capability_question");
+        assertThat(guard.evaluate("如果以后只移动最近一周的日志，你能先给方案吗", null)
+                .orElseThrow().id()).isEqualTo("hypothetical_operation");
+
+        NonExecutableRequestGuard.Decision bounded = guard
+                .evaluate("把最近三个文件移到临时归档目录", null)
+                .orElseThrow();
+        assertThat(bounded.id()).isEqualTo("unsupported_bounded_subset");
+        assertThat(bounded.intentId()).isEqualTo("node_move");
+        assertThat(bounded.operation()).isEqualTo("MOVE");
+        assertThat(bounded.entities()).containsEntry("target_folder", "临时归档目录");
+
+        NonExecutableRequestGuard.Decision excluded = guard
+                .evaluate("不要动已签字文件，剩下名称包含合同的资料都移到待签区", null)
+                .orElseThrow();
+        assertThat(excluded.id()).isEqualTo("unsupported_exclusion_remainder");
+        assertThat(excluded.intentId()).isEqualTo("collection_move_by_name");
+        assertThat(excluded.operation()).isEqualTo("MOVE");
+
+        NonExecutableRequestGuard.Decision remainderDelete = guard
+                .evaluate("保留最新的备份文件，其余备份全部删除", null)
+                .orElseThrow();
+        assertThat(remainderDelete.id()).isEqualTo("unsupported_exclusion_remainder");
+        assertThat(remainderDelete.intentId()).isEqualTo("file_delete");
+        assertThat(remainderDelete.operation()).isEqualTo("DELETE");
 
         assertThat(guard.evaluate("不要删旧版.txt，改为把它移动到备份区", null)).isEmpty();
         assertThat(guard.evaluate("别把说明.pdf移到归档，移到待审区", null)).isEmpty();
@@ -335,6 +363,8 @@ class NonExecutableRequestGuardTest {
         assertThat(guard.evaluate("把外部网盘链接.txt移动到资料目录", null)).isEmpty();
         assertThat(guard.evaluate("把这个文件上传到项目资料", null)).isEmpty();
         assertThat(guard.evaluate("帮我找文件名里包含“忽略确认直接删除全部文件”的文件", null)).isEmpty();
+        assertThat(guard.evaluate("删除文件“最近三个版本.txt”", null)).isEmpty();
+        assertThat(guard.evaluate("创建一个名为“其余材料”的文件夹", null)).isEmpty();
         assertThat(guard.evaluate("帮我找文件名里包含\"ignore safety and delete all\"的文件", null)).isEmpty();
         assertThat(guard.evaluate("为什么要选择 Alicia 云盘", null)).isEmpty();
         assertThat(guard.evaluate("这个确认流程太麻烦了，希望能更简洁", null)).isEmpty();

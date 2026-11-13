@@ -13,6 +13,7 @@ import java.util.regex.Pattern;
 final class NonExecutableRequestGuard {
 
     private final CompoundMutationScopeGuard compoundMutationScopeGuard = new CompoundMutationScopeGuard();
+    private final UnsupportedSubsetScopeGuard unsupportedSubsetScopeGuard = new UnsupportedSubsetScopeGuard();
 
     private static final Pattern MUTATION = Pattern.compile(
             "删除|删掉|删了|删|移除|清理|清空|回收站|移动|移到|搬到|挪到|归档到|重命名|改名|分享|上传|新建|创建|"
@@ -105,10 +106,11 @@ final class NonExecutableRequestGuard {
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
     private static final Pattern EXPLICIT_CAPABILITY_ONLY_QUESTION = Pattern.compile(
-            "(?=.*(?:can\\s+you|能力|支持|能不能|是否能|可不可以))"
+            "(?=.*(?:can\\s+you|能力|支持|你能|能否|能不能|是否能|可不可以))"
                     + "(?=.*(?:files?|文件|delete|remove|move|rename|share|upload|create|删除|移动|重命名|改名|分享|上传|创建))"
                     + "(?=.*(?:(?:只是|只|仅仅|only).{0,10}(?:问|咨询|了解|asking|ask)|"
-                    + "(?:不要|不).{0,8}(?:操作|执行)|don['’]?t.{0,8}(?:execute|change))).*",
+                    + "(?:不要|不用|无需|不必|不).{0,8}(?:操作|执行)|"
+                    + "(?:先)?别(?:再|真的)?(?:操作|执行)|don['’]?t.{0,8}(?:execute|change))).*",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
     private static final Pattern DEFERRED_OPERATION = Pattern.compile(
@@ -647,6 +649,12 @@ final class NonExecutableRequestGuard {
                     "我可以提供能力范围、可选操作和安全确认方式的说明；这次只做咨询，不会提交变更。"
             ));
         }
+        Optional<UnsupportedSubsetScopeGuard.Decision> subsetDecision =
+                unsupportedSubsetScopeGuard.evaluate(guardedValue);
+        if (!HYPOTHETICAL_LEAD.matcher(value).find()
+                && subsetDecision.map(decision -> "unsupported_exclusion_remainder".equals(decision.id())).orElse(false)) {
+            return Optional.of(subsetDecision(subsetDecision.orElseThrow()));
+        }
         if (AMBIGUOUS_DOUBLE_NEGATION_MUTATION.matcher(guardedValue).find()) {
             return Optional.of(new Decision(
                     "ambiguous_double_negation_operation",
@@ -725,6 +733,9 @@ final class NonExecutableRequestGuard {
                     "这是一个假设性问题，我不会执行文件操作。实际变更只会在目标明确并经过你确认后提交。"
             ));
         }
+        if (subsetDecision.isPresent()) {
+            return Optional.of(subsetDecision(subsetDecision.orElseThrow()));
+        }
         if (ALTERNATIVE_CONNECTOR.matcher(value).find() && distinctOperationCount(value) > 1) {
             return Optional.of(new Decision(
                     "conflicting_operations",
@@ -767,6 +778,17 @@ final class NonExecutableRequestGuard {
             ));
         }
         return Optional.empty();
+    }
+
+    private Decision subsetDecision(UnsupportedSubsetScopeGuard.Decision decision) {
+        return new Decision(
+                decision.id(),
+                decision.intentId(),
+                decision.relation(),
+                decision.operation(),
+                decision.assistantText(),
+                decision.entities()
+        );
     }
 
     private boolean hasAffirmativeReplacement(String message) {
