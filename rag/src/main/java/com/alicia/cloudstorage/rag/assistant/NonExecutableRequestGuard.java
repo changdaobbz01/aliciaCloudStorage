@@ -1,6 +1,7 @@
 package com.alicia.cloudstorage.rag.assistant;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
@@ -10,6 +11,8 @@ import java.util.regex.Pattern;
  * match cannot turn negation, explanation, ambiguity, or cancellation into a plan.
  */
 final class NonExecutableRequestGuard {
+
+    private final CompoundMutationScopeGuard compoundMutationScopeGuard = new CompoundMutationScopeGuard();
 
     private static final Pattern MUTATION = Pattern.compile(
             "删除|删掉|删了|删|移除|清理|清空|回收站|移动|移到|搬到|挪到|归档到|重命名|改名|分享|上传|新建|创建|"
@@ -305,6 +308,17 @@ final class NonExecutableRequestGuard {
                     + "(?:不用了[，,]?)?(?:先)?(?:不建|别建)(?:了)?|算了)[。！!]*$",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
+    private static final Pattern CANCEL_ALL_PENDING_STEPS = Pattern.compile(
+            "^(?=.*(?:两个|全部|所有).{0,8}(?:步骤|操作|动作))(?=.*(?:都)?取消)"
+                    + "(?=.*(?:(?:什么|任何).{0,4}(?:也)?(?:别|不要|不用)(?:做|执行|操作)|"
+                    + "(?:别|不要|不用).{0,6}(?:做|执行|操作))).*$",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
+    private static final Pattern COMPOSITE_CONFIRMATION_EXPLANATION = Pattern.compile(
+            "(?=.*(?:组合|多个步骤|两步|先.+再.+))(?=.*(?:确认|审批))"
+                    + "(?=.*(?:几次|多少次|一次还是|是否分别|要不要分别|[？?])).*",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
     private static final Pattern CONTEXTLESS_CONFIRMATION = Pattern.compile(
             "^(?:(?:好|好的|行|可以)[，,]?)?(?:请)?"
                     + "(?:确认(?:并|后)?执行|确认执行|确认|执行|(?:那)?就(?:这样|这么)执行|"
@@ -329,6 +343,15 @@ final class NonExecutableRequestGuard {
         String value = message == null ? "" : message.trim();
         if (value.isBlank()) {
             return Optional.empty();
+        }
+        if (CANCEL_ALL_PENDING_STEPS.matcher(value).matches() && hasPendingOperation(conversation)) {
+            return Optional.of(new Decision(
+                    "cancel_all_pending_steps",
+                    "assistant_acknowledgement",
+                    "CANCELLATION",
+                    "RESPOND",
+                    "好的，这组操作已经全部取消，我不会提交任何文件变更。"
+            ));
         }
         if (CANCELLATION.matcher(value).matches() && hasPendingOperation(conversation)) {
             return Optional.of(new Decision(
@@ -521,6 +544,15 @@ final class NonExecutableRequestGuard {
                     "文件变更会把意图识别和实际执行分开：我先整理目标、范围和步骤，只有你明确确认后，云端任务才会执行。未确认或超时的任务不会改动文件，这样既能避免误操作，也便于取消和审计。"
             ));
         }
+        if (COMPOSITE_CONFIRMATION_EXPLANATION.matcher(guardedValue).matches()) {
+            return Optional.of(new Decision(
+                    "composite_confirmation_explanation",
+                    "assistant_execution_explanation",
+                    "NEW_TASK",
+                    "RESPOND",
+                    "组合计划会先完整展示步骤和影响范围，再按一个整体计划等待确认；当前只说明确认规则，不会创建执行计划。"
+            ));
+        }
         if (EXECUTION_TIMING_QUESTION.matcher(guardedValue).matches()) {
             return Optional.of(new Decision(
                     "execution_timing_question",
@@ -702,6 +734,18 @@ final class NonExecutableRequestGuard {
                     "这句话包含多个互斥操作。请明确选择其中一个，我不会先执行任何操作。"
             ));
         }
+        Optional<CompoundMutationScopeGuard.Decision> scopeDecision = compoundMutationScopeGuard.evaluate(value);
+        if (scopeDecision.isPresent()) {
+            CompoundMutationScopeGuard.Decision decision = scopeDecision.orElseThrow();
+            return Optional.of(new Decision(
+                    decision.id(),
+                    decision.intentId(),
+                    decision.relation(),
+                    decision.operation(),
+                    decision.assistantText(),
+                    decision.entities()
+            ));
+        }
         if (!hasCandidateContext(conversation)
                 && hasResolvableMutationReference(value)
                 && !IN_UTTERANCE_REFERENCE_ANTECEDENT.matcher(value).find()) {
@@ -727,12 +771,9 @@ final class NonExecutableRequestGuard {
 
     private boolean hasAffirmativeReplacement(String message) {
         String[] clauses = message.split("(?:[，,；;]|而是)");
-        if (clauses.length < 2) {
-            return false;
-        }
-        for (int index = 1; index < clauses.length; index++) {
-            String clause = clauses[index].trim()
-                    .replaceFirst("^(?:改为|改成|改做|换成|请|现在|实际|转而)\\s*", "");
+        for (String rawClause : clauses) {
+            String clause = rawClause.trim()
+                    .replaceFirst("^(?:改为|改成|改做|换成|请|现在|实际|转而|先只|只|仅仅|仅)\\s*", "");
             var mutation = MUTATION.matcher(clause);
             if (clause.isBlank() || !mutation.find()) {
                 continue;
@@ -796,8 +837,17 @@ final class NonExecutableRequestGuard {
             String intentId,
             String relation,
             String operation,
-            String assistantText
+            String assistantText,
+            Map<String, Object> entities
     ) {
+        Decision(String id, String intentId, String relation, String operation, String assistantText) {
+            this(id, intentId, relation, operation, assistantText, Map.of());
+        }
+
+        Decision {
+            entities = entities == null || entities.isEmpty() ? Map.of() : Map.copyOf(entities);
+        }
+
         boolean requiresSemanticResolution() {
             return "unresolved_rebindable_reference".equals(id);
         }

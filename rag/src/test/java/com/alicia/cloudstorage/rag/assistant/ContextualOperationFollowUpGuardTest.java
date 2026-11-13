@@ -110,6 +110,66 @@ class ContextualOperationFollowUpGuardTest {
                 .containsEntry("scope", "all");
     }
 
+    @Test
+    void narrowsCompoundAndMultiObjectRequestsWithoutLosingSafeContext() {
+        ContextualOperationFollowUpGuard.Decision rename = guard.evaluate(
+                "只重命名，不要删除",
+                state(
+                        "fallback",
+                        Map.of("target_name", "周报草案.docx", "new_name", "周报终稿.docx"),
+                        AssistantConversationFocus.empty()
+                )
+        ).orElseThrow();
+        ContextualOperationFollowUpGuard.Decision move = guard.evaluate(
+                "只移动方案甲.pdf",
+                state(
+                        "node_move",
+                        Map.of("target_folder", "评审区"),
+                        AssistantConversationFocus.empty()
+                )
+        ).orElseThrow();
+
+        assertThat(rename.intentId()).isEqualTo("file_rename");
+        assertThat(rename.operation()).isEqualTo("RENAME");
+        assertThat(rename.entities())
+                .containsEntry("target_name", "周报草案.docx")
+                .containsEntry("new_name", "周报终稿.docx");
+        assertThat(move.intentId()).isEqualTo("node_move");
+        assertThat(move.operation()).isEqualTo("MOVE");
+        assertThat(move.entities())
+                .containsEntry("target_name", "方案甲.pdf")
+                .containsEntry("target_folder", "评审区");
+    }
+
+    @Test
+    void narrowsCompositeAndCollectionRequestsToOneExplicitAction() {
+        AssistantConversationFocus compositeFocus = new AssistantConversationFocus(
+                "operation",
+                "folder_create_then_upload",
+                "composite.create_folder_then_upload",
+                Map.of("new_folder_name", "待发布"),
+                null,
+                null
+        );
+        ContextualOperationFollowUpGuard.Decision create = guard.evaluate(
+                "取消上传，只新建待发布目录",
+                state("folder_create_then_upload", Map.of("new_folder_name", "待发布"), compositeFocus)
+        ).orElseThrow();
+        ContextualOperationFollowUpGuard.Decision collection = guard.evaluate(
+                "先只移动照片到家庭相册",
+                state("fallback", Map.of(), AssistantConversationFocus.empty())
+        ).orElseThrow();
+
+        assertThat(create.intentId()).isEqualTo("folder_create");
+        assertThat(create.operation()).isEqualTo("CREATE_FOLDER");
+        assertThat(create.entities()).containsEntry("new_folder_name", "待发布");
+        assertThat(collection.intentId()).isEqualTo("collection_move_by_category");
+        assertThat(collection.operation()).isEqualTo("MOVE");
+        assertThat(collection.entities())
+                .containsEntry("file_type", "照片")
+                .containsEntry("target_folder", "家庭相册");
+    }
+
     private void assertDecision(
             String message,
             AssistantConversationState state,

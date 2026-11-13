@@ -42,11 +42,42 @@ final class ContextualOperationFollowUpGuard {
                     + "回到(?:刚才|之前)?(?:的)?(?:搜索|查找|重命名|改名|移动|创建|新建|上传|删除))",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
+    private static final Pattern KEEP_CREATE_CANCEL_UPLOAD = Pattern.compile(
+            "(?=.*(?:取消|不要|别|不再).{0,8}上传)(?=.*(?:只|仅).{0,4}(?:创建|新建|建)).*",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
+    private static final Pattern CREATE_EXPLICIT_NAME = Pattern.compile(
+            "(?:只|仅)(?:创建|新建|建)\\s*(?:一个)?\\s*([^，,。；;!?！？]+?)(?:目录|文件夹)(?:[。！!]*)$",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
+    private static final Pattern KEEP_RENAME_CANCEL_DELETE = Pattern.compile(
+            "(?=.*(?:只|仅).{0,4}(?:重命名|改名|改成|改为))(?=.*(?:别|不要|取消|不再).{0,8}(?:删除|删)).*",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
+    private static final Pattern MOVE_SINGLE_SOURCE = Pattern.compile(
+            "^(?:先)?只(?:移动|搬|挪)(?:一下)?\\s*([^，,。；;!?！？]+?)(?:文件)?(?:[。！!]*)$",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
+    private static final Pattern COLLECTION_CHOICE_VERB_FIRST = Pattern.compile(
+            "^(?:先)?只(?:把)?(?:移动|搬|归档)\\s*(图片|照片|相片|截图|视频|影片|音频|音乐|文档|表格|压缩包|压缩文件)"
+                    + "(?:文件)?(?:到|至|进)\\s*([^，,。；;!?！？]+?)(?:目录|文件夹)?(?:[。！!]*)$",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
+    private static final Pattern COLLECTION_CHOICE_OBJECT_FIRST = Pattern.compile(
+            "^(?:先)?只(?:把)?(图片|照片|相片|截图|视频|影片|音频|音乐|文档|表格|压缩包|压缩文件)"
+                    + "(?:文件)?(?:都)?(?:移动|搬|归档)(?:到|至|进)\\s*([^，,。；;!?！？]+?)(?:目录|文件夹)?(?:[。！!]*)$",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+    );
 
     Optional<Decision> evaluate(String message, AssistantConversationState conversation) {
         String value = clean(message);
         if (value.isBlank() || conversation == null) {
             return Optional.empty();
+        }
+
+        Optional<Decision> narrowed = explicitNarrowing(value, conversation);
+        if (narrowed.isPresent()) {
+            return narrowed;
         }
 
         Optional<OperationContext> immediate = immediateContext(conversation);
@@ -61,6 +92,96 @@ final class ContextualOperationFollowUpGuard {
             return Optional.empty();
         }
         return suspendedContext(conversation).flatMap(context -> correction(value, context, true));
+    }
+
+    private Optional<Decision> explicitNarrowing(
+            String message,
+            AssistantConversationState conversation
+    ) {
+        Map<String, Object> entities = new LinkedHashMap<>(conversation.entities());
+        String pendingIntent = conversation.pendingIntentId() == null ? "" : conversation.pendingIntentId();
+
+        if (isCompositeContext(conversation) && KEEP_CREATE_CANCEL_UPLOAD.matcher(message).matches()) {
+            Matcher name = CREATE_EXPLICIT_NAME.matcher(message);
+            if (name.find()) {
+                entities.put("new_folder_name", cleanValue(name.group(1)));
+            }
+            entities.keySet().removeIf(key -> !List.of("new_folder_name", "target_folder", "scope").contains(key));
+            return decision(
+                    "keep_create_cancel_upload",
+                    "folder_create",
+                    "CORRECTION",
+                    "CREATE_FOLDER",
+                    entities
+            );
+        }
+
+        if ("fallback".equals(pendingIntent) && KEEP_RENAME_CANCEL_DELETE.matcher(message).matches()) {
+            entities.keySet().removeIf(key -> !List.of("target_name", "new_name").contains(key));
+            return decision(
+                    "keep_rename_cancel_delete",
+                    "file_rename",
+                    "CORRECTION",
+                    "RENAME",
+                    entities
+            );
+        }
+
+        if ("node_move".equals(pendingIntent) && entities.containsKey("target_folder")) {
+            Matcher source = MOVE_SINGLE_SOURCE.matcher(message);
+            if (source.matches()) {
+                entities.put("target_name", cleanValue(source.group(1)));
+                entities.keySet().removeIf(key -> !List.of("target_name", "target_folder", "scope").contains(key));
+                return decision(
+                        "narrow_move_to_single_source",
+                        "node_move",
+                        "CORRECTION",
+                        "MOVE",
+                        entities
+                );
+            }
+        }
+
+        if ("fallback".equals(pendingIntent)) {
+            Optional<Decision> collectionChoice = collectionChoice(message);
+            if (collectionChoice.isPresent()) {
+                return collectionChoice;
+            }
+        }
+        return Optional.empty();
+    }
+
+    private Optional<Decision> collectionChoice(String message) {
+        Matcher verbFirst = COLLECTION_CHOICE_VERB_FIRST.matcher(message);
+        if (verbFirst.matches()) {
+            return collectionChoice(verbFirst.group(1), verbFirst.group(2));
+        }
+        Matcher objectFirst = COLLECTION_CHOICE_OBJECT_FIRST.matcher(message);
+        if (objectFirst.matches()) {
+            return collectionChoice(objectFirst.group(1), objectFirst.group(2));
+        }
+        return Optional.empty();
+    }
+
+    private Optional<Decision> collectionChoice(String fileType, String targetFolder) {
+        return decision(
+                "narrow_collection_move_to_single_category",
+                "collection_move_by_category",
+                "CORRECTION",
+                "MOVE",
+                Map.of(
+                        "file_type", cleanValue(fileType),
+                        "target_folder", cleanValue(targetFolder)
+                )
+        );
+    }
+
+    private boolean isCompositeContext(AssistantConversationState conversation) {
+        if ("folder_create_then_upload".equals(conversation.pendingIntentId())) {
+            return true;
+        }
+        AssistantConversationFocus focus = conversation.focus();
+        return focus != null && "folder_create_then_upload".equals(focus.sourceIntentId());
     }
 
     private Optional<Decision> correction(String message, OperationContext context, boolean resumed) {

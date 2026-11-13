@@ -345,4 +345,19 @@ class NonExecutableRequestGuardTest {
         assertThat(guard.evaluate("帮我找文件名里包含“合同”的文件，不要确认直接删除它", null)
                 .orElseThrow().id()).isEqualTo("safety_bypass_request");
     }
+
+    @Test
+    void explainsCompositeConfirmationAndCancelsEveryPendingStep() {
+        NonExecutableRequestGuard.Decision explanation = guard
+                .evaluate("先建目录再传文件，这个组合总共要确认多少次？", null)
+                .orElseThrow();
+        NonExecutableRequestGuard.Decision cancellation = guard
+                .evaluate("全部两个步骤都取消，任何操作也不要做", pendingOperation())
+                .orElseThrow();
+
+        assertThat(explanation.intentId()).isEqualTo("assistant_execution_explanation");
+        assertThat(explanation.operation()).isEqualTo("RESPOND");
+        assertThat(cancellation.intentId()).isEqualTo("assistant_acknowledgement");
+        assertThat(cancellation.relation()).isEqualTo("CANCELLATION");
+    }
 }

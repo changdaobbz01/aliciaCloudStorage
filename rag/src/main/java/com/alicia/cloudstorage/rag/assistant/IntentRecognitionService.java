@@ -387,7 +387,8 @@ public class IntentRecognitionService {
                 decision.intentId(),
                 decision.relation(),
                 decision.operation(),
-                decision.assistantText()
+                decision.assistantText(),
+                decision.entities()
         );
     }
 
@@ -411,13 +412,15 @@ public class IntentRecognitionService {
             String intentId,
             String relation,
             String operation,
-            String assistantText
+            String assistantText,
+            Map<String, Object> entities
     ) {
+        Map<String, Object> safeEntities = entities == null ? Map.of() : Map.copyOf(entities);
         IntentRecognitionResponse base = fromFallback(message, marker);
         IntentRecognitionResponse response = rebuildForConversation(
                 base,
                 intentId,
-                Map.of(),
+                safeEntities,
                 marker
         );
         SemanticFrame frame = new SemanticFrame(
@@ -433,8 +436,27 @@ public class IntentRecognitionService {
         );
         return enforceResponsePolicy(
                 message,
-                response.withSemanticFrame(frame, Map.of(), new ActionDraft("none", Map.of(), false))
+                response.withSemanticFrame(frame, safeEntities, new ActionDraft("none", Map.of(), false))
                         .withAssistantText(assistantText)
+        );
+    }
+
+    private IntentRecognitionResponse responseOnlyResponse(
+            String message,
+            String marker,
+            String intentId,
+            String relation,
+            String operation,
+            String assistantText
+    ) {
+        return responseOnlyResponse(
+                message,
+                marker,
+                intentId,
+                relation,
+                operation,
+                assistantText,
+                Map.of()
         );
     }
 

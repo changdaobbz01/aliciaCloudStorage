@@ -1922,6 +1922,38 @@ class IntentRecognitionServiceTest {
     }
 
     @Test
+    void compoundAndMultiObjectScopeBoundariesResolveBeforeModelInvocation() {
+        AtomicInteger modelCalls = new AtomicInteger();
+        IntentModelClient modelClient = message -> {
+            modelCalls.incrementAndGet();
+            throw new AssertionError("Compound scope boundaries must be resolved before model invocation");
+        };
+        IntentRecognitionService service = new IntentRecognitionService(modelClient, intentRouter, configLoader);
+
+        IntentRecognitionResponse compound = service.recognize(
+                "把评审稿.docx改名为正式稿.docx，随后把它删除"
+        );
+        IntentRecognitionResponse multiMove = service.recognize(
+                "把附件甲.pdf与附件乙.pdf移到法务资料目录"
+        );
+        IntentRecognitionResponse multiDelete = service.recognize(
+                "删除缓存甲.log以及缓存乙.log"
+        );
+
+        assertThat(modelCalls).hasValue(0);
+        assertThat(compound.intentId()).isEqualTo("fallback");
+        assertThat(compound.semanticFrame().operation()).isEqualTo("UNKNOWN");
+        assertThat(compound.actionDraft().type()).isEqualTo("none");
+        assertThat(multiMove.intentId()).isEqualTo("node_move");
+        assertThat(multiMove.semanticFrame().operation()).isEqualTo("MOVE");
+        assertThat(multiMove.entities()).containsEntry("target_folder", "法务资料");
+        assertThat(multiMove.actionDraft().type()).isEqualTo("none");
+        assertThat(multiDelete.intentId()).isEqualTo("file_delete");
+        assertThat(multiDelete.semanticFrame().operation()).isEqualTo("DELETE");
+        assertThat(multiDelete.actionDraft().type()).isEqualTo("none");
+    }
+
+    @Test
     void completeAuthoritativeRouteIgnoresModelInventedAmbiguity() {
         IntentModelClient modelClient = message -> Optional.of(new IntentModelClient.ModelIntentResult(
                 "deepseek",
