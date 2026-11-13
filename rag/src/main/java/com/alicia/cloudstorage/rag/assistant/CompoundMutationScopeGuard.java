@@ -280,8 +280,9 @@ final class CompoundMutationScopeGuard {
                 Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
         ));
         patterns.put(Operation.RENAME, Pattern.compile(
-                "重命名|改名|(?<!名字)(?<!名称)(?:改成|改为)(?!\\s*(?:(?:把|将|给|请).{0,8})?"
-                        + "(?:删除|删|移动|搬|挪|分享|上传|创建|新建))|rename",
+                "重命名|改名|(?<!名字)(?<!名称)(?<!目标目录)(?:改成|改为)"
+                        + "(?!\\s*(?:(?:把|将|给|请).{0,8})?"
+                        + "(?:删除|删|移动|移到|移进|搬|挪|归档|放进|转移|分享|上传|创建|新建))|rename",
                 Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
         ));
         patterns.put(Operation.SHARE, Pattern.compile(

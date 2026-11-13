@@ -57,6 +57,8 @@ class CompoundMutationScopeGuardTest {
         assertThat(guard.evaluate("新建临时资料文件夹，名字改成临时交接")).isEmpty();
         assertThat(guard.evaluate("请将/云盘/共享空间/temp重命名成临时共享")).isEmpty();
         assertThat(guard.evaluate("把/云盘/共享空间/临时共享放进/云盘/归档/共享资料")).isEmpty();
+        assertThat(guard.evaluate("把方案.pdf移到待审，等等，目标目录改成已审核")).isEmpty();
+        assertThat(guard.evaluate("不要删除草稿.txt，改为把它移到待复核目录")).isEmpty();
     }
 
     @Test
