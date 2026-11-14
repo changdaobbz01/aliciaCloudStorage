@@ -19,7 +19,7 @@ public class RagActionNonceStore {
     @Transactional
     public void consume(String caller, String nonce, Instant expiresAt, Instant now) {
         LocalDateTime created = LocalDateTime.ofInstant(now, ZoneOffset.UTC);
-        repository.deleteByExpiresAtBefore(created);
+        repository.deleteExpiredBefore(created);
         repository.saveAndFlush(RagActionNonceEntity.create(
                 caller,
                 nonce,
