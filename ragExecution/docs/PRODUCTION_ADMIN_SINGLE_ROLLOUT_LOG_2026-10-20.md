@@ -264,3 +264,57 @@ RAG / Execution / Cloud API 异常 0
 ```
 
 `admin-single + RAG_ADMIN + FOLDER_CREATE` 边界保持不变，未开放普通用户、其他动作、批量或组合执行。后续定时稳定性观察作为补充证据继续保留，但不再用“等待时间经过”替代主动故障与竞态验证。全面对话识别率优化仍作为独立阶段开展。
+
+## 11. 识别优化发布与动作 nonce 并发修复｜2026-11-14
+
+识别优化提交 `5c0090f` 进入生产时只重建 RAG；Cloud API、RAG Execution、前端和数据库容器均未替换。发布后 RAG 健康、Identity/Cloud 依赖健康，生产边界继续保持：
+
+```text
+stage          admin-single
+role           RAG_ADMIN
+allowed action FOLDER_CREATE
+```
+
+第一次显式写入探针正确创建并清理了唯一合成目录，但 Cloud 动作步骤因并发清理同一过期 nonce 发生两次瞬时重试，最终 `attempts=3`。数据库只有一条成功回执，未发生重复业务写入。Cloud API 日志将原因定位为 Spring Data 派生删除逐实体执行时的并发陈旧行异常：
+
+```text
+ObjectOptimisticLockingFailureException / StaleObjectStateException
+Unexpected row count ... delete from rag_execution_action_nonce
+```
+
+提交 `0a03d0e` 将过期 nonce 清理改为单条 JPQL bulk delete，并增加仓储级回归测试。定向测试 `12/12`、CloudStorageApi 全量测试 `276/276` 通过。生产仅重建 Cloud API；RAG、RAG Execution、前端和数据库容器 ID 保持不变，旧 API 镜像已保留回滚标签。
+
+修复后的主动生产验收：
+
+```text
+四类计划/取消表达             4/4 通过，精确目录名保持
+并发双确认 execution          b0f6ca7c-8a01-4042-bb9f-d5868945e2a4
+并发双确认最终状态            SUCCEEDED
+并发双确认步骤 attempts       1
+Cloud 回执                    1 / SUCCEEDED / FOLDER_CREATED
+事件序号                      1..5，连续无缺口
+确认/取消竞态 execution       7a2db142-1eb8-484b-9775-6c88254ea072
+确认/取消竞态最终状态         CANCELLED
+确认/取消竞态 attempts/回执   0 / 0
+rag-active-* 存储残留         0
+```
+
+首次修复后复测的第 4 个计划登记遇到一次 `identity_unavailable`；finally 已将该批 4 个任务全部安全取消，均为 `attempts=0`、回执 `0`、存储节点 `0`，临时会话也已注销。依赖恢复后，完整真实写入探针和额外一轮无写入 `4/4` 探针均通过，该告警未持续复现。
+
+最终运行态审计：
+
+```text
+发布后非终态任务                 0
+发布后 FAILED/PARTIAL            0
+修复后 attempts > 1              0
+取消/过期任务误回执              0
+回执 execution/step 错配         0
+修复后事件序号缺口               0
+Cloud API nonce 并发异常          0
+RAG / RAG Execution 近期异常      0
+API / RAG / Execution 重启        0
+公开 Android CURRENT             0.1.14
+服务器磁盘                       24% used / 44G available
+```
+
+本次没有扩大角色、动作白名单、批量或组合能力，也没有恢复任何客户端本地写执行路径。生产执行隔离和单动作安全边界保持有效。
