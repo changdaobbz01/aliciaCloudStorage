@@ -34,7 +34,7 @@ function listSourceFiles(directoryUrl) {
 
 function extractApiPathLiterals(fileUrl) {
   const source = readFileSync(fileUrl, 'utf8');
-  const apiPathPattern = /(['"`])(\/api\/[\s\S]*?)\1/g;
+  const apiPathPattern = /(['"`])(\/(?:api|rag-execution\/api)\/[\s\S]*?)\1/g;
   const paths = [];
   let match;
 
@@ -101,15 +101,23 @@ function isReturnPathBoundarySentinel(relativePath, path) {
   );
 }
 
+function isRagExecutionAdminBoundary(relativePath, path) {
+  return (
+    (relativePath === 'lib/api.ts' && path.startsWith('/rag-execution/api/admin/executions')) ||
+    (['App.tsx', 'pages/CloudConsolePage.tsx'].includes(relativePath) && path === '/rag-executions')
+  );
+}
+
 function assertNoForbiddenRoutePathLiterals(fileUrls, label) {
   const violations = fileUrls
     .flatMap((fileUrl) => extractForbiddenRoutePathLiterals(fileUrl))
-    .filter(({ path, relativePath }) => !isReturnPathBoundarySentinel(relativePath, path));
+    .filter(({ path, relativePath }) => !isReturnPathBoundarySentinel(relativePath, path))
+    .filter(({ path, relativePath }) => !isRagExecutionAdminBoundary(relativePath, path));
 
   assert.deepEqual(
     violations,
     [],
-    `${label} must not expose identity console or RAG routes from the cloud console:\n${violations
+    `${label} must not expose identity console or non-admin RAG routes from the cloud console:\n${violations
       .map(({ relativePath, line, path }) => `  ${relativePath}:${line} ${path}`)
       .join('\n')}`,
   );
@@ -166,6 +174,7 @@ const cloudConsoleAllowedApiPrefixes = [
   '/api/admin/cloud-operations',
   '/api/admin/app-package',
   '/api/app-package',
+  '/rag-execution/api/admin/executions',
 ];
 
 for (const fileUrl of files) {
@@ -188,6 +197,7 @@ const consolePageSource = readFileSync(new URL('../src/pages/CloudConsolePage.ts
 const cloudUsersViewSource = readFileSync(new URL('../src/features/drive/CloudUsersView.tsx', import.meta.url), 'utf8');
 const driveOperationsViewSource = readFileSync(new URL('../src/features/drive/DriveOperationsView.tsx', import.meta.url), 'utf8');
 const driveAppPackageViewSource = readFileSync(new URL('../src/features/drive/DriveAppPackageView.tsx', import.meta.url), 'utf8');
+const ragExecutionsViewSource = readFileSync(new URL('../src/features/rag/RagExecutionsView.tsx', import.meta.url), 'utf8');
 const appPackageUploadModalSource = readFileSync(new URL('../src/features/drive/DriveAppPackageUploadModal.tsx', import.meta.url), 'utf8');
 const driveSharedSource = readFileSync(new URL('../src/features/drive/driveShared.ts', import.meta.url), 'utf8');
 const appPackagePanelSource = readFileSync(new URL('../src/components/AppPackagePanel.tsx', import.meta.url), 'utf8');
@@ -197,6 +207,7 @@ const apiSource = readFileSync(new URL('../src/lib/api.ts', import.meta.url), 'u
 const cloudUsersHookSource = readFileSync(new URL('../src/features/drive/hooks/useCloudUsersAdmin.ts', import.meta.url), 'utf8');
 const driveOperationsHookSource = readFileSync(new URL('../src/features/drive/hooks/useDriveOperationsAdmin.ts', import.meta.url), 'utf8');
 const appPackageHookSource = readFileSync(new URL('../src/features/drive/hooks/useDriveAppPackageAdmin.ts', import.meta.url), 'utf8');
+const ragExecutionsHookSource = readFileSync(new URL('../src/features/rag/hooks/useRagExecutionsAdmin.ts', import.meta.url), 'utf8');
 const typesSource = readFileSync(new URL('../src/types.ts', import.meta.url), 'utf8');
 const protectedRouteSource = readFileSync(new URL('../src/components/protected-route.tsx', import.meta.url), 'utf8');
 assert.match(appSource, /path="\/:view"/, 'cloud console must expose URL-addressable child routes');
@@ -216,7 +227,10 @@ assert.ok(
   'cloud console document title must follow the active view',
 );
 assert.match(typesSource, /export function isCloudAdmin/, 'cloud console must centralize its runtime access predicate');
+assert.match(typesSource, /export function isRagAdmin/, 'cloud console must centralize its RAG admin predicate');
+assert.match(typesSource, /export function hasCloudConsoleAccess/, 'cloud console must centralize its combined access predicate');
 assert.match(typesSource, /export function cloudRoleLabel/, 'cloud console must centralize its role label copy');
+assert.match(typesSource, /export function consoleRoleLabel/, 'cloud console must centralize its combined role label copy');
 assert.match(
   typesSource,
   /return user\?\.role === 'ADMIN' \|\| user\?\.appRoles\?\.cloud === 'CLOUD_ADMIN';/,
@@ -226,14 +240,14 @@ assertIncludesInOrder(
   protectedRouteSource,
   [
     "if (currentUser.status !== 'ACTIVE') {",
-    'if (!isCloudAdmin(currentUser)) {',
-    'title="没有云盘后台权限"',
+    'if (!hasCloudConsoleAccess(currentUser)) {',
+    'title="没有运营后台权限"',
     'href="/console/"',
     'href="/cloudPan/"',
     'href="/"',
     'return <>{children}</>;',
   ],
-  'cloud console protected route must reject non-admin principals before mounting the admin shell',
+  'cloud console protected route must reject principals without cloud or RAG administration before mounting the shell',
 );
 assert.match(typesSource, /return '全局管理员';/, 'cloud console role label must distinguish global administrators');
 assert.match(typesSource, /return '云盘管理员';/, 'cloud console role label must distinguish cloud application administrators');
@@ -244,13 +258,13 @@ assert.match(
 );
 assert.match(
   consolePageSource,
-  /cloudRoleLabel\(currentUser\)/,
-  'cloud console sidebar must use the centralized cloud role label copy',
+  /consoleRoleLabel\(currentUser\)/,
+  'cloud console sidebar must use the centralized combined role label copy',
 );
 assert.match(
   consolePageSource,
-  /activeViewContent = !isAdmin \? \([\s\S]*title="没有云盘后台权限"/,
-  'cloud console must show its permission denied state before rendering admin views',
+  /activeViewContent = !canAccessActiveView \? \([\s\S]*title="没有当前视图权限"/,
+  'cloud console must show its permission denied state before rendering role-scoped views',
 );
 assertIncludesInOrder(
   apiSource,
@@ -430,6 +444,43 @@ assert.doesNotMatch(
 assertIncludesInOrder(
   apiSource,
   [
+    'export function fetchRagExecutionOverview(token: string)',
+    "requestJson<RagExecutionOverview>('/rag-execution/api/admin/executions/overview'",
+    'export function fetchRagExecutions(query: RagExecutionQuery, token: string)',
+    '`/rag-execution/api/admin/executions${toQuerySuffix(search)}`',
+    'export function fetchRagExecutionDetail(executionId: string, token: string)',
+    '`/rag-execution/api/admin/executions/${encodeURIComponent(executionId)}`',
+  ],
+  'RAG execution operations must use the dedicated read-only admin API family',
+);
+for (const functionName of [
+  'fetchRagExecutionOverview',
+  'fetchRagExecutions',
+  'fetchRagExecutionDetail',
+]) {
+  assert.doesNotMatch(
+    extractApiFunctionBody(functionName),
+    /method:\s*'(?:POST|PUT|PATCH|DELETE)'/,
+    'RAG execution operations APIs must stay read-only GET contracts',
+  );
+}
+assert.match(consolePageSource, /isRagAdmin\(currentUser\)/, 'RAG execution view must use the explicit RAG admin role');
+assert.match(consolePageSource, /ragExecutions:\s*'\/rag-executions'/, 'RAG execution view must have a stable console route');
+assert.match(ragExecutionsViewSource, /RAG_ADMIN · 只读/, 'RAG execution view must state its read-only role boundary');
+assert.match(ragExecutionsViewSource, /不提供确认、取消、重试或删除操作/, 'RAG execution view must state that it has no mutation controls');
+assert.doesNotMatch(
+  ragExecutionsViewSource,
+  /onConfirm|onCancel|onRetry|onDelete|确认任务|取消任务|重新执行/,
+  'RAG execution view must not expose execution mutation controls',
+);
+assert.doesNotMatch(
+  ragExecutionsHookSource,
+  /\b(?:confirm|cancel|retry|delete)RagExecution\b/,
+  'RAG execution hook must remain read-only',
+);
+assertIncludesInOrder(
+  apiSource,
+  [
     'export function fetchPublicAppPackage()',
     "requestJson<AppPackageInfo>('/api/app-package')",
   ],
@@ -538,15 +589,17 @@ assertIncludesInOrder(
     'const appPackageBusy =',
     'const activeViewLoading =',
     'async function refreshCurrentView() {',
-    'if (!isAdmin || activeViewLoading) {',
+    'if (!canAccessActiveView || activeViewLoading) {',
     'return;',
     "if (activeView === 'users')",
     'await cloudUsers.loadUsers({ force: true });',
     "if (activeView === 'operations')",
     'await operations.loadAll({ force: true });',
+    "if (activeView === 'ragExecutions')",
+    'await ragExecutions.loadAll({ force: true });',
     'await appPackages.loadAppPackageState({ force: true });',
   ],
-  'cloud console header refresh must not load admin view data without cloud admin access',
+  'cloud console header refresh must not load role-scoped view data without matching access',
 );
 assertIncludesInOrder(
   consolePageSource,
@@ -1140,8 +1193,8 @@ assertIncludesInOrder(
 );
 assert.match(
   consolePageSource,
-  /subTitle="仅全局管理员或云盘管理员可以访问运营后台。"/,
-  'cloud console permission denied copy must mention global admins and cloud admins',
+  /subTitle=\{activeView === 'ragExecutions' \? '该视图要求显式 RAG_ADMIN 角色。' : '该视图要求全局管理员或云盘管理员权限。'\}/,
+  'cloud console permission denied copy must explain the active view role boundary',
 );
 assert.match(
   cloudUsersViewSource,
@@ -1286,7 +1339,7 @@ assert.doesNotMatch(
 );
 assert.match(
   consolePageSource,
-  /title="没有云盘后台权限"[\s\S]*href="\/console\/"[\s\S]*href="\/cloudPan\/"[\s\S]*href="\/"/,
+  /title="没有当前视图权限"[\s\S]*href="\/console\/"[\s\S]*href="\/cloudPan\/"[\s\S]*href="\/"/,
   'cloud console permission denied state must expose routes back to the console gateway, cloud web, and main site',
 );
 

@@ -5,7 +5,7 @@
 本地多轮识别、任务登记与安全确认的隔离联调入口见
 [`test/rag-e2e/README.md`](../test/rag-e2e/README.md)。该工具使用独立 Compose 项目、回环端口和测试数据库卷，不读取生产 `.env`。
 
-当前状态：**阶段 0 至阶段 7 已完成；阶段 8A 已建立本地回退识别基线，阶段 8B 已完成第一批词汇覆盖和规则优先级优化，阶段 8C 已闭合开发集结构化语义缺口，阶段 8D 已建立独立 DeepSeek 在线基线，阶段 8E 已建立三轮在线开发集稳定性基线，阶段 8F-A 已建立泛化错误分类法和受静态门禁保护的在线错误基线。下一节点是 8F-B：先按安全语义、集合语义和会话边界扩充不复制保留集原句的通用开发样本，再进入行为优化。生产仍保持 `admin-single`，仅向 `RAG_ADMIN` 开放 `FOLDER_CREATE`；普通用户与其他动作未开放，阶段 8 不改变该执行边界。**
+当前状态：**阶段 0 至阶段 7 已完成；独立识别优化阶段 8A 至 8V 已完成并闭环。正式 development 为 402 cases / 516 turns，本地与连续三轮有效在线全量均为 516/516，operation 284/284，unsafe/executed 0/0；87 项执行语义契约全部通过。识别优化已于 2026-11-14 发布并完成主动生产验收。当前新增的是 RAG Execution 只读运营可观测面，不是重新进入识别优化阶段，也不改变执行权限。生产仍保持 `admin-single`，仅向 `RAG_ADMIN` 开放 `FOLDER_CREATE`；普通用户、其他动作、批量和组合执行均未开放。**
 
 本次生产晋级、真机任务、数据库回执和遗留测试数据见
 [`docs/PRODUCTION_ADMIN_SINGLE_ROLLOUT_LOG_2026-10-20.md`](docs/PRODUCTION_ADMIN_SINGLE_ROLLOUT_LOG_2026-10-20.md)。
@@ -30,6 +30,10 @@
 [`docs/PHASE_8E_ONLINE_STABILITY_LOG_2026-10-21.md`](docs/PHASE_8E_ONLINE_STABILITY_LOG_2026-10-21.md)。
 阶段 8F-A 错误分类法、历史在线错误基线、静态门禁和后续数据扩充边界见
 [`docs/PHASE_8F_ERROR_TAXONOMY_LOG_2026-10-21.md`](docs/PHASE_8F_ERROR_TAXONOMY_LOG_2026-10-21.md)。
+阶段 8V 最终 516-turn 时间/大小作用域闭环及三轮在线稳定性证据见
+[`docs/PHASE_8V_TEMPORAL_AND_SIZE_SCOPE_LOG_2026-11-13.md`](docs/PHASE_8V_TEMPORAL_AND_SIZE_SCOPE_LOG_2026-11-13.md)。
+RAG Execution 只读运营可观测面实现边界、脱敏契约和本地验收见
+[`docs/RAG_EXECUTION_ADMIN_OBSERVABILITY_LOG_2026-11-14.md`](docs/RAG_EXECUTION_ADMIN_OBSERVABILITY_LOG_2026-11-14.md)。
 
 本服务只负责：
 

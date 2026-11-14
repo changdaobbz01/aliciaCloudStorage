@@ -1,5 +1,6 @@
 package com.alicia.cloudstorage.ragexecution.api.publicapi;
 
+import com.alicia.cloudstorage.ragexecution.api.admin.AdminExecutionController;
 import com.alicia.cloudstorage.ragexecution.application.ExecutionAccessException;
 import com.alicia.cloudstorage.ragexecution.infrastructure.identity.IdentityAccessVerificationException;
 import org.springframework.core.Ordered;
@@ -12,7 +13,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.util.Map;
 
-@RestControllerAdvice(assignableTypes = PublicExecutionController.class)
+@RestControllerAdvice(assignableTypes = {PublicExecutionController.class, AdminExecutionController.class})
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class PublicExecutionExceptionHandler {
 

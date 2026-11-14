@@ -1,5 +1,8 @@
 package com.alicia.cloudstorage.ragexecution.infrastructure.persistence;
 
+import com.alicia.cloudstorage.ragexecution.domain.ExecutionStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -8,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 import jakarta.persistence.LockModeType;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.Optional;
 
 public interface ExecutionJpaRepository extends JpaRepository<ExecutionJpaEntity, String> {
@@ -19,6 +23,20 @@ public interface ExecutionJpaRepository extends JpaRepository<ExecutionJpaEntity
     Optional<ExecutionJpaEntity> findByPlanId(String planId);
 
     Optional<ExecutionJpaEntity> findByIdAndOwnerUserId(String id, Long ownerUserId);
+
+    Page<ExecutionJpaEntity> findByStatus(ExecutionStatus status, Pageable pageable);
+
+    Page<ExecutionJpaEntity> findByOwnerUserId(Long ownerUserId, Pageable pageable);
+
+    Page<ExecutionJpaEntity> findByStatusAndOwnerUserId(
+            ExecutionStatus status,
+            Long ownerUserId,
+            Pageable pageable
+    );
+
+    long countByStatus(ExecutionStatus status);
+
+    long countByStatusIn(Collection<ExecutionStatus> statuses);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select execution from ExecutionJpaEntity execution where execution.id = :id and execution.ownerUserId = :ownerUserId")

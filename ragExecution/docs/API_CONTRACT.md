@@ -2,7 +2,7 @@
 
 ## 1. 适用范围
 
-本文档定义阶段 2 已实现的 RAG 到 `ragExecution` 内部计划登记协议、阶段 3 已实现的 `ragExecution` 到 CloudStorageApi 受控动作协议、阶段 4 已实现的用户确认、查询、事件订阅和 Worker 分派协议、阶段 5 已实现的 Android 客户端调用边界、阶段 6 已实现的批量动作、顺序组合和客户端上传输入协议，以及阶段 7 已完成的旧本地执行路径删除和公开响应脱敏边界。总体边界、状态机和后续阶段以 [RAG 执行服务分离实施方案](RAG_EXECUTION_SEPARATION_PLAN.md) 为准。
+本文档定义阶段 2 已实现的 RAG 到 `ragExecution` 内部计划登记协议、阶段 3 已实现的 `ragExecution` 到 CloudStorageApi 受控动作协议、阶段 4 已实现的用户确认、查询、事件订阅和 Worker 分派协议、阶段 5 已实现的 Android 客户端调用边界、阶段 6 已实现的批量动作、顺序组合和客户端上传输入协议、阶段 7 已完成的旧本地执行路径删除和公开响应脱敏边界，以及后续增加的 `RAG_ADMIN` 只读运营可观测协议。总体边界、状态机和后续阶段以 [RAG 执行服务分离实施方案](RAG_EXECUTION_SEPARATION_PLAN.md) 为准。
 
 上述能力由独立开关保护。生产已于 2026-10-20 进入 `admin-single`：仅 `RAG_ADMIN + FOLDER_CREATE` 可确认和分派，Android 云端确认开关已用于该受控路径；普通用户、批量、组合和其他动作仍关闭。
 
@@ -348,6 +348,25 @@ GET  /api/executions/{executionId}/stream?after=<sequence>
 ### 11.3 事件和 SSE
 
 事件使用每个任务内单调递增的 `sequence`。轮询接口用 `after` 读取严格大于该序号的事件；SSE 同时支持 `after` 和标准 `Last-Event-ID`，取两者较大值恢复。服务会发送心跳，并在任务进入终态后关闭流。公开事件 payload 仅含状态、版本、步骤 ID、动作类型、尝试次数等安全字段，不回传动作 payload。
+
+### 11.4 管理员只读可观测协议
+
+容器内管理路由如下；公网形式统一增加 `/rag-execution` 前缀：
+
+```text
+GET /api/admin/executions/overview
+GET /api/admin/executions?status=<status>&ownerUserId=<id>&page=<1-based>&size=<1..100>
+GET /api/admin/executions/{executionId}
+```
+
+三个端点只在执行服务总开关开启时可用，必须携带有效用户 `Authorization`，并要求 Identity 返回显式
+`RAG_ADMIN` 应用角色。全局 `ADMIN` 或 `CLOUD_ADMIN` 不会隐式获得 RAG 任务读取权限。该协议只允许 GET，
+不得增加确认、取消、重试、删除或其他写操作。
+
+响应可包含任务状态、风险、动作类型、尝试计数、安全结果/错误码、步骤状态以及 `PUBLIC` 事件的序号、
+类型和时间。响应不得包含原始对话、模型响应、动作摘要、计划哈希、幂等键、步骤 payload/result、事件
+payload、Access Token 或 Refresh Token。完整实现和验收见
+[管理员只读可观测面完成日志](RAG_EXECUTION_ADMIN_OBSERVABILITY_LOG_2026-11-14.md)。
 
 ## 12. Worker、开关与恢复语义
 

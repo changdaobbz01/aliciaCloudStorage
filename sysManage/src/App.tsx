@@ -7,6 +7,8 @@ const defaultCloudViewRoutes = new Map([
   ['operations', '/operations'],
   ['app-package', '/app-package'],
   ['appPackage', '/app-package'],
+  ['rag-executions', '/rag-executions'],
+  ['ragExecutions', '/rag-executions'],
 ]);
 
 function defaultCloudViewRoute(search: string) {

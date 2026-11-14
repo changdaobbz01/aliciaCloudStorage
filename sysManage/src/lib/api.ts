@@ -10,6 +10,10 @@ import type {
   AppPackageInfo,
   HealthResponse,
   IdentityLoginResponse,
+  RagExecutionDetail,
+  RagExecutionOverview,
+  RagExecutionPage,
+  RagExecutionQuery,
   UpdateProfilePayload,
   UpdateUserStorageQuotaPayload,
   User,
@@ -485,6 +489,35 @@ export function fetchAdminCloudStorageUsers(query: AdminCloudStorageUsersQuery, 
 
   return requestJson<AdminCloudStorageUsersPage>(
     `/api/admin/cloud-operations/users/storage${toQuerySuffix(search)}`,
+    withToken(token),
+  );
+}
+
+export function fetchRagExecutionOverview(token: string) {
+  return requestJson<RagExecutionOverview>('/rag-execution/api/admin/executions/overview', withToken(token));
+}
+
+export function fetchRagExecutions(query: RagExecutionQuery, token: string) {
+  const search = new URLSearchParams();
+
+  if (query.status) {
+    search.set('status', query.status);
+  }
+  if (query.ownerUserId !== undefined && query.ownerUserId !== null) {
+    search.set('ownerUserId', String(query.ownerUserId));
+  }
+  search.set('page', String(query.page ?? 1));
+  search.set('size', String(query.size ?? 20));
+
+  return requestJson<RagExecutionPage>(
+    `/rag-execution/api/admin/executions${toQuerySuffix(search)}`,
+    withToken(token),
+  );
+}
+
+export function fetchRagExecutionDetail(executionId: string, token: string) {
+  return requestJson<RagExecutionDetail>(
+    `/rag-execution/api/admin/executions/${encodeURIComponent(executionId)}`,
     withToken(token),
   );
 }

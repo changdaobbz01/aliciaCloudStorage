@@ -36,7 +36,7 @@ scan_target() {
 
     if command -v rg >/dev/null 2>&1; then
         matches="$(
-            rg -n "$pattern" "$target" \
+            MSYS2_ARG_CONV_EXCL='*' rg -n "$pattern" "$target" \
                 --glob '*.ts' \
                 --glob '*.tsx' \
                 --glob '!**/dist/**' \
@@ -69,7 +69,7 @@ require_source_match() {
     [[ -e "$target" ]] || fail "$label source target does not exist: $target"
 
     if command -v rg >/dev/null 2>&1; then
-        rg -q "$pattern" "$target" || fail "$message"
+        MSYS2_ARG_CONV_EXCL='*' rg -q "$pattern" "$target" || fail "$message"
     else
         command -v grep >/dev/null 2>&1 || fail "Either ripgrep (rg) or grep is required."
         grep -Eq "$pattern" "$target" || fail "$message"
@@ -90,8 +90,8 @@ require_source_order() {
     [[ -e "$target" ]] || fail "$label source target does not exist: $target"
 
     if command -v rg >/dev/null 2>&1; then
-        before_line="$(rg -n -m 1 "$before_pattern" "$target" | cut -d: -f1 || true)"
-        after_line="$(rg -n -m 1 "$after_pattern" "$target" | cut -d: -f1 || true)"
+        before_line="$(MSYS2_ARG_CONV_EXCL='*' rg -n -m 1 "$before_pattern" "$target" | cut -d: -f1 || true)"
+        after_line="$(MSYS2_ARG_CONV_EXCL='*' rg -n -m 1 "$after_pattern" "$target" | cut -d: -f1 || true)"
     else
         command -v grep >/dev/null 2>&1 || fail "Either ripgrep (rg) or grep is required."
         before_line="$(grep -nEm 1 "$before_pattern" "$target" | cut -d: -f1 || true)"
@@ -113,7 +113,7 @@ require_source_count_at_least() {
     [[ -e "$target" ]] || fail "$label source target does not exist: $target"
 
     if command -v rg >/dev/null 2>&1; then
-        count="$( (rg -o "$pattern" "$target" || true) | wc -l | tr -d '[:space:]')"
+        count="$( (MSYS2_ARG_CONV_EXCL='*' rg -o "$pattern" "$target" || true) | wc -l | tr -d '[:space:]')"
     else
         command -v grep >/dev/null 2>&1 || fail "Either ripgrep (rg) or grep is required."
         count="$( (grep -Eo "$pattern" "$target" || true) | wc -l | tr -d '[:space:]')"
@@ -136,7 +136,7 @@ require_source_no_match() {
     [[ -e "$target" ]] || fail "$label source target does not exist: $target"
 
     if command -v rg >/dev/null 2>&1; then
-        matches="$(rg -n "$pattern" "$target" || true)"
+        matches="$(MSYS2_ARG_CONV_EXCL='*' rg -n "$pattern" "$target" || true)"
     else
         command -v grep >/dev/null 2>&1 || fail "Either ripgrep (rg) or grep is required."
         matches="$(grep -nE "$pattern" "$target" || true)"
@@ -160,6 +160,7 @@ run_node_script "cloud console returnTo boundary" "sysManage/scripts/verify-unif
 run_node_script "cloud console session sync boundary" "sysManage/scripts/verify-session-sync.mjs"
 run_node_script "cloud console boundary" "sysManage/scripts/verify-console-boundary.mjs"
 run_node_script "cloud console CloudStorageApi contract" "sysManage/scripts/verify-api-contracts.mjs" --cloud-only
+run_node_script "cloud console RAG execution contract" "sysManage/scripts/verify-rag-execution-contracts.mjs"
 
 require_source_no_match \
     "cloud Bash boundary avoids TypeScript-gated returnTo checks" \
@@ -1649,8 +1650,14 @@ require_source_match \
 require_source_match \
     "cloud console route boundary rejects foreign routes" \
     "sysManage/scripts/verify-console-boundary.mjs" \
-    'must not expose identity console or RAG routes from the cloud console' \
-    "Cloud console boundary verifier must reject identity console and RAG route exposure."
+    'must not expose identity console or non-admin RAG routes from the cloud console' \
+    "Cloud console boundary verifier must reject identity console and non-admin RAG route exposure."
+
+require_source_match \
+    "cloud console API allowlist keeps RAG execution observability narrow" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    "'/rag-execution/api/admin/executions'" \
+    "Cloud console API allowlist must include only the RAG execution read-only admin family."
 
 require_source_match \
     "cloud console API allowlist keeps cloud-users ownership" \
@@ -1685,8 +1692,8 @@ require_source_match \
 require_source_match \
     "cloud console build verifies API contracts" \
     "sysManage/package.json" \
-    'npm run verify:console-boundary && npm run verify:api-contracts && tsc -b' \
-    "Cloud console build must verify CloudStorageApi contracts before TypeScript compile."
+    'npm run verify:console-boundary && npm run verify:api-contracts && npm run verify:rag-execution-contracts && tsc -b' \
+    "Cloud console build must verify CloudStorageApi and RAG execution contracts before TypeScript compile."
 
 require_source_match \
     "cloud console contract verifier compares operations responses" \
@@ -1829,8 +1836,20 @@ require_source_match \
 require_source_match \
     "cloud console protected route unmounts unauthorized admin shell" \
     "sysManage/scripts/verify-console-boundary.mjs" \
-    'cloud console protected route must reject non-admin principals before mounting the admin shell' \
+    'cloud console protected route must reject principals without cloud or RAG administration before mounting the shell' \
     "Cloud console protected route must unmount the admin shell after permission loss."
+
+require_source_match \
+    "cloud console boundary enforces explicit RAG admin gate" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console must centralize its RAG admin predicate' \
+    "Cloud console boundary verifier must enforce the explicit RAG admin gate."
+
+require_source_match \
+    "cloud console boundary centralizes role-aware entry" \
+    "sysManage/scripts/verify-console-boundary.mjs" \
+    'cloud console must centralize its combined access predicate' \
+    "Cloud console boundary verifier must keep role-aware console entry centralized."
 
 require_source_match \
     "cloud console boundary checks role label copy" \
@@ -2151,10 +2170,10 @@ require_source_match \
     "Cloud console APK delete confirmation must surface pending delete state."
 
 require_source_match \
-    "cloud console header refresh keeps admin gate" \
+    "cloud console header refresh keeps active role gate" \
     "sysManage/scripts/verify-console-boundary.mjs" \
-    'cloud console header refresh must not load admin view data without cloud admin access' \
-    "Cloud console boundary verifier must keep header refresh behind the cloud admin gate."
+    'cloud console header refresh must not load role-scoped view data without matching access' \
+    "Cloud console boundary verifier must keep header refresh behind the active role gate."
 
 require_source_match \
     "cloud console header refresh pauses duplicate reads" \
@@ -2273,8 +2292,8 @@ require_source_match \
 require_source_match \
     "cloud console boundary checks permission denied copy" \
     "sysManage/scripts/verify-console-boundary.mjs" \
-    'cloud console permission denied copy must mention global admins and cloud admins' \
-    "Cloud console boundary verifier must enforce accurate permission denied copy."
+    'cloud console permission denied copy must explain the active view role boundary' \
+    "Cloud console boundary verifier must enforce accurate role-aware permission denied copy."
 
 require_source_match \
     "cloud console boundary checks users role label copy" \
@@ -2367,16 +2386,22 @@ require_source_match \
     "Cloud console role labels must be centralized."
 
 require_source_match \
+    "cloud console centralizes combined role labels" \
+    "sysManage/src/types.ts" \
+    'export function consoleRoleLabel' \
+    "Cloud console combined role labels must be centralized."
+
+require_source_match \
     "cloud console permission denied copy matches access contract" \
     "sysManage/src/pages/CloudConsolePage.tsx" \
-    'subTitle="仅全局管理员或云盘管理员可以访问运营后台。"' \
-    "Cloud console permission denied copy must match the runtime access contract."
+    "activeView === 'ragExecutions' \? '该视图要求显式 RAG_ADMIN 角色。' : '该视图要求全局管理员或云盘管理员权限。'" \
+    "Cloud console permission denied copy must match the active view contract."
 
 require_source_match \
     "cloud console sidebar uses role label helper" \
     "sysManage/src/pages/CloudConsolePage.tsx" \
-    'cloudRoleLabel\(currentUser\)' \
-    "Cloud console sidebar must use the centralized role label."
+    'consoleRoleLabel\(currentUser\)' \
+    "Cloud console sidebar must use the centralized combined role label."
 
 require_source_match \
     "cloud users permission copy matches access contract" \
@@ -2419,6 +2444,24 @@ require_source_match \
     "sysManage/package.json" \
     '"build"[[:space:]]*:[[:space:]]*"npm run verify:return-to && npm run verify:session-sync' \
     "Cloud console build must run returnTo verification before session and compile checks."
+
+require_source_match \
+    "cloud console exposes RAG execution contract verifier" \
+    "sysManage/package.json" \
+    '"verify:rag-execution-contracts"[[:space:]]*:[[:space:]]*"node scripts/verify-rag-execution-contracts\.mjs"' \
+    "Cloud console build must expose the RAG execution contract verifier."
+
+require_source_match \
+    "cloud console build runs RAG execution contract verifier" \
+    "sysManage/package.json" \
+    'npm run verify:api-contracts && npm run verify:rag-execution-contracts && tsc -b' \
+    "Cloud console build must verify Cloud and RAG execution contracts before TypeScript compile."
+
+require_source_match \
+    "cloud console Docker build includes RAG execution contracts" \
+    "webApp/Dockerfile" \
+    'COPY ragExecution/src /app/ragExecution/src' \
+    "Cloud console image build must include RAG execution sources for contract verification."
 
 require_source_match \
     "cloud console returnTo verifier runs without TypeScript packages" \

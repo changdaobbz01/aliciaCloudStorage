@@ -5,7 +5,7 @@ import { useLocation } from 'react-router-dom';
 import { useSession } from '../context/session-context';
 import { cloudConsoleReturnTo, redirectToUnifiedLogin } from '../lib/unifiedLogin';
 import type { LoginRedirectReason } from '../lib/unifiedLogin';
-import { isCloudAdmin } from '../types';
+import { hasCloudConsoleAccess } from '../types';
 
 function UnifiedLoginRedirect({ returnTo, reason }: { returnTo: string; reason: LoginRedirectReason | null }) {
   useEffect(() => {
@@ -51,13 +51,13 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
     );
   }
 
-  if (!isCloudAdmin(currentUser)) {
+  if (!hasCloudConsoleAccess(currentUser)) {
     return (
       <div className="route-pending">
         <Result
           status="403"
-          title="没有云盘后台权限"
-          subTitle="仅全局管理员或云盘管理员可以访问运营后台。"
+          title="没有运营后台权限"
+          subTitle="仅云盘管理员或 RAG 管理员可以访问对应的运营视图。"
           extra={[
             <Button key="console" href="/console/">管理控制台</Button>,
             <Button key="cloud" type="primary" href="/cloudPan/">返回云盘</Button>,

@@ -1017,6 +1017,14 @@ select {
   font-weight: 750;
 }
 
+.rag-detail-stack {
+  width: 100%;
+}
+
+.rag-detail-stack .ant-typography {
+  margin-bottom: 10px;
+}
+
 .operations-admin-tabs {
   margin-top: 4px;
 }

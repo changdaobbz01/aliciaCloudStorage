@@ -49,6 +49,14 @@ export function isCloudAdmin(user: CloudRoleSource | null | undefined) {
   return user?.role === 'ADMIN' || user?.appRoles?.cloud === 'CLOUD_ADMIN';
 }
 
+export function isRagAdmin(user: CloudRoleSource | null | undefined) {
+  return user?.appRoles?.rag === 'RAG_ADMIN';
+}
+
+export function hasCloudConsoleAccess(user: CloudRoleSource | null | undefined) {
+  return isCloudAdmin(user) || isRagAdmin(user);
+}
+
 export function cloudRoleLabel(user: CloudRoleSource | null | undefined) {
   if (!user) {
     return '无后台权限';
@@ -64,6 +72,104 @@ export function cloudRoleLabel(user: CloudRoleSource | null | undefined) {
 
   return '云盘用户';
 }
+
+export function consoleRoleLabel(user: CloudRoleSource | null | undefined) {
+  if (!user) {
+    return '无后台权限';
+  }
+
+  if (isCloudAdmin(user) && isRagAdmin(user)) {
+    return user.role === 'ADMIN' ? '全局 / RAG 管理员' : '云盘 / RAG 管理员';
+  }
+
+  if (isRagAdmin(user)) {
+    return 'RAG 管理员';
+  }
+
+  return cloudRoleLabel(user);
+}
+
+export type RagExecutionStatus =
+  | 'PENDING_CONFIRMATION'
+  | 'QUEUED'
+  | 'RUNNING'
+  | 'RETRY_WAIT'
+  | 'WAITING_CLIENT_INPUT'
+  | 'SUCCEEDED'
+  | 'PARTIALLY_SUCCEEDED'
+  | 'FAILED'
+  | 'CANCELLED'
+  | 'EXPIRED';
+
+export type RagExecutionOverview = {
+  totalExecutions: number;
+  activeExecutions: number;
+  attentionExecutions: number;
+  retryWaitExecutions: number;
+  retriedSteps: number;
+  statusCounts: Partial<Record<RagExecutionStatus, number>>;
+  generatedAt: string;
+};
+
+export type RagExecutionSummary = {
+  executionId: string;
+  ownerUserId: number;
+  status: RagExecutionStatus;
+  risk: 'LOW' | 'MEDIUM' | 'HIGH';
+  version: number;
+  stepCount: number;
+  totalAttempts: number;
+  maximumAttempts: number;
+  actionTypes: string[];
+  expiresAt: string;
+  confirmedAt: string | null;
+  queuedAt: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+  resultCode: string | null;
+  errorCode: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type RagExecutionStep = {
+  stepId: string;
+  stepIndex: number;
+  actionType: string;
+  status: string;
+  attempts: number;
+  availableAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  errorCode: string | null;
+};
+
+export type RagExecutionEvent = {
+  sequence: number;
+  type: string;
+  createdAt: string;
+};
+
+export type RagExecutionDetail = {
+  execution: RagExecutionSummary;
+  steps: RagExecutionStep[];
+  events: RagExecutionEvent[];
+};
+
+export type RagExecutionPage = {
+  items: RagExecutionSummary[];
+  page: number;
+  size: number;
+  totalItems: number;
+  totalPages: number;
+};
+
+export type RagExecutionQuery = {
+  status?: RagExecutionStatus | null;
+  ownerUserId?: number | null;
+  page?: number;
+  size?: number;
+};
 
 export type IdentityLoginResponse = {
   token: string;

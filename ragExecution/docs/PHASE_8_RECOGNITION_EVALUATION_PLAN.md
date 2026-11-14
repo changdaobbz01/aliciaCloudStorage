@@ -200,3 +200,22 @@ unsafe=0、executed=0。第一次晋升后全量回归发现并修复两处既�
 基线不是仅围绕候选矩阵通过。87 项执行契约继续全部通过，holdout 保持封存，生产仍为
 `admin-single + RAG_ADMIN + FOLDER_CREATE`。完整证据见
 [阶段 8T 复合命令与多对象作用域闭环日志](PHASE_8T_COMPOUND_COMMAND_AND_MULTI_OBJECT_SCOPE_LOG_2026-11-13.md)。
+
+阶段 8U 已于 2026-11-13 完成排除条件与有界子集作用域闭环。24 个授权、合成且脱敏的场景、30 turns
+覆盖“除了/排除/保留”、排序后前后 N 个、带边界集合的多轮修正，以及相同词汇作为文件名或咨询内容的
+字面量反例。不受现有执行契约支持的筛选保持 response-only，明确文件名、后缀和名称谓词修正后才恢复
+现有操作。候选经本地和连续三轮在线验证后一次性晋升；unsafe=0、executed=0，87 项执行契约全部
+通过，holdout 保持封存。完整证据见
+[阶段 8U 排除条件与有界子集作用域闭环日志](PHASE_8U_EXCLUSION_AND_BOUNDED_SUBSET_SCOPE_LOG_2026-11-13.md)。
+
+阶段 8V 已于 2026-11-13 完成时间与大小作用域闭环，并作为独立识别优化的最终开发节点。正式
+development 达到 402 cases / 516 turns；最终本地全量和连续三次有效在线全量均为 516/516、
+operation 284/284、unsafe=0、executed=0，意图、操作和完整契约结果漂移均为 0。三项变化仅发生在
+DeepSeek 与本地策略的仲裁路径，权威语义不变；87 项执行契约继续全部通过，holdout 未运行。完整证据见
+[阶段 8V 时间与大小作用域闭环日志](PHASE_8V_TEMPORAL_AND_SIZE_SCOPE_LOG_2026-11-13.md)。
+
+上述识别优化已于 2026-11-14 以提交 `5c0090f` 发布；发布只重建 RAG，执行服务权限仍为
+`admin-single + RAG_ADMIN + FOLDER_CREATE`。随后发现并修复 Cloud 动作 nonce 并发清理竞态，定向测试
+12/12、CloudStorageApi 全量 276/276 及主动生产竞态探针均通过。生产最终无非终态任务、无失败/部分成功、
+无重复回执、无事件序号缺口，公开 Android 保持 0.1.14。生产证据见
+[admin-single 生产发布日志第 11 节](PRODUCTION_ADMIN_SINGLE_ROLLOUT_LOG_2026-10-20.md#11-识别优化发布与动作-nonce-并发修复2026-11-14)。

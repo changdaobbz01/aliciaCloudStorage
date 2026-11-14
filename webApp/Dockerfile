@@ -25,6 +25,7 @@ COPY sysManage/public public
 COPY sysManage/scripts scripts
 COPY sysManage/src src
 COPY CloudStorageApi/src /app/CloudStorageApi/src
+COPY ragExecution/src /app/ragExecution/src
 
 RUN npm run build
 

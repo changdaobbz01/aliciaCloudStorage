@@ -1,5 +1,6 @@
 package com.alicia.cloudstorage.ragexecution.infrastructure.persistence;
 
+import com.alicia.cloudstorage.ragexecution.domain.ExecutionEventVisibility;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -10,6 +11,12 @@ public interface ExecutionEventJpaRepository extends JpaRepository<ExecutionEven
 
     List<ExecutionEventJpaEntity> findByExecutionIdAndSequenceNoGreaterThanOrderBySequenceNoAsc(
             String executionId,
+            long sequenceNo
+    );
+
+    List<ExecutionEventJpaEntity> findByExecutionIdAndVisibilityAndSequenceNoGreaterThanOrderBySequenceNoAsc(
+            String executionId,
+            ExecutionEventVisibility visibility,
             long sequenceNo
     );
 

@@ -1,6 +1,6 @@
 import { App as AntApp, Avatar, Button, Dropdown, Form, Input, Layout, Menu, Modal, Result, Space, Spin, Typography } from 'antd';
 import type { MenuProps } from 'antd';
-import { ArrowUpRight, BarChart3, Cloud, Home, LayoutDashboard, LogOut, RefreshCw, Smartphone, Upload, UserCog, UsersRound } from 'lucide-react';
+import { ArrowUpRight, BarChart3, Cloud, Home, LayoutDashboard, LogOut, RefreshCw, Smartphone, Upload, UserCog, UsersRound, Workflow } from 'lucide-react';
 import { Suspense, lazy, useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AliciaModalTitle } from '../components/AliciaModalTitle';
@@ -10,25 +10,21 @@ import { DriveAppPackageUploadModal } from '../features/drive/DriveAppPackageUpl
 import { useCloudUsersAdmin } from '../features/drive/hooks/useCloudUsersAdmin';
 import { useDriveAppPackageAdmin } from '../features/drive/hooks/useDriveAppPackageAdmin';
 import { useDriveOperationsAdmin } from '../features/drive/hooks/useDriveOperationsAdmin';
+import { useRagExecutionsAdmin } from '../features/rag/hooks/useRagExecutionsAdmin';
 import { resolveAvatarSrc } from '../features/drive/driveShared';
 import { useSession } from '../context/session-context';
 import { publicAssetPath } from '../lib/appPaths';
 import { updateProfile, uploadCurrentUserAvatar } from '../lib/api';
-import { cloudRoleLabel, isCloudAdmin, type UpdateProfilePayload, type User } from '../types';
+import { consoleRoleLabel, isCloudAdmin, isRagAdmin, type UpdateProfilePayload, type User } from '../types';
 
 const LazyCloudUsersView = lazy(() => import('../features/drive/CloudUsersView'));
 const LazyDriveAppPackageView = lazy(() => import('../features/drive/DriveAppPackageView'));
 const LazyDriveOperationsView = lazy(() => import('../features/drive/DriveOperationsView'));
+const LazyRagExecutionsView = lazy(() => import('../features/rag/RagExecutionsView'));
 
 const { Header, Sider, Content } = Layout;
 
-type CloudConsoleView = 'users' | 'operations' | 'appPackage';
-
-const menuItems: MenuProps['items'] = [
-  { key: 'users', icon: <Icon icon={UsersRound} />, label: '用户额度' },
-  { key: 'operations', icon: <Icon icon={BarChart3} />, label: '云盘运营' },
-  { key: 'appPackage', icon: <Icon icon={Smartphone} />, label: 'APK 包管理' },
-];
+type CloudConsoleView = 'users' | 'operations' | 'appPackage' | 'ragExecutions';
 
 const viewMeta: Record<CloudConsoleView, { eyebrow: string; title: string; icon: typeof Cloud }> = {
   users: {
@@ -46,12 +42,18 @@ const viewMeta: Record<CloudConsoleView, { eyebrow: string; title: string; icon:
     title: 'APK 包管理',
     icon: Smartphone,
   },
+  ragExecutions: {
+    eyebrow: 'RAG Execution',
+    title: 'RAG 执行任务',
+    icon: Workflow,
+  },
 };
 
 const routeByView: Record<CloudConsoleView, string> = {
   users: '/users',
   operations: '/operations',
   appPackage: '/app-package',
+  ragExecutions: '/rag-executions',
 };
 
 function viewFromRoute(value: string | undefined): CloudConsoleView {
@@ -61,6 +63,10 @@ function viewFromRoute(value: string | undefined): CloudConsoleView {
 
   if (value === 'app-package') {
     return 'appPackage';
+  }
+
+  if (value === 'rag-executions') {
+    return 'ragExecutions';
   }
 
   return 'users';
@@ -102,7 +108,19 @@ export function CloudConsolePage() {
   authTokenRef.current = authToken;
   const activeView = viewFromRoute(view);
   const isAdmin = isCloudAdmin(currentUser);
+  const hasRagAdminRole = isRagAdmin(currentUser);
+  const canAccessActiveView = activeView === 'ragExecutions' ? hasRagAdminRole : isAdmin;
   const activeMeta = viewMeta[activeView];
+  const menuItems: MenuProps['items'] = [
+    ...(isAdmin ? [
+      { key: 'users', icon: <Icon icon={UsersRound} />, label: '用户额度' },
+      { key: 'operations', icon: <Icon icon={BarChart3} />, label: '云盘运营' },
+      { key: 'appPackage', icon: <Icon icon={Smartphone} />, label: 'APK 包管理' },
+    ] : []),
+    ...(hasRagAdminRole ? [
+      { key: 'ragExecutions', icon: <Icon icon={Workflow} />, label: 'RAG 执行任务' },
+    ] : []),
+  ];
   const currentAvatarSrc = resolveAvatarSrc(currentUser);
   const watchedAvatarUrl = Form.useWatch('avatarUrl', profileForm);
   const profileAvatarSrc =
@@ -127,6 +145,12 @@ export function CloudConsolePage() {
     isAppPackageView: activeView === 'appPackage',
     message,
   });
+  const ragExecutions = useRagExecutionsAdmin({
+    authToken,
+    isRagAdmin: hasRagAdminRole,
+    isRagExecutionsView: activeView === 'ragExecutions',
+    message,
+  });
   const operationsLoading =
     operations.overviewLoading ||
     operations.storageUsersLoading ||
@@ -137,8 +161,13 @@ export function CloudConsolePage() {
     appPackages.publicAppPackageLoading ||
     appPackages.appPackageUploading ||
     appPackages.appPackageDeleting;
-  const activeViewLoading =
-    activeView === 'users' ? cloudUsers.usersLoading : activeView === 'operations' ? operationsLoading : appPackageBusy;
+  const activeViewLoading = activeView === 'users'
+    ? cloudUsers.usersLoading
+    : activeView === 'operations'
+      ? operationsLoading
+      : activeView === 'appPackage'
+        ? appPackageBusy
+        : ragExecutions.loading;
   const viewLoadingFallback = (
     <div className="loading-box">
       <Spin size="large" />
@@ -170,12 +199,23 @@ export function CloudConsolePage() {
   }, [activeView, navigate, view]);
 
   useEffect(() => {
+    if (!currentUser || canAccessActiveView) {
+      return;
+    }
+    if (hasRagAdminRole) {
+      navigate(routeByView.ragExecutions, { replace: true });
+    } else if (isAdmin) {
+      navigate(routeByView.users, { replace: true });
+    }
+  }, [canAccessActiveView, currentUser, hasRagAdminRole, isAdmin, navigate]);
+
+  useEffect(() => {
     setProfileOpen(false);
     profileForm.resetFields();
   }, [authToken]);
 
   async function refreshCurrentView() {
-    if (!isAdmin || activeViewLoading) {
+    if (!canAccessActiveView || activeViewLoading) {
       return;
     }
 
@@ -186,6 +226,11 @@ export function CloudConsolePage() {
 
     if (activeView === 'operations') {
       await operations.loadAll({ force: true });
+      return;
+    }
+
+    if (activeView === 'ragExecutions') {
+      await ragExecutions.loadAll({ force: true });
       return;
     }
 
@@ -342,12 +387,12 @@ export function CloudConsolePage() {
     }
   }
 
-  const activeViewContent = !isAdmin ? (
+  const activeViewContent = !canAccessActiveView ? (
     <section className="content-panel">
       <Result
         status="403"
-        title="没有云盘后台权限"
-        subTitle="仅全局管理员或云盘管理员可以访问运营后台。"
+        title="没有当前视图权限"
+        subTitle={activeView === 'ragExecutions' ? '该视图要求显式 RAG_ADMIN 角色。' : '该视图要求全局管理员或云盘管理员权限。'}
         extra={
           <Space>
             <Button href="/console/">管理控制台</Button>
@@ -413,6 +458,24 @@ export function CloudConsolePage() {
             onDeletePackage={appPackages.deleteCurrentAppPackage}
           />
         ) : null}
+
+        {activeView === 'ragExecutions' ? (
+          <LazyRagExecutionsView
+            isRagAdmin={hasRagAdminRole}
+            overview={ragExecutions.overview}
+            executionsPage={ragExecutions.executionsPage}
+            query={ragExecutions.query}
+            loading={ragExecutions.loading}
+            detail={ragExecutions.detail}
+            detailOpen={ragExecutions.detailOpen}
+            detailLoading={ragExecutions.detailLoading}
+            onRefresh={() => void ragExecutions.loadAll({ force: true })}
+            onApplyQuery={ragExecutions.applyQuery}
+            onPageChange={ragExecutions.changePage}
+            onOpenDetail={(executionId) => void ragExecutions.openDetail(executionId)}
+            onCloseDetail={ragExecutions.closeDetail}
+          />
+        ) : null}
       </Suspense>
     </LazyChunkErrorBoundary>
   );
@@ -438,7 +501,7 @@ export function CloudConsolePage() {
                 {currentUser?.nickname ?? '未登录用户'}
               </Typography.Title>
               <div className="sider-profile-meta">
-                <span className="sider-role-pill">{cloudRoleLabel(currentUser)}</span>
+                <span className="sider-role-pill">{consoleRoleLabel(currentUser)}</span>
                 <span>{currentUser?.email ?? currentUser?.phoneNumber}</span>
               </div>
             </div>
