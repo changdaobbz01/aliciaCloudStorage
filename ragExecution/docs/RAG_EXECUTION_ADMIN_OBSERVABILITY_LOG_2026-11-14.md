@@ -4,9 +4,9 @@
 
 ## 1. 结论
 
-RAG Execution 管理员只读可观测面已完成本地实现与回归，尚未部署生产。该能力用于查看任务总体状态、
-按状态或 owner 查询任务，以及检查单个任务的步骤和公开事件顺序，不提供确认、取消、重试、删除或任何
-业务写入入口。
+RAG Execution 管理员只读可观测面已完成实现、回归、受控生产发布和真实角色门禁验收。该能力用于查看
+任务总体状态、按状态或 owner 查询任务，以及检查单个任务的步骤和公开事件顺序，不提供确认、取消、
+重试、删除或任何业务写入入口。
 
 本节点不重新启动独立识别优化，不修改 RAG 识别行为，不新增数据库迁移，也不扩大生产执行边界。
 生产继续保持：
@@ -71,8 +71,7 @@ Linux 行为不变。
 
 ## 5. 发布边界
 
-本日志记录的是本地完成状态，不代表生产已上线。后续若批准发布，应成对更新 `rag-execution` 与
-`frontend`，发布前后分别验证：
+2026-11-14 已按批准范围成对更新 `rag-execution` 与 `frontend`，发布前后分别验证：
 
 - 生产 stage、角色和动作白名单没有变化；
 - 三个管理端点对 `RAG_ADMIN` 可读、对 `RAG_USER` 返回 403；
@@ -89,7 +88,7 @@ bash deploy/scripts/update-rag-execution-production.sh \
   --service-set rag-execution-frontend
 ```
 
-上述命令先做 dry-run；只有在生产预检通过并获得明确发布批准后才追加 `--apply`。该模式仍执行生产备份、
+上述命令先完成 dry-run，在生产预检通过并获得明确发布批准后追加 `--apply`。该模式仍执行生产备份、
 完整 RAG Execution 验收和失败安全停止，但通过 `--no-deps` 只重建 `rag-execution` 与 `frontend`。
 
 ## 6. 生产只读预检
@@ -118,3 +117,95 @@ recent service anomaly logs    no matches
 生产当前访问新增 overview 端点返回 404，符合“尚未部署”的基线。服务器待拉取范围除本能力外只有一笔纯文档提交，
 没有夹带其他运行功能。预检同时发现原更新入口默认会重建四个服务，因此在发布前增加了枚举式窄范围服务集；
 默认 `full` 行为保持不变，非法或任意服务集会被拒绝。
+
+## 7. 生产发布结果
+
+受控发布在提交 `a169030` 上完成：
+
+```text
+deployment commit               a169030
+service set                     rag-execution-frontend
+backup                          deploy/generated/production-backups/20261114071557
+rag-execution started           2026-11-14T07:19:13Z
+frontend started                2026-11-14T07:19:13Z
+rag-execution health/restarts   healthy / 0
+frontend restarts               0
+api started/restarts            2026-11-14T05:50:25Z / 0
+rag started/restarts            2026-11-14T05:40:34Z / 0
+tracked server state            clean
+public Android version          0.1.14
+```
+
+`api` 与 `rag` 的启动时间保持不变，证明窄范围发布没有重建无关服务。生产备份包含 Cloud、Identity、
+RAG Execution 数据库以及敏感配置归档、校验和与清单，目录权限为 `700`。最终生产验证再次确认：
+
+```text
+stage                          admin-single
+role boundary                  RAG_ADMIN
+allowed action                 FOLDER_CREATE
+Compose configuration          passed
+public health                  reachable
+internal registration routes   blocked
+internal cloud action routes   blocked
+required dependencies          healthy
+recent target anomaly logs     no matches
+```
+
+发布后对六条公开路径执行 25 轮主动探测，共 150 次请求，全部返回 HTTP 200。管理台
+`/console/cloud/rag-executions` 返回 HTTP 200，生产前端产物包含“RAG 执行任务”视图标记。
+
+## 8. 生产角色与脱敏验收
+
+使用 Android 0.1.14 中的真实登录态完成正反角色验证；访问令牌只在探针进程内存中使用，未写入磁盘、
+未打印或提交。临时探针在验证后立即删除。
+
+`RAG_ADMIN` 正向结果：
+
+```text
+RAG access role                RAG_ADMIN
+overview                       HTTP 200
+total executions               82
+active executions              0
+attention executions           0
+retry-wait executions          0
+retried steps                  1
+list                           HTTP 200, page 1, size 20
+detail                         HTTP 200, 1 step, 2 public events
+detail event order             strictly ascending
+forbidden response fields      0
+```
+
+脱敏检查递归覆盖 overview、list 和 detail 响应，确认没有对话 ID、来源响应 ID、计划 ID/哈希、幂等键、
+动作摘要、步骤 payload/result、事件公开 payload 或内部错误正文。
+
+`RAG_USER` 负向结果：
+
+```text
+RAG access role                RAG_USER
+overview                       HTTP 403
+list                           HTTP 403
+detail                         HTTP 403
+safe error code                rag_admin_observability_required
+```
+
+匿名访问三个管理入口返回 HTTP 401。角色验收只执行 GET 请求，没有创建、确认、取消、重试或修改任务，
+也没有产生 Cloud 业务写入。
+
+## 9. 发布后数据不变量
+
+生产数据库和运行态复核结果：
+
+```text
+non-terminal executions        0
+failed or partial executions   0
+stuck running executions       0
+event sequence gaps            0
+receipt/step mismatches         0
+missing folder receipts        0
+cancelled/expired receipts     0
+active rag-active-* nodes      0
+```
+
+最终判断：管理员只读可观测面已完成生产闭环，可以作为后续 RAG Execution 阶段推进的稳定观测基线；
+本节点没有扩大角色、动作白名单或执行能力。镜像构建期间 npm audit 仍报告既有的 2 个 high severity
+依赖告警，本次生产窗口未夹带依赖升级；应在独立维护节点完成依赖定位、兼容性回归和修复。
