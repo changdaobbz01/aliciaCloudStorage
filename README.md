@@ -287,13 +287,14 @@ bash deploy/scripts/update-rag-production.sh
 
 脚本会拒绝覆盖服务端已有的 tracked 改动，确认 `.env` 已配置 DeepSeek，快进拉取 `main`，重建 `rag` 与 `frontend`，最后同时检查 `127.0.0.1:8091/api/health` 和公网 `/rag/api/health`。密钥只保留在服务器 `.env`，不会输出到日志。
 
-`ragExecution` 使用独立的分阶段发布入口，不与普通 RAG 更新混用。先生成不会覆盖当前 `.env` 的候选配置，再做只读预检；发布脚本默认也只预演，必须显式传入 `--apply` 才会备份并更新 `api`、`rag`、`rag-execution` 和 `frontend`：
+`ragExecution` 使用独立的分阶段发布入口，不与普通 RAG 更新混用。先生成不会覆盖当前 `.env` 的候选配置，再做只读预检；发布脚本默认也只预演，必须显式传入 `--apply` 才会执行生产变更。默认服务集更新 `api`、`rag`、`rag-execution` 和 `frontend`；仅涉及执行后端与管理前端时，可显式使用受控的 `--service-set rag-execution-frontend`，以 `--no-deps` 只更新后两项：
 
 ```bash
 bash deploy/scripts/prepare-rag-execution-production-env.sh foundation
 ALICIA_RAG_EXECUTION_ENV_FILE=deploy/generated/rag-execution/<candidate.env> \
   bash deploy/scripts/verify-rag-execution-production.sh foundation FOLDER_CREATE --preflight
 bash deploy/scripts/update-rag-execution-production.sh --stage foundation
+bash deploy/scripts/update-rag-execution-production.sh --stage admin-single --action FOLDER_CREATE --service-set rag-execution-frontend
 ```
 
 灰度顺序固定为 `foundation -> shadow -> admin-single`。完整的候选安装、显式执行、验收和回退命令见 [`ragExecution/docs/PRODUCTION_ROLLOUT_RUNBOOK.md`](ragExecution/docs/PRODUCTION_ROLLOUT_RUNBOOK.md)。生产已于 2026-10-20 进入 `admin-single`，当前只能维持或回退该阶段，不能绕过独立验收扩大角色或动作 allowlist。

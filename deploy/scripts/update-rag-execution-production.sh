@@ -16,6 +16,7 @@ STOP_ON_VERIFY_FAILURE="${ALICIA_RAG_EXECUTION_STOP_ON_VERIFY_FAILURE:-true}"
 VERIFY_SCRIPT="${ALICIA_RAG_EXECUTION_VERIFY_SCRIPT:-deploy/scripts/verify-rag-execution-production.sh}"
 STAGE=""
 ACTION="FOLDER_CREATE"
+SERVICE_SET="full"
 APPLY=false
 
 rag_execution_require_boolean ALICIA_SKIP_GIT_PULL "$SKIP_GIT_PULL"
@@ -32,6 +33,11 @@ while [[ $# -gt 0 ]]; do
         --action)
             [[ $# -ge 2 ]] || rag_execution_fail "--action requires a value."
             ACTION="$2"
+            shift 2
+            ;;
+        --service-set)
+            [[ $# -ge 2 ]] || rag_execution_fail "--service-set requires a value."
+            SERVICE_SET="$2"
             shift 2
             ;;
         --apply)
@@ -53,6 +59,18 @@ fi
 [[ -n "$STAGE" ]] || rag_execution_fail "--stage is required when the env has no rollout stage."
 rag_execution_validate_stage "$STAGE"
 ACTION="$(rag_execution_normalize_action "$ACTION")"
+
+case "$SERVICE_SET" in
+    full)
+        DEPLOY_SERVICES=(api rag rag-execution frontend)
+        ;;
+    rag-execution-frontend)
+        DEPLOY_SERVICES=(rag-execution frontend)
+        ;;
+    *)
+        rag_execution_fail "Unsupported --service-set: $SERVICE_SET. Expected full or rag-execution-frontend."
+        ;;
+esac
 
 compose() {
     local args=(compose --env-file "$ENV_FILE")
@@ -80,7 +98,8 @@ printf 'RAG execution deployment plan:\n'
 printf '  project:  %s\n' "$PROJECT_DIR"
 printf '  stage:    %s\n' "$STAGE"
 printf '  action:   %s\n' "$ACTION"
-printf '  services: api rag rag-execution frontend\n'
+printf '  set:      %s\n' "$SERVICE_SET"
+printf '  services: %s\n' "${DEPLOY_SERVICES[*]}"
 printf '  backup:   %s\n' "$BACKUP_BEFORE_UPDATE"
 
 if [[ "$APPLY" != "true" ]]; then
@@ -107,7 +126,11 @@ if [[ "$BACKUP_BEFORE_UPDATE" == "true" ]]; then
 fi
 
 ensure_gateway_network
-compose up -d --build --wait --wait-timeout 240 api rag rag-execution frontend
+if [[ "$SERVICE_SET" == "rag-execution-frontend" ]]; then
+    compose up -d --build --no-deps --wait --wait-timeout 240 "${DEPLOY_SERVICES[@]}"
+else
+    compose up -d --build --wait --wait-timeout 240 "${DEPLOY_SERVICES[@]}"
+fi
 
 if ! ALICIA_RAG_EXECUTION_ENV_FILE="$ENV_FILE" bash "$VERIFY_SCRIPT" "$STAGE" "$ACTION"; then
     printf '[FAIL] RAG execution verification failed after deployment.\n' >&2
@@ -118,5 +141,5 @@ if ! ALICIA_RAG_EXECUTION_ENV_FILE="$ENV_FILE" bash "$VERIFY_SCRIPT" "$STAGE" "$
     exit 1
 fi
 
-compose ps api rag rag-execution frontend
+compose ps "${DEPLOY_SERVICES[@]}"
 printf 'RAG execution production update completed: stage=%s commit=%s\n' "$STAGE" "$(git rev-parse --short HEAD)"

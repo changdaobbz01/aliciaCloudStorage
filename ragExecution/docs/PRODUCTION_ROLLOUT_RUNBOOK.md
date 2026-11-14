@@ -74,6 +74,17 @@ bash deploy/scripts/update-rag-execution-production.sh \
 
 脚本默认先运行生产备份，然后重建 `api`、`rag`、`rag-execution` 和 `frontend`。运行态验收失败时，默认停止 `rag-execution`，不会开启旧客户端执行器。
 
+若变更只涉及 RAG Execution 后端和随 `sysManage` 一同构建的前端，可使用受控的窄范围服务集；该模式仍会执行相同的预检、备份和发布后验收，但以 `--no-deps` 仅重建 `rag-execution` 与 `frontend`，不会连带重建 `api` 或 `rag`：
+
+```bash
+bash deploy/scripts/update-rag-execution-production.sh \
+  --stage admin-single \
+  --action FOLDER_CREATE \
+  --service-set rag-execution-frontend
+```
+
+只有批准生产变更后，才在同一命令末尾追加 `--apply`。`--service-set` 只接受 `full` 或 `rag-execution-frontend`，不接受任意服务名；涉及 API、RAG、Compose 依赖或阶段配置的变更必须继续使用默认 `full`。
+
 ## 6. 阶段观察与晋级
 
 ### foundation

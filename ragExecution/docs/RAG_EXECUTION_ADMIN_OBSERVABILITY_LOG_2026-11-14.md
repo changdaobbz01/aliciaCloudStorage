@@ -79,3 +79,42 @@ Linux 行为不变。
 - 管理台没有写操作控件；
 - 既有任务、回执、事件序列和 Cloud/RAG 依赖健康；
 - 容器重启、异常日志和公开 Android 版本没有非预期变化。
+
+本次发布使用受控的窄范围服务集，避免无关重建 `api` 与 `rag`：
+
+```bash
+bash deploy/scripts/update-rag-execution-production.sh \
+  --stage admin-single \
+  --action FOLDER_CREATE \
+  --service-set rag-execution-frontend
+```
+
+上述命令先做 dry-run；只有在生产预检通过并获得明确发布批准后才追加 `--apply`。该模式仍执行生产备份、
+完整 RAG Execution 验收和失败安全停止，但通过 `--no-deps` 只重建 `rag-execution` 与 `frontend`。
+
+## 6. 生产只读预检
+
+2026-11-14 发布前只读预检通过，未拉取代码、未构建镜像、未重启容器：
+
+```text
+production commit              0a03d0e
+target before script hardening 65b0440
+tracked server state           clean
+stage                          admin-single
+role boundary                  RAG_ADMIN
+allowed action                 FOLDER_CREATE
+rag-execution health/restarts  healthy / 0
+non-terminal executions        0
+failed or partial executions   0
+stuck running executions       0
+event sequence gaps            0
+missing/mismatched receipts    0 / 0
+cancelled/expired receipts     0
+active rag-active-* nodes      0
+public Android version         0.1.14
+recent service anomaly logs    no matches
+```
+
+生产当前访问新增 overview 端点返回 404，符合“尚未部署”的基线。服务器待拉取范围除本能力外只有一笔纯文档提交，
+没有夹带其他运行功能。预检同时发现原更新入口默认会重建四个服务，因此在发布前增加了枚举式窄范围服务集；
+默认 `full` 行为保持不变，非法或任意服务集会被拒绝。
