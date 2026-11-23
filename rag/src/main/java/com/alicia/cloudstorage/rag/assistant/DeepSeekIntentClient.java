@@ -60,11 +60,14 @@ public class DeepSeekIntentClient implements IntentModelClient {
                 : modelRequest;
         DeepSeekSettings settings = loadSettings();
         String resolvedApiKey = resolvedApiKey(settings);
+        long started = RecognitionTrace.tick();
         if (!settings.enabled() || resolvedApiKey.isBlank()) {
+            RecognitionTrace.modelCall(RecognitionTrace.Outcome.DISABLED, started, settings.model(), settings.promptVersion(), 0);
             log.debug("DeepSeek intent recognition skipped. enabled={}, apiKeyConfigured={}", settings.enabled(), !resolvedApiKey.isBlank());
             return Optional.empty();
         }
 
+        int status = 0;
         try {
             String body = objectMapper.writeValueAsString(buildRequestBody(settings, safeRequest));
             HttpRequest request = HttpRequest.newBuilder()
@@ -77,19 +80,29 @@ public class DeepSeekIntentClient implements IntentModelClient {
             HttpResponse<String> response = httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
                     .orTimeout(settings.timeoutSeconds(), TimeUnit.SECONDS)
                     .join();
-            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+            status = response.statusCode();
+            if (status < 200 || status >= 300) {
+                RecognitionTrace.modelCall(RecognitionTrace.Outcome.HTTP_ERROR, started, settings.model(), settings.promptVersion(), status);
                 log.warn("DeepSeek intent recognition returned HTTP status {}", response.statusCode());
                 return Optional.empty();
             }
             Optional<ModelIntentResult> result = parseResponse(settings, response.body());
+            RecognitionTrace.modelCall(result.isPresent() ? RecognitionTrace.Outcome.SUCCESS : RecognitionTrace.Outcome.UNUSABLE_RESPONSE,
+                    started, settings.model(), settings.promptVersion(), status);
             if (result.isEmpty()) {
                 log.warn("DeepSeek intent recognition returned HTTP 200 without a usable assistant JSON payload");
             }
             return result;
         } catch (JsonProcessingException exception) {
+            RecognitionTrace.modelCall(RecognitionTrace.Outcome.INVALID_JSON, started, settings.model(), settings.promptVersion(), status);
             log.warn("DeepSeek intent recognition returned an invalid JSON payload: {}", exception.getOriginalMessage());
             return Optional.empty();
         } catch (RuntimeException exception) {
+            Throwable cause = exception.getCause();
+            boolean timedOut = exception instanceof java.util.concurrent.CompletionException
+                    && (cause instanceof java.util.concurrent.TimeoutException || cause instanceof java.net.http.HttpTimeoutException);
+            RecognitionTrace.modelCall(timedOut ? RecognitionTrace.Outcome.TIMED_OUT : RecognitionTrace.Outcome.TRANSPORT_ERROR,
+                    started, settings.model(), settings.promptVersion(), status);
             log.warn("DeepSeek intent recognition failed: {}", exception.toString());
             return Optional.empty();
         }
@@ -109,8 +122,11 @@ public class DeepSeekIntentClient implements IntentModelClient {
             IntentModelRequest request
     ) throws JsonProcessingException {
         String contextJson = objectMapper.writeValueAsString(request.context());
+        long started = RecognitionTrace.tick();
+        List<SemanticExampleRetriever.SemanticExample> examples = exampleRetriever.retrieve(request.message(), 5);
+        RecognitionTrace.retrieval(started, examples);
         String examplesJson = objectMapper.writeValueAsString(
-                exampleRetriever.retrieve(request.message(), 5).stream()
+                examples.stream()
                         .map(SemanticExampleRetriever.SemanticExample::promptPayload)
                         .toList()
         );

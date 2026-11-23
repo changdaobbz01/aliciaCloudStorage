@@ -4,6 +4,7 @@ import com.alicia.cloudstorage.rag.execution.ShadowExecutionRegistrar;
 import com.alicia.cloudstorage.rag.security.RagAccessAuthorizer;
 import com.alicia.cloudstorage.rag.security.RagAccessPrincipal;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,6 +33,7 @@ public class AssistantController {
     private final RagConfigLoader configLoader;
     private final RagAccessAuthorizer ragAccessAuthorizer;
     private final ShadowExecutionRegistrar shadowExecutionRegistrar;
+    private final RecognitionTraceRecorder traceRecorder;
 
     @Autowired
     public AssistantController(
@@ -40,13 +42,15 @@ public class AssistantController {
             RagConfigLoader configLoader,
             ObjectMapper objectMapper,
             RagAccessAuthorizer ragAccessAuthorizer,
-            ShadowExecutionRegistrar shadowExecutionRegistrar
+            ShadowExecutionRegistrar shadowExecutionRegistrar,
+            RecognitionTraceRecorder traceRecorder
     ) {
         this.assistantConversationService = assistantConversationService;
         this.streamService = streamService;
         this.configLoader = configLoader;
         this.ragAccessAuthorizer = ragAccessAuthorizer;
         this.shadowExecutionRegistrar = shadowExecutionRegistrar;
+        this.traceRecorder = traceRecorder;
     }
 
     AssistantController(
@@ -105,6 +109,7 @@ public class AssistantController {
         this.configLoader = configLoader;
         this.ragAccessAuthorizer = ragAccessAuthorizer;
         this.shadowExecutionRegistrar = shadowExecutionRegistrar;
+        this.traceRecorder = RecognitionTraceRecorder.disabled();
     }
 
     @GetMapping("/api/config/client")
@@ -180,27 +185,48 @@ public class AssistantController {
     @PostMapping("/api/assistant/plan")
     public IntentRecognitionResponse plan(
             @Valid @NotNull @RequestBody AssistantPlanRequest request,
-            @RequestHeader(value = "Authorization", required = false) String authorizationHeader
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader,
+            HttpServletResponse httpResponse
     ) {
         String message = request == null ? "" : request.message();
         if (message == null || message.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "message is required");
         }
         ragAccessAuthorizer.requireRagAccess(authorizationHeader);
-        String conversationId = request == null ? "" : request.conversationId();
-        IntentRecognitionResponse response = assistantConversationService.plan(
-                new AssistantPlanRequest(message.trim(), conversationId, request.clientContext(), request.clientEvent()),
-                authorizationHeader
-        );
-        return PublicAssistantResponseSanitizer.sanitize(
-                shadowExecutionRegistrar.registerIfEligible(response, authorizationHeader)
-        );
+        AssistantPlanRequest normalized = new AssistantPlanRequest(
+                message.trim(), request.conversationId(), request.clientContext(), request.clientEvent());
+        RecognitionTrace trace = beginTrace(RecognitionTrace.Route.PLAN, httpResponse);
+        if (trace == null) {
+            return planAndRegister(normalized, authorizationHeader);
+        }
+        try {
+            IntentRecognitionResponse result = RecognitionTrace.call(trace, () -> planAndRegister(normalized, authorizationHeader));
+            trace.finish(RecognitionTrace.Outcome.SUCCESS);
+            return result;
+        } catch (RuntimeException failure) {
+            trace.finish(RecognitionTrace.Outcome.FAILED);
+            throw failure;
+        }
+    }
+
+    IntentRecognitionResponse plan(AssistantPlanRequest request, String authorizationHeader) {
+        return plan(request, authorizationHeader, null);
+    }
+
+    private IntentRecognitionResponse planAndRegister(AssistantPlanRequest request, String authorizationHeader) {
+        long started = RecognitionTrace.tick();
+        IntentRecognitionResponse response = assistantConversationService.plan(request, authorizationHeader);
+        response = PublicAssistantResponseSanitizer.sanitize(
+                shadowExecutionRegistrar.registerIfEligible(response, authorizationHeader));
+        RecognitionTrace.decision(RecognitionTrace.Stage.FINAL, RecognitionTrace.Outcome.OBSERVED, started, response);
+        return response;
     }
 
     @PostMapping(value = "/api/assistant/plan/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter planStream(
             @Valid @NotNull @RequestBody AssistantPlanRequest request,
-            @RequestHeader(value = "Authorization", required = false) String authorizationHeader
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader,
+            HttpServletResponse httpResponse
     ) {
         String message = request == null ? "" : request.message();
         if (message == null || message.isBlank()) {
@@ -216,15 +242,25 @@ public class AssistantController {
                 request.clientEvent()
         );
 
-        return streamService.stream(sanitizedRequest, authorizationHeader);
+        return streamService.stream(sanitizedRequest, authorizationHeader,
+                beginTrace(RecognitionTrace.Route.STREAM, httpResponse));
     }
 
     @PostMapping("/api/intent/recognize")
     public IntentRecognitionResponse recognize(
             @Valid @NotNull @RequestBody AssistantPlanRequest request,
-            @RequestHeader(value = "Authorization", required = false) String authorizationHeader
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader,
+            HttpServletResponse httpResponse
     ) {
-        return plan(request, authorizationHeader);
+        return plan(request, authorizationHeader, httpResponse);
+    }
+
+    private RecognitionTrace beginTrace(RecognitionTrace.Route route, HttpServletResponse response) {
+        RecognitionTrace trace = traceRecorder.start(route);
+        if (trace != null && response != null) {
+            response.setHeader(RecognitionTrace.HEADER, trace.id().toString());
+        }
+        return trace;
     }
 
 }

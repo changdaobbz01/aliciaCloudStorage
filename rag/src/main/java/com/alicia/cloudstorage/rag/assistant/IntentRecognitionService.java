@@ -14,6 +14,9 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
+import static com.alicia.cloudstorage.rag.assistant.RecognitionTrace.Outcome;
+import static com.alicia.cloudstorage.rag.assistant.RecognitionTrace.Stage;
+
 @Service
 public class IntentRecognitionService {
 
@@ -158,6 +161,7 @@ public class IntentRecognitionService {
         }
         IntentRouter.IntentDefinition intent = validIntent(response.intentId());
         String actionType = response.actionDraft() == null ? "none" : response.actionDraft().type();
+        long started = RecognitionTrace.tick();
         String polished = replyPolisher.polish(new AssistantReplyPolisher.PolishRequest(
                         message,
                         response.intentId(),
@@ -180,6 +184,7 @@ public class IntentRecognitionService {
                         response.nextAction()
                 ).allowed())
                 .orElse("");
+        RecognitionTrace.mark(Stage.REPLY, polished.isBlank() ? Outcome.SKIPPED : Outcome.REWRITTEN, started);
         return polished.isBlank() ? response : response.withAssistantText(polished);
     }
 
@@ -188,11 +193,19 @@ public class IntentRecognitionService {
             AssistantConversationState conversation,
             AssistantClientContext clientContext
     ) {
+        long stageStarted = RecognitionTrace.tick();
         var followUpDecision = conversationFollowUpGuard.evaluate(message, conversation);
         if (followUpDecision.isPresent()) {
-            return responseOnlyConversationResponse(message, followUpDecision.get());
+            IntentRecognitionResponse response = responseOnlyConversationResponse(message, followUpDecision.get());
+            RecognitionTrace.decision(Stage.FOLLOW_UP_GUARD, Outcome.BLOCKED, stageStarted, response);
+            return response;
         }
+        RecognitionTrace.mark(Stage.FOLLOW_UP_GUARD, Outcome.NO_MATCH, stageStarted);
+        stageStarted = RecognitionTrace.tick();
         var operationFollowUpDecision = operationFollowUpGuard.evaluate(message, conversation);
+        RecognitionTrace.mark(Stage.OPERATION_FOLLOW_UP,
+                operationFollowUpDecision.isPresent() ? Outcome.CONTINUED : Outcome.NO_MATCH, stageStarted);
+        stageStarted = RecognitionTrace.tick();
         var nonExecutableDecision = operationFollowUpDecision.isEmpty()
                 ? nonExecutableRequestGuard.evaluate(message, conversation)
                 : Optional.<NonExecutableRequestGuard.Decision>empty();
@@ -200,17 +213,25 @@ public class IntentRecognitionService {
                 .map(NonExecutableRequestGuard.Decision::requiresSemanticResolution)
                 .orElse(false);
         if (nonExecutableDecision.isPresent() && !requiresLocalSemanticResolution) {
-            return nonExecutableResponse(message, nonExecutableDecision.get());
+            IntentRecognitionResponse response = nonExecutableResponse(message, nonExecutableDecision.get());
+            RecognitionTrace.decision(Stage.NON_EXECUTABLE_GUARD, Outcome.BLOCKED, stageStarted, response);
+            return response;
         }
+        RecognitionTrace.mark(Stage.NON_EXECUTABLE_GUARD,
+                requiresLocalSemanticResolution ? Outcome.LOCAL : Outcome.NO_MATCH, stageStarted);
         AssistantClientContext safeClientContext = clientContext == null
                 ? AssistantClientContext.empty()
                 : clientContext;
+        stageStarted = RecognitionTrace.tick();
         SemanticCapabilityBoundaryGuard.BoundaryDecision configuredBoundary = operationFollowUpDecision.isEmpty()
                 ? capabilityBoundaryGuard.evaluate(message).orElse(null)
                 : null;
-        IntentModelClient.ModelIntentResult modelResult = operationFollowUpDecision.isEmpty()
+        RecognitionTrace.mark(Stage.CAPABILITY_GUARD, configuredBoundary == null ? Outcome.NO_MATCH : Outcome.BLOCKED, stageStarted);
+        stageStarted = RecognitionTrace.tick();
+        boolean invokeModel = operationFollowUpDecision.isEmpty()
                 && configuredBoundary == null
-                && !requiresLocalSemanticResolution
+                && !requiresLocalSemanticResolution;
+        IntentModelClient.ModelIntentResult modelResult = invokeModel
                 ? modelClient.recognize(
                                 new IntentModelClient.IntentModelRequest(
                                         message,
@@ -219,6 +240,11 @@ public class IntentRecognitionService {
                         )
                         .orElse(null)
                 : null;
+        RecognitionTrace.mark(Stage.MODEL_RESULT, modelResult != null ? Outcome.SUCCESS
+                : invokeModel ? Outcome.UNAVAILABLE : Outcome.SKIPPED, stageStarted);
+        if (modelResult != null) {
+            RecognitionTrace.modelProposal(RecognitionTrace.tick(), modelResult.payload());
+        }
         String fallbackReason;
         if (operationFollowUpDecision.isPresent()) {
             fallbackReason = "local_structure:contextual_operation_follow_up:"
@@ -233,7 +259,10 @@ public class IntentRecognitionService {
         IntentRecognitionResponse response = modelResult == null
                 ? fromFallback(message, fallbackReason)
                 : fromModel(message, modelResult);
+        stageStarted = RecognitionTrace.tick();
         IntentRouter.IntentRouteResult localRoute = semanticFallbackRoute(message, intentRouter.route(message));
+        RecognitionTrace.localRoute(stageStarted, localRoute);
+        stageStarted = RecognitionTrace.tick();
         boolean guardedByBoundary = configuredBoundary != null
                 || localRoute.reason().startsWith("语料能力边界命中");
         SemanticRecognitionArbiter.ArbitrationDecision arbitration = recognitionArbiter.decide(message, response, localRoute);
@@ -277,6 +306,10 @@ public class IntentRecognitionService {
                 ));
             }
         }
+        RecognitionTrace.decision(Stage.ARBITRATION, guardedByBoundary ? Outcome.BLOCKED
+                : guardedByLocalRoute || modelResult == null ? Outcome.LOCAL
+                : arbitration.useLocalStructure() ? Outcome.LOCAL_STRUCTURE : Outcome.MODEL, stageStarted, response);
+        stageStarted = RecognitionTrace.tick();
         if (operationFollowUpDecision.isPresent()) {
             ContextualOperationFollowUpGuard.Decision decision = operationFollowUpDecision.orElseThrow();
             response = rebuildForConversation(
@@ -337,6 +370,7 @@ public class IntentRecognitionService {
         Map<String, Object> entities = configuredBoundary == null
                 ? semanticFrameResolver.entitiesForFrame(response, semanticFrame)
                 : Map.of();
+        long boundaryStarted = RecognitionTrace.tick();
         var semanticBoundary = configuredBoundary == null
                 ? capabilityBoundaryGuard.evaluateSemanticContract(
                         response.intentId(),
@@ -351,6 +385,8 @@ public class IntentRecognitionService {
             semanticFrame = capabilityBoundaryFrame(configuredBoundary);
             entities = Map.of();
         }
+        RecognitionTrace.mark(Stage.CAPABILITY_GUARD, semanticBoundary.isPresent() ? Outcome.BLOCKED
+                : configuredBoundary == null ? Outcome.NO_MATCH : Outcome.SKIPPED, boundaryStarted);
         if (!guardedByBoundary) {
             response = rebuildForConversation(
                     response,
@@ -374,6 +410,9 @@ public class IntentRecognitionService {
                     configuredBoundary.guidance()
             );
         }
+        RecognitionTrace.decision(Stage.SEMANTIC_FRAME,
+                guardedByBoundary ? Outcome.BLOCKED : semanticFrame.needsClarification() ? Outcome.CLARIFIED : Outcome.OBSERVED,
+                stageStarted, response);
         return enforceResponsePolicy(message, response);
     }
 

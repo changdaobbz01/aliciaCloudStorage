@@ -7,12 +7,15 @@ import com.alicia.cloudstorage.rag.assistant.CandidateItem;
 import com.alicia.cloudstorage.rag.assistant.CollectionActionSnapshotStore;
 import com.alicia.cloudstorage.rag.assistant.ExecutionReference;
 import com.alicia.cloudstorage.rag.assistant.IntentRecognitionResponse;
+import com.alicia.cloudstorage.rag.assistant.RecognitionTrace;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -59,7 +62,13 @@ public class ShadowExecutionRegistrationService implements ShadowExecutionRegist
             IntentRecognitionResponse response,
             String authorizationHeader
     ) {
-        if (!properties.enabled() || !eligible(response)) {
+        long started = RecognitionTrace.tick();
+        if (!properties.enabled()) {
+            RecognitionTrace.registration(RecognitionTrace.Outcome.DISABLED, started);
+            return response;
+        }
+        if (!eligible(response)) {
+            RecognitionTrace.registration(RecognitionTrace.Outcome.NOT_ELIGIBLE, started);
             return response;
         }
         ActionPlan plan = response.actionPlan();
@@ -96,6 +105,7 @@ public class ShadowExecutionRegistrationService implements ShadowExecutionRegist
                     draft.expiresAt()
             );
             ExecutionRegistrationResponse registered;
+            boolean recovered = false;
             try {
                 registered = client.register(request, authorizationHeader);
             } catch (ExecutionRegistrationUncertainException uncertain) {
@@ -103,16 +113,23 @@ public class ShadowExecutionRegistrationService implements ShadowExecutionRegist
                 if (registered == null) {
                     throw uncertain;
                 }
+                recovered = true;
                 log.info(
                         "Recovered uncertain RAG execution registration: responseId={}, planId={}",
                         safeId(response.id()),
                         safeId(plan.planId())
                 );
             }
-            return response.withExecutionReference(toReference(registered));
+            IntentRecognitionResponse result = response.withExecutionReference(toReference(registered));
+            RecognitionTrace.registration(recovered ? RecognitionTrace.Outcome.RECOVERED : RecognitionTrace.Outcome.SUCCESS, started);
+            return result;
         } catch (CancellationException exception) {
+            RecognitionTrace.registration(RecognitionTrace.Outcome.CANCELLED, started);
             throw exception;
         } catch (RuntimeException exception) {
+            if (started != 0L) {
+                RecognitionTrace.registration(registrationFailure(exception), started);
+            }
             log.warn(
                     "RAG execution shadow registration failed: responseId={}, planId={}, category={}",
                     safeId(response.id()),
@@ -121,6 +138,31 @@ public class ShadowExecutionRegistrationService implements ShadowExecutionRegist
             );
             return response;
         }
+    }
+
+    private RecognitionTrace.Outcome registrationFailure(RuntimeException exception) {
+        if (exception instanceof ExecutionRegistrationUncertainException) {
+            return RecognitionTrace.Outcome.REGISTRATION_UNCERTAIN;
+        }
+        if (!(exception instanceof HttpClientErrorException rejected)) {
+            return RecognitionTrace.Outcome.FAILED;
+        }
+        int status = rejected.getStatusCode().value();
+        if (status == 401 || status == 403) {
+            return RecognitionTrace.Outcome.ACCESS_DENIED;
+        }
+        if (status == 422) {
+            try {
+                byte[] body = rejected.getResponseBodyAsByteArray();
+                JsonNode parsed = body.length <= 1024 ? objectMapper.readTree(body) : null;
+                if (parsed != null && "action_not_enabled".equals(parsed.path("error").asText())) {
+                    return RecognitionTrace.Outcome.ACTION_NOT_ENABLED;
+                }
+            } catch (java.io.IOException ignored) {
+                // The HTTP rejection remains useful when its body cannot be classified.
+            }
+        }
+        return RecognitionTrace.Outcome.REGISTRATION_REJECTED;
     }
 
     private ExecutionRegistrationResponse recoverUncertainRegistration(ExecutionRegistrationRequest request) {

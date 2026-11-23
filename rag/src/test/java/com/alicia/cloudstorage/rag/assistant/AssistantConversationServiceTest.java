@@ -86,6 +86,30 @@ class AssistantConversationServiceTest {
     }
 
     @Test
+    void recordsContextRecoveryFallbackAndFinalPlanShapeWithoutRetainingMessage() throws Exception {
+        var recorder = new RecognitionTraceRecorder(true, configLoader);
+        var trace = recorder.start(RecognitionTrace.Route.PLAN);
+        var first = conversationService.plan(new AssistantPlanRequest("删除", ""), "Bearer private-token");
+        var request = new AssistantPlanRequest("PRIVATE-file-name.pdf", first.conversation().conversationId());
+        var response = RecognitionTrace.call(trace, () -> conversationService.plan(request, "Bearer private-token"));
+        trace.finish(RecognitionTrace.Outcome.SUCCESS);
+
+        assertThat(response.entities()).containsEntry("target_name", request.message());
+        var snapshot = recorder.find(trace.id()).orElseThrow();
+        assertThat(snapshot.steps()).anySatisfy(step -> {
+            assertThat(step.stage()).isEqualTo(RecognitionTrace.Stage.SESSION);
+            assertThat(step.outcome()).isEqualTo(RecognitionTrace.Outcome.RESTORED);
+            assertThat(step.context().pendingSlots()).isEqualTo(1);
+        }).anySatisfy(step -> {
+            assertThat(step.stage()).isEqualTo(RecognitionTrace.Stage.PENDING_INTENT);
+            assertThat(step.outcome()).isEqualTo(RecognitionTrace.Outcome.SLOT_FILLED);
+            assertThat(step.decision().intent()).isEqualTo("file_delete");
+        });
+        assertThat(new ObjectMapper().writeValueAsString(snapshot))
+                .doesNotContain(request.message(), first.conversation().conversationId(), "private-token");
+    }
+
+    @Test
     void naturalDirectoryContentQuestionUsesDeterministicListChildrenSemantics() {
         IntentRecognitionResponse response = conversationService.plan(
                 new AssistantPlanRequest("项目资料目录里现在都有些什么", "")

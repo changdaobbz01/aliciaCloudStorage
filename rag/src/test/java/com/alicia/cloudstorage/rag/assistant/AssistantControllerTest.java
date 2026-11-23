@@ -2,9 +2,11 @@ package com.alicia.cloudstorage.rag.assistant;
 
 import com.alicia.cloudstorage.rag.security.RagAccessAuthorizer;
 import com.alicia.cloudstorage.rag.security.RagAccessPrincipal;
+import com.alicia.cloudstorage.rag.execution.ShadowExecutionRegistrar;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
+import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -13,6 +15,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -373,19 +376,84 @@ class AssistantControllerTest {
         AssistantConversationService service = mock(AssistantConversationService.class);
         AssistantPlanRequest request = new AssistantPlanRequest("打开文件记录文件夹", "conversation-1");
         when(service.plan(eq(request), eq("Bearer token"))).thenAnswer(invocation -> {
+            RecognitionTrace.mark(RecognitionTrace.Stage.ROUTING, RecognitionTrace.Outcome.OBSERVED, RecognitionTrace.tick());
             Thread.sleep(5_000L);
             return responseWithNextAction("打开文件夹", "show_search_results");
         });
         AssistantPlanStreamService streamService = new AssistantPlanStreamService(service, 25L, 1_000L, 120L);
         CapturingSseEmitter emitter = new CapturingSseEmitter();
+        RecognitionTraceRecorder recorder = new RecognitionTraceRecorder(true, new RagConfigLoader(new ObjectMapper()));
+        RecognitionTrace trace = recorder.start(RecognitionTrace.Route.STREAM);
 
-        streamService.stream(request, "Bearer token", emitter);
+        streamService.stream(request, "Bearer token", emitter, trace);
 
         assertThat(emitter.awaitCompletion()).isTrue();
         assertThat(emitter.payload())
                 .contains("error")
                 .contains("超过了安全等待时间")
                 .contains("done");
+        RecognitionTrace.Snapshot snapshot = recorder.find(trace.id()).orElseThrow();
+        assertThat(snapshot.outcome()).isEqualTo(RecognitionTrace.Outcome.TIMED_OUT);
+        assertThat(snapshot.steps()).extracting(RecognitionTrace.Step::stage).containsExactly(RecognitionTrace.Stage.ROUTING);
+    }
+
+    @Test
+    void addsTraceHeaderOnlyForAuthorizedRequestsWhenEnabled() {
+        var jackson = new ObjectMapper();
+        var configs = new RagConfigLoader(jackson);
+        var service = mock(AssistantConversationService.class);
+        var authorizer = mock(RagAccessAuthorizer.class);
+        var recorder = new RecognitionTraceRecorder(true, configs);
+        var request = new AssistantPlanRequest("你是谁", "");
+        var response = responseWithNextAction("安安身份介绍", "respond_only");
+        when(service.plan(request, "Bearer token")).thenReturn(response);
+        doThrow(new ResponseStatusException(HttpStatus.FORBIDDEN))
+                .when(authorizer).requireRagAccess("Bearer denied");
+        var controller = new AssistantController(service, new AssistantPlanStreamService(service, 25L), configs,
+                jackson, authorizer, ShadowExecutionRegistrar.disabled(), recorder);
+
+        var denied = new MockHttpServletResponse();
+        assertThatThrownBy(() -> controller.plan(request, "Bearer denied", denied))
+                .isInstanceOf(ResponseStatusException.class);
+        assertThat(denied.getHeader(RecognitionTrace.HEADER)).isNull();
+
+        var disabled = new MockHttpServletResponse();
+        var disabledController = new AssistantController(service, configs, jackson);
+        assertThat(disabledController.plan(request, "Bearer token", disabled)).isSameAs(response);
+        assertThat(disabled.getHeader(RecognitionTrace.HEADER)).isNull();
+
+        var accepted = new MockHttpServletResponse();
+        assertThat(controller.plan(request, "Bearer token", accepted)).isSameAs(response);
+        UUID id = UUID.fromString(accepted.getHeader(RecognitionTrace.HEADER));
+        RecognitionTrace.Snapshot trace = recorder.find(id).orElseThrow();
+        assertThat(trace.outcome()).isEqualTo(RecognitionTrace.Outcome.SUCCESS);
+        assertThat(trace.steps()).extracting(RecognitionTrace.Step::stage).containsExactly(RecognitionTrace.Stage.FINAL);
+    }
+
+    @Test
+    void streamKeepsTraceAcrossPlanningAndRegistrationThreads() throws Exception {
+        var service = mock(AssistantConversationService.class);
+        var request = new AssistantPlanRequest("你是谁", "");
+        var recorder = new RecognitionTraceRecorder(true, new RagConfigLoader(new ObjectMapper()));
+        var trace = recorder.start(RecognitionTrace.Route.STREAM);
+        var emitter = new CapturingSseEmitter();
+        when(service.plan(request, "Bearer token")).thenAnswer(invocation -> {
+            RecognitionTrace.mark(RecognitionTrace.Stage.ROUTING, RecognitionTrace.Outcome.OBSERVED, RecognitionTrace.tick());
+            return responseWithNextAction("身份介绍", "respond_only");
+        });
+        var streamService = new AssistantPlanStreamService(service, 25L, 5_000L, 1_000L, (response, authorization) -> {
+            RecognitionTrace.registration(RecognitionTrace.Outcome.NOT_ELIGIBLE, RecognitionTrace.tick());
+            return response;
+        });
+
+        streamService.stream(request, "Bearer token", emitter, trace);
+
+        assertThat(emitter.awaitCompletion()).isTrue();
+        var snapshot = recorder.find(trace.id()).orElseThrow();
+        assertThat(snapshot.outcome()).isEqualTo(RecognitionTrace.Outcome.SUCCESS);
+        assertThat(snapshot.steps()).extracting(RecognitionTrace.Step::stage)
+                .containsExactly(RecognitionTrace.Stage.ROUTING, RecognitionTrace.Stage.REGISTRATION, RecognitionTrace.Stage.FINAL);
+        assertThat(emitter.payload()).contains("final", "done").doesNotContain(trace.id().toString());
     }
 
     @SuppressWarnings("unchecked")

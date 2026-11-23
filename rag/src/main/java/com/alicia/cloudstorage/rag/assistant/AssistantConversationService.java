@@ -8,6 +8,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.alicia.cloudstorage.rag.assistant.RecognitionTrace.Outcome;
+import static com.alicia.cloudstorage.rag.assistant.RecognitionTrace.Stage;
+
 @Service
 public class AssistantConversationService {
 
@@ -73,6 +76,7 @@ public class AssistantConversationService {
                 ? AssistantClientContext.empty()
                 : request.clientContext();
         AssistantClientEvent clientEvent = request == null ? AssistantClientEvent.none() : request.clientEvent();
+        long stageStarted = RecognitionTrace.tick();
         if (clientEvent.isExecutionTerminal()) {
             conversationStore.complete(request == null ? "" : request.conversationId(), authorizationHeader);
             scopedCollectionPlanningService.complete(clientEvent.planId(), authorizationHeader);
@@ -84,32 +88,54 @@ public class AssistantConversationService {
             IntentRecognitionResponse response = intentRecognitionService
                     .recognizeLocal(acknowledgement, "客户端执行结果同步")
                     .withAssistantText(acknowledgement);
-            return response.withConversation(conversationStore.restart(authorizationHeader).snapshot("completed"));
+            AssistantConversationState newConversation = conversationStore.restart(authorizationHeader);
+            RecognitionTrace.session(Outcome.TERMINAL_EVENT, stageStarted, newConversation);
+            return response.withConversation(newConversation.snapshot("completed"));
         }
-        AssistantConversationState conversation = isResetMessage(message)
+        boolean reset = isResetMessage(message);
+        AssistantConversationState conversation = reset
                 ? conversationStore.restart(authorizationHeader)
                 : conversationStore.resolve(request == null ? "" : request.conversationId(), authorizationHeader);
+        if (reset) {
+            RecognitionTrace.session(Outcome.RESET, stageStarted, conversation);
+        }
 
+        stageStarted = RecognitionTrace.tick();
         boolean deterministicCollection = collectionOperationSelectorResolver.handles(message, conversation);
         boolean deterministicNavigation = navigationOperationResolver.handles(message, conversation);
         boolean deterministicSafetyBoundary = executableConstraintGuard.handlesUnsupportedConstraint(message);
         String deterministicRecognitionReason = deterministicSafetyBoundary
                 ? "local_guard:unsupported_execution_constraint"
                 : "local_structure:deterministic_semantic_routing";
-        IntentRecognitionResponse baseResponse = deterministicCollection || deterministicNavigation || deterministicSafetyBoundary
+        boolean localRouting = deterministicCollection || deterministicNavigation || deterministicSafetyBoundary;
+        RecognitionTrace.mark(Stage.ROUTING, localRouting ? Outcome.LOCAL : Outcome.OBSERVED, stageStarted);
+        IntentRecognitionResponse baseResponse = localRouting
                 ? intentRecognitionService.recognizeLocal(message, deterministicRecognitionReason)
                 : intentRecognitionService.recognize(message, conversation, clientContext);
+        stageStarted = RecognitionTrace.tick();
+        IntentRecognitionResponse before = baseResponse;
         baseResponse = collectionOperationSelectorResolver.apply(message, conversation, baseResponse);
+        traceRewrite(Stage.COLLECTION_ROUTING, before, baseResponse, stageStarted);
+        stageStarted = RecognitionTrace.tick();
+        before = baseResponse;
         baseResponse = navigationOperationResolver.apply(message, conversation, baseResponse);
+        traceRewrite(Stage.NAVIGATION, before, baseResponse, stageStarted);
+        stageStarted = RecognitionTrace.tick();
+        before = baseResponse;
         baseResponse = executableConstraintGuard.apply(message, baseResponse);
+        RecognitionTrace.decision(Stage.CONSTRAINT_GUARD, before == baseResponse ? Outcome.NO_MATCH : Outcome.BLOCKED,
+                stageStarted, baseResponse);
         if (collectionOperationSelectorResolver.isScopedCollection(baseResponse)
                 && !clientContext.supportsAction(baseResponse.actionDraft().type())) {
+            stageStarted = RecognitionTrace.tick();
             baseResponse = baseResponse.withCapabilityBoundary(
                     "client_action_contract_outdated",
                     "当前移动端版本还不能安全执行这种目录批量操作，请更新应用后再试。",
                     "更新移动端后，可使用目录内全部文件的批量移动和删除。"
             );
+            RecognitionTrace.decision(Stage.CLIENT_CAPABILITY, Outcome.BLOCKED, stageStarted, baseResponse);
         }
+        stageStarted = RecognitionTrace.tick();
         CandidateSelectionService.SelectionAttempt selectionAttempt = canUseCandidateSelection(conversation)
                 ? candidateSelectionService.select(
                         conversation.candidateBinding(),
@@ -117,6 +143,8 @@ public class AssistantConversationService {
                         request == null ? AssistantClientEvent.none() : request.clientEvent()
                 )
                 : CandidateSelectionService.SelectionAttempt.notMatched();
+        RecognitionTrace.mark(Stage.CANDIDATE_SELECTION,
+                selectionAttempt.matched() ? Outcome.SELECTED : Outcome.NO_MATCH, stageStarted);
         if (selectionAttempt.matched()) {
             IntentRecognitionResponse selectedResponse = rebuildFromStoredConversation(
                     conversation,
@@ -128,7 +156,7 @@ public class AssistantConversationService {
                     && List.of("collection.move", "collection.trash", "collection.trash_scoped").contains(conversation.pendingActionDraft().type())) {
                 selectedResponse = collectionOperationSelectorResolver.restoreStored(selectedResponse, conversation);
                 if (!scopedCollectionPlanningService.acceptsSelection(conversation, clientEvent)) {
-                    selectedResponse = scopedCollectionPlanningService.plan(
+                    selectedResponse = planScopedCollection(
                             selectedResponse,
                             conversation,
                             authorizationHeader,
@@ -143,7 +171,7 @@ public class AssistantConversationService {
                         conversation,
                         selectedBinding
                 );
-                selectedResponse = scopedCollectionPlanningService.plan(
+                selectedResponse = planScopedCollection(
                         selectedResponse,
                         conversation,
                         authorizationHeader,
@@ -164,6 +192,7 @@ public class AssistantConversationService {
                     selectedResponse.actionDraft()
             );
             selectedResponse = applyCandidateBindingState(selectedResponse, selectedBinding);
+            RecognitionTrace.decision(Stage.CANDIDATE_BINDING, Outcome.SELECTED, stageStarted, selectedResponse);
             selectedResponse = applyActionPlan(selectedResponse, clientContext);
             selectedResponse = applyCollectionPreview(selectedResponse, authorizationHeader);
             selectedResponse = selectedResponse.withInteraction(interactionService.build(selectedResponse));
@@ -171,6 +200,7 @@ public class AssistantConversationService {
             return selectedResponse.withConversation(savedConversation.snapshot(statusFor(selectedResponse)));
         }
 
+        stageStarted = RecognitionTrace.tick();
         ConversationContextResolver.ContextAttempt contextAttempt = !collectionOperationSelectorResolver.isScopedCollection(baseResponse)
                 && !isConversationFollowUpGuard(baseResponse)
                 && "FOLLOW_UP".equals(baseResponse.semanticFrame().relation())
@@ -183,6 +213,10 @@ public class AssistantConversationService {
                 )
                 : ConversationContextResolver.ContextAttempt.notApplied();
         ConversationContextResolution contextResolution = contextAttempt.resolution();
+        RecognitionTrace.decision(Stage.CONTEXT_RESOLUTION,
+                !contextAttempt.applied() ? Outcome.NO_MATCH
+                        : contextResolution == null || !contextResolution.shouldRewrite() ? Outcome.OBSERVED : Outcome.REWRITTEN,
+                stageStarted, contextAttempt.response());
         if (contextAttempt.applied() && contextAttempt.response() != null) {
             if (contextResolution == null || !contextResolution.shouldRewrite()) {
                 IntentRecognitionResponse answeredResponse = contextAttempt.response();
@@ -193,6 +227,7 @@ public class AssistantConversationService {
             baseResponse = contextAttempt.response();
         }
 
+        stageStarted = RecognitionTrace.tick();
         boolean preservePendingIntent = shouldPreservePendingIntent(conversation, message);
         PendingSlotResolutionService.Resolution pendingSlotResolution = pendingSlotResolutionService.resolve(
                 message,
@@ -213,9 +248,12 @@ public class AssistantConversationService {
         if (preservePendingIntent || continuePendingIntent) {
             response = collectionOperationSelectorResolver.restoreStored(response, conversation);
         }
+        RecognitionTrace.decision(Stage.PENDING_INTENT,
+                preservePendingIntent ? Outcome.CONTINUED : continuePendingIntent ? Outcome.SLOT_FILLED : Outcome.NO_MATCH,
+                stageStarted, response);
 
         if (collectionOperationSelectorResolver.isScopedCollection(response)) {
-            response = scopedCollectionPlanningService.plan(
+            response = planScopedCollection(
                     response,
                     conversation,
                     authorizationHeader,
@@ -243,8 +281,10 @@ public class AssistantConversationService {
             return response.withConversation(savedConversation.snapshot(statusFor(response)));
         }
 
+        stageStarted = RecognitionTrace.tick();
         CandidateBindingResult candidateBinding;
-        if (AssistantFlowPolicy.blocksExecution(response)) {
+        boolean blocked = AssistantFlowPolicy.blocksExecution(response);
+        if (blocked) {
             candidateBinding = response.candidateBinding() == null
                     ? CandidateBindingResult.skipped(
                     "waiting_for_clarification",
@@ -277,8 +317,10 @@ public class AssistantConversationService {
                     );
         }
         response = applyCandidateBindingState(response, candidateBinding);
+        RecognitionTrace.decision(Stage.CANDIDATE_BINDING, blocked ? Outcome.SKIPPED : Outcome.OBSERVED, stageStarted, response);
         if (preservePendingIntent && hasReviewedCollectionPlan(conversation)) {
             response = response.withActionPlan(conversation.pendingActionPlan());
+            RecognitionTrace.decision(Stage.ACTION_PLAN, Outcome.RESTORED, RecognitionTrace.tick(), response);
         } else {
             response = applyActionPlan(response, clientContext);
             response = applyCollectionPreview(response, authorizationHeader);
@@ -459,11 +501,31 @@ public class AssistantConversationService {
         };
     }
 
+    private static void traceRewrite(Stage stage, IntentRecognitionResponse before,
+                                     IntentRecognitionResponse after, long started) {
+        RecognitionTrace.decision(stage, before == after ? Outcome.NO_MATCH : Outcome.REWRITTEN, started, after);
+    }
+
+    private IntentRecognitionResponse planScopedCollection(
+            IntentRecognitionResponse response,
+            AssistantConversationState conversation,
+            String authorizationHeader,
+            AssistantClientContext clientContext
+    ) {
+        long started = RecognitionTrace.tick();
+        IntentRecognitionResponse planned = scopedCollectionPlanningService.plan(response, conversation, authorizationHeader, clientContext);
+        RecognitionTrace.decision(Stage.ACTION_PLAN, Outcome.OBSERVED, started, planned);
+        return planned;
+    }
+
     private IntentRecognitionResponse applyActionPlan(
             IntentRecognitionResponse response,
             AssistantClientContext clientContext
     ) {
-        return response == null ? null : response.withActionPlan(actionPlanService.build(response, clientContext));
+        long started = RecognitionTrace.tick();
+        IntentRecognitionResponse planned = response == null ? null : response.withActionPlan(actionPlanService.build(response, clientContext));
+        RecognitionTrace.decision(Stage.ACTION_PLAN, Outcome.OBSERVED, started, planned);
+        return planned;
     }
 
     private IntentRecognitionResponse applyCollectionPreview(

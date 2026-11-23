@@ -80,33 +80,52 @@ public class AssistantPlanStreamService {
         return stream(request, authorizationHeader, new SseEmitter(streamTimeoutMillis));
     }
 
+    SseEmitter stream(AssistantPlanRequest request, String authorizationHeader, RecognitionTrace trace) {
+        return stream(request, authorizationHeader, new SseEmitter(streamTimeoutMillis), trace);
+    }
+
     SseEmitter stream(
             AssistantPlanRequest request,
             String authorizationHeader,
             SseEmitter emitter
     ) {
+        return stream(request, authorizationHeader, emitter, null);
+    }
+
+    SseEmitter stream(AssistantPlanRequest request, String authorizationHeader, SseEmitter emitter, RecognitionTrace trace) {
         StreamSession session = new StreamSession(emitter);
         emitter.onCompletion(session::close);
-        emitter.onTimeout(session::cancel);
-        emitter.onError(ignored -> session.cancel());
+        emitter.onTimeout(() -> {
+            finishTrace(trace, RecognitionTrace.Outcome.TIMED_OUT);
+            session.cancel();
+        });
+        emitter.onError(ignored -> {
+            finishTrace(trace, RecognitionTrace.Outcome.CANCELLED);
+            session.cancel();
+        });
         Thread worker = Thread.ofVirtual()
                 .name("assistant-plan-stream")
-                .start(() -> run(session, request, authorizationHeader));
+                .start(() -> run(session, request, authorizationHeader, trace));
         session.worker(worker);
         return emitter;
     }
 
-    private void run(StreamSession session, AssistantPlanRequest request, String authorizationHeader) {
+    private void run(StreamSession session, AssistantPlanRequest request, String authorizationHeader, RecognitionTrace trace) {
         var executor = Executors.newVirtualThreadPerTaskExecutor();
         try {
             send(session, AssistantStreamEvent.status("安安正在理解你的意思..."));
-            Future<IntentRecognitionResponse> future = executor.submit(() ->
-                    conversationService.plan(request, authorizationHeader)
-            );
+            Future<IntentRecognitionResponse> future = executor.submit(() -> RecognitionTrace.call(trace,
+                    () -> conversationService.plan(request, authorizationHeader)));
             session.plan(future);
             IntentRecognitionResponse response = waitForPlan(session, future);
-            response = shadowExecutionRegistrar.registerIfEligible(response, authorizationHeader);
-            response = PublicAssistantResponseSanitizer.sanitize(response);
+            IntentRecognitionResponse planned = response;
+            response = RecognitionTrace.call(trace, () -> {
+                long started = RecognitionTrace.tick();
+                IntentRecognitionResponse result = PublicAssistantResponseSanitizer.sanitize(
+                        shadowExecutionRegistrar.registerIfEligible(planned, authorizationHeader));
+                RecognitionTrace.decision(RecognitionTrace.Stage.FINAL, RecognitionTrace.Outcome.OBSERVED, started, result);
+                return result;
+            });
             send(session, AssistantStreamEvent.status(statusText(response)));
             sleep(TEXT_CHUNK_DELAY_MILLIS);
             for (AssistantStreamEvent event : textChunks(response.assistantText())) {
@@ -115,19 +134,29 @@ public class AssistantPlanStreamService {
             }
             send(session, AssistantStreamEvent.finalResponse(response));
             send(session, AssistantStreamEvent.done());
+            finishTrace(trace, RecognitionTrace.Outcome.SUCCESS);
             session.complete();
         } catch (TimeoutException error) {
+            finishTrace(trace, RecognitionTrace.Outcome.TIMED_OUT);
             session.cancelPlan();
             sendIfOpen(session, AssistantStreamEvent.error(PLAN_TIMEOUT_MESSAGE));
             sendIfOpen(session, AssistantStreamEvent.done());
             session.complete();
         } catch (CancellationException ignored) {
+            finishTrace(trace, RecognitionTrace.Outcome.CANCELLED);
             session.close();
         } catch (Exception error) {
+            finishTrace(trace, RecognitionTrace.Outcome.FAILED);
             session.cancelPlan();
             session.completeWithError(error);
         } finally {
             executor.shutdownNow();
+        }
+    }
+
+    private static void finishTrace(RecognitionTrace trace, RecognitionTrace.Outcome outcome) {
+        if (trace != null) {
+            trace.finish(outcome);
         }
     }
 

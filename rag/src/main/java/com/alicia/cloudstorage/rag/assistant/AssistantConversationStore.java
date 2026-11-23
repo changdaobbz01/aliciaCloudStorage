@@ -39,6 +39,7 @@ public class AssistantConversationStore {
     }
 
     public AssistantConversationState resolve(String requestedConversationId, String authorizationHeader) {
+        long started = RecognitionTrace.tick();
         Instant now = Instant.now();
         purgeExpired(now);
         String fingerprint = authorizationFingerprint(authorizationHeader);
@@ -48,11 +49,14 @@ public class AssistantConversationStore {
             if (existing != null
                     && !existing.isExpired(now)
                     && existing.authorizationFingerprint().equals(fingerprint)) {
+                RecognitionTrace.session(RecognitionTrace.Outcome.RESTORED, started, existing);
                 return existing;
             }
         }
 
-        return newConversation(now, fingerprint);
+        AssistantConversationState created = newConversation(now, fingerprint);
+        RecognitionTrace.session(RecognitionTrace.Outcome.CREATED, started, created);
+        return created;
     }
 
     public AssistantConversationState save(
