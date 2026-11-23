@@ -243,7 +243,7 @@ class AssistantControllerTest {
         IntentRecognitionResponse response = responseWithNextAction("安安身份介绍", "respond_only");
         when(authorizer.requireRagAccess("Bearer token"))
                 .thenReturn(new RagAccessPrincipal(6L, "rag", "RAG_USER"));
-        when(service.plan(eq(sanitized), eq("Bearer token"))).thenReturn(response);
+        when(service.plan(eq(sanitized), eq("Bearer token"), eq(6L))).thenReturn(response);
         AssistantController controller = new AssistantController(
                 service,
                 new RagConfigLoader(new ObjectMapper()),
@@ -256,7 +256,7 @@ class AssistantControllerTest {
 
         assertThat(actual).isSameAs(response);
         verify(authorizer).requireRagAccess("Bearer token");
-        verify(service).plan(eq(sanitized), eq("Bearer token"));
+        verify(service).plan(eq(sanitized), eq("Bearer token"), eq(6L));
     }
 
     @Test
@@ -395,6 +395,24 @@ class AssistantControllerTest {
         RecognitionTrace.Snapshot snapshot = recorder.find(trace.id()).orElseThrow();
         assertThat(snapshot.outcome()).isEqualTo(RecognitionTrace.Outcome.TIMED_OUT);
         assertThat(snapshot.steps()).extracting(RecognitionTrace.Step::stage).containsExactly(RecognitionTrace.Stage.ROUTING);
+    }
+
+    @Test
+    void streamReportsTurnConflictWithoutRegisteringAnExecution() throws Exception {
+        var service = mock(AssistantConversationService.class);
+        var registrar = mock(ShadowExecutionRegistrar.class);
+        var request = new AssistantPlanRequest("继续", "");
+        when(service.plan(request, "Bearer token")).thenThrow(
+                new AssistantConversationStore.ConversationContinuityException(
+                        HttpStatus.CONFLICT, "conversation_turn_conflict", "对话有新变化，请重新发送这一条。"));
+        var streamService = new AssistantPlanStreamService(service, 25L, 5_000L, 1_000L, registrar);
+        var emitter = new CapturingSseEmitter();
+
+        streamService.stream(request, "Bearer token", emitter);
+
+        assertThat(emitter.awaitCompletion()).isTrue();
+        assertThat(emitter.payload()).contains("对话有新变化", "done").doesNotContain("final");
+        verifyNoInteractions(registrar);
     }
 
     @Test

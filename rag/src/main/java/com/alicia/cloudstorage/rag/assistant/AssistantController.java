@@ -213,11 +213,12 @@ public class AssistantController {
         AssistantPlanRequest normalized = new AssistantPlanRequest(
                 message.trim(), request.conversationId(), request.clientContext(), request.clientEvent());
         RecognitionTrace trace = beginTrace(RecognitionTrace.Route.PLAN, httpResponse, principal);
+        Long owner = conversationOwner(principal);
         if (trace == null) {
-            return planAndRegister(normalized, authorizationHeader);
+            return planAndRegister(normalized, authorizationHeader, owner);
         }
         try {
-            IntentRecognitionResponse result = RecognitionTrace.call(trace, () -> planAndRegister(normalized, authorizationHeader));
+            IntentRecognitionResponse result = RecognitionTrace.call(trace, () -> planAndRegister(normalized, authorizationHeader, owner));
             trace.finish(RecognitionTrace.Outcome.SUCCESS);
             return result;
         } catch (RuntimeException failure) {
@@ -230,9 +231,11 @@ public class AssistantController {
         return plan(request, authorizationHeader, null);
     }
 
-    private IntentRecognitionResponse planAndRegister(AssistantPlanRequest request, String authorizationHeader) {
+    private IntentRecognitionResponse planAndRegister(AssistantPlanRequest request, String authorizationHeader, Long owner) {
         long started = RecognitionTrace.tick();
-        IntentRecognitionResponse response = assistantConversationService.plan(request, authorizationHeader);
+        IntentRecognitionResponse response = owner == null
+                ? assistantConversationService.plan(request, authorizationHeader)
+                : assistantConversationService.plan(request, authorizationHeader, owner);
         response = PublicAssistantResponseSanitizer.sanitize(
                 shadowExecutionRegistrar.registerIfEligible(response, authorizationHeader));
         RecognitionTrace.decision(RecognitionTrace.Stage.FINAL, RecognitionTrace.Outcome.OBSERVED, started, response);
@@ -260,7 +263,7 @@ public class AssistantController {
         );
 
         return streamService.stream(sanitizedRequest, authorizationHeader,
-                beginTrace(RecognitionTrace.Route.STREAM, httpResponse, principal));
+                beginTrace(RecognitionTrace.Route.STREAM, httpResponse, principal), conversationOwner(principal));
     }
 
     @PostMapping("/api/intent/recognize")
@@ -282,6 +285,11 @@ public class AssistantController {
             }
         }
         return trace;
+    }
+
+    private static Long conversationOwner(RagAccessPrincipal principal) {
+        Long userId = principal == null ? null : principal.userId();
+        return userId != null && userId > 0 ? userId : null;
     }
 
 }

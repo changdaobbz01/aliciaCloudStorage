@@ -71,6 +71,10 @@ public class AssistantConversationService {
     }
 
     public IntentRecognitionResponse plan(AssistantPlanRequest request, String authorizationHeader) {
+        return plan(request, authorizationHeader, null);
+    }
+
+    IntentRecognitionResponse plan(AssistantPlanRequest request, String authorizationHeader, Long owner) {
         String message = request == null || request.message() == null ? "" : request.message().trim();
         AssistantClientContext clientContext = request == null
                 ? AssistantClientContext.empty()
@@ -78,7 +82,7 @@ public class AssistantConversationService {
         AssistantClientEvent clientEvent = request == null ? AssistantClientEvent.none() : request.clientEvent();
         long stageStarted = RecognitionTrace.tick();
         if (clientEvent.isExecutionTerminal()) {
-            conversationStore.complete(request == null ? "" : request.conversationId(), authorizationHeader);
+            conversationStore.complete(request == null ? "" : request.conversationId(), authorizationHeader, owner);
             scopedCollectionPlanningService.complete(clientEvent.planId(), authorizationHeader);
             String acknowledgement = switch (clientEvent.type()) {
                 case "ACTION_COMPLETED" -> "操作结果已同步，我会按最新文件状态继续为你处理。";
@@ -93,9 +97,10 @@ public class AssistantConversationService {
             return response.withConversation(newConversation.snapshot("completed"));
         }
         boolean reset = isResetMessage(message);
+        String requestedConversation = request == null ? "" : request.conversationId();
         AssistantConversationState conversation = reset
-                ? conversationStore.restart(authorizationHeader)
-                : conversationStore.resolve(request == null ? "" : request.conversationId(), authorizationHeader);
+                ? conversationStore.reset(requestedConversation, authorizationHeader, owner)
+                : conversationStore.resolve(requestedConversation, authorizationHeader, owner);
         if (reset) {
             RecognitionTrace.session(Outcome.RESET, stageStarted, conversation);
         }
@@ -163,7 +168,7 @@ public class AssistantConversationService {
                             clientContext
                     ).withAssistantText("这个选择不属于当前计划，请根据当前候选列表重新选择。");
                     selectedResponse = selectedResponse.withInteraction(interactionService.build(selectedResponse));
-                    AssistantConversationState savedConversation = conversationStore.save(conversation, selectedResponse);
+                    AssistantConversationState savedConversation = conversationStore.save(conversation, selectedResponse, message, owner);
                     return selectedResponse.withConversation(savedConversation.snapshot(statusFor(selectedResponse)));
                 }
                 selectedResponse = scopedCollectionPlanningService.applySelection(
@@ -179,7 +184,7 @@ public class AssistantConversationService {
                 );
                 selectedResponse = intentRecognitionService.polishGeneratedReply(message, selectedResponse);
                 selectedResponse = selectedResponse.withInteraction(interactionService.build(selectedResponse));
-                AssistantConversationState savedConversation = conversationStore.save(conversation, selectedResponse);
+                AssistantConversationState savedConversation = conversationStore.save(conversation, selectedResponse, message, owner);
                 return selectedResponse.withConversation(savedConversation.snapshot(statusFor(selectedResponse)));
             }
             CandidateItem selectedCandidate = selectedBinding == null ? null : selectedBinding.selectedCandidate();
@@ -196,7 +201,7 @@ public class AssistantConversationService {
             selectedResponse = applyActionPlan(selectedResponse, clientContext);
             selectedResponse = applyCollectionPreview(selectedResponse, authorizationHeader);
             selectedResponse = selectedResponse.withInteraction(interactionService.build(selectedResponse));
-            AssistantConversationState savedConversation = conversationStore.save(conversation, selectedResponse);
+            AssistantConversationState savedConversation = conversationStore.save(conversation, selectedResponse, message, owner);
             return selectedResponse.withConversation(savedConversation.snapshot(statusFor(selectedResponse)));
         }
 
@@ -221,7 +226,7 @@ public class AssistantConversationService {
             if (contextResolution == null || !contextResolution.shouldRewrite()) {
                 IntentRecognitionResponse answeredResponse = contextAttempt.response();
                 answeredResponse = answeredResponse.withInteraction(interactionService.build(answeredResponse));
-                AssistantConversationState savedConversation = conversationStore.save(conversation, answeredResponse);
+                AssistantConversationState savedConversation = conversationStore.save(conversation, answeredResponse, message, owner);
                 return answeredResponse.withConversation(savedConversation.snapshot(statusFor(answeredResponse)));
             }
             baseResponse = contextAttempt.response();
@@ -277,7 +282,7 @@ public class AssistantConversationService {
             }
             response = intentRecognitionService.polishGeneratedReply(message, response);
             response = response.withInteraction(interactionService.build(response));
-            AssistantConversationState savedConversation = conversationStore.save(conversation, response);
+            AssistantConversationState savedConversation = conversationStore.save(conversation, response, message, owner);
             return response.withConversation(savedConversation.snapshot(statusFor(response)));
         }
 
@@ -348,7 +353,7 @@ public class AssistantConversationService {
             response = intentRecognitionService.polishGeneratedReply(message, response);
         }
         response = response.withInteraction(interactionService.build(response));
-        AssistantConversationState savedConversation = conversationStore.save(conversation, response);
+        AssistantConversationState savedConversation = conversationStore.save(conversation, response, message, owner);
         return response.withConversation(savedConversation.snapshot(statusFor(response)));
     }
 

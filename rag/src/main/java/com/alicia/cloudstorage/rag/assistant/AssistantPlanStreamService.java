@@ -8,6 +8,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
 import java.util.concurrent.CancellationException;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
@@ -80,8 +81,8 @@ public class AssistantPlanStreamService {
         return stream(request, authorizationHeader, new SseEmitter(streamTimeoutMillis));
     }
 
-    SseEmitter stream(AssistantPlanRequest request, String authorizationHeader, RecognitionTrace trace) {
-        return stream(request, authorizationHeader, new SseEmitter(streamTimeoutMillis), trace);
+    SseEmitter stream(AssistantPlanRequest request, String authorizationHeader, RecognitionTrace trace, Long owner) {
+        return stream(request, authorizationHeader, new SseEmitter(streamTimeoutMillis), trace, owner);
     }
 
     SseEmitter stream(
@@ -93,6 +94,12 @@ public class AssistantPlanStreamService {
     }
 
     SseEmitter stream(AssistantPlanRequest request, String authorizationHeader, SseEmitter emitter, RecognitionTrace trace) {
+        return stream(request, authorizationHeader, emitter, trace, null);
+    }
+
+    private SseEmitter stream(
+            AssistantPlanRequest request, String authorizationHeader, SseEmitter emitter, RecognitionTrace trace, Long owner
+    ) {
         StreamSession session = new StreamSession(emitter);
         emitter.onCompletion(session::close);
         emitter.onTimeout(() -> {
@@ -105,17 +112,18 @@ public class AssistantPlanStreamService {
         });
         Thread worker = Thread.ofVirtual()
                 .name("assistant-plan-stream")
-                .start(() -> run(session, request, authorizationHeader, trace));
+                .start(() -> run(session, request, authorizationHeader, trace, owner));
         session.worker(worker);
         return emitter;
     }
 
-    private void run(StreamSession session, AssistantPlanRequest request, String authorizationHeader, RecognitionTrace trace) {
+    private void run(StreamSession session, AssistantPlanRequest request, String authorizationHeader, RecognitionTrace trace, Long owner) {
         var executor = Executors.newVirtualThreadPerTaskExecutor();
         try {
             send(session, AssistantStreamEvent.status("安安正在理解你的意思..."));
             Future<IntentRecognitionResponse> future = executor.submit(() -> RecognitionTrace.call(trace,
-                    () -> conversationService.plan(request, authorizationHeader)));
+                    () -> owner == null ? conversationService.plan(request, authorizationHeader)
+                            : conversationService.plan(request, authorizationHeader, owner)));
             session.plan(future);
             IntentRecognitionResponse response = waitForPlan(session, future);
             IntentRecognitionResponse planned = response;
@@ -145,6 +153,16 @@ public class AssistantPlanStreamService {
         } catch (CancellationException ignored) {
             finishTrace(trace, RecognitionTrace.Outcome.CANCELLED);
             session.close();
+        } catch (ExecutionException error) {
+            finishTrace(trace, RecognitionTrace.Outcome.FAILED);
+            session.cancelPlan();
+            if (error.getCause() instanceof AssistantConversationStore.ConversationContinuityException continuity) {
+                sendIfOpen(session, AssistantStreamEvent.error(continuity.clientMessage()));
+                sendIfOpen(session, AssistantStreamEvent.done());
+                session.complete();
+            } else {
+                session.completeWithError(error);
+            }
         } catch (Exception error) {
             finishTrace(trace, RecognitionTrace.Outcome.FAILED);
             session.cancelPlan();

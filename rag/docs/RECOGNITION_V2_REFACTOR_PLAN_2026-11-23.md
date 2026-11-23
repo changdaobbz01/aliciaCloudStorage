@@ -178,7 +178,7 @@ development 或 holdout。
 | T0 | 已完成 | 冻结现状、指标、隐私和错误分类 | 基线脚本、文档和只读验证全部通过 |
 | T1 | 本地验收通过 | 识别链路可观测性 | 可区分会话、模型、仲裁、门禁、绑定、计划和登记结果，隐私测试通过 |
 | T2 | 本地验收通过 | 授权反馈与失败样本闭环 | 分类只含追踪 ID 和类别，样本需预览及授权 |
-| T3 | 未开始 | Redis 持久会话 | 重启、token 更新和多实例不丢上下文 |
+| T3 | 本地验收通过 | Redis 持久会话 | 重启、token 更新和多实例不丢上下文 |
 | T4 | 未开始 | 混合语义检索 | 新盲测召回优于旧检索，unsafe 仍为 0 |
 | T5 | 未开始 | 统一 AI 编排器 | 唯一 SemanticFrame 决策链，Guard 只验证或阻断 |
 | T6 | 未开始 | 独立盲测和故障评测 | 未见表达改善，安全与降级门禁通过 |
@@ -266,3 +266,48 @@ ALICIA_RAG_RECOGNITION_FEEDBACK_CANDIDATE_DIRECTORY=<专用候选目录>
 通过真实 HTTP 请求完成 SSE 回复、分类反馈、脱敏预览和授权提交，临时 Identity 会话已注销。
 RAG 与 RAG Execution 共 458 项测试通过，Android 160 项单测和 Debug 构建通过。
 冻结基线和执行契约的静态校验通过。测试使用合成样本，生产启用待独立发布验收。
+
+## 11. T3 会话持久化
+
+| 模式 | 读取来源 | 写入与验证 |
+| --- | --- | --- |
+| `MEMORY` | 本机内存 | 延续现有默认路径 |
+| `SHADOW` | 本机内存 | 镜像写 Redis，后续读取时比对两份会话并记录脱敏追踪结果 |
+| `REDIS` | Redis | 以会话轮次作乐观版本，原子写入新状态并刷新 TTL |
+
+Redis 的路由键由 Identity 已鉴权的账号标识和随机会话 ID 经 HMAC 生成。会话与 access token
+轮换解耦。存储值使用 AES-256-GCM 加密并带格式版本，密文绑定路由键。Redis 键和值里均无明文
+账号标识和 access token。会话状态保留意图、槽位、候选、任务焦点和待确认计划，并保存最多 8 轮
+用户输入及可见回复，单段最多 512 个字符。模型继续使用结构化上下文，近期原始对话暂存于加密会话用于后续编排。
+
+失联或存储格式无法读取时，从空白会话处理本次请求。若已恢复旧上下文但随后无法提交新版本，接口返回
+可重试错误，计划在登记前停止。并发冲突返回 409，SSE 给出重发提示。Redis 中的重置和执行结束事件
+会移除旧会话版本，使尚在处理的旧请求无法复活它。集合操作仍依赖现有候选快照校验，授权与任务状态继续
+由 Identity 和 RAG Execution 分别管理。
+
+```text
+ALICIA_RAG_CONVERSATION_PERSISTENCE_MODE=MEMORY
+ALICIA_RAG_CONVERSATION_REDIS_URL=<专用 Redis 的私网连接地址>
+ALICIA_RAG_CONVERSATION_REDIS_KEY=<随机 32 字节的 Base64，保存在服务秘密配置>
+ALICIA_RAG_CONVERSATION_REDIS_TIMEOUT_MS=600
+ALICIA_RAG_CONVERSATION_TTL_MINUTES=30
+```
+
+Redis 模式有效 TTL 为 1 至 120 分钟，每次成功保存后续期。需要跨 Redis 重启保留会话时，应在 Redis
+侧使用持久化卷和 AOF。多个 RAG 实例使用相同的私有 Redis 和会话密钥。密钥更换会开启新一批会话，
+旧记录随后按 TTL 到期。生产安排为先 `SHADOW`、检查存储匹配和中断记录，再切换 `REDIS`。
+发生影子写异常时，切换前应处理可能残留的会话。可回退到 `MEMORY`，回退后会话从新上下文开始。
+
+真实 Redis 集成测试仅接受本机回环地址。启动专用、可丢弃的测试 Redis 后运行如下命令。
+
+```powershell
+$env:ALICIA_TEST_RAG_REDIS_URL = 'redis://127.0.0.1:16379'
+.\mvnw.cmd -o -pl rag,ragExecution -am test
+```
+
+本地验收使用 Redis 7.4。RAG 406 项测试、RAG Execution 59 项测试全部通过，覆盖跨实例接续、
+账号隔离、过期、影子比对及切换、断连降级、并发覆盖和旧会话失效。真实 HTTP 请求在 RAG 容器重启
+及 Identity 令牌轮换后沿用原会话 ID，轮次从 1 递增到 2，并正确修正搜索词。临时 Identity 会话已注销。
+
+Redis 主读模式下，离线开发集意图及精确契约均为 516/516，语义操作为 284/284，危险可执行输出为 0。
+执行契约场景 87/87 均匹配冻结基线，实际执行次数为 0。冻结数据和静态检查通过，线上 Redis 启用仍待独立验收。
