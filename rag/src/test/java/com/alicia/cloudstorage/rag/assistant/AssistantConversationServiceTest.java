@@ -1,13 +1,21 @@
 package com.alicia.cloudstorage.rag.assistant;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
+import java.net.InetSocketAddress;
 import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -119,6 +127,78 @@ class AssistantConversationServiceTest {
         assertThat(new ObjectMapper().writeValueAsString(snapshot))
                 .doesNotContain(request.message(), first.conversation().conversationId(), "private-token");
     }
+
+    @ParameterizedTest
+    @EnumSource(ModelFailure.class)
+    void remoteModelFailuresFallBackToAReadOnlyPlan(ModelFailure failure) throws Exception {
+        ObjectMapper json = new ObjectMapper();
+        AtomicInteger calls = new AtomicInteger();
+        CountDownLatch releaseResponse = new CountDownLatch(1);
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/chat/completions", exchange -> {
+            try (exchange) {
+                calls.incrementAndGet();
+                exchange.getRequestBody().readAllBytes();
+                if (failure == ModelFailure.HTTP_ERROR) {
+                    exchange.sendResponseHeaders(503, -1);
+                    return;
+                }
+                byte[] incompleteJson = {'['};
+                exchange.sendResponseHeaders(200, incompleteJson.length);
+                if (failure == ModelFailure.TIMED_OUT) {
+                    try {
+                        releaseResponse.await(5, TimeUnit.SECONDS);
+                    } catch (InterruptedException interrupted) {
+                        Thread.currentThread().interrupt();
+                    }
+                }
+                exchange.getResponseBody().write(incompleteJson);
+            }
+        });
+        server.start();
+        try {
+            RagConfigLoader faultConfig = new RagConfigLoader(json) {
+                @Override
+                public JsonNode loadJson(String path) {
+                    JsonNode config = super.loadJson(path);
+                    if ("rag/llm/deepseek.json".equals(path) && config instanceof ObjectNode object) {
+                        object.put("base_url", "http://127.0.0.1:" + server.getAddress().getPort());
+                        object.put("timeout_seconds", 1);
+                    }
+                    return config;
+                }
+            };
+            var examples = new PromptSemanticExampleRetriever(new CorpusSemanticExampleRetriever(faultConfig), json,
+                    PromptSemanticExampleRetriever.Mode.HYBRID, "", "test-local-model", 350);
+            var model = new DeepSeekIntentClient(faultConfig, json, examples, "test-local-api-key");
+            var recognition = new IntentRecognitionService(model, intentRouter, faultConfig);
+            var service = conversationServiceWith(
+                    request -> CandidateBindingResult.skipped("test_skipped", ""),
+                    request -> CollectionPreviewResult.skipped("not_requested", ""), recognition);
+            var recorder = new RecognitionTraceRecorder(true, faultConfig);
+            var trace = recorder.start(RecognitionTrace.Route.PLAN);
+            var response = RecognitionTrace.call(trace, () -> service.plan(
+                    new AssistantPlanRequest("搜索文件名里带合同的文件", ""), "Bearer test"));
+            trace.finish(RecognitionTrace.Outcome.SUCCESS);
+
+            assertThat(calls).hasValue(1);
+            assertThat(response.provider()).isEqualTo("local_fallback");
+            assertThat(response.intentId()).isEqualTo("file_search");
+            assertThat(response.semanticFrame().operation()).isEqualTo("SEARCH");
+            assertThat(response.actionDraft().type()).isEqualTo("search");
+            assertThat(response.backendActionDraft().executableByBackend()).isFalse();
+            assertThat(response.executionReference()).isNull();
+            assertThat(recorder.find(trace.id()).orElseThrow().steps()).anySatisfy(step -> {
+                assertThat(step.stage()).isEqualTo(RecognitionTrace.Stage.MODEL_CALL);
+                assertThat(step.outcome()).isEqualTo(RecognitionTrace.Outcome.valueOf(failure.name()));
+            });
+        } finally {
+            releaseResponse.countDown();
+            server.stop(0);
+        }
+    }
+
+    enum ModelFailure { HTTP_ERROR, INVALID_JSON, TIMED_OUT }
 
     @Test
     void naturalDirectoryContentQuestionUsesDeterministicListChildrenSemantics() {
