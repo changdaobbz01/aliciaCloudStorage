@@ -74,6 +74,10 @@ public class CorpusSemanticExampleRetriever implements SemanticExampleRetriever 
         return boundaries.size();
     }
 
+    List<SemanticExample> catalog() {
+        return examples.stream().map(example -> example.toResult(0)).toList();
+    }
+
     private double similarity(
             String query,
             Set<String> queryGrams,

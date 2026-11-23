@@ -27,7 +27,7 @@ public class DeepSeekIntentClient implements IntentModelClient {
 
     private final RagConfigLoader configLoader;
     private final ObjectMapper objectMapper;
-    private final SemanticExampleRetriever exampleRetriever;
+    private final PromptSemanticExampleRetriever exampleRetriever;
     private final AssistantResponsePolicy responsePolicy;
     private final HttpClient httpClient;
     private final String apiKey;
@@ -35,7 +35,7 @@ public class DeepSeekIntentClient implements IntentModelClient {
     public DeepSeekIntentClient(
             RagConfigLoader configLoader,
             ObjectMapper objectMapper,
-            SemanticExampleRetriever exampleRetriever,
+            PromptSemanticExampleRetriever exampleRetriever,
             @Value("${alicia.rag.deepseek.api-key:}") String apiKey
     ) {
         this.configLoader = configLoader;
