@@ -59,6 +59,21 @@ final class OperationArgumentResolver {
     private static final Pattern MOVE_LEADING_SPLIT = Pattern.compile(
             "^(?:移动|搬|挪)(?:一下)?(.+?)(?:到|至|进)(.+)$"
     );
+    private static final Pattern MOVE_COMMAND_PREFIX = Pattern.compile(
+            "^(?:(?:请|麻烦|帮我)\\s*)*(?:那\\s*)?(?:先\\s*)?(?:(?:只|仅)\\s*(?:把\\s*)?)?"
+    );
+    private static final Pattern QUOTED_ARGUMENT = Pattern.compile(
+            "“[^”]+”|\"[^\"]+\"|(?<![A-Za-z0-9_])'[^']+'(?![A-Za-z0-9_])|‘[^’]+’|《[^》]+》|「[^」]+」|『[^』]+』"
+    );
+    private static final Pattern MOVE_DESTINATION_REPLY = Pattern.compile(
+            "(?:(?:目的地|目标(?:目录|文件夹)?)(?:改成|改为|换成|是|为)|"
+                    + "^(?:移动到|移到|挪到|搬到|放到|放进|到|至|进))\\s*(.+)$"
+    );
+    private static final Pattern DESTINATION_CHOICE = Pattern.compile(
+            "[^，,。；;!?！？]+?(?:[，,]?\\s*)(?:或者|还是|或是|或(?![者是])|(?<![a-z0-9_])or(?![a-z0-9_]))"
+                    + "\\s*[^，,。；;!?！？\\s]",
+            Pattern.CASE_INSENSITIVE
+    );
     private static final Pattern RENAME_SPLIT = Pattern.compile(
             "^(.*?)(?:重命名为|重命名成|改名为|改名成|改成|改为)(.+)$"
     );
@@ -92,6 +107,26 @@ final class OperationArgumentResolver {
         };
     }
 
+    boolean hasConflictingMoveDestinations(String message, boolean moveContext, boolean awaitingDestination) {
+        // Keep quoted names visible as arguments without interpreting their contents as command syntax.
+        String structural = QUOTED_ARGUMENT.matcher(normalizePreservingSpaces(message)).replaceAll("“名称”");
+        String command = MOVE_COMMAND_PREFIX.matcher(structural).replaceFirst("");
+        Optional<Matcher> move = moveArguments(command, structural);
+        if (move.isPresent() && hasDestinationChoice(move.get().group(2))) {
+            return true;
+        }
+        if (!moveContext) {
+            return false;
+        }
+        Matcher reply = MOVE_DESTINATION_REPLY.matcher(structural);
+        return reply.find() ? hasDestinationChoice(reply.group(1))
+                : awaitingDestination && hasDestinationChoice(structural);
+    }
+
+    private boolean hasDestinationChoice(String destination) {
+        return DESTINATION_CHOICE.matcher(destination.strip()).lookingAt();
+    }
+
     private Optional<Resolution> parseSingleSource(
             String text,
             String operation,
@@ -106,28 +141,11 @@ final class OperationArgumentResolver {
     }
 
     private Optional<Resolution> parseMove(String text, String spacedText) {
-        Matcher english = ENGLISH_MOVE_SPLIT.matcher(spacedText);
-        if (english.matches()) {
-            String sourceSurface = stripObjectPrefix(english.group(1));
-            String destinationSurface = cleanDestination(english.group(2));
-            if (sourceSurface.isBlank() || destinationSurface.isBlank()) {
-                return Optional.empty();
-            }
-            return Optional.of(resolution(
-                    "MOVE",
-                    parseNodeSelector(sourceSurface),
-                    destination(destinationSurface),
-                    "",
-                    false
-            ));
+        var arguments = moveArguments(stripCourtesy(text), spacedText);
+        if (arguments.isEmpty()) {
+            return Optional.empty();
         }
-        Matcher matcher = MOVE_SPLIT.matcher(stripCourtesy(text));
-        if (!matcher.matches()) {
-            matcher = MOVE_LEADING_SPLIT.matcher(stripCourtesy(text));
-            if (!matcher.matches()) {
-                return Optional.empty();
-            }
-        }
+        Matcher matcher = arguments.get();
         String sourceSurface = stripObjectPrefix(matcher.group(1));
         String destinationSurface = cleanDestination(matcher.group(2));
         if (sourceSurface.isBlank() || destinationSurface.isBlank()) {
@@ -140,6 +158,19 @@ final class OperationArgumentResolver {
                 "",
                 false
         ));
+    }
+
+    private Optional<Matcher> moveArguments(String command, String spacedText) {
+        Matcher english = ENGLISH_MOVE_SPLIT.matcher(spacedText);
+        if (english.matches()) {
+            return Optional.of(english);
+        }
+        Matcher matcher = MOVE_SPLIT.matcher(command);
+        if (matcher.matches()) {
+            return Optional.of(matcher);
+        }
+        Matcher leading = MOVE_LEADING_SPLIT.matcher(command);
+        return leading.matches() ? Optional.of(leading) : Optional.empty();
     }
 
     private Optional<Resolution> parseRename(String text) {

@@ -8,6 +8,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.net.InetSocketAddress;
 import java.util.List;
@@ -1259,6 +1260,62 @@ class AssistantConversationServiceTest {
         assertThat(secondTurn.semanticFrame().query().nameSurface()).isEqualTo("测试目录");
         assertThat(secondTurn.semanticFrame().query().resultType()).isEqualTo("FOLDER");
         assertThat(secondTurn.entities()).containsEntry("target_name", "测试目录");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "请把巡检表.csv移到「复核」或者「已验收」，我还在选",
+            "把周报.docx移到草稿目录还是归档目录？",
+            "把签到表.csv移到甲组或乙组",
+            "move inventory.csv to \"Incoming\" or \"Reviewed\"",
+            "move vendor's.csv to Intake or Auditor's",
+            "把配料表.xlsx搬到『原材料』或『已核对』"
+    })
+    void ambiguousMoveNeverCallsModelOrStartsBinding(String message) {
+        var recognition = new IntentRecognitionService(input -> {
+            throw new AssertionError("Should clarify before calling the model");
+        }, intentRouter, configLoader);
+        var service = conversationServiceWith(
+                request -> { throw new AssertionError("Should clarify before binding candidates"); },
+                request -> { throw new AssertionError("Should clarify before previewing a plan"); },
+                recognition
+        );
+
+        var response = service.plan(new AssistantPlanRequest(message, ""));
+
+        assertThat(response.intentId()).isEqualTo("node_move");
+        assertThat(response.semanticFrame().operation()).isEqualTo("MOVE");
+        assertThat(response.semanticFrame().clarification().reason()).isEqualTo("conflicting_move_destinations");
+        assertThat(response.nextAction()).isEqualTo("ask_clarification");
+        assertThat(response.actionDraft().type()).isEqualTo("none");
+        assertThat(response.candidateBinding().status()).isEqualTo("waiting_for_clarification");
+        assertThat(response.actionPlan().steps()).isEmpty();
+        assertThat(response.executionReference()).isNull();
+        assertThat(response.conversation().hasPendingAction()).isFalse();
+    }
+
+    @Test
+    void conflictingMoveCorrectionDiscardsTheOldDraftBeforeConfirmation() {
+        var first = conversationService.plan(new AssistantPlanRequest("把年检表.xlsx移到待验收目录", ""));
+        assertThat(first.actionDraft().type()).isNotEqualTo("none");
+
+        String conversationId = first.conversation().conversationId();
+        var ambiguous = conversationService.plan(new AssistantPlanRequest(
+                "目的地改成「合同扫描」还是「原件校验」？", conversationId));
+        assertThat(ambiguous.semanticFrame().clarification().reason()).isEqualTo("conflicting_move_destinations");
+        assertThat(ambiguous.actionDraft().type()).isEqualTo("none");
+        assertThat(ambiguous.conversation().hasPendingAction()).isFalse();
+        assertThat(ambiguous.conversation().pendingSlots()).isEmpty();
+
+        var confirmed = conversationService.plan(new AssistantPlanRequest("确认", conversationId));
+        assertThat(confirmed.actionDraft().type()).isEqualTo("none");
+        assertThat(confirmed.actionPlan().steps()).isEmpty();
+        assertThat(confirmed.backendActionDraft().executableByBackend()).isFalse();
+        assertThat(confirmed.executionReference()).isNull();
+
+        var explicit = conversationService.plan(new AssistantPlanRequest("把年检表.xlsx移到原件校验目录", conversationId));
+        assertThat(explicit.actionDraft().type()).isNotEqualTo("none");
+        assertThat(explicit.entities()).containsEntry("target_folder", "原件校验目录");
     }
 
     @Test

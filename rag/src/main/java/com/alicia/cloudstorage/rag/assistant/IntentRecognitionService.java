@@ -226,6 +226,14 @@ public class IntentRecognitionService {
             RecognitionTrace.decision(Stage.NON_EXECUTABLE_GUARD, Outcome.BLOCKED, stageStarted, response);
             return response;
         }
+        boolean moveContext = conversation != null && "MOVE".equals(conversation.semanticFrame().operation());
+        if (operationArgumentResolver.hasConflictingMoveDestinations(
+                message, moveContext, moveContext && conversation.pendingSlots().contains("target_folder")
+        )) {
+            IntentRecognitionResponse response = conflictingMoveDestinationsResponse(message);
+            RecognitionTrace.decision(Stage.NON_EXECUTABLE_GUARD, Outcome.BLOCKED, stageStarted, response);
+            return response;
+        }
         RecognitionTrace.mark(Stage.NON_EXECUTABLE_GUARD,
                 requiresLocalSemanticResolution ? Outcome.LOCAL : Outcome.NO_MATCH, stageStarted);
         if (deterministicReason != null && !requiresLocalSemanticResolution && operationFollowUpDecision.isEmpty()) {
@@ -491,6 +499,21 @@ public class IntentRecognitionService {
                 response.withSemanticFrame(frame, safeEntities, new ActionDraft("none", Map.of(), false))
                         .withAssistantText(assistantText)
         );
+    }
+
+    private IntentRecognitionResponse conflictingMoveDestinationsResponse(String message) {
+        String reason = "non_executable_guard:conflicting_move_destinations";
+        String question = "这次移动有多个备选目的地。请选定一个文件夹，并重新说明要移动的对象和目的地。";
+        var response = rebuildForConversation(fromFallback(message, reason), "node_move", Map.of(), reason);
+        SemanticFrame frame = new SemanticFrame(
+                SemanticFrame.VERSION, "NEW_TASK", "MOVE", SemanticFrame.Query.empty(), SemanticFrame.Scope.empty(),
+                SemanticFrame.Reference.empty(), 1.0, List.of(),
+                new SemanticFrame.Clarification("conflicting_move_destinations", question, List.of())
+        );
+        return enforceResponsePolicy(message, response.withPlanningOverride(
+                response.intentId(), response.intentName(), response.taskType(), Map.of(), "ask_clarification",
+                response.safety(), new ActionDraft("none", Map.of(), false), question, reason, frame
+        ).withSemanticClarification(frame));
     }
 
     private IntentRecognitionResponse responseOnlyResponse(

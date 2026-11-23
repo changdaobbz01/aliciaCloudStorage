@@ -1,10 +1,30 @@
 package com.alicia.cloudstorage.rag.assistant;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class OperationArgumentResolverTest {
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "把交接表.xlsx移到「入库或者交接」",
+            "把《移到备份或者复核.txt》移动到档案目录",
+            "move audit.csv to \"Red or Blue\"",
+            "把合同.pdf移到核对目录，备注写归档或者留存",
+            "目的地不是暂存，是复核目录"
+    })
+    void moveDestinationGuardIgnoresLiteralNamesAndUnrelatedClauses(String message) {
+        assertThat(new OperationArgumentResolver().hasConflictingMoveDestinations(message, true, false)).isFalse();
+    }
+
+    @Test
+    void moveDestinationSlotDoesNotAcceptTwoOptions() {
+        assertThat(new OperationArgumentResolver().hasConflictingMoveDestinations(
+                "「本周清点」和「已入库」里我选「本周清点」或者「已入库」", true, true
+        )).isTrue();
+    }
 
     private final OperationArgumentResolver resolver = new OperationArgumentResolver();
 
