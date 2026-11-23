@@ -312,6 +312,15 @@ final class NonExecutableRequestGuard {
                     + "(?:不用了[，,]?)?(?:先)?(?:不建|别建)(?:了)?|算了)[。！!]*$",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
+    private static final String PREVIOUS_TURN = "(?:刚才|刚刚|前面|之前|上一轮)";
+    private static final String REFERENCED_OPERATION = "(?:" + PREVIOUS_TURN
+            + "(?:的|[这那][个项次])?|[这那][个项次]|该)"
+            + "(?:(?:删除|移动|上传|创建|新建|重命名|改名|分享)(?:操作|动作|任务|计划)?|(?:操作|动作|任务|计划))";
+    private static final Pattern REFERENCED_CANCELLATION = Pattern.compile(
+            "^(?:请|麻烦)?(?:先?(?:取消|撤销|停止|暂停)\\s*" + REFERENCED_OPERATION
+                    + "|" + REFERENCED_OPERATION + "(?:先|暂且|暂时)?(?:作罢|取消|撤销|停止|暂停|暂缓))"
+                    + "(?=$|[，,。；;！!])"
+    );
     private static final Pattern CANCEL_ALL_PENDING_STEPS = Pattern.compile(
             "^(?=.*(?:两个|全部|所有).{0,8}(?:步骤|操作|动作))(?=.*(?:都)?取消)"
                     + "(?=.*(?:(?:什么|任何).{0,4}(?:也)?(?:别|不要|不用)(?:做|执行|操作)|"
@@ -326,7 +335,7 @@ final class NonExecutableRequestGuard {
     private static final Pattern CONTEXTLESS_CONFIRMATION = Pattern.compile(
             "^(?:(?:好|好的|行|可以)[，,]?)?(?:请)?"
                     + "(?:确认(?:并|后)?执行|确认执行|确认|执行|(?:那)?就(?:这样|这么)执行|"
-                    + "(?:(?:还是|那?就)?(?:按|照)(?:(?:刚才|之前|前面)(?:的)?)?"
+                    + "(?:(?:还是|那?就)?(?:按|照)(?:" + PREVIOUS_TURN + "(?:的)?)?"
                     + "(?:说的|这句话|那句话|这个|那个)?(?:直接)?(?:执行|继续|做))|"
                     + "继续(?:刚才|之前)(?:那个|这个|说的)?|"
                     + "(?:那)?继续|"
@@ -357,16 +366,17 @@ final class NonExecutableRequestGuard {
                     "好的，这组操作已经全部取消，我不会提交任何文件变更。"
             ));
         }
-        if (CANCELLATION.matcher(value).matches() && hasPendingOperation(conversation)) {
+        boolean pending = hasPendingOperation(conversation);
+        if ((pending && CANCELLATION.matcher(value).matches()) || REFERENCED_CANCELLATION.matcher(value).find()) {
             return Optional.of(new Decision(
-                    "cancel_pending_operation",
+                    pending ? "cancel_pending_operation" : "cancellation_without_pending_operation",
                     "assistant_acknowledgement",
                     "CANCELLATION",
                     "RESPOND",
-                    "好的，这次操作已取消，我不会继续提交文件变更。"
+                    pending ? "好的，这次操作已取消，我不会继续提交文件变更。" : "当前没有等待取消的文件操作。"
             ));
         }
-        if (CONTEXTLESS_CONFIRMATION.matcher(value).matches() && !hasPendingOperation(conversation)) {
+        if (matchesGenericConfirmation(value) && !pending) {
             return Optional.of(new Decision(
                     "confirmation_without_pending_operation",
                     "fallback",
@@ -854,6 +864,10 @@ final class NonExecutableRequestGuard {
                 && conversation.focus().hasCandidateContext();
     }
 
+    static boolean matchesGenericConfirmation(String message) {
+        return CONTEXTLESS_CONFIRMATION.matcher(message).matches();
+    }
+
     private boolean hasPendingOperation(AssistantConversationState conversation) {
         if (conversation == null) {
             return false;
@@ -864,9 +878,9 @@ final class NonExecutableRequestGuard {
                 && !List.of("none", "search").contains(draft.type())) {
             return true;
         }
-        return conversation.hasPendingSlots()
-                && conversation.pendingIntentId() != null
-                && !conversation.pendingIntentId().isBlank();
+        String pendingIntent = conversation.pendingIntentId();
+        return conversation.hasPendingSlots() && pendingIntent != null
+                && !pendingIntent.isBlank() && !"fallback".equals(pendingIntent);
     }
 
     record Decision(

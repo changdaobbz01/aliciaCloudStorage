@@ -1323,6 +1323,45 @@ class AssistantConversationServiceTest {
     }
 
     @Test
+    void referencedCancellationAndVagueResumeStayOutOfPlanning() {
+        var calls = new AtomicInteger();
+        var recognition = new IntentRecognitionService(message -> {
+            calls.incrementAndGet();
+            return Optional.empty();
+        }, intentRouter, configLoader);
+        var service = conversationServiceWith(
+                request -> CandidateBindingResult.skipped("test_skipped", ""),
+                request -> CollectionPreviewResult.skipped("not_requested", ""), recognition);
+        var first = service.plan(new AssistantPlanRequest("在当前目录创建一个叫周转箱的新文件夹", ""));
+        assertThat(first.actionDraft().type()).isEqualTo("folder.create");
+        int submitted = calls.get();
+
+        var cancel = service.plan(new AssistantPlanRequest(
+                "之前那项创建任务先暂缓。", first.conversation().conversationId()));
+        assertThat(cancel.semanticFrame().relation()).isEqualTo("CANCELLATION");
+        assertThat(cancel.actionDraft().type()).isEqualTo("none");
+        assertThat(cancel.conversation().hasPendingAction()).isFalse();
+
+        var resume = service.plan(new AssistantPlanRequest(
+                "行，就照上一轮的直接执行吧。", cancel.conversation().conversationId()));
+        assertThat(resume.intentId()).isEqualTo("fallback");
+        assertThat(resume.actionDraft().type()).isEqualTo("none");
+        assertThat(resume.actionPlan().steps()).isEmpty();
+        assertThat(resume.executionReference()).isNull();
+        var repeated = service.plan(new AssistantPlanRequest(
+                "请照之前的做吧。", resume.conversation().conversationId()));
+        assertThat(repeated.intentId()).isEqualTo("fallback");
+        assertThat(repeated.actionDraft().type()).isEqualTo("none");
+        assertThat(repeated.actionPlan().steps()).isEmpty();
+        assertThat(calls).hasValue(submitted);
+
+        var newRequest = service.plan(new AssistantPlanRequest(
+                "在根目录创建名为旧货登记的文件夹", repeated.conversation().conversationId()));
+        assertThat(newRequest.actionDraft().type()).isEqualTo("folder.create");
+        assertThat(newRequest.entities()).containsEntry("new_folder_name", "旧货登记");
+    }
+
+    @Test
     void browsesPreviousFolderThenResolvesOrdinalFileOperations() {
         List<CandidateSearchRequest> requests = new java.util.ArrayList<>();
         CandidateSearchPort port = request -> {

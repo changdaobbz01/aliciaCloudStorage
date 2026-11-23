@@ -97,7 +97,9 @@ final class ResponseOnlyConversationFollowUpGuard {
                     "明白，这是对现有体验的补充反馈，我只会记录和回应建议，不会直接修改流程。"
             );
         }
-        if (EXECUTION_CONFIRMATION.matcher(value).matches()) {
+        if (EXECUTION_CONFIRMATION.matcher(value).matches()
+                || ("CANCELLATION".equals(conversation.semanticFrame().relation())
+                && NonExecutableRequestGuard.matchesGenericConfirmation(value))) {
             return Optional.empty();
         }
         if (FILE_OPERATION_REQUEST.matcher(value).find()) {

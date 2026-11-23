@@ -257,6 +257,10 @@ class NonExecutableRequestGuardTest {
                 .isEqualTo("cancel_pending_operation");
         assertThat(guard.evaluate("取消刚才的移动，不要继续", pending).orElseThrow().id())
                 .isEqualTo("cancel_pending_operation");
+        assertThat(guard.evaluate("请撤销上一轮那个上传计划，等我的消息", pending).orElseThrow().id())
+                .isEqualTo("cancel_pending_operation");
+        assertThat(guard.evaluate("之前那项移动任务先暂缓。", null).orElseThrow().id())
+                .isEqualTo("cancellation_without_pending_operation");
     }
 
     @Test
@@ -277,6 +281,7 @@ class NonExecutableRequestGuardTest {
                 "好，那就这么执行",
                 "就按前面那个继续吧",
                 "还是照之前的做",
+                "行，就照上一轮的直接执行吧。",
                 "继续处理它",
                 "接着处理那个",
                 "继续执行一下这个",
