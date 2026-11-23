@@ -69,7 +69,7 @@ public class BackendActionDraftService {
         String actionType = response.actionDraft().type();
         ActionBridgeDefinition definition = actionsByType.get(actionType);
         if (definition == null || !definition.enabled()) {
-            return BackendActionDraft.skipped("unsupported_action", "当前动作未配置后端执行桥接契约。");
+            return BackendActionDraft.unsupportedAction();
         }
         if (actionType.startsWith("collection.")) {
             return buildCollectionDraft(response, definition, authorizationHeader);

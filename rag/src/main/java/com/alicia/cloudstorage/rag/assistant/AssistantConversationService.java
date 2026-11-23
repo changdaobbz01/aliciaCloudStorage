@@ -8,6 +8,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.alicia.cloudstorage.rag.assistant.AssistantSemanticOrchestrator.Kind;
 import static com.alicia.cloudstorage.rag.assistant.RecognitionTrace.Outcome;
 import static com.alicia.cloudstorage.rag.assistant.RecognitionTrace.Stage;
 
@@ -15,54 +16,39 @@ import static com.alicia.cloudstorage.rag.assistant.RecognitionTrace.Stage;
 public class AssistantConversationService {
 
     private final IntentRecognitionService intentRecognitionService;
-    private final IntentRouter intentRouter;
+    private final AssistantSemanticOrchestrator semanticOrchestrator;
     private final AssistantConversationStore conversationStore;
     private final CandidateBindingService candidateBindingService;
-    private final CandidateSelectionService candidateSelectionService;
-    private final ConversationContextResolver conversationContextResolver;
     private final BackendActionDraftService backendActionDraftService;
     private final ActionPlanService actionPlanService;
     private final CollectionPreviewService collectionPreviewService;
     private final CollectionOperationSelectorResolver collectionOperationSelectorResolver;
-    private final NavigationOperationResolver navigationOperationResolver;
     private final ScopedCollectionPlanningService scopedCollectionPlanningService;
-    private final ExecutableConstraintGuard executableConstraintGuard;
     private final AssistantInteractionService interactionService = new AssistantInteractionService();
-    private final PendingSlotResolutionService pendingSlotResolutionService = new PendingSlotResolutionService();
-    private final List<String> confirmMessages;
     private final List<String> resetMessages;
 
     public AssistantConversationService(
             IntentRecognitionService intentRecognitionService,
-            IntentRouter intentRouter,
+            AssistantSemanticOrchestrator semanticOrchestrator,
             AssistantConversationStore conversationStore,
             CandidateBindingService candidateBindingService,
-            CandidateSelectionService candidateSelectionService,
-            ConversationContextResolver conversationContextResolver,
             BackendActionDraftService backendActionDraftService,
             ActionPlanService actionPlanService,
             CollectionPreviewService collectionPreviewService,
             CollectionOperationSelectorResolver collectionOperationSelectorResolver,
-            NavigationOperationResolver navigationOperationResolver,
             ScopedCollectionPlanningService scopedCollectionPlanningService,
-            ExecutableConstraintGuard executableConstraintGuard,
             RagConfigLoader configLoader
     ) {
         this.intentRecognitionService = intentRecognitionService;
-        this.intentRouter = intentRouter;
+        this.semanticOrchestrator = semanticOrchestrator;
         this.conversationStore = conversationStore;
         this.candidateBindingService = candidateBindingService;
-        this.candidateSelectionService = candidateSelectionService;
-        this.conversationContextResolver = conversationContextResolver;
         this.backendActionDraftService = backendActionDraftService;
         this.actionPlanService = actionPlanService;
         this.collectionPreviewService = collectionPreviewService;
         this.collectionOperationSelectorResolver = collectionOperationSelectorResolver;
-        this.navigationOperationResolver = navigationOperationResolver;
         this.scopedCollectionPlanningService = scopedCollectionPlanningService;
-        this.executableConstraintGuard = executableConstraintGuard;
         JsonNode controls = configLoader.loadJson("rag/conversation/query_rules.json").path("conversation_controls");
-        this.confirmMessages = stringList(controls.path("confirm"));
         this.resetMessages = stringList(controls.path("reset"));
     }
 
@@ -105,157 +91,17 @@ public class AssistantConversationService {
             RecognitionTrace.session(Outcome.RESET, stageStarted, conversation);
         }
 
-        stageStarted = RecognitionTrace.tick();
-        boolean deterministicCollection = collectionOperationSelectorResolver.handles(message, conversation);
-        boolean deterministicNavigation = navigationOperationResolver.handles(message, conversation);
-        boolean deterministicSafetyBoundary = executableConstraintGuard.handlesUnsupportedConstraint(message);
-        String deterministicRecognitionReason = deterministicSafetyBoundary
-                ? "local_guard:unsupported_execution_constraint"
-                : "local_structure:deterministic_semantic_routing";
-        boolean localRouting = deterministicCollection || deterministicNavigation || deterministicSafetyBoundary;
-        RecognitionTrace.mark(Stage.ROUTING, localRouting ? Outcome.LOCAL : Outcome.OBSERVED, stageStarted);
-        IntentRecognitionResponse baseResponse = localRouting
-                ? intentRecognitionService.recognizeLocal(message, deterministicRecognitionReason)
-                : intentRecognitionService.recognize(message, conversation, clientContext);
-        stageStarted = RecognitionTrace.tick();
-        IntentRecognitionResponse before = baseResponse;
-        baseResponse = collectionOperationSelectorResolver.apply(message, conversation, baseResponse);
-        traceRewrite(Stage.COLLECTION_ROUTING, before, baseResponse, stageStarted);
-        stageStarted = RecognitionTrace.tick();
-        before = baseResponse;
-        baseResponse = navigationOperationResolver.apply(message, conversation, baseResponse);
-        traceRewrite(Stage.NAVIGATION, before, baseResponse, stageStarted);
-        stageStarted = RecognitionTrace.tick();
-        before = baseResponse;
-        baseResponse = executableConstraintGuard.apply(message, baseResponse);
-        RecognitionTrace.decision(Stage.CONSTRAINT_GUARD, before == baseResponse ? Outcome.NO_MATCH : Outcome.BLOCKED,
-                stageStarted, baseResponse);
-        if (collectionOperationSelectorResolver.isScopedCollection(baseResponse)
-                && !clientContext.supportsAction(baseResponse.actionDraft().type())) {
-            stageStarted = RecognitionTrace.tick();
-            baseResponse = baseResponse.withCapabilityBoundary(
-                    "client_action_contract_outdated",
-                    "当前移动端版本还不能安全执行这种目录批量操作，请更新应用后再试。",
-                    "更新移动端后，可使用目录内全部文件的批量移动和删除。"
-            );
-            RecognitionTrace.decision(Stage.CLIENT_CAPABILITY, Outcome.BLOCKED, stageStarted, baseResponse);
+        var decision = semanticOrchestrator.decide(message, conversation, clientContext, clientEvent, reset);
+        IntentRecognitionResponse response = decision.response();
+        if (decision.kind() == Kind.CONTEXT_REPLY) {
+            return saveTurn(conversation, response, message, owner);
         }
-        stageStarted = RecognitionTrace.tick();
-        CandidateSelectionService.SelectionAttempt selectionAttempt = canUseCandidateSelection(conversation)
-                ? candidateSelectionService.select(
-                        conversation.candidateBinding(),
-                        message,
-                        request == null ? AssistantClientEvent.none() : request.clientEvent()
-                )
-                : CandidateSelectionService.SelectionAttempt.notMatched();
-        RecognitionTrace.mark(Stage.CANDIDATE_SELECTION,
-                selectionAttempt.matched() ? Outcome.SELECTED : Outcome.NO_MATCH, stageStarted);
-        if (selectionAttempt.matched()) {
-            IntentRecognitionResponse selectedResponse = rebuildFromStoredConversation(
-                    conversation,
-                    baseResponse,
-                    "用户选择了上一轮候选。"
-            );
-            CandidateBindingResult selectedBinding = selectionAttempt.candidateBinding();
-            if (conversation.pendingActionDraft() != null
-                    && List.of("collection.move", "collection.trash", "collection.trash_scoped").contains(conversation.pendingActionDraft().type())) {
-                selectedResponse = collectionOperationSelectorResolver.restoreStored(selectedResponse, conversation);
-                if (!scopedCollectionPlanningService.acceptsSelection(conversation, clientEvent)) {
-                    selectedResponse = planScopedCollection(
-                            selectedResponse,
-                            conversation,
-                            authorizationHeader,
-                            clientContext
-                    ).withAssistantText("这个选择不属于当前计划，请根据当前候选列表重新选择。");
-                    selectedResponse = selectedResponse.withInteraction(interactionService.build(selectedResponse));
-                    AssistantConversationState savedConversation = conversationStore.save(conversation, selectedResponse, message, owner);
-                    return selectedResponse.withConversation(savedConversation.snapshot(statusFor(selectedResponse)));
-                }
-                selectedResponse = scopedCollectionPlanningService.applySelection(
-                        selectedResponse,
-                        conversation,
-                        selectedBinding
-                );
-                selectedResponse = planScopedCollection(
-                        selectedResponse,
-                        conversation,
-                        authorizationHeader,
-                        clientContext
-                );
-                selectedResponse = intentRecognitionService.polishGeneratedReply(message, selectedResponse);
-                selectedResponse = selectedResponse.withInteraction(interactionService.build(selectedResponse));
-                AssistantConversationState savedConversation = conversationStore.save(conversation, selectedResponse, message, owner);
-                return selectedResponse.withConversation(savedConversation.snapshot(statusFor(selectedResponse)));
-            }
-            CandidateItem selectedCandidate = selectedBinding == null ? null : selectedBinding.selectedCandidate();
-            Integer selectedIndex = selectedCandidateIndex(selectedBinding, selectedCandidate);
-            SemanticFrame selectedFrame = conversation.semanticFrame()
-                    .forCandidateSelection(selectedCandidate, selectedIndex);
-            selectedResponse = selectedResponse.withSemanticFrame(
-                    selectedFrame,
-                    selectedResponse.entities(),
-                    selectedResponse.actionDraft()
-            );
-            selectedResponse = applyCandidateBindingState(selectedResponse, selectedBinding);
-            RecognitionTrace.decision(Stage.CANDIDATE_BINDING, Outcome.SELECTED, stageStarted, selectedResponse);
-            selectedResponse = applyActionPlan(selectedResponse, clientContext);
-            selectedResponse = applyCollectionPreview(selectedResponse, authorizationHeader);
-            selectedResponse = selectedResponse.withInteraction(interactionService.build(selectedResponse));
-            AssistantConversationState savedConversation = conversationStore.save(conversation, selectedResponse, message, owner);
-            return selectedResponse.withConversation(savedConversation.snapshot(statusFor(selectedResponse)));
+        if (decision.kind() == Kind.CANDIDATE_SELECTION) {
+            response = planSelection(conversation, decision, clientEvent, authorizationHeader, clientContext, message);
+            return saveTurn(conversation, response, message, owner);
         }
-
-        stageStarted = RecognitionTrace.tick();
-        ConversationContextResolver.ContextAttempt contextAttempt = !collectionOperationSelectorResolver.isScopedCollection(baseResponse)
-                && !isConversationFollowUpGuard(baseResponse)
-                && "FOLLOW_UP".equals(baseResponse.semanticFrame().relation())
-                && !List.of("SEARCH", "LIST_CHILDREN").contains(baseResponse.semanticFrame().operation())
-                ? conversationContextResolver.resolve(
-                        message,
-                        conversation,
-                        baseResponse,
-                        baseResponse.semanticFrame()
-                )
-                : ConversationContextResolver.ContextAttempt.notApplied();
-        ConversationContextResolution contextResolution = contextAttempt.resolution();
-        RecognitionTrace.decision(Stage.CONTEXT_RESOLUTION,
-                !contextAttempt.applied() ? Outcome.NO_MATCH
-                        : contextResolution == null || !contextResolution.shouldRewrite() ? Outcome.OBSERVED : Outcome.REWRITTEN,
-                stageStarted, contextAttempt.response());
-        if (contextAttempt.applied() && contextAttempt.response() != null) {
-            if (contextResolution == null || !contextResolution.shouldRewrite()) {
-                IntentRecognitionResponse answeredResponse = contextAttempt.response();
-                answeredResponse = answeredResponse.withInteraction(interactionService.build(answeredResponse));
-                AssistantConversationState savedConversation = conversationStore.save(conversation, answeredResponse, message, owner);
-                return answeredResponse.withConversation(savedConversation.snapshot(statusFor(answeredResponse)));
-            }
-            baseResponse = contextAttempt.response();
-        }
-
-        stageStarted = RecognitionTrace.tick();
-        boolean preservePendingIntent = shouldPreservePendingIntent(conversation, message);
-        PendingSlotResolutionService.Resolution pendingSlotResolution = pendingSlotResolutionService.resolve(
-                message,
-                conversation,
-                baseResponse
-        );
-        boolean continuePendingIntent = shouldContinuePendingIntent(
-                conversation,
-                baseResponse,
-                message,
-                pendingSlotResolution
-        );
-        IntentRecognitionResponse response = preservePendingIntent
-                ? rebuildFromStoredConversation(conversation, baseResponse, "用户确认或延续上一轮待处理意图。")
-                : continuePendingIntent
-                ? continuePendingIntent(conversation, baseResponse, pendingSlotResolution)
-                : baseResponse;
-        if (preservePendingIntent || continuePendingIntent) {
-            response = collectionOperationSelectorResolver.restoreStored(response, conversation);
-        }
-        RecognitionTrace.decision(Stage.PENDING_INTENT,
-                preservePendingIntent ? Outcome.CONTINUED : continuePendingIntent ? Outcome.SLOT_FILLED : Outcome.NO_MATCH,
-                stageStarted, response);
+        boolean confirmed = decision.kind() == Kind.CONFIRMATION;
+        boolean filledSlot = decision.kind() == Kind.SLOT_FILL;
 
         if (collectionOperationSelectorResolver.isScopedCollection(response)) {
             response = planScopedCollection(
@@ -264,7 +110,7 @@ public class AssistantConversationService {
                     authorizationHeader,
                     clientContext
             );
-            if (preservePendingIntent && isConfirmMessage(message)) {
+            if (confirmed) {
                 BackendActionDraft backendActionDraft = backendActionDraftService.build(
                         response,
                         response.candidateBinding(),
@@ -281,14 +127,12 @@ public class AssistantConversationService {
                 );
             }
             response = intentRecognitionService.polishGeneratedReply(message, response);
-            response = response.withInteraction(interactionService.build(response));
-            AssistantConversationState savedConversation = conversationStore.save(conversation, response, message, owner);
-            return response.withConversation(savedConversation.snapshot(statusFor(response)));
+            return saveTurn(conversation, response, message, owner);
         }
 
         stageStarted = RecognitionTrace.tick();
         CandidateBindingResult candidateBinding;
-        boolean blocked = AssistantFlowPolicy.blocksExecution(response);
+        boolean blocked = decision.kind() == Kind.BLOCKED || AssistantFlowPolicy.blocksExecution(response);
         if (blocked) {
             candidateBinding = response.candidateBinding() == null
                     ? CandidateBindingResult.skipped(
@@ -300,10 +144,10 @@ public class AssistantConversationService {
             CandidateBindingResult contextualBinding = contextualCandidateBinding(
                     conversation,
                     response,
-                    contextResolution
+                    decision.contextResolution()
             );
             if (contextualBinding == null) {
-                contextualBinding = pendingTargetBinding(conversation, response, continuePendingIntent);
+                contextualBinding = pendingTargetBinding(conversation, response, filledSlot);
             }
             AssistantClientContext bindingClientContext = contextualClientContext(
                     conversation,
@@ -312,7 +156,7 @@ public class AssistantConversationService {
             );
             candidateBinding = contextualBinding != null
                     ? contextualBinding
-                    : (preservePendingIntent || continuePendingIntent)
+                    : (confirmed || filledSlot)
                     && shouldReuseCandidateBinding(conversation.candidateBinding())
                     ? conversation.candidateBinding()
                     : candidateBindingService.bind(
@@ -323,14 +167,14 @@ public class AssistantConversationService {
         }
         response = applyCandidateBindingState(response, candidateBinding);
         RecognitionTrace.decision(Stage.CANDIDATE_BINDING, blocked ? Outcome.SKIPPED : Outcome.OBSERVED, stageStarted, response);
-        if (preservePendingIntent && hasReviewedCollectionPlan(conversation)) {
+        if (confirmed && hasReviewedCollectionPlan(conversation)) {
             response = response.withActionPlan(conversation.pendingActionPlan());
             RecognitionTrace.decision(Stage.ACTION_PLAN, Outcome.RESTORED, RecognitionTrace.tick(), response);
         } else {
             response = applyActionPlan(response, clientContext);
             response = applyCollectionPreview(response, authorizationHeader);
         }
-        if (preservePendingIntent && isConfirmMessage(message)) {
+        if (confirmed) {
             BackendActionDraft backendActionDraft = backendActionDraftService.build(
                     response,
                     candidateBinding,
@@ -349,112 +193,42 @@ public class AssistantConversationService {
                     clientContext
             );
         }
-        if (deterministicCollection || deterministicNavigation || deterministicSafetyBoundary || isGeneratedSafetyReply(response)) {
+        if (decision.polishReply()) {
             response = intentRecognitionService.polishGeneratedReply(message, response);
         }
-        response = response.withInteraction(interactionService.build(response));
-        AssistantConversationState savedConversation = conversationStore.save(conversation, response, message, owner);
-        return response.withConversation(savedConversation.snapshot(statusFor(response)));
+        return saveTurn(conversation, response, message, owner);
     }
 
-    private IntentRecognitionResponse continuePendingIntent(
+    private IntentRecognitionResponse planSelection(
             AssistantConversationState conversation,
-            IntentRecognitionResponse baseResponse,
-            PendingSlotResolutionService.Resolution resolution
+            AssistantSemanticOrchestrator.Decision decision,
+            AssistantClientEvent clientEvent,
+            String authorizationHeader,
+            AssistantClientContext clientContext,
+            String message
     ) {
-        Map<String, Object> mergedEntities = new LinkedHashMap<>(conversation.entities());
-        for (String missingSlot : conversation.pendingSlots()) {
-            Object resolvedValue = resolution.values().get(missingSlot);
-            if (hasValue(resolvedValue)) {
-                mergedEntities.put(missingSlot, resolvedValue);
-                copySelectorMetadata(missingSlot, baseResponse.entities(), mergedEntities);
+        IntentRecognitionResponse selected = decision.response();
+        if (collectionOperationSelectorResolver.isScopedCollection(selected)) {
+            if (!scopedCollectionPlanningService.acceptsSelection(conversation, clientEvent)) {
+                return planScopedCollection(selected, conversation, authorizationHeader, clientContext)
+                        .withAssistantText("这个选择不属于当前计划，请根据当前候选列表重新选择。");
             }
+            selected = scopedCollectionPlanningService.applySelection(selected, conversation, decision.selectedBinding());
+            selected = planScopedCollection(selected, conversation, authorizationHeader, clientContext);
+            return intentRecognitionService.polishGeneratedReply(message, selected);
         }
-
-        IntentRecognitionResponse rebuilt = intentRecognitionService.rebuildForConversation(
-                baseResponse,
-                conversation.pendingIntentId(),
-                mergedEntities,
-                "根据上一轮待补充槽位合并当前输入。"
-        );
-        return rebuilt.withSemanticFrame(
-                resolution.semanticFrame(),
-                rebuilt.entities(),
-                rebuilt.actionDraft()
-        );
+        long started = RecognitionTrace.tick();
+        selected = applyCandidateBindingState(selected, decision.selectedBinding());
+        RecognitionTrace.decision(Stage.CANDIDATE_BINDING, Outcome.SELECTED, started, selected);
+        return applyCollectionPreview(applyActionPlan(selected, clientContext), authorizationHeader);
     }
 
-    private IntentRecognitionResponse rebuildFromStoredConversation(
-            AssistantConversationState conversation,
-            IntentRecognitionResponse baseResponse,
-            String reason
+    private IntentRecognitionResponse saveTurn(
+            AssistantConversationState conversation, IntentRecognitionResponse response, String message, Long owner
     ) {
-        IntentRecognitionResponse rebuilt = intentRecognitionService.rebuildForConversation(
-                baseResponse,
-                conversation.pendingIntentId(),
-                conversation.entities(),
-                reason
-        );
-        return rebuilt.withSemanticFrame(
-                conversation.semanticFrame(),
-                rebuilt.entities(),
-                rebuilt.actionDraft()
-        );
-    }
-
-    private boolean shouldContinuePendingIntent(
-            AssistantConversationState conversation,
-            IntentRecognitionResponse baseResponse,
-            String message,
-            PendingSlotResolutionService.Resolution resolution
-    ) {
-        if (conversation == null
-                || !conversation.hasPendingSlots()
-                || conversation.pendingIntentId() == null
-                || conversation.pendingIntentId().isBlank()
-                || resolution == null
-                || !resolution.resolved()
-                || isResetMessage(message)
-                || isConfirmMessage(message)
-                || isNonExecutableGuard(baseResponse)) {
-            return false;
-        }
-
-        IntentRouter.IntentRouteResult localRoute = intentRouter.route(message);
-        if (!"fallback".equals(localRoute.intent()) && !conversation.pendingIntentId().equals(localRoute.intent())) {
-            return false;
-        }
-
-        return "fallback".equals(baseResponse.intentId())
-                || conversation.pendingIntentId().equals(baseResponse.intentId())
-                || !baseResponse.entities().isEmpty()
-                || !localRoute.entities().isEmpty()
-                || localRoute.intent().equals("fallback");
-    }
-
-    private void copySelectorMetadata(
-            String slot,
-            Map<String, Object> source,
-            Map<String, Object> target
-    ) {
-        if (!"target_name".equals(slot)) {
-            return;
-        }
-        for (String key : List.of("result_type", "file_type", "extension")) {
-            Object value = source.get(key);
-            if (hasValue(value)) {
-                target.put(key, value);
-            }
-        }
-    }
-
-    private boolean shouldPreservePendingIntent(AssistantConversationState conversation, String message) {
-        return isConfirmMessage(message)
-                && conversation != null
-                && conversation.pendingIntentId() != null
-                && !conversation.pendingIntentId().isBlank()
-                && conversation.pendingActionDraft() != null
-                && !"search".equals(conversation.pendingActionDraft().type());
+        IntentRecognitionResponse interactive = response.withInteraction(interactionService.build(response));
+        AssistantConversationState saved = conversationStore.save(conversation, interactive, message, owner);
+        return interactive.withConversation(saved.snapshot(statusFor(interactive)));
     }
 
     private IntentRecognitionResponse applyCandidateBindingState(
@@ -506,11 +280,6 @@ public class AssistantConversationService {
         };
     }
 
-    private static void traceRewrite(Stage stage, IntentRecognitionResponse before,
-                                     IntentRecognitionResponse after, long started) {
-        RecognitionTrace.decision(stage, before == after ? Outcome.NO_MATCH : Outcome.REWRITTEN, started, after);
-    }
-
     private IntentRecognitionResponse planScopedCollection(
             IntentRecognitionResponse response,
             AssistantConversationState conversation,
@@ -551,29 +320,6 @@ public class AssistantConversationService {
         }
         response = applyActionPlan(response, clientContext);
         return applyCollectionPreview(response, authorizationHeader);
-    }
-
-    private boolean canUseCandidateSelection(AssistantConversationState conversation) {
-        return conversation != null
-                && conversation.pendingIntentId() != null
-                && !conversation.pendingIntentId().isBlank()
-                && conversation.pendingActionDraft() != null
-                && !"search".equals(conversation.pendingActionDraft().type())
-                && conversation.candidateBinding() != null
-                && !conversation.candidateBinding().candidates().isEmpty();
-    }
-
-    private Integer selectedCandidateIndex(CandidateBindingResult binding, CandidateItem selectedCandidate) {
-        if (binding == null || selectedCandidate == null) {
-            return null;
-        }
-        for (int index = 0; index < binding.candidates().size(); index++) {
-            CandidateItem candidate = binding.candidates().get(index);
-            if (candidate.equals(selectedCandidate)) {
-                return index + 1;
-            }
-        }
-        return null;
     }
 
     private boolean shouldReuseCandidateBinding(CandidateBindingResult candidateBinding) {
@@ -715,43 +461,8 @@ public class AssistantConversationService {
         return focus.effectiveCandidate();
     }
 
-    private boolean hasValue(Object value) {
-        return value != null && !String.valueOf(value).trim().isBlank();
-    }
-
     private boolean isResetMessage(String message) {
         return resetMessages.contains(message == null ? "" : message.trim());
-    }
-
-    private boolean isGeneratedSafetyReply(IntentRecognitionResponse response) {
-        return response != null
-                && response.reason() != null
-                && response.reason().startsWith("capability_boundary:");
-    }
-
-    private boolean isNonExecutableGuard(IntentRecognitionResponse response) {
-        return response != null
-                && response.reason() != null
-                && response.reason().startsWith("non_executable_guard:");
-    }
-
-    private boolean isConversationFollowUpGuard(IntentRecognitionResponse response) {
-        return response != null
-                && response.reason() != null
-                && response.reason().startsWith("conversation_follow_up_guard:");
-    }
-
-    private boolean isConfirmMessage(String message) {
-        String normalized = normalizeControlMessage(message);
-        return confirmMessages.stream()
-                .map(this::normalizeControlMessage)
-                .anyMatch(normalized::equals);
-    }
-
-    private String normalizeControlMessage(String message) {
-        return message == null
-                ? ""
-                : message.trim().replaceAll("[\\s，。,.!?！？]+", "");
     }
 
     private String statusFor(IntentRecognitionResponse response) {

@@ -1357,6 +1357,11 @@ public class SemanticFrameResolver {
             return "RESPOND";
         }
         String action = response.actionDraft() == null ? "" : response.actionDraft().type();
+        String operation = operationForAction(action);
+        return !"UNKNOWN".equals(operation) || "fallback".equals(response.intentId()) ? operation : "RESPOND";
+    }
+
+    static String operationForAction(String action) {
         return switch (action == null ? "" : action) {
             case "search" -> "SEARCH";
             case "upload_target", "composite.create_folder_then_upload" -> "UPLOAD";
@@ -1365,7 +1370,7 @@ public class SemanticFrameResolver {
             case "rename", "collection.rename_add_prefix" -> "RENAME";
             case "share" -> "SHARE";
             case "folder.create" -> "CREATE_FOLDER";
-            default -> "fallback".equals(response.intentId()) ? "UNKNOWN" : "RESPOND";
+            default -> "UNKNOWN";
         };
     }
 

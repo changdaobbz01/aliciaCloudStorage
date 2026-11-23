@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.UnaryOperator;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -64,18 +65,9 @@ public class NavigationOperationResolver {
         );
     }
 
-    public boolean handles(String message, AssistantConversationState conversation) {
-        return resolve(message, conversation).isPresent();
-    }
-
-    public IntentRecognitionResponse apply(
-            String message,
-            AssistantConversationState conversation,
-            IntentRecognitionResponse response
-    ) {
+    Optional<UnaryOperator<IntentRecognitionResponse>> propose(String message, AssistantConversationState conversation) {
         return resolve(message, conversation)
-                .map(resolution -> override(response, resolution))
-                .orElse(response);
+                .map(resolution -> response -> override(response, resolution));
     }
 
     private Optional<Resolution> resolve(String message, AssistantConversationState conversation) {

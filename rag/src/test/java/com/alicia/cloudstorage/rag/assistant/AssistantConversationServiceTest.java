@@ -61,18 +61,26 @@ class AssistantConversationServiceTest {
                 configLoader
         );
         CollectionActionSnapshotStore snapshotStore = new CollectionActionSnapshotStore(30, 1000);
-        return new AssistantConversationService(
+        var collections = new CollectionOperationSelectorResolver();
+        var orchestrator = new AssistantSemanticOrchestrator(
                 recognitionService,
                 intentRouter,
-                new AssistantConversationStore(30, 100),
-                candidateBindingService,
                 new CandidateSelectionService(configLoader),
                 contextResolver,
+                collections,
+                new NavigationOperationResolver(configLoader),
+                new ExecutableConstraintGuard(),
+                configLoader
+        );
+        return new AssistantConversationService(
+                recognitionService,
+                orchestrator,
+                new AssistantConversationStore(30, 100),
+                candidateBindingService,
                 new BackendActionDraftService(configLoader, snapshotStore),
                 new ActionPlanService(configLoader),
                 new CollectionPreviewService(collectionPreviewPort, snapshotStore, 20, 500),
-                new CollectionOperationSelectorResolver(),
-                new NavigationOperationResolver(configLoader),
+                collections,
                 new ScopedCollectionPlanningService(
                         candidateSearchPort,
                         collectionPreviewPort,
@@ -80,7 +88,6 @@ class AssistantConversationServiceTest {
                         20,
                         500
                 ),
-                new ExecutableConstraintGuard(),
                 configLoader
         );
     }
@@ -105,6 +112,10 @@ class AssistantConversationServiceTest {
             assertThat(step.outcome()).isEqualTo(RecognitionTrace.Outcome.SLOT_FILLED);
             assertThat(step.decision().intent()).isEqualTo("file_delete");
         });
+        var stages = snapshot.steps().stream().map(RecognitionTrace.Step::stage).toList();
+        assertThat(stages.stream().filter(stage -> stage == RecognitionTrace.Stage.SEMANTIC_DECISION)).hasSize(1);
+        assertThat(stages.indexOf(RecognitionTrace.Stage.SEMANTIC_DECISION))
+                .isLessThan(stages.indexOf(RecognitionTrace.Stage.CANDIDATE_BINDING));
         assertThat(new ObjectMapper().writeValueAsString(snapshot))
                 .doesNotContain(request.message(), first.conversation().conversationId(), "private-token");
     }
@@ -1075,6 +1086,40 @@ class AssistantConversationServiceTest {
     }
 
     @Test
+    void cancellingATurnTakesPriorityOverItsStaleCandidateSelection() {
+        var searches = new AtomicInteger();
+        var service = conversationServiceWith(request -> {
+            searches.incrementAndGet();
+            return new CandidateBindingResult("multiple_candidates", "test", request.query(), "FILE",
+                    List.of(new CandidateItem(501L, null, "协议.pdf", "FILE", 1L, "pdf", "", ""),
+                            new CandidateItem(502L, 2L, "协议.pdf", "FILE", 1L, "pdf", "", "")), "请选择候选。");
+        });
+        var first = service.plan(new AssistantPlanRequest("删除协议.pdf", ""), "Bearer test");
+        assertThat(first.candidateBinding().status()).isEqualTo("multiple_candidates");
+        int searchesBeforeCancellation = searches.get();
+        var cancelled = service.plan(new AssistantPlanRequest("取消删除", first.conversation().conversationId(),
+                AssistantClientContext.empty(), new AssistantClientEvent("SELECT_CANDIDATE", 501L, 1)), "Bearer test");
+
+        assertThat(cancelled.semanticFrame().relation()).isEqualTo("CANCELLATION");
+        assertThat(cancelled.actionDraft().type()).isEqualTo("none");
+        assertThat(cancelled.actionPlan().steps()).isEmpty();
+        assertThat(cancelled.executionReference()).isNull();
+        assertThat(searches).hasValue(searchesBeforeCancellation);
+    }
+
+    @Test
+    void validatorRejectsADraftThatDisagreesWithTheSemanticFrame() {
+        String message = "在根目录创建名为回归测试的文件夹";
+        var recognized = intentRecognitionService.recognize(message);
+        assertThat(recognized.actionDraft().type()).isEqualTo("folder.create");
+        var inconsistent = recognized.withSemanticFrame(SemanticFrame.empty(), recognized.entities(), recognized.actionDraft());
+        var guard = new ExecutableConstraintGuard();
+        assertThat(guard.evaluate(message, recognized)).isEmpty();
+        assertThat(guard.evaluate(message, inconsistent)).get().extracting(ExecutableConstraintGuard.Rejection::reason)
+                .isEqualTo("semantic_action_mismatch");
+    }
+
+    @Test
     void naturalLanguageCorrectionReusesPreviousSearchSemantics() {
         CandidateSearchRequest[] lastRequest = new CandidateSearchRequest[1];
         CandidateSearchPort port = request -> {
@@ -1164,6 +1209,13 @@ class AssistantConversationServiceTest {
         assertThat(cancelled.semanticFrame().operation()).isEqualTo("RESPOND");
         assertThat(cancelled.executionReference()).isNull();
         assertThat(cancelled.conversation().hasPendingAction()).isFalse();
+        var afterCancellation = conversationService.plan(new AssistantPlanRequest(
+                "确认", cancelled.conversation().conversationId(), clientContext));
+        assertThat(afterCancellation.intentId()).isEqualTo("assistant_acknowledgement");
+        assertThat(afterCancellation.semanticFrame().relation()).isEqualTo("CANCELLATION");
+        assertThat(afterCancellation.actionDraft().type()).isEqualTo("none");
+        assertThat(afterCancellation.backendActionDraft().executableByBackend()).isFalse();
+        assertThat(afterCancellation.actionPlan().steps()).isEmpty();
 
         IntentRecognitionResponse anotherPlan = conversationService.plan(new AssistantPlanRequest(
                 "创建目录 待取消二号",
@@ -1182,6 +1234,12 @@ class AssistantConversationServiceTest {
         assertThat(naturalCancellation.semanticFrame().relation()).isEqualTo("CANCELLATION");
         assertThat(naturalCancellation.semanticFrame().operation()).isEqualTo("RESPOND");
         assertThat(naturalCancellation.conversation().hasPendingAction()).isFalse();
+        var vagueConfirmation = conversationService.plan(new AssistantPlanRequest(
+                "好，就这么执行", naturalCancellation.conversation().conversationId(), clientContext));
+        assertThat(vagueConfirmation.intentId()).isEqualTo("fallback");
+        assertThat(vagueConfirmation.semanticFrame().operation()).isEqualTo("UNKNOWN");
+        assertThat(vagueConfirmation.actionDraft().type()).isEqualTo("none");
+        assertThat(vagueConfirmation.actionPlan().steps()).isEmpty();
     }
 
     @Test
@@ -2337,6 +2395,23 @@ class AssistantConversationServiceTest {
         assertThat(response.actionDraft().type()).isEqualTo("none");
         assertThat(response.reason()).isEqualTo("capability_boundary:client_action_contract_outdated");
         assertThat(response.backendActionDraft().status()).isEqualTo("clarification_required");
+    }
+
+    @Test
+    void scopedContinuationCannotRestoreAnActionTheClientExplicitlyDoesNotSupport() {
+        var previews = new PreviewPort(List.of(
+                new CandidateItem(811L, null, "示例.pdf", "FILE", 10L, "pdf", "", "")
+        ), 1, true);
+        var service = conversationServiceWith(request -> CandidateBindingResult.skipped("test_skipped", ""), previews);
+        var first = service.plan(new AssistantPlanRequest("删除根目录下所有文件和文件夹", "", scopedClientContext()), "Bearer test");
+        assertThat(first.actionPlan().status()).isEqualTo("collection_review_required");
+        var downgraded = new AssistantClientContext(null, "/", Map.of(), "action_plan_v2", List.of("folder.create"));
+        var blocked = service.plan(new AssistantPlanRequest("确认", first.conversation().conversationId(), downgraded), "Bearer test");
+        assertThat(blocked.reason()).isEqualTo("capability_boundary:client_action_contract_outdated");
+        assertThat(blocked.actionDraft().type()).isEqualTo("none");
+        assertThat(blocked.actionPlan().steps()).isEmpty();
+        assertThat(blocked.backendActionDraft().executableByBackend()).isFalse();
+        assertThat(previews.calls).isEqualTo(1);
     }
 
     @Test

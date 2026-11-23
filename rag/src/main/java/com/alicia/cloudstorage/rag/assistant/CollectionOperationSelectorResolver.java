@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.UnaryOperator;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -40,68 +41,54 @@ public class CollectionOperationSelectorResolver {
             "^(?:请)?(?:(?:删除|删掉|删除掉|移入回收站|放进回收站))?(?:把|将)?(?:所有|全部)(?:的)?(?:文件(?:夹)?(?:以及|和|与|及|、)文件(?:夹)?|文件|文件夹|内容|东西)(?:都|全部|全都|全)?(?:删除|删掉|删了|删除掉|移入回收站|放进回收站)?$"
     );
 
-    public boolean handles(String message, AssistantConversationState conversation) {
-        String text = normalize(message);
-        if (text.isBlank() || isConfirmationOrSelection(text)) {
-            return false;
-        }
-        return CLEAR_FOLDER.matcher(text).matches()
-                || ROOT_NODE_DELETE.matcher(text).matches()
-                || UNSCOPED_COLLECTION_DELETE.matcher(text).matches()
-                || RECURSIVE_WORDS.matcher(text).find()
-                || parseMove(text, conversation).isPresent()
-                || parseTrash(text, conversation).isPresent();
-    }
-
     public IntentRecognitionResponse apply(
             String message,
             AssistantConversationState conversation,
             IntentRecognitionResponse baseResponse
     ) {
+        return propose(message, conversation).map(proposal -> proposal.apply(baseResponse)).orElse(baseResponse);
+    }
+
+    Optional<UnaryOperator<IntentRecognitionResponse>> propose(String message, AssistantConversationState conversation) {
         String text = normalize(message);
         if (text.isBlank() || isConfirmationOrSelection(text)) {
-            return baseResponse;
+            return Optional.empty();
         }
 
         Matcher clear = CLEAR_FOLDER.matcher(text);
         if (clear.matches()) {
-            return clarification(
-                    baseResponse,
+            return Optional.of(response -> clarification(
+                    response,
                     "“清空”可能指只删除文件，也可能包含子文件夹。请明确要删除哪一类内容，例如“删除测试目录中的所有文件”。",
                     "ambiguous_clear_folder"
-            );
+            ));
         }
         if (ROOT_NODE_DELETE.matcher(text).matches()) {
-            return clarification(
-                    baseResponse,
+            return Optional.of(response -> clarification(
+                    response,
                     "根目录本身不能删除。你可以明确说“删除根目录下所有文件”或“删除根目录下所有文件和文件夹”。",
                     "root_node_cannot_be_deleted"
-            );
+            ));
         }
         if (UNSCOPED_COLLECTION_DELETE.matcher(text).matches()) {
-            return clarification(
-                    baseResponse,
+            return Optional.of(response -> clarification(
+                    response,
                     "请补充要处理的目录范围，例如“删除根目录下所有文件和文件夹”或“删除测试目录中的所有文件”。",
                     "collection_scope_required"
-            );
+            ));
         }
         if (RECURSIVE_WORDS.matcher(text).find()) {
-            return clarification(
-                    baseResponse,
+            return Optional.of(response -> clarification(
+                    response,
                     "目前批量操作默认只处理目录的直接子项。请明确是只处理当前层，还是需要包含所有子目录。",
                     "recursive_scope_requires_confirmation"
-            );
+            ));
         }
 
-        Optional<CollectionSelector> selector = parseMove(text, conversation)
-                .or(() -> parseTrash(text, conversation));
-        if (selector.isEmpty()) {
-            return baseResponse;
-        }
-        if (!"ALL".equals(selector.get().source().quantifier())) {
-            return implicitCollectionClarification(baseResponse, selector.get());
-        }
-        return override(baseResponse, selector.get());
+        return parseMove(text, conversation)
+                .or(() -> parseTrash(text, conversation))
+                .map(selector -> response -> "ALL".equals(selector.source().quantifier())
+                        ? override(response, selector) : implicitCollectionClarification(response, selector));
     }
 
     public boolean isScopedCollection(IntentRecognitionResponse response) {

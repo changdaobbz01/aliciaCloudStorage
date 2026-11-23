@@ -4,11 +4,16 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.regex.Pattern;
 
 @Service
 public class ExecutableConstraintGuard {
 
+    static final Rejection EXCLUSION = new Rejection(
+            "unsupported_exclusion_constraint",
+            "当前批量执行还不能安全处理排除条件。请改成一个不含“除了/排除”的明确范围。"
+    );
     private final UnsupportedTemporalSizeScopeGuard unsupportedTemporalSizeScopeGuard =
             new UnsupportedTemporalSizeScopeGuard();
 
@@ -18,31 +23,37 @@ public class ExecutableConstraintGuard {
     private static final Pattern FOLDER_COLLECTION = Pattern.compile(
             "(?:目录|文件夹)(?:中|里|下|内)(?:的)?.*(?:(?:所有|全部).*(?:文件|文件夹|内容)|(?:文件|文件夹|内容).*(?:都|全部|全都))"
     );
-    private static final Pattern EXCLUSION = Pattern.compile("(?:除了|不包括|排除|但不要|除外)");
+    private static final Pattern EXCLUSION_CUE = Pattern.compile("(?:除了|不包括|排除|但不要|除外)");
     public boolean handlesUnsupportedConstraint(String message) {
         String text = message == null ? "" : message.replaceAll("\\s+", "");
         return MUTATION.matcher(text).find()
                 && FOLDER_COLLECTION.matcher(text).find()
-                && EXCLUSION.matcher(text).find();
+                && EXCLUSION_CUE.matcher(text).find();
     }
 
-    public IntentRecognitionResponse apply(String message, IntentRecognitionResponse response) {
+    Optional<Rejection> evaluate(String message, IntentRecognitionResponse response) {
         String text = message == null ? "" : message.replaceAll("\\s+", "");
-        if (response == null
-                || "ask_clarification".equals(response.nextAction())
-                || !MUTATION.matcher(text).find()) {
-            return response;
+        if (response == null || "ask_clarification".equals(response.nextAction())) {
+            return Optional.empty();
         }
         String actionType = response.actionDraft() == null ? "none" : response.actionDraft().type();
+        String expectedOperation = SemanticFrameResolver.operationForAction(actionType);
+        if (!"UNKNOWN".equals(expectedOperation) && !"SEARCH".equals(expectedOperation)
+                && !expectedOperation.equals(response.semanticFrame().operation())) {
+            return reject("semantic_action_mismatch", "我还不能确认要执行哪项操作。请重新描述要做的事和目标文件。");
+        }
+        if (!MUTATION.matcher(text).find()) {
+            return Optional.empty();
+        }
         boolean collectionAction = actionType != null && actionType.startsWith("collection.");
         boolean folderCollection = FOLDER_COLLECTION.matcher(text).find();
-        if (EXCLUSION.matcher(text).find() && (collectionAction || folderCollection)) {
-            return clarify(response, "当前批量执行还不能安全处理排除条件。请改成一个不含“除了/排除”的明确范围。", "unsupported_exclusion_constraint");
+        if (EXCLUSION_CUE.matcher(text).find() && (collectionAction || folderCollection)) {
+            return Optional.of(EXCLUSION);
         }
         if ((unsupportedTemporalSizeScopeGuard.evaluate(message).isPresent()
                 || hasValue(response.entities(), "time_range"))
                 && hasActionDraft(response)) {
-            return clarify(response, "我识别到了时间或大小条件，但当前执行接口还不能完整校验它。请先改用目录、名称、类型或后缀来限定范围。", "unsupported_time_or_size_constraint");
+            return reject("unsupported_time_or_size_constraint", "我识别到了时间或大小条件，但当前执行接口还不能完整校验它。请先改用目录、名称、类型或后缀来限定范围。");
         }
         if (folderCollection
                 && !List.of(
@@ -53,23 +64,19 @@ public class ExecutableConstraintGuard {
                         "collection.trash",
                         "collection.trash_scoped"
                 ).contains(actionType)) {
-            return clarify(
-                    response,
-                    "我还没有完整确定“目录范围、处理对象和数量范围”。请明确说，例如“删除测试目录中的所有文件”或“把测试目录中的所有文件移动到资料目录”。",
-                    "unresolved_folder_collection"
+            return reject(
+                    "unresolved_folder_collection",
+                    "我还没有完整确定“目录范围、处理对象和数量范围”。请明确说，例如“删除测试目录中的所有文件”或“把测试目录中的所有文件移动到资料目录”。"
             );
         }
-        return response;
+        return Optional.empty();
     }
 
-    private IntentRecognitionResponse clarify(
-            IntentRecognitionResponse response,
-            String message,
-            String reason
-    ) {
-        return response.withCapabilityBoundary(reason, message, message)
-                .withAssistantText(message);
+    private Optional<Rejection> reject(String reason, String guidance) {
+        return Optional.of(new Rejection(reason, guidance));
     }
+
+    record Rejection(String reason, String guidance) {}
 
     private boolean hasValue(Map<String, Object> entities, String key) {
         Object value = entities == null ? null : entities.get(key);

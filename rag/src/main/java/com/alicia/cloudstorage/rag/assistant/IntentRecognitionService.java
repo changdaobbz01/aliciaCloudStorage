@@ -193,6 +193,15 @@ public class IntentRecognitionService {
             AssistantConversationState conversation,
             AssistantClientContext clientContext
     ) {
+        return recognize(message, conversation, clientContext, null);
+    }
+
+    IntentRecognitionResponse recognize(
+            String message,
+            AssistantConversationState conversation,
+            AssistantClientContext clientContext,
+            String deterministicReason
+    ) {
         long stageStarted = RecognitionTrace.tick();
         var followUpDecision = conversationFollowUpGuard.evaluate(message, conversation);
         if (followUpDecision.isPresent()) {
@@ -219,6 +228,9 @@ public class IntentRecognitionService {
         }
         RecognitionTrace.mark(Stage.NON_EXECUTABLE_GUARD,
                 requiresLocalSemanticResolution ? Outcome.LOCAL : Outcome.NO_MATCH, stageStarted);
+        if (deterministicReason != null && !requiresLocalSemanticResolution && operationFollowUpDecision.isEmpty()) {
+            return recognizeLocal(message, deterministicReason);
+        }
         AssistantClientContext safeClientContext = clientContext == null
                 ? AssistantClientContext.empty()
                 : clientContext;
@@ -256,12 +268,12 @@ public class IntentRecognitionService {
         } else {
             fallbackReason = "配置能力边界命中：" + configuredBoundary.id();
         }
-        IntentRecognitionResponse response = modelResult == null
-                ? fromFallback(message, fallbackReason)
-                : fromModel(message, modelResult);
         stageStarted = RecognitionTrace.tick();
         IntentRouter.IntentRouteResult localRoute = semanticFallbackRoute(message, intentRouter.route(message));
         RecognitionTrace.localRoute(stageStarted, localRoute);
+        IntentRecognitionResponse response = modelResult == null
+                ? fromFallback(message, fallbackReason, localRoute)
+                : fromModel(message, modelResult);
         stageStarted = RecognitionTrace.tick();
         boolean guardedByBoundary = configuredBoundary != null
                 || localRoute.reason().startsWith("语料能力边界命中");
@@ -281,7 +293,8 @@ public class IntentRecognitionService {
             }
             response = fromFallback(
                     message,
-                    policyFallbackReason
+                    policyFallbackReason,
+                    localRoute
             );
             if (!guardedByBoundary
                     && modelResult != null
@@ -381,7 +394,7 @@ public class IntentRecognitionService {
         if (semanticBoundary.isPresent()) {
             configuredBoundary = semanticBoundary.get();
             guardedByBoundary = true;
-            response = fromFallback(message, "capability_boundary:" + configuredBoundary.id());
+            response = fromFallback(message, "capability_boundary:" + configuredBoundary.id(), localRoute);
             semanticFrame = capabilityBoundaryFrame(configuredBoundary);
             entities = Map.of();
         }
@@ -712,7 +725,12 @@ public class IntentRecognitionService {
     }
 
     private IntentRecognitionResponse fromFallback(String message, String fallbackReason) {
-        IntentRouter.IntentRouteResult route = semanticFallbackRoute(message, intentRouter.route(message));
+        return fromFallback(message, fallbackReason, semanticFallbackRoute(message, intentRouter.route(message)));
+    }
+
+    private IntentRecognitionResponse fromFallback(
+            String message, String fallbackReason, IntentRouter.IntentRouteResult route
+    ) {
         IntentRouter.IntentDefinition intent = intentRouter.getIntent(route.intent());
         Map<String, Object> entities = sanitizeSlotMap(new LinkedHashMap<>(route.entities()), intent.allowedSlots());
         List<String> missingSlots = missingSlots(intent.requiredSlots(), entities);

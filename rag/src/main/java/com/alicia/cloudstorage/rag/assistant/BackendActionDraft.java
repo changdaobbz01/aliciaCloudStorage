@@ -55,6 +55,10 @@ public record BackendActionDraft(
         );
     }
 
+    static BackendActionDraft unsupportedAction() {
+        return skipped("unsupported_action", "当前动作未配置后端执行桥接契约。");
+    }
+
     public BackendActionDraft forPublicClient() {
         boolean containedLegacyExecutionMaterial = executableByBackend
                 || !blank(method)
