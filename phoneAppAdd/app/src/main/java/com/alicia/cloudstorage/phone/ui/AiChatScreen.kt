@@ -46,6 +46,7 @@ import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -142,6 +143,7 @@ internal fun AiChatRoute(
     )
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var confirmNewConversation by remember { mutableStateOf(false) }
+    var feedbackMessageId by remember(viewModel) { mutableStateOf<Long?>(null) }
     val currentOnFileMutation by rememberUpdatedState(onFileMutation)
     val currentOnClientUpload by rememberUpdatedState(onClientUpload)
     val currentOnClearAttachedFiles by rememberUpdatedState(onClearAttachedFiles)
@@ -213,12 +215,26 @@ internal fun AiChatRoute(
                 is AiChatAction.RunClientUpload -> viewModel.runClientUpload(action.messageId, action.request)
                 is AiChatAction.ConfirmReview -> viewModel.confirmReview(action.messageId)
                 is AiChatAction.CancelReview -> viewModel.cancelReview(action.messageId)
+                is AiChatAction.ReportRecognition -> feedbackMessageId = action.messageId
             }
         },
         userAvatarUrl = userAvatarUrl,
         userDisplayName = userDisplayName,
         modifier = modifier,
     )
+
+    state.messages.firstOrNull { it.id == feedbackMessageId }?.let { message ->
+        message.recognitionFeedback?.let { reference ->
+            RagRecognitionFeedbackDialog(
+                reference = reference,
+                reported = message.recognitionFeedbackCategory != null,
+                report = { category -> viewModel.reportRecognition(message.id, reference, category) },
+                preview = { expression -> viewModel.previewRecognitionCandidate(reference, expression) },
+                submit = { expression -> viewModel.submitRecognitionCandidate(message.id, reference, expression) },
+                onDismiss = { feedbackMessageId = null },
+            )
+        }
+    }
 
     if (confirmNewConversation) {
         AliciaConfirmDialog(
@@ -313,6 +329,7 @@ internal fun AiConversationViewport(
                         },
                         onConfirmReview = { messageId -> onAction(AiChatAction.ConfirmReview(messageId)) },
                         onCancelReview = { messageId -> onAction(AiChatAction.CancelReview(messageId)) },
+                        onReportRecognition = { messageId -> onAction(AiChatAction.ReportRecognition(messageId)) },
                     )
                 }
                 if (showSendingPlaceholder) {
@@ -331,6 +348,7 @@ internal fun AiConversationViewport(
                             onClientUpload = { _, _ -> },
                             onConfirmReview = {},
                             onCancelReview = {},
+                            onReportRecognition = {},
                         )
                     }
                 }
@@ -432,6 +450,7 @@ private fun AiMessageItem(
     onClientUpload: (Long, AiChatClientUploadRequest) -> Unit,
     onConfirmReview: (Long) -> Unit,
     onCancelReview: (Long) -> Unit,
+    onReportRecognition: (Long) -> Unit,
 ) {
     if (message.author == AiChatAuthor.USER) {
         Row(
@@ -513,6 +532,19 @@ private fun AiMessageItem(
                             }
                         },
                     )
+                }
+                if (message.recognitionFeedback != null) {
+                    TextButton(
+                        enabled = actionsEnabled && (message.recognitionFeedbackCategory == null || message.canAddRecognitionCandidate),
+                        onClick = { onReportRecognition(message.id) },
+                    ) {
+                        Text(when {
+                            message.recognitionCandidateSubmitted -> "样本已提交"
+                            message.canAddRecognitionCandidate -> "补充样本"
+                            message.recognitionFeedbackCategory != null -> "反馈已提交"
+                            else -> "识别反馈"
+                        })
+                    }
                 }
             }
         }

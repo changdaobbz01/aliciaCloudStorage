@@ -1,5 +1,8 @@
 package com.alicia.cloudstorage.phone.ui
 
+import com.alicia.cloudstorage.phone.data.RagFeedbackReference
+import com.alicia.cloudstorage.phone.data.RagFeedbackCategory
+
 internal enum class AiChatAuthor {
     ASSISTANT,
     USER,
@@ -174,7 +177,16 @@ internal data class AiChatMessage(
     val plan: AiChatPlanPreview? = null,
     val resultSection: AiChatResultSection? = null,
     val shareResult: AiChatShareResult? = null,
-)
+    val recognitionFeedback: RagFeedbackReference? = null,
+    val recognitionFeedbackCategory: RagFeedbackCategory? = null,
+    val recognitionCandidateSubmitted: Boolean = false,
+) {
+    val canAddRecognitionCandidate: Boolean
+        get() = recognitionFeedback?.candidateEnabled == true &&
+            recognitionFeedbackCategory != null &&
+            recognitionFeedbackCategory != RagFeedbackCategory.CORRECT &&
+            !recognitionCandidateSubmitted
+}
 
 internal data class AiChatUiState(
     val messages: List<AiChatMessage>,
@@ -196,4 +208,5 @@ internal sealed interface AiChatAction {
     data class RunClientUpload(val messageId: Long, val request: AiChatClientUploadRequest) : AiChatAction
     data class ConfirmReview(val messageId: Long) : AiChatAction
     data class CancelReview(val messageId: Long) : AiChatAction
+    data class ReportRecognition(val messageId: Long) : AiChatAction
 }

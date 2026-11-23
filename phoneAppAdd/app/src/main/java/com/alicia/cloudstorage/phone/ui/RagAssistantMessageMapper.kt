@@ -27,6 +27,7 @@ internal fun RagAssistantPlanResponse.toAssistantMessage(id: Long): AiChatMessag
             ?.takeUnless { it.kind == RagReviewKind.SEARCH_RESULTS }
             ?.toAiChatPlanPreview(actionPlan, backendActionDraft, executionReference),
         resultSection = review?.resultSection,
+        recognitionFeedback = feedback,
     )
 }
 

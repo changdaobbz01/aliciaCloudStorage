@@ -37,14 +37,16 @@ public final class RecognitionTrace {
     private final UUID id = UUID.randomUUID();
     private final Route route;
     private final RecognitionTraceRecorder recorder;
+    private final UUID ownerTag;
     private final long started = System.nanoTime();
     private final List<Step> steps = new ArrayList<>();
     private List<Example> examples = List.of();
     private boolean finished;
 
-    RecognitionTrace(Route route, RecognitionTraceRecorder recorder) {
+    RecognitionTrace(Route route, RecognitionTraceRecorder recorder, UUID ownerTag) {
         this.route = route;
         this.recorder = recorder;
+        this.ownerTag = ownerTag;
     }
 
     UUID id() {
@@ -147,7 +149,7 @@ public final class RecognitionTrace {
             return;
         }
         finished = true;
-        recorder.save(new Snapshot(id, route, outcome, elapsed(started), List.copyOf(steps), examples));
+        recorder.save(new Snapshot(id, route, outcome, elapsed(started), List.copyOf(steps), examples), ownerTag);
     }
 
     private synchronized void addRetrieval(long since, List<SemanticExampleRetriever.SemanticExample> found) {

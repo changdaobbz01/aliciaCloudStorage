@@ -71,7 +71,32 @@ data class RagAssistantPlanResponse(
     val semanticFrame: RagSemanticFrame? = null,
     val interaction: RagAssistantInteraction? = null,
     val executionReference: RagExecutionReference? = null,
+    @Transient val feedback: RagFeedbackReference? = null,
 )
+
+data class RagFeedbackReference(
+    val traceId: String,
+    val candidateEnabled: Boolean,
+)
+
+internal enum class RagFeedbackCategory(val label: String) {
+    CORRECT("理解正确"),
+    WRONG_ACTION("理解错动作"),
+    WRONG_TARGET("理解错对象"),
+    WRONG_SCOPE("理解错范围"),
+    MISSED_CONTEXT("没有承接上下文"),
+    INCORRECT_REJECTION("不该拒绝"),
+    CLARIFICATION_NEEDED("应该澄清"),
+    UNNATURAL_REPLY("回复不自然"),
+    OTHER("其他"),
+}
+
+internal data class RagCategoryFeedbackRequest(val traceId: String, val category: String)
+internal data class RagCategoryFeedbackResponse(val accepted: Boolean)
+internal data class RagCandidatePreviewRequest(val traceId: String, val expression: String)
+internal data class RagCandidatePreviewResponse(val expression: String?)
+internal data class RagCandidateSubmission(val traceId: String, val expression: String, val consent: Boolean)
+internal data class RagCandidateReceipt(val candidateId: String?)
 
 data class RagExecutionReference(
     val executionId: String?,

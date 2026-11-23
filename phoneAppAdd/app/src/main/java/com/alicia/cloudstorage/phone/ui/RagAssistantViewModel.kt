@@ -13,6 +13,8 @@ import com.alicia.cloudstorage.phone.data.ApiException
 import com.alicia.cloudstorage.phone.data.RagExecutionClient
 import com.alicia.cloudstorage.phone.data.RagExecutionGateway
 import com.alicia.cloudstorage.phone.data.RagExecutionResponse
+import com.alicia.cloudstorage.phone.data.RagFeedbackCategory
+import com.alicia.cloudstorage.phone.data.RagFeedbackReference
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
@@ -69,6 +71,28 @@ internal class RagAssistantViewModel(
 
     fun updateDraft(value: String) {
         _uiState.update { state -> state.copy(draft = value) }
+    }
+
+    suspend fun reportRecognition(messageId: Long, ref: RagFeedbackReference, category: RagFeedbackCategory) {
+        client.reportFeedback(ragBaseUrl, authToken, ref, category)
+        _uiState.update { state ->
+            state.copy(messages = state.messages.map { message ->
+                if (message.id == messageId) message.copy(recognitionFeedbackCategory = category) else message
+            })
+        }
+    }
+
+    suspend fun previewRecognitionCandidate(ref: RagFeedbackReference, expression: String): String =
+        client.previewCandidate(ragBaseUrl, authToken, ref, expression)
+
+    suspend fun submitRecognitionCandidate(messageId: Long, ref: RagFeedbackReference, expression: String): String {
+        val receipt = client.submitCandidate(ragBaseUrl, authToken, ref, expression)
+        _uiState.update { state ->
+            state.copy(messages = state.messages.map { message ->
+                if (message.id == messageId) message.copy(recognitionCandidateSubmitted = true) else message
+            })
+        }
+        return receipt
     }
 
     fun updateFileContext(folderId: Long?, folderPath: String) {

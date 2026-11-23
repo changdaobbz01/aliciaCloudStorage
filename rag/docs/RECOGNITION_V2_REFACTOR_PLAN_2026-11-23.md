@@ -1,7 +1,7 @@
 # RAG Recognition V2 对话识别改造计划
 
 日期：2026-11-23
-状态：T0 基线冻结已完成，T1 本地实现与回归已完成
+状态：T0 基线冻结已完成，T1 和 T2 已通过本地验收
 范围：只改造 `rag` 的会话理解与识别链路；`ragExecution`、CloudStorageApi 和生产执行权限保持不变。
 
 ## 1. 目标与边界
@@ -177,7 +177,7 @@ development 或 holdout。
 | --- | --- | --- | --- |
 | T0 | 已完成 | 冻结现状、指标、隐私和错误分类 | 基线脚本、文档和只读验证全部通过 |
 | T1 | 本地验收通过 | 识别链路可观测性 | 可区分会话、模型、仲裁、门禁、绑定、计划和登记结果，隐私测试通过 |
-| T2 | 未开始 | 授权反馈与失败样本闭环 | trace 反馈和授权样本分离，candidate 可复现 |
+| T2 | 本地验收通过 | 授权反馈与失败样本闭环 | 分类只含追踪 ID 和类别，样本需预览及授权 |
 | T3 | 未开始 | Redis 持久会话 | 重启、token 更新和多实例不丢上下文 |
 | T4 | 未开始 | 混合语义检索 | 新盲测召回优于旧检索，unsafe 仍为 0 |
 | T5 | 未开始 | 统一 AI 编排器 | 唯一 SemanticFrame 决策链，Guard 只验证或阻断 |
@@ -225,3 +225,44 @@ development 或 holdout。
 本地 HTTP 验收覆盖 `/api/assistant/plan`、`/api/intent/recognize` 和 `/api/assistant/plan/stream`。
 三个接口均返回 200 和各自的追踪 ID，SSE 正常发送最终事件。临时 Identity 评测会话已注销。
 RAG 的 396 项测试和 RAG Execution 的 59 项测试全部通过。
+
+## 10. T2 授权反馈与候选样本
+
+Android 在已完成的助手回复下提供「识别反馈」。该入口依赖服务返回有效的 `X-Recognition-Trace-Id`
+和 `X-Recognition-Feedback`。后者为 `category` 时只提供分类反馈，为 `category,candidate` 时可补充样本。
+
+| 接口 | 请求字段 | 处理结果 |
+| --- | --- | --- |
+| `POST /api/assistant/feedback` | `traceId`, `category` | 记录评价类别 |
+| `POST /api/assistant/feedback/candidate/preview` | `traceId`, `expression` | 返回脱敏预览，内存保存摘要 |
+| `POST /api/assistant/feedback/candidate` | `traceId`, `expression`, `consent` | 保存经预览和确认的表达，返回独立样本编号 |
+
+三个入口沿用 RAG 鉴权。追踪归属用仅在 JVM 内有效的 HMAC 标签校验，同一账号续签后可以继续反馈。
+类别反馈在进程内保留最多 256 条。同一追踪的一次分类提交和一次样本提交均支持幂等重试。
+
+样本填写框初始为空。用户以 `【文件】`、`【目录】`、`【人员】` 等占位符替换真实名称和业务内容，
+随后主动发送草稿生成预览。服务端遮盖可识别的凭据、链接、邮箱、手机号、路径、编号和文件名等，
+再由用户检查剩余文本并单独勾选授权。未加标记的人名、目录名称和业务含义仍需用户自行判断和改写。
+服务端只保存与最近预览相同且经明确授权的表达。
+
+候选表达独立保存为 `candidate-<样本编号>.json`，包含编号、类别、脱敏表达、授权版本、创建时间，
+数据集标记固定为 `candidate`。样本文件与会话和追踪标识隔离。容量为 512 条，满额后由维护人员
+评审和整理。用户可提供回执编号申请撤回，由维护人员在专用目录按精确编号删除文件。
+
+启用设置如下。分类反馈和追踪均默认关闭，候选目录留空时只启用分类反馈。目录应位于 Git 工作树之外，
+由 RAG 服务账号独占。Linux 目录使用权限 `700`，样本文件使用权限 `600`。Windows 使用仅服务账号可访问的 ACL。
+
+```text
+ALICIA_RAG_RECOGNITION_TRACE_ENABLED=true
+ALICIA_RAG_RECOGNITION_FEEDBACK_ENABLED=true
+ALICIA_RAG_RECOGNITION_FEEDBACK_CANDIDATE_DIRECTORY=<专用候选目录>
+```
+
+评审时先核对脱敏和表达的可复现性，再为拟纳入的样本补充合成上下文及独立标注。
+评审通过的案例可手动录入既有 `recognition-candidate.json` 并执行候选评测。
+开发集晋升与盲测集冻结沿用现有流程，各自单独审查。
+
+本地验收覆盖同账号续签、跨账号拒绝、重复提交、严格字段、预览与落盘分离、授权校验和样本文件字段。
+通过真实 HTTP 请求完成 SSE 回复、分类反馈、脱敏预览和授权提交，临时 Identity 会话已注销。
+RAG 与 RAG Execution 共 458 项测试通过，Android 160 项单测和 Debug 构建通过。
+冻结基线和执行契约的静态校验通过。测试使用合成样本，生产启用待独立发布验收。

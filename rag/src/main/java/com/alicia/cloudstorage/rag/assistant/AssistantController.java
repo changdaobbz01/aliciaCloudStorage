@@ -34,8 +34,8 @@ public class AssistantController {
     private final RagAccessAuthorizer ragAccessAuthorizer;
     private final ShadowExecutionRegistrar shadowExecutionRegistrar;
     private final RecognitionTraceRecorder traceRecorder;
+    private final RecognitionFeedbackService feedbackService;
 
-    @Autowired
     public AssistantController(
             AssistantConversationService assistantConversationService,
             AssistantPlanStreamService streamService,
@@ -45,12 +45,28 @@ public class AssistantController {
             ShadowExecutionRegistrar shadowExecutionRegistrar,
             RecognitionTraceRecorder traceRecorder
     ) {
+        this(assistantConversationService, streamService, configLoader, objectMapper, ragAccessAuthorizer,
+                shadowExecutionRegistrar, traceRecorder, null);
+    }
+
+    @Autowired
+    public AssistantController(
+            AssistantConversationService assistantConversationService,
+            AssistantPlanStreamService streamService,
+            RagConfigLoader configLoader,
+            ObjectMapper objectMapper,
+            RagAccessAuthorizer ragAccessAuthorizer,
+            ShadowExecutionRegistrar shadowExecutionRegistrar,
+            RecognitionTraceRecorder traceRecorder,
+            RecognitionFeedbackService feedbackService
+    ) {
         this.assistantConversationService = assistantConversationService;
         this.streamService = streamService;
         this.configLoader = configLoader;
         this.ragAccessAuthorizer = ragAccessAuthorizer;
         this.shadowExecutionRegistrar = shadowExecutionRegistrar;
         this.traceRecorder = traceRecorder;
+        this.feedbackService = feedbackService;
     }
 
     AssistantController(
@@ -110,6 +126,7 @@ public class AssistantController {
         this.ragAccessAuthorizer = ragAccessAuthorizer;
         this.shadowExecutionRegistrar = shadowExecutionRegistrar;
         this.traceRecorder = RecognitionTraceRecorder.disabled();
+        this.feedbackService = null;
     }
 
     @GetMapping("/api/config/client")
@@ -192,10 +209,10 @@ public class AssistantController {
         if (message == null || message.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "message is required");
         }
-        ragAccessAuthorizer.requireRagAccess(authorizationHeader);
+        RagAccessPrincipal principal = ragAccessAuthorizer.requireRagAccess(authorizationHeader);
         AssistantPlanRequest normalized = new AssistantPlanRequest(
                 message.trim(), request.conversationId(), request.clientContext(), request.clientEvent());
-        RecognitionTrace trace = beginTrace(RecognitionTrace.Route.PLAN, httpResponse);
+        RecognitionTrace trace = beginTrace(RecognitionTrace.Route.PLAN, httpResponse, principal);
         if (trace == null) {
             return planAndRegister(normalized, authorizationHeader);
         }
@@ -232,9 +249,9 @@ public class AssistantController {
         if (message == null || message.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "message is required");
         }
-        ragAccessAuthorizer.requireRagAccess(authorizationHeader);
+        RagAccessPrincipal principal = ragAccessAuthorizer.requireRagAccess(authorizationHeader);
 
-        String conversationId = request == null ? "" : request.conversationId();
+        String conversationId = request.conversationId();
         AssistantPlanRequest sanitizedRequest = new AssistantPlanRequest(
                 message.trim(),
                 conversationId,
@@ -243,7 +260,7 @@ public class AssistantController {
         );
 
         return streamService.stream(sanitizedRequest, authorizationHeader,
-                beginTrace(RecognitionTrace.Route.STREAM, httpResponse));
+                beginTrace(RecognitionTrace.Route.STREAM, httpResponse, principal));
     }
 
     @PostMapping("/api/intent/recognize")
@@ -255,10 +272,14 @@ public class AssistantController {
         return plan(request, authorizationHeader, httpResponse);
     }
 
-    private RecognitionTrace beginTrace(RecognitionTrace.Route route, HttpServletResponse response) {
-        RecognitionTrace trace = traceRecorder.start(route);
+    private RecognitionTrace beginTrace(RecognitionTrace.Route route, HttpServletResponse response, RagAccessPrincipal principal) {
+        Long userId = principal == null ? null : principal.userId();
+        RecognitionTrace trace = traceRecorder.start(route, userId);
         if (trace != null && response != null) {
             response.setHeader(RecognitionTrace.HEADER, trace.id().toString());
+            if (feedbackService != null && userId != null && userId > 0 && feedbackService.enabled()) {
+                response.setHeader(RecognitionFeedbackService.HEADER, feedbackService.mode());
+            }
         }
         return trace;
     }

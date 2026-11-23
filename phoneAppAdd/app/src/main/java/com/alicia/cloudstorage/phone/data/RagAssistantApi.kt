@@ -11,4 +11,22 @@ internal interface RagAssistantService {
         @Header("Authorization") authorization: String?,
         @Body payload: RagAssistantPlanRequest,
     ): Response<RagAssistantPlanResponse>
+
+    @POST("api/assistant/feedback")
+    suspend fun feedback(
+        @Header("Authorization") authorization: String,
+        @Body payload: RagCategoryFeedbackRequest,
+    ): Response<RagCategoryFeedbackResponse>
+
+    @POST("api/assistant/feedback/candidate/preview")
+    suspend fun previewCandidate(
+        @Header("Authorization") authorization: String,
+        @Body payload: RagCandidatePreviewRequest,
+    ): Response<RagCandidatePreviewResponse>
+
+    @POST("api/assistant/feedback/candidate")
+    suspend fun submitCandidate(
+        @Header("Authorization") authorization: String,
+        @Body payload: RagCandidateSubmission,
+    ): Response<RagCandidateReceipt>
 }

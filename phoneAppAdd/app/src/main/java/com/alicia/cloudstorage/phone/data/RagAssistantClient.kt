@@ -15,6 +15,7 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
+import java.util.UUID
 
 internal class RagAssistantClient(
     private val serviceFactory: RagAssistantServiceFactory = RagAssistantServiceFactory(),
@@ -28,8 +29,8 @@ internal class RagAssistantClient(
         conversationId: String?,
         clientContext: RagAssistantClientContext?,
         clientEvent: RagAssistantClientEvent? = null,
-    ): RagAssistantPlanResponse =
-        serviceFactory.serviceFor(baseUrl)
+    ): RagAssistantPlanResponse {
+        val response = serviceFactory.serviceFor(baseUrl)
             .plan(
                 authorization = token
                     ?.takeIf { it.isNotBlank() }
@@ -41,7 +42,28 @@ internal class RagAssistantClient(
                     clientEvent = clientEvent,
                 ),
             )
-            .requireRagBody(fallback = "安安暂时连接不上，请稍后再试。")
+        return response.requireRagBody(fallback = "安安暂时连接不上，请稍后再试。")
+            .copy(feedback = parseFeedbackHeaders(response.headers()["X-Recognition-Trace-Id"], response.headers()["X-Recognition-Feedback"]))
+    }
+
+    suspend fun reportFeedback(baseUrl: String, token: String, ref: RagFeedbackReference, category: RagFeedbackCategory) {
+        val response = serviceFactory.serviceFor(baseUrl)
+            .feedback("Bearer $token", RagCategoryFeedbackRequest(ref.traceId, category.name))
+            .requireRagBody("反馈暂时无法提交。")
+        if (!response.accepted) throw ApiException("反馈未被接受。", status = 502)
+    }
+
+    suspend fun previewCandidate(baseUrl: String, token: String, ref: RagFeedbackReference, expression: String): String =
+        serviceFactory.serviceFor(baseUrl)
+            .previewCandidate("Bearer $token", RagCandidatePreviewRequest(ref.traceId, expression))
+            .requireRagBody("无法生成脱敏预览。").expression?.takeIf { it.isNotBlank() }
+            ?: throw ApiException("脱敏预览内容为空。", status = 502)
+
+    suspend fun submitCandidate(baseUrl: String, token: String, ref: RagFeedbackReference, expression: String): String =
+        serviceFactory.serviceFor(baseUrl)
+            .submitCandidate("Bearer $token", RagCandidateSubmission(ref.traceId, expression, consent = true))
+            .requireRagBody("样本暂时无法提交。").candidateId?.takeIf { it.isNotBlank() }
+            ?: throw ApiException("样本回执缺失。", status = 502)
 
     fun planStream(
         baseUrl: String,
@@ -83,6 +105,9 @@ internal class RagAssistantClient(
             }
 
             val body = response.body ?: throw ApiException("安安没有返回内容。", status = response.code)
+            val feedback = parseFeedbackHeaders(
+                response.header("X-Recognition-Trace-Id"), response.header("X-Recognition-Feedback"),
+            )
             val reader = body.charStream().buffered()
             try {
                 var eventName = ""
@@ -92,7 +117,11 @@ internal class RagAssistantClient(
                     val event = parseSseEvent(eventName, dataLines)
                     eventName = ""
                     dataLines.clear()
-                    return event
+                    return if (event?.type.equals("final", ignoreCase = true)) {
+                        event?.copy(response = event.response?.copy(feedback = feedback))
+                    } else {
+                        event
+                    }
                 }
 
                 while (true) {
@@ -164,6 +193,17 @@ internal data class RagAssistantServiceBundle(
 )
 
 private fun ensureTrailingSlash(baseUrl: String) = "${baseUrl.trim().removeSuffix("/")}/"
+
+internal fun parseFeedbackHeaders(traceId: String?, mode: String?): RagFeedbackReference? {
+    val candidateEnabled = when (mode) {
+        "category" -> false
+        "category,candidate" -> true
+        else -> return null
+    }
+    if (traceId?.length != 36) return null
+    val id = runCatching { UUID.fromString(traceId).toString() }.getOrNull() ?: return null
+    return RagFeedbackReference(id, candidateEnabled).takeIf { id.equals(traceId, ignoreCase = true) }
+}
 
 private fun <T> Response<T>.requireRagBody(fallback: String): T =
     requireBodyWithRagError(fallback)
