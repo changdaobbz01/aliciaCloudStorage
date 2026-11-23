@@ -7,8 +7,9 @@ param(
     [string]$TargetRagBaseUrl = '',
     [string]$TargetExecutionBaseUrl = '',
     [string]$TargetApiBaseUrl = '',
+    [string]$LocalBuildRepositoryRoot = '',
     [string[]]$CaseId = @(),
-    [ValidateSet('baseline', 'stress', 'all', 'recognition-dev', 'recognition-candidate', 'recognition-probe', 'recognition-holdout')]
+    [ValidateSet('baseline', 'stress', 'all', 'recognition-dev', 'recognition-candidate', 'recognition-probe', 'recognition-challenge', 'recognition-holdout')]
     [string]$Suite = 'baseline'
 )
 
@@ -261,7 +262,7 @@ function Wait-ExecutionTerminalState {
 
 $context = Get-RagE2EContext
 $isRecognitionMeasurement = $Suite -in @(
-    'recognition-dev', 'recognition-candidate', 'recognition-probe', 'recognition-holdout'
+    'recognition-dev', 'recognition-candidate', 'recognition-probe', 'recognition-challenge', 'recognition-holdout'
 )
 if ($isRecognitionMeasurement -and $ExecuteFolderCreate) {
     throw 'Recognition measurement never confirms or executes tasks.'
@@ -273,6 +274,7 @@ $scenarioFiles = @(switch ($Suite) {
     'recognition-dev' { @($context.RecognitionDevFile) }
     'recognition-candidate' { @($context.RecognitionCandidateFile) }
     'recognition-probe' { @($context.RecognitionProbeFile) }
+    'recognition-challenge' { @($context.RecognitionChallengeFile) }
     'recognition-holdout' { @($context.RecognitionHoldoutFile) }
 })
 $loadedSuites = @(
@@ -312,11 +314,28 @@ if ($cases.Count -eq 0) {
 $suiteVersion = ($loadedSuites.version -join '+')
 
 Import-RagE2EEnv -Path $context.EnvFile
-$sourceRevision = (& git -C $context.RepositoryRoot rev-parse HEAD).Trim()
-if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($sourceRevision)) {
-    throw 'Unable to read the source revision for evaluation provenance.'
+$runnerRevision = [string](& git -C $context.RepositoryRoot rev-parse HEAD)
+if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($runnerRevision)) {
+    throw 'Unable to read the evaluation runner revision.'
 }
-$sourceChanges = @(Get-RagE2ESourceChanges -Context $context)
+$sourceContext = $context
+$sourceRevision = $runnerRevision
+if (-not [string]::IsNullOrWhiteSpace($LocalBuildRepositoryRoot)) {
+    if ($Suite -ne 'recognition-challenge') {
+        throw '-LocalBuildRepositoryRoot applies to the isolated recognition challenge.'
+    }
+    $buildPath = (Resolve-Path -LiteralPath $LocalBuildRepositoryRoot).Path
+    $repoPath = [string](& git -C $buildPath rev-parse --show-toplevel)
+    if ($LASTEXITCODE -ne 0 -or (Resolve-Path -LiteralPath $repoPath).Path -ne $buildPath) {
+        throw '-LocalBuildRepositoryRoot must identify the runtime build checkout root.'
+    }
+    $sourceRevision = [string](& git -C $buildPath rev-parse HEAD)
+    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($sourceRevision)) {
+        throw 'Unable to read the tested runtime revision.'
+    }
+    $sourceContext = [pscustomobject]@{ RepositoryRoot = $buildPath; SourcePaths = $context.SourcePaths }
+}
+$sourceChanges = @(Get-RagE2ESourceChanges -Context $sourceContext)
 $sourceDirty = $sourceChanges.Count -gt 0
 $account = Assert-RagE2EEnvValue -Name 'ALICIA_RAG_E2E_ACCOUNT'
 $password = Assert-RagE2EEnvValue -Name 'ALICIA_RAG_E2E_PASSWORD'
@@ -325,6 +344,9 @@ $externalTargetValues = @(
         Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
 )
 $usesExternalTarget = $externalTargetValues.Count -gt 0
+if ($Suite -eq 'recognition-challenge' -and $usesExternalTarget) {
+    throw 'The recognition challenge uses the isolated local stack.'
+}
 if ($usesExternalTarget -and $externalTargetValues.Count -ne 3) {
     throw 'External evaluation requires explicit RAG, RAG Execution and Cloud API base URLs.'
 }
@@ -427,6 +449,7 @@ foreach ($case in $cases) {
     foreach ($turn in $case.turns) {
         $turnNumber++
         $message = ([string]$turn.message).Replace('{{runId}}', $runId)
+        $requestTimer = [System.Diagnostics.Stopwatch]::StartNew()
         try {
             $body = @{
                 message        = $message
@@ -434,6 +457,7 @@ foreach ($case in $cases) {
                 clientContext  = New-EvaluationClientContext
             }
             $lastResponse = Invoke-JsonRequest -Method Post -Uri "$ragBaseUrl/api/assistant/plan" -Headers $headers -Body $body
+            $requestTimer.Stop()
             $turnReference = Get-OptionalProperty -Object $lastResponse -Name 'executionReference'
             $turnExecutionId = [string](Get-OptionalProperty -Object $turnReference -Name 'executionId')
             if (-not [string]::IsNullOrWhiteSpace($turnExecutionId)) {
@@ -455,6 +479,7 @@ foreach ($case in $cases) {
             $turnResults.Add([pscustomobject]@{
                 turn       = $turnNumber
                 message    = $message
+                durationMs = $requestTimer.ElapsedMilliseconds
                 assertion  = $assertion
                 response   = $lastResponse
                 error      = $null
@@ -466,6 +491,7 @@ foreach ($case in $cases) {
             $turnResults.Add([pscustomobject]@{
                 turn       = $turnNumber
                 message    = $message
+                durationMs = $requestTimer.ElapsedMilliseconds
                 assertion  = $null
                 response   = $null
                 error      = $_.Exception.Message
@@ -603,6 +629,7 @@ $report = [pscustomobject]@{
     runId         = $runId
     sourceRevision = $sourceRevision
     sourceDirty   = $sourceDirty
+    runnerRevision = $runnerRevision
     targetMode    = if ($usesExternalTarget) { 'external-https' } else { 'isolated-local' }
     scenarioHashes = $scenarioHashes
     caseFilter    = $caseFilter

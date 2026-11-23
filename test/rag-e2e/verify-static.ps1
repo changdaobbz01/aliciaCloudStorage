@@ -71,6 +71,7 @@ foreach ($recognitionFile in @(
         $context.RecognitionDevFile,
         $context.RecognitionCandidateFile,
         $context.RecognitionProbeFile,
+        $context.RecognitionChallengeFile,
         $context.RecognitionHoldoutFile
     )) {
     $dataset = Get-Content -LiteralPath $recognitionFile -Raw -Encoding UTF8 | ConvertFrom-Json
@@ -113,7 +114,7 @@ foreach ($recognitionFile in @(
 if ([int]$recognitionCounts.development -lt 50 -or [int]$recognitionCounts.holdout -lt 25) {
     throw 'Recognition datasets do not meet the minimum development/holdout coverage.'
 }
-Write-Host "[OK] Recognition datasets are valid: development=$($recognitionCounts.development), candidate=$($recognitionCounts.'development-candidate'), probe=$($recognitionCounts.'production-probe'), holdout=$($recognitionCounts.holdout)."
+Write-Host "[OK] Recognition datasets are valid: development=$($recognitionCounts.development), candidate=$($recognitionCounts.'development-candidate'), probe=$($recognitionCounts.'production-probe'), challenge=$($recognitionCounts.challenge), holdout=$($recognitionCounts.holdout)."
 
 if (Test-Path -LiteralPath $context.RecognitionBaselineFile -PathType Leaf) {
     $recognitionBaseline = Get-Content -LiteralPath $context.RecognitionBaselineFile -Raw -Encoding UTF8 | ConvertFrom-Json
