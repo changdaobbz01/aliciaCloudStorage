@@ -287,6 +287,8 @@ bash deploy/scripts/update-rag-production.sh
 
 脚本会拒绝覆盖服务端已有的 tracked 改动，确认 `.env` 已配置 DeepSeek，快进拉取 `main`，重建 `rag` 与 `frontend`，最后同时检查 `127.0.0.1:8091/api/health` 和公网 `/rag/api/health`。密钥只保留在服务器 `.env`，不会输出到日志。
 
+对话识别 V2 的现状基线、隐私约束、错误分类、质量门禁和 T0-T8 有序任务清单见 [`rag/docs/RECOGNITION_V2_REFACTOR_PLAN_2026-11-23.md`](rag/docs/RECOGNITION_V2_REFACTOR_PLAN_2026-11-23.md)。改造期间继续保持 RAG 理解、`ragExecution` 持久任务和 CloudStorageApi 实际业务执行三层边界，不以识别指标提升扩大生产角色或动作 allowlist。只读冻结基线可通过 `pwsh -NoProfile -File test/rag-e2e/verify-recognition-v2-baseline.ps1` 复核。
+
 `ragExecution` 使用独立的分阶段发布入口，不与普通 RAG 更新混用。先生成不会覆盖当前 `.env` 的候选配置，再做只读预检；发布脚本默认也只预演，必须显式传入 `--apply` 才会执行生产变更。默认服务集更新 `api`、`rag`、`rag-execution` 和 `frontend`；仅涉及执行后端与管理前端时，可显式使用受控的 `--service-set rag-execution-frontend`，以 `--no-deps` 只更新后两项：
 
 ```bash
