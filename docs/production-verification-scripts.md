@@ -312,6 +312,54 @@ bash deploy/scripts/update-rag-production.sh "$HOME/aliciaCloudStorage" --rollba
 
 如果发布进程被强制终止并遗留 `.lock`，先确认同一项目没有在运行的发布或回滚进程，再用 `rmdir` 移除该空目录。根据最新记录检查实际运行镜像，必要时执行手动回滚。
 
+#### 配置 RAG Redis 会话主读
+
+会话主读通过 `compose.rag-conversation-redis.yaml` 接入，保留生产 `.env`。Redis 使用仅与 RAG 共享的内部网络和专用 AOF 卷，访问需通过 ACL。首次启用使用新加密密钥，旧会话从新上下文开始。执行任务登记保持关闭。
+
+在生产项目目录使用已审核版本中的覆盖文件和 ACL 模板。准备步骤只写候选文件，原配置可以直接用于回退。
+
+```bash
+umask 077
+mkdir -p deploy/generated/rag-conversation
+redis_dir=$(mktemp -d "$PWD/deploy/generated/rag-conversation/release-XXXXXXXX")
+password=$(openssl rand -hex 32)
+key=$(openssl rand -base64 32)
+hash=$(printf '%s' "$password" | sha256sum | cut -d' ' -f1)
+sed "s/RAG_REDIS_PASSWORD_SHA256/$hash/" deploy/redis/rag-conversation.acl.example > "$redis_dir/redis.acl"
+chmod 644 "$redis_dir/redis.acl"
+printf 'ALICIA_RAG_CONVERSATION_REDIS_PASSWORD=%s\nALICIA_RAG_CONVERSATION_REDIS_KEY=%s\nALICIA_RAG_CONVERSATION_REDIS_ACL_FILE=%s\n' \
+  "$password" "$key" "$redis_dir/redis.acl" > "$redis_dir/redis.env"
+unset password key hash
+
+base=(sudo docker compose --env-file .env -f compose.yaml -f compose.https.yaml)
+primary=(sudo docker compose --env-file .env --env-file "$redis_dir/redis.env" \
+  -f compose.yaml -f compose.https.yaml -f compose.rag-conversation-redis.yaml)
+"${primary[@]}" config --quiet
+```
+
+候选目录权限为 `700`，环境文件为 `600`。Redis 容器需要读取 ACL 文件，密码在该文件中仅以哈希存储。执行切换前核对基础配置对应 `MEMORY`（或缺省）、任务登记关闭、运行镜像与 RAG 镜像标签一致。确认固定版本的 Redis 镜像已加载，以及主机有 Redis 增量、AOF 重写和服务重建所需的容量。核对主机 `vm.overcommit_memory` 和同机 AOF 重写结果。Redis 官方建议在 Linux 上将该值设为 `1`。 [Redis 运维文档](https://redis.io/docs/latest/operate/oss_and_stack/management/admin/)
+
+切换窗口内先启动 Redis，待其通过容器健康检查，再重建 RAG。其余服务沿用当前实例。
+
+```bash
+"${primary[@]}" up -d --no-deps --pull never --wait --wait-timeout 60 rag-conversation-redis
+"${primary[@]}" up -d --no-deps --no-build --pull never --force-recreate rag
+```
+
+检查本机和公网 RAG 健康、Identity 与云盘依赖，并用专用测试账号完成两轮合成澄清，核对会话轮次、Redis 中的新加密写入和零任务登记。容器健康检查验证 Redis 要求认证，会话写入验收确认应用侧认证和持久化。
+
+回退时用基础配置重建同一 RAG 镜像。确认本机及公网健康，旧会话以无草稿的新上下文开始，再停止 Redis 并保留 AOF 卷及候选配置。
+
+```bash
+"${base[@]}" up -d --no-deps --no-build --pull never --force-recreate rag
+```
+
+```bash
+"${primary[@]}" stop rag-conversation-redis
+```
+
+主读期间的 RAG 重建沿用 Redis 覆盖文件和同一套会话凭据。镜像回滚脚本仍按自身发布记录和 Compose 指纹校验，主读配置回退使用上述基础配置。
+
 Android APK 一键发布需要在本地 PowerShell 终端执行，并确保已经加载正式 release keystore 环境变量：
 
 ```powershell

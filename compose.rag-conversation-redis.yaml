@@ -1,0 +1,54 @@
+services:
+  rag:
+    environment:
+      ALICIA_RAG_CONVERSATION_PERSISTENCE_MODE: REDIS
+      ALICIA_RAG_CONVERSATION_REDIS_URL: redis://rag:${ALICIA_RAG_CONVERSATION_REDIS_PASSWORD:?Redis password is required}@rag-conversation-redis:6379/0
+      ALICIA_RAG_CONVERSATION_REDIS_KEY: ${ALICIA_RAG_CONVERSATION_REDIS_KEY:?Conversation encryption key is required}
+      ALICIA_RAG_EXECUTION_SHADOW_REGISTRATION_ENABLED: "false"
+    networks:
+      - default
+      - rag_conversations
+    depends_on:
+      rag-conversation-redis:
+        condition: service_healthy
+
+  rag-conversation-redis:
+    image: redis:7.4-alpine@sha256:7f7d30b7fdd09467bac58198a1f166dd69789d348d4fe859cccb20e0cf287fbe
+    restart: unless-stopped
+    command:
+      - redis-server
+      - --aclfile
+      - /run/secrets/rag-redis.acl
+      - --save
+      - ""
+      - --appendonly
+      - "yes"
+      - --appendfsync
+      - always
+      - --maxmemory
+      - 32mb
+      - --maxmemory-policy
+      - noeviction
+    mem_limit: 96m
+    networks:
+      - rag_conversations
+    volumes:
+      - rag_conversation_data:/data
+      - type: bind
+        source: ${ALICIA_RAG_CONVERSATION_REDIS_ACL_FILE:?Redis ACL file is required}
+        target: /run/secrets/rag-redis.acl
+        read_only: true
+        bind:
+          create_host_path: false
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli --raw PING | grep -Fxq 'NOAUTH Authentication required.'"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+volumes:
+  rag_conversation_data:
+
+networks:
+  rag_conversations:
+    internal: true

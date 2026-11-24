@@ -1,0 +1,2 @@
+user default off
+user rag on #RAG_REDIS_PASSWORD_SHA256 ~alicia:rag:conversation:v1:* -@all +ping +hello +select +client|setinfo +client|setname +hgetall +hget +exists +hset +pexpire +eval +del
