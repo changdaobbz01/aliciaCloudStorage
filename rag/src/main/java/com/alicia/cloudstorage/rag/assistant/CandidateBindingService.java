@@ -84,6 +84,10 @@ public class CandidateBindingService {
         if (response == null) {
             return CandidateBindingResult.skipped("not_requested", "没有可绑定的识别结果。");
         }
+        if (!response.missingSlots().isEmpty() && AssistantFlowPolicy.blocksExecution(response)
+                && !AssistantFlowPolicy.hasBlockingSemanticClarification(response)) {
+            return CandidateBindingResult.skipped("waiting_for_clarification", "当前语义仍需澄清，暂不查询真实候选。");
+        }
         String actionType = response.actionDraft() == null ? "none" : response.actionDraft().type();
         if (actionType == null || actionType.isBlank() || "none".equals(actionType)) {
             return CandidateBindingResult.skipped("not_requested", "当前回复不需要候选绑定。");

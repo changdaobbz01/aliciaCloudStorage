@@ -23,9 +23,10 @@ final class NonExecutableRequestGuard {
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
     private static final Pattern NEGATED_MUTATION = Pattern.compile(
-            "(?:^|[，,。；;]|但|但是|不过|可是)(?:我\\s*)?(?:(?:暂时|目前|现在|当前|这次)\\s*)?(?:先)?"
+            "(?:^|[，,。；;”]|但|不过|可是|文件(?:夹)?|目录|\\.[A-Za-z0-9]{1,16})\\s*(?:我\\s*)?"
+                    + "(?:(?:暂时|目前|现在|当前|这次)\\s*)?(?:先)?"
                     + "(?:不要|别|不用|无需|不必|并不是要|不是要|并非要)(?:再)?[^，,。；;]{0,16}"
-                    + "(?:删除|删(?:掉|了)?|移除|清理|移动|移到|移去|移走|搬到|搬去|挪到|挪去|归档到|重命名|改名|分享|上传|新建|创建)",
+                    + "(?:删除|删(?:掉|了)?|移除|清理|移动|移到|移去|移走|搬到|搬去|挪(?:到|去|动)?|归档到|重命名|改名|分享|上传|新建|创建)",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
     private static final Pattern NEGATION_CUE = Pattern.compile(
@@ -315,11 +316,16 @@ final class NonExecutableRequestGuard {
     private static final String PREVIOUS_TURN = "(?:刚才|刚刚|前面|之前|上一轮)";
     private static final String REFERENCED_OPERATION = "(?:" + PREVIOUS_TURN
             + "(?:的|[这那][个项次])?|[这那][个项次]|该)"
-            + "(?:(?:删除|移动|上传|创建|新建|重命名|改名|分享)(?:操作|动作|任务|计划)?|(?:操作|动作|任务|计划))";
+            + "(?:(?:要|想|打算)?(?:删除|移动|上传|创建|新建|重命名|改名|分享)"
+            + "(?:的)?(?:操作|动作|任务|计划|事情|事)?|(?:操作|动作|任务|计划))";
     private static final Pattern REFERENCED_CANCELLATION = Pattern.compile(
-            "^(?:请|麻烦)?(?:先?(?:取消|撤销|停止|暂停)\\s*" + REFERENCED_OPERATION
-                    + "|" + REFERENCED_OPERATION + "(?:先|暂且|暂时)?(?:作罢|取消|撤销|停止|暂停|暂缓))"
+            "^(?:请|麻烦)?(?:先?(?:取消|撤销|撤回|停止|暂停)\\s*" + REFERENCED_OPERATION
+                    + "|" + REFERENCED_OPERATION + "(?:先|暂且|暂时)?(?:作罢|取消|撤销|撤回|停止|暂停|暂缓))"
                     + "(?=$|[，,。；;！!])"
+    );
+    private static final Pattern PAUSE_FOR_QUESTION = Pattern.compile(
+            "^(?:先|暂时)?(?:别|不要|不用|不必)(?:提交|执行|操作)[，,。；;]\\s*"
+                    + "(?:我)?(?:只(?:是|想)?|仅(?:是|想)?|先)(?:问|咨询)"
     );
     private static final Pattern CANCEL_ALL_PENDING_STEPS = Pattern.compile(
             "^(?=.*(?:两个|全部|所有).{0,8}(?:步骤|操作|动作))(?=.*(?:都)?取消)"
@@ -334,7 +340,7 @@ final class NonExecutableRequestGuard {
     );
     private static final Pattern CONTEXTLESS_CONFIRMATION = Pattern.compile(
             "^(?:(?:好|好的|行|可以)[，,]?)?(?:请)?"
-                    + "(?:确认(?:并|后)?执行|确认执行|确认|执行|(?:那)?就(?:这样|这么)执行|"
+                    + "(?:确认(?:并|后)?(?:执行|照办)|确认|执行|(?:那)?就(?:这样|这么)执行|"
                     + "(?:(?:还是|那?就)?(?:按|照)(?:" + PREVIOUS_TURN + "(?:的)?)?"
                     + "(?:说的|这句话|那句话|这个|那个)?(?:直接)?(?:执行|继续|做))|"
                     + "继续(?:刚才|之前)(?:那个|这个|说的)?|"
@@ -356,6 +362,16 @@ final class NonExecutableRequestGuard {
         String value = message == null ? "" : message.trim();
         if (value.isBlank()) {
             return Optional.empty();
+        }
+        String structure = TextSupport.maskQuotedNodeNames(value);
+        if (PAUSE_FOR_QUESTION.matcher(structure).find() && QUESTION_END.matcher(structure).find()) {
+            return Optional.of(new Decision(
+                    "pause_for_operation_question",
+                    "assistant_execution_explanation",
+                    "CANCELLATION",
+                    "RESPOND",
+                    "我会先停下待确认的操作，只回答这次的问题。"
+            ));
         }
         if (CANCEL_ALL_PENDING_STEPS.matcher(value).matches() && hasPendingOperation(conversation)) {
             return Optional.of(new Decision(
@@ -724,13 +740,13 @@ final class NonExecutableRequestGuard {
                     "好，先不处理文件。我们可以轻松聊一会儿，等你想继续时再告诉我。"
             ));
         }
-        if (!value.matches(".*(?:不要忘记|别忘了).*")
-                && NEGATED_MUTATION.matcher(guardedValue).find()
-                && !hasAffirmativeReplacement(guardedValue)) {
+        if (!structure.matches(".*(?:不要忘记|别忘了).*")
+                && NEGATED_MUTATION.matcher(structure).find()
+                && !hasAffirmativeReplacement(structure)) {
             return Optional.of(new Decision(
                     "negated_operation",
                     "assistant_acknowledgement",
-                    "NEW_TASK",
+                    "CANCELLATION",
                     "RESPOND",
                     "好的，我不会执行这项文件操作。若要改做其他操作，请重新说明。"
             ));

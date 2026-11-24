@@ -76,6 +76,15 @@ final class AssistantSemanticOrchestrator {
         RecognitionTrace.mark(Stage.ROUTING, polish ? Outcome.LOCAL : Outcome.OBSERVED, started);
 
         boolean confirm = confirmMessages.contains(normalizeControl(message));
+        if ((confirm || NonExecutableRequestGuard.matchesGenericConfirmation(message.strip())) && !reset
+                && hasPendingIntent(conversation) && !"fallback".equals(conversation.pendingIntentId())
+                && (conversation.hasPendingSlots() || conversation.semanticFrame().needsClarification())) {
+            var local = recognition.recognizeLocal(message, "local_guard:confirmation_requires_clarification");
+            var pending = restore(conversation, local, "待补充的信息齐全后才能确认。");
+            pending = pending.withSemanticFrame(pending.semanticFrame(), pending.entities(),
+                    new ActionDraft("none", Map.of(), false)).withSemanticClarification(pending.semanticFrame());
+            return new Decision(pending, Kind.BLOCKED, null, null, false);
+        }
         IntentRecognitionResponse proposal = recognition.recognize(message, conversation, clientContext, deterministicReason);
         if (confirm && isConfirmationAfterCancellation(proposal, conversation)) {
             IntentRecognitionResponse acknowledgement = restore(conversation, proposal, "用户确认或延续上一轮待处理意图。")
@@ -193,6 +202,11 @@ final class AssistantSemanticOrchestrator {
             );
             RecognitionTrace.decision(Stage.CLIENT_CAPABILITY, Outcome.BLOCKED, started, response);
         }
+        if (!response.missingSlots().isEmpty() && response.actionDraft() != null
+                && !List.of("none", "search").contains(response.actionDraft().type())) {
+            return response.withSemanticFrame(response.semanticFrame(), response.entities(),
+                    new ActionDraft("none", Map.of(), false));
+        }
         return response;
     }
 
@@ -218,7 +232,8 @@ final class AssistantSemanticOrchestrator {
 
     private static boolean hasPendingAction(AssistantConversationState conversation) {
         return hasPendingIntent(conversation)
-                && conversation.pendingActionDraft() != null && !"search".equals(conversation.pendingActionDraft().type());
+                && conversation.pendingActionDraft() != null
+                && !List.of("", "none", "search").contains(conversation.pendingActionDraft().type());
     }
 
     private static boolean hasPendingIntent(AssistantConversationState conversation) {
@@ -252,6 +267,9 @@ final class AssistantSemanticOrchestrator {
     }
 
     private boolean shouldFillSlots(String message, AssistantConversationState conversation, IntentRecognitionResponse response) {
+        if (!pendingSlots.explicitFolderName(message, conversation).isBlank()) {
+            return true;
+        }
         var local = intentRouter.route(message);
         return "fallback".equals(local.intent())
                 || conversation.pendingIntentId().equals(local.intent())

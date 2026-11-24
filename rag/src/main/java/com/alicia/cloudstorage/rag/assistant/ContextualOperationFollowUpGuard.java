@@ -37,6 +37,11 @@ final class ContextualOperationFollowUpGuard {
             "(?:目的地|目标(?:目录|文件夹)?)(?:改成|改为|换成|是)\\s*[“\\\"']?([^”\\\"'，,。；;!?！？]+)",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
+    private static final Pattern MOVE_DESTINATION_CHOICE = Pattern.compile(
+            "^(?:(?:我|那就|就|还是)\\s*)?(?:选(?:择|定)?|用)\\s*("
+                    + TextSupport.QUOTED_NODE_NAME + "|[^，,。；;!?！？\\s“”\"'《》「」『』]{1,80}?)"
+                    + "(?:文件夹|目录)?(?:[，,]\\s*(?:就(?:选)?这个(?:目的地|文件夹|目录)?|就这里))?[。！!]*$"
+    );
     private static final Pattern EXPLICIT_RESUME = Pattern.compile(
             "(?:(?:回到|继续|接着).{0,10}(?:刚才|之前).{0,10}(?:重命名|改名|移动|创建|新建|搜索|查找|上传|删除)|"
                     + "回到(?:刚才|之前)?(?:的)?(?:搜索|查找|重命名|改名|移动|创建|新建|上传|删除))",
@@ -103,6 +108,15 @@ final class ContextualOperationFollowUpGuard {
         Optional<Decision> narrowed = explicitNarrowing(value, conversation);
         if (narrowed.isPresent()) {
             return narrowed;
+        }
+        if ("conflicting_move_destinations".equals(conversation.semanticFrame().clarification().reason())) {
+            Matcher choice = MOVE_DESTINATION_CHOICE.matcher(value);
+            if (choice.matches() && !choice.group(1).matches(".*(?:或者|还是|或是|二选一).*")
+                    && !List.of("这个", "那个", "这里", "那里", "目录", "文件夹").contains(choice.group(1))) {
+                Map<String, Object> entities = new LinkedHashMap<>(conversation.entities());
+                entities.put("target_folder", TextSupport.unwrapNodeName(choice.group(1)));
+                return decision("move_destination_choice", "node_move", "SLOT_FILL", "MOVE", entities);
+            }
         }
 
         Optional<OperationContext> immediate = immediateContext(conversation);

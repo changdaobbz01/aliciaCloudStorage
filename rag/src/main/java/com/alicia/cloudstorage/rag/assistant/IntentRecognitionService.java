@@ -42,6 +42,12 @@ public class IntentRecognitionService {
     private final SemanticRecognitionArbiter recognitionArbiter;
     private final OperationArgumentResolver operationArgumentResolver = new OperationArgumentResolver();
     private final NonExecutableRequestGuard nonExecutableRequestGuard = new NonExecutableRequestGuard();
+    private static final Pattern DEFERRED_OPERATION_NAME = Pattern.compile(
+            "(?:^|[，,。；;])\\s*(?:新)?(?:文件名|名字|名称)\\s*(?:我)?"
+                    + "(?:还(?:没|未)(?:说|给|想好|定)|尚未(?:说|给|确定)|待定|"
+                    + "(?:下一(?:句|轮)|稍后|回头|待会儿?|之后)(?:再)?(?:说|发|给|补充|告诉你))"
+                    + "(?=$|[\\s，,。；;！!？?]|吧)"
+    );
     private final ResponseOnlyConversationFollowUpGuard conversationFollowUpGuard =
             new ResponseOnlyConversationFollowUpGuard();
     private final ContextualOperationFollowUpGuard operationFollowUpGuard =
@@ -230,7 +236,7 @@ public class IntentRecognitionService {
         if (operationArgumentResolver.hasConflictingMoveDestinations(
                 message, moveContext, moveContext && conversation.pendingSlots().contains("target_folder")
         )) {
-            IntentRecognitionResponse response = conflictingMoveDestinationsResponse(message);
+            IntentRecognitionResponse response = conflictingMoveDestinationsResponse(message, conversation);
             RecognitionTrace.decision(Stage.NON_EXECUTABLE_GUARD, Outcome.BLOCKED, stageStarted, response);
             return response;
         }
@@ -409,6 +415,7 @@ public class IntentRecognitionService {
         RecognitionTrace.mark(Stage.CAPABILITY_GUARD, semanticBoundary.isPresent() ? Outcome.BLOCKED
                 : configuredBoundary == null ? Outcome.NO_MATCH : Outcome.SKIPPED, boundaryStarted);
         if (!guardedByBoundary) {
+            entities = omitDeferredName(message, response.intentId(), entities);
             response = rebuildForConversation(
                     response,
                     response.intentId(),
@@ -501,19 +508,32 @@ public class IntentRecognitionService {
         );
     }
 
-    private IntentRecognitionResponse conflictingMoveDestinationsResponse(String message) {
+    private IntentRecognitionResponse conflictingMoveDestinationsResponse(
+            String message, AssistantConversationState conversation
+    ) {
         String reason = "non_executable_guard:conflicting_move_destinations";
-        String question = "这次移动有多个备选目的地。请选定一个文件夹，并重新说明要移动的对象和目的地。";
-        var response = rebuildForConversation(fromFallback(message, reason), "node_move", Map.of(), reason);
+        var source = operationArgumentResolver.literalMoveSource(message);
+        Map<String, Object> known = new LinkedHashMap<>();
+        if (source.isPresent()) {
+            known.put("target_name", source.get().name());
+            known.put("result_type", source.get().resultType());
+        } else if (conversation != null && "MOVE".equals(conversation.semanticFrame().operation())
+                && operationArgumentResolver.resolve(message, "MOVE").isEmpty()) {
+            known.putAll(conversation.entities());
+            known.remove("target_folder");
+        }
+        String question = known.containsKey("target_name")
+                ? "这次移动有多个备选目的地。请选择一个目标文件夹。"
+                : "这次移动有多个备选目的地。请说明要移动的对象，并选择一个目标文件夹。";
+        var response = rebuildForConversation(fromFallback(message, reason), "node_move", known, reason);
         SemanticFrame frame = new SemanticFrame(
                 SemanticFrame.VERSION, "NEW_TASK", "MOVE", SemanticFrame.Query.empty(), SemanticFrame.Scope.empty(),
                 SemanticFrame.Reference.empty(), 1.0, List.of(),
                 new SemanticFrame.Clarification("conflicting_move_destinations", question, List.of())
         );
-        return enforceResponsePolicy(message, response.withPlanningOverride(
-                response.intentId(), response.intentName(), response.taskType(), Map.of(), "ask_clarification",
-                response.safety(), new ActionDraft("none", Map.of(), false), question, reason, frame
-        ).withSemanticClarification(frame));
+        return enforceResponsePolicy(message,
+                response.withSemanticFrame(frame, response.entities(), new ActionDraft("none", Map.of(), false))
+                        .withSemanticClarification(frame));
     }
 
     private IntentRecognitionResponse responseOnlyResponse(
@@ -986,6 +1006,21 @@ public class IntentRecognitionService {
         return requiredSlots.stream()
                 .filter(slot -> !entities.containsKey(slot) || String.valueOf(entities.get(slot)).isBlank())
                 .toList();
+    }
+
+    private Map<String, Object> omitDeferredName(String message, String intentId, Map<String, Object> entities) {
+        String slot = switch (intentId) {
+            case "folder_create", "folder_create_then_upload" -> "new_folder_name";
+            case "file_rename" -> "new_name";
+            default -> "";
+        };
+        if (slot.isEmpty() || !entities.containsKey(slot)
+                || !DEFERRED_OPERATION_NAME.matcher(TextSupport.maskQuotedNodeNames(message)).find()) {
+            return entities;
+        }
+        Map<String, Object> remaining = new LinkedHashMap<>(entities);
+        remaining.remove(slot);
+        return remaining;
     }
 
     private ActionDraft actionDraft(Object value, IntentRouter.IntentDefinition intent, Map<String, Object> entities) {

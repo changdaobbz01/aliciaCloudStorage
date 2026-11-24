@@ -120,6 +120,22 @@ final class OperationArgumentResolver {
                 : awaitingDestination && hasDestinationChoice(structural);
     }
 
+    Optional<NodeSelector> literalMoveSource(String message) {
+        String text = normalizePreservingSpaces(message);
+        String command = MOVE_COMMAND_PREFIX.matcher(TextSupport.compactOutsideQuotedNames(text)).replaceFirst("");
+        return moveArguments(command, text).flatMap(arguments -> {
+            String surface = arguments.group(1).strip().replaceFirst("^(?:把|将)\\s*", "");
+            String name = TextSupport.unwrapNodeName(surface);
+            boolean explicitName = !name.equals(surface);
+            boolean simpleFileName = name.matches("[^\\s，,。；;!?！？<>《》“”「」『』]+\\.[A-Za-z0-9]{1,16}");
+            if (!explicitName && !simpleFileName) {
+                return Optional.empty();
+            }
+            return Optional.of(new NodeSelector(
+                    name, NameKind.EXPLICIT, inferResultType(name), "", "ALL", "", Quantifier.SINGLE));
+        });
+    }
+
     private boolean hasDestinationChoice(String destination) {
         return DESTINATION_CHOICE.matcher(destination.strip()).lookingAt();
     }

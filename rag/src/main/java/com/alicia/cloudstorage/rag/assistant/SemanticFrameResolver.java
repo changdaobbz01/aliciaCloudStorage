@@ -533,7 +533,9 @@ public class SemanticFrameResolver {
     }
 
     public ActionDraft actionDraftFor(IntentRecognitionResponse response, SemanticFrame frame, Map<String, Object> entities) {
-        if (frame == null || frame.needsClarification()) {
+        if (frame == null || frame.needsClarification()
+                || response != null && !response.missingSlots().isEmpty()
+                && !List.of("SEARCH", "LIST_CHILDREN").contains(frame.operation())) {
             return new ActionDraft("none", Map.of(), false);
         }
         String type = switch (frame.operation()) {

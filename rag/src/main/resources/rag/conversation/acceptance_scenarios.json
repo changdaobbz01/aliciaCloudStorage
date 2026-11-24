@@ -284,7 +284,7 @@
       "expected": {
         "intentId": "file_delete",
         "nextAction": "ask_clarification",
-        "actionDraftType": "delete",
+        "actionDraftType": "none",
         "risk": "high",
         "requiresConfirmation": true
       }

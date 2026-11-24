@@ -15,6 +15,10 @@ final class PendingSlotResolutionService {
             "^(?:改成|改为|重命名为|名称改为|名字改为)\\s*[“\"']?(.+?)[”\"']?$",
             Pattern.CASE_INSENSITIVE
     );
+    private static final Pattern EXPLICIT_FOLDER_NAME = Pattern.compile(
+            "^(?:那就|就|那)?(?:取名|命名)(?:为|是)?\\s*("
+                    + TextSupport.QUOTED_NODE_NAME + "|[^，,。；;!?！？]+)$"
+    );
     private static final Pattern DESTINATION_VALUE = Pattern.compile(
             "^(?:到|至|进|移动到|移到|上传到|上传至|放到|放进)\\s*[“\"']?(.+?)[”\"']?$",
             Pattern.CASE_INSENSITIVE
@@ -40,8 +44,15 @@ final class PendingSlotResolutionService {
         if (conversation == null
                 || response == null
                 || !conversation.hasPendingSlots()
-                || AssistantFlowPolicy.isCapabilityBoundary(response)
-                || isIndependentOperation(response, conversation)) {
+                || AssistantFlowPolicy.isCapabilityBoundary(response)) {
+            return Resolution.unresolved();
+        }
+        String folderName = explicitFolderName(message, conversation);
+        if (!folderName.isBlank()) {
+            Map<String, Object> values = Map.of("new_folder_name", folderName);
+            return new Resolution(true, values, slotFillFrame(conversation, response, values));
+        }
+        if (isIndependentOperation(response, conversation)) {
             return Resolution.unresolved();
         }
 
@@ -73,6 +84,14 @@ final class PendingSlotResolutionService {
 
         SemanticFrame frame = slotFillFrame(conversation, response, values);
         return new Resolution(true, Map.copyOf(values), frame);
+    }
+
+    String explicitFolderName(String message, AssistantConversationState conversation) {
+        if (!conversation.pendingSlots().contains("new_folder_name")) {
+            return "";
+        }
+        Matcher name = EXPLICIT_FOLDER_NAME.matcher(clean(message));
+        return name.matches() ? cleanSlotValue(name.group(1)) : "";
     }
 
     private boolean isIndependentOperation(
@@ -240,7 +259,7 @@ final class PendingSlotResolutionService {
     }
 
     private String unquote(String value) {
-        return clean(value).replaceAll("^[“\"']|[”\"']$", "").trim();
+        return TextSupport.unwrapNodeName(clean(value)).replaceAll("^[“\"']|[”\"']$", "").trim();
     }
 
     private boolean containsControlCharacter(String value) {

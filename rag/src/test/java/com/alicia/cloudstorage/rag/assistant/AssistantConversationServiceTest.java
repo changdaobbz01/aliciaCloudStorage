@@ -29,6 +29,93 @@ class AssistantConversationServiceTest {
     private IntentRecognitionService intentRecognitionService;
 
     @Test
+    void withdrawalAndNegationClearDraftsAndCannotBeResumedByVagueConfirmation() {
+        var plan = conversationService.plan(new AssistantPlanRequest("把《钩码记录.pdf》改成《钩码交卷.pdf》。", ""));
+        assertThat(plan.actionDraft().type()).isEqualTo("rename");
+        var cancelled = conversationService.plan(new AssistantPlanRequest(
+                "先撤回刚才要改名的事，我们保持原名。", plan.conversation().conversationId()));
+        assertThat(cancelled.intentId()).isEqualTo("assistant_acknowledgement");
+        assertThat(cancelled.semanticFrame().relation()).isEqualTo("CANCELLATION");
+        assertNoMutationPlan(cancelled);
+
+        var stale = conversationService.plan(new AssistantPlanRequest(
+                "那就照刚才的执行。", cancelled.conversation().conversationId()));
+        assertThat(stale.nextAction()).isEqualTo("ask_clarification");
+        assertThat(stale.semanticFrame().operation()).isEqualTo("UNKNOWN");
+        assertNoMutationPlan(stale);
+
+        var negated = conversationService.plan(new AssistantPlanRequest(
+                "《钩码记录.pdf》别挪也别重命名，保持原样。", ""));
+        assertThat(negated.nextAction()).isEqualTo("respond_only");
+        assertNoMutationPlan(negated);
+    }
+
+    @Test
+    void clarificationOmitsDraftUntilADeferredNameIsProvided() {
+        var pending = conversationService.plan(new AssistantPlanRequest(
+                "先在当前这一层新建个文件夹，名字下一句发。", ""));
+        assertThat(pending.missingSlots()).containsExactly("new_folder_name");
+        assertThat(pending.nextAction()).isEqualTo("ask_clarification");
+        assertNoMutationPlan(pending);
+
+        var premature = conversationService.plan(new AssistantPlanRequest("确认", pending.conversation().conversationId()));
+        assertThat(premature.missingSlots()).containsExactly("new_folder_name");
+        assertThat(premature.nextAction()).isEqualTo("ask_clarification");
+        assertNoMutationPlan(premature);
+
+        var completed = conversationService.plan(new AssistantPlanRequest(
+                "就取名「桥面收样」。", premature.conversation().conversationId()));
+        assertThat(completed.entities()).containsEntry("new_folder_name", "桥面收样");
+        assertThat(completed.actionDraft().type()).isEqualTo("folder.create");
+        assertThat(completed.nextAction()).isEqualTo("wait_for_user_confirmation");
+
+        var rename = conversationService.plan(new AssistantPlanRequest("我要给《钩码记录.pdf》改名，新名字还没说。", ""));
+        assertThat(rename.missingSlots()).contains("new_name");
+        assertNoMutationPlan(rename);
+    }
+
+    @Test
+    void moveClarificationPreservesSourceAndRequiresAnExplicitDestination() {
+        var pending = conversationService.plan(new AssistantPlanRequest(
+                "请把《回线 原图.pdf》移到「线盘复核」或「转序等待」，我还没定去哪边。", ""));
+        assertThat(pending.entities()).containsEntry("target_name", "回线 原图.pdf").doesNotContainKey("target_folder");
+        assertThat(pending.missingSlots()).containsExactly("target_folder");
+        assertThat(pending.nextAction()).isEqualTo("ask_clarification");
+        assertNoMutationPlan(pending);
+
+        var confirmedTooSoon = conversationService.plan(new AssistantPlanRequest(
+                "确认", pending.conversation().conversationId()));
+        assertThat(confirmedTooSoon.nextAction()).isEqualTo("ask_clarification");
+        assertNoMutationPlan(confirmedTooSoon);
+
+        var resolved = conversationService.plan(new AssistantPlanRequest(
+                "我选「线盘复核」，就这个目的地。", confirmedTooSoon.conversation().conversationId()));
+        assertThat(resolved.entities()).containsEntry("target_name", "回线 原图.pdf")
+                .containsEntry("target_folder", "线盘复核");
+        assertThat(resolved.actionDraft().type()).isEqualTo("collection.move_exact");
+        assertThat(resolved.safety().requiresConfirmation()).isTrue();
+        assertThat(resolved.executionReference()).isNull();
+    }
+
+    @Test
+    void postponingAPlanToAskAboutItDoesNotReviveTheDraft() {
+        var move = conversationService.plan(new AssistantPlanRequest("把《海图.pdf》改名成《海图修订.pdf》。", ""));
+        assertThat(move.actionDraft().type()).isEqualTo("rename");
+        var question = conversationService.plan(new AssistantPlanRequest(
+                "先别提交。我只问一句，改名以后旁人原来拿到的链接会受影响吗？", move.conversation().conversationId()));
+        assertThat(question.intentId()).isEqualTo("assistant_execution_explanation");
+        assertThat(question.nextAction()).isEqualTo("respond_only");
+        assertNoMutationPlan(question);
+    }
+
+    private static void assertNoMutationPlan(IntentRecognitionResponse response) {
+        assertThat(response.actionDraft().type()).isEqualTo("none");
+        assertThat(response.actionPlan().steps()).isEmpty();
+        assertThat(response.backendActionDraft().executableByBackend()).isFalse();
+        assertThat(response.executionReference()).isNull();
+    }
+
+    @Test
     void sendsTheLiteralClueAndNamedScopeFromRecognitionToCandidateBinding() {
         var requests = new java.util.ArrayList<CandidateSearchRequest>();
         var service = conversationServiceWith(request -> {
@@ -1337,7 +1424,7 @@ class AssistantConversationServiceTest {
         assertThat(ambiguous.semanticFrame().clarification().reason()).isEqualTo("conflicting_move_destinations");
         assertThat(ambiguous.actionDraft().type()).isEqualTo("none");
         assertThat(ambiguous.conversation().hasPendingAction()).isFalse();
-        assertThat(ambiguous.conversation().pendingSlots()).isEmpty();
+        assertThat(ambiguous.conversation().pendingSlots()).containsExactly("target_folder");
 
         var confirmed = conversationService.plan(new AssistantPlanRequest("确认", conversationId));
         assertThat(confirmed.actionDraft().type()).isEqualTo("none");
