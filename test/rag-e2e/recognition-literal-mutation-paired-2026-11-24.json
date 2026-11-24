@@ -1,0 +1,592 @@
+{
+  "version": "rag_recognition_literal_mutation_paired_2026_11_24_v1",
+  "labelPolicyVersion": "rag_recognition_labels_v1",
+  "split": "challenge",
+  "description": "Fresh paired cases frozen after the prior seven failures passed. Check literal names through real storage IDs, similar-name decoys, spoken rejections and the follow-up state. No execution or registration.",
+  "clientLocation": {
+    "currentFolderId": 82001,
+    "currentFolderPath": "/灯房资料"
+  },
+  "storageFixture": [
+    {"id": 82001, "type": "FOLDER", "name": "灯房资料"},
+    {"id": 82002, "type": "FOLDER", "name": "领用  复核"},
+    {"id": 82003, "type": "FOLDER", "name": "领用复核"},
+    {"id": 82004, "type": "FOLDER", "name": "「图纸」交接"},
+    {"id": 82005, "type": "FOLDER", "name": "图纸交接"},
+    {"id": 82006, "type": "FOLDER", "name": "外借 A 组"},
+    {"id": 82007, "type": "FOLDER", "name": "外借 B 组"},
+    {"id": 82008, "type": "FOLDER", "name": "外借B组"},
+    {"id": 82009, "type": "FOLDER", "name": "回箱记录"},
+    {"id": 82010, "type": "FOLDER", "name": "缺封页"},
+    {"id": 82101, "type": "FILE", "name": "领料  凭证.pdf"},
+    {"id": 82102, "type": "FILE", "name": "领料凭证.pdf"},
+    {"id": 82103, "type": "FILE", "name": "「灯卡」校样.pdf"},
+    {"id": 82104, "type": "FILE", "name": "灯卡校样.pdf"},
+    {"id": 82105, "type": "FILE", "name": "挪到暂存  注释.pdf"},
+    {"id": 82106, "type": "FILE", "name": "当天签领.pdf"},
+    {"id": 82107, "type": "FILE", "name": "封槽校验.pdf"},
+    {"id": 82108, "type": "FILE", "name": "返检页.pdf"},
+    {"id": 82109, "type": "FILE", "name": "器材盘单.pdf"}
+  ],
+  "gates": {
+    "maximumUnsafeExecutableCount": 0,
+    "minimumExactNetGain": 2,
+    "minimumImprovedCases": 2,
+    "minimumCandidateRequiredClarificationRate": 0.9,
+    "maximumRegressedProtectedTurns": 0,
+    "maximumMissingResponses": 0,
+    "maximumModelFallbacks": 0,
+    "maximumTaskReferences": 0,
+    "maximumExecutions": 0,
+    "maximumWrongNameDrafts": 0,
+    "maximumWrongParentBindings": 0,
+    "maximumWrongSourceBindings": 0,
+    "maximumUnblockedMissingLiteralTargets": 0
+  },
+  "cases": [
+    {
+      "id": "literal-mutation.names.space_and_comma",
+      "group": "names",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "麻烦在当前文件夹内新建一个文件夹，名称为「签收，晚  两批」。",
+          "expected": {
+            "intentId": [
+              "folder_create"
+            ],
+            "semanticOperation": [
+              "CREATE_FOLDER"
+            ],
+            "actionDraftType": [
+              "folder.create"
+            ],
+            "entityEquals": {
+              "new_folder_name": "签收，晚  两批"
+            },
+            "clarification": false,
+            "requiresConfirmation": true,
+            "targetParentId": 82001
+          }
+        }
+      ]
+    },
+    {
+      "id": "literal-mutation.names.nested_create",
+      "group": "names",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "请建立一个叫做『“蓝图  补录”』的目录。",
+          "expected": {
+            "intentId": [
+              "folder_create"
+            ],
+            "semanticOperation": [
+              "CREATE_FOLDER"
+            ],
+            "actionDraftType": [
+              "folder.create"
+            ],
+            "entityEquals": {
+              "new_folder_name": "“蓝图  补录”"
+            },
+            "clarification": false,
+            "requiresConfirmation": true,
+            "targetParentId": 82001
+          }
+        }
+      ]
+    },
+    {
+      "id": "literal-mutation.names.literal_negative",
+      "group": "names",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "在这一层新建一个名称叫「先别挪动  监签」的文件夹。",
+          "expected": {
+            "intentId": [
+              "folder_create"
+            ],
+            "semanticOperation": [
+              "CREATE_FOLDER"
+            ],
+            "actionDraftType": [
+              "folder.create"
+            ],
+            "entityEquals": {
+              "new_folder_name": "先别挪动  监签"
+            },
+            "clarification": false,
+            "requiresConfirmation": true,
+            "targetParentId": 82001
+          }
+        }
+      ]
+    },
+    {
+      "id": "literal-mutation.names.mixed_script_create",
+      "group": "names",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "帮我建个目录，取名为‘UV  Batch, 07’。",
+          "expected": {
+            "intentId": [
+              "folder_create"
+            ],
+            "semanticOperation": [
+              "CREATE_FOLDER"
+            ],
+            "actionDraftType": [
+              "folder.create"
+            ],
+            "entityEquals": {
+              "new_folder_name": "UV  Batch, 07"
+            },
+            "clarification": false,
+            "requiresConfirmation": true,
+            "targetParentId": 82001
+          }
+        }
+      ]
+    },
+    {
+      "id": "literal-mutation.binding.real_space_collision",
+      "group": "binding",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "请将《领料  凭证.pdf》挪到「领用  复核」。",
+          "expected": {
+            "intentId": [
+              "node_move"
+            ],
+            "semanticOperation": [
+              "MOVE"
+            ],
+            "actionDraftType": [
+              "collection.move_exact"
+            ],
+            "entityEquals": {
+              "target_name": "领料  凭证.pdf",
+              "target_folder": "领用  复核"
+            },
+            "clarification": false,
+            "requiresConfirmation": true,
+            "sourceNodeId": 82101,
+            "targetParentId": 82002
+          }
+        }
+      ]
+    },
+    {
+      "id": "literal-mutation.binding.nested_collision",
+      "group": "binding",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "把『「灯卡」校样.pdf』搬到『「图纸」交接』。",
+          "expected": {
+            "intentId": [
+              "node_move"
+            ],
+            "semanticOperation": [
+              "MOVE"
+            ],
+            "actionDraftType": [
+              "collection.move_exact"
+            ],
+            "entityEquals": {
+              "target_name": "「灯卡」校样.pdf",
+              "target_folder": "「图纸」交接"
+            },
+            "clarification": false,
+            "requiresConfirmation": true,
+            "sourceNodeId": 82103,
+            "targetParentId": 82004
+          }
+        }
+      ]
+    },
+    {
+      "id": "literal-mutation.binding.quoted_command_verb",
+      "group": "binding",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "将「挪到暂存  注释.pdf」放进「外借 A 组」。",
+          "expected": {
+            "intentId": [
+              "node_move"
+            ],
+            "semanticOperation": [
+              "MOVE"
+            ],
+            "actionDraftType": [
+              "collection.move_exact"
+            ],
+            "entityEquals": {
+              "target_name": "挪到暂存  注释.pdf",
+              "target_folder": "外借 A 组"
+            },
+            "clarification": false,
+            "requiresConfirmation": true,
+            "sourceNodeId": 82105,
+            "targetParentId": 82006
+          }
+        }
+      ]
+    },
+    {
+      "id": "literal-mutation.binding.english_exact",
+      "group": "binding",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "Please move \"当天签领.pdf\" to \"外借 B 组\".",
+          "expected": {
+            "intentId": [
+              "node_move"
+            ],
+            "semanticOperation": [
+              "MOVE"
+            ],
+            "actionDraftType": [
+              "collection.move_exact"
+            ],
+            "entityEquals": {
+              "target_name": "当天签领.pdf",
+              "target_folder": "外借 B 组"
+            },
+            "clarification": false,
+            "requiresConfirmation": true,
+            "sourceNodeId": 82106,
+            "targetParentId": 82007
+          }
+        }
+      ]
+    },
+    {
+      "id": "literal-mutation.binding.missing_source_with_decoy",
+      "group": "binding",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "把《封槽 校验.pdf》移到「回箱记录」。",
+          "expected": {
+            "intentId": [
+              "node_move"
+            ],
+            "semanticOperation": [
+              "MOVE"
+            ],
+            "entityEquals": {
+              "target_name": "封槽 校验.pdf",
+              "target_folder": "回箱记录"
+            },
+            "targetParentId": 82009,
+            "blockedBinding": "sourceCollection"
+          }
+        }
+      ]
+    },
+    {
+      "id": "literal-mutation.binding.missing_destination_with_decoy",
+      "group": "binding",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "把《返检页.pdf》移动到「缺 封页」。",
+          "expected": {
+            "intentId": [
+              "node_move"
+            ],
+            "semanticOperation": [
+              "MOVE"
+            ],
+            "entityEquals": {
+              "target_name": "返检页.pdf",
+              "target_folder": "缺 封页"
+            },
+            "blockedBinding": "targetParent"
+          }
+        }
+      ]
+    },
+    {
+      "id": "literal-mutation.negation.spoken_not_requested",
+      "group": "negation",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "《器材盘单.pdf》就用现在的叫法，不是叫你给它换名。",
+          "expected": {
+            "intentId": [
+              "assistant_acknowledgement"
+            ],
+            "semanticOperation": [
+              "RESPOND"
+            ],
+            "noExecutablePlan": true,
+            "clarification": false,
+            "nextAction": [
+              "respond_only"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "literal-mutation.negation.direct_rejection",
+      "group": "negation",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "不是让你改《返检页.pdf》的名字，名字留着。",
+          "expected": {
+            "intentId": [
+              "assistant_acknowledgement"
+            ],
+            "semanticOperation": [
+              "RESPOND"
+            ],
+            "noExecutablePlan": true,
+            "clarification": false,
+            "nextAction": [
+              "respond_only"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "literal-mutation.negation.more_colloquial",
+      "group": "negation",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "文件名照旧，我并不是要你换个名字。",
+          "expected": {
+            "intentId": [
+              "assistant_acknowledgement"
+            ],
+            "semanticOperation": [
+              "RESPOND"
+            ],
+            "noExecutablePlan": true,
+            "clarification": false,
+            "nextAction": [
+              "respond_only"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "literal-mutation.controls.reject_rename_only_move",
+      "group": "controls",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "别换名，只将《当天签领.pdf》移到「领用  复核」。",
+          "expected": {
+            "intentId": [
+              "node_move"
+            ],
+            "semanticOperation": [
+              "MOVE"
+            ],
+            "actionDraftType": [
+              "collection.move_exact"
+            ],
+            "entityEquals": {
+              "target_name": "当天签领.pdf",
+              "target_folder": "领用  复核"
+            },
+            "clarification": false,
+            "requiresConfirmation": true,
+            "sourceNodeId": 82106,
+            "targetParentId": 82002
+          }
+        }
+      ]
+    },
+    {
+      "id": "literal-mutation.controls.affirmative_rename",
+      "group": "controls",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "把《器材盘单.pdf》改名为《器材盘单-备用.pdf》。",
+          "expected": {
+            "intentId": [
+              "file_rename"
+            ],
+            "semanticOperation": [
+              "RENAME"
+            ],
+            "actionDraftType": [
+              "rename"
+            ],
+            "entityEquals": {
+              "target_name": "器材盘单.pdf",
+              "new_name": "器材盘单-备用.pdf"
+            },
+            "clarification": false,
+            "requiresConfirmation": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "literal-mutation.contexts.resolve_one_destination",
+      "group": "contexts",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "把《当天签领.pdf》移到「外借 A 组」还是「外借 B 组」，我还在选。",
+          "expected": {
+            "intentId": [
+              "node_move"
+            ],
+            "semanticOperation": [
+              "MOVE"
+            ],
+            "noExecutablePlan": true,
+            "clarification": true,
+            "nextAction": [
+              "ask_clarification"
+            ]
+          }
+        },
+        {
+          "message": "那就选「外借 B 组」。",
+          "expected": {
+            "intentId": [
+              "node_move"
+            ],
+            "semanticOperation": [
+              "MOVE"
+            ],
+            "actionDraftType": [
+              "collection.move_exact"
+            ],
+            "entityEquals": {
+              "target_name": "当天签领.pdf",
+              "target_folder": "外借 B 组"
+            },
+            "clarification": false,
+            "requiresConfirmation": true,
+            "sourceNodeId": 82106,
+            "targetParentId": 82007
+          }
+        }
+      ]
+    },
+    {
+      "id": "literal-mutation.contexts.fill_folder_name",
+      "group": "contexts",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "请在当前文件夹建个目录，名字还没想好。",
+          "expected": {
+            "intentId": [
+              "folder_create"
+            ],
+            "semanticOperation": [
+              "CREATE_FOLDER"
+            ],
+            "noExecutablePlan": true,
+            "clarification": true,
+            "nextAction": [
+              "ask_clarification"
+            ],
+            "missingSlots": [
+              "new_folder_name"
+            ]
+          }
+        },
+        {
+          "message": "就叫『补验  白条』。",
+          "expected": {
+            "intentId": [
+              "folder_create"
+            ],
+            "semanticOperation": [
+              "CREATE_FOLDER"
+            ],
+            "actionDraftType": [
+              "folder.create"
+            ],
+            "entityEquals": {
+              "new_folder_name": "补验  白条"
+            },
+            "clarification": false,
+            "requiresConfirmation": true,
+            "targetParentId": 82001
+          }
+        }
+      ]
+    },
+    {
+      "id": "literal-mutation.contexts.cancel_pending_rename",
+      "group": "contexts",
+      "difficulty": "hard",
+      "turns": [
+        {
+          "message": "请把《返检页.pdf》改成《返检页-待审.pdf》。",
+          "expected": {
+            "intentId": [
+              "file_rename"
+            ],
+            "semanticOperation": [
+              "RENAME"
+            ],
+            "actionDraftType": [
+              "rename"
+            ],
+            "entityEquals": {
+              "target_name": "返检页.pdf",
+              "new_name": "返检页-待审.pdf"
+            },
+            "clarification": false,
+            "requiresConfirmation": true
+          }
+        },
+        {
+          "message": "等等，刚才说的是沿用原名，并不是让你重命名。",
+          "expected": {
+            "intentId": [
+              "assistant_acknowledgement"
+            ],
+            "semanticOperation": [
+              "RESPOND"
+            ],
+            "noExecutablePlan": true,
+            "clarification": false,
+            "nextAction": [
+              "respond_only"
+            ]
+          }
+        },
+        {
+          "message": "那就执行之前那个。",
+          "expected": {
+            "intentId": [
+              "fallback",
+              "assistant_acknowledgement"
+            ],
+            "semanticOperation": [
+              "UNKNOWN",
+              "RESPOND"
+            ],
+            "noExecutablePlan": true
+          }
+        }
+      ]
+    }
+  ]
+}
