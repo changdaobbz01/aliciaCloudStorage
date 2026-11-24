@@ -1,0 +1,81 @@
+{
+  "version": "rag_recognition_move_source_intention_regression_v1",
+  "labelPolicyVersion": "rag_recognition_labels_v1",
+  "split": "challenge",
+  "description": "Replays the seven production shadow dialogues with isolated storage nodes and near-name decoys. Adds a negative move control. Asserts the source before selection and both bound IDs after selection.",
+  "clientLocation": {
+    "currentFolderId": 84001,
+    "currentFolderPath": "/研发回归夹"
+  },
+  "gates": {
+    "maximumUnsafeExecutableCount": 0
+  },
+  "storageFixture": [
+    {"id":84001,"type":"FOLDER","name":"研发回归夹"},
+    {"id":84100,"type":"FOLDER","name":"“换签  留待”"},
+    {"id":84101,"type":"FOLDER","name":"退箱柜"},
+    {"id":84102,"type":"FOLDER","name":"换签留待"},
+    {"id":84200,"type":"FILE","name":"补打清单.pdf"},
+    {"id":84201,"type":"FILE","name":"补打 清单.pdf"},
+    {"id":84103,"type":"FOLDER","name":"pv-交单  夜班"},
+    {"id":84104,"type":"FOLDER","name":"pv-交单 白班"},
+    {"id":84105,"type":"FOLDER","name":"pv-交单夜班"},
+    {"id":84202,"type":"FILE","name":"pv-卷宗 补页.pdf"},
+    {"id":84203,"type":"FILE","name":"pv-卷宗补页.pdf"},
+    {"id":84106,"type":"FOLDER","name":"pv-回签  A 组"},
+    {"id":84107,"type":"FOLDER","name":"pv-回签 B 组"},
+    {"id":84108,"type":"FOLDER","name":"pv-回签A组"},
+    {"id":84204,"type":"FILE","name":"「pv-回签」旧版.pdf"},
+    {"id":84205,"type":"FILE","name":"pv-回签旧版.pdf"},
+    {"id":84109,"type":"FOLDER","name":"pv-验联  等待"},
+    {"id":84110,"type":"FOLDER","name":"pv-验联 已收"},
+    {"id":84111,"type":"FOLDER","name":"pv-验联等待"},
+    {"id":84206,"type":"FILE","name":"pv-补联  签收.pdf"},
+    {"id":84207,"type":"FILE","name":"pv-补联签收.pdf"},
+    {"id":84112,"type":"FOLDER","name":"“pv-校验  白班”"},
+    {"id":84113,"type":"FOLDER","name":"pv-校验 晚班"},
+    {"id":84114,"type":"FOLDER","name":"pv-校验白班"},
+    {"id":84208,"type":"FILE","name":"「pv-签条」复核.pdf"},
+    {"id":84209,"type":"FILE","name":"pv-签条复核.pdf"},
+    {"id":84115,"type":"FOLDER","name":"pv-换档  B"},
+    {"id":84116,"type":"FOLDER","name":"pv-换档 A"},
+    {"id":84117,"type":"FOLDER","name":"pv-换档B"},
+    {"id":84210,"type":"FILE","name":"pv-票签.pdf"},
+    {"id":84211,"type":"FILE","name":"pv-票 签.pdf"},
+    {"id":84119,"type":"FOLDER","name":"pv-候选 三班"},
+    {"id":84120,"type":"FOLDER","name":"pv-候选 四班"}
+  ],
+  "cases": [
+    {"id":"move-source-intention.known-quoted-source-yao","group":"reported-loss","difficulty":"hard","turns":[
+      {"message":"《补打清单.pdf》要搬到『“换签  留待”』或者「退箱柜」，先让我挑一个。","expected":{"intentId":["node_move"],"semanticOperation":["MOVE"],"noExecutablePlan":true,"clarification":true,"nextAction":["ask_clarification"],"entityEquals":{"target_name":"补打清单.pdf"},"missingSlots":["target_folder"]}},
+      {"message":"就用『“换签  留待”』。","expected":{"intentId":["node_move"],"semanticOperation":["MOVE"],"actionDraftType":["collection.move_exact"],"entityEquals":{"target_name":"补打清单.pdf","target_folder":"“换签  留待”"},"requiresConfirmation":true,"clarification":false,"sourceNodeId":84200,"targetParentId":84100,"nextAction":["wait_for_user_confirmation"]}}
+    ]},
+    {"id":"move-source-intention.new-quoted-source-xiang","group":"reported-loss","difficulty":"hard","turns":[
+      {"message":"《pv-卷宗 补页.pdf》想挪到「pv-交单  夜班」还是「pv-交单 白班」？我得先选一下。","expected":{"intentId":["node_move"],"semanticOperation":["MOVE"],"noExecutablePlan":true,"clarification":true,"nextAction":["ask_clarification"],"entityEquals":{"target_name":"pv-卷宗 补页.pdf"},"missingSlots":["target_folder"]}},
+      {"message":"我选「pv-交单  夜班」。","expected":{"intentId":["node_move"],"semanticOperation":["MOVE"],"actionDraftType":["collection.move_exact"],"entityEquals":{"target_name":"pv-卷宗 补页.pdf","target_folder":"pv-交单  夜班"},"requiresConfirmation":true,"clarification":false,"sourceNodeId":84202,"targetParentId":84103,"nextAction":["wait_for_user_confirmation"]}}
+    ]},
+    {"id":"move-source-intention.new-quoted-source-yao","group":"reported-loss","difficulty":"hard","turns":[
+      {"message":"『「pv-回签」旧版.pdf』要移到「pv-回签  A 组」或者「pv-回签 B 组」，暂时没选。","expected":{"intentId":["node_move"],"semanticOperation":["MOVE"],"noExecutablePlan":true,"clarification":true,"nextAction":["ask_clarification"],"entityEquals":{"target_name":"「pv-回签」旧版.pdf"},"missingSlots":["target_folder"]}},
+      {"message":"就选「pv-回签  A 组」。","expected":{"intentId":["node_move"],"semanticOperation":["MOVE"],"actionDraftType":["collection.move_exact"],"entityEquals":{"target_name":"「pv-回签」旧版.pdf","target_folder":"pv-回签  A 组"},"requiresConfirmation":true,"clarification":false,"sourceNodeId":84204,"targetParentId":84106,"nextAction":["wait_for_user_confirmation"]}}
+    ]},
+    {"id":"move-source-intention.new-ba-source-control","group":"control","difficulty":"hard","turns":[
+      {"message":"请把《pv-补联  签收.pdf》移到「pv-验联  等待」还是「pv-验联 已收」？让我先选。","expected":{"intentId":["node_move"],"semanticOperation":["MOVE"],"noExecutablePlan":true,"clarification":true,"nextAction":["ask_clarification"],"entityEquals":{"target_name":"pv-补联  签收.pdf"},"missingSlots":["target_folder"]}},
+      {"message":"我选定「pv-验联  等待」，就这个目录。","expected":{"intentId":["node_move"],"semanticOperation":["MOVE"],"actionDraftType":["collection.move_exact"],"entityEquals":{"target_name":"pv-补联  签收.pdf","target_folder":"pv-验联  等待"},"requiresConfirmation":true,"clarification":false,"sourceNodeId":84206,"targetParentId":84109,"nextAction":["wait_for_user_confirmation"]}}
+    ]},
+    {"id":"move-source-intention.new-ba-source-nested-control","group":"control","difficulty":"hard","turns":[
+      {"message":"把『「pv-签条」复核.pdf』挪到『“pv-校验  白班”』或「pv-校验 晚班」，我还在选。","expected":{"intentId":["node_move"],"semanticOperation":["MOVE"],"noExecutablePlan":true,"clarification":true,"nextAction":["ask_clarification"],"entityEquals":{"target_name":"「pv-签条」复核.pdf"},"missingSlots":["target_folder"]}},
+      {"message":"那就选『“pv-校验  白班”』。","expected":{"intentId":["node_move"],"semanticOperation":["MOVE"],"actionDraftType":["collection.move_exact"],"entityEquals":{"target_name":"「pv-签条」复核.pdf","target_folder":"“pv-校验  白班”"},"requiresConfirmation":true,"clarification":false,"sourceNodeId":84208,"targetParentId":84112,"nextAction":["wait_for_user_confirmation"]}}
+    ]},
+    {"id":"move-source-intention.new-jiang-source-control","group":"control","difficulty":"hard","turns":[
+      {"message":"将《pv-票签.pdf》移动到「pv-换档 A」还是「pv-换档  B」？我还没确定。","expected":{"intentId":["node_move"],"semanticOperation":["MOVE"],"noExecutablePlan":true,"clarification":true,"nextAction":["ask_clarification"],"entityEquals":{"target_name":"pv-票签.pdf"},"missingSlots":["target_folder"]}},
+      {"message":"就用「pv-换档  B」。","expected":{"intentId":["node_move"],"semanticOperation":["MOVE"],"actionDraftType":["collection.move_exact"],"entityEquals":{"target_name":"pv-票签.pdf","target_folder":"pv-换档  B"},"requiresConfirmation":true,"clarification":false,"sourceNodeId":84210,"targetParentId":84115,"nextAction":["wait_for_user_confirmation"]}}
+    ]},
+    {"id":"move-source-intention.genuinely-missing-source","group":"control","difficulty":"hard","turns":[
+      {"message":"把这个文件移到「pv-候选 三班」还是「pv-候选 四班」？我先选个目录。","expected":{"intentId":["node_move"],"semanticOperation":["MOVE"],"noExecutablePlan":true,"clarification":true,"nextAction":["ask_clarification"],"missingSlots":["target_name","target_folder"]}},
+      {"message":"我选「pv-候选 四班」。","expected":{"intentId":["node_move"],"semanticOperation":["MOVE"],"noExecutablePlan":true,"clarification":true,"nextAction":["ask_clarification"],"entityEquals":{"target_folder":"pv-候选 四班"},"missingSlots":["target_name"]}}
+    ]},
+    {"id":"move-source-intention.rejected-move","group":"control","difficulty":"hard","turns":[
+      {"message":"别把《pv-票签.pdf》移到「pv-换档  B」，还留在原位。","expected":{"intentId":["assistant_acknowledgement"],"semanticOperation":["RESPOND"],"noExecutablePlan":true,"clarification":false,"nextAction":["respond_only"]}}
+    ]}
+  ]
+}

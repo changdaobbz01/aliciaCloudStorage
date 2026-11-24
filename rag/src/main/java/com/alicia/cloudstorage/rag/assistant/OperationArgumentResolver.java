@@ -25,9 +25,11 @@ final class OperationArgumentResolver {
     private static final Pattern EXPLICIT_NAME_PREFIX = Pattern.compile(
             "^(?:(?:文件|文件夹|目录)?(?:名|名称|文件名)为|叫做|叫)(.+)$"
     );
-    private static final Pattern QUOTED_NAME = Pattern.compile(
-            "^(" + TextSupport.QUOTED_NODE_NAME + ")(?:的)?(文件夹|目录|文件)?$"
-    );
+    private static final String QUOTED_TYPED_NAME =
+            "(" + TextSupport.QUOTED_NODE_NAME + ")(?:的)?(文件夹|目录|文件)?";
+    private static final Pattern QUOTED_NAME = Pattern.compile("^" + QUOTED_TYPED_NAME + "$");
+    private static final Pattern QUOTED_MOVE_SOURCE_WITH_INTENTION =
+            Pattern.compile("^(" + QUOTED_TYPED_NAME + ")(?:想要|想|要)$");
     private static final Pattern ROOT_SCOPE = Pattern.compile(
             "^(云盘根目录|根目录|根文件夹|我的云盘|顶层目录|最外层)(?:下|中|里|内)?(?:的)?(.*)$"
     );
@@ -241,8 +243,12 @@ final class OperationArgumentResolver {
     }
 
     private MoveArguments moveArguments(String text, Matcher structure) {
-        return new MoveArguments(stripObjectPrefix(text.substring(structure.start(1), structure.end(1))),
-                text.substring(structure.start(2), structure.end(2)));
+        String source = stripObjectPrefix(text.substring(structure.start(1), structure.end(1)));
+        Matcher quotedSource = QUOTED_MOVE_SOURCE_WITH_INTENTION.matcher(source);
+        if (quotedSource.matches()) {
+            source = quotedSource.group(1);
+        }
+        return new MoveArguments(source, text.substring(structure.start(2), structure.end(2)));
     }
 
     private Optional<Resolution> parseRename(String text) {

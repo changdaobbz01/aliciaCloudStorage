@@ -41,6 +41,17 @@ class OperationArgumentResolverTest {
     }
 
     @Test
+    void removesAnAffirmativeMoveMarkerOnlyOutsideTheQuotedSource() {
+        var move = resolver.directQuotedMove("《回单要》文件想要移到「验收  夜班」。").orElseThrow();
+
+        assertThat(move.source().name()).isEqualTo("回单要");
+        assertThat(move.source().resultType()).isEqualTo("FILE");
+        assertThat(move.destination().surface()).isEqualTo("验收  夜班");
+        assertThat(resolver.directQuotedMove("《回单要》不要移到「验收  夜班」。")).isEmpty();
+        assertThat(resolver.literalMoveSource("这份文件要移到「验收  夜班」。")).isEmpty();
+    }
+
+    @Test
     void keepsCommasAndInnerQuotesInExplicitFolderNames() {
         var folder = resolver.quotedFolderCreation("在当前目录新建目录，名称是『「别改名，二 次」』。")
                 .orElseThrow();

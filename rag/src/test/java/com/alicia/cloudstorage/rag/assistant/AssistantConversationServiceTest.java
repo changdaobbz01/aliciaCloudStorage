@@ -81,10 +81,14 @@ class AssistantConversationServiceTest {
         assertNoMutationPlan(rename);
     }
 
-    @Test
-    void moveClarificationPreservesSourceAndRequiresAnExplicitDestination() {
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "请把《回线 原图.pdf》移到", "将《回线 原图.pdf》移动到",
+            "《回线 原图.pdf》要搬到", "《回线 原图.pdf》想挪到", "《回线 原图.pdf》要移到"
+    })
+    void moveClarificationPreservesSourceAndRequiresAnExplicitDestination(String requestPrefix) {
         var pending = conversationService.plan(new AssistantPlanRequest(
-                "请把《回线 原图.pdf》移到「线盘复核」或「转序等待」，我还没定去哪边。", ""));
+                requestPrefix + "「线盘复核」或「转序等待」，我还没定去哪边。", ""));
         assertThat(pending.entities()).containsEntry("target_name", "回线 原图.pdf").doesNotContainKey("target_folder");
         assertThat(pending.missingSlots()).containsExactly("target_folder");
         assertThat(pending.nextAction()).isEqualTo("ask_clarification");
@@ -101,6 +105,8 @@ class AssistantConversationServiceTest {
                 .containsEntry("target_folder", "线盘复核")
                 .containsEntry(OperationArgumentResolver.LITERAL_MOVE_DESTINATION, true);
         assertThat(resolved.actionDraft().type()).isEqualTo("collection.move_exact");
+        assertThat(resolved.actionDraft().parameters()).containsEntry("target_name", "回线 原图.pdf")
+                .containsEntry("target_folder", "线盘复核");
         assertThat(resolved.safety().requiresConfirmation()).isTrue();
         assertThat(resolved.executionReference()).isNull();
     }
