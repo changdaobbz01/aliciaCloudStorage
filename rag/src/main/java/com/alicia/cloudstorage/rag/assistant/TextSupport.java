@@ -8,6 +8,7 @@ final class TextSupport {
 
     static final String QUOTED_NODE_NAME =
             "“[^”]+”|\"[^\"]+\"|(?<![A-Za-z0-9_])'[^']+'(?![A-Za-z0-9_])|‘[^’]+’|《[^》]+》|「[^」]+」|『[^』]+』";
+    static final String RENAME_VERB = "重命名|改名|换(?:个|一下)?(?:名字|名称|名)";
     private static final Pattern QUOTED_NODE_NAME_PATTERN = Pattern.compile(QUOTED_NODE_NAME);
 
     private TextSupport() {
@@ -75,6 +76,24 @@ final class TextSupport {
         return QUOTED_NODE_NAME_PATTERN.matcher(name).matches()
                 ? name.substring(1, name.length() - 1).strip()
                 : name;
+    }
+
+    static String unwrapNodeNameFromMessage(String message, String value) {
+        String name = unwrapNodeName(value);
+        if (message == null || name.equals(value)) {
+            return value;
+        }
+        // A value that is only present inside another quoted token may include literal quotes.
+        var quoted = QUOTED_NODE_NAME_PATTERN.matcher(message);
+        boolean outerDelimiter = false;
+        while (quoted.find()) {
+            String token = quoted.group();
+            if (value.equals(unwrapNodeName(token))) {
+                return value;
+            }
+            outerDelimiter |= value.equals(token);
+        }
+        return outerDelimiter ? name : value;
     }
 
     static String maskQuotedNodeNames(String value) {

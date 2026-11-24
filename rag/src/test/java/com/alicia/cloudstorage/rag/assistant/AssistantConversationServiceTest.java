@@ -134,6 +134,51 @@ class AssistantConversationServiceTest {
     }
 
     @Test
+    void folderDraftRemovesOnlyTheNamesOuterDelimiters() {
+        var response = conversationService.plan(new AssistantPlanRequest(
+                "在当前目录创建文件夹，名称是「移交留档」。", ""));
+        assertThat(response.entities()).containsEntry("new_folder_name", "移交留档");
+        assertThat(response.actionDraft().parameters()).containsEntry("new_folder_name", "移交留档");
+        assertThat(response.actionPlan().steps()).singleElement()
+                .satisfies(step -> assertThat(step.params()).containsEntry("folderName", "移交留档"));
+
+        var nested = conversationService.plan(new AssistantPlanRequest(
+                "在当前目录创建文件夹，名称是『「移交」』。", ""));
+        assertThat(nested.entities()).containsEntry("new_folder_name", "「移交」");
+        assertThat(nested.actionDraft().parameters()).containsEntry("new_folder_name", "「移交」");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"转序等待", "线盘复核"})
+    void moveDraftAndParentBindingUseTheUnquotedFolderName(String folder) {
+        var service = conversationServiceWith(request -> new CandidateBindingResult(
+                "single_candidate", "test", request.query(), "FOLDER",
+                List.of(new CandidateItem(501L, null, folder, "FOLDER", 0L, "", "", "")), ""));
+        var response = service.plan(new AssistantPlanRequest(
+                "请把《回线原图.pdf》移到「" + folder + "」。", ""), "Bearer test");
+        assertThat(response.entities()).containsEntry("target_name", "回线原图.pdf")
+                .containsEntry("target_folder", folder);
+        assertThat(response.actionDraft().parameters()).containsEntry("target_folder", folder);
+        assertThat(response.actionPlan().bindings().get("targetParent").query()).isEqualTo(folder);
+    }
+
+    @Test
+    void colloquialRenameNegationClearsThePlanWithoutAskingAgain() {
+        var plan = conversationService.plan(new AssistantPlanRequest(
+                "把《钩码记录.pdf》改成《钩码校对.pdf》。", ""));
+        assertThat(plan.actionDraft().type()).isEqualTo("rename");
+
+        var response = conversationService.plan(new AssistantPlanRequest(
+                "钩码记录.pdf先别换名字，原名照旧。", plan.conversation().conversationId()));
+        assertThat(response.provider()).isEqualTo("local_fallback");
+        assertThat(response.fallbackReason()).isEqualTo("non_executable_guard:negated_operation");
+        assertThat(response.intentId()).isEqualTo("assistant_acknowledgement");
+        assertThat(response.nextAction()).isEqualTo("respond_only");
+        assertThat(response.conversation().hasPendingAction()).isFalse();
+        assertNoMutationPlan(response);
+    }
+
+    @Test
     void destinationChoiceKeepsAskingForTheMissingSource() {
         var pending = conversationService.plan(new AssistantPlanRequest(
                 "把那个移到「线盘复核」或者「转序等待」，我还没定。", ""));

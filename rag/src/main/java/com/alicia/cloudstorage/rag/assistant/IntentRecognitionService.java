@@ -422,7 +422,7 @@ public class IntentRecognitionService {
         RecognitionTrace.mark(Stage.CAPABILITY_GUARD, semanticBoundary.isPresent() ? Outcome.BLOCKED
                 : configuredBoundary == null ? Outcome.NO_MATCH : Outcome.SKIPPED, boundaryStarted);
         if (!guardedByBoundary) {
-            entities = omitDeferredName(message, response.intentId(), entities);
+            entities = normalizeQuotedName(message, response.intentId(), omitDeferredName(message, response.intentId(), entities));
             response = rebuildForConversation(
                     response,
                     response.intentId(),
@@ -1034,6 +1034,24 @@ public class IntentRecognitionService {
         Map<String, Object> remaining = new LinkedHashMap<>(entities);
         remaining.remove(slot);
         return remaining;
+    }
+
+    private Map<String, Object> normalizeQuotedName(String message, String intentId, Map<String, Object> entities) {
+        String slot = switch (intentId) {
+            case "folder_create", "folder_create_then_upload" -> "new_folder_name";
+            case "node_move" -> "target_folder";
+            default -> "";
+        };
+        if (slot.isEmpty() || !(entities.get(slot) instanceof String surface)) {
+            return entities;
+        }
+        String name = TextSupport.unwrapNodeNameFromMessage(message, surface);
+        if (name.equals(surface)) {
+            return entities;
+        }
+        Map<String, Object> result = new LinkedHashMap<>(entities);
+        result.put(slot, name);
+        return result;
     }
 
     private ActionDraft actionDraft(Object value, IntentRouter.IntentDefinition intent, Map<String, Object> entities) {

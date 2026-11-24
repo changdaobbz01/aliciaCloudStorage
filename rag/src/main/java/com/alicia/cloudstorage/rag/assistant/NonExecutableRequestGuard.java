@@ -18,7 +18,8 @@ final class NonExecutableRequestGuard {
             new UnsupportedTemporalSizeScopeGuard();
 
     private static final Pattern MUTATION = Pattern.compile(
-            "删除|删掉|删了|删|移除|清理|清空|回收站|移动|移到|搬到|挪到|归档到|重命名|改名|分享|上传|新建|创建|"
+            "删除|删掉|删了|删|移除|清理|清空|回收站|移动|移到|搬到|挪到|归档到|"
+                    + TextSupport.RENAME_VERB + "|分享|上传|新建|创建|"
                     + "delete|remove|move|rename|share|upload|create",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
@@ -26,7 +27,8 @@ final class NonExecutableRequestGuard {
             "(?:^|[，,。；;”]|但|不过|可是|文件(?:夹)?|目录|\\.[A-Za-z0-9]{1,16})\\s*(?:我\\s*)?"
                     + "(?:(?:暂时|目前|现在|当前|这次)\\s*)?(?:先)?"
                     + "(?:不要|别|不用|无需|不必|并不是要|不是要|并非要)(?:再)?[^，,。；;]{0,16}"
-                    + "(?:删除|删(?:掉|了)?|移除|清理|移动|移到|移去|移走|搬到|搬去|挪(?:到|去|动)?|归档到|重命名|改名|分享|上传|新建|创建)",
+                    + "(?:删除|删(?:掉|了)?|移除|清理|移动|移到|移去|移走|搬到|搬去|挪(?:到|去|动)?|归档到|"
+                    + TextSupport.RENAME_VERB + "|分享|上传|新建|创建)",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
     private static final Pattern NEGATION_CUE = Pattern.compile(
@@ -35,7 +37,8 @@ final class NonExecutableRequestGuard {
     );
     private static final Pattern AMBIGUOUS_DOUBLE_NEGATION_MUTATION = Pattern.compile(
             "(?:不是|并非|也不是).{0,4}(?:不让|不要|不能|不准|不许|不需要).{0,12}"
-                    + "(?:删除|删掉|移除|清理|移动|移到|搬到|挪到|归档到|重命名|改名|分享|上传|新建|创建)",
+                    + "(?:删除|删掉|移除|清理|移动|移到|搬到|挪到|归档到|"
+                    + TextSupport.RENAME_VERB + "|分享|上传|新建|创建)",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
     private static final Pattern INLINE_FINAL_CANCELLATION = Pattern.compile(
@@ -352,7 +355,7 @@ final class NonExecutableRequestGuard {
     private static final List<Pattern> DISTINCT_OPERATIONS = List.of(
             Pattern.compile("删除|删掉|删了|移除|清理|回收站"),
             Pattern.compile("移动|移到|搬到|挪到|归档到|放到|放进"),
-            Pattern.compile("重命名|改名"),
+            Pattern.compile(TextSupport.RENAME_VERB),
             Pattern.compile("分享"),
             Pattern.compile("上传"),
             Pattern.compile("新建|创建")
