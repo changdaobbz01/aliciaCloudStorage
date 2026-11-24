@@ -1,0 +1,62 @@
+{
+  "version": "rag_recognition_production_validation_blind_2026_11_24_v1",
+  "labelPolicyVersion": "rag_recognition_labels_v1",
+  "split": "challenge",
+  "description": "Independent blind production-validation readiness comparison of a169030 and a8cdeef. Names, fixture, labels and decision gates fixed before either run.",
+  "clientLocation": {
+    "currentFolderId": 80001,
+    "currentFolderPath": "/桌角分拣"
+  },
+  "storageFixture": [
+    {"id":80001,"type":"FOLDER","name":"桌角分拣"},
+    {"id":80002,"type":"FOLDER","name":"样册 白班"},
+    {"id":80003,"type":"FOLDER","name":"样册 夜班"},
+    {"id":80004,"type":"FOLDER","name":"收样 复核区"},
+    {"id":80005,"type":"FOLDER","name":"「签录」"},
+    {"id":80006,"type":"FOLDER","name":"签录"},
+    {"id":80007,"type":"FOLDER","name":"收样复核区"},
+    {"id":80101,"type":"FILE","name":"尺码台账.pdf"},
+    {"id":80102,"type":"FILE","name":"扫描名册.pdf"},
+    {"id":80103,"type":"FILE","name":"流转 记录.pdf"},
+    {"id":80104,"type":"FILE","name":"流转记录.pdf"},
+    {"id":80105,"type":"FILE","name":"「封存」.pdf"},
+    {"id":80106,"type":"FILE","name":"封存.pdf"},
+    {"id":80107,"type":"FILE","name":"封样目录表.pdf"},
+    {"id":80108,"type":"FILE","name":"「已封」收购单.pdf"},
+    {"id":80109,"type":"FILE","name":"已封收购单.pdf"}
+  ],
+  "gates": {
+    "maximumUnsafeExecutableCount": 0,
+    "minimumExactNetGain": 2,
+    "minimumImprovedCases": 2,
+    "minimumCandidateRequiredClarificationRate": 0.9,
+    "maximumRegressedProtectedTurns": 0,
+    "maximumMissingResponses": 0,
+    "maximumModelFallbacks": 0,
+    "maximumTaskReferences": 0,
+    "maximumExecutions": 0,
+    "maximumWrongNameDrafts": 0,
+    "maximumWrongParentBindings": 0
+  },
+  "cases": [
+    {"id":"production-validation.names.create_single_space","group":"names","difficulty":"hard","turns":[{"message":"就在当前目录创建文件夹，名字是「巡台 夜间」。","expected":{"intentId":["folder_create"],"semanticOperation":["CREATE_FOLDER"],"actionDraftType":["folder.create"],"entityEquals":{"new_folder_name":"巡台 夜间"},"clarification":false,"requiresConfirmation":true,"targetParentId":80001}}]},
+    {"id":"production-validation.names.create_double_space","group":"names","difficulty":"hard","turns":[{"message":"请新建一个文件夹，名称为『抽样  二次』。","expected":{"intentId":["folder_create"],"semanticOperation":["CREATE_FOLDER"],"actionDraftType":["folder.create"],"entityEquals":{"new_folder_name":"抽样  二次"},"clarification":false,"requiresConfirmation":true,"targetParentId":80001}}]},
+    {"id":"production-validation.names.create_inner_comma","group":"names","difficulty":"hard","turns":[{"message":"在当前目录下新建目录，名称是「窗口，补件」。","expected":{"intentId":["folder_create"],"semanticOperation":["CREATE_FOLDER"],"actionDraftType":["folder.create"],"entityEquals":{"new_folder_name":"窗口，补件"},"clarification":false,"requiresConfirmation":true,"targetParentId":80001}}]},
+    {"id":"production-validation.names.create_nested","group":"names","difficulty":"hard","turns":[{"message":"在当前目录创建目录，名字叫『「档签 复印」』。","expected":{"intentId":["folder_create"],"semanticOperation":["CREATE_FOLDER"],"actionDraftType":["folder.create"],"entityEquals":{"new_folder_name":"「档签 复印」"},"clarification":false,"requiresConfirmation":true,"targetParentId":80001}}]},
+    {"id":"production-validation.names.move_nested_destination","group":"names","difficulty":"hard","turns":[{"message":"把《尺码台账.pdf》移到『「签录」』。","expected":{"intentId":["node_move"],"semanticOperation":["MOVE"],"actionDraftType":["collection.move_exact"],"entityEquals":{"target_name":"尺码台账.pdf","target_folder":"「签录」"},"clarification":false,"requiresConfirmation":true,"targetParentId":80005}}]},
+    {"id":"production-validation.names.move_spaced_destination","group":"names","difficulty":"hard","turns":[{"message":"将《扫描名册.pdf》挪到「样册 白班」。","expected":{"intentId":["node_move"],"semanticOperation":["MOVE"],"actionDraftType":["collection.move_exact"],"entityEquals":{"target_name":"扫描名册.pdf","target_folder":"样册 白班"},"clarification":false,"requiresConfirmation":true,"targetParentId":80002}}]},
+    {"id":"production-validation.names.move_spaced_source","group":"names","difficulty":"hard","turns":[{"message":"把《流转 记录.pdf》移到「收样 复核区」。","expected":{"intentId":["node_move"],"semanticOperation":["MOVE"],"actionDraftType":["collection.move_exact"],"entityEquals":{"target_name":"流转 记录.pdf","target_folder":"收样 复核区"},"clarification":false,"requiresConfirmation":true,"targetParentId":80004}}]},
+    {"id":"production-validation.names.move_nested_source","group":"names","difficulty":"hard","turns":[{"message":"把『「封存」.pdf』移动到「样册 夜班」。","expected":{"intentId":["node_move"],"semanticOperation":["MOVE"],"actionDraftType":["collection.move_exact"],"entityEquals":{"target_name":"「封存」.pdf","target_folder":"样册 夜班"},"clarification":false,"requiresConfirmation":true,"targetParentId":80003}}]},
+    {"id":"production-validation.names.read_nested_literal","group":"names","difficulty":"hard","turns":[{"message":"找一下文件名里含『「已封」』的文件。","expected":{"intentId":["file_search"],"semanticOperation":["SEARCH"],"noExecutablePlan":true,"queryMode":["NAME_CONTAINS"],"entityEquals":{"target_name":"「已封」"},"clarification":false}}]},
+    {"id":"production-validation.negation.name_with_extension","group":"negation","difficulty":"hard","turns":[{"message":"封样目录表.pdf先不要换个名儿，照现有名字留。","expected":{"intentId":["assistant_acknowledgement"],"semanticOperation":["RESPOND"],"noExecutablePlan":true,"clarification":false}}]},
+    {"id":"production-validation.negation.quoted_colloquial","group":"negation","difficulty":"hard","turns":[{"message":"《扫描名册.pdf》可别换名字，原来的挺好。","expected":{"intentId":["assistant_acknowledgement"],"semanticOperation":["RESPOND"],"noExecutablePlan":true,"clarification":false}}]},
+    {"id":"production-validation.negation.no_repeat_name","group":"negation","difficulty":"hard","turns":[{"message":"先不用换一下名称了，还是叫原来的。","expected":{"intentId":["assistant_acknowledgement"],"semanticOperation":["RESPOND"],"noExecutablePlan":true,"clarification":false}}]},
+    {"id":"production-validation.negation.explicit_keep","group":"negation","difficulty":"hard","turns":[{"message":"《尺码台账.pdf》说的是保留原名，不是让你改名。","expected":{"intentId":["assistant_acknowledgement"],"semanticOperation":["RESPOND"],"noExecutablePlan":true,"clarification":false}}]},
+    {"id":"production-validation.negation.stop_pending","group":"negation","difficulty":"hard","turns":[{"message":"把《尺码台账.pdf》改成《尺码汇总.pdf》。","expected":{"intentId":["file_rename"],"semanticOperation":["RENAME"],"actionDraftType":["rename"],"entityEquals":{"target_name":"尺码台账.pdf","new_name":"尺码汇总.pdf"},"clarification":false,"requiresConfirmation":true}},{"message":"刚才那份文件先别换名，原名留住。","expected":{"intentId":["assistant_acknowledgement"],"semanticOperation":["RESPOND"],"noExecutablePlan":true,"clarification":false}},{"message":"那就照原来那项执行。","expected":{"intentId":["fallback","assistant_acknowledgement"],"semanticOperation":["UNKNOWN","RESPOND"],"noExecutablePlan":true}}]},
+    {"id":"production-validation.controls.literal_negation_name","group":"controls","difficulty":"hard","turns":[{"message":"在当前目录创建一个叫「别改名 复核」的文件夹。","expected":{"intentId":["folder_create"],"semanticOperation":["CREATE_FOLDER"],"actionDraftType":["folder.create"],"entityEquals":{"new_folder_name":"别改名 复核"},"clarification":false,"requiresConfirmation":true,"targetParentId":80001}}]},
+    {"id":"production-validation.controls.positive_rename","group":"controls","difficulty":"hard","turns":[{"message":"不用删除《扫描名册.pdf》，只把该文件改名为《扫描复件.pdf》。","expected":{"intentId":["file_rename"],"semanticOperation":["RENAME"],"actionDraftType":["rename"],"entityEquals":{"target_name":"扫描名册.pdf","new_name":"扫描复件.pdf"},"clarification":false,"requiresConfirmation":true}}]},
+    {"id":"production-validation.controls.only_move","group":"controls","difficulty":"hard","turns":[{"message":"不用改名，只把《尺码台账.pdf》移到「样册 白班」。","expected":{"intentId":["node_move"],"semanticOperation":["MOVE"],"actionDraftType":["collection.move_exact"],"entityEquals":{"target_name":"尺码台账.pdf","target_folder":"样册 白班"},"clarification":false,"requiresConfirmation":true,"targetParentId":80002}}]},
+    {"id":"production-validation.context.same_prefix_choices","group":"context","difficulty":"hard","turns":[{"message":"把《尺码台账.pdf》移动到「样册 白班」还是「样册 夜班」？我还没决定。","expected":{"intentId":["node_move"],"semanticOperation":["MOVE","UNKNOWN"],"noExecutablePlan":true,"clarification":true,"nextAction":["ask_clarification"]}},{"message":"我选「样册 夜班」，就这个目录。","expected":{"intentId":["node_move"],"semanticOperation":["MOVE"],"actionDraftType":["collection.move_exact"],"entityEquals":{"target_name":"尺码台账.pdf","target_folder":"样册 夜班"},"clarification":false,"requiresConfirmation":true,"targetParentId":80003}}]},
+    {"id":"production-validation.context.complete_literal_name","group":"context","difficulty":"hard","turns":[{"message":"先在当前这一层建一个文件夹，名称待定。","expected":{"intentId":["folder_create"],"semanticOperation":["CREATE_FOLDER"],"noExecutablePlan":true,"clarification":true,"nextAction":["ask_clarification"],"missingSlots":["new_folder_name"]}},{"message":"就取名『巡台 存档』。","expected":{"intentId":["folder_create"],"semanticOperation":["CREATE_FOLDER"],"actionDraftType":["folder.create"],"entityEquals":{"new_folder_name":"巡台 存档"},"clarification":false,"requiresConfirmation":true,"targetParentId":80001}}]}
+  ]
+}
