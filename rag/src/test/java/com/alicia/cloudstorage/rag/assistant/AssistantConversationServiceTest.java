@@ -68,6 +68,11 @@ class AssistantConversationServiceTest {
         assertThat(completed.entities()).containsEntry("new_folder_name", "桥面收样");
         assertThat(completed.actionDraft().type()).isEqualTo("folder.create");
         assertThat(completed.nextAction()).isEqualTo("wait_for_user_confirmation");
+        var cancelled = conversationService.plan(new AssistantPlanRequest(
+                "算了，这个建目录的要求作废。", completed.conversation().conversationId()));
+        assertThat(cancelled.intentId()).isEqualTo("assistant_acknowledgement");
+        assertThat(cancelled.semanticFrame().relation()).isEqualTo("CANCELLATION");
+        assertNoMutationPlan(cancelled);
 
         var rename = conversationService.plan(new AssistantPlanRequest("我要给《钩码记录.pdf》改名，新名字还没说。", ""));
         assertThat(rename.missingSlots()).contains("new_name");

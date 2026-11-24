@@ -316,11 +316,11 @@ final class NonExecutableRequestGuard {
     private static final String PREVIOUS_TURN = "(?:刚才|刚刚|前面|之前|上一轮)";
     private static final String REFERENCED_OPERATION = "(?:" + PREVIOUS_TURN
             + "(?:的|[这那][个项次])?|[这那][个项次]|该)"
-            + "(?:(?:要|想|打算)?(?:删除|移动|上传|创建|新建|重命名|改名|分享)"
-            + "(?:的)?(?:操作|动作|任务|计划|事情|事)?|(?:操作|动作|任务|计划))";
+            + "(?:(?:要|想|打算)?(?:删除|移动|上传|创建|新建|建目录|建文件夹|重命名|改名|分享)"
+            + "(?:的)?(?:操作|动作|任务|计划|请求|要求|事情|事)?|(?:操作|动作|任务|计划|请求|要求))";
     private static final Pattern REFERENCED_CANCELLATION = Pattern.compile(
-            "^(?:请|麻烦)?(?:先?(?:取消|撤销|撤回|停止|暂停)\\s*" + REFERENCED_OPERATION
-                    + "|" + REFERENCED_OPERATION + "(?:先|暂且|暂时)?(?:作罢|取消|撤销|撤回|停止|暂停|暂缓))"
+            "^(?:算了[，,]\\s*)?(?:请|麻烦)?(?:先?(?:取消|撤销|撤回|停止|暂停|搁置|作废)\\s*" + REFERENCED_OPERATION
+                    + "|" + REFERENCED_OPERATION + "(?:先|暂且|暂时)?(?:作罢|作废|取消|撤销|撤回|停止|暂停|暂缓|搁置))"
                     + "(?=$|[，,。；;！!])"
     );
     private static final Pattern PAUSE_FOR_QUESTION = Pattern.compile(
