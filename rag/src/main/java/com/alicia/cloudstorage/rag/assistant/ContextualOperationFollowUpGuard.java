@@ -110,9 +110,17 @@ final class ContextualOperationFollowUpGuard {
         if (narrowed.isPresent()) {
             return narrowed;
         }
+        if ("folder_create".equals(conversation.pendingIntentId())) {
+            String folderName = PendingSlotResolutionService.explicitFolderName(value, conversation);
+            if (!folderName.isBlank()) {
+                Map<String, Object> entities = new LinkedHashMap<>(conversation.entities());
+                entities.put("new_folder_name", folderName);
+                return decision("folder_name_slot_fill", "folder_create", "SLOT_FILL", "CREATE_FOLDER", entities);
+            }
+        }
         if ("conflicting_move_destinations".equals(conversation.semanticFrame().clarification().reason())) {
             Matcher choice = MOVE_DESTINATION_CHOICE.matcher(value);
-            if (choice.matches() && !choice.group(1).matches(".*(?:或者|还是|或是|二选一).*")
+            if (choice.matches() && !TextSupport.maskQuotedNodeNames(choice.group(1)).matches(".*(?:或者|还是|或是|二选一).*")
                     && !List.of("这个", "那个", "这里", "那里", "目录", "文件夹").contains(choice.group(1))) {
                 Map<String, Object> entities = new LinkedHashMap<>(conversation.entities());
                 setMoveDestination(entities, choice.group(1));
@@ -239,7 +247,9 @@ final class ContextualOperationFollowUpGuard {
         if (destination != null && !destination.isBlank()) {
             setMoveDestination(entities, destination);
         }
-        entities.keySet().removeIf(key -> !List.of("target_name", "target_folder", "target_folder_literal", "result_type").contains(key));
+        entities.keySet().removeIf(key -> !List.of(
+                "target_name", "target_folder", OperationArgumentResolver.LITERAL_MOVE_DESTINATION, "result_type"
+        ).contains(key));
         return decision(
                 "narrow_move_to_single_source",
                 "node_move",
@@ -398,10 +408,10 @@ final class ContextualOperationFollowUpGuard {
         String literal = TextSupport.unwrapNodeName(surface);
         if (surface.strip().equals(literal)) {
             entities.put("target_folder", cleanValue(surface));
-            entities.remove("target_folder_literal");
+            entities.remove(OperationArgumentResolver.LITERAL_MOVE_DESTINATION);
         } else {
             entities.put("target_folder", literal);
-            entities.put("target_folder_literal", true);
+            entities.put(OperationArgumentResolver.LITERAL_MOVE_DESTINATION, true);
         }
     }
 

@@ -226,12 +226,12 @@ public class IntentRecognitionService {
                         .map(move -> new ContextualOperationFollowUpGuard.Decision(
                                 "quoted_move_arguments", "node_move", "NEW_TASK", "MOVE",
                                 Map.of("target_name", move.source().name(), "result_type", move.source().resultType(),
-                                        "target_folder", move.destination().surface(), "target_folder_literal", true))))
+                                        "target_folder", move.destination().surface(),
+                                        OperationArgumentResolver.LITERAL_MOVE_DESTINATION, true))))
                 .or(() -> operationArgumentResolver.quotedFolderCreation(message)
                         .map(folder -> new ContextualOperationFollowUpGuard.Decision(
                                 "quoted_folder_name", "folder_create", "NEW_TASK", "CREATE_FOLDER",
-                                Map.of("new_folder_name", folder.name(), "target_folder",
-                                        folder.parent() == null ? "当前目录" : folder.parent()))))
+                                Map.of("new_folder_name", folder.name(), "target_folder", folder.parent()))))
                 .or(() -> operationFollowUpGuard.evaluate(message, conversation));
         RecognitionTrace.mark(Stage.OPERATION_FOLLOW_UP,
                 operationFollowUpDecision.isPresent() ? Outcome.CONTINUED : Outcome.NO_MATCH, stageStarted);
@@ -1047,6 +1047,17 @@ public class IntentRecognitionService {
     }
 
     private Map<String, Object> normalizeQuotedName(String message, String intentId, Map<String, Object> entities) {
+        if ("node_move".equals(intentId)) {
+            var literal = operationArgumentResolver.resolve(message, "MOVE")
+                    .map(OperationArgumentResolver.Resolution::destination)
+                    .filter(OperationArgumentResolver.Destination::literal);
+            if (literal.isPresent()) {
+                Map<String, Object> result = new LinkedHashMap<>(entities);
+                result.put("target_folder", literal.orElseThrow().surface());
+                result.put(OperationArgumentResolver.LITERAL_MOVE_DESTINATION, true);
+                return result;
+            }
+        }
         String slot = switch (intentId) {
             case "folder_create", "folder_create_then_upload" -> "new_folder_name";
             case "node_move" -> "target_folder";

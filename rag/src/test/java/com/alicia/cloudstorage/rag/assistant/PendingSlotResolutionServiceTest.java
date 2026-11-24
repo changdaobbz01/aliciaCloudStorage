@@ -83,6 +83,18 @@ class PendingSlotResolutionServiceTest {
     }
 
     @Test
+    void explicitFolderNameRemovesOnlyTheOuterSyntax() {
+        var pending = conversation(recognitionService.recognize("在当前目录新建一个文件夹"));
+        var current = recognitionService.recognize("就叫『“不移动，二  次”』。");
+
+        var filled = service.resolve("就叫『“不移动，二  次”』。", pending, current);
+
+        assertThat(filled.values()).containsExactlyEntriesOf(Map.of("new_folder_name", "“不移动，二  次”"));
+        assertThat(filled.semanticFrame().scope()).isEqualTo(pending.semanticFrame().scope());
+        assertThat(PendingSlotResolutionService.explicitFolderName("就叫『甲』，然后移动文件", pending)).isEmpty();
+    }
+
+    @Test
     void rejectsNewMutationCommandAndCollectionPhraseAsSlotValue() {
         IntentRecognitionResponse pendingDelete = recognitionService.recognize("删除");
         IntentRecognitionResponse ambiguousDelete = recognitionService.recognize("删除图片");

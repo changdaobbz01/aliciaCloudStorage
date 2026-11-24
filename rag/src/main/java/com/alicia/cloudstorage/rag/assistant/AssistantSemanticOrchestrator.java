@@ -251,6 +251,9 @@ final class AssistantSemanticOrchestrator {
     private IntentRecognitionResponse fillSlots(AssistantConversationState conversation, IntentRecognitionResponse response,
                                                PendingSlotResolutionService.Resolution resolution) {
         Map<String, Object> merged = new LinkedHashMap<>(conversation.entities());
+        if (resolution.values().containsKey("target_folder")) {
+            merged.remove(OperationArgumentResolver.LITERAL_MOVE_DESTINATION);
+        }
         merged.putAll(resolution.values());
         if (resolution.values().containsKey("target_name")) {
             for (String key : List.of("result_type", "file_type", "extension")) {
@@ -267,7 +270,7 @@ final class AssistantSemanticOrchestrator {
     }
 
     private boolean shouldFillSlots(String message, AssistantConversationState conversation, IntentRecognitionResponse response) {
-        if (!pendingSlots.explicitFolderName(message, conversation).isBlank()) {
+        if (!PendingSlotResolutionService.explicitFolderName(message, conversation).isBlank()) {
             return true;
         }
         var local = intentRouter.route(message);

@@ -50,8 +50,9 @@ class AssistantConversationServiceTest {
         assertNoMutationPlan(negated);
     }
 
-    @Test
-    void clarificationOmitsDraftUntilADeferredNameIsProvided() {
+    @ParameterizedTest
+    @ValueSource(strings = {"就取名「桥面收样」。", "就叫『桥面收样』。"})
+    void clarificationOmitsDraftUntilADeferredNameIsProvided(String namingReply) {
         var pending = conversationService.plan(new AssistantPlanRequest(
                 "先在当前这一层新建个文件夹，名字下一句发。", ""));
         assertThat(pending.missingSlots()).containsExactly("new_folder_name");
@@ -64,8 +65,9 @@ class AssistantConversationServiceTest {
         assertNoMutationPlan(premature);
 
         var completed = conversationService.plan(new AssistantPlanRequest(
-                "就取名「桥面收样」。", premature.conversation().conversationId()));
+                namingReply, premature.conversation().conversationId()));
         assertThat(completed.entities()).containsEntry("new_folder_name", "桥面收样");
+        assertThat(completed.actionDraft().parameters()).containsEntry("new_folder_name", "桥面收样");
         assertThat(completed.actionDraft().type()).isEqualTo("folder.create");
         assertThat(completed.nextAction()).isEqualTo("wait_for_user_confirmation");
         var cancelled = conversationService.plan(new AssistantPlanRequest(
@@ -96,7 +98,8 @@ class AssistantConversationServiceTest {
         var resolved = conversationService.plan(new AssistantPlanRequest(
                 "我选「线盘复核」，就这个目的地。", confirmedTooSoon.conversation().conversationId()));
         assertThat(resolved.entities()).containsEntry("target_name", "回线 原图.pdf")
-                .containsEntry("target_folder", "线盘复核");
+                .containsEntry("target_folder", "线盘复核")
+                .containsEntry(OperationArgumentResolver.LITERAL_MOVE_DESTINATION, true);
         assertThat(resolved.actionDraft().type()).isEqualTo("collection.move_exact");
         assertThat(resolved.safety().requiresConfirmation()).isTrue();
         assertThat(resolved.executionReference()).isNull();
@@ -151,6 +154,11 @@ class AssistantConversationServiceTest {
                 "创建一个文件夹，名称是「样册 整理」。", ""));
         assertThat(spaced.entities()).containsEntry("new_folder_name", "样册 整理");
         assertThat(spaced.actionDraft().parameters()).containsEntry("new_folder_name", "样册 整理");
+
+        var literalCommand = conversationService.plan(new AssistantPlanRequest(
+                "在这一层新建一个名称叫「先别挪动  监签」的文件夹。", ""));
+        assertThat(literalCommand.actionDraft().parameters()).containsEntry("new_folder_name", "先别挪动  监签");
+        assertThat(literalCommand.nextAction()).isEqualTo("wait_for_user_confirmation");
     }
 
     @ParameterizedTest

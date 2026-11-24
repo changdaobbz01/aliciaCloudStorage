@@ -116,7 +116,7 @@ public class CandidateBindingService {
             return currentFolderBinding;
         }
         QueryRoleAndValue query = bindingQuery(intent, response);
-        if (!Boolean.TRUE.equals(response.entities().get("target_folder_literal"))
+        if (!Boolean.TRUE.equals(response.entities().get(OperationArgumentResolver.LITERAL_MOVE_DESTINATION))
                 && isVirtualRootTarget(intent.actionType(), query)) {
             return rootBinding(query.value(), intent.candidateType());
         }
@@ -228,7 +228,7 @@ public class CandidateBindingService {
             );
         }
         if ("MOVE".equals(frame.operation())) {
-            boolean literal = Boolean.TRUE.equals(response.entities().get("target_folder_literal"));
+            boolean literal = Boolean.TRUE.equals(response.entities().get(OperationArgumentResolver.LITERAL_MOVE_DESTINATION));
             String surface = String.valueOf(response.entities().getOrDefault("target_folder", ""));
             String targetFolder = literal ? surface : TextSupport.sanitizeNodeName(surface);
             if (!targetFolder.isBlank()) {

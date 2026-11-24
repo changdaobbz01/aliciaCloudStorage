@@ -156,4 +156,13 @@ class OperationArgumentResolverTest {
         assertThat(resolution.destination().surface()).isEqualTo("待发送目录");
         assertThat(resolution.needsClarification()).isFalse();
     }
+
+    @Test
+    void englishSentencePunctuationDoesNotInvalidateTheQuotedDestination() {
+        var move = resolver.directQuotedMove("Please move \"Night  count.pdf\" to \"Shelf  B\".").orElseThrow();
+
+        assertThat(move.source().name()).isEqualTo("Night  count.pdf");
+        assertThat(move.destination().surface()).isEqualTo("Shelf  B");
+        assertThat(move.destination().literal()).isTrue();
+    }
 }

@@ -10,6 +10,8 @@ import java.util.regex.Pattern;
 /** Parses operation arguments into stable source and destination roles. */
 final class OperationArgumentResolver {
 
+    static final String LITERAL_MOVE_DESTINATION = "target_folder_literal";
+
     private static final Set<String> SUPPORTED_OPERATIONS = Set.of(
             "SHARE", "DELETE", "MOVE", "RENAME", "UPLOAD"
     );
@@ -55,7 +57,7 @@ final class OperationArgumentResolver {
                     + "(.+)$"
     );
     private static final Pattern ENGLISH_MOVE_SPLIT = Pattern.compile(
-            "^(?:please\\s+)?move\\s+(.+?)\\s+to\\s+(.+)$",
+            "^(?:please\\s+)?move\\s+(.+?)\\s+to\\s+(.+?)\\s*\\.?$",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
     private static final Pattern MOVE_LEADING_SPLIT = Pattern.compile(
@@ -72,7 +74,7 @@ final class OperationArgumentResolver {
             "(?:(?:名字|名称|名)(?:叫做|叫|定为|用|为|是)|命名为|取名为|叫做|叫|名为)";
     private static final Pattern QUOTED_FOLDER_CREATION = Pattern.compile(
             "^(?:(?:请|麻烦|帮我|给我|就|先)\\s*)*"
-                    + "(?:(?:在|到)(当前目录|当前文件夹|当前这一层|云盘根目录|根目录|这里)(?:下|中|里|内)?\\s*)?"
+                    + "(?:(?:在|到)(当前目录|当前文件夹|当前这一层|这一层|当前层|本层|云盘根目录|根目录|这里)(?:下|中|里|内)?\\s*)?"
                     + "(?:再|先|另)?(?:创建|新建|建立|建)(?:一个|1个|个)?\\s*"
                     + "(?:(?:文件夹|目录)\\s*[，,]?\\s*" + FOLDER_NAME_MARKER + "\\s*("
                     + TextSupport.QUOTED_NODE_NAME + ")|" + FOLDER_NAME_MARKER + "\\s*("
@@ -133,7 +135,8 @@ final class OperationArgumentResolver {
             return Optional.empty();
         }
         String name = TextSupport.unwrapNodeName(command.group(2) == null ? command.group(3) : command.group(2));
-        return name.isBlank() ? Optional.empty() : Optional.of(new FolderCreation(command.group(1), name));
+        String parent = command.group(1) != null && rootAlias(command.group(1)) ? "根目录" : "当前目录";
+        return name.isBlank() ? Optional.empty() : Optional.of(new FolderCreation(parent, name));
     }
 
     Optional<Resolution> directQuotedMove(String message) {

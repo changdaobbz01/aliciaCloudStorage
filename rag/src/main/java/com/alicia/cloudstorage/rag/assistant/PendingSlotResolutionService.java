@@ -16,8 +16,9 @@ final class PendingSlotResolutionService {
             Pattern.CASE_INSENSITIVE
     );
     private static final Pattern EXPLICIT_FOLDER_NAME = Pattern.compile(
-            "^(?:那就|就|那)?(?:取名|命名)(?:为|是)?\\s*("
-                    + TextSupport.QUOTED_NODE_NAME + "|[^，,。；;!?！？]+)$"
+            "^(?:那就|就|那)?\\s*(?:(?:(?:取名|命名)(?:为|是)?|(?:名字|名称)(?:是|为|叫做?)|叫做?)\\s*)?("
+                    + TextSupport.QUOTED_NODE_NAME + ")\\.?$"
+                    + "|^(?:那就|就|那)?(?:取名|命名)(?:为|是)?\\s*([^，,。；;!?！？]+)$"
     );
     private static final Pattern DESTINATION_VALUE = Pattern.compile(
             "^(?:到|至|进|移动到|移到|上传到|上传至|放到|放进)\\s*[“\"']?(.+?)[”\"']?$",
@@ -63,7 +64,7 @@ final class PendingSlotResolutionService {
             }
             String structuredValue = "new_folder_name".equals(slot)
                     ? ""
-                    : cleanSlotValue(stringValue(response.entities().get(slot)));
+                    : structuredValue(slot, response);
             if (!structuredValue.isBlank()
                     && isExplicitSlotFragment(slot, message, response, conversation)
                     && !("target_name".equals(slot) && GENERIC_NODE_NAMES.contains(structuredValue))) {
@@ -81,17 +82,27 @@ final class PendingSlotResolutionService {
         if (values.isEmpty()) {
             return Resolution.unresolved();
         }
-
+        if (values.containsKey("target_folder")
+                && "node_move".equals(conversation.pendingIntentId())
+                && Boolean.TRUE.equals(response.entities().get(OperationArgumentResolver.LITERAL_MOVE_DESTINATION))
+                && values.get("target_folder").equals(response.entities().get("target_folder"))) {
+            values.put(OperationArgumentResolver.LITERAL_MOVE_DESTINATION, true);
+        }
         SemanticFrame frame = slotFillFrame(conversation, response, values);
         return new Resolution(true, Map.copyOf(values), frame);
     }
 
-    String explicitFolderName(String message, AssistantConversationState conversation) {
+    static String explicitFolderName(String message, AssistantConversationState conversation) {
         if (!conversation.pendingSlots().contains("new_folder_name")) {
             return "";
         }
         Matcher name = EXPLICIT_FOLDER_NAME.matcher(clean(message));
-        return name.matches() ? cleanSlotValue(name.group(1)) : "";
+        if (!name.matches()) {
+            return "";
+        }
+        String surface = name.group(1);
+        return surface == null ? cleanSlotValue(name.group(2))
+                : validatedSlotValue(TextSupport.unwrapNodeName(surface));
     }
 
     private boolean isIndependentOperation(
@@ -155,9 +166,10 @@ final class PendingSlotResolutionService {
         boolean samePendingIntent = conversation != null
                 && conversation.hasPendingSlots()
                 && response.intentId().equals(conversation.pendingIntentId());
+        String structure = TextSupport.maskQuotedNodeNames(value);
         return (isGenericUnknownClarification(response) || semanticSlotFill || samePendingIntent)
-                && !OPERATION_COMMAND.matcher(value).find()
-                && !COLLECTION_REFERENCE.matcher(value).find();
+                && !OPERATION_COMMAND.matcher(structure).find()
+                && !COLLECTION_REFERENCE.matcher(structure).find();
     }
 
     private boolean safeStandaloneNodeName(
@@ -193,9 +205,9 @@ final class PendingSlotResolutionService {
             IntentRecognitionResponse response,
             AssistantConversationState conversation
     ) {
-        String structured = stringValue(response.entities().get("target_folder"));
+        String structured = structuredValue("target_folder", response);
         if (!structured.isBlank()) {
-            return cleanSlotValue(structured);
+            return structured;
         }
         Matcher matcher = DESTINATION_VALUE.matcher(value);
         if (matcher.matches()) {
@@ -249,20 +261,32 @@ final class PendingSlotResolutionService {
         );
     }
 
-    private String cleanSlotValue(String value) {
-        String cleaned = unquote(clean(value));
-        return cleaned.length() <= MAX_SLOT_VALUE_LENGTH && !containsControlCharacter(cleaned) ? cleaned : "";
+    private String structuredValue(String slot, IntentRecognitionResponse response) {
+        String value = stringValue(response.entities().get(slot));
+        if ("target_folder".equals(slot)
+                && Boolean.TRUE.equals(response.entities().get(OperationArgumentResolver.LITERAL_MOVE_DESTINATION))) {
+            return validatedSlotValue(value);
+        }
+        return cleanSlotValue(value);
     }
 
-    private String clean(String value) {
+    private static String cleanSlotValue(String value) {
+        return validatedSlotValue(unquote(clean(value)));
+    }
+
+    private static String validatedSlotValue(String value) {
+        return value.length() <= MAX_SLOT_VALUE_LENGTH && !containsControlCharacter(value) ? value : "";
+    }
+
+    private static String clean(String value) {
         return value == null ? "" : value.trim().replaceAll("[。！？!?]+$", "").trim();
     }
 
-    private String unquote(String value) {
+    private static String unquote(String value) {
         return TextSupport.unwrapNodeName(clean(value)).replaceAll("^[“\"']|[”\"']$", "").trim();
     }
 
-    private boolean containsControlCharacter(String value) {
+    private static boolean containsControlCharacter(String value) {
         return value.codePoints().anyMatch(Character::isISOControl);
     }
 
