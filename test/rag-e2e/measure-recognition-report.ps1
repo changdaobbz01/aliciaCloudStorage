@@ -2,7 +2,8 @@
 param(
     [Parameter(Mandatory)][string]$ReportPath,
     [Parameter(Mandatory)][string]$DatasetPath,
-    [string]$OutputPath = ''
+    [string]$OutputPath = '',
+    [switch]$AllowAlternateIntents
 )
 
 $ErrorActionPreference = 'Stop'
@@ -169,10 +170,11 @@ foreach ($caseResult in @($report.cases)) {
         $recognitionPathCounts[$recognitionPath]++
 
         $allowedIntents = Get-AllowedValues -Object $expected -Name 'intentId'
-        if ($allowedIntents.Count -ne 1) {
+        if ($allowedIntents.Count -eq 0 -or ($allowedIntents.Count -ne 1 -and -not $AllowAlternateIntents)) {
             throw "Recognition labels require exactly one intentId: $caseId turn $($turnResult.turn)"
         }
-        $intentMatched = $null -ne $response -and $actualIntent -eq $allowedIntents[0]
+        $expectedIntent = $allowedIntents -join ' | '
+        $intentMatched = $null -ne $response -and $actualIntent -in $allowedIntents
         if ($intentMatched) {
             $intentCorrect++
             $groupStats[$group].intentCorrect++
@@ -206,7 +208,7 @@ foreach ($caseResult in @($report.cases)) {
             $missingResponseCount++
         }
 
-        $confusionKey = "$($allowedIntents[0])`t$actualIntent"
+        $confusionKey = "$expectedIntent`t$actualIntent"
         if (-not $confusion.ContainsKey($confusionKey)) {
             $confusion[$confusionKey] = 0
         }
@@ -217,8 +219,8 @@ foreach ($caseResult in @($report.cases)) {
         $records.Add([pscustomobject][ordered]@{
             key = "$caseId#$($turnResult.turn)"
             group = $group
-            difficulty = [string]$datasetCase.difficulty
-            expectedIntent = $allowedIntents[0]
+            difficulty = [string](Get-OptionalProperty -Object $datasetCase -Name 'difficulty')
+            expectedIntent = $expectedIntent
             actualIntent = $actualIntent
             intentMatched = $intentMatched
             expectedOperations = @($allowedOperations)

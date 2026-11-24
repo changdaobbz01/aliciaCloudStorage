@@ -698,7 +698,8 @@ Write-Host "Recognition sources: $((@($recognitionSources.Keys) | ForEach-Object
 if ($isRecognitionMeasurement) {
     & (Join-Path $PSScriptRoot 'measure-recognition-report.ps1') `
             -ReportPath $reportPath `
-            -DatasetPath $scenarioFiles[0]
+            -DatasetPath $scenarioFiles[0] `
+            -AllowAlternateIntents:([bool]$ChallengeDatasetPath)
 }
 if ($infrastructureFailures -gt 0) {
     throw "RAG evaluation completed with $infrastructureFailures infrastructure failure(s)."
