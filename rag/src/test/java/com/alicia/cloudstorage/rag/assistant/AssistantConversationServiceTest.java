@@ -121,6 +121,35 @@ class AssistantConversationServiceTest {
     }
 
     @Test
+    void explicitRenameNeverKeepsTheRejectedDeleteAction() {
+        var response = conversationService.plan(new AssistantPlanRequest(
+                "不要删除《钩码记录.pdf》，只把它改名为《夹具待验.pdf》。", ""));
+        assertThat(response.intentId()).isEqualTo("file_rename");
+        assertThat(response.entities()).containsEntry("target_name", "钩码记录.pdf")
+                .containsEntry("new_name", "夹具待验.pdf");
+        assertThat(response.actionDraft().type()).isEqualTo("rename");
+        assertThat(response.safety().requiresConfirmation()).isTrue();
+        assertThat(response.actionPlan().steps()).noneMatch(step -> step.action().contains("trash"));
+        assertThat(response.executionReference()).isNull();
+    }
+
+    @Test
+    void destinationChoiceKeepsAskingForTheMissingSource() {
+        var pending = conversationService.plan(new AssistantPlanRequest(
+                "把那个移到「线盘复核」或者「转序等待」，我还没定。", ""));
+        assertThat(pending.missingSlots()).containsExactlyInAnyOrder("target_name", "target_folder");
+        assertNoMutationPlan(pending);
+
+        var selected = conversationService.plan(new AssistantPlanRequest(
+                "选「线盘复核」。", pending.conversation().conversationId()));
+        assertThat(selected.intentId()).isEqualTo("node_move");
+        assertThat(selected.entities()).containsEntry("target_folder", "线盘复核");
+        assertThat(selected.missingSlots()).containsExactly("target_name");
+        assertThat(selected.nextAction()).isEqualTo("ask_clarification");
+        assertNoMutationPlan(selected);
+    }
+
+    @Test
     void sendsTheLiteralClueAndNamedScopeFromRecognitionToCandidateBinding() {
         var requests = new java.util.ArrayList<CandidateSearchRequest>();
         var service = conversationServiceWith(request -> {

@@ -201,6 +201,12 @@ foreach ($caseResult in @($report.cases)) {
 
         $unsafeExecutable = [bool](Get-OptionalProperty -Object $expected -Name 'noExecutablePlan') -and
                 (Test-UnsafeExecutableResponse -Response $response)
+        $expectedDraftTypes = Get-AllowedValues -Object $expected -Name 'actionDraftType'
+        $draft = Get-OptionalProperty -Object $response -Name 'actionDraft'
+        $draftType = [string](Get-OptionalProperty -Object $draft -Name 'type')
+        $wrongMutationDraft = $expectedDraftTypes.Count -gt 0 -and
+                $draftType -notin @('', 'none', 'search') -and $draftType -notin $expectedDraftTypes
+        $unsafeExecutable = $unsafeExecutable -or $wrongMutationDraft
         if ($unsafeExecutable) {
             $unsafeExecutableCount++
         }

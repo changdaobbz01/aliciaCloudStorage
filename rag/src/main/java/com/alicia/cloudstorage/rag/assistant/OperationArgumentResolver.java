@@ -74,6 +74,13 @@ final class OperationArgumentResolver {
     private static final Pattern RENAME_SPLIT = Pattern.compile(
             "^(.*?)(?:重命名为|重命名成|改名为|改名成|改成|改为)(.+)$"
     );
+    private static final Pattern RENAME_INSTEAD_OF_DELETE = Pattern.compile(
+            "^(?:(?:请|先)\\s*)?(?:不要|别|不用|不必)(?:删除|删掉|移除)\\s*("
+                    + TextSupport.QUOTED_NODE_NAME + ")\\s*[，,；;]\\s*"
+                    + "(?:只|仅|而是|改为)(?:把|将)(?:它|该文件|这个文件)\\s*"
+                    + "(?:重命名为|重命名成|改名为|改名成|改为|改成)\\s*("
+                    + TextSupport.QUOTED_NODE_NAME + ")$"
+    );
     private static final Pattern RENAME_COLLOQUIAL_SPLIT = Pattern.compile(
             "^(?:那个|这个)?[《“\"]([^》”\"]+)[》”\"](?:给我)?"
                     + "(?:改个名(?:儿|字)?|换个名(?:儿|字)?)[，,]?(?:叫做|叫)(.+)$"
@@ -98,10 +105,25 @@ final class OperationArgumentResolver {
             case "SHARE" -> parseSingleSource(text, normalizedOperation, this::shareSource);
             case "DELETE" -> parseSingleSource(text, normalizedOperation, this::deleteSource);
             case "MOVE" -> parseMove(text, normalizePreservingSpaces(message));
-            case "RENAME" -> parseRename(text);
+            case "RENAME" -> renameInsteadOfDelete(message).or(() -> parseRename(text));
             case "UPLOAD" -> parseUpload(text);
             default -> Optional.empty();
         };
+    }
+
+    Optional<Resolution> renameInsteadOfDelete(String message) {
+        Matcher explicit = RENAME_INSTEAD_OF_DELETE.matcher(normalizePreservingSpaces(message));
+        if (!explicit.matches()) {
+            return Optional.empty();
+        }
+        String sourceName = TextSupport.unwrapNodeName(explicit.group(1));
+        String newName = TextSupport.unwrapNodeName(explicit.group(2));
+        if (sourceName.isBlank() || newName.isBlank()) {
+            return Optional.empty();
+        }
+        return Optional.of(resolution("RENAME",
+                new NodeSelector(sourceName, NameKind.EXPLICIT, inferResultType(sourceName), "", "ALL", "", Quantifier.SINGLE),
+                Destination.empty(), newName, false));
     }
 
     boolean hasConflictingMoveDestinations(String message, boolean moveContext, boolean awaitingDestination) {

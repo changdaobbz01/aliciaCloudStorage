@@ -59,7 +59,7 @@ final class CompoundMutationScopeGuard {
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
     private static final Pattern NEGATION_OR_CANCELLATION = Pattern.compile(
-            "不要|(?<!分)别|不用|无需|不必|不再|取消|停止|撤销",
+            "不要|(?<!分)别(?!人|处|的|名|类)|不用|无需|不必|不再|取消|停止|撤销",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
     private static final Pattern MOVE_DESTINATION = Pattern.compile(
@@ -89,9 +89,7 @@ final class CompoundMutationScopeGuard {
             return Optional.empty();
         }
 
-        String structural = maskOperationCorrectionPrefixes(
-                maskRenameTargetLiterals(maskPathLiterals(maskQuotedLiterals(value)))
-        );
+        String structural = structuralText(value);
         List<OperationOccurrence> occurrences = affirmativeOperations(structural);
         Set<Operation> operations = new LinkedHashSet<>();
         occurrences.forEach(occurrence -> operations.add(occurrence.operation()));
@@ -163,6 +161,29 @@ final class CompoundMutationScopeGuard {
         }
 
         return Optional.empty();
+    }
+
+    boolean explicitlyNegates(String message, String operation) {
+        for (Map.Entry<Operation, Pattern> entry : OPERATION_PATTERNS.entrySet()) {
+            if (!entry.getKey().name().equals(operation)) {
+                continue;
+            }
+            String structural = structuralText(clean(message));
+            Matcher occurrence = entry.getValue().matcher(structural);
+            boolean negated = false;
+            while (occurrence.find()) {
+                if (!isNegated(structural, occurrence.start())) {
+                    return false;
+                }
+                negated = true;
+            }
+            return negated;
+        }
+        return false;
+    }
+
+    private String structuralText(String value) {
+        return maskOperationCorrectionPrefixes(maskRenameTargetLiterals(maskPathLiterals(maskQuotedLiterals(value))));
     }
 
     private boolean hasRepeatedOperationClauses(

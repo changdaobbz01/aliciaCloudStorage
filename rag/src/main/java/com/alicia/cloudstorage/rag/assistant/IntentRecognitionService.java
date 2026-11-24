@@ -217,7 +217,12 @@ public class IntentRecognitionService {
         }
         RecognitionTrace.mark(Stage.FOLLOW_UP_GUARD, Outcome.NO_MATCH, stageStarted);
         stageStarted = RecognitionTrace.tick();
-        var operationFollowUpDecision = operationFollowUpGuard.evaluate(message, conversation);
+        var operationFollowUpDecision = operationArgumentResolver.renameInsteadOfDelete(message)
+                .map(rename -> new ContextualOperationFollowUpGuard.Decision(
+                        "rename_instead_of_delete", "file_rename", "NEW_TASK", "RENAME",
+                        Map.of("target_name", rename.source().name(), "new_name", rename.newName(),
+                                "result_type", rename.source().resultType())))
+                .or(() -> operationFollowUpGuard.evaluate(message, conversation));
         RecognitionTrace.mark(Stage.OPERATION_FOLLOW_UP,
                 operationFollowUpDecision.isPresent() ? Outcome.CONTINUED : Outcome.NO_MATCH, stageStarted);
         stageStarted = RecognitionTrace.tick();
@@ -227,16 +232,18 @@ public class IntentRecognitionService {
         boolean requiresLocalSemanticResolution = nonExecutableDecision
                 .map(NonExecutableRequestGuard.Decision::requiresSemanticResolution)
                 .orElse(false);
-        if (nonExecutableDecision.isPresent() && !requiresLocalSemanticResolution) {
-            IntentRecognitionResponse response = nonExecutableResponse(message, nonExecutableDecision.get());
-            RecognitionTrace.decision(Stage.NON_EXECUTABLE_GUARD, Outcome.BLOCKED, stageStarted, response);
-            return response;
-        }
         boolean moveContext = conversation != null && "MOVE".equals(conversation.semanticFrame().operation());
-        if (operationArgumentResolver.hasConflictingMoveDestinations(
+        boolean canClarifyDestination = nonExecutableDecision.isEmpty() || requiresLocalSemanticResolution
+                || "unresolved_reference".equals(nonExecutableDecision.orElseThrow().id());
+        if (canClarifyDestination && operationArgumentResolver.hasConflictingMoveDestinations(
                 message, moveContext, moveContext && conversation.pendingSlots().contains("target_folder")
         )) {
             IntentRecognitionResponse response = conflictingMoveDestinationsResponse(message, conversation);
+            RecognitionTrace.decision(Stage.NON_EXECUTABLE_GUARD, Outcome.BLOCKED, stageStarted, response);
+            return response;
+        }
+        if (nonExecutableDecision.isPresent() && !requiresLocalSemanticResolution) {
+            IntentRecognitionResponse response = nonExecutableResponse(message, nonExecutableDecision.get());
             RecognitionTrace.decision(Stage.NON_EXECUTABLE_GUARD, Outcome.BLOCKED, stageStarted, response);
             return response;
         }
@@ -427,6 +434,12 @@ public class IntentRecognitionService {
         ActionDraft actionDraft = guardedByBoundary
                 ? new ActionDraft("none", Map.of(), false)
                 : semanticFrameResolver.actionDraftFor(response, semanticFrame, entities);
+        if (ExecutableConstraintGuard.deniesAction(message, actionDraft.type())) {
+            response = response.withCapabilityBoundary("explicitly_negated_action",
+                    "请明确最后要做的操作和对象。", "当前不会提交你明确排除的操作。");
+            RecognitionTrace.decision(Stage.SEMANTIC_FRAME, Outcome.BLOCKED, stageStarted, response);
+            return response;
+        }
         response = response.withSemanticFrame(semanticFrame, entities, actionDraft);
         if (semanticFrame.needsClarification()) {
             response = response.withSemanticClarification(semanticFrame);

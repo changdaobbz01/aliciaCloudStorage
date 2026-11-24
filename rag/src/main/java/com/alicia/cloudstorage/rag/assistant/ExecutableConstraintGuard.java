@@ -16,6 +16,7 @@ public class ExecutableConstraintGuard {
     );
     private final UnsupportedTemporalSizeScopeGuard unsupportedTemporalSizeScopeGuard =
             new UnsupportedTemporalSizeScopeGuard();
+    private static final CompoundMutationScopeGuard MUTATION_SCOPE = new CompoundMutationScopeGuard();
 
     private static final Pattern MUTATION = Pattern.compile(
             "(?:删除|删掉|移动|移到|挪到|转移|搬到|回收站|分享|共享|生成.{0,16}链接)"
@@ -33,10 +34,16 @@ public class ExecutableConstraintGuard {
 
     Optional<Rejection> evaluate(String message, IntentRecognitionResponse response) {
         String text = message == null ? "" : message.replaceAll("\\s+", "");
-        if (response == null || "ask_clarification".equals(response.nextAction())) {
+        if (response == null) {
             return Optional.empty();
         }
         String actionType = response.actionDraft() == null ? "none" : response.actionDraft().type();
+        if (deniesAction(message, actionType)) {
+            return reject("explicitly_negated_action", "请明确最终要做的操作及对象。当前不会提交你明确排除的操作。");
+        }
+        if ("ask_clarification".equals(response.nextAction())) {
+            return Optional.empty();
+        }
         String expectedOperation = SemanticFrameResolver.operationForAction(actionType);
         if (!"UNKNOWN".equals(expectedOperation) && !"SEARCH".equals(expectedOperation)
                 && !expectedOperation.equals(response.semanticFrame().operation())) {
@@ -70,6 +77,16 @@ public class ExecutableConstraintGuard {
             );
         }
         return Optional.empty();
+    }
+
+    static boolean deniesAction(String message, String actionType) {
+        String operation = SemanticFrameResolver.operationForAction(actionType);
+        if ("CREATE_FOLDER".equals(operation)) {
+            operation = "CREATE";
+        }
+        return MUTATION_SCOPE.explicitlyNegates(message, operation)
+                || "composite.create_folder_then_upload".equals(actionType)
+                && MUTATION_SCOPE.explicitlyNegates(message, "CREATE");
     }
 
     private Optional<Rejection> reject(String reason, String guidance) {
