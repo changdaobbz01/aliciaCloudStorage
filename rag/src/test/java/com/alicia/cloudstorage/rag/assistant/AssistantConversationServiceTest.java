@@ -50,6 +50,16 @@ class AssistantConversationServiceTest {
         });
     }
 
+    @Test
+    void keepsRootScopeBeforeTheUnquotedFileNamePredicate() {
+        var response = conversationService.plan(new AssistantPlanRequest(
+                "在云盘根目录里查文件的名字含母版的文档", ""));
+
+        assertThat(response.semanticFrame().query().nameSurface()).isEqualTo("母版");
+        assertThat(response.semanticFrame().query().mode()).isEqualTo("NAME_CONTAINS");
+        assertThat(response.semanticFrame().scope().type()).isEqualTo("ROOT");
+    }
+
     @BeforeEach
     void setUp() {
         configLoader = new RagConfigLoader(new ObjectMapper());

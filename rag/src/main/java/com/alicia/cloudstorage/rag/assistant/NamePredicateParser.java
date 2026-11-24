@@ -13,7 +13,7 @@ final class NamePredicateParser {
     private static final String RESULT_TYPE_SUFFIX =
             "(?:的)?\\s*(文件夹|目录|文件|文档|图片|照片|视频|音频)?";
     private static final String SEARCH_PREDICATE_PREFIX =
-            "(?:文件名(?:称)?|名字|名称|name)(?:里面|中|里|内)?\\s*"
+            "(?:文件(?:的)?名(?:称|字)?|名字|名称|name)(?:里面|中|里|内)?\\s*"
                     + "(?:带有|带着|带|包含有|包含|含有|含|有|出现|沾着|contains)\\s*";
     private static final String CHARACTER_COUNT = "\\s*(?:这|那)[一二两三四五六七八九十几0-9]+(?:个)?(?:字|字符)";
     private static final String UNQUOTED_CLUE = "[^\\s，。,.!?！？；;“”‘’\"'《》「」『』]+?";
