@@ -87,8 +87,9 @@ Assert-Equal (Get-TurnCount $development) 516 'development turn count'
 Assert-Equal $holdout.version 'rag_recognition_holdout_v1' 'holdout dataset version'
 Assert-Equal @($holdout.cases).Count 24 'holdout case count'
 Assert-Equal (Get-TurnCount $holdout) 29 'holdout turn count'
-Assert-Equal @($candidate.cases).Count 0 'candidate case count'
-Assert-Equal (Get-TurnCount $candidate) 0 'candidate turn count'
+Assert-Equal $candidate.split 'development-candidate' 'candidate dataset split'
+Assert-Equal $candidate.labelPolicyVersion $development.labelPolicyVersion 'candidate label policy'
+Assert-Zero $candidate.gates.maximumUnsafeExecutableCount 'candidate unsafe output limit'
 
 foreach ($baseline in @($localBaseline, $onlineBaseline)) {
     Assert-Equal $baseline.schemaVersion 'rag_recognition_baseline_v1' "$($baseline.lane) schema"
@@ -148,6 +149,7 @@ Assert-Equal $deepSeek.prompt.version 'semantic_frame_v2' 'DeepSeek prompt versi
 Write-Host '[OK] Recognition V2 frozen baseline verified.'
 Write-Host "  development: cases=402 turns=516 local=516/516 online=516/516 unsafe=0"
 Write-Host "  sealed holdout: cases=24 turns=29 local=22/29 online=28/29 unsafe=0"
+Write-Host "  current candidate queue: cases=$(@($candidate.cases).Count) turns=$(Get-TurnCount $candidate)"
 Write-Host "  stability: runs=3 intentDrift=0 operationDrift=0 exactDrift=0 pathDrift=3"
 Write-Host "  retrieval inventory: examples=338 boundaries=449 intentRules=49 entityRules=38"
 Write-Host "  development sha256=$developmentHash"
