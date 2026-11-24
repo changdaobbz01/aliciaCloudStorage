@@ -1,7 +1,7 @@
 # RAG Recognition V2 对话识别改造计划
 
 日期：2026-11-23
-状态：T0 至 T5 已通过本地验收，T6 只读查询配对达标，T7 本地只读运行器已验收，生产接入待验收
+状态：T0 至 T5 已通过本地验收，T6 只读查询配对达标，T7 生产主机断网探针通过，真实流量观察待接入
 范围：只改造 `rag` 的会话理解与识别链路；`ragExecution`、CloudStorageApi 和生产执行权限保持不变。
 
 ## 1. 目标与边界
@@ -182,7 +182,7 @@ development 或 holdout。
 | T4 | 本地验收通过 | 混合语义检索 | 冻结合成评测前 5 命中 10/36 → 28/36，离线 unsafe 为 0 |
 | T5 | 本地验收通过 | 统一 AI 编排器 | 候选绑定前完成单一语义裁决，开发集 516/516，精确契约 87/87 |
 | T6 | 只读查询配对达标 | 独立盲测和故障评测 | 独立查询挑战 4/12 → 12/12，安全退化和实际执行均为 0 |
-| T7 | 本地只读运行器已验收 | Legacy/V2 生产 Shadow | 新结果持续优于旧结果且没有用户或业务副作用 |
+| T7 | 生产主机断网探针通过 | Legacy/V2 生产 Shadow | 新结果持续优于旧结果且没有用户或业务副作用 |
 | T8 | 未开始 | 灰度切换、回滚与清理 | V2 成为主路径，旧分支安全退出 |
 
 ## 8. T0 完成条件
@@ -535,16 +535,30 @@ RAG 和 RAG Execution 共 501 项 Java 测试通过。普通 HTTP 入口的冻�
 
 ### 15.3 生产接入验收
 
-从待验收的候选提交构建独立镜像。在生产主机上只启动该镜像的一次性断网容器，记录镜像 ID、报告和退出码。
-这是服务器环境的合成探针。生产流量观察仍待接入，其样本授权与对照规则沿用第 5 节。
+在构建机生成独立候选镜像，传输前后校验归档 SHA-256，导入后校验镜像层和入口。在生产主机上从该镜像启动
+一次性断网容器，记录镜像 ID、报告和退出码。生产流量观察的样本授权与对照规则沿用第 5 节。
 
 ```bash
-shadow_image="alicia-rag-recognition-shadow:$(git rev-parse --short HEAD)"
-docker build -f rag/Dockerfile -t "$shadow_image" .
-docker run --rm --network none --read-only --tmpfs /tmp:rw,nosuid,noexec,size=64m \
-  --cap-drop ALL --security-opt no-new-privileges --memory 512m --cpus 1 \
-  "$shadow_image" --recognition-shadow
+shadow_image="${ALICIA_RAG_RECOGNITION_SHADOW_IMAGE:?请指定已校验的独立候选镜像}"
+java_limits='-Xms24m -Xmx80m -XX:MaxMetaspaceSize=80m -XX:ReservedCodeCacheSize=24m -XX:MaxDirectMemorySize=16m -XX:ActiveProcessorCount=1 -Xss512k -XX:+UseSerialGC'
+docker run --rm --network none --read-only --tmpfs /tmp:rw,nosuid,noexec,size=32m \
+  --cap-drop ALL --security-opt no-new-privileges --memory 192m --memory-swap 192m --cpus 0.5 \
+  --env "JAVA_TOOL_OPTIONS=$java_limits" "$shadow_image" --recognition-shadow
 ```
 
 通过条件为退出码 0，`RAG_RECOGNITION_SHADOW_REPORT` 中 `passed=true`、`matchedCases=12`、
 `modelRequests=0`，且 12 条记录的 `recognitionOnly=true`。
+
+### 15.4 生产主机断网探针结果
+
+2026-11-24 在 `VM-0-13-ubuntu` 验收候选提交 `4506282`。使用已通过本地验收的 linux/amd64 镜像，
+按上节的 192 MiB 内存上限、零容器 swap 和 0.5 CPU 运行。镜像归档 SHA-256 为
+`5dd362ccf7ae9c9a82c8b9bc18a5e70f1f9a6d4fe326f7dd5b874ea41a05f0a7`，导入后的镜像 ID 为
+`sha256:03703c3cbd06928c0463067b89f7b4bbf6ff5ab9b5e614c6e584c64fafb95ea8`。
+
+探针运行 20 秒，退出码为 0，OOM 终止为 0。封存合成样本 12/12 通过，12 条均停留在识别阶段，
+模型调用、任务登记和执行提议均为 0。
+
+探针前后 `/rag/api/health` 和 `/rag-execution/api/health` 均返回 HTTP 200。RAG、RAG Execution、
+Cloud API、前端网关及 Identity 容器的 ID、镜像、启动时间和重启计数一致。探针容器、临时镜像标签和上传文件均已清理。
+生产云盘仓库为 `a169030`、主站仓库为 `eb79b3d`。这轮验收覆盖生产主机上的合成探针，真实流量观察待接入。
