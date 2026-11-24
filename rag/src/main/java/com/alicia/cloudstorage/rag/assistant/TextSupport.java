@@ -79,21 +79,30 @@ final class TextSupport {
     }
 
     static String unwrapNodeNameFromMessage(String message, String value) {
-        String name = unwrapNodeName(value);
-        if (message == null || name.equals(value)) {
+        if (message == null || value.length() < 2 || !message.contains(value)) {
             return value;
         }
         // A value that is only present inside another quoted token may include literal quotes.
         var quoted = QUOTED_NODE_NAME_PATTERN.matcher(message);
-        boolean outerDelimiter = false;
+        String resolved = null;
+        boolean ambiguous = false;
         while (quoted.find()) {
             String token = quoted.group();
-            if (value.equals(unwrapNodeName(token))) {
+            String name = unwrapNodeName(token);
+            if (value.equals(name)) {
                 return value;
             }
-            outerDelimiter |= value.equals(token);
+            boolean truncatedAtWhitespace = token.length() > value.length() && token.startsWith(value)
+                    && Character.isWhitespace(token.charAt(value.length()));
+            if (value.equals(token) || truncatedAtWhitespace) {
+                ambiguous |= resolved != null && !resolved.equals(name);
+                resolved = name;
+            }
         }
-        return outerDelimiter ? name : value;
+        if (resolved == null) {
+            return value;
+        }
+        return ambiguous ? "" : resolved;
     }
 
     static String maskQuotedNodeNames(String value) {

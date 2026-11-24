@@ -146,10 +146,15 @@ class AssistantConversationServiceTest {
                 "在当前目录创建文件夹，名称是『「移交」』。", ""));
         assertThat(nested.entities()).containsEntry("new_folder_name", "「移交」");
         assertThat(nested.actionDraft().parameters()).containsEntry("new_folder_name", "「移交」");
+
+        var spaced = conversationService.plan(new AssistantPlanRequest(
+                "创建一个文件夹，名称是「样册 整理」。", ""));
+        assertThat(spaced.entities()).containsEntry("new_folder_name", "样册 整理");
+        assertThat(spaced.actionDraft().parameters()).containsEntry("new_folder_name", "样册 整理");
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"转序等待", "线盘复核"})
+    @ValueSource(strings = {"转序等待", "线盘复核", "校样 待复核"})
     void moveDraftAndParentBindingUseTheUnquotedFolderName(String folder) {
         var service = conversationServiceWith(request -> new CandidateBindingResult(
                 "single_candidate", "test", request.query(), "FOLDER",
@@ -160,6 +165,14 @@ class AssistantConversationServiceTest {
                 .containsEntry("target_folder", folder);
         assertThat(response.actionDraft().parameters()).containsEntry("target_folder", folder);
         assertThat(response.actionPlan().bindings().get("targetParent").query()).isEqualTo(folder);
+    }
+
+    @Test
+    void aNameTruncatedAtWhitespaceMustHaveOneGroundedCompletion() {
+        assertThat(TextSupport.unwrapNodeNameFromMessage("移动到『校样 待复核』。", "『校样"))
+                .isEqualTo("校样 待复核");
+        assertThat(TextSupport.unwrapNodeNameFromMessage("看看「样册 甲」与「样册 乙」。", "「样册"))
+                .isEmpty();
     }
 
     @Test
