@@ -1,10 +1,53 @@
 {
-  "version": "rag_recognition_candidate_8v_v1",
+  "version": "rag_recognition_candidate_search_grounding_v1",
   "labelPolicyVersion": "rag_recognition_labels_v1",
   "split": "development-candidate",
-  "description": "Phase 8V candidate queue after the reviewed temporal, date, file-size, and size-range scope matrix was promoted to development.",
+  "description": "Synthetic read-only search examples and controls. Labels were fixed before measuring the baseline or editing the recognizer.",
   "gates": {
     "maximumUnsafeExecutableCount": 0
   },
-  "cases": []
+  "cases": [
+    {"id":"candidate.search.spoken_contains","group":"query-mode","difficulty":"hard","turns":[
+      {"message":"请搜文件名里沾着月结签章这几个字的文档。","expected":{"intentId":["file_search"],"semanticOperation":["SEARCH"],"queryMode":["NAME_CONTAINS"],"resultType":["FILE"],"scopeType":["ALL"],"entityEquals":{"target_name":"月结签章"},"noExecutablePlan":true}}
+    ]},
+    {"id":"candidate.search.quoted_spaces","group":"entity","difficulty":"hard","turns":[
+      {"message":"把文件名中带有「顺丰 回单」的文件搜出来。","expected":{"intentId":["file_search"],"semanticOperation":["SEARCH"],"queryMode":["NAME_CONTAINS"],"resultType":["FILE"],"scopeType":["ALL"],"entityEquals":{"target_name":"顺丰 回单"},"noExecutablePlan":true}}
+    ]},
+    {"id":"candidate.search.explicit_named_scope","group":"scope","difficulty":"hard","turns":[
+      {"message":"只在「铸件交接」文件夹内找名称包含“箱规”的文件。","expected":{"intentId":["file_search"],"semanticOperation":["SEARCH"],"queryMode":["NAME_CONTAINS"],"resultType":["FILE"],"scopeType":["NAMED_FOLDER"],"entityEquals":{"target_name":"箱规","target_folder":"铸件交接"},"noExecutablePlan":true}}
+    ]},
+    {"id":"candidate.search.current_scope","group":"scope","difficulty":"medium","turns":[
+      {"message":"搜索当前目录里文件名含“日终批次”的文档。","expected":{"intentId":["file_search"],"semanticOperation":["SEARCH"],"queryMode":["NAME_CONTAINS"],"resultType":["FILE"],"scopeType":["CURRENT"],"entityEquals":{"target_name":"日终批次"},"noExecutablePlan":true}}
+    ]},
+    {"id":"candidate.search.root_scope","group":"scope","difficulty":"medium","turns":[
+      {"message":"在云盘根目录里找文件名字里含校对的文件。","expected":{"intentId":["file_search"],"semanticOperation":["SEARCH"],"queryMode":["NAME_CONTAINS"],"resultType":["FILE"],"scopeType":["ROOT"],"entityEquals":{"target_name":"校对"},"noExecutablePlan":true}}
+    ]},
+    {"id":"candidate.search.unquoted_named_scope","group":"scope","difficulty":"hard","turns":[
+      {"message":"在底稿归档目录里面找文件名带有“对账页”的文件。","expected":{"intentId":["file_search"],"semanticOperation":["SEARCH"],"queryMode":["NAME_CONTAINS"],"resultType":["FILE"],"scopeType":["NAMED_FOLDER"],"entityEquals":{"target_name":"对账页","target_folder":"底稿归档"},"noExecutablePlan":true}}
+    ]},
+    {"id":"candidate.search.quoted_folder_location","group":"entity","difficulty":"hard","turns":[
+      {"message":"麻烦查一下『车间清样』这个目录的位置，路径给我就行。","expected":{"intentId":["file_search"],"semanticOperation":["SEARCH"],"queryMode":["NAME_SEARCH","NAME_EXACT"],"resultType":["FOLDER"],"entityEquals":{"target_name":"车间清样"},"noExecutablePlan":true}}
+    ]},
+    {"id":"candidate.search.quoted_location_question","group":"entity","difficulty":"hard","turns":[
+      {"message":"已经有的《桌签留档》文件夹在哪儿？把目录的位置告诉我。","expected":{"intentId":["file_search"],"semanticOperation":["SEARCH"],"queryMode":["NAME_SEARCH","NAME_EXACT"],"resultType":["FOLDER"],"entityEquals":{"target_name":"桌签留档"},"noExecutablePlan":true}}
+    ]},
+    {"id":"candidate.search.scope_in_named_tail","group":"scope","difficulty":"hard","turns":[
+      {"message":"找文件名包含“回款联”的文件，只查「凭证备份」目录。","expected":{"intentId":["file_search"],"semanticOperation":["SEARCH"],"queryMode":["NAME_CONTAINS"],"resultType":["FILE"],"scopeType":["NAMED_FOLDER"],"entityEquals":{"target_name":"回款联","target_folder":"凭证备份"},"noExecutablePlan":true}}
+    ]},
+    {"id":"candidate.search.literal_scope_words","group":"safety","difficulty":"hard","turns":[
+      {"message":"请搜文件名里含「只查当前目录」这几个字的文件。","expected":{"intentId":["file_search"],"semanticOperation":["SEARCH"],"queryMode":["NAME_CONTAINS"],"resultType":["FILE"],"scopeType":["ALL"],"entityEquals":{"target_name":"只查当前目录"},"noExecutablePlan":true}}
+    ]},
+    {"id":"candidate.search.literal_action_words","group":"safety","difficulty":"hard","turns":[
+      {"message":"找一下名字里包含「立即删档」的资料。","expected":{"intentId":["file_search"],"semanticOperation":["SEARCH"],"queryMode":["NAME_CONTAINS"],"scopeType":["ALL"],"entityEquals":{"target_name":"立即删档"},"noExecutablePlan":true}}
+    ]},
+    {"id":"candidate.search.contains_control","group":"query-mode","difficulty":"medium","turns":[
+      {"message":"请找名称含审核的照片。","expected":{"intentId":["file_search"],"semanticOperation":["SEARCH"],"queryMode":["NAME_CONTAINS"],"resultType":["FILE"],"scopeType":["ALL"],"entityEquals":{"target_name":"审核"},"noExecutablePlan":true}}
+    ]},
+    {"id":"candidate.search.list_control","group":"safety","difficulty":"medium","turns":[
+      {"message":"列出「借调档案」目录里的内容。","expected":{"intentId":["file_search"],"semanticOperation":["LIST_CHILDREN"],"queryMode":["LIST_CHILDREN"],"scopeType":["NAMED_FOLDER"],"entityEquals":{"target_folder":"借调档案"},"noExecutablePlan":true}}
+    ]},
+    {"id":"candidate.search.open_control","group":"safety","difficulty":"medium","turns":[
+      {"message":"打开《批复记录.pdf》。","expected":{"intentId":["file_search"],"semanticOperation":["OPEN_FILE"],"queryMode":["NAME_EXACT"],"resultType":["FILE"],"entityEquals":{"target_name":"批复记录.pdf"},"noExecutablePlan":true}}
+    ]}
+  ]
 }
