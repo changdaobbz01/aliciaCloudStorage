@@ -1,0 +1,115 @@
+{
+  "version": "rag_recognition_contextual_literal_paired_2026_11_24_v1",
+  "labelPolicyVersion": "rag_recognition_labels_v1",
+  "split": "challenge",
+  "description": "Fresh isolated paired cases frozen after the four contextual literal-name regressions passed. Includes actual near-name decoys, exact duplicates, and blocked plans. Registration stays disabled.",
+  "clientLocation": {
+    "currentFolderId": 83001,
+    "currentFolderPath": "/外勤分拣台"
+  },
+  "storageFixture": [
+    {"id":83001,"type":"FOLDER","name":"外勤分拣台"},
+    {"id":83002,"type":"FOLDER","name":"QA  Bay"},
+    {"id":83003,"type":"FOLDER","name":"QABay"},
+    {"id":83004,"type":"FOLDER","name":"Dock  3"},
+    {"id":83005,"type":"FOLDER","name":"Dock3"},
+    {"id":83006,"type":"FOLDER","name":"外发 白岗"},
+    {"id":83007,"type":"FOLDER","name":"外发 夜岗"},
+    {"id":83008,"type":"FOLDER","name":"外发夜岗"},
+    {"id":83009,"type":"FOLDER","name":"“换签  留待”"},
+    {"id":83010,"type":"FOLDER","name":"换签留待"},
+    {"id":83011,"type":"FOLDER","name":"退箱柜"},
+    {"id":83012,"type":"FOLDER","name":"根目录"},
+    {"id":83013,"type":"FOLDER","name":"收单  或者退件"},
+    {"id":83014,"type":"FOLDER","name":"收单或者退件"},
+    {"id":83015,"type":"FOLDER","name":"装箱班"},
+    {"id":83016,"type":"FOLDER","name":"装箱班","parentId":83011},
+    {"id":83017,"type":"FOLDER","name":"未签单"},
+    {"id":83101,"type":"FILE","name":"Shift  guide.pdf"},
+    {"id":83102,"type":"FILE","name":"Shiftguide.pdf"},
+    {"id":83103,"type":"FILE","name":"DockSheet.pdf"},
+    {"id":83104,"type":"FILE","name":"render to shelf  notes.pdf"},
+    {"id":83105,"type":"FILE","name":"箱标底联.pdf"},
+    {"id":83106,"type":"FILE","name":"补打清单.pdf"},
+    {"id":83107,"type":"FILE","name":"巡货表.pdf"},
+    {"id":83108,"type":"FILE","name":"缺版校签.pdf"},
+    {"id":83109,"type":"FILE","name":"手册补张.pdf"}
+  ],
+  "gates": {
+    "maximumUnsafeExecutableCount": 0,
+    "minimumExactNetGain": 2,
+    "minimumImprovedCases": 2,
+    "minimumCandidateRequiredClarificationRate": 0.9,
+    "maximumRegressedProtectedTurns": 0,
+    "maximumMissingResponses": 0,
+    "maximumModelFallbacks": 0,
+    "maximumTaskReferences": 0,
+    "maximumExecutions": 0,
+    "maximumWrongNameDrafts": 0,
+    "maximumWrongParentBindings": 0,
+    "maximumMisleadingParentChoices": 0,
+    "maximumWrongSourceBindings": 0,
+    "maximumUnblockedMissingLiteralTargets": 0
+  },
+  "cases": [
+    {"id":"contextual-literal.name_follow_up.spoken_prefix","group":"name_follow_up","difficulty":"hard","turns":[
+      {"message":"请在当前目录建个文件夹，名称稍后再说。","expected":{"intentId":["folder_create"],"semanticOperation":["CREATE_FOLDER"],"noExecutablePlan":true,"clarification":true,"nextAction":["ask_clarification"],"missingSlots":["new_folder_name"]}},
+      {"message":"那就叫『“堆码，复点  两趟”』。","expected":{"intentId":["folder_create"],"semanticOperation":["CREATE_FOLDER"],"actionDraftType":["folder.create"],"entityEquals":{"new_folder_name":"“堆码，复点  两趟”"},"clarification":false,"requiresConfirmation":true,"targetParentId":83001}}
+    ]},
+    {"id":"contextual-literal.name_follow_up.bare_quoted_name","group":"name_follow_up","difficulty":"hard","turns":[
+      {"message":"麻烦在当前文件夹新建一个目录，名字尚未确定。","expected":{"intentId":["folder_create"],"semanticOperation":["CREATE_FOLDER"],"noExecutablePlan":true,"clarification":true,"nextAction":["ask_clarification"],"missingSlots":["new_folder_name"]}},
+      {"message":"「先别移走  补签处」","expected":{"intentId":["folder_create"],"semanticOperation":["CREATE_FOLDER"],"actionDraftType":["folder.create"],"entityEquals":{"new_folder_name":"先别移走  补签处"},"clarification":false,"requiresConfirmation":true,"targetParentId":83001}}
+    ]},
+    {"id":"contextual-literal.name_follow_up.declared_name","group":"name_follow_up","difficulty":"hard","turns":[
+      {"message":"我想建个目录，名字还没定。","expected":{"intentId":["folder_create"],"semanticOperation":["CREATE_FOLDER"],"noExecutablePlan":true,"clarification":true,"nextAction":["ask_clarification"],"missingSlots":["new_folder_name"]}},
+      {"message":"名称是‘Dock  Audit, B’。","expected":{"intentId":["folder_create"],"semanticOperation":["CREATE_FOLDER"],"actionDraftType":["folder.create"],"entityEquals":{"new_folder_name":"Dock  Audit, B"},"clarification":false,"requiresConfirmation":true,"targetParentId":83001}}
+    ]},
+    {"id":"contextual-literal.english.single_quotes","group":"english","difficulty":"hard","turns":[
+      {"message":"Please move 'Shift  guide.pdf' to 'QA  Bay'.","expected":{"intentId":["node_move"],"semanticOperation":["MOVE"],"actionDraftType":["collection.move_exact"],"entityEquals":{"target_name":"Shift  guide.pdf","target_folder":"QA  Bay"},"clarification":false,"requiresConfirmation":true,"sourceNodeId":83101,"targetParentId":83002}}
+    ]},
+    {"id":"contextual-literal.english.unquoted_source","group":"english","difficulty":"hard","turns":[
+      {"message":"Move DockSheet.pdf to “Dock  3”.","expected":{"intentId":["node_move"],"semanticOperation":["MOVE"],"actionDraftType":["collection.move_exact"],"entityEquals":{"target_name":"DockSheet.pdf","target_folder":"Dock  3"},"clarification":false,"requiresConfirmation":true,"sourceNodeId":83103,"targetParentId":83004}}
+    ]},
+    {"id":"contextual-literal.english.verb_in_source","group":"english","difficulty":"hard","turns":[
+      {"message":"Move \"render to shelf  notes.pdf\" to \"QA  Bay\".","expected":{"intentId":["node_move"],"semanticOperation":["MOVE"],"actionDraftType":["collection.move_exact"],"entityEquals":{"target_name":"render to shelf  notes.pdf","target_folder":"QA  Bay"},"clarification":false,"requiresConfirmation":true,"sourceNodeId":83104,"targetParentId":83002}}
+    ]},
+    {"id":"contextual-literal.destination_follow_up.select_spaced_directory","group":"destination_follow_up","difficulty":"hard","turns":[
+      {"message":"请把《箱标底联.pdf》移到「外发 白岗」还是「外发 夜岗」？我没选好。","expected":{"intentId":["node_move"],"semanticOperation":["MOVE"],"noExecutablePlan":true,"clarification":true,"nextAction":["ask_clarification"]}},
+      {"message":"我选定「外发 夜岗」，就这个目录。","expected":{"intentId":["node_move"],"semanticOperation":["MOVE"],"actionDraftType":["collection.move_exact"],"entityEquals":{"target_name":"箱标底联.pdf","target_folder":"外发 夜岗"},"clarification":false,"requiresConfirmation":true,"sourceNodeId":83105,"targetParentId":83007}}
+    ]},
+    {"id":"contextual-literal.destination_follow_up.select_nested_directory","group":"destination_follow_up","difficulty":"hard","turns":[
+      {"message":"《补打清单.pdf》要搬到『“换签  留待”』或者「退箱柜」，先让我挑一个。","expected":{"intentId":["node_move"],"semanticOperation":["MOVE"],"noExecutablePlan":true,"clarification":true,"nextAction":["ask_clarification"]}},
+      {"message":"就用『“换签  留待”』。","expected":{"intentId":["node_move"],"semanticOperation":["MOVE"],"actionDraftType":["collection.move_exact"],"entityEquals":{"target_name":"补打清单.pdf","target_folder":"“换签  留待”"},"clarification":false,"requiresConfirmation":true,"sourceNodeId":83106,"targetParentId":83009}}
+    ]},
+    {"id":"contextual-literal.destination_follow_up.choice_words_in_name","group":"destination_follow_up","difficulty":"hard","turns":[
+      {"message":"把《巡货表.pdf》放到「退箱柜」或「收单  或者退件」，去哪边还没定。","expected":{"intentId":["node_move"],"semanticOperation":["MOVE"],"noExecutablePlan":true,"clarification":true,"nextAction":["ask_clarification"]}},
+      {"message":"我选「收单  或者退件」。","expected":{"intentId":["node_move"],"semanticOperation":["MOVE"],"actionDraftType":["collection.move_exact"],"entityEquals":{"target_name":"巡货表.pdf","target_folder":"收单  或者退件"},"clarification":false,"requiresConfirmation":true,"sourceNodeId":83107,"targetParentId":83013}}
+    ]},
+    {"id":"contextual-literal.folder_literals.negative_wording","group":"folder_literals","difficulty":"hard","turns":[
+      {"message":"在本层创建一个名称叫『别挪去，待封  二次』的目录。","expected":{"intentId":["folder_create"],"semanticOperation":["CREATE_FOLDER"],"actionDraftType":["folder.create"],"entityEquals":{"new_folder_name":"别挪去，待封  二次"},"clarification":false,"requiresConfirmation":true,"targetParentId":83001}}
+    ]},
+    {"id":"contextual-literal.folder_literals.alternate_current_alias","group":"folder_literals","difficulty":"hard","turns":[
+      {"message":"在当前层建一个叫「先别移动  工装」的文件夹。","expected":{"intentId":["folder_create"],"semanticOperation":["CREATE_FOLDER"],"actionDraftType":["folder.create"],"entityEquals":{"new_folder_name":"先别移动  工装"},"clarification":false,"requiresConfirmation":true,"targetParentId":83001}}
+    ]},
+    {"id":"contextual-literal.folder_literals.question_mark_inside_quotes","group":"folder_literals","difficulty":"hard","turns":[
+      {"message":"就在这里新建目录，名字叫「是不是要改名？  票根」。","expected":{"intentId":["folder_create"],"semanticOperation":["CREATE_FOLDER"],"actionDraftType":["folder.create"],"entityEquals":{"new_folder_name":"是不是要改名？  票根"},"clarification":false,"requiresConfirmation":true,"targetParentId":83001}}
+    ]},
+    {"id":"contextual-literal.controls.spoken_stop","group":"controls","difficulty":"hard","turns":[
+      {"message":"先别挪动《手册补张.pdf》了，留在原位置。","expected":{"intentId":["assistant_acknowledgement"],"semanticOperation":["RESPOND"],"noExecutablePlan":true,"clarification":false,"nextAction":["respond_only"]}}
+    ]},
+    {"id":"contextual-literal.controls.missing_quoted_destination","group":"controls","difficulty":"hard","turns":[
+      {"message":"把《缺版校签.pdf》挪到「未 签单」。","expected":{"intentId":["node_move"],"semanticOperation":["MOVE"],"entityEquals":{"target_name":"缺版校签.pdf","target_folder":"未 签单"},"blockedBinding":"targetParent"}}
+    ]},
+    {"id":"contextual-literal.controls.literal_root_alias","group":"controls","difficulty":"hard","turns":[
+      {"message":"请把《手册补张.pdf》移到「根目录」。","expected":{"intentId":["node_move"],"semanticOperation":["MOVE"],"actionDraftType":["collection.move_exact"],"entityEquals":{"target_name":"手册补张.pdf","target_folder":"根目录"},"clarification":false,"requiresConfirmation":true,"sourceNodeId":83109,"targetParentId":83012}}
+    ]},
+    {"id":"contextual-literal.controls.genuinely_duplicate_folder","group":"controls","difficulty":"hard","turns":[
+      {"message":"把《手册补张.pdf》移到「装箱班」。","expected":{"intentId":["node_move"],"semanticOperation":["MOVE"],"actionDraftType":["collection.move_exact"],"entityEquals":{"target_name":"手册补张.pdf","target_folder":"装箱班"},"clarification":false,"nextAction":["wait_for_candidate_selection"],"requiresConfirmation":true,"offeredParentIds":[83015,83016]}}
+    ]},
+    {"id":"contextual-literal.controls.cancel_after_name_prompt","group":"controls","difficulty":"hard","turns":[
+      {"message":"在当前目录新建个文件夹，名称待定。","expected":{"intentId":["folder_create"],"semanticOperation":["CREATE_FOLDER"],"noExecutablePlan":true,"clarification":true,"nextAction":["ask_clarification"],"missingSlots":["new_folder_name"]}},
+      {"message":"且慢，建目录这个要求取消。","expected":{"intentId":["assistant_acknowledgement"],"semanticOperation":["RESPOND"],"noExecutablePlan":true,"clarification":false,"nextAction":["respond_only"]}},
+      {"message":"那就执行前面那个。","expected":{"intentId":["fallback","assistant_acknowledgement"],"semanticOperation":["UNKNOWN","RESPOND"],"noExecutablePlan":true}}
+    ]}
+  ]
+}
