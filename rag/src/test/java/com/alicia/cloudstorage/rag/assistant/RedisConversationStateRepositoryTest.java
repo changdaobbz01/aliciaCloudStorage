@@ -111,6 +111,41 @@ class RedisConversationStateRepositoryTest {
     }
 
     @Test
+    void shadowCatchesUpAfterMissedTurnsWithoutRestoringAnOldDraft() {
+        String authorization = "Bearer test";
+        var memory = new InMemoryAssistantConversationStateRepository();
+        try (var mirror = redis(SHADOW); var active = redis(REDIS);
+             var broken = new RedisConversationStateRepository(SHADOW, unavailableUrl(), TEST_KEY, 150, json)) {
+            var shadow = new AssistantConversationStore(memory, 30, 500, mirror);
+            var offline = new AssistantConversationStore(memory, 30, 500, broken);
+            var noDraft = recognizeLocal("你好").withActionPlan(null);
+            var saved = shadow.save(shadow.resolve("", authorization, OWNER), draft(), "新建目录", OWNER);
+            String id = saved.conversationId();
+            assertThat(active.find(OWNER, id).orElseThrow().pendingActionPlan().status()).isEqualTo("review_required");
+
+            var cancelled = offline.save(offline.resolve(id, authorization, OWNER), noDraft, "取消创建", OWNER);
+            assertThat(cancelled.turnIndex()).isEqualTo(2);
+            assertThat(active.find(OWNER, id).orElseThrow().turnIndex()).isEqualTo(1);
+            assertThat(shadow.resolve(id, authorization, OWNER)).isEqualTo(cancelled);
+
+            var resumed = shadow.save(cancelled, noDraft, "你好", OWNER);
+            var restored = store(active).resolve(id, "Bearer refreshed", OWNER);
+            assertThat(restored.turnIndex()).isEqualTo(3);
+            assertThat(restored.pendingActionDraft().type()).isEqualTo("none");
+            assertThat(restored.pendingActionPlan()).isNull();
+            assertThat(restored.recentTurns()).isEqualTo(resumed.recentTurns());
+
+            shadow.save(saved, draft(), "落后请求", OWNER);
+            shadow.save(cancelled, draft(), "同轮请求", OWNER);
+            assertThat(active.find(OWNER, id)).contains(restored);
+
+            shadow.reset(id, authorization, OWNER);
+            shadow.save(resumed, draft(), "重置前的请求", OWNER);
+            assertThat(active.find(OWNER, id)).isEmpty();
+        }
+    }
+
+    @Test
     void storageFailureStartsFreshButRefusesToPublishAPlanBasedOnPreviouslyLoadedContext() {
         try (var healthy = redis(REDIS);
              var broken = new RedisConversationStateRepository(REDIS, unavailableUrl(), TEST_KEY, 150, json)) {
@@ -158,13 +193,17 @@ class RedisConversationStateRepositoryTest {
     }
 
     private IntentRecognitionResponse draft() {
-        var router = new IntentRouter(config, new EntityExtractor(config));
-        return new IntentRecognitionService(ignored -> Optional.empty(), router, config)
-                .recognizeLocal("请在当前目录建文件夹", "local fixture")
+        return recognizeLocal("请在当前目录建文件夹")
                 .withActionPlan(new ActionPlan("action_plan_v2", "ap-fixture", "review_required", "atomic",
                         "folder.create", "medium", "confirm", "zh-CN", Map.of(),
                         List.of(new ActionPlanStep("create", "folder.create", "pending", Map.of("name", "fixture"),
                                 List.of(), List.of(), "")), List.of(), "新建文件夹", List.of()));
+    }
+
+    private IntentRecognitionResponse recognizeLocal(String message) {
+        var router = new IntentRouter(config, new EntityExtractor(config));
+        return new IntentRecognitionService(ignored -> Optional.empty(), router, config)
+                .recognizeLocal(message, "local fixture");
     }
 
     private static String unavailableUrl() {

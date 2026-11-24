@@ -31,6 +31,10 @@ final class RedisConversationStateRepository implements AutoCloseable {
             local turn = redis.call('HGET', KEYS[1], 'turn')
             if ARGV[1] == '0' then
                 if redis.call('EXISTS', KEYS[1]) ~= 0 then return 0 end
+            elseif ARGV[5] == 'SHADOW' then
+                -- Memory may have advanced while Redis was down. Keep missing or newer mirrors fenced.
+                local mirrored = tonumber(turn)
+                if not mirrored or mirrored < 1 or mirrored > tonumber(ARGV[1]) then return 0 end
             elseif turn ~= ARGV[1] then
                 return 0
             end
@@ -100,7 +104,8 @@ final class RedisConversationStateRepository implements AutoCloseable {
         String payload = codec.encode(key, next);
         long ttlMillis = Math.max(1, Duration.between(now, next.expiresAt()).toMillis());
         Long applied = redis(commands -> commands.eval(CAS, ScriptOutputType.INTEGER, new String[] {key},
-                Integer.toString(expectedTurn), Integer.toString(next.turnIndex()), payload, Long.toString(ttlMillis)));
+                Integer.toString(expectedTurn), Integer.toString(next.turnIndex()), payload,
+                Long.toString(ttlMillis), mode.name()));
         return Long.valueOf(1L).equals(applied);
     }
 
