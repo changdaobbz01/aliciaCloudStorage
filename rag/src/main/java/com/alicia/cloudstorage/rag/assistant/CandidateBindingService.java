@@ -116,7 +116,8 @@ public class CandidateBindingService {
             return currentFolderBinding;
         }
         QueryRoleAndValue query = bindingQuery(intent, response);
-        if (isVirtualRootTarget(intent.actionType(), query)) {
+        if (!Boolean.TRUE.equals(response.entities().get("target_folder_literal"))
+                && isVirtualRootTarget(intent.actionType(), query)) {
             return rootBinding(query.value(), intent.candidateType());
         }
         FileQueryPlanResolver.FileQueryPlan semanticPlan = semanticQueryPlan(response, intent, query);
@@ -227,12 +228,12 @@ public class CandidateBindingService {
             );
         }
         if ("MOVE".equals(frame.operation())) {
-            String targetFolder = TextSupport.sanitizeNodeName(String.valueOf(
-                    response.entities().getOrDefault("target_folder", "")
-            ));
+            boolean literal = Boolean.TRUE.equals(response.entities().get("target_folder_literal"));
+            String surface = String.valueOf(response.entities().getOrDefault("target_folder", ""));
+            String targetFolder = literal ? surface : TextSupport.sanitizeNodeName(surface);
             if (!targetFolder.isBlank()) {
                 return new FileQueryPlanResolver.FileQueryPlan(
-                        FileQueryPlanResolver.NAME_SEARCH,
+                        literal ? FileQueryPlanResolver.NAME_EXACT : FileQueryPlanResolver.NAME_SEARCH,
                         FileQueryPlanResolver.SCOPE_ALL,
                         "FOLDER",
                         "",

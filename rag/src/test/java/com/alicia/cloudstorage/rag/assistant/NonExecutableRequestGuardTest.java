@@ -13,6 +13,18 @@ class NonExecutableRequestGuardTest {
     private final NonExecutableRequestGuard guard = new NonExecutableRequestGuard();
 
     @Test
+    void acknowledgesSpokenRejectionsOfRenameWithoutClarifying() {
+        assertThat(List.of(
+                "《尺码台账.pdf》说的是保留原名，不是让你改名。",
+                "保留原名，并不是叫你换个名字。"
+        )).allSatisfy(message -> {
+            var decision = guard.evaluate(message, null).orElseThrow();
+            assertThat(decision.intentId()).isEqualTo("assistant_acknowledgement");
+            assertThat(decision.operation()).isEqualTo("RESPOND");
+        });
+    }
+
+    @Test
     void executionPolicyQuestionsHaveOneDedicatedNonExecutableIntent() {
         List<String> questions = List.of(
                 "为什么这个助手不会直接替我修改文件",

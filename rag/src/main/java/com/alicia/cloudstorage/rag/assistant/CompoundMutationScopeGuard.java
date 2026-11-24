@@ -17,10 +17,6 @@ import java.util.regex.Pattern;
  */
 final class CompoundMutationScopeGuard {
 
-    private static final Pattern QUOTED_LITERAL = Pattern.compile(
-            "[“\"'‘《][^”\"'’》]+[”\"'’》]",
-            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
-    );
     private static final Pattern PATH_LITERAL = Pattern.compile(
             "/.*?(?=(?:[，,。；;!?！？:：]|重命名|改名|移除|删除|删掉|挪到|搬到|移动到|移到|放进|归档到)|$)",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
@@ -183,7 +179,8 @@ final class CompoundMutationScopeGuard {
     }
 
     private String structuralText(String value) {
-        return maskOperationCorrectionPrefixes(maskRenameTargetLiterals(maskPathLiterals(maskQuotedLiterals(value))));
+        return maskOperationCorrectionPrefixes(
+                maskRenameTargetLiterals(maskPathLiterals(TextSupport.maskQuotedNodeNames(value))));
     }
 
     private boolean hasRepeatedOperationClauses(
@@ -273,10 +270,6 @@ final class CompoundMutationScopeGuard {
             count++;
         }
         return count;
-    }
-
-    private String maskQuotedLiterals(String message) {
-        return QUOTED_LITERAL.matcher(message).replaceAll("“字面量”");
     }
 
     private String maskPathLiterals(String message) {

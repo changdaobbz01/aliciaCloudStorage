@@ -34,7 +34,8 @@ final class ContextualOperationFollowUpGuard {
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
     private static final Pattern MOVE_DESTINATION = Pattern.compile(
-            "(?:目的地|目标(?:目录|文件夹)?)(?:改成|改为|换成|是)\\s*[“\\\"']?([^”\\\"'，,。；;!?！？]+)",
+            "(?:目的地|目标(?:目录|文件夹)?)(?:改成|改为|换成|是)\\s*("
+                    + TextSupport.QUOTED_NODE_NAME + "|[^“”\\\"'《》「」『』，,。；;!?！？]+)",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
     private static final Pattern MOVE_DESTINATION_CHOICE = Pattern.compile(
@@ -114,7 +115,7 @@ final class ContextualOperationFollowUpGuard {
             if (choice.matches() && !choice.group(1).matches(".*(?:或者|还是|或是|二选一).*")
                     && !List.of("这个", "那个", "这里", "那里", "目录", "文件夹").contains(choice.group(1))) {
                 Map<String, Object> entities = new LinkedHashMap<>(conversation.entities());
-                entities.put("target_folder", TextSupport.unwrapNodeName(choice.group(1)));
+                setMoveDestination(entities, choice.group(1));
                 return decision("move_destination_choice", "node_move", "SLOT_FILL", "MOVE", entities);
             }
         }
@@ -236,9 +237,9 @@ final class ContextualOperationFollowUpGuard {
         entities.put("target_name", targetName);
         entities.put("result_type", resultType(targetName));
         if (destination != null && !destination.isBlank()) {
-            entities.put("target_folder", cleanValue(destination));
+            setMoveDestination(entities, destination);
         }
-        entities.keySet().removeIf(key -> !List.of("target_name", "target_folder", "result_type").contains(key));
+        entities.keySet().removeIf(key -> !List.of("target_name", "target_folder", "target_folder_literal", "result_type").contains(key));
         return decision(
                 "narrow_move_to_single_source",
                 "node_move",
@@ -389,8 +390,19 @@ final class ContextualOperationFollowUpGuard {
         if (resumed || !destination.find()) {
             return Optional.empty();
         }
-        entities.put("target_folder", cleanValue(destination.group(1)));
+        setMoveDestination(entities, destination.group(1));
         return decision("move_destination_correction", "node_move", "CORRECTION", "MOVE", entities);
+    }
+
+    private void setMoveDestination(Map<String, Object> entities, String surface) {
+        String literal = TextSupport.unwrapNodeName(surface);
+        if (surface.strip().equals(literal)) {
+            entities.put("target_folder", cleanValue(surface));
+            entities.remove("target_folder_literal");
+        } else {
+            entities.put("target_folder", literal);
+            entities.put("target_folder_literal", true);
+        }
     }
 
     private Optional<OperationContext> immediateContext(AssistantConversationState conversation) {

@@ -222,6 +222,16 @@ public class IntentRecognitionService {
                         "rename_instead_of_delete", "file_rename", "NEW_TASK", "RENAME",
                         Map.of("target_name", rename.source().name(), "new_name", rename.newName(),
                                 "result_type", rename.source().resultType())))
+                .or(() -> operationArgumentResolver.directQuotedMove(message)
+                        .map(move -> new ContextualOperationFollowUpGuard.Decision(
+                                "quoted_move_arguments", "node_move", "NEW_TASK", "MOVE",
+                                Map.of("target_name", move.source().name(), "result_type", move.source().resultType(),
+                                        "target_folder", move.destination().surface(), "target_folder_literal", true))))
+                .or(() -> operationArgumentResolver.quotedFolderCreation(message)
+                        .map(folder -> new ContextualOperationFollowUpGuard.Decision(
+                                "quoted_folder_name", "folder_create", "NEW_TASK", "CREATE_FOLDER",
+                                Map.of("new_folder_name", folder.name(), "target_folder",
+                                        folder.parent() == null ? "当前目录" : folder.parent()))))
                 .or(() -> operationFollowUpGuard.evaluate(message, conversation));
         RecognitionTrace.mark(Stage.OPERATION_FOLLOW_UP,
                 operationFollowUpDecision.isPresent() ? Outcome.CONTINUED : Outcome.NO_MATCH, stageStarted);

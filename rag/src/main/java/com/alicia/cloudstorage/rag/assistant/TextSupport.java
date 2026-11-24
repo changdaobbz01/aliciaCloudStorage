@@ -109,6 +109,11 @@ final class TextSupport {
         return QUOTED_NODE_NAME_PATTERN.matcher(value).replaceAll("“名称”");
     }
 
+    static String maskQuotedNodeNamesPreservingOffsets(String value) {
+        return QUOTED_NODE_NAME_PATTERN.matcher(value)
+                .replaceAll(quoted -> "名".repeat(quoted.group().length()));
+    }
+
     static boolean isInsideQuotedNodeName(String value, int offset) {
         var quoted = QUOTED_NODE_NAME_PATTERN.matcher(value);
         while (quoted.find() && quoted.start() < offset) {

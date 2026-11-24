@@ -475,7 +475,7 @@
       "sample_utterances": ["把项目计划移动到项目资料", "将测试目录挪到归档目录"],
       "required_slots": ["target_name", "target_folder"],
       "optional_slots": ["source_folder", "scope", "result_type", "file_type", "extension", "time_range"],
-      "allowed_slots": ["target_name", "target_folder", "source_folder", "scope", "result_type", "file_type", "extension", "time_range"],
+      "allowed_slots": ["target_name", "target_folder", "target_folder_literal", "source_folder", "scope", "result_type", "file_type", "extension", "time_range"],
       "risk": "medium",
       "requires_confirmation": true,
       "action_type": "collection.move_exact",

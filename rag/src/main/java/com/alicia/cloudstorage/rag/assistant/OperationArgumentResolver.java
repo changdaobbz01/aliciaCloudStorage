@@ -23,7 +23,9 @@ final class OperationArgumentResolver {
     private static final Pattern EXPLICIT_NAME_PREFIX = Pattern.compile(
             "^(?:(?:文件|文件夹|目录)?(?:名|名称|文件名)为|叫做|叫)(.+)$"
     );
-    private static final Pattern QUOTED_NAME = Pattern.compile("^[“\"](.+)[”\"](?:的)?(?:文件|文件夹|目录)?$");
+    private static final Pattern QUOTED_NAME = Pattern.compile(
+            "^(" + TextSupport.QUOTED_NODE_NAME + ")(?:的)?(文件夹|目录|文件)?$"
+    );
     private static final Pattern ROOT_SCOPE = Pattern.compile(
             "^(云盘根目录|根目录|根文件夹|我的云盘|顶层目录|最外层)(?:下|中|里|内)?(?:的)?(.*)$"
     );
@@ -61,6 +63,20 @@ final class OperationArgumentResolver {
     );
     private static final Pattern MOVE_COMMAND_PREFIX = Pattern.compile(
             "^(?:(?:请|麻烦|帮我)\\s*)*(?:那\\s*)?(?:先\\s*)?(?:(?:只|仅)\\s*(?:把\\s*)?)?"
+    );
+    private static final Pattern REJECTED_RENAME_PREFIX = Pattern.compile(
+            "^(?:(?:请|先|暂时)\\s*)?(?:不要|别|不用|不必|无需)\\s*(?:"
+                    + TextSupport.RENAME_VERB + ")(?:了)?\\s*[，,；;]\\s*(?=(?:只|仅)(?:把|将))"
+    );
+    private static final String FOLDER_NAME_MARKER =
+            "(?:(?:名字|名称|名)(?:叫做|叫|定为|用|为|是)|命名为|取名为|叫做|叫|名为)";
+    private static final Pattern QUOTED_FOLDER_CREATION = Pattern.compile(
+            "^(?:(?:请|麻烦|帮我|给我|就|先)\\s*)*"
+                    + "(?:(?:在|到)(当前目录|当前文件夹|当前这一层|云盘根目录|根目录|这里)(?:下|中|里|内)?\\s*)?"
+                    + "(?:再|先|另)?(?:创建|新建|建立|建)(?:一个|1个|个)?\\s*"
+                    + "(?:(?:文件夹|目录)\\s*[，,]?\\s*" + FOLDER_NAME_MARKER + "\\s*("
+                    + TextSupport.QUOTED_NODE_NAME + ")|" + FOLDER_NAME_MARKER + "\\s*("
+                    + TextSupport.QUOTED_NODE_NAME + ")(?:的)?(?:文件夹|目录))$"
     );
     private static final Pattern MOVE_DESTINATION_REPLY = Pattern.compile(
             "(?:(?:目的地|目标(?:目录|文件夹)?)(?:改成|改为|换成|是|为)|"
@@ -104,11 +120,26 @@ final class OperationArgumentResolver {
         return switch (normalizedOperation) {
             case "SHARE" -> parseSingleSource(text, normalizedOperation, this::shareSource);
             case "DELETE" -> parseSingleSource(text, normalizedOperation, this::deleteSource);
-            case "MOVE" -> parseMove(text, normalizePreservingSpaces(message));
+            case "MOVE" -> parseMove(moveArgumentsFor(message));
             case "RENAME" -> renameInsteadOfDelete(message).or(() -> parseRename(text));
             case "UPLOAD" -> parseUpload(text);
             default -> Optional.empty();
         };
+    }
+
+    Optional<FolderCreation> quotedFolderCreation(String message) {
+        Matcher command = QUOTED_FOLDER_CREATION.matcher(normalize(message));
+        if (!command.matches()) {
+            return Optional.empty();
+        }
+        String name = TextSupport.unwrapNodeName(command.group(2) == null ? command.group(3) : command.group(2));
+        return name.isBlank() ? Optional.empty() : Optional.of(new FolderCreation(command.group(1), name));
+    }
+
+    Optional<Resolution> directQuotedMove(String message) {
+        return parseMove(moveArgumentsFor(message)).filter(move ->
+                move.source().nameKind() == NameKind.EXPLICIT && move.destination().literal()
+                        && !move.needsClarification());
     }
 
     Optional<Resolution> renameInsteadOfDelete(String message) {
@@ -129,9 +160,8 @@ final class OperationArgumentResolver {
     boolean hasConflictingMoveDestinations(String message, boolean moveContext, boolean awaitingDestination) {
         // Keep quoted names visible as arguments without interpreting their contents as command syntax.
         String structural = TextSupport.maskQuotedNodeNames(normalizePreservingSpaces(message));
-        String command = MOVE_COMMAND_PREFIX.matcher(structural).replaceFirst("");
-        Optional<Matcher> move = moveArguments(command, structural);
-        if (move.isPresent() && hasDestinationChoice(move.get().group(2))) {
+        if (moveArgumentsFor(message).map(MoveArguments::destination).map(TextSupport::maskQuotedNodeNames)
+                .filter(this::hasDestinationChoice).isPresent()) {
             return true;
         }
         if (!moveContext) {
@@ -143,14 +173,11 @@ final class OperationArgumentResolver {
     }
 
     Optional<NodeSelector> literalMoveSource(String message) {
-        String text = normalizePreservingSpaces(message);
-        String command = MOVE_COMMAND_PREFIX.matcher(TextSupport.compactOutsideQuotedNames(text)).replaceFirst("");
-        return moveArguments(command, text).flatMap(arguments -> {
-            String surface = arguments.group(1).strip().replaceFirst("^(?:把|将)\\s*", "");
-            String name = TextSupport.unwrapNodeName(surface);
-            boolean explicitName = !name.equals(surface);
+        return moveArgumentsFor(message).flatMap(arguments -> {
+            NodeSelector source = parseNodeSelector(arguments.source());
+            String name = source.name();
             boolean simpleFileName = name.matches("[^\\s，,。；;!?！？<>《》“”「」『』]+\\.[A-Za-z0-9]{1,16}");
-            if (!explicitName && !simpleFileName) {
+            if (source.nameKind() != NameKind.EXPLICIT && !simpleFileName) {
                 return Optional.empty();
             }
             return Optional.of(new NodeSelector(
@@ -175,37 +202,44 @@ final class OperationArgumentResolver {
         return Optional.of(resolution(operation, source, Destination.empty(), "", false));
     }
 
-    private Optional<Resolution> parseMove(String text, String spacedText) {
-        var arguments = moveArguments(stripCourtesy(text), spacedText);
+    private Optional<Resolution> parseMove(Optional<MoveArguments> arguments) {
         if (arguments.isEmpty()) {
             return Optional.empty();
         }
-        Matcher matcher = arguments.get();
-        String sourceSurface = stripObjectPrefix(matcher.group(1));
-        String destinationSurface = cleanDestination(matcher.group(2));
-        if (sourceSurface.isBlank() || destinationSurface.isBlank()) {
+        MoveArguments parsed = arguments.get();
+        Destination destination = destination(parsed.destination());
+        if (parsed.source().isBlank() || destination.surface().isBlank()) {
             return Optional.empty();
         }
         return Optional.of(resolution(
                 "MOVE",
-                parseNodeSelector(sourceSurface),
-                destination(destinationSurface),
+                parseNodeSelector(parsed.source()),
+                destination,
                 "",
                 false
         ));
     }
 
-    private Optional<Matcher> moveArguments(String command, String spacedText) {
-        Matcher english = ENGLISH_MOVE_SPLIT.matcher(spacedText);
+    private Optional<MoveArguments> moveArgumentsFor(String message) {
+        String raw = normalizePreservingSpaces(message);
+        Matcher english = ENGLISH_MOVE_SPLIT.matcher(TextSupport.maskQuotedNodeNamesPreservingOffsets(raw));
         if (english.matches()) {
-            return Optional.of(english);
+            return Optional.of(moveArguments(raw, english));
         }
-        Matcher matcher = MOVE_SPLIT.matcher(command);
+        String command = MOVE_COMMAND_PREFIX.matcher(REJECTED_RENAME_PREFIX.matcher(normalize(raw)).replaceFirst(""))
+                .replaceFirst("");
+        String structure = TextSupport.maskQuotedNodeNamesPreservingOffsets(command);
+        Matcher matcher = MOVE_SPLIT.matcher(structure);
         if (matcher.matches()) {
-            return Optional.of(matcher);
+            return Optional.of(moveArguments(command, matcher));
         }
-        Matcher leading = MOVE_LEADING_SPLIT.matcher(command);
-        return leading.matches() ? Optional.of(leading) : Optional.empty();
+        Matcher leading = MOVE_LEADING_SPLIT.matcher(structure);
+        return leading.matches() ? Optional.of(moveArguments(command, leading)) : Optional.empty();
+    }
+
+    private MoveArguments moveArguments(String text, Matcher structure) {
+        return new MoveArguments(stripObjectPrefix(text.substring(structure.start(1), structure.end(1))),
+                text.substring(structure.start(2), structure.end(2)));
     }
 
     private Optional<Resolution> parseRename(String text) {
@@ -468,8 +502,9 @@ final class OperationArgumentResolver {
     private ExplicitName explicitName(String surface) {
         Matcher quoted = QUOTED_NAME.matcher(surface);
         if (quoted.matches()) {
-            String name = cleanName(quoted.group(1));
-            return name.isBlank() ? null : new ExplicitName(name, inferResultType(name));
+            String name = TextSupport.unwrapNodeName(quoted.group(1));
+            return name.isBlank() ? null : new ExplicitName(name, inferResultType(
+                    quoted.group(2) == null ? name : quoted.group(2)));
         }
         Matcher marker = EXPLICIT_NAME_PREFIX.matcher(surface);
         if (!marker.matches()) {
@@ -537,10 +572,14 @@ final class OperationArgumentResolver {
 
     private Destination destination(String rawSurface) {
         String surface = cleanDestination(rawSurface);
+        Matcher quoted = QUOTED_NAME.matcher(surface);
+        if (quoted.matches()) {
+            return new Destination("NAMED_FOLDER", TextSupport.unwrapNodeName(quoted.group(1)), true);
+        }
         String scopeType = rootAlias(surface)
                 ? "ROOT"
                 : currentAlias(surface) ? "CURRENT" : "NAMED_FOLDER";
-        return new Destination(scopeType, surface);
+        return new Destination(scopeType, surface, false);
     }
 
     private String shareSource(String text) {
@@ -684,15 +723,13 @@ final class OperationArgumentResolver {
     }
 
     private String normalize(String value) {
-        return value == null
-                ? ""
-                : value.trim().replaceAll("[，。！？!?；;]+$", "").replaceAll("\\s+", "");
+        return TextSupport.compactOutsideQuotedNames(normalizePreservingSpaces(value));
     }
 
     private String normalizePreservingSpaces(String value) {
         return value == null
                 ? ""
-                : value.trim().replaceAll("[，。！？!?；;]+$", "").replaceAll("\\s+", " ");
+                : value.trim().replaceAll("[，。！？!?；;]+$", "");
     }
 
     enum NameKind {
@@ -724,11 +761,15 @@ final class OperationArgumentResolver {
         }
     }
 
-    record Destination(String scopeType, String surface) {
+    record Destination(String scopeType, String surface, boolean literal) {
         static Destination empty() {
-            return new Destination("ALL", "");
+            return new Destination("ALL", "", false);
         }
     }
+
+    record FolderCreation(String parent, String name) {}
+
+    private record MoveArguments(String source, String destination) {}
 
     record Resolution(
             String operation,

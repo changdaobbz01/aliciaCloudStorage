@@ -14,6 +14,7 @@ import java.util.Map;
 public class FileQueryPlanResolver {
 
     static final String NAME_SEARCH = "name_search";
+    static final String NAME_EXACT = "name_exact";
     static final String NAME_CONTAINS = "name_contains";
     static final String DIRECTORY_LIST = "directory_list";
     static final String SCOPE_ALL = "all";

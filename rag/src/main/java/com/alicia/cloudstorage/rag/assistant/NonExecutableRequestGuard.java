@@ -23,16 +23,17 @@ final class NonExecutableRequestGuard {
                     + "delete|remove|move|rename|share|upload|create",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
+    private static final String REJECTED_INSTRUCTION = "(?:(?:并)?不是|并非)(?:要|让(?:你)?|叫(?:你)?)";
     private static final Pattern NEGATED_MUTATION = Pattern.compile(
             "(?:^|[，,。；;”]|但|不过|可是|文件(?:夹)?|目录|\\.[A-Za-z0-9]{1,16})\\s*(?:我\\s*)?"
                     + "(?:(?:暂时|目前|现在|当前|这次)\\s*)?(?:先)?"
-                    + "(?:不要|别|不用|无需|不必|并不是要|不是要|并非要)(?:再)?[^，,。；;]{0,16}"
+                    + "(?:不要|别|不用|无需|不必|" + REJECTED_INSTRUCTION + ")(?:再)?[^，,。；;]{0,16}"
                     + "(?:删除|删(?:掉|了)?|移除|清理|移动|移到|移去|移走|搬到|搬去|挪(?:到|去|动)?|归档到|"
                     + TextSupport.RENAME_VERB + "|分享|上传|新建|创建)",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
     private static final Pattern NEGATION_CUE = Pattern.compile(
-            "不要|别|不用|无需|不必|不再|不能|不许|不准",
+            "不要|别|不用|无需|不必|不再|不能|不许|不准|" + REJECTED_INSTRUCTION,
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
     private static final Pattern AMBIGUOUS_DOUBLE_NEGATION_MUTATION = Pattern.compile(

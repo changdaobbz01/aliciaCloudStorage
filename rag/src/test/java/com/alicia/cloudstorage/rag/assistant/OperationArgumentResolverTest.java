@@ -29,6 +29,28 @@ class OperationArgumentResolverTest {
     private final OperationArgumentResolver resolver = new OperationArgumentResolver();
 
     @Test
+    void preservesSpacesNestedQuotesAndCommandWordsInMoveArguments() {
+        OperationArgumentResolver.Resolution move = resolver
+                .directQuotedMove("不用改名，只把『「移到  复核」.pdf』移动到「入库  交接」。")
+                .orElseThrow();
+
+        assertThat(move.source().name()).isEqualTo("「移到  复核」.pdf");
+        assertThat(move.destination().surface()).isEqualTo("入库  交接");
+        assertThat(move.destination().literal()).isTrue();
+        assertThat(resolver.directQuotedMove("不要把『「移到  复核」.pdf』移动到「入库  交接」。")).isEmpty();
+    }
+
+    @Test
+    void keepsCommasAndInnerQuotesInExplicitFolderNames() {
+        var folder = resolver.quotedFolderCreation("在当前目录新建目录，名称是『「别改名，二 次」』。")
+                .orElseThrow();
+
+        assertThat(folder.parent()).isEqualTo("当前目录");
+        assertThat(folder.name()).isEqualTo("「别改名，二 次」");
+        assertThat(resolver.quotedFolderCreation("别创建叫「补件」的文件夹。")).isEmpty();
+    }
+
+    @Test
     void treatsIndefiniteFileAsMissingMutationTarget() {
         OperationArgumentResolver.Resolution resolution = resolver
                 .resolve("删除一个文件", "DELETE")

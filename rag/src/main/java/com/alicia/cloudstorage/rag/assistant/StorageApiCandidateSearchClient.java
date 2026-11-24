@@ -364,12 +364,21 @@ public class StorageApiCandidateSearchClient implements CandidateSearchPort {
     private CandidateBindingResult searchFolders(CandidateSearchRequest request) {
         List<CandidateItem> allFolders = storageApi.fetchAllFolders(request.authorizationHeader());
         Map<Long, CandidateItem> folderById = storageApi.folderMap(allFolders);
-        List<String> queryVariants = queryPlanner.variants(request);
-        List<CandidateItem> rankedCandidates = storageApi.enrichWithPaths(allFolders, folderById).stream()
-                .filter(candidate -> queryPlanner.matchScore(candidate, queryVariants) < Integer.MAX_VALUE)
-                .sorted(Comparator.comparingInt(candidate -> queryPlanner.matchScore(candidate, queryVariants)))
-                .toList();
-        List<CandidateItem> narrowedCandidates = narrowToExactMatches(rankedCandidates, queryVariants);
+        List<CandidateItem> foldersWithPaths = storageApi.enrichWithPaths(allFolders, folderById);
+        List<CandidateItem> narrowedCandidates;
+        if (FileQueryPlanResolver.NAME_EXACT.equals(request.queryMode())) {
+            narrowedCandidates = foldersWithPaths.stream()
+                    .filter(candidate -> request.query().equalsIgnoreCase(candidate.name())
+                            || request.query().equalsIgnoreCase(candidate.path()))
+                    .toList();
+        } else {
+            List<String> queryVariants = queryPlanner.variants(request);
+            List<CandidateItem> rankedCandidates = foldersWithPaths.stream()
+                    .filter(candidate -> queryPlanner.matchScore(candidate, queryVariants) < Integer.MAX_VALUE)
+                    .sorted(Comparator.comparingInt(candidate -> queryPlanner.matchScore(candidate, queryVariants)))
+                    .toList();
+            narrowedCandidates = narrowToExactMatches(rankedCandidates, queryVariants);
+        }
         List<CandidateItem> candidates = narrowedCandidates.stream()
                 .limit(Math.max(1, request.maxResults()))
                 .toList();
