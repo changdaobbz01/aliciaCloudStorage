@@ -279,13 +279,13 @@ docker compose -f compose.yaml -f compose.https.yaml up -d --build frontend
 
 这样会额外开放 `443`，并将 `http://` 请求自动跳转到 `https://`。统一登录入口为 `https://windwindwind-alicia.cn/login`，云盘 Web 入口为 `https://windwindwind-alicia.cn/cloudPan/`，云盘运营后台默认入口为 `https://windwindwind-alicia.cn/console/cloud/users`，身份后台默认入口为 `https://windwindwind-alicia.cn/console/identity/users`，Android App Links 入口为 `https://windwindwind-alicia.cn/.well-known/assetlinks.json`，正式 RAG 入口为 `https://windwindwind-alicia.cn/rag`，RAG 执行公开控制面为 `https://windwindwind-alicia.cn/rag-execution/api/**`，SSE 请求由 Nginx 直通各自容器；Identity 公开入口为 `https://windwindwind-alicia.cn/api/identity/health`、`/api/identity/health/dependencies`、`/api/identity/.well-known/jwks.json`、`/api/identity/auth/**` 和 `/api/identity/admin/**`。`/rag/internal/`、`/internal/rag-execution/**`、`/rag-execution/internal/**` 与 `/api/identity/internal/**` 不对公网开放。
 
-生产服务器更新 RAG 与 Nginx 时，在仓库内执行：
+RAG 发布使用已验收并导入 Docker 的候选镜像。在已审查的候选检出目录，将验收记录的完整镜像 ID 赋给 `candidate_id`，对现有生产 Compose 项目做预检：
 
 ```bash
-bash deploy/scripts/update-rag-production.sh
+bash deploy/scripts/update-rag-production.sh "$HOME/aliciaCloudStorage" --candidate-image "$candidate_id"
 ```
 
-脚本会拒绝覆盖服务端已有的 tracked 改动，确认 `.env` 已配置 DeepSeek，快进拉取 `main`，重建 `rag` 与 `frontend`，最后同时检查 `127.0.0.1:8091/api/health` 和公网 `/rag/api/health`。密钥只保留在服务器 `.env`，不会输出到日志。
+预检核对当前服务、配置指纹及健康状态。添加 `--apply` 后，只使用已加载的镜像重建 `rag`，保留旧镜像并检查本机、依赖和公网健康。回滚入口及记录格式见[生产验证与发布脚本](docs/production-verification-scripts.md#只更新-rag)。
 
 对话识别 V2 的现状基线、隐私约束、错误分类、质量门禁和 T0-T8 有序任务清单见 [`rag/docs/RECOGNITION_V2_REFACTOR_PLAN_2026-11-23.md`](rag/docs/RECOGNITION_V2_REFACTOR_PLAN_2026-11-23.md)。改造期间继续保持 RAG 理解、`ragExecution` 持久任务和 CloudStorageApi 实际业务执行三层边界，不以识别指标提升扩大生产角色或动作 allowlist。只读冻结基线可通过 `pwsh -NoProfile -File test/rag-e2e/verify-recognition-v2-baseline.ps1` 复核。
 

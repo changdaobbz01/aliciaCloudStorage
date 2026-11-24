@@ -290,11 +290,27 @@ ALICIA_COLLECT_STATUS_AFTER_UPDATE=true \
 
 联合发布会接管这个状态快照开关，等最终主站公网路由复核完成后再运行 `collect-production-status.sh`。
 
-只更新 RAG：
+### 只更新 RAG
+
+从已审查的候选检出目录运行脚本。确认已加载通过验收的镜像，将验收记录中的完整 `sha256:…` 镜像 ID 赋给 `candidate_id`，并传入现有生产 Compose 项目目录。
 
 ```bash
-bash deploy/scripts/update-rag-production.sh
+bash deploy/scripts/update-rag-production.sh "$HOME/aliciaCloudStorage" --candidate-image "$candidate_id"
+bash deploy/scripts/update-rag-production.sh "$HOME/aliciaCloudStorage" --candidate-image "$candidate_id" --apply
 ```
+
+第一条脚本调用只做预检。第二条在正式切换窗口执行单服务镜像切换。脚本校验线上 Compose 配置指纹、当前镜像和健康，保留旧镜像标签并记录当次切换。依赖、本机或公网健康验收失败时，自动恢复上一镜像并复核。当前 `.env` 继续作为服务配置来源。内存会话按 RAG 重启行为重新建立。
+
+需要手动恢复时，将最新一次发布输出的 `Release record` 路径赋给 `release_record`。回滚也默认做预检，确认后再加 `--apply`。
+
+```bash
+bash deploy/scripts/update-rag-production.sh "$HOME/aliciaCloudStorage" --rollback "$release_record"
+bash deploy/scripts/update-rag-production.sh "$HOME/aliciaCloudStorage" --rollback "$release_record" --apply
+```
+
+记录位于生产项目的 `deploy/generated/rag-releases/`，保存镜像 ID、Compose 配置指纹及状态。保留该记录和对应旧镜像直到回滚窗口结束。避免与联合发布、手工换标签或修改同一 Compose 配置同时执行。
+
+如果发布进程被强制终止并遗留 `.lock`，先确认同一项目没有在运行的发布或回滚进程，再用 `rmdir` 移除该空目录。根据最新记录检查实际运行镜像，必要时执行手动回滚。
 
 Android APK 一键发布需要在本地 PowerShell 终端执行，并确保已经加载正式 release keystore 环境变量：
 
