@@ -13,6 +13,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import java.util.UUID
@@ -112,20 +113,26 @@ internal class RagAssistantClient(
             try {
                 var eventName = ""
                 val dataLines = mutableListOf<String>()
+                var finalResponseReceived = false
 
                 fun flushEvent(): RagAssistantStreamEvent? {
                     val event = parseSseEvent(eventName, dataLines)
                     eventName = ""
                     dataLines.clear()
-                    return if (event?.type.equals("final", ignoreCase = true)) {
-                        event?.copy(response = event.response?.copy(feedback = feedback))
-                    } else {
-                        event
+                    if (event?.type.equals("final", ignoreCase = true) && event?.response != null) {
+                        finalResponseReceived = true
+                        return event.copy(response = event.response.copy(feedback = feedback))
                     }
+                    return event
                 }
 
                 while (true) {
-                    val rawLine = reader.readLine() ?: break
+                    val rawLine = try {
+                        reader.readLine()
+                    } catch (failure: IOException) {
+                        if (finalResponseReceived) return@flow
+                        throw failure
+                    } ?: break
                     val line = rawLine.trimEnd()
                     when {
                         line.isBlank() -> flushEvent()?.let { emit(it) }
