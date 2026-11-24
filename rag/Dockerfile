@@ -15,6 +15,7 @@ RUN chmod +x mvnw \
 RUN ./mvnw -pl CloudStorageApi,rag,ragExecution -Dmaven.test.skip=true surefire:test
 
 COPY rag/src rag/src
+COPY test/rag-e2e/recognition-search-challenge.json test/rag-e2e/recognition-search-challenge.json
 
 RUN ./mvnw -pl rag -Dmaven.test.skip=true package
 

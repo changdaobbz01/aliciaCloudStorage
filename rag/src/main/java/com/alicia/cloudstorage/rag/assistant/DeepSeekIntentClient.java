@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -31,12 +32,24 @@ public class DeepSeekIntentClient implements IntentModelClient {
     private final AssistantResponsePolicy responsePolicy;
     private final HttpClient httpClient;
     private final String apiKey;
+    private final boolean networkEnabled;
 
     public DeepSeekIntentClient(
             RagConfigLoader configLoader,
             ObjectMapper objectMapper,
             PromptSemanticExampleRetriever exampleRetriever,
-            @Value("${alicia.rag.deepseek.api-key:}") String apiKey
+            String apiKey
+    ) {
+        this(configLoader, objectMapper, exampleRetriever, apiKey, true);
+    }
+
+    @Autowired
+    public DeepSeekIntentClient(
+            RagConfigLoader configLoader,
+            ObjectMapper objectMapper,
+            PromptSemanticExampleRetriever exampleRetriever,
+            @Value("${alicia.rag.deepseek.api-key:}") String apiKey,
+            @Value("${alicia.rag.deepseek.network-enabled:true}") boolean networkEnabled
     ) {
         this.configLoader = configLoader;
         this.objectMapper = objectMapper;
@@ -46,6 +59,7 @@ public class DeepSeekIntentClient implements IntentModelClient {
                 .connectTimeout(Duration.ofSeconds(5))
                 .build();
         this.apiKey = apiKey == null ? "" : apiKey.trim();
+        this.networkEnabled = networkEnabled;
     }
 
     @Override
@@ -222,6 +236,9 @@ public class DeepSeekIntentClient implements IntentModelClient {
     }
 
     private String resolvedApiKey(DeepSeekSettings settings) {
+        if (!networkEnabled) {
+            return "";
+        }
         if (!apiKey.isBlank()) {
             return apiKey;
         }

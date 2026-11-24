@@ -209,7 +209,7 @@ public final class RecognitionTrace {
         return value instanceof List<?> list ? count(list) : 0;
     }
 
-    enum Route { PLAN, STREAM }
+    enum Route { PLAN, STREAM, RECOGNITION_SHADOW }
     enum Stage {
         SESSION, SESSION_STORAGE, ROUTING, FOLLOW_UP_GUARD, OPERATION_FOLLOW_UP, NON_EXECUTABLE_GUARD, CAPABILITY_GUARD,
         RETRIEVAL, EMBEDDING, MODEL_CALL, MODEL_RESULT, MODEL_PROPOSAL, LOCAL_ROUTE, ARBITRATION, SEMANTIC_FRAME,

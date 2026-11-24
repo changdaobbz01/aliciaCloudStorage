@@ -47,6 +47,18 @@
     </dependencies>
 
     <build>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+            </resource>
+            <resource>
+                <directory>${project.basedir}/../test/rag-e2e</directory>
+                <targetPath>rag/recognition-shadow</targetPath>
+                <includes>
+                    <include>recognition-search-challenge.json</include>
+                </includes>
+            </resource>
+        </resources>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
