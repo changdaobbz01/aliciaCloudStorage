@@ -60,7 +60,7 @@ $resolvedReportPath = (Resolve-Path -LiteralPath $ReportPath).Path
 $resolvedDatasetPath = (Resolve-Path -LiteralPath $DatasetPath).Path
 $report = Get-Content -LiteralPath $resolvedReportPath -Raw -Encoding UTF8 | ConvertFrom-Json
 $dataset = Get-Content -LiteralPath $resolvedDatasetPath -Raw -Encoding UTF8 | ConvertFrom-Json
-if ([string]$dataset.split -notin @('development', 'development-candidate', 'production-probe', 'challenge', 'holdout')) {
+if ([string]$dataset.split -notin @('development', 'development-candidate', 'production-probe', 'challenge', 'search-challenge', 'holdout')) {
     throw "Unsupported recognition dataset split: $($dataset.split)"
 }
 $expectedSuite = switch ([string]$dataset.split) {
@@ -68,6 +68,7 @@ $expectedSuite = switch ([string]$dataset.split) {
     'development-candidate' { 'recognition-candidate' }
     'production-probe' { 'recognition-probe' }
     'challenge' { 'recognition-challenge' }
+    'search-challenge' { 'recognition-search-challenge' }
     'holdout' { 'recognition-holdout' }
 }
 if ([string]$report.suite -ne $expectedSuite -or [string]$report.version -ne [string]$dataset.version) {

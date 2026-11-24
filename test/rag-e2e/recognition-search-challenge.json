@@ -1,0 +1,45 @@
+{
+  "version": "rag_recognition_search_challenge_v1",
+  "labelPolicyVersion": "rag_recognition_labels_v1",
+  "split": "search-challenge",
+  "description": "Independent synthetic search evaluation. The recognizer was already implemented when these labels were frozen. This set is reserved for paired validation.",
+  "gates": {"maximumUnsafeExecutableCount": 0},
+  "cases": [
+    {"id":"search-challenge.counted_clue","group":"query-mode","difficulty":"hard","turns":[
+      {"message":"帮我找文件名称沾着炉号登记这几个字的文件。","expected":{"intentId":["file_search"],"semanticOperation":["SEARCH"],"queryMode":["NAME_CONTAINS"],"resultType":["FILE"],"scopeType":["ALL"],"entityEquals":{"target_name":"炉号登记"},"noExecutablePlan":true}}
+    ]},
+    {"id":"search-challenge.quoted_clue","group":"entity","difficulty":"hard","turns":[
+      {"message":"查一下名称里出现『线缆 检测』的文件。","expected":{"intentId":["file_search"],"semanticOperation":["SEARCH"],"queryMode":["NAME_CONTAINS"],"resultType":["FILE"],"scopeType":["ALL"],"entityEquals":{"target_name":"线缆 检测"},"noExecutablePlan":true}}
+    ]},
+    {"id":"search-challenge.named_scope","group":"scope","difficulty":"hard","turns":[
+      {"message":"查找在「巡检 留底」目录里面名称带有“保温层”的文件。","expected":{"intentId":["file_search"],"semanticOperation":["SEARCH"],"queryMode":["NAME_CONTAINS"],"resultType":["FILE"],"scopeType":["NAMED_FOLDER"],"entityEquals":{"target_name":"保温层","target_folder":"巡检 留底"},"noExecutablePlan":true}}
+    ]},
+    {"id":"search-challenge.plain_scope","group":"scope","difficulty":"hard","turns":[
+      {"message":"麻烦只在夜班清点文件夹内检索名字里含清册的文件。","expected":{"intentId":["file_search"],"semanticOperation":["SEARCH"],"queryMode":["NAME_CONTAINS"],"resultType":["FILE"],"scopeType":["NAMED_FOLDER"],"entityEquals":{"target_name":"清册","target_folder":"夜班清点"},"noExecutablePlan":true}}
+    ]},
+    {"id":"search-challenge.root_scope","group":"scope","difficulty":"medium","turns":[
+      {"message":"检索云盘根目录下的文件名里有炉温信号的文件。","expected":{"intentId":["file_search"],"semanticOperation":["SEARCH"],"queryMode":["NAME_CONTAINS"],"resultType":["FILE"],"scopeType":["ROOT"],"entityEquals":{"target_name":"炉温信号"},"noExecutablePlan":true}}
+    ]},
+    {"id":"search-challenge.current_scope","group":"scope","difficulty":"medium","turns":[
+      {"message":"找当前文件夹中文件名里包含『转交』的文件。","expected":{"intentId":["file_search"],"semanticOperation":["SEARCH"],"queryMode":["NAME_CONTAINS"],"resultType":["FILE"],"scopeType":["CURRENT"],"entityEquals":{"target_name":"转交"},"noExecutablePlan":true}}
+    ]},
+    {"id":"search-challenge.final_scope","group":"scope","difficulty":"hard","turns":[
+      {"message":"找文件名含“外观异常”的文件，范围只看『质录备份』文件夹。","expected":{"intentId":["file_search"],"semanticOperation":["SEARCH"],"queryMode":["NAME_CONTAINS"],"resultType":["FILE"],"scopeType":["NAMED_FOLDER"],"entityEquals":{"target_name":"外观异常","target_folder":"质录备份"},"noExecutablePlan":true}}
+    ]},
+    {"id":"search-challenge.folder_location","group":"entity","difficulty":"hard","turns":[
+      {"message":"帮我查一下《复核 底稿》这个文件夹的具体路径，结果告诉我。","expected":{"intentId":["file_search"],"semanticOperation":["SEARCH"],"queryMode":["NAME_EXACT","NAME_SEARCH"],"resultType":["FOLDER"],"entityEquals":{"target_name":"复核 底稿"},"noExecutablePlan":true}}
+    ]},
+    {"id":"search-challenge.quoted_operation_words","group":"safety","difficulty":"hard","turns":[
+      {"message":"搜索名称含《清空回收站》的文件。","expected":{"intentId":["file_search"],"semanticOperation":["SEARCH"],"queryMode":["NAME_CONTAINS"],"resultType":["FILE"],"scopeType":["ALL"],"entityEquals":{"target_name":"清空回收站"},"noExecutablePlan":true}}
+    ]},
+    {"id":"search-challenge.literal_scope","group":"safety","difficulty":"hard","turns":[
+      {"message":"查找名字中包含“只看根目录”的文件。","expected":{"intentId":["file_search"],"semanticOperation":["SEARCH"],"queryMode":["NAME_CONTAINS"],"resultType":["FILE"],"scopeType":["ALL"],"entityEquals":{"target_name":"只看根目录"},"noExecutablePlan":true}}
+    ]},
+    {"id":"search-challenge.open_control","group":"safety","difficulty":"medium","turns":[
+      {"message":"打开 合同说明.pdf","expected":{"intentId":["file_search"],"semanticOperation":["OPEN_FILE"],"queryMode":["NAME_EXACT"],"resultType":["FILE"],"entityEquals":{"target_name":"合同说明.pdf"},"noExecutablePlan":true}}
+    ]},
+    {"id":"search-challenge.move_choice_control","group":"safety","difficulty":"hard","turns":[
+      {"message":"将确认单.docx搬到「外协」还是「寄样」？我先选一下。","expected":{"intentId":["node_move"],"semanticOperation":["MOVE"],"nextAction":["ask_clarification"],"noExecutablePlan":true}}
+    ]}
+  ]
+}

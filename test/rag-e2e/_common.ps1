@@ -16,6 +16,7 @@ function Get-RagE2EContext {
         RecognitionCandidateFile = Join-Path $suiteDirectory 'recognition-candidate.json'
         RecognitionProbeFile = Join-Path $suiteDirectory 'recognition-probe.json'
         RecognitionChallengeFile = Join-Path $suiteDirectory 'recognition-challenge.json'
+        RecognitionSearchChallengeFile = Join-Path $suiteDirectory 'recognition-search-challenge.json'
         RecognitionHoldoutFile = Join-Path $suiteDirectory 'recognition-holdout.json'
         RecognitionBaselineFile = Join-Path $suiteDirectory 'recognition-baseline.local-fallback.json'
         OnlineRecognitionBaselineFile = Join-Path $suiteDirectory 'recognition-baseline.deepseek-online.json'

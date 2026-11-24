@@ -9,7 +9,8 @@ param(
     [string]$TargetApiBaseUrl = '',
     [string]$LocalBuildRepositoryRoot = '',
     [string[]]$CaseId = @(),
-    [ValidateSet('baseline', 'stress', 'all', 'recognition-dev', 'recognition-candidate', 'recognition-probe', 'recognition-challenge', 'recognition-holdout')]
+    [ValidateSet('baseline', 'stress', 'all', 'recognition-dev', 'recognition-candidate', 'recognition-probe',
+        'recognition-challenge', 'recognition-search-challenge', 'recognition-holdout')]
     [string]$Suite = 'baseline'
 )
 
@@ -261,8 +262,9 @@ function Wait-ExecutionTerminalState {
 }
 
 $context = Get-RagE2EContext
-$isRecognitionMeasurement = $Suite -in @(
-    'recognition-dev', 'recognition-candidate', 'recognition-probe', 'recognition-challenge', 'recognition-holdout'
+$isIsolatedChallenge = $Suite -in @('recognition-challenge', 'recognition-search-challenge')
+$isRecognitionMeasurement = $isIsolatedChallenge -or $Suite -in @(
+    'recognition-dev', 'recognition-candidate', 'recognition-probe', 'recognition-holdout'
 )
 if ($isRecognitionMeasurement -and $ExecuteFolderCreate) {
     throw 'Recognition measurement never confirms or executes tasks.'
@@ -275,6 +277,7 @@ $scenarioFiles = @(switch ($Suite) {
     'recognition-candidate' { @($context.RecognitionCandidateFile) }
     'recognition-probe' { @($context.RecognitionProbeFile) }
     'recognition-challenge' { @($context.RecognitionChallengeFile) }
+    'recognition-search-challenge' { @($context.RecognitionSearchChallengeFile) }
     'recognition-holdout' { @($context.RecognitionHoldoutFile) }
 })
 $loadedSuites = @(
@@ -321,7 +324,7 @@ if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($runnerRevision)) {
 $sourceContext = $context
 $sourceRevision = $runnerRevision
 if (-not [string]::IsNullOrWhiteSpace($LocalBuildRepositoryRoot)) {
-    if ($Suite -ne 'recognition-challenge') {
+    if (-not $isIsolatedChallenge) {
         throw '-LocalBuildRepositoryRoot applies to the isolated recognition challenge.'
     }
     $buildPath = (Resolve-Path -LiteralPath $LocalBuildRepositoryRoot).Path
@@ -344,7 +347,7 @@ $externalTargetValues = @(
         Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
 )
 $usesExternalTarget = $externalTargetValues.Count -gt 0
-if ($Suite -eq 'recognition-challenge' -and $usesExternalTarget) {
+if ($isIsolatedChallenge -and $usesExternalTarget) {
     throw 'The recognition challenge uses the isolated local stack.'
 }
 if ($usesExternalTarget -and $externalTargetValues.Count -ne 3) {
