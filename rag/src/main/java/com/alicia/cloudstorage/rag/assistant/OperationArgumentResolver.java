@@ -62,9 +62,6 @@ final class OperationArgumentResolver {
     private static final Pattern MOVE_COMMAND_PREFIX = Pattern.compile(
             "^(?:(?:请|麻烦|帮我)\\s*)*(?:那\\s*)?(?:先\\s*)?(?:(?:只|仅)\\s*(?:把\\s*)?)?"
     );
-    private static final Pattern QUOTED_ARGUMENT = Pattern.compile(
-            "“[^”]+”|\"[^\"]+\"|(?<![A-Za-z0-9_])'[^']+'(?![A-Za-z0-9_])|‘[^’]+’|《[^》]+》|「[^」]+」|『[^』]+』"
-    );
     private static final Pattern MOVE_DESTINATION_REPLY = Pattern.compile(
             "(?:(?:目的地|目标(?:目录|文件夹)?)(?:改成|改为|换成|是|为)|"
                     + "^(?:移动到|移到|挪到|搬到|放到|放进|到|至|进))\\s*(.+)$"
@@ -109,7 +106,7 @@ final class OperationArgumentResolver {
 
     boolean hasConflictingMoveDestinations(String message, boolean moveContext, boolean awaitingDestination) {
         // Keep quoted names visible as arguments without interpreting their contents as command syntax.
-        String structural = QUOTED_ARGUMENT.matcher(normalizePreservingSpaces(message)).replaceAll("“名称”");
+        String structural = TextSupport.maskQuotedNodeNames(normalizePreservingSpaces(message));
         String command = MOVE_COMMAND_PREFIX.matcher(structural).replaceFirst("");
         Optional<Matcher> move = moveArguments(command, structural);
         if (move.isPresent() && hasDestinationChoice(move.get().group(2))) {

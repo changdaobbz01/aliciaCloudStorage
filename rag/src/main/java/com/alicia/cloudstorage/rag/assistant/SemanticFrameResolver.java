@@ -69,6 +69,19 @@ public class SemanticFrameResolver {
             "^(?:范围)?只(?:看|查)(?:一下)?(?:当前目录|这个目录)(?:里|内|下)?(?:的)?[。！!？?]*$",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
+    private static final String SEARCH_SCOPE_FOLDER = "(" + TextSupport.QUOTED_NODE_NAME
+            + "|[^\\s，。,.!?！？；;“”‘’\"'《》「」『』]+?)\\s*(文件夹|目录)";
+    private static final String SEARCH_SCOPE_LOCATION = "(?:里面|下面|里|内|中|下)(?:的)?";
+    private static final String SEARCH_SCOPE_VERB = "(?:搜索|搜|查找|查询|查|检索|翻|找)(?:一下)?";
+    private static final Pattern PREDICATE_SCOPE_PREFIX = Pattern.compile(
+            "^(?:(?:麻烦|帮我|给我|请|只|仅)\\s*)*(?:" + SEARCH_SCOPE_VERB + "\\s*)?(?:在\\s*)?"
+                    + SEARCH_SCOPE_FOLDER + "(?:" + SEARCH_SCOPE_LOCATION + ")?"
+                    + "\\s*[，,]?\\s*(?:" + SEARCH_SCOPE_VERB + "\\s*)?$"
+    );
+    private static final Pattern PREDICATE_SCOPE_SUFFIX = Pattern.compile(
+            "^[，,]\\s*(?:范围)?(?:只|仅)(?:在|查|搜|看)\\s*"
+                    + SEARCH_SCOPE_FOLDER + "(?:" + SEARCH_SCOPE_LOCATION + ")?[。！？!?]*$"
+    );
     private static final Pattern REFERENTIAL_OBJECT_SUFFIX = Pattern.compile(
             "^(.+?)(?:这个|那个|该)(?:文件夹|目录|文件)$",
             Pattern.CASE_INSENSITIVE
@@ -646,19 +659,9 @@ public class SemanticFrameResolver {
                     new SemanticFrame.Scope("CURRENT", "", "")
             );
         }
-        Optional<NamePredicateParser.NamePredicate> predicate = NamePredicateParser.parse(message);
+        Optional<NamePredicateParser.NamePredicate> predicate = NamePredicateParser.parseSearch(message);
         if (predicate.isPresent()) {
-            String clue = cleanName(predicate.get().value());
-            return new SearchSemantics(
-                    new SemanticFrame.Query(
-                            "NAME_CONTAINS",
-                            predicate.get().resultType(),
-                            clue,
-                            normalizeName(clue),
-                            fallbackQuery.filters()
-                    ),
-                    new SemanticFrame.Scope("ALL", "", "")
-            );
+            return parseNamePredicateSearch(message, predicate.get(), fallbackQuery);
         }
 
         Matcher directoryMatcher = NAMED_DIRECTORY_CONTENT.matcher(message);
@@ -712,6 +715,30 @@ public class SemanticFrameResolver {
         return new SearchSemantics(fallbackQuery, fallbackScope);
     }
 
+    private SearchSemantics parseNamePredicateSearch(
+            String message, NamePredicateParser.NamePredicate predicate, SemanticFrame.Query fallbackQuery
+    ) {
+        Matcher scope = PREDICATE_SCOPE_PREFIX.matcher(message.substring(0, predicate.start()).strip());
+        if (!scope.matches()) {
+            scope = PREDICATE_SCOPE_SUFFIX.matcher(message.substring(predicate.end()).strip());
+        }
+        SemanticFrame.Scope searchScope = SemanticFrame.Scope.empty();
+        if (scope.matches()) {
+            String surface = scope.group(1);
+            String name = TextSupport.unwrapNodeName(surface);
+            String type = name.equals(surface) ? rootScope(surface + scope.group(2)) : "NAMED_FOLDER";
+            searchScope = "NAMED_FOLDER".equals(type)
+                    ? new SemanticFrame.Scope(type, name, normalizeName(name))
+                    : new SemanticFrame.Scope(type, "", "");
+        }
+        String clue = predicate.value();
+        return new SearchSemantics(
+                new SemanticFrame.Query("NAME_CONTAINS", predicate.resultType(), clue, normalizeName(clue),
+                        fallbackQuery.filters()),
+                searchScope
+        );
+    }
+
     private boolean isFilterOnlySearch(String message, SemanticFrame.Query query) {
         if (query.nameSurface().isBlank()) {
             return true;
@@ -735,6 +762,13 @@ public class SemanticFrameResolver {
             AssistantClientContext clientContext
     ) {
         String safeMessage = message == null ? "" : message.trim();
+        var searchPredicate = NamePredicateParser.parseSearch(safeMessage);
+        if (searchPredicate.isPresent() && ("SEARCH".equals(frame.operation())
+                || "UNKNOWN".equals(frame.operation()) && NamePredicateParser.explicitlyRequestsSearch(safeMessage))) {
+            SearchSemantics search = parseNamePredicateSearch(safeMessage, searchPredicate.get(), frame.query());
+            return copyFrame(frame, frame.relation(), "SEARCH", search.query(), search.scope(), frame.reference(),
+                    frame.ambiguities(), frame.clarification());
+        }
         if (List.of("DELETE", "MOVE", "RENAME").contains(frame.operation())) {
             Optional<NamePredicateParser.NamePredicate> predicate = NamePredicateParser.parse(safeMessage);
             if (predicate.isPresent()) {
@@ -758,7 +792,7 @@ public class SemanticFrameResolver {
             }
         }
         SearchSemantics directoryContents = List.of("UNKNOWN", "SEARCH", "LIST_CHILDREN").contains(frame.operation())
-                && NamePredicateParser.parse(safeMessage).isEmpty()
+                && searchPredicate.isEmpty()
                 ? parseDirectoryContents(safeMessage, frame.query())
                 : null;
         if (directoryContents != null) {
@@ -1399,7 +1433,9 @@ public class SemanticFrameResolver {
         folder = folder.replaceFirst("^(?:你|请|麻烦)?(?:给我|帮我)?\\s*", "");
         folder = folder.replaceFirst("^(?:列出|列一下|展示|显示|查看|看看|看下|浏览)\\s*", "");
         folder = folder.replaceFirst("^在\\s*", "");
-        return cleanName(folder);
+        String withoutType = folder.replaceFirst("\\s*(?:目录|文件夹)$", "").strip();
+        String literal = TextSupport.unwrapNodeName(withoutType);
+        return literal.equals(withoutType) ? cleanName(folder) : literal;
     }
 
     private String cleanDestination(String value) {

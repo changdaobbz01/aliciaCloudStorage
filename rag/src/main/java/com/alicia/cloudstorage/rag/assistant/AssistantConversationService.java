@@ -243,6 +243,11 @@ public class AssistantConversationService {
             return boundResponse;
         }
         return switch (candidateBinding.status()) {
+            case "missing_folder_scope", "ambiguous_folder_scope" -> intentRecognitionService.withFlowState(
+                    boundResponse,
+                    "ask_clarification",
+                    candidateBinding.message()
+            );
             case "search_results_ready" -> intentRecognitionService.withFlowState(
                     boundResponse,
                     "show_search_results",

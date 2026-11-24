@@ -32,6 +32,13 @@ public class NavigationOperationResolver {
     private static final Pattern ORDINAL_REFERENCE = Pattern.compile(
             "^(?:第?[一二三四五六七八九十0-9]+(?:个|项|条|号)|上一个|下一个)$"
     );
+    private static final Pattern QUOTED_LOCATION_REQUEST = Pattern.compile(
+            "^(?:(?:麻烦|帮我|请|请问|现成的|已有的|已经有的|现有的)\\s*)*"
+                    + "(?:(?:查找|查|搜索|找)(?:一下)?\\s*)?(" + TextSupport.QUOTED_NODE_NAME + ")\\s*"
+                    + "(?:这个|那个|该)?(文件夹|目录|文件)\\s*(?:的(?:具体)?(?:位置|路径)|(?:在|位于)(?:哪里|哪儿|哪))"
+                    + "(?:[，,。！？?]\\s*(?:把)?(?:查到的)?(?:目录的)?(?:结果|位置|路径)"
+                    + "(?:告诉我|列给我|给我看|给我)(?:就行|即可)?)?[。！？?]*$"
+    );
 
     private final List<String> politePrefixes;
     private final List<String> locationQuestionPrefixes;
@@ -71,7 +78,13 @@ public class NavigationOperationResolver {
     }
 
     private Optional<Resolution> resolve(String message, AssistantConversationState conversation) {
-        String normalized = cleanTarget(normalize(message));
+        Matcher quotedLocation = QUOTED_LOCATION_REQUEST.matcher(safe(message));
+        if (quotedLocation.matches()) {
+            String name = TextSupport.unwrapNodeName(quotedLocation.group(1));
+            String type = "文件".equals(quotedLocation.group(2)) ? "FILE" : "FOLDER";
+            return Optional.of(Resolution.locate(name, type));
+        }
+        String normalized = cleanTarget(TextSupport.compactOutsideQuotedNames(safe(message)));
         Matcher naturalContent = NATURAL_CONTENT_QUESTION.matcher(normalized);
         if (naturalContent.matches()) {
             String folder = stripTypeWrapper(naturalContent.group(1));
@@ -274,7 +287,10 @@ public class NavigationOperationResolver {
                 .replaceFirst("^(?:名为|叫做|名称为|名字为)", "")
                 .replaceFirst("(?:这个|那个|该)(?:文件夹|目录|文件)$", "")
                 .trim();
-        return value.replaceFirst("的(?:文件夹|目录|文件)$", "").trim();
+        value = value.replaceFirst("的(?:文件夹|目录|文件)$", "").trim();
+        String withoutType = value.replaceFirst("\\s*(?:文件夹|目录|文件)$", "").strip();
+        String literal = TextSupport.unwrapNodeName(withoutType);
+        return literal.equals(withoutType) ? TextSupport.unwrapNodeName(value) : literal;
     }
 
     private String stripExplicitNameWrapper(String target) {
@@ -316,10 +332,6 @@ public class NavigationOperationResolver {
         return conversation != null
                 && conversation.focus() != null
                 && conversation.focus().candidateCount() > 0;
-    }
-
-    private static String normalize(String value) {
-        return safe(value).replaceAll("\\s+", "");
     }
 
     private static String safe(String value) {

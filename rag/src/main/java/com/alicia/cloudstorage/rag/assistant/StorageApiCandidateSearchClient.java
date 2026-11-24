@@ -7,7 +7,9 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 
 @Service
 public class StorageApiCandidateSearchClient implements CandidateSearchPort {
@@ -46,6 +48,9 @@ public class StorageApiCandidateSearchClient implements CandidateSearchPort {
         try {
             if (isDirectoryList(request)) {
                 return listDirectory(request);
+            }
+            if (isSearchAction(request) && FileQueryPlanResolver.NAME_CONTAINS.equals(request.queryMode())) {
+                return searchNamesContaining(request);
             }
             return "FOLDER".equalsIgnoreCase(request.candidateType())
                     ? searchFolders(request)
@@ -300,6 +305,60 @@ public class StorageApiCandidateSearchClient implements CandidateSearchPort {
                 "cloud-storage-api:/api/storage/nodes",
                 CandidateResultPage.unknown(candidates.size(), resultHasMore, "relevance", "")
         );
+    }
+
+    private CandidateBindingResult searchNamesContaining(CandidateSearchRequest request) {
+        if (FileQueryPlanResolver.SCOPE_CURRENT.equals(request.scope()) && request.currentFolderId() == null
+                && !List.of("", "/", "根目录").contains(request.currentFolderPath())) {
+            return CandidateBindingResult.skipped("missing_folder_scope", "当前目录还未定位，请重新打开目录后再搜索。");
+        }
+        return switch (request.scope()) {
+            case FileQueryPlanResolver.SCOPE_ALL -> searchNamesContaining(request, null, true,
+                    storageApi.safeFolderMap(request.authorizationHeader()));
+            case FileQueryPlanResolver.SCOPE_ROOT -> searchNamesContaining(request, null, false, Map.of());
+            case FileQueryPlanResolver.SCOPE_CURRENT -> searchNamesContaining(request, request.currentFolderId(),
+                    false, storageApi.safeFolderMap(request.authorizationHeader()));
+            case FileQueryPlanResolver.SCOPE_NAMED_FOLDER -> searchNamesInNamedFolder(request);
+            default -> CandidateBindingResult.skipped("missing_folder_scope", "请明确要检索的目录范围。");
+        };
+    }
+
+    private CandidateBindingResult searchNamesInNamedFolder(CandidateSearchRequest request) {
+        if (request.targetFolder().isBlank()) {
+            return CandidateBindingResult.skipped("missing_folder_scope", "请补充要检索的目录名称或路径。");
+        }
+        List<CandidateItem> folders = storageApi.fetchAllFolders(request.authorizationHeader());
+        Map<Long, CandidateItem> folderById = storageApi.folderMap(folders);
+        String target = request.targetFolder();
+        List<CandidateItem> matches = storageApi.enrichWithPaths(folders, folderById).stream()
+                .filter(folder -> folder.nodeId() != null)
+                .filter(folder -> target.equalsIgnoreCase(folder.name()) || target.equalsIgnoreCase(folder.path()))
+                .limit(2)
+                .toList();
+        return switch (matches.size()) {
+            case 0 -> CandidateBindingResult.skipped("missing_folder_scope", "找不到指定的目录，请核对目录名称或路径。");
+            case 1 -> searchNamesContaining(request, matches.getFirst().nodeId(), false, folderById);
+            default -> CandidateBindingResult.skipped("ambiguous_folder_scope", "有多个同名目录，请补充完整目录路径。");
+        };
+    }
+
+    private CandidateBindingResult searchNamesContaining(
+            CandidateSearchRequest request, Long parentId, boolean recursive, Map<Long, CandidateItem> folderById
+    ) {
+        StorageApiNodePage page = storageApi.searchNodes(new StorageApiNodeQuery(
+                parentId, recursive, request.query(), nodeTypeFilter(request), categoryFilter(request),
+                1, request.maxResults(), "updatedAt", "desc"
+        ), request.authorizationHeader());
+        String clue = request.query().toLowerCase(Locale.ROOT);
+        List<CandidateItem> candidates = storageApi.enrichWithPaths(page.items(), folderById).stream()
+                .filter(candidate -> recursive || Objects.equals(parentId, candidate.parentId()))
+                .filter(candidate -> matchesCandidateType(candidate, request.candidateType()))
+                .filter(candidate -> StorageFileCategory.matches(request.category(), candidate))
+                .filter(candidate -> candidate.name().toLowerCase(Locale.ROOT).contains(clue))
+                .toList();
+        boolean hasMore = page.totalItems() > page.items().size() || page.totalPages() > page.page();
+        return searchResult(request, candidates, "cloud-storage-api:/api/storage/nodes",
+                CandidateResultPage.unknown(candidates.size(), hasMore, "updatedAt", "desc"));
     }
 
     private CandidateBindingResult searchFolders(CandidateSearchRequest request) {

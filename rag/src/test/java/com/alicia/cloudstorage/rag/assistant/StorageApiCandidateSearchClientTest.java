@@ -2,6 +2,8 @@ package com.alicia.cloudstorage.rag.assistant;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -11,6 +13,59 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class StorageApiCandidateSearchClientTest {
+
+    @Test
+    void searchesForTheFullNameClueOnlyInTheNamedFolder() {
+        var storage = new FakeStorageApiNodeReadClient(Map.of("年 结", List.of(
+                new CandidateItem(12L, 9L, "第2批年 结.csv", "FILE", 0L, "", "", ""),
+                new CandidateItem(13L, 9L, "第3批年结.csv", "FILE", 0L, "", "", ""),
+                new CandidateItem(14L, 8L, "其他目录年 结.csv", "FILE", 0L, "", "", "")
+        )), Map.of(), List.of(new CandidateItem(9L, null, "结算备档", "FOLDER", 0L, "", "", "")));
+        var client = new StorageApiCandidateSearchClient(storage);
+        var request = new CandidateSearchRequest("file_search", "search", "FILE", "target_name",
+                "年 结", "name_contains", "named_folder", "结算备档", null, "/", 5, "Bearer test");
+
+        var result = client.search(request);
+
+        assertThat(result.candidates()).extracting(CandidateItem::nodeId).containsExactly(12L);
+        assertThat(storage.nodeQueries()).singleElement().satisfies(query -> {
+            assertThat(query.parentId()).isEqualTo(9L);
+            assertThat(query.recursive()).isFalse();
+            assertThat(query.keyword()).isEqualTo("年 结");
+        });
+    }
+
+    @ParameterizedTest
+    @CsvSource({"root,,false", "current,8,false", "all,,true"})
+    void sendsTheActualRequestedScopeForNameContains(String scope, Long parentId, boolean recursive) {
+        var storage = FakeStorageApiNodeReadClient.withNodeResults(Map.of());
+        var client = new StorageApiCandidateSearchClient(storage);
+
+        client.search(new CandidateSearchRequest("file_search", "search", "FOLDER", "target_folder",
+                "会议", "name_contains", scope, "", 8L, "/本周", 5, "Bearer test"));
+
+        assertThat(storage.nodeQueries()).singleElement().satisfies(query -> {
+            assertThat(query.parentId()).isEqualTo(parentId);
+            assertThat(query.recursive()).isEqualTo(recursive);
+            assertThat(query.keyword()).isEqualTo("会议");
+            assertThat(query.type()).isEqualTo("FOLDER");
+        });
+    }
+
+    @Test
+    void asksForAPathWhenTwoFoldersHaveTheRequestedName() {
+        var storage = FakeStorageApiNodeReadClient.withFolders(List.of(
+                new CandidateItem(7L, 3L, "合订材料", "FOLDER", 0L, "", "", ""),
+                new CandidateItem(8L, 4L, "合订材料", "FOLDER", 0L, "", "", "")
+        ));
+        var client = new StorageApiCandidateSearchClient(storage);
+
+        var result = client.search(new CandidateSearchRequest("file_search", "search", "FILE", "target_name",
+                "附录", "name_contains", "named_folder", "合订材料", null, "/", 5, "Bearer test"));
+
+        assertThat(result.status()).isEqualTo("ambiguous_folder_scope");
+        assertThat(storage.nodeQueries()).isEmpty();
+    }
 
     @Test
     void searchReturnsNoCandidatesWhenStorageApiFindsNothing() {

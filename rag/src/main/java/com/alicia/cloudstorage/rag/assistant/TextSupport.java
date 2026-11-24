@@ -6,6 +6,10 @@ import java.util.regex.Pattern;
 
 final class TextSupport {
 
+    static final String QUOTED_NODE_NAME =
+            "“[^”]+”|\"[^\"]+\"|(?<![A-Za-z0-9_])'[^']+'(?![A-Za-z0-9_])|‘[^’]+’|《[^》]+》|「[^」]+」|『[^』]+』";
+    private static final Pattern QUOTED_NODE_NAME_PATTERN = Pattern.compile(QUOTED_NODE_NAME);
+
     private TextSupport() {
     }
 
@@ -64,6 +68,39 @@ final class TextSupport {
         return value == null ? "" : value.trim()
                 .replaceAll("^[\\s，。,.!?！？:：;；\"'“”‘’`()\\[\\]{}《》<>]+", "")
                 .replaceAll("[\\s，。,.!?！？:：;；\"'“”‘’`()\\[\\]{}《》<>]+$", "");
+    }
+
+    static String unwrapNodeName(String value) {
+        String name = value == null ? "" : value.strip();
+        return QUOTED_NODE_NAME_PATTERN.matcher(name).matches()
+                ? name.substring(1, name.length() - 1).strip()
+                : name;
+    }
+
+    static String maskQuotedNodeNames(String value) {
+        return QUOTED_NODE_NAME_PATTERN.matcher(value).replaceAll("“名称”");
+    }
+
+    static boolean isInsideQuotedNodeName(String value, int offset) {
+        var quoted = QUOTED_NODE_NAME_PATTERN.matcher(value);
+        while (quoted.find() && quoted.start() < offset) {
+            if (offset < quoted.end()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    static String compactOutsideQuotedNames(String value) {
+        var quoted = QUOTED_NODE_NAME_PATTERN.matcher(value);
+        StringBuilder compact = new StringBuilder(value.length());
+        int position = 0;
+        while (quoted.find()) {
+            compact.append(value.substring(position, quoted.start()).replaceAll("\\s+", ""));
+            compact.append(quoted.group());
+            position = quoted.end();
+        }
+        return compact.append(value.substring(position).replaceAll("\\s+", "")).toString();
     }
 
     static String extractExtension(String name) {

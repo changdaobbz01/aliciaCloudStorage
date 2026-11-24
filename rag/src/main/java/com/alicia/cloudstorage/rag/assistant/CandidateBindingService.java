@@ -189,7 +189,8 @@ public class CandidateBindingService {
                     && frame.query().nameSurface().isBlank();
             String queryMode = "LIST_CHILDREN".equals(frame.query().mode()) || filterOnly
                     ? FileQueryPlanResolver.DIRECTORY_LIST
-                    : FileQueryPlanResolver.NAME_SEARCH;
+                    : "NAME_CONTAINS".equals(frame.query().mode())
+                    ? FileQueryPlanResolver.NAME_CONTAINS : FileQueryPlanResolver.NAME_SEARCH;
             String queryRole = FileQueryPlanResolver.DIRECTORY_LIST.equals(queryMode)
                     ? "directory_scope"
                     : "FOLDER".equals(frame.query().resultType()) ? "target_folder" : "target_name";

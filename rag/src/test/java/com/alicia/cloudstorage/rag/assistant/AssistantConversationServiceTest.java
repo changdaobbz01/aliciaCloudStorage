@@ -28,6 +28,28 @@ class AssistantConversationServiceTest {
     private IntentRouter intentRouter;
     private IntentRecognitionService intentRecognitionService;
 
+    @Test
+    void sendsTheLiteralClueAndNamedScopeFromRecognitionToCandidateBinding() {
+        var requests = new java.util.ArrayList<CandidateSearchRequest>();
+        var service = conversationServiceWith(request -> {
+            requests.add(request);
+            return CandidateBindingResult.skipped("missing_folder_scope", "请核对目录名称或路径。");
+        });
+        var response = service.plan(new AssistantPlanRequest(
+                "在「样品 留存」目录里找文件名称含『复测 A』的文档", ""), "Bearer test");
+
+        assertThat(response.semanticFrame().query().mode()).isEqualTo("NAME_CONTAINS");
+        assertThat(response.semanticFrame().scope().type()).isEqualTo("NAMED_FOLDER");
+        assertThat(response.nextAction()).isEqualTo("ask_clarification");
+        assertThat(response.executionReference()).isNull();
+        assertThat(requests).singleElement().satisfies(request -> {
+            assertThat(request.query()).isEqualTo("复测 A");
+            assertThat(request.queryMode()).isEqualTo("name_contains");
+            assertThat(request.scope()).isEqualTo("named_folder");
+            assertThat(request.targetFolder()).isEqualTo("样品 留存");
+        });
+    }
+
     @BeforeEach
     void setUp() {
         configLoader = new RagConfigLoader(new ObjectMapper());
