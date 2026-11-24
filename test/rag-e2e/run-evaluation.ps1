@@ -8,6 +8,9 @@ param(
     [string]$TargetExecutionBaseUrl = '',
     [string]$TargetApiBaseUrl = '',
     [string]$LocalBuildRepositoryRoot = '',
+    [string]$ChallengeDatasetPath = '',
+    [ValidatePattern('^([0-9a-fA-F]{64})?$')]
+    [string]$ChallengeDatasetSha256 = '',
     [string[]]$CaseId = @(),
     [ValidateSet('baseline', 'stress', 'all', 'recognition-dev', 'recognition-candidate', 'recognition-probe',
         'recognition-challenge', 'recognition-search-challenge', 'recognition-holdout')]
@@ -55,8 +58,8 @@ function Invoke-JsonRequest {
 
 function New-EvaluationClientContext {
     [ordered]@{
-        currentFolderId       = $null
-        currentFolderPath     = '/'
+        currentFolderId       = if ($null -ne $challengeLocation) { $challengeLocation.currentFolderId } else { $null }
+        currentFolderPath     = if ($null -ne $challengeLocation) { $challengeLocation.currentFolderPath } else { '/' }
         availableClientInputs = @{}
         actionContractVersion = 'action_bridge_v2'
         supportedActionTypes  = @(
@@ -263,6 +266,16 @@ function Wait-ExecutionTerminalState {
 
 $context = Get-RagE2EContext
 $isIsolatedChallenge = $Suite -in @('recognition-challenge', 'recognition-search-challenge')
+if ($ChallengeDatasetPath -or $ChallengeDatasetSha256) {
+    if ($Suite -ne 'recognition-challenge' -or -not $ChallengeDatasetPath -or -not $ChallengeDatasetSha256) {
+        throw 'A custom challenge requires -Suite recognition-challenge, the dataset path and its frozen SHA-256.'
+    }
+    $context.RecognitionChallengeFile = (Resolve-Path -LiteralPath $ChallengeDatasetPath).Path
+    $actualHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $context.RecognitionChallengeFile).Hash
+    if ($actualHash -ne $ChallengeDatasetSha256) {
+        throw 'Custom challenge contents differ from the frozen SHA-256.'
+    }
+}
 $isRecognitionMeasurement = $isIsolatedChallenge -or $Suite -in @(
     'recognition-dev', 'recognition-candidate', 'recognition-probe', 'recognition-holdout'
 )
@@ -285,6 +298,16 @@ $loadedSuites = @(
         Get-Content -LiteralPath $scenarioFile -Raw -Encoding UTF8 | ConvertFrom-Json
     }
 )
+$challengeLocation = $null
+if ($ChallengeDatasetPath) {
+    $challengeLocation = Get-OptionalProperty -Object $loadedSuites[0] -Name 'clientLocation'
+    if ([string]$loadedSuites[0].split -ne 'challenge' -or
+        ($null -ne $challengeLocation -and (
+            $challengeLocation.currentFolderId -le 0 -or
+            $challengeLocation.currentFolderPath -notmatch '^/[^\x00-\x1f]*$'))) {
+        throw 'Custom challenge split or current folder is invalid.'
+    }
+}
 $scenarioHashes = [ordered]@{}
 foreach ($scenarioFile in $scenarioFiles) {
     $scenarioHashes[[System.IO.Path]::GetFileName($scenarioFile)] =
