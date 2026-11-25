@@ -1,0 +1,45 @@
+{
+  "version": "rag_recognition_hybrid_independent_2026_11_25_v1",
+  "labelPolicyVersion": "rag_recognition_labels_v1",
+  "split": "challenge",
+  "description": "New frozen cases for the common parameter fixes and the lexical hybrid candidate on the same RAG build and model.",
+  "clientLocation": {"currentFolderId":82501,"currentFolderPath":"/纸框联检"},
+  "storageFixture": [
+    {"id":82501,"type":"FOLDER","name":"纸框联检"},
+    {"id":82502,"type":"FOLDER","name":"“船闸，  合订”"},
+    {"id":82503,"type":"FOLDER","name":"页码补录"},
+    {"id":82504,"type":"FOLDER","name":"板角复点"},
+    {"id":82601,"type":"FILE","parentId":82501,"name":"裁线  旧样.pdf"},
+    {"id":82602,"type":"FILE","parentId":82501,"name":"偏差  对照稿.pdf"},
+    {"id":82603,"type":"FILE","parentId":82501,"name":"刻度  夜班.pdf"}
+  ],
+  "gates": {
+    "minimumExactNetGain": 1,
+    "maximumRegressedTurns": 0,
+    "maximumUnsafeExecutableCount": 0,
+    "maximumMissingResponses": 0,
+    "minimumModelReachedTurnsPerLane": 6,
+    "requiredExactCases": ["independent.folder.deferred", "independent.upload.literal_status", "independent.upload.status_after_comma", "independent.move.choose_cancel"]
+  },
+  "cases": [
+    {"id":"independent.folder.deferred","group":"multi-turn","turns":[
+      {"message":"麻烦在本层新建一个子文件夹，晚点再补名称。","expected":{"intentId":["folder_create"],"semanticOperation":["CREATE_FOLDER"],"nextAction":["ask_clarification"],"clarification":true,"noExecutablePlan":true,"missingSlots":["new_folder_name"]}},
+      {"message":"文件夹名用『「留样，  夜班」』。","expected":{"intentId":["folder_create"],"semanticOperation":["CREATE_FOLDER"],"entityEquals":{"new_folder_name":"「留样，  夜班」"},"actionDraftType":["folder.create"],"draftParameters":{"new_folder_name":"「留样，  夜班」"},"stepAction":"folder.create","stepParameters":{"folderName":"「留样，  夜班」"},"clarification":false,"requiresConfirmation":true}}]},
+    {"id":"independent.upload.literal_status","group":"clarification","turns":[
+      {"message":"等我从手机选文件传到『“船闸，  合订”』文件夹里，我稍后再选本地文件。","expected":{"intentId":["file_upload"],"semanticOperation":["UPLOAD"],"entityEquals":{"target_folder":"“船闸，  合订”"},"clarification":true,"noExecutablePlan":true}}]},
+    {"id":"independent.upload.status_after_comma","group":"clarification","turns":[
+      {"message":"等我选好附件以后，传到「页码补录」，文件还没挑好。","expected":{"intentId":["file_upload"],"semanticOperation":["UPLOAD"],"entityEquals":{"target_folder":"页码补录"},"clarification":true,"noExecutablePlan":true}}]},
+    {"id":"independent.move.choose_cancel","group":"multi-turn","turns":[
+      {"message":"《裁线  旧样.pdf》想挪到「页码补录」还是「板角复点」？我再选一下。","expected":{"intentId":["node_move"],"semanticOperation":["MOVE","UNKNOWN"],"nextAction":["ask_clarification"],"clarification":true,"noExecutablePlan":true}},
+      {"message":"选「板角复点」，就这个目录。","expected":{"intentId":["node_move"],"semanticOperation":["MOVE"],"entityEquals":{"target_name":"裁线  旧样.pdf","target_folder":"板角复点"},"actionDraftType":["collection.move_exact"],"draftParameters":{"target_name":"裁线  旧样.pdf","target_folder":"板角复点"},"clarification":false,"requiresConfirmation":true}},
+      {"message":"刚说的移动先取消，文件留在原位。","expected":{"intentId":["assistant_acknowledgement"],"semanticOperation":["RESPOND"],"semanticRelation":["CANCELLATION"],"nextAction":["respond_only"],"clarification":false,"noExecutablePlan":true}}]},
+    {"id":"independent.rename.literal","group":"draft","turns":[
+      {"message":"请把《偏差  对照稿.pdf》改名为“偏差  最终件.pdf”。","expected":{"intentId":["file_rename"],"semanticOperation":["RENAME"],"entityEquals":{"target_name":"偏差  对照稿.pdf","new_name":"偏差  最终件.pdf"},"actionDraftType":["rename"],"draftParameters":{"target_name":"偏差  对照稿.pdf","new_name":"偏差  最终件.pdf"},"clarification":false,"requiresConfirmation":true}}]},
+    {"id":"independent.rename.missing","group":"clarification","turns":[
+      {"message":"要给《偏差  对照稿.pdf》换个名字，新名称我还没定。","expected":{"intentId":["file_rename"],"semanticOperation":["RENAME"],"nextAction":["ask_clarification"],"missingSlots":["new_name"],"clarification":true,"noExecutablePlan":true}}]},
+    {"id":"independent.move.negation","group":"protected","turns":[
+      {"message":"先别把《刻度  夜班.pdf》搬走，留着等复点。","expected":{"intentId":["assistant_acknowledgement"],"semanticOperation":["RESPOND"],"nextAction":["respond_only"],"clarification":false,"noExecutablePlan":true}}]},
+    {"id":"independent.quoted.rewrite","group":"protected","turns":[
+      {"message":"请把“移动《偏差  对照稿.pdf》到复核目录”改写成操作指南里的提示语。","expected":{"intentId":["assistant_writing_help"],"semanticOperation":["RESPOND"],"clarification":false,"noExecutablePlan":true}}]}
+  ]
+}
