@@ -51,8 +51,53 @@ cd "$PROJECT_DIR"
 [[ -f .env ]] || fail "The project's .env is missing."
 [[ -z "$(git status --porcelain --untracked-files=no)" ]] || fail "Tracked deployment files have local changes."
 
+redis_root="$PWD/deploy/generated/rag-conversation"
+redis_latest="$redis_root/latest"
+redis_record=""
+redis_release=""
+config_files=(.env compose.yaml compose.https.yaml)
 COMPOSE=(compose --env-file .env -f compose.yaml -f compose.https.yaml)
+if [[ -e "$redis_latest" || -L "$redis_latest" ]]; then
+    [[ -f "$redis_latest" && ! -L "$redis_latest" ]] || fail "Invalid RAG Redis release pointer."
+    redis_name="$(cat "$redis_latest")"
+    [[ "$redis_name" =~ ^release-[A-Za-z0-9_-]+$ ]] || fail "Invalid RAG Redis release name."
+    redis_record="$redis_root/$redis_name"
+    [[ -d "$redis_record" && ! -L "$redis_record" && -f "$redis_record/status" && ! -L "$redis_record/status" ]] ||
+        fail "The RAG Redis release record is incomplete."
+    config_files+=("$redis_latest" "$redis_record/status")
+    case "$(cat "$redis_record/status")" in
+        applied)
+            for file in redis.env compose.redis.yaml; do
+                [[ -f "$redis_record/$file" && ! -L "$redis_record/$file" ]] ||
+                    fail "The active RAG Redis release is missing $file."
+            done
+            redis_release="$redis_name"
+            config_files+=("$redis_record/redis.env" "$redis_record/compose.redis.yaml")
+            COMPOSE=(compose --env-file .env --env-file "$redis_record/redis.env"
+                -f compose.yaml -f compose.https.yaml -f "$redis_record/compose.redis.yaml" --profile rag-execution-foundation)
+            ;;
+        rolled-back) ;;
+        *) fail "The RAG Redis release status is unresolved." ;;
+    esac
+fi
+config_snapshot="$(sha256sum -- "${config_files[@]}")"
+
 compose() { rag_execution_docker "${COMPOSE[@]}" "$@"; }
+
+configuration_intact() {
+    if [[ -z "$redis_record" && ( -e "$redis_latest" || -L "$redis_latest" ) ]]; then
+        return 1
+    fi
+    [[ "$(sha256sum -- "${config_files[@]}")" == "$config_snapshot" ]]
+}
+
+redis_ready() {
+    [[ -n "$redis_release" ]] || return 0
+    local container
+    container="$(compose ps --all --quiet rag-conversation-redis)" || return 1
+    [[ -n "$container" && "$container" != *$'\n'* ]] &&
+        [[ "$(rag_execution_docker inspect --format '{{.State.Running}} {{.State.Health.Status}}' "$container" 2>/dev/null)" == 'true healthy' ]]
+}
 
 image_id() {
     rag_execution_docker image inspect --format '{{.Id}}' "$1"
@@ -84,7 +129,8 @@ sys.exit(0 if ready else 1)
 rag_ready() {
     service_health "$LOCAL_HEALTH" liveness &&
         service_health "$LOCAL_HEALTH/dependencies" dependencies &&
-        service_health "$PUBLIC_HEALTH" liveness
+        service_health "$PUBLIC_HEALTH" liveness &&
+        redis_ready
 }
 
 wait_for_rag() {
@@ -93,7 +139,7 @@ wait_for_rag() {
         container="$(rag_container)" || return 1
         if [[ -n "$container" &&
             "$(rag_execution_docker inspect --format '{{.Image}} {{.State.Running}} {{.RestartCount}}' "$container" 2>/dev/null)" == "$expected true 0" ]] &&
-            rag_ready; then
+            configuration_intact && rag_ready; then
             return 0
         fi
         if [[ "$attempt" -lt "$ATTEMPTS" && "$SECONDS" -lt "$deadline" ]]; then sleep "$RETRY_DELAY"; fi
@@ -103,7 +149,7 @@ wait_for_rag() {
 
 activate_image() {
     local image="$1"
-    [[ "$(configured_hash)" == "$config_hash" ]] &&
+    configuration_intact && [[ "$(configured_hash)" == "$config_hash" ]] &&
         rag_execution_docker image tag "$image" "$service_image" &&
         compose up -d --no-deps --no-build --pull never --force-recreate rag &&
         wait_for_rag "$image"
@@ -147,7 +193,10 @@ if [[ "$APPLY" == true ]]; then
     trap finalize EXIT
     trap 'exit 130' INT
     trap 'exit 143' TERM
+    trap 'exit 129' HUP
 fi
+
+configuration_intact || fail "The RAG Compose configuration changed during preflight."
 
 container="$(rag_container)"
 [[ "$container" != *$'\n'* ]] || fail "This release entry supports exactly one RAG replica."
@@ -180,6 +229,13 @@ else
     [[ -f "$release_root/latest" && ! -L "$release_root/latest" &&
         "$(cat "$release_root/latest")" == "$(basename "$state")" ]] ||
         fail "Only the most recent RAG release record can be rolled back."
+    if [[ -n "$redis_release" ]]; then
+        [[ -f "$state/redis-release" && ! -L "$state/redis-release" &&
+            "$(cat "$state/redis-release")" == "$redis_release" ]] ||
+            fail "The rollback record belongs to a different RAG Redis release."
+    elif [[ -e "$state/redis-release" || -L "$state/redis-release" ]]; then
+        fail "The rollback record requires its original RAG Redis release."
+    fi
     mapfile -t record < "$state/images"
     [[ "${#record[@]}" -eq 4 && "${record[0]}" == "$project" && "${record[1]}" == "$config_hash" ]] ||
         fail "The rollback record belongs to a different project or configuration."
@@ -195,6 +251,9 @@ else
 fi
 
 if [[ "$APPLY" == false ]]; then
+    if [[ -n "$redis_release" ]]; then
+        printf 'RAG Redis release: %s\n' "$redis_release"
+    fi
     printf 'Dry run complete. Only the RAG service would be recreated. Supply --apply to proceed.\n'
     exit 0
 fi
@@ -214,6 +273,9 @@ fi
 state="$(mktemp -d "$release_root/release-$(date -u +%Y%m%dT%H%M%SZ)-XXXXXXXX")"
 rollback_image="alicia-rag-rollback:$(basename "$state")"
 rag_execution_docker image tag "$previous" "$rollback_image"
+if [[ -n "$redis_release" ]]; then
+    printf '%s\n' "$redis_release" > "$state/redis-release"
+fi
 printf '%s\n' "$project" "$config_hash" "$previous" "$CANDIDATE" > "$state/images"
 printf 'prepared\n' > "$state/status"
 printf '%s\n' "$(basename "$state")" > "$state/latest"

@@ -299,7 +299,9 @@ bash deploy/scripts/update-rag-production.sh "$HOME/aliciaCloudStorage" --candid
 bash deploy/scripts/update-rag-production.sh "$HOME/aliciaCloudStorage" --candidate-image "$candidate_id" --apply
 ```
 
-第一条脚本调用只做预检。第二条在正式切换窗口执行单服务镜像切换。脚本校验线上 Compose 配置指纹、当前镜像和健康，保留旧镜像标签并记录当次切换。依赖、本机或公网健康验收失败时，自动恢复上一镜像并复核。当前 `.env` 继续作为服务配置来源。内存会话按 RAG 重启行为重新建立。
+第一条脚本调用只做预检。第二条在正式切换窗口执行单服务镜像切换。脚本校验线上 Compose 配置指纹、当前镜像和健康，保留旧镜像标签并记录当次切换。依赖、本机或公网健康验收失败时，自动恢复上一镜像并复核。
+
+启用 Redis 主读后，脚本从 `deploy/generated/rag-conversation/latest` 读取生效记录，沿用其中的 `redis.env` 和 `compose.redis.yaml`。切换和镜像回滚都只重建 RAG，继续使用运行中的 Redis。内存模式使用基础 Compose 文件，会话按 RAG 重启行为重新建立。
 
 需要手动恢复时，将最新一次发布输出的 `Release record` 路径赋给 `release_record`。回滚也默认做预检，确认后再加 `--apply`。
 
@@ -308,7 +310,7 @@ bash deploy/scripts/update-rag-production.sh "$HOME/aliciaCloudStorage" --rollba
 bash deploy/scripts/update-rag-production.sh "$HOME/aliciaCloudStorage" --rollback "$release_record" --apply
 ```
 
-记录位于生产项目的 `deploy/generated/rag-releases/`，保存镜像 ID、Compose 配置指纹及状态。保留该记录和对应旧镜像直到回滚窗口结束。避免与联合发布、手工换标签或修改同一 Compose 配置同时执行。
+记录位于生产项目的 `deploy/generated/rag-releases/`，保存镜像 ID、Compose 配置指纹及状态。Redis 模式的镜像发布也保存当时的 Redis 记录名，回滚要求该记录仍生效。保留发布记录和对应旧镜像直到回滚窗口结束。避免与联合发布、手工换标签或修改同一 Compose 配置同时执行。
 
 如果发布进程被强制终止并遗留 `.lock`，先确认同一项目没有在运行的发布或回滚进程，再用 `rmdir` 移除该空目录。根据最新记录检查实际运行镜像，必要时执行手动回滚。
 
@@ -322,6 +324,7 @@ bash deploy/scripts/update-rag-production.sh "$HOME/aliciaCloudStorage" --rollba
 umask 077
 mkdir -p deploy/generated/rag-conversation
 redis_dir=$(mktemp -d "$PWD/deploy/generated/rag-conversation/release-XXXXXXXX")
+cp -- compose.rag-conversation-redis.yaml "$redis_dir/compose.redis.yaml"
 password=$(openssl rand -hex 32)
 key=$(openssl rand -base64 32)
 hash=$(printf '%s' "$password" | sha256sum | cut -d' ' -f1)
@@ -330,10 +333,11 @@ chmod 644 "$redis_dir/redis.acl"
 printf 'ALICIA_RAG_CONVERSATION_REDIS_PASSWORD=%s\nALICIA_RAG_CONVERSATION_REDIS_KEY=%s\nALICIA_RAG_CONVERSATION_REDIS_ACL_FILE=%s\n' \
   "$password" "$key" "$redis_dir/redis.acl" > "$redis_dir/redis.env"
 unset password key hash
+printf 'prepared\n' > "$redis_dir/status"
 
 base=(sudo docker compose --env-file .env -f compose.yaml -f compose.https.yaml)
 primary=(sudo docker compose --env-file .env --env-file "$redis_dir/redis.env" \
-  -f compose.yaml -f compose.https.yaml -f compose.rag-conversation-redis.yaml)
+  -f compose.yaml -f compose.https.yaml -f "$redis_dir/compose.redis.yaml" --profile rag-execution-foundation)
 "${primary[@]}" config --quiet
 ```
 
@@ -348,6 +352,14 @@ primary=(sudo docker compose --env-file .env --env-file "$redis_dir/redis.env" \
 
 检查本机和公网 RAG 健康、Identity 与云盘依赖，并用专用测试账号完成两轮合成澄清，核对会话轮次、Redis 中的新加密写入和零任务登记。容器健康检查验证 Redis 要求认证，会话写入验收确认应用侧认证和持久化。
 
+验收通过后登记生效记录，后续 RAG 镜像发布和回滚会读取它。
+
+```bash
+printf 'applied\n' > "$redis_dir/status"
+printf '%s\n' "$(basename "$redis_dir")" > "$redis_dir/latest"
+mv -f -- "$redis_dir/latest" "$PWD/deploy/generated/rag-conversation/latest"
+```
+
 回退时用基础配置重建同一 RAG 镜像。确认本机及公网健康，旧会话以无草稿的新上下文开始，再停止 Redis 并保留 AOF 卷及候选配置。
 
 ```bash
@@ -356,6 +368,7 @@ primary=(sudo docker compose --env-file .env --env-file "$redis_dir/redis.env" \
 
 ```bash
 "${primary[@]}" stop rag-conversation-redis
+printf 'rolled-back\n' > "$redis_dir/status"
 ```
 
 主读期间的 RAG 重建沿用 Redis 覆盖文件和同一套会话凭据。镜像回滚脚本仍按自身发布记录和 Compose 指纹校验，主读配置回退使用上述基础配置。
