@@ -1,0 +1,2 @@
+# RAG E2E models and reports refer to the exact bytes of the frozen JSON inputs.
+/test/rag-e2e/*.json text eol=lf

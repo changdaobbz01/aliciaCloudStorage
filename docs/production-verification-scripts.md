@@ -314,6 +314,10 @@ bash deploy/scripts/update-rag-production.sh "$HOME/aliciaCloudStorage" --rollba
 
 记录位于生产项目的 `deploy/generated/rag-releases/`，保存镜像 ID、Compose 配置指纹及状态。Redis 模式的镜像发布也保存当时的 Redis 记录名，回滚要求该记录仍生效。保留发布记录和对应旧镜像直到回滚窗口结束。避免与联合发布、手工换标签或修改同一 Compose 配置同时执行。
 
+同步仓库代码前，用生产环境文件和当前 Redis 覆盖渲染待同步版本的 Compose，核对 RAG 配置指纹。
+若指纹与现网不同，先保留生产目录的 Compose 基线，从独立检出调用已审核脚本。生产 Compose 切换单独验收，
+并为新配置保留可验证的回滚记录。
+
 如果发布进程被强制终止并遗留 `.lock`，先确认同一项目没有在运行的发布或回滚进程，再用 `rmdir` 移除该空目录。根据最新记录检查实际运行镜像，必要时执行手动回滚。
 
 #### 配置 RAG Redis 会话主读
