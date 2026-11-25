@@ -1,0 +1,5 @@
+services:
+  rag:
+    environment:
+      ALICIA_RAG_EXAMPLE_RETRIEVAL_MODE: HYBRID
+      ALICIA_RAG_EXAMPLE_EMBEDDING_URL: ""
