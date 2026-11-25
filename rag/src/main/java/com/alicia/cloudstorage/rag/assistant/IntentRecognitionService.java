@@ -1053,6 +1053,15 @@ public class IntentRecognitionService {
     }
 
     private Map<String, Object> normalizeQuotedName(String message, String intentId, Map<String, Object> entities) {
+        if ("file_rename".equals(intentId)) {
+            var rename = operationArgumentResolver.quotedRename(message);
+            if (rename.isPresent()) {
+                Map<String, Object> result = new LinkedHashMap<>(entities);
+                result.put("target_name", rename.get().source().name());
+                result.put("new_name", rename.get().newName());
+                return result;
+            }
+        }
         if ("node_move".equals(intentId)) {
             var literal = operationArgumentResolver.resolve(message, "MOVE")
                     .map(OperationArgumentResolver.Resolution::destination)

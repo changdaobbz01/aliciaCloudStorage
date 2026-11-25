@@ -18,7 +18,7 @@ final class NonExecutableRequestGuard {
             new UnsupportedTemporalSizeScopeGuard();
 
     private static final Pattern MUTATION = Pattern.compile(
-            "删除|删掉|删了|删|移除|清理|清空|回收站|移动|移到|搬到|挪到|归档到|"
+            "删除|删掉|删了|删|移除|清理|清空|回收站|移动|移到|移走|搬到|搬走|挪到|挪走|归档到|"
                     + TextSupport.RENAME_VERB + "|分享|上传|新建|创建|"
                     + "delete|remove|move|rename|share|upload|create",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
@@ -28,7 +28,7 @@ final class NonExecutableRequestGuard {
             "(?:^|[，,。；;”]|但|不过|可是|文件(?:夹)?|目录|\\.[A-Za-z0-9]{1,16})\\s*(?:我\\s*)?"
                     + "(?:(?:暂时|目前|现在|当前|这次)\\s*)?(?:先)?"
                     + "(?:不要|别|不用|无需|不必|" + REJECTED_INSTRUCTION + ")(?:再)?[^，,。；;]{0,16}"
-                    + "(?:删除|删(?:掉|了)?|移除|清理|移动|移到|移去|移走|搬到|搬去|挪(?:到|去|动)?|归档到|"
+                    + "(?:删除|删(?:掉|了)?|移除|清理|移动|移到|移去|移走|搬[到去走]|挪[到去动走]?|归档到|"
                     + TextSupport.RENAME_VERB + "|分享|上传|新建|创建)",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
@@ -318,8 +318,8 @@ final class NonExecutableRequestGuard {
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
     );
     private static final String PREVIOUS_TURN = "(?:刚才|刚刚|前面|之前|上一轮)";
-    private static final String REFERENCED_OPERATION = "(?:" + PREVIOUS_TURN
-            + "(?:的|[这那][个项次])?|[这那][个项次]|该)"
+    private static final String REFERENCED_OPERATION = "(?:刚说的|" + PREVIOUS_TURN
+            + "(?:说的|的|[这那][个项次])?|[这那][个项次]|该)"
             + "(?:(?:要|想|打算)?(?:删除|移动|上传|创建|新建|建目录|建文件夹|重命名|改名|分享)"
             + "(?:的)?(?:操作|动作|任务|计划|请求|要求|事情|事)?|(?:操作|动作|任务|计划|请求|要求))";
     private static final Pattern REFERENCED_CANCELLATION = Pattern.compile(
@@ -355,7 +355,7 @@ final class NonExecutableRequestGuard {
     );
     private static final List<Pattern> DISTINCT_OPERATIONS = List.of(
             Pattern.compile("删除|删掉|删了|移除|清理|回收站"),
-            Pattern.compile("移动|移到|搬到|挪到|归档到|放到|放进"),
+            Pattern.compile("移动|移到|移走|搬到|搬走|挪到|挪走|归档到|放到|放进"),
             Pattern.compile(TextSupport.RENAME_VERB),
             Pattern.compile("分享"),
             Pattern.compile("上传"),

@@ -242,6 +242,14 @@ class NonExecutableRequestGuardTest {
     }
 
     @Test
+    void separatesNegatedMoveAwayFromAnAffirmativeReplacementAndQuotedWords() {
+        assertThat(guard.evaluate("先别把《刻度  夜班.pdf》搬走，留着等复点。", null).orElseThrow().id())
+                .isEqualTo("negated_operation");
+        assertThat(guard.evaluate("先别把《刻度  夜班.pdf》搬走，改为搬走《刻度  白班.pdf》。", null)).isEmpty();
+        assertThat(guard.evaluate("请把《别搬走说明.pdf》移到「复点」", null)).isEmpty();
+    }
+
+    @Test
     void cancellationRequiresPendingOperationContext() {
         assertThat(guard.evaluate("算了，不用了", null)).isEmpty();
 
@@ -273,6 +281,10 @@ class NonExecutableRequestGuardTest {
                 .isEqualTo("cancel_pending_operation");
         assertThat(guard.evaluate("之前那项移动任务先暂缓。", null).orElseThrow().id())
                 .isEqualTo("cancellation_without_pending_operation");
+        assertThat(guard.evaluate("刚说的移动先取消，文件留在原位。", pending).orElseThrow().id())
+                .isEqualTo("cancel_pending_operation");
+        assertThat(guard.evaluate("刚才说的移动取消后会怎样？", pending)
+                .filter(result -> "cancel_pending_operation".equals(result.id()))).isEmpty();
     }
 
     @Test

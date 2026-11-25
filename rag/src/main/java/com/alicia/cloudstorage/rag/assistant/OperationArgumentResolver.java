@@ -94,14 +94,17 @@ final class OperationArgumentResolver {
                     + "\\s*[^，,。；;!?！？\\s]",
             Pattern.CASE_INSENSITIVE
     );
-    private static final Pattern RENAME_SPLIT = Pattern.compile(
-            "^(.*?)(?:重命名为|重命名成|改名为|改名成|改成|改为)(.+)$"
+    private static final String RENAME_SEPARATOR = "(?:重命名为|重命名成|改名为|改名成|改成|改为)";
+    private static final Pattern RENAME_SPLIT = Pattern.compile("^(.*?)" + RENAME_SEPARATOR + "(.+)$");
+    private static final Pattern QUOTED_RENAME = Pattern.compile(
+            "^(?:请|麻烦|帮我|给我|先)*(?:把|将)?(?<source>" + QUOTED_TYPED_NAME + ")"
+                    + RENAME_SEPARATOR + "(?<newName>" + TextSupport.QUOTED_NODE_NAME + ")\\.?$"
     );
     private static final Pattern RENAME_INSTEAD_OF_DELETE = Pattern.compile(
             "^(?:(?:请|先)\\s*)?(?:不要|别|不用|不必)(?:删除|删掉|移除)\\s*("
                     + TextSupport.QUOTED_NODE_NAME + ")\\s*[，,；;]\\s*"
                     + "(?:只|仅|而是|改为)(?:把|将)(?:它|该文件|这个文件)\\s*"
-                    + "(?:重命名为|重命名成|改名为|改名成|改为|改成)\\s*("
+                    + RENAME_SEPARATOR + "\\s*("
                     + TextSupport.QUOTED_NODE_NAME + ")$"
     );
     private static final Pattern RENAME_COLLOQUIAL_SPLIT = Pattern.compile(
@@ -136,7 +139,7 @@ final class OperationArgumentResolver {
             case "SHARE" -> parseSingleSource(text, normalizedOperation, this::shareSource);
             case "DELETE" -> parseSingleSource(text, normalizedOperation, this::deleteSource);
             case "MOVE" -> parseMove(moveArgumentsFor(message));
-            case "RENAME" -> renameInsteadOfDelete(message).or(() -> parseRename(text));
+            case "RENAME" -> renameInsteadOfDelete(message).or(() -> quotedRename(message)).or(() -> parseRename(text));
             case "UPLOAD" -> parseUpload(text);
             default -> Optional.empty();
         };
@@ -175,6 +178,17 @@ final class OperationArgumentResolver {
         return Optional.of(resolution("RENAME",
                 new NodeSelector(sourceName, NameKind.EXPLICIT, inferResultType(sourceName), "", "ALL", "", Quantifier.SINGLE),
                 Destination.empty(), newName, false));
+    }
+
+    Optional<Resolution> quotedRename(String message) {
+        Matcher command = QUOTED_RENAME.matcher(normalize(message));
+        if (!command.matches()) {
+            return Optional.empty();
+        }
+        NodeSelector source = parseNodeSelector(command.group("source"));
+        String newName = TextSupport.unwrapNodeName(command.group("newName"));
+        return source.name().isBlank() || newName.isBlank() ? Optional.empty()
+                : Optional.of(resolution("RENAME", source, Destination.empty(), newName, false));
     }
 
     boolean hasConflictingMoveDestinations(String message, boolean moveContext, boolean awaitingDestination) {

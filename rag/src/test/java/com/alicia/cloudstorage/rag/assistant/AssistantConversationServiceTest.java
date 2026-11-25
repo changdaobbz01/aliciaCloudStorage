@@ -178,6 +178,48 @@ class AssistantConversationServiceTest {
     }
 
     @Test
+    void explicitMoveCancellationClearsTheDraftBeforeAFollowUpConfirmation() {
+        var drafted = conversationService.plan(new AssistantPlanRequest(
+                "请把《裁线  旧样.pdf》移到「板角复点」。", ""));
+        assertThat(drafted.actionDraft().type()).isEqualTo("collection.move_exact");
+        var cancelled = conversationService.plan(new AssistantPlanRequest(
+                "刚说的移动先取消，文件留在原位。", drafted.conversation().conversationId()));
+        assertThat(cancelled.nextAction()).isEqualTo("respond_only");
+        assertThat(cancelled.semanticFrame().relation()).isEqualTo("CANCELLATION");
+        assertNoMutationPlan(cancelled);
+
+        var stale = conversationService.plan(new AssistantPlanRequest("确认", cancelled.conversation().conversationId()));
+        assertThat(stale.nextAction()).isEqualTo("respond_only");
+        assertThat(stale.semanticFrame().relation()).isEqualTo("CANCELLATION");
+        assertNoMutationPlan(stale);
+    }
+
+    @Test
+    void quotedRenameUsesCompleteArgumentNamesInThePlanEvenWhenTheModelTruncatesThem() {
+        String source = "偏差  对照稿.pdf";
+        String newName = "偏差  最终件.pdf";
+        IntentModelClient model = ignored -> Optional.of(new IntentModelClient.ModelIntentResult(
+                "deepseek", "deepseek-v4-flash", "test", "intent_recognition_v1",
+                Map.of("intent_id", "file_rename", "confidence", 0.98,
+                        "entities", Map.of("target_name", "偏差", "new_name", "偏差"))));
+        var service = conversationServiceWith(new SingleCandidateSearchPort(82602L, source),
+                request -> CollectionPreviewResult.skipped("not_requested", "测试环境不执行集合预览。"),
+                new IntentRecognitionService(model, intentRouter, configLoader));
+        var response = service.plan(new AssistantPlanRequest(
+                "请把《" + source + "》改名为“" + newName + "”。", ""), "Bearer token");
+
+        assertThat(response.entities()).containsEntry("target_name", source).containsEntry("new_name", newName);
+        assertThat(response.semanticFrame().query().nameSurface()).isEqualTo(source);
+        assertThat(response.actionDraft().parameters()).containsEntry("target_name", source).containsEntry("new_name", newName);
+        assertThat(response.actionPlan().steps()).singleElement().satisfies(step -> {
+            assertThat(step.action()).isEqualTo("node.rename");
+            assertThat(step.params()).containsEntry("name", newName);
+        });
+        assertThat(response.safety().requiresConfirmation()).isTrue();
+        assertThat(response.executionReference()).isNull();
+    }
+
+    @Test
     void explicitRenameNeverKeepsTheRejectedDeleteAction() {
         var response = conversationService.plan(new AssistantPlanRequest(
                 "不要删除《钩码记录.pdf》，只把它改名为《夹具待验.pdf》。", ""));

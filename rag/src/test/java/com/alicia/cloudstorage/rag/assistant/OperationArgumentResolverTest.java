@@ -121,6 +121,14 @@ class OperationArgumentResolverTest {
     }
 
     @Test
+    void treatsRenameWordsInsideQuotedNamesAsLiteralContent() {
+        var rename = resolver.resolve("请把『「改名为  草稿」.pdf』改名为『“终稿  修订”.pdf』。", "RENAME")
+                .orElseThrow();
+        assertThat(rename.source().name()).isEqualTo("「改名为  草稿」.pdf");
+        assertThat(rename.newName()).isEqualTo("“终稿  修订”.pdf");
+    }
+
+    @Test
     void distinguishesImplicitCategorySetsFromExplicitSingleItems() {
         OperationArgumentResolver.Resolution category = resolver
                 .resolve("视频文件移到影音资料库", "MOVE")
