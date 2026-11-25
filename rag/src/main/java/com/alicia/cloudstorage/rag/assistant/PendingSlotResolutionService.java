@@ -16,7 +16,7 @@ final class PendingSlotResolutionService {
             Pattern.CASE_INSENSITIVE
     );
     private static final Pattern EXPLICIT_FOLDER_NAME = Pattern.compile(
-            "^(?:那就|就|那)?\\s*(?:(?:(?:取名|命名)(?:为|是)?|(?:名字|名称)(?:是|为|叫做?)|叫做?)\\s*)?("
+            "^(?:那就|就|那)?\\s*(?:(?:(?:取名|命名)(?:为|是)?|(?:名字|名称|目录名|文件夹名)(?:是|为|用|叫做?)|叫做?)\\s*)?("
                     + TextSupport.QUOTED_NODE_NAME + ")\\.?$"
                     + "|^(?:那就|就|那)?(?:取名|命名)(?:为|是)?\\s*([^，,。；;!?！？]+)$"
     );

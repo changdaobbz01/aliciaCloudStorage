@@ -42,10 +42,13 @@ public class IntentRecognitionService {
     private final SemanticRecognitionArbiter recognitionArbiter;
     private final OperationArgumentResolver operationArgumentResolver = new OperationArgumentResolver();
     private final NonExecutableRequestGuard nonExecutableRequestGuard = new NonExecutableRequestGuard();
+    private static final String OPERATION_NAME = "(?:新)?(?:文件名|文件夹名|目录名|名字|名称)";
+    private static final String LATER = "(?:下一(?:条|句|轮)|稍后|回头|待会儿?|一会儿?|晚点|之后)";
     private static final Pattern DEFERRED_OPERATION_NAME = Pattern.compile(
-            "(?:^|[，,。；;])\\s*(?:新)?(?:文件名|名字|名称)\\s*(?:我)?"
+            "(?:^|[，,。；;])\\s*(?:" + OPERATION_NAME + "\\s*(?:我)?"
                     + "(?:还(?:没|未)(?:说|给|想好|定)|尚未(?:说|给|确定)|待定|"
-                    + "(?:下一(?:句|轮)|稍后|回头|待会儿?|之后)(?:再)?(?:说|发|给|补充|告诉你))"
+                    + LATER + "(?:再)?(?:说|发|给|补充?|告诉你))|"
+                    + "(?:我)?" + LATER + "(?:再)?(?:补充?|说|发|给|告诉你)" + OPERATION_NAME + ")"
                     + "(?=$|[\\s，,。；;！!？?]|吧)"
     );
     private final ResponseOnlyConversationFollowUpGuard conversationFollowUpGuard =
@@ -1037,8 +1040,11 @@ public class IntentRecognitionService {
             case "file_rename" -> "new_name";
             default -> "";
         };
-        if (slot.isEmpty() || !entities.containsKey(slot)
-                || !DEFERRED_OPERATION_NAME.matcher(TextSupport.maskQuotedNodeNames(message)).find()) {
+        if (slot.isEmpty() || !entities.containsKey(slot)) {
+            return entities;
+        }
+        boolean unnamedSubdirectory = "folder_create".equals(intentId) && operationArgumentResolver.isUnnamedSubdirectory(message);
+        if (!unnamedSubdirectory && !DEFERRED_OPERATION_NAME.matcher(TextSupport.maskQuotedNodeNames(message)).find()) {
             return entities;
         }
         Map<String, Object> remaining = new LinkedHashMap<>(entities);

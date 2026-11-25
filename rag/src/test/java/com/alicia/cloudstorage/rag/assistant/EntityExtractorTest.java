@@ -33,5 +33,13 @@ class EntityExtractorTest {
     void genericFolderObjectBeforePunctuationIsNeverTreatedAsTheName() {
         assertThat(extractor.extract("创建一个文件夹，然后告诉我下一步"))
                 .doesNotContainKey("new_folder_name");
+        assertThat(extractor.extract("请在这一层建个子目录，一会儿再补名字。"))
+                .doesNotContainKey("new_folder_name");
+        assertThat(extractor.extract("新建一个子文件夹，然后上传"))
+                .doesNotContainKey("new_folder_name");
+        assertThat(extractor.extract("新建一个子目录后上传"))
+                .doesNotContainKey("new_folder_name");
+        assertThat(extractor.extract("新建一个子目录，名字为 周报归档"))
+                .containsEntry("new_folder_name", "周报归档");
     }
 }

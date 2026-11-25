@@ -62,6 +62,16 @@ class OperationArgumentResolverTest {
     }
 
     @Test
+    void isolatesAQuotedUploadDestinationFromAnAttachmentStatus() {
+        var upload = resolver.resolve("附件传进『“墨尺，  交接”』目录里，本地文件我晚点再选。", "UPLOAD")
+                .orElseThrow();
+        assertThat(upload.destination().literal()).isTrue();
+        assertThat(upload.destination().surface()).isEqualTo("“墨尺，  交接”");
+        assertThat(resolver.resolve("附件传进「墨尺交接」，或者「样页归档」。", "UPLOAD")
+                .orElseThrow().destination().literal()).isFalse();
+    }
+
+    @Test
     void treatsIndefiniteFileAsMissingMutationTarget() {
         OperationArgumentResolver.Resolution resolution = resolver
                 .resolve("删除一个文件", "DELETE")

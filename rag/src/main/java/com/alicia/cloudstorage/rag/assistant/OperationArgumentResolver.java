@@ -74,10 +74,13 @@ final class OperationArgumentResolver {
     );
     private static final String FOLDER_NAME_MARKER =
             "(?:(?:名字|名称|名)(?:叫做|叫|定为|用|为|是)|命名为|取名为|叫做|叫|名为)";
-    private static final Pattern QUOTED_FOLDER_CREATION = Pattern.compile(
+    private static final String FOLDER_CREATION_START =
             "^(?:(?:请|麻烦|帮我|给我|就|先)\\s*)*"
                     + "(?:(?:在|到)(当前目录|当前文件夹|当前这一层|这一层|当前层|本层|云盘根目录|根目录|这里)(?:下|中|里|内)?\\s*)?"
-                    + "(?:再|先|另)?(?:创建|新建|建立|建)(?:一个|1个|个)?\\s*"
+                    + "(?:再|先|另)?(?:创建|新建|建立|建)(?:一个|1个|个)?\\s*";
+    private static final Pattern UNNAMED_SUBDIRECTORY = Pattern.compile(FOLDER_CREATION_START + "子(?:目录|文件夹)$");
+    private static final Pattern QUOTED_FOLDER_CREATION = Pattern.compile(
+            FOLDER_CREATION_START
                     + "(?:(?:文件夹|目录)\\s*[，,]?\\s*" + FOLDER_NAME_MARKER + "\\s*("
                     + TextSupport.QUOTED_NODE_NAME + ")|" + FOLDER_NAME_MARKER + "\\s*("
                     + TextSupport.QUOTED_NODE_NAME + ")(?:的)?(?:文件夹|目录))$"
@@ -110,6 +113,14 @@ final class OperationArgumentResolver {
             "^(.*?)(?:上传到|上传至|传到|传进|放到)(.+)$"
     );
     private static final Pattern UPLOAD_LEADING_SPLIT = Pattern.compile("^(?:上传|导入)(.+?)(?:到|至|进)(.+)$");
+    private static final String UPLOAD_INPUT = "(?:附件|本地文件夹|本地文件|文件)";
+    private static final String UPLOAD_INPUT_STATUS =
+            "(?:我)?(?:(?:还没|还未|尚未|没有|没)|(?:下一(?:条|句|轮)|稍后|待会儿?|一会儿?|晚点)(?:再)?)"
+                    + "(?:选择|选|挑选|挑|提供)(?:好|定|完)?";
+    private static final Pattern QUOTED_UPLOAD_DESTINATION_WITH_INPUT_NOTE = Pattern.compile(
+            "^(" + QUOTED_TYPED_NAME + "(?:中|里|下|内)?)[，,。；;]"
+                    + "(?:" + UPLOAD_INPUT + UPLOAD_INPUT_STATUS + "|" + UPLOAD_INPUT_STATUS + UPLOAD_INPUT + ")$"
+    );
 
     Optional<Resolution> resolve(String message, String operation) {
         String normalizedOperation = operation == null ? "" : operation.trim().toUpperCase(Locale.ROOT);
@@ -139,6 +150,10 @@ final class OperationArgumentResolver {
         String name = TextSupport.unwrapNodeName(command.group(2) == null ? command.group(3) : command.group(2));
         String parent = command.group(1) != null && rootAlias(command.group(1)) ? "根目录" : "当前目录";
         return name.isBlank() ? Optional.empty() : Optional.of(new FolderCreation(parent, name));
+    }
+
+    boolean isUnnamedSubdirectory(String message) {
+        return UNNAMED_SUBDIRECTORY.matcher(normalize(message)).matches();
     }
 
     Optional<Resolution> directQuotedMove(String message) {
@@ -303,21 +318,20 @@ final class OperationArgumentResolver {
     private Optional<Resolution> parseUpload(String text) {
         String value = stripCourtesy(text);
         Matcher matcher = UPLOAD_SPLIT.matcher(value);
-        String sourceSurface;
-        String destinationSurface;
-        if (matcher.matches()) {
-            sourceSurface = stripObjectPrefix(matcher.group(1));
-            destinationSurface = cleanDestination(matcher.group(2));
-        } else {
-            Matcher leading = UPLOAD_LEADING_SPLIT.matcher(value);
-            if (!leading.matches()) {
+        if (!matcher.matches()) {
+            matcher = UPLOAD_LEADING_SPLIT.matcher(value);
+            if (!matcher.matches()) {
                 return Optional.empty();
             }
-            sourceSurface = stripObjectPrefix(leading.group(1));
-            destinationSurface = cleanDestination(leading.group(2));
         }
+        String sourceSurface = stripObjectPrefix(matcher.group(1));
+        String destinationSurface = cleanDestination(matcher.group(2));
         if (destinationSurface.isBlank()) {
             return Optional.empty();
+        }
+        Matcher inputNote = QUOTED_UPLOAD_DESTINATION_WITH_INPUT_NOTE.matcher(destinationSurface);
+        if (inputNote.matches()) {
+            destinationSurface = inputNote.group(1);
         }
 
         boolean cloudSource = false;

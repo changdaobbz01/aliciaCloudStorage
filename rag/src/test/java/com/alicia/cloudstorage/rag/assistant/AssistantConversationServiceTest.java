@@ -81,6 +81,54 @@ class AssistantConversationServiceTest {
         assertNoMutationPlan(rename);
     }
 
+    @Test
+    void deferredSubdirectoryNameRejectsModelGuessAndAcceptsLiteralFollowUp() {
+        IntentModelClient model = message -> Optional.of(new IntentModelClient.ModelIntentResult(
+                "deepseek", "deepseek-v4-flash", "test", "intent_recognition_v1",
+                Map.of("intent_id", "folder_create", "confidence", 0.98,
+                        "entities", Map.of("new_folder_name", "子"))));
+        var service = conversationServiceWith(
+                request -> CandidateBindingResult.skipped("test_skipped", "测试环境不查询真实候选。"),
+                request -> CollectionPreviewResult.skipped("not_requested", "测试环境不执行集合预览。"),
+                new IntentRecognitionService(model, intentRouter, configLoader));
+        var pending = service.plan(new AssistantPlanRequest("请在这一层建个子目录，一会儿再补名字。", ""));
+        assertThat(pending.intentId()).isEqualTo("folder_create");
+        assertThat(pending.nextAction()).isEqualTo("ask_clarification");
+        assertThat(pending.entities()).doesNotContainKey("new_folder_name");
+        assertThat(pending.missingSlots()).containsExactly("new_folder_name");
+        assertNoMutationPlan(pending);
+
+        var ready = service.plan(new AssistantPlanRequest("目录名用『“色卡  复核册”』。",
+                pending.conversation().conversationId()));
+        assertThat(ready.entities()).containsEntry("new_folder_name", "“色卡  复核册”");
+        assertThat(ready.actionDraft().parameters()).containsEntry("new_folder_name", "“色卡  复核册”");
+        assertThat(ready.nextAction()).isEqualTo("wait_for_user_confirmation");
+
+        var unnamed = service.plan(new AssistantPlanRequest("请在这一层建个子目录。", ""));
+        assertThat(unnamed.missingSlots()).containsExactly("new_folder_name");
+        assertNoMutationPlan(unnamed);
+        var explicitlyNamed = service.plan(new AssistantPlanRequest("创建叫「子」的目录。", ""));
+        assertThat(explicitlyNamed.actionDraft().parameters()).containsEntry("new_folder_name", "子");
+    }
+
+    @Test
+    void uploadClarificationKeepsOnlyTheQuotedTargetFolder() {
+        IntentModelClient model = message -> Optional.of(new IntentModelClient.ModelIntentResult(
+                "deepseek", "deepseek-v4-flash", "test", "intent_recognition_v1",
+                Map.of("intent_id", "file_upload", "confidence", 0.98,
+                        "entities", Map.of("target_folder", "「墨尺交接」，附件我还没选好"))));
+        var service = conversationServiceWith(
+                request -> CandidateBindingResult.skipped("test_skipped", "测试环境不查询真实候选。"),
+                request -> CollectionPreviewResult.skipped("not_requested", "测试环境不执行集合预览。"),
+                new IntentRecognitionService(model, intentRouter, configLoader));
+        var pending = service.plan(new AssistantPlanRequest("等我选个附件传进「墨尺交接」，附件我还没选好。", ""));
+        assertThat(pending.intentId()).isEqualTo("file_upload");
+        assertThat(pending.nextAction()).isEqualTo("ask_clarification");
+        assertThat(pending.entities()).containsEntry("target_folder", "墨尺交接");
+        assertThat(pending.semanticFrame().scope().folderSurface()).isEqualTo("墨尺交接");
+        assertNoMutationPlan(pending);
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {
             "请把《回线 原图.pdf》移到", "将《回线 原图.pdf》移动到",
