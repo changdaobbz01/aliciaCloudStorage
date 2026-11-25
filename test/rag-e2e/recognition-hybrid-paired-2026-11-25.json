@@ -1,0 +1,45 @@
+{
+  "version": "rag_recognition_hybrid_paired_2026_11_25_v1",
+  "labelPolicyVersion": "rag_recognition_labels_v1",
+  "split": "challenge",
+  "description": "Frozen synthetic comparison of LEGACY and HYBRID retrieval with the same runtime and remote model. Each lane uses fresh conversations and task registration stays disabled.",
+  "clientLocation": {"currentFolderId":81501,"currentFolderPath":"/量尺工位"},
+  "storageFixture": [
+    {"id":81501,"type":"FOLDER","name":"量尺工位"},
+    {"id":81502,"type":"FOLDER","name":"墨尺交接"},
+    {"id":81503,"type":"FOLDER","name":"样页归档"},
+    {"id":81601,"type":"FILE","parentId":81501,"name":"筒线  复盘稿.pdf"},
+    {"id":81602,"type":"FILE","parentId":81501,"name":"退签样票.pdf"},
+    {"id":81603,"type":"FILE","parentId":81501,"name":"凹槽  刻度图.pdf"},
+    {"id":81604,"type":"FILE","parentId":81501,"name":"寄样  初测单.pdf"},
+    {"id":81605,"type":"FILE","parentId":81501,"name":"寄样  复核单.pdf"}
+  ],
+  "gates": {
+    "minimumExactNetGain": 1,
+    "maximumRegressedTurns": 0,
+    "maximumUnsafeExecutableCount": 0,
+    "maximumMissingResponses": 0,
+    "minimumModelReachedTurnsPerLane": 6
+  },
+  "cases": [
+    {"id":"hybrid.rename.literal","group":"draft","turns":[
+      {"message":"《筒线  复盘稿.pdf》这个文件，以后存档名用《筒线  终稿.pdf》。","expected":{"intentId":["file_rename"],"semanticOperation":["RENAME"],"entityEquals":{"target_name":"筒线  复盘稿.pdf","new_name":"筒线  终稿.pdf"},"actionDraftType":["rename"],"draftParameters":{"target_name":"筒线  复盘稿.pdf","new_name":"筒线  终稿.pdf"},"clarification":false,"requiresConfirmation":true}}]},
+    {"id":"hybrid.delete.single","group":"draft","turns":[
+      {"message":"《退签样票.pdf》这份不要留了，给我扔回收站。","expected":{"intentId":["file_delete"],"semanticOperation":["DELETE"],"entityEquals":{"target_name":"退签样票.pdf"},"actionDraftType":["delete"],"draftParameters":{"target_name":"退签样票.pdf"},"clarification":false,"requiresConfirmation":true}}]},
+    {"id":"hybrid.upload.missing","group":"clarification","turns":[
+      {"message":"等我选个附件传进「墨尺交接」，附件我还没选好。","expected":{"intentId":["file_upload"],"semanticOperation":["UPLOAD"],"entityEquals":{"target_folder":"墨尺交接"},"clarification":true,"noExecutablePlan":true}}]},
+    {"id":"hybrid.move.choose_cancel","group":"multi-turn","turns":[
+      {"message":"《凹槽  刻度图.pdf》要搬到「墨尺交接」还是「样页归档」，我还没决定。","expected":{"intentId":["node_move"],"semanticOperation":["MOVE","UNKNOWN"],"nextAction":["ask_clarification"],"clarification":true,"noExecutablePlan":true}},
+      {"message":"就用「样页归档」当目的地。","expected":{"intentId":["node_move"],"semanticOperation":["MOVE"],"entityEquals":{"target_name":"凹槽  刻度图.pdf","target_folder":"样页归档"},"actionDraftType":["collection.move_exact"],"draftParameters":{"target_name":"凹槽  刻度图.pdf","target_folder":"样页归档"},"clarification":false,"requiresConfirmation":true}},
+      {"message":"算了，我撤回挪这份文件的要求。","expected":{"intentId":["assistant_acknowledgement"],"semanticOperation":["RESPOND"],"semanticRelation":["CANCELLATION"],"nextAction":["respond_only"],"clarification":false,"noExecutablePlan":true}}]},
+    {"id":"hybrid.folder.missing_then_exact","group":"multi-turn","turns":[
+      {"message":"请在这一层建个子目录，一会儿再补名字。","expected":{"intentId":["folder_create"],"semanticOperation":["CREATE_FOLDER"],"nextAction":["ask_clarification"],"clarification":true,"noExecutablePlan":true,"missingSlots":["new_folder_name"]}},
+      {"message":"目录名用『“色卡  复核册”』。","expected":{"intentId":["folder_create"],"semanticOperation":["CREATE_FOLDER"],"entityEquals":{"new_folder_name":"“色卡  复核册”"},"actionDraftType":["folder.create"],"draftParameters":{"new_folder_name":"“色卡  复核册”"},"stepAction":"folder.create","stepParameters":{"folderName":"“色卡  复核册”"},"clarification":false,"requiresConfirmation":true}}]},
+    {"id":"hybrid.restore.question","group":"protected","turns":[
+      {"message":"我想了解，如果把误删的文件从回收站还原，系统会保留原来的文件夹吗？","expected":{"intentId":["assistant_file_context_question","assistant_execution_explanation","assistant_product_info","assistant_product_reason","assistant_capability_examples"],"semanticOperation":["RESPOND"],"clarification":false,"noExecutablePlan":true}}]},
+    {"id":"hybrid.batch.named","group":"draft","turns":[
+      {"message":"标题里含「寄样」的那些文件通通归到「样页归档」。","expected":{"intentId":["collection_move_by_name"],"semanticOperation":["MOVE"],"entityEquals":{"target_folder":"样页归档"},"actionDraftType":["collection.move_by_name_contains"],"draftParameters":{"target_folder":"样页归档"},"clarification":false,"requiresConfirmation":true}}]},
+    {"id":"hybrid.rename.negation","group":"protected","turns":[
+      {"message":"不是让你给《筒线  复盘稿.pdf》换名字，我要保留现名。","expected":{"intentId":["assistant_acknowledgement"],"semanticOperation":["RESPOND"],"nextAction":["respond_only"],"clarification":false,"noExecutablePlan":true}}]}
+  ]
+}
