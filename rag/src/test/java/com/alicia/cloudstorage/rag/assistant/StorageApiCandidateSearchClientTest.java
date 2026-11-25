@@ -14,6 +14,28 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class StorageApiCandidateSearchClientTest {
 
+    @ParameterizedTest
+    @CsvSource({"false,single_candidate", "true,multiple_candidates"})
+    void renamePrefersLiteralMatchesAndKeepsIdenticalNamesInDifferentFolders(boolean duplicate, String status) {
+        String literal = "「流转  底册」.XLSX";
+        var exact = new CandidateItem(21L, 10L, literal, "FILE", 0L, "", "", "");
+        var neighbor = new CandidateItem(22L, 10L, "「流转 底册」.XLSX", "FILE", 0L, "", "", "");
+        List<CandidateItem> matches = new ArrayList<>(List.of(neighbor, exact));
+        if (duplicate) {
+            matches.add(new CandidateItem(23L, 11L, literal, "FILE", 0L, "", "", ""));
+        }
+        var storage = FakeStorageApiNodeReadClient.withNodeResults(Map.of(literal, matches));
+        var client = new StorageApiCandidateSearchClient(storage);
+        var request = new CandidateSearchRequest("file_rename", "rename", "FILE", "target_name",
+                literal, "name_search", "all", "", null, "/", 5, "Bearer test");
+
+        var result = client.search(request);
+
+        assertThat(result.status()).isEqualTo(status);
+        assertThat(result.candidates()).extracting(CandidateItem::nodeId)
+                .containsExactlyElementsOf(duplicate ? List.of(21L, 23L) : List.of(21L));
+    }
+
     @Test
     void searchesForTheFullNameClueOnlyInTheNamedFolder() {
         var storage = new FakeStorageApiNodeReadClient(Map.of("年 结", List.of(

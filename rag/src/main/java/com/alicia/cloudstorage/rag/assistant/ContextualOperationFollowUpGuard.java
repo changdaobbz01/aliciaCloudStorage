@@ -118,6 +118,14 @@ final class ContextualOperationFollowUpGuard {
                 return decision("folder_name_slot_fill", "folder_create", "SLOT_FILL", "CREATE_FOLDER", entities);
             }
         }
+        if ("file_rename".equals(conversation.pendingIntentId()) && conversation.pendingSlots().contains("new_name")) {
+            String newName = PendingSlotResolutionService.quotedRenameName(value);
+            if (!newName.isBlank()) {
+                Map<String, Object> entities = new LinkedHashMap<>(conversation.entities());
+                entities.put("new_name", newName);
+                return decision("rename_name_slot_fill", "file_rename", "SLOT_FILL", "RENAME", entities);
+            }
+        }
         if ("conflicting_move_destinations".equals(conversation.semanticFrame().clarification().reason())) {
             Matcher choice = MOVE_DESTINATION_CHOICE.matcher(value);
             if (choice.matches() && !TextSupport.maskQuotedNodeNames(choice.group(1)).matches(".*(?:或者|还是|或是|二选一).*")

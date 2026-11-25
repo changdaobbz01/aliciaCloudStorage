@@ -100,6 +100,20 @@ final class OperationArgumentResolver {
             "^(?:请|麻烦|帮我|给我|先)*(?:把|将)?(?<source>" + QUOTED_TYPED_NAME + ")"
                     + RENAME_SEPARATOR + "(?<newName>" + TextSupport.QUOTED_NODE_NAME + ")\\.?$"
     );
+    private static final Pattern QUOTED_RENAME_SOURCE = Pattern.compile(
+            "^(?:请|麻烦|帮我|给我|我想|我要|我打算|我准备|先|想|要|打算|准备)*(?:给|为|把|将)?"
+                    + "(?<source>" + QUOTED_TYPED_NAME + ")(?:想|要|需要|打算)?(?:"
+                    + TextSupport.RENAME_VERB + ")(?=$|[，,。；;])"
+    );
+    private static final String OPERATION_NAME = "(?:新)?(?:文件名|文件夹名|目录名|名字|名称)";
+    private static final String LATER = "(?:下一(?:条|句|轮)|稍后|回头|待会儿?|等下|等会儿?|一会儿?|晚点|之后)";
+    private static final Pattern DEFERRED_OPERATION_NAME = Pattern.compile(
+            "(?:^|[，,。；;])\\s*(?:" + OPERATION_NAME + "\\s*(?:我)?"
+                    + "(?:还(?:没|未)(?:说|给|想好|定)|尚未(?:说|给|确定)|待定|"
+                    + LATER + "(?:再)?(?:说|发|给(?:你)?|补充?|告诉你))|"
+                    + "(?:我)?" + LATER + "(?:再)?(?:补充?|说|发|给|告诉你)" + OPERATION_NAME + ")"
+                    + "(?=$|[\\s，,。；;！!？?]|吧)"
+    );
     private static final Pattern RENAME_INSTEAD_OF_DELETE = Pattern.compile(
             "^(?:(?:请|先)\\s*)?(?:不要|别|不用|不必)(?:删除|删掉|移除)\\s*("
                     + TextSupport.QUOTED_NODE_NAME + ")\\s*[，,；;]\\s*"
@@ -139,7 +153,8 @@ final class OperationArgumentResolver {
             case "SHARE" -> parseSingleSource(text, normalizedOperation, this::shareSource);
             case "DELETE" -> parseSingleSource(text, normalizedOperation, this::deleteSource);
             case "MOVE" -> parseMove(moveArgumentsFor(message));
-            case "RENAME" -> renameInsteadOfDelete(message).or(() -> quotedRename(message)).or(() -> parseRename(text));
+            case "RENAME" -> renameInsteadOfDelete(message).or(() -> quotedRename(message))
+                    .or(() -> quotedRenameMissingName(text)).or(() -> parseRename(text));
             case "UPLOAD" -> parseUpload(text);
             default -> Optional.empty();
         };
@@ -189,6 +204,18 @@ final class OperationArgumentResolver {
         String newName = TextSupport.unwrapNodeName(command.group("newName"));
         return source.name().isBlank() || newName.isBlank() ? Optional.empty()
                 : Optional.of(resolution("RENAME", source, Destination.empty(), newName, false));
+    }
+
+    private Optional<Resolution> quotedRenameMissingName(String text) {
+        Matcher command = QUOTED_RENAME_SOURCE.matcher(text);
+        if (!command.find() || (command.end() != text.length() && !defersOperationName(text.substring(command.end())))) {
+            return Optional.empty();
+        }
+        return Optional.of(resolution("RENAME", parseNodeSelector(command.group("source")), Destination.empty(), "", false));
+    }
+
+    static boolean defersOperationName(String message) {
+        return DEFERRED_OPERATION_NAME.matcher(TextSupport.maskQuotedNodeNames(message)).find();
     }
 
     boolean hasConflictingMoveDestinations(String message, boolean moveContext, boolean awaitingDestination) {
@@ -297,10 +324,10 @@ final class OperationArgumentResolver {
                     false
             ));
         }
-        Matcher matcher = RENAME_SPLIT.matcher(value);
+        Matcher matcher = RENAME_SPLIT.matcher(TextSupport.maskQuotedNodeNamesPreservingOffsets(value));
         if (matcher.matches()) {
-            String sourceSurface = normalizeBatchRenameSource(stripObjectPrefix(matcher.group(1)));
-            String newName = cleanName(matcher.group(2));
+            String sourceSurface = normalizeBatchRenameSource(stripObjectPrefix(value.substring(0, matcher.end(1))));
+            String newName = cleanName(value.substring(matcher.start(2)));
             if (sourceSurface.isBlank() || newName.isBlank()) {
                 return Optional.empty();
             }

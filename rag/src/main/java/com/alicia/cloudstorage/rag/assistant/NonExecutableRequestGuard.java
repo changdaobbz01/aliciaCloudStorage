@@ -319,13 +319,30 @@ final class NonExecutableRequestGuard {
     );
     private static final String PREVIOUS_TURN = "(?:刚才|刚刚|前面|之前|上一轮)";
     private static final String REFERENCED_OPERATION = "(?:刚说的|" + PREVIOUS_TURN
-            + "(?:说的|的|[这那][个项次])?|[这那][个项次]|该)"
+            + "(?:说的|的|[这那][个项次条])?|[这那][个项次条]|该)"
             + "(?:(?:要|想|打算)?(?:删除|移动|上传|创建|新建|建目录|建文件夹|重命名|改名|分享)"
             + "(?:的)?(?:操作|动作|任务|计划|请求|要求|事情|事)?|(?:操作|动作|任务|计划|请求|要求))";
     private static final Pattern REFERENCED_CANCELLATION = Pattern.compile(
             "^(?:算了[，,]\\s*)?(?:请|麻烦)?(?:先?(?:取消|撤销|撤回|停止|暂停|搁置|作废)\\s*" + REFERENCED_OPERATION
                     + "|" + REFERENCED_OPERATION + "(?:先|暂且|暂时)?(?:作罢|作废|取消|撤销|撤回|停止|暂停|暂缓|搁置))"
                     + "(?=$|[，,。；;！!])"
+    );
+    private static final Pattern PENDING_RENAME_STOP = Pattern.compile(
+            "^(?:(?:那|这|本)次|现在|暂时)?(?:就|先)?(?:不再|不|不要|别|不用)(?:再)?(?:"
+                    + "改(?:名字|名称)|" + TextSupport.RENAME_VERB + ")(?:了|吧)?"
+                    + "(?:[，,]\\s*(?:(?:就|仍|先)?(?:沿用|保留|保持)(?:文件的)?(?:原名|原来的(?:名字|名称))|原名不变))?[。！!]*$"
+    );
+    private static final Pattern ENGLISH_PENDING_CANCELLATION = Pattern.compile(
+            "^(?:(?:actually|on second thought)[, ]+)?(?:please\\s+)?"
+                    + "(?:cancel|scratch|drop|call off)\\s+(?:the|that|this|my)\\s+"
+                    + "(?:move|rename|delete|upload|share|operation|request)(?:\\s+(?:plan|request|operation))?"
+                    + "[.!]*(?:\\s+leave\\s+(?:(?:the\\s+)?(?:file|folder)|it)\\s+(?:right\\s+)?where it is[.!]*)?$",
+            Pattern.CASE_INSENSITIVE
+    );
+    private static final Pattern CANCELLED_OPERATION_CONFIRMATION = Pattern.compile(
+            "^(?:(?:好|好的|行|可以)[，,]\\s*)?(?:(?:那)?就(?:这样|这么))?确认"
+                    + "(?:执行(?:刚才|之前)(?:的)?(?:这个|那个))?(?:吧)?[。！!]*$"
+                    + "|^(?:yes[, ]+)?confirm(?: it)?[.!]*$", Pattern.CASE_INSENSITIVE
     );
     private static final Pattern PAUSE_FOR_QUESTION = Pattern.compile(
             "^(?:先|暂时)?(?:别|不要|不用|不必)(?:提交|执行|操作)[，,。；;]\\s*"
@@ -387,13 +404,17 @@ final class NonExecutableRequestGuard {
             ));
         }
         boolean pending = hasPendingOperation(conversation);
-        if ((pending && CANCELLATION.matcher(value).matches()) || REFERENCED_CANCELLATION.matcher(value).find()) {
+        Optional<Decision> cancellation = explicitCancellation(structure, conversation);
+        if (cancellation.isPresent()) {
+            return cancellation;
+        }
+        if (pending && CANCELLATION.matcher(structure).matches()) {
             return Optional.of(new Decision(
-                    pending ? "cancel_pending_operation" : "cancellation_without_pending_operation",
+                    "cancel_pending_operation",
                     "assistant_acknowledgement",
                     "CANCELLATION",
                     "RESPOND",
-                    pending ? "好的，这次操作已取消，我不会继续提交文件变更。" : "当前没有等待取消的文件操作。"
+                    "好的，这次操作已取消，我不会继续提交文件变更。"
             ));
         }
         if (matchesGenericConfirmation(value) && !pending) {
@@ -886,6 +907,30 @@ final class NonExecutableRequestGuard {
 
     static boolean matchesGenericConfirmation(String message) {
         return CONTEXTLESS_CONFIRMATION.matcher(message).matches();
+    }
+
+    static boolean matchesCancelledOperationConfirmation(String message) {
+        return CANCELLED_OPERATION_CONFIRMATION.matcher(message.strip()).matches();
+    }
+
+    Optional<Decision> explicitCancellation(String structure, AssistantConversationState conversation) {
+        boolean pending = hasPendingOperation(conversation);
+        var referenced = REFERENCED_CANCELLATION.matcher(structure);
+        boolean withdrawsReferencedOperation = referenced.find()
+                && !hasAffirmativeReplacement(structure.substring(referenced.end()));
+        if (!withdrawsReferencedOperation
+                && !(pending && ENGLISH_PENDING_CANCELLATION.matcher(structure).matches())
+                && !(pending && "file_rename".equals(conversation.pendingIntentId())
+                && PENDING_RENAME_STOP.matcher(structure).matches())) {
+            return Optional.empty();
+        }
+        return Optional.of(new Decision(
+                pending ? "cancel_pending_operation" : "cancellation_without_pending_operation",
+                "assistant_acknowledgement",
+                "CANCELLATION",
+                "RESPOND",
+                pending ? "好的，这次操作已取消，我不会继续提交文件变更。" : "当前没有等待取消的文件操作。"
+        ));
     }
 
     private boolean hasPendingOperation(AssistantConversationState conversation) {

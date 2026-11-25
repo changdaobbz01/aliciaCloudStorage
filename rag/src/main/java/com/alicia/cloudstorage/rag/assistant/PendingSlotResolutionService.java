@@ -11,6 +11,10 @@ import java.util.regex.Pattern;
 final class PendingSlotResolutionService {
 
     private static final int MAX_SLOT_VALUE_LENGTH = 255;
+    private static final Pattern QUOTED_RENAME_VALUE = Pattern.compile(
+            "^(?:(?:那就|就|那)\\s*)?(?:(?:新(?:文件)?名(?:字|称)?|名称|名字)(?:就)?(?:是|为|用|叫做?|改成|改为)"
+                    + "|改成|改为|重命名为|命名为|叫做?)?\\s*(" + TextSupport.QUOTED_NODE_NAME + ")\\.?$"
+    );
     private static final Pattern RENAME_VALUE = Pattern.compile(
             "^(?:改成|改为|重命名为|名称改为|名字改为)\\s*[“\"']?(.+?)[”\"']?$",
             Pattern.CASE_INSENSITIVE
@@ -62,6 +66,13 @@ final class PendingSlotResolutionService {
             if (!TEXT_SLOTS.contains(slot)) {
                 continue;
             }
+            if ("new_name".equals(slot)) {
+                String quoted = quotedRenameName(message);
+                if (!quoted.isBlank()) {
+                    values.put(slot, quoted);
+                    continue;
+                }
+            }
             String structuredValue = "new_folder_name".equals(slot)
                     ? ""
                     : structuredValue(slot, response);
@@ -103,6 +114,11 @@ final class PendingSlotResolutionService {
         String surface = name.group(1);
         return surface == null ? cleanSlotValue(name.group(2))
                 : validatedSlotValue(TextSupport.unwrapNodeName(surface));
+    }
+
+    static String quotedRenameName(String message) {
+        Matcher name = QUOTED_RENAME_VALUE.matcher(clean(message));
+        return name.matches() ? validatedSlotValue(TextSupport.unwrapNodeName(name.group(1))) : "";
     }
 
     private boolean isIndependentOperation(

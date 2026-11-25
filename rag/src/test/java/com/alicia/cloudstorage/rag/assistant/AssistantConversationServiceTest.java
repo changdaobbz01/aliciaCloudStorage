@@ -194,6 +194,84 @@ class AssistantConversationServiceTest {
         assertNoMutationPlan(stale);
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"好，就这样确认。", "确认执行刚才那个。", "Confirm."})
+    void confirmingAfterReferencedWithdrawalKeepsTheOperationCancelled(String confirmation) {
+        var drafted = conversationService.plan(new AssistantPlanRequest(
+                "请把《折页  东线.pdf》挪到「箱标留样」。", ""));
+        assertThat(drafted.actionDraft().type()).isEqualTo("collection.move_exact");
+        String id = drafted.conversation().conversationId();
+        var cancelled = conversationService.plan(new AssistantPlanRequest(
+                "刚才那条移动撤回，文件留在原位置。", id));
+        assertThat(cancelled.semanticFrame().relation()).isEqualTo("CANCELLATION");
+        assertNoMutationPlan(cancelled);
+
+        var repeated = conversationService.plan(new AssistantPlanRequest(confirmation, id));
+        assertThat(repeated.semanticFrame().relation()).isEqualTo("CANCELLATION");
+        assertThat(repeated.nextAction()).isEqualTo("respond_only");
+        assertThat(repeated.entities()).isEmpty();
+        assertNoMutationPlan(repeated);
+        assertThat(AssistantConversationFocus.next(AssistantConversationFocus.empty(), repeated))
+                .isEqualTo(AssistantConversationFocus.empty());
+    }
+
+    @Test
+    void renamingCanBeDeclinedWhileTheOldDraftIsPending() {
+        var drafted = conversationService.plan(new AssistantPlanRequest(
+                "把《工艺图  甲版.v2.svg》重命名为《工艺图  乙版.v2.svg》。", ""));
+        assertThat(drafted.actionDraft().type()).isEqualTo("rename");
+        String id = drafted.conversation().conversationId();
+        var cancelled = conversationService.plan(new AssistantPlanRequest("这次不改名字了，沿用原名。", id));
+        assertThat(cancelled.semanticFrame().relation()).isEqualTo("CANCELLATION");
+        assertNoMutationPlan(cancelled);
+        assertNoMutationPlan(conversationService.plan(new AssistantPlanRequest("确认。", id)));
+    }
+
+    @Test
+    void modelCancellationCannotCarryAContradictoryMutationDraft() {
+        IntentModelClient model = ignored -> Optional.of(new IntentModelClient.ModelIntentResult(
+                "deepseek", "deepseek-v4-flash", "test", "intent_recognition_v1",
+                Map.of("intent_id", "node_move", "confidence", 0.98,
+                        "entities", Map.of("target_name", "shift.pdf", "target_folder", "Review"),
+                        "semantic_frame", Map.of("operation", "MOVE", "relation", "CANCELLATION"))));
+        var service = conversationServiceWith(
+                request -> CandidateBindingResult.skipped("test_skipped", "测试环境不查询真实候选。"),
+                request -> CollectionPreviewResult.skipped("not_requested", "测试环境不执行集合预览。"),
+                new IntentRecognitionService(model, intentRouter, configLoader));
+        var response = service.plan(new AssistantPlanRequest("I would rather leave it as it was.", ""));
+        assertThat(response.semanticFrame().relation()).isEqualTo("CANCELLATION");
+        assertThat(response.nextAction()).isEqualTo("respond_only");
+        assertThat(response.entities()).isEmpty();
+        assertNoMutationPlan(response);
+    }
+
+    @Test
+    void deferredRenameRetainsBothLiteralNamesDespiteTruncatedModelArguments() {
+        String source = "「签收  副本」.PDF";
+        String newName = "“签收，  改名为审计”.PDF";
+        IntentModelClient model = ignored -> Optional.of(new IntentModelClient.ModelIntentResult(
+                "deepseek", "deepseek-v4-flash", "test", "intent_recognition_v1",
+                Map.of("intent_id", "file_rename", "confidence", 0.98,
+                        "entities", Map.of("target_name", "签收", "new_name", "审计"))));
+        var service = conversationServiceWith(new SingleCandidateSearchPort(82602L, source),
+                request -> CollectionPreviewResult.skipped("not_requested", "测试环境不执行集合预览。"),
+                new IntentRecognitionService(model, intentRouter, configLoader));
+        var pending = service.plan(new AssistantPlanRequest(
+                "我要给『" + source + "』改名，新名字等下再给你。", ""), "Bearer token");
+        assertThat(pending.missingSlots()).containsExactly("new_name");
+        assertThat(pending.entities()).containsEntry("target_name", source).doesNotContainKey("new_name");
+        assertThat(pending.semanticFrame().query().nameSurface()).isEqualTo(source);
+        assertNoMutationPlan(pending);
+
+        var ready = service.plan(new AssistantPlanRequest(
+                "新名字是『" + newName + "』。", pending.conversation().conversationId()), "Bearer token");
+        assertThat(ready.actionDraft().parameters()).containsEntry("target_name", source).containsEntry("new_name", newName);
+        assertThat(ready.semanticFrame().query().nameSurface()).isEqualTo(source);
+        assertThat(ready.actionPlan().steps()).singleElement()
+                .satisfies(step -> assertThat(step.params()).containsEntry("name", newName));
+        assertThat(ready.executionReference()).isNull();
+    }
+
     @Test
     void quotedRenameUsesCompleteArgumentNamesInThePlanEvenWhenTheModelTruncatesThem() {
         String source = "偏差  对照稿.pdf";

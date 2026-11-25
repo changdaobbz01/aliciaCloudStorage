@@ -76,6 +76,11 @@ final class AssistantSemanticOrchestrator {
         RecognitionTrace.mark(Stage.ROUTING, polish ? Outcome.LOCAL : Outcome.OBSERVED, started);
 
         boolean confirm = confirmMessages.contains(normalizeControl(message));
+        if (!reset && "CANCELLATION".equals(conversation.semanticFrame().relation())
+                && (confirm || NonExecutableRequestGuard.matchesCancelledOperationConfirmation(message))) {
+            var acknowledgement = recognition.cancelledOperationResponse(message);
+            return new Decision(acknowledgement, Kind.BLOCKED, null, null, false);
+        }
         if ((confirm || NonExecutableRequestGuard.matchesGenericConfirmation(message.strip())) && !reset
                 && hasPendingIntent(conversation) && !"fallback".equals(conversation.pendingIntentId())
                 && (conversation.hasPendingSlots() || conversation.semanticFrame().needsClarification())) {
@@ -86,11 +91,6 @@ final class AssistantSemanticOrchestrator {
             return new Decision(pending, Kind.BLOCKED, null, null, false);
         }
         IntentRecognitionResponse proposal = recognition.recognize(message, conversation, clientContext, deterministicReason);
-        if (confirm && isConfirmationAfterCancellation(proposal, conversation)) {
-            IntentRecognitionResponse acknowledgement = restore(conversation, proposal, "用户确认或延续上一轮待处理意图。")
-                    .withBackendActionDraft(BackendActionDraft.unsupportedAction());
-            return new Decision(acknowledgement, Kind.BLOCKED, null, null, false);
-        }
         if (unsupported && "non_executable_guard:unsupported_exclusion_remainder".equals(proposal.reason())) {
             proposal = reject(proposal, ExecutableConstraintGuard.EXCLUSION);
         }
@@ -218,16 +218,6 @@ final class AssistantSemanticOrchestrator {
         String reason = response.reason();
         return AssistantFlowPolicy.isCapabilityBoundary(response) || reason != null
                 && (reason.startsWith("non_executable_guard:") || reason.startsWith("conversation_follow_up_guard:"));
-    }
-
-    private static boolean isConfirmationAfterCancellation(
-            IntentRecognitionResponse response, AssistantConversationState conversation
-    ) {
-        return "non_executable_guard:confirmation_without_pending_operation".equals(response.reason())
-                && "assistant_acknowledgement".equals(conversation.pendingIntentId())
-                && "CANCELLATION".equals(conversation.semanticFrame().relation())
-                && "RESPOND".equals(conversation.semanticFrame().operation())
-                && conversation.pendingActionDraft() != null && "none".equals(conversation.pendingActionDraft().type());
     }
 
     private static boolean hasPendingAction(AssistantConversationState conversation) {

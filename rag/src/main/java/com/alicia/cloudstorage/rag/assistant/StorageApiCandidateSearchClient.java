@@ -290,15 +290,19 @@ public class StorageApiCandidateSearchClient implements CandidateSearchPort {
                     .forEach(candidate -> candidatesByKey.putIfAbsent(candidateKey(candidate), candidate));
         }
 
-        List<CandidateItem> candidates = narrowToExactMatches(
-                rank(candidatesByKey.values().stream().toList(), queryVariants),
-                queryVariants
-        ).stream()
+        List<CandidateItem> ranked = rank(candidatesByKey.values().stream().toList(), queryVariants);
+        boolean complete = !hasMore && processedVariants == queryVariants.size();
+        List<CandidateItem> exactRenameMatches = complete && "rename".equals(request.actionType())
+                ? ranked.stream()
+                        .filter(candidate -> request.query().equals(candidate.name()) || request.query().equals(candidate.path()))
+                        .toList()
+                : List.of();
+        List<CandidateItem> matches = exactRenameMatches.isEmpty()
+                ? narrowToExactMatches(ranked, queryVariants) : exactRenameMatches;
+        List<CandidateItem> candidates = matches.stream()
                 .limit(Math.max(1, request.maxResults()))
                 .toList();
-        Boolean resultHasMore = hasMore || processedVariants < queryVariants.size()
-                ? Boolean.TRUE
-                : null;
+        Boolean resultHasMore = complete ? null : Boolean.TRUE;
         return result(
                 request,
                 candidates,

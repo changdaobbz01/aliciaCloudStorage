@@ -42,15 +42,6 @@ public class IntentRecognitionService {
     private final SemanticRecognitionArbiter recognitionArbiter;
     private final OperationArgumentResolver operationArgumentResolver = new OperationArgumentResolver();
     private final NonExecutableRequestGuard nonExecutableRequestGuard = new NonExecutableRequestGuard();
-    private static final String OPERATION_NAME = "(?:新)?(?:文件名|文件夹名|目录名|名字|名称)";
-    private static final String LATER = "(?:下一(?:条|句|轮)|稍后|回头|待会儿?|一会儿?|晚点|之后)";
-    private static final Pattern DEFERRED_OPERATION_NAME = Pattern.compile(
-            "(?:^|[，,。；;])\\s*(?:" + OPERATION_NAME + "\\s*(?:我)?"
-                    + "(?:还(?:没|未)(?:说|给|想好|定)|尚未(?:说|给|确定)|待定|"
-                    + LATER + "(?:再)?(?:说|发|给|补充?|告诉你))|"
-                    + "(?:我)?" + LATER + "(?:再)?(?:补充?|说|发|给|告诉你)" + OPERATION_NAME + ")"
-                    + "(?=$|[\\s，,。；;！!？?]|吧)"
-    );
     private final ResponseOnlyConversationFollowUpGuard conversationFollowUpGuard =
             new ResponseOnlyConversationFollowUpGuard();
     private final ContextualOperationFollowUpGuard operationFollowUpGuard =
@@ -212,6 +203,13 @@ public class IntentRecognitionService {
             String deterministicReason
     ) {
         long stageStarted = RecognitionTrace.tick();
+        var cancellation = nonExecutableRequestGuard.explicitCancellation(
+                TextSupport.maskQuotedNodeNames(message == null ? "" : message.strip()), conversation);
+        if (cancellation.isPresent()) {
+            IntentRecognitionResponse response = nonExecutableResponse(message, cancellation.get());
+            RecognitionTrace.decision(Stage.NON_EXECUTABLE_GUARD, Outcome.BLOCKED, stageStarted, response);
+            return response;
+        }
         var followUpDecision = conversationFollowUpGuard.evaluate(message, conversation);
         if (followUpDecision.isPresent()) {
             IntentRecognitionResponse response = responseOnlyConversationResponse(message, followUpDecision.get());
@@ -385,6 +383,11 @@ public class IntentRecognitionService {
         if (operationFollowUpDecision.isPresent()) {
             semanticFrame = operationFollowUpDecision.orElseThrow().applyTo(semanticFrame);
         }
+        if ("CANCELLATION".equals(semanticFrame.relation())) {
+            IntentRecognitionResponse cancelled = cancelledOperationResponse(message);
+            RecognitionTrace.decision(Stage.SEMANTIC_FRAME, Outcome.BLOCKED, stageStarted, cancelled);
+            return cancelled;
+        }
 
         if (!guardedByBoundary
                 && !"file_search".equals(response.intentId())
@@ -468,6 +471,12 @@ public class IntentRecognitionService {
                 guardedByBoundary ? Outcome.BLOCKED : semanticFrame.needsClarification() ? Outcome.CLARIFIED : Outcome.OBSERVED,
                 stageStarted, response);
         return enforceResponsePolicy(message, response);
+    }
+
+    IntentRecognitionResponse cancelledOperationResponse(String message) {
+        return responseOnlyResponse(message, "non_executable_guard:cancelled_operation",
+                "assistant_acknowledgement", "CANCELLATION", "RESPOND",
+                "这项操作已取消。如需重新操作，请说明要做的事和目标。", Map.of());
     }
 
     private IntentRecognitionResponse nonExecutableResponse(
@@ -1044,7 +1053,7 @@ public class IntentRecognitionService {
             return entities;
         }
         boolean unnamedSubdirectory = "folder_create".equals(intentId) && operationArgumentResolver.isUnnamedSubdirectory(message);
-        if (!unnamedSubdirectory && !DEFERRED_OPERATION_NAME.matcher(TextSupport.maskQuotedNodeNames(message)).find()) {
+        if (!unnamedSubdirectory && !OperationArgumentResolver.defersOperationName(message)) {
             return entities;
         }
         Map<String, Object> remaining = new LinkedHashMap<>(entities);
