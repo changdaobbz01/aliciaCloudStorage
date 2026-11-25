@@ -83,7 +83,8 @@ bash deploy/scripts/update-rag-execution-production.sh \
   --service-set rag-execution-frontend
 ```
 
-只有批准生产变更后，才在同一命令末尾追加 `--apply`。`--service-set` 只接受 `full` 或 `rag-execution-frontend`，不接受任意服务名；涉及 API、RAG、Compose 依赖或阶段配置的变更必须继续使用默认 `full`。
+只有批准生产变更后，才在同一命令末尾追加 `--apply`。`--service-set` 接受 `full` 和 `rag-execution-frontend`。
+Redis 主读期间使用 `rag-execution-frontend` 发布执行服务及前端，脚本沿用已生效的 Redis 覆盖。涉及 CloudStorageApi 的配置通过云盘发布入口应用，RAG 识别镜像通过[独立入口](../../docs/production-verification-scripts.md#只更新-rag)发布。基础会话配置沿用原有 `full` 流程。
 
 ## 6. 阶段观察与晋级
 
@@ -138,6 +139,8 @@ sudo docker compose -f compose.yaml -f compose.https.yaml \
 install -m 600 deploy/generated/rag-execution/<stage.backup.env> .env
 bash deploy/scripts/update-rag-execution-production.sh --stage foundation --apply
 ```
+
+Redis 主读期间，恢复 `.env` 后通过云盘发布入口应用 `api frontend` 的配置，再用 `--stage foundation --service-set rag-execution-frontend` 发布并验收。RAG 保留当前识别镜像和 Redis 会话配置。
 
 `RUNNING` 或响应不明确的任务必须先查询 Cloud 动作回执；不能直接重放、伪造失败或删除审计记录。数据库只允许向前修复，不执行破坏性降级。普通云盘手工操作保持可用。
 

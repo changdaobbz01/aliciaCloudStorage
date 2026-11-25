@@ -1214,3 +1214,15 @@ RAG 本地和公网健康检查、依赖检查及 RAG Execution 公网健康检�
 2026-11-25 16:06（北京时间），新版脚本在生产主机上通过镜像切换和现有记录的回滚 dry run，
 确认读取 `release-20261124T094504Z-tdHnnENA`，回滚目标为 `1a634bc`。生产 RAG 仍为 `0c4f777`，
 服务与任务数据复核一致。本次发布脚本更新仅在仓库和隔离环境验证，生产只执行预检。
+
+## 46. 云盘及联合发布的 RAG 服务边界
+
+生产 Compose 中 `frontend` 依赖 `rag`，基础配置执行 `up api frontend` 时会连带处理 RAG。
+Redis 主读时，云盘和联合发布沿用已生效的 Redis 覆盖，使用 `--no-deps` 只发布指定服务。
+显式把 RAG 或会话 Redis 混入云盘发布的请求会在变更之前拒绝，联合发布会先检查云盘服务列表。
+RAG Execution 窄范围发布沿用 Redis 覆盖，`full` 发布在 Redis 主读期间拒绝连带重建 RAG。
+
+隔离 Compose 验证通过，默认云盘及联合发布只重建 `api frontend`，执行服务窄范围发布只重建
+`rag-execution frontend`。开启 Compose 孤儿清理时，RAG 和 Redis 容器指纹均保持一致。
+基础配置仍兼容显式 RAG 的历史调用。正式 RAG 单服务脚本复用同一个 Redis 记录读取规则，
+生产发布和回滚 dry run 通过，现网仍运行 `0c4f777`。

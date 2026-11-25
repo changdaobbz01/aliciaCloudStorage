@@ -47,6 +47,44 @@ rag_execution_docker() {
     "${command[@]}" "$@"
 }
 
+rag_execution_redis_record() {
+    local root="$1/deploy/generated/rag-conversation"
+    local latest="$root/latest" name record file
+    [[ -e "$latest" || -L "$latest" ]] || return 0
+    [[ -f "$latest" && ! -L "$latest" ]] || rag_execution_fail "Invalid RAG Redis release pointer."
+    name="$(cat "$latest")" || return 1
+    [[ "$name" =~ ^release-[A-Za-z0-9_-]+$ ]] || rag_execution_fail "Invalid RAG Redis release name."
+    record="$root/$name"
+    [[ -d "$record" && ! -L "$record" && -f "$record/status" && ! -L "$record/status" ]] ||
+        rag_execution_fail "The RAG Redis release record is incomplete."
+    case "$(cat "$record/status")" in
+        applied)
+            for file in redis.env compose.redis.yaml; do
+                [[ -f "$record/$file" && ! -L "$record/$file" ]] ||
+                    rag_execution_fail "The active RAG Redis release is missing $file."
+            done
+            printf '%s\n' "$record"
+            ;;
+        rolled-back) ;;
+        *) rag_execution_fail "The RAG Redis release status is unresolved." ;;
+    esac
+}
+
+rag_execution_guard_cloud_services() {
+    [[ $# -gt 0 ]] || rag_execution_fail "Select at least one cloud service."
+    local service
+    for service in "$@"; do
+        case "$service" in
+            rag|rag-conversation-redis)
+                rag_execution_fail "RAG uses active Redis sessions. Release RAG through deploy/scripts/update-rag-production.sh."
+                ;;
+            -*)
+                rag_execution_fail "Specify cloud service names only."
+                ;;
+        esac
+    done
+}
+
 rag_execution_trim() {
     local value="$1"
     value="${value#"${value%%[![:space:]]*}"}"

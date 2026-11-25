@@ -72,13 +72,27 @@ case "$SERVICE_SET" in
         ;;
 esac
 
+guard_full_release() {
+    redis_record="$(rag_execution_redis_record "$PWD")"
+    [[ "$SERVICE_SET" != "full" || -z "$redis_record" ]] ||
+        rag_execution_fail "RAG uses active Redis sessions. Use --service-set rag-execution-frontend for execution-only changes and update-rag-production.sh for RAG."
+}
+
+guard_full_release
+
 compose() {
     local args=(compose --env-file "$ENV_FILE")
     local file
+    if [[ -n "$redis_record" ]]; then
+        args+=(--env-file "$redis_record/redis.env")
+    fi
     for file in $COMPOSE_FILES; do
         [[ -f "$file" ]] || rag_execution_fail "Missing compose file: $file"
         args+=(-f "$file")
     done
+    if [[ -n "$redis_record" ]]; then
+        args+=(-f "$redis_record/compose.redis.yaml")
+    fi
     args+=(--profile rag-execution-foundation)
     rag_execution_docker "${args[@]}" "$@"
 }
@@ -125,6 +139,7 @@ if [[ "$BACKUP_BEFORE_UPDATE" == "true" ]]; then
     ALICIA_BACKUP_ENV_FILE="$ENV_FILE" bash deploy/scripts/backup-production-data.sh
 fi
 
+guard_full_release
 ensure_gateway_network
 if [[ "$SERVICE_SET" == "rag-execution-frontend" ]]; then
     compose up -d --build --no-deps --wait --wait-timeout 240 "${DEPLOY_SERVICES[@]}"

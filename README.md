@@ -311,13 +311,15 @@ bash deploy/scripts/update-cloud-production.sh
 
 默认会在 `~/aliciaCloudStorage` 内拒绝覆盖 tracked 本地改动，快进拉取 `gitee/main`，确保 `alicia_gateway` 网络存在，重建 `api frontend`，并连续运行统一路由、前端职责与后端 API 边界检查。`appRoles` 支撑的云盘后台角色标签依赖 CloudStorageApi 与 sysManage 的同一版契约，因此 `api frontend` 必须成对发布。Identity 服务已从本仓库删除；传入 `identity` 会提示改用 `~/mainSite` 的发布入口。
 
+Redis 主读期间，常规云盘和联合发布沿用 Redis 覆盖配置，仅重建指定的云盘服务。RAG 镜像通过 `deploy/scripts/update-rag-production.sh` 独立发布。
+
 Identity 的日常更新由 `~/mainSite/deploy/scripts/update-main-site-production.sh` 自动识别并完成，也可直接运行主站仓库的 `update-main-identity-production.sh`。
 
 大版本发布推荐把备份和发布后巡检一起打开：
 
 ```bash
 ALICIA_BACKUP_BEFORE_UPDATE=true ALICIA_COLLECT_STATUS_AFTER_UPDATE=true \
-  bash deploy/scripts/update-cloud-production.sh api rag frontend
+  bash deploy/scripts/update-cloud-production.sh api frontend
 ```
 
 如果这次改动涉及云盘文件、分享、上传下载或回收站链路，可把深度生产流验收也打开：

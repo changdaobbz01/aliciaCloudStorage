@@ -51,44 +51,24 @@ cd "$PROJECT_DIR"
 [[ -f .env ]] || fail "The project's .env is missing."
 [[ -z "$(git status --porcelain --untracked-files=no)" ]] || fail "Tracked deployment files have local changes."
 
-redis_root="$PWD/deploy/generated/rag-conversation"
-redis_latest="$redis_root/latest"
-redis_record=""
+redis_record="$(rag_execution_redis_record "$PWD")"
 redis_release=""
 config_files=(.env compose.yaml compose.https.yaml)
 COMPOSE=(compose --env-file .env -f compose.yaml -f compose.https.yaml)
-if [[ -e "$redis_latest" || -L "$redis_latest" ]]; then
-    [[ -f "$redis_latest" && ! -L "$redis_latest" ]] || fail "Invalid RAG Redis release pointer."
-    redis_name="$(cat "$redis_latest")"
-    [[ "$redis_name" =~ ^release-[A-Za-z0-9_-]+$ ]] || fail "Invalid RAG Redis release name."
-    redis_record="$redis_root/$redis_name"
-    [[ -d "$redis_record" && ! -L "$redis_record" && -f "$redis_record/status" && ! -L "$redis_record/status" ]] ||
-        fail "The RAG Redis release record is incomplete."
-    config_files+=("$redis_latest" "$redis_record/status")
-    case "$(cat "$redis_record/status")" in
-        applied)
-            for file in redis.env compose.redis.yaml; do
-                [[ -f "$redis_record/$file" && ! -L "$redis_record/$file" ]] ||
-                    fail "The active RAG Redis release is missing $file."
-            done
-            redis_release="$redis_name"
-            config_files+=("$redis_record/redis.env" "$redis_record/compose.redis.yaml")
-            COMPOSE=(compose --env-file .env --env-file "$redis_record/redis.env"
-                -f compose.yaml -f compose.https.yaml -f "$redis_record/compose.redis.yaml" --profile rag-execution-foundation)
-            ;;
-        rolled-back) ;;
-        *) fail "The RAG Redis release status is unresolved." ;;
-    esac
+if [[ -n "$redis_record" ]]; then
+    redis_release="${redis_record##*/}"
+    config_files+=("${redis_record%/*}/latest" "$redis_record/status" "$redis_record/redis.env" "$redis_record/compose.redis.yaml")
+    COMPOSE=(compose --env-file .env --env-file "$redis_record/redis.env"
+        -f compose.yaml -f compose.https.yaml -f "$redis_record/compose.redis.yaml" --profile rag-execution-foundation)
 fi
 config_snapshot="$(sha256sum -- "${config_files[@]}")"
 
 compose() { rag_execution_docker "${COMPOSE[@]}" "$@"; }
 
 configuration_intact() {
-    if [[ -z "$redis_record" && ( -e "$redis_latest" || -L "$redis_latest" ) ]]; then
-        return 1
-    fi
-    [[ "$(sha256sum -- "${config_files[@]}")" == "$config_snapshot" ]]
+    local active
+    active="$(rag_execution_redis_record "$PWD")" || return 1
+    [[ "$active" == "$redis_record" && "$(sha256sum -- "${config_files[@]}")" == "$config_snapshot" ]]
 }
 
 redis_ready() {

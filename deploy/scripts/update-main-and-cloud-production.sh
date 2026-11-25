@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=deploy/scripts/lib/rag-execution-production-common.sh
+source "$SCRIPT_DIR/lib/rag-execution-production-common.sh"
+
 MAIN_SITE_PROJECT_DIR="${ALICIA_MAIN_SITE_PROJECT_DIR:-$HOME/mainSite}"
 CLOUD_PROJECT_DIR="${ALICIA_CLOUD_PROJECT_DIR:-$HOME/aliciaCloudStorage}"
 MAIN_SITE_UPDATE_SCRIPT="$MAIN_SITE_PROJECT_DIR/deploy/scripts/update-main-site-production.sh"
@@ -83,6 +87,22 @@ if [[ "$COLLECT_STATUS" == "true" && ! -f "$STATUS_SNAPSHOT_SCRIPT" ]]; then
     exit 1
 fi
 
+if [[ "$SKIP_CLOUD_UPDATE" != "true" ]]; then
+    [[ -f "$CLOUD_UPDATE_SCRIPT" ]] || {
+        printf 'Missing cloud update script: %s\n' "$CLOUD_UPDATE_SCRIPT" >&2
+        exit 1
+    }
+    redis_record="$(rag_execution_redis_record "$CLOUD_PROJECT_DIR")"
+    if [[ -n "$redis_record" ]]; then
+        if [[ $# -gt 0 ]]; then
+            rag_execution_guard_cloud_services "$@"
+        else
+            read -r -a cloud_services <<< "${ALICIA_CLOUD_DEPLOY_SERVICES:-api frontend}"
+            rag_execution_guard_cloud_services "${cloud_services[@]}"
+        fi
+    fi
+fi
+
 if [[ "$SKIP_MAIN_SITE_UPDATE" != "true" ]]; then
     if [[ -f "$MAIN_SITE_UPDATE_SCRIPT" ]]; then
         run_main_site_update_script
@@ -107,10 +127,6 @@ if [[ "$SKIP_MAIN_SITE_UPDATE" != "true" ]]; then
 fi
 
 if [[ "$SKIP_CLOUD_UPDATE" != "true" ]]; then
-    [[ -f "$CLOUD_UPDATE_SCRIPT" ]] || {
-        printf 'Missing cloud update script: %s\n' "$CLOUD_UPDATE_SCRIPT" >&2
-        exit 1
-    }
     run_cloud_update_script "$@"
 fi
 

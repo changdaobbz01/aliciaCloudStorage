@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=deploy/scripts/lib/rag-execution-production-common.sh
+source "$SCRIPT_DIR/lib/rag-execution-production-common.sh"
+
 PROJECT_DIR="${ALICIA_CLOUD_PROJECT_DIR:-$HOME/aliciaCloudStorage}"
 if [[ $# -gt 0 && -d "$1" && -f "$1/compose.yaml" ]]; then
     PROJECT_DIR="$1"
@@ -64,9 +68,15 @@ compose() {
         fi
     fi
 
+    if [[ -n "$redis_record" ]]; then
+        command+=(--env-file .env --env-file "$redis_record/redis.env")
+    fi
     for file in $COMPOSE_FILES; do
         command+=(-f "$file")
     done
+    if [[ -n "$redis_record" ]]; then
+        command+=(-f "$redis_record/compose.redis.yaml" --profile rag-execution-foundation)
+    fi
 
     "${command[@]}" "$@"
 }
@@ -150,6 +160,11 @@ prepare_verification_credentials_if_needed() {
 
 cd "$PROJECT_DIR"
 
+redis_record="$(rag_execution_redis_record "$PWD")"
+if [[ -n "$redis_record" ]]; then
+    rag_execution_guard_cloud_services "${SERVICES[@]}"
+fi
+
 [[ -f .env ]] || { printf 'Missing %s/.env\n' "$PROJECT_DIR" >&2; exit 1; }
 for file in $COMPOSE_FILES; do
     [[ -f "$file" ]] || { printf 'Missing compose file %s/%s\n' "$PROJECT_DIR" "$file" >&2; exit 1; }
@@ -198,7 +213,13 @@ if [[ "$BACKUP_BEFORE_UPDATE" == "true" ]]; then
     bash deploy/scripts/backup-production-data.sh
 fi
 
-compose up -d --build "${SERVICES[@]}"
+redis_record="$(rag_execution_redis_record "$PWD")"
+if [[ -n "$redis_record" ]]; then
+    rag_execution_guard_cloud_services "${SERVICES[@]}"
+    compose up -d --build --no-deps "${SERVICES[@]}"
+else
+    compose up -d --build "${SERVICES[@]}"
+fi
 
 publish_android_app_package_if_needed
 
